@@ -19,23 +19,6 @@ test("Login button redirects to backend steam endpoint", async ({ page }) => {
   await expect(page).toHaveURL(/\/api\/v1\/login\/steam/)
 })
 
-test("Login page stays accessible even with existing token", async ({
-  page,
-  request,
-}) => {
-  const { accessToken } = await issueSessionToken({
-    request,
-    steamid64: randomSteamid64(),
-  })
-  await page.goto("/login")
-  await page.evaluate((token) => {
-    localStorage.setItem("access_token", token)
-  }, accessToken)
-  await page.goto("/login")
-  await expect(page).toHaveURL("/login")
-  await expect(page.getByTestId("sidebar-login-button")).toBeVisible()
-})
-
 test("Successful log out", async ({ page }) => {
   await logInUser(page, randomSteamid64())
   await logOutUser(page)

@@ -42,12 +42,7 @@ function UserInfo({ name, steamid64 }: UserInfoProps) {
   )
 }
 
-interface UserProps {
-  user: any
-  forceLoginAction?: boolean
-}
-
-export function User({ user, forceLoginAction = false }: UserProps) {
+export function User({ user }: { user: any }) {
   const { logout } = useAuth()
   const { isMobile, setOpenMobile } = useSidebar()
 
@@ -60,7 +55,7 @@ export function User({ user, forceLoginAction = false }: UserProps) {
     logout()
   }
 
-  if (!user || forceLoginAction) {
+  if (!user) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
