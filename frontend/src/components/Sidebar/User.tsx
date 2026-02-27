@@ -1,7 +1,7 @@
 import { Link as RouterLink } from "@tanstack/react-router"
 import { ChevronsUpDown, LogIn, LogOut, Settings } from "lucide-react"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +22,18 @@ import { getInitials } from "@/utils"
 interface UserInfoProps {
   name?: string
   steamid64?: string | number
+  avatarHash?: string | null
 }
 
-function UserInfo({ name, steamid64 }: UserInfoProps) {
+function UserInfo({ name, steamid64, avatarHash }: UserInfoProps) {
+  const avatarSrc = avatarHash
+    ? `https://avatars.steamstatic.com/${avatarHash}_full.jpg`
+    : undefined
+
   return (
     <div className="flex items-center gap-2.5 w-full min-w-0">
       <Avatar className="size-8">
+        <AvatarImage src={avatarSrc} alt={`${name || "User"} avatar`} />
         <AvatarFallback className="bg-zinc-600 text-white">
           {getInitials(name || "User")}
         </AvatarFallback>
@@ -88,6 +94,7 @@ export function User({ user }: { user: any }) {
               <UserInfo
                 name={user?.player?.name}
                 steamid64={user?.steamid64}
+                avatarHash={user?.player?.avatar_hash}
               />
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
@@ -102,6 +109,7 @@ export function User({ user }: { user: any }) {
               <UserInfo
                 name={user?.player?.name}
                 steamid64={user?.steamid64}
+                avatarHash={user?.player?.avatar_hash}
               />
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

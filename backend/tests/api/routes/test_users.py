@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -22,7 +20,8 @@ def test_get_users_superuser_me(
     current_user = response.json()
     assert current_user["is_active"] is True
     assert current_user["is_superuser"] is True
-    assert current_user["steamid64"] == settings.SUPER_USER_STEAMID64
+    assert current_user["steamid64"] == str(settings.SUPER_USER_STEAMID64)
+    assert current_user["last_visited_at"] is not None
     assert current_user["player"] is not None
 
 
@@ -39,7 +38,8 @@ def test_get_users_normal_user_me(
     current_user = response.json()
     assert current_user["is_active"] is True
     assert current_user["is_superuser"] is False
-    assert current_user["steamid64"] > 0
+    assert int(current_user["steamid64"]) > 0
+    assert current_user["last_visited_at"] is not None
 
 
 def test_retrieve_users_as_superuser(
@@ -82,22 +82,22 @@ def test_get_existing_user_as_superuser(
     user = create_random_user(db)
 
     response = client.get(
-        f"{settings.API_V1_STR}/users/{user.id}",
+        f"{settings.API_V1_STR}/users/{user.steamid64}",
         headers=superuser_token_headers,
     )
 
     assert response.status_code == 200
     api_user = response.json()
-    assert api_user["id"] == str(user.id)
-    assert api_user["steamid64"] == user.steamid64
+    assert api_user["steamid64"] == str(user.steamid64)
 
 
 def test_get_non_existing_user_as_superuser(
     client: TestClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
+    missing_steamid64 = random_steamid64()
     response = client.get(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/users/{missing_steamid64}",
         headers=superuser_token_headers,
     )
 
@@ -111,14 +111,13 @@ def test_get_existing_user_current_user(client: TestClient, db: Session) -> None
     headers = user_authentication_headers(client=client, steamid64=steamid64)
 
     response = client.get(
-        f"{settings.API_V1_STR}/users/{user.id}",
+        f"{settings.API_V1_STR}/users/{user.steamid64}",
         headers=headers,
     )
 
     assert response.status_code == 200
     api_user = response.json()
-    assert api_user["id"] == str(user.id)
-    assert api_user["steamid64"] == steamid64
+    assert api_user["steamid64"] == str(steamid64)
 
 
 def test_get_existing_user_permissions_error(
@@ -129,7 +128,7 @@ def test_get_existing_user_permissions_error(
     other_user = create_random_user(db)
 
     response = client.get(
-        f"{settings.API_V1_STR}/users/{other_user.id}",
+        f"{settings.API_V1_STR}/users/{other_user.steamid64}",
         headers=normal_user_token_headers,
     )
 
@@ -141,7 +140,7 @@ def test_get_non_existing_user_permissions_error(
     client: TestClient,
     normal_user_token_headers: dict[str, str],
 ) -> None:
-    user_id = uuid.uuid4()
+    user_id = random_steamid64()
 
     response = client.get(
         f"{settings.API_V1_STR}/users/{user_id}",
@@ -160,7 +159,7 @@ def test_update_user(
     user = create_random_user(db)
 
     response = client.patch(
-        f"{settings.API_V1_STR}/users/{user.id}",
+        f"{settings.API_V1_STR}/users/{user.steamid64}",
         headers=superuser_token_headers,
         json={"is_superuser": True, "is_active": False},
     )
@@ -171,7 +170,7 @@ def test_update_user(
     assert updated_user["is_active"] is False
 
     db.expire_all()
-    refreshed = db.get(User, user.id)
+    refreshed = db.get(User, user.steamid64)
     assert refreshed is not None
     assert refreshed.is_superuser is True
     assert refreshed.is_active is False
@@ -181,8 +180,9 @@ def test_update_user_not_exists(
     client: TestClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
+    missing_steamid64 = random_steamid64()
     response = client.patch(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/users/{missing_steamid64}",
         headers=superuser_token_headers,
         json={"is_active": True},
     )
@@ -207,7 +207,7 @@ def test_delete_user_me(client: TestClient, db: Session) -> None:
     assert response.status_code == 200
     assert response.json()["message"] == "User deleted successfully"
 
-    result = db.exec(select(User).where(User.id == user.id)).first()
+    result = db.exec(select(User).where(User.steamid64 == user.steamid64)).first()
     assert result is None
 
 
@@ -234,14 +234,14 @@ def test_delete_user_super_user(
     user = create_random_user(db)
 
     response = client.delete(
-        f"{settings.API_V1_STR}/users/{user.id}",
+        f"{settings.API_V1_STR}/users/{user.steamid64}",
         headers=superuser_token_headers,
     )
 
     assert response.status_code == 200
     assert response.json()["message"] == "User deleted successfully"
 
-    result = db.exec(select(User).where(User.id == user.id)).first()
+    result = db.exec(select(User).where(User.steamid64 == user.steamid64)).first()
     assert result is None
 
 
@@ -249,8 +249,9 @@ def test_delete_user_not_found(
     client: TestClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
+    missing_steamid64 = random_steamid64()
     response = client.delete(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/users/{missing_steamid64}",
         headers=superuser_token_headers,
     )
 
@@ -269,7 +270,7 @@ def test_delete_user_current_super_user_error(
     assert super_user is not None
 
     response = client.delete(
-        f"{settings.API_V1_STR}/users/{super_user.id}",
+        f"{settings.API_V1_STR}/users/{super_user.steamid64}",
         headers=superuser_token_headers,
     )
 
@@ -287,7 +288,7 @@ def test_delete_user_without_privileges(
     other_user = create_random_user(db)
 
     response = client.delete(
-        f"{settings.API_V1_STR}/users/{other_user.id}",
+        f"{settings.API_V1_STR}/users/{other_user.steamid64}",
         headers=normal_user_token_headers,
     )
 

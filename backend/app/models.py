@@ -37,7 +37,7 @@ class Player(PlayerBase, table=True):
 
 # Properties to return via API
 class PlayerPublic(PlayerBase):
-    steamid64: int
+    steamid64: str
 
 
 class PlayersPublic(SQLModel):
@@ -64,16 +64,17 @@ class UserUpdate(SQLModel):
 
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     steamid64: int = Field(
+        primary_key=True,
         foreign_key="player.steamid64",
-        unique=True,
-        index=True,
-        nullable=False,
         sa_type=BigInteger,
     )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    last_visited_at: datetime | None = Field(
+        default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     player: Player | None = Relationship(
@@ -84,9 +85,9 @@ class User(UserBase, table=True):
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
-    id: uuid.UUID
-    steamid64: int
+    steamid64: str
     created_at: datetime | None = None
+    last_visited_at: datetime | None = None
     player: PlayerPublic | None = None
 
 
@@ -118,8 +119,11 @@ class Item(ItemBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    owner_id: uuid.UUID = Field(
-        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    owner_id: int = Field(
+        foreign_key="user.steamid64",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_type=BigInteger,
     )
     owner: User | None = Relationship(back_populates="items")
 
@@ -127,7 +131,7 @@ class Item(ItemBase, table=True):
 # Properties to return via API, id is always required
 class ItemPublic(ItemBase):
     id: uuid.UUID
-    owner_id: uuid.UUID
+    owner_id: str
     created_at: datetime | None = None
 
 

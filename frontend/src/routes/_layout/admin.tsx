@@ -40,7 +40,7 @@ function UsersTableContent() {
 
   const tableData: UserTableData[] = users.data.map((user: UserPublic) => ({
     ...user,
-    isCurrentUser: currentUser?.id === user.id,
+    isCurrentUser: currentUser?.steamid64 === user.steamid64,
   }))
 
   return <DataTable columns={columns} data={tableData} />

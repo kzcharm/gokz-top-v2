@@ -8,22 +8,6 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-<<<<<<< ours
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as AuthCallbackRouteImport } from "./routes/auth/callback"
-import { Route as LoginRouteImport } from "./routes/login"
-import { Route as LayoutRouteImport } from "./routes/_layout"
-import { Route as LayoutIndexRouteImport } from "./routes/_layout/index"
-import { Route as LayoutSettingsRouteImport } from "./routes/_layout/settings"
-import { Route as LayoutItemsRouteImport } from "./routes/_layout/items"
-import { Route as LayoutAdminRouteImport } from "./routes/_layout/admin"
-
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: "/auth/callback",
-  path: "/auth/callback",
-  getParentRoute: () => rootRouteImport,
-} as any)
-=======
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
@@ -32,98 +16,60 @@ import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
->>>>>>> theirs
 
 const LoginRoute = LoginRouteImport.update({
-  id: "/login",
-  path: "/login",
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-
 const LayoutRoute = LayoutRouteImport.update({
-  id: "/_layout",
+  id: '/_layout',
   getParentRoute: () => rootRouteImport,
 } as any)
-
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
-<<<<<<< ours
-
-=======
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
->>>>>>> theirs
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
-
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
-  id: "/items",
-  path: "/items",
+  id: '/items',
+  path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
-
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
-  id: "/admin",
-  path: "/admin",
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-<<<<<<< ours
-  "/": typeof LayoutIndexRoute
-  "/admin": typeof LayoutAdminRoute
-  "/auth/callback": typeof AuthCallbackRoute
-  "/items": typeof LayoutItemsRoute
-  "/login": typeof LoginRoute
-  "/settings": typeof LayoutSettingsRoute
-=======
   '/': typeof LayoutIndexRoute
   '/login': typeof LoginRoute
   '/admin': typeof LayoutAdminRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
->>>>>>> theirs
 }
-
 export interface FileRoutesByTo {
-<<<<<<< ours
-  "/": typeof LayoutIndexRoute
-  "/admin": typeof LayoutAdminRoute
-  "/auth/callback": typeof AuthCallbackRoute
-  "/items": typeof LayoutItemsRoute
-  "/login": typeof LoginRoute
-  "/settings": typeof LayoutSettingsRoute
-=======
   '/login': typeof LoginRoute
   '/admin': typeof LayoutAdminRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/': typeof LayoutIndexRoute
->>>>>>> theirs
 }
-
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-<<<<<<< ours
-  "/_layout": typeof LayoutRouteWithChildren
-  "/_layout/": typeof LayoutIndexRoute
-  "/_layout/admin": typeof LayoutAdminRoute
-  "/_layout/items": typeof LayoutItemsRoute
-  "/_layout/settings": typeof LayoutSettingsRoute
-  "/auth/callback": typeof AuthCallbackRoute
-  "/login": typeof LoginRoute
-=======
   '/_layout': typeof LayoutRouteWithChildren
   '/login': typeof LoginRoute
   '/_layout/admin': typeof LayoutAdminRoute
@@ -131,37 +77,10 @@ export interface FileRoutesById {
   '/_layout/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_layout/': typeof LayoutIndexRoute
->>>>>>> theirs
 }
-
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-<<<<<<< ours
-    | "/"
-    | "/admin"
-    | "/auth/callback"
-    | "/items"
-    | "/login"
-    | "/settings"
-  fileRoutesByTo: FileRoutesByTo
-  to:
-    | "/"
-    | "/admin"
-    | "/auth/callback"
-    | "/items"
-    | "/login"
-    | "/settings"
-  id:
-    | "__root__"
-    | "/_layout"
-    | "/_layout/"
-    | "/_layout/admin"
-    | "/_layout/items"
-    | "/_layout/settings"
-    | "/auth/callback"
-    | "/login"
-=======
     | '/'
     | '/login'
     | '/admin'
@@ -179,42 +98,16 @@ export interface FileRouteTypes {
     | '/_layout/settings'
     | '/auth/callback'
     | '/_layout/'
->>>>>>> theirs
   fileRoutesById: FileRoutesById
 }
-
 export interface RootRouteChildren {
-  AuthCallbackRoute: typeof AuthCallbackRoute
   LayoutRoute: typeof LayoutRouteWithChildren
   LoginRoute: typeof LoginRoute
-<<<<<<< ours
-=======
   AuthCallbackRoute: typeof AuthCallbackRoute
->>>>>>> theirs
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-<<<<<<< ours
-    "/auth/callback": {
-      id: "/auth/callback"
-      path: "/auth/callback"
-      fullPath: "/auth/callback"
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/login": {
-      id: "/login"
-      path: "/login"
-      fullPath: "/login"
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/_layout": {
-      id: "/_layout"
-      path: ""
-      fullPath: ""
-=======
     '/login': {
       id: '/login'
       path: '/login'
@@ -226,23 +119,16 @@ declare module "@tanstack/react-router" {
       id: '/_layout'
       path: ''
       fullPath: '/'
->>>>>>> theirs
       preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/_layout/": {
-      id: "/_layout/"
-      path: "/"
-      fullPath: "/"
+    '/_layout/': {
+      id: '/_layout/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
-<<<<<<< ours
-    "/_layout/settings": {
-      id: "/_layout/settings"
-      path: "/settings"
-      fullPath: "/settings"
-=======
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -254,21 +140,20 @@ declare module "@tanstack/react-router" {
       id: '/_layout/settings'
       path: '/settings'
       fullPath: '/settings'
->>>>>>> theirs
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
-    "/_layout/items": {
-      id: "/_layout/items"
-      path: "/items"
-      fullPath: "/items"
+    '/_layout/items': {
+      id: '/_layout/items'
+      path: '/items'
+      fullPath: '/items'
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
-    "/_layout/admin": {
-      id: "/_layout/admin"
-      path: "/admin"
-      fullPath: "/admin"
+    '/_layout/admin': {
+      id: '/_layout/admin'
+      path: '/admin'
+      fullPath: '/admin'
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
@@ -277,30 +162,26 @@ declare module "@tanstack/react-router" {
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
-  LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutIndexRoute: typeof LayoutIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
-  LayoutIndexRoute: LayoutIndexRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutIndexRoute: LayoutIndexRoute,
 }
 
-const LayoutRouteWithChildren = LayoutRoute._addFileChildren(LayoutRouteChildren)
+const LayoutRouteWithChildren =
+  LayoutRoute._addFileChildren(LayoutRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  AuthCallbackRoute: AuthCallbackRoute,
   LayoutRoute: LayoutRouteWithChildren,
   LoginRoute: LoginRoute,
-<<<<<<< ours
-=======
   AuthCallbackRoute: AuthCallbackRoute,
->>>>>>> theirs
 }
-
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()

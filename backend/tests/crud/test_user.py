@@ -37,7 +37,7 @@ def test_get_user_by_steamid64(db: Session) -> None:
     fetched = crud.get_user_by_steamid64(session=db, steamid64=steamid64)
 
     assert fetched is not None
-    assert fetched.id == created.id
+    assert fetched.steamid64 == created.steamid64
     assert fetched.steamid64 == steamid64
 
 
@@ -47,7 +47,7 @@ def test_get_or_create_user_from_steam_is_idempotent(db: Session) -> None:
     first = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
     second = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
 
-    assert first.id == second.id
+    assert first.steamid64 == second.steamid64
     assert first.steamid64 == second.steamid64
 
 
@@ -94,11 +94,11 @@ def test_to_user_public_includes_player(db: Session) -> None:
 
     user_public = crud.to_user_public(session=db, user=user)
 
-    assert user_public.steamid64 == steamid64
+    assert user_public.steamid64 == str(steamid64)
     assert user_public.player is not None
-    assert user_public.player.steamid64 == steamid64
+    assert user_public.player.steamid64 == str(steamid64)
 
-    same_user = db.get(type(user), user.id)
+    same_user = db.get(type(user), user.steamid64)
     assert same_user is not None
     assert (
         jsonable_encoder(user)["steamid64"] == jsonable_encoder(same_user)["steamid64"]
