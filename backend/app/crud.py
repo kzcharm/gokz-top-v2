@@ -1,5 +1,4 @@
 import re
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -183,18 +182,30 @@ def get_or_create_user_from_steam(*, session: Session, steamid64: int | str) -> 
 
 def to_user_public(*, session: Session, user: User) -> UserPublic:
     player = get_player_by_steamid64(session=session, steamid64=user.steamid64)
-    player_public = PlayerPublic.model_validate(player) if player else None
+    player_public = None
+    if player:
+        player_public = PlayerPublic(
+            steamid64=str(player.steamid64),
+            name=player.name,
+            alias=player.alias,
+            custom_id=player.custom_id,
+            avatar_hash=player.avatar_hash,
+            country=player.country,
+            created_at=player.created_at,
+            last_played_at=player.last_played_at,
+            updated_at=player.updated_at,
+        )
     return UserPublic(
-        id=user.id,
-        steamid64=user.steamid64,
+        steamid64=str(user.steamid64),
         is_active=user.is_active,
         is_superuser=user.is_superuser,
         created_at=user.created_at,
+        last_visited_at=user.last_visited_at,
         player=player_public,
     )
 
 
-def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -> Item:
+def create_item(*, session: Session, item_in: ItemCreate, owner_id: int) -> Item:
     db_item = Item.model_validate(item_in, update={"owner_id": owner_id})
     session.add(db_item)
     session.commit()

@@ -139,7 +139,7 @@ def test_steam_callback_success_creates_user_and_redirects(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert test_token_response.status_code == 200
-    assert test_token_response.json()["steamid64"] == steamid64
+    assert test_token_response.json()["steamid64"] == str(steamid64)
 
     user = db.exec(select(User).where(User.steamid64 == steamid64)).first()
     assert user is not None
@@ -156,6 +156,6 @@ def test_use_access_token(
 
     assert response.status_code == 200
     result = response.json()
-    assert result["steamid64"] == settings.SUPER_USER_STEAMID64
+    assert result["steamid64"] == str(settings.SUPER_USER_STEAMID64)
     assert result["is_superuser"] is True
     assert result["player"] is not None
