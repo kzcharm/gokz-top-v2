@@ -1,38 +1,47 @@
+from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app import crud
 from app.api.deps import SessionDep
-from app.core.security import get_password_hash
-from app.models import (
-    User,
-    UserPublic,
-)
+from app.core import security
+from app.core.config import settings
+from app.models import Token
 
 router = APIRouter(tags=["private"], prefix="/private")
 
 
-class PrivateUserCreate(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    is_verified: bool = False
+class PrivateAuthSessionCreate(BaseModel):
+    steamid64: int
+    is_superuser: bool = False
+    is_active: bool = True
+    name: str | None = None
 
 
-@router.post("/users/", response_model=UserPublic)
-def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any:
+@router.post("/auth/session", response_model=Token)
+def create_auth_session(body: PrivateAuthSessionCreate, session: SessionDep) -> Any:
     """
-    Create a new user.
+    Create or update a user by Steam ID and return a JWT token.
+    Development/testing helper endpoint (local env only).
     """
+    user = crud.get_or_create_user_from_steam(session=session, steamid64=body.steamid64)
 
-    user = User(
-        email=user_in.email,
-        full_name=user_in.full_name,
-        hashed_password=get_password_hash(user_in.password),
-    )
+    if body.name:
+        player = crud.get_player_by_steamid64(session=session, steamid64=user.steamid64)
+        if player:
+            player.name = body.name
+            session.add(player)
 
+    user.is_superuser = body.is_superuser
+    user.is_active = body.is_active
     session.add(user)
     session.commit()
+    session.refresh(user)
 
-    return user
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    token = security.create_access_token(
+        user.steamid64, expires_delta=access_token_expires
+    )
+    return Token(access_token=token, token_type="bearer")

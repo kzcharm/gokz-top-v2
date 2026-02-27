@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from pydantic import EmailStr
-from sqlalchemy import DateTime
+from sqlalchemy import BigInteger, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -10,48 +9,75 @@ def get_datetime_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# Shared properties
+# Shared Player properties
+class PlayerBase(SQLModel):
+    name: str = Field(max_length=255)
+    alias: str | None = Field(default=None, max_length=25)
+    custom_id: str | None = Field(default=None, max_length=25)
+    avatar_hash: str | None = Field(default=None, max_length=255)
+    country: str | None = Field(default=None, max_length=2)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    last_played_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+# Database model, database table inferred from class name
+class Player(PlayerBase, table=True):
+    steamid64: int = Field(primary_key=True, sa_type=BigInteger)
+
+
+# Properties to return via API
+class PlayerPublic(PlayerBase):
+    steamid64: int
+
+
+class PlayersPublic(SQLModel):
+    data: list[PlayerPublic]
+    count: int
+
+
+# Shared User properties
 class UserBase(SQLModel):
-    email: EmailStr = Field(unique=True, index=True, max_length=255)
     is_active: bool = True
     is_superuser: bool = False
-    full_name: str | None = Field(default=None, max_length=255)
 
 
 # Properties to receive via API on creation
 class UserCreate(UserBase):
-    password: str = Field(min_length=8, max_length=128)
-
-
-class UserRegister(SQLModel):
-    email: EmailStr = Field(max_length=255)
-    password: str = Field(min_length=8, max_length=128)
-    full_name: str | None = Field(default=None, max_length=255)
+    steamid64: int = Field(sa_type=BigInteger)
 
 
 # Properties to receive via API on update, all are optional
-class UserUpdate(UserBase):
-    email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
-    password: str | None = Field(default=None, min_length=8, max_length=128)
-
-
-class UserUpdateMe(SQLModel):
-    full_name: str | None = Field(default=None, max_length=255)
-    email: EmailStr | None = Field(default=None, max_length=255)
-
-
-class UpdatePassword(SQLModel):
-    current_password: str = Field(min_length=8, max_length=128)
-    new_password: str = Field(min_length=8, max_length=128)
+class UserUpdate(SQLModel):
+    is_active: bool | None = None
+    is_superuser: bool | None = None
 
 
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    hashed_password: str
+    steamid64: int = Field(
+        foreign_key="player.steamid64",
+        unique=True,
+        index=True,
+        nullable=False,
+        sa_type=BigInteger,
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    player: Player | None = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[User.steamid64]", "uselist": False}
     )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
@@ -59,7 +85,9 @@ class User(UserBase, table=True):
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: uuid.UUID
+    steamid64: int
     created_at: datetime | None = None
+    player: PlayerPublic | None = None
 
 
 class UsersPublic(SQLModel):
@@ -122,8 +150,3 @@ class Token(SQLModel):
 # Contents of JWT token
 class TokenPayload(SQLModel):
     sub: str | None = None
-
-
-class NewPassword(SQLModel):
-    token: str
-    new_password: str = Field(min_length=8, max_length=128)

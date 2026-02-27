@@ -1,22 +1,28 @@
-// Note: the `PrivateService` is only available when generating the client
-// for local environments
-import { OpenAPI, PrivateService } from "../../src/client"
+import { apiUrl } from "../config"
+import { randomSteamid64 } from "./random"
 
-OpenAPI.BASE = `${process.env.VITE_API_URL}`
-
-export const createUser = async ({
-  email,
-  password,
+export const issueSessionToken = async ({
+  request,
+  steamid64 = randomSteamid64(),
+  isSuperuser = false,
+  name = "Test User",
 }: {
-  email: string
-  password: string
+  request: any
+  steamid64?: number
+  isSuperuser?: boolean
+  name?: string
 }) => {
-  return await PrivateService.createUser({
-    requestBody: {
-      email,
-      password,
-      is_verified: true,
-      full_name: "Test User",
+  const response = await request.post(`${apiUrl}/api/v1/private/auth/session`, {
+    data: {
+      steamid64,
+      is_superuser: isSuperuser,
+      is_active: true,
+      name,
     },
   })
+  const payload = await response.json()
+  return {
+    steamid64,
+    accessToken: payload.access_token as string,
+  }
 }

@@ -1,28 +1,24 @@
 import { expect, type Page } from "@playwright/test"
+import { issueSessionToken } from "./privateApi"
 
-export async function signUpNewUser(
+export async function logInUser(
   page: Page,
-  name: string,
-  email: string,
-  password: string,
+  steamid64?: number,
+  opts?: { isSuperuser?: boolean; name?: string },
 ) {
-  await page.goto("/signup")
+  const { accessToken } = await issueSessionToken({
+    request: page.request,
+    steamid64,
+    isSuperuser: opts?.isSuperuser ?? false,
+    name: opts?.name ?? "Test User",
+  })
 
-  await page.getByTestId("full-name-input").fill(name)
-  await page.getByTestId("email-input").fill(email)
-  await page.getByTestId("password-input").fill(password)
-  await page.getByTestId("confirm-password-input").fill(password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
   await page.goto("/login")
-}
+  await page.evaluate((token) => {
+    localStorage.setItem("access_token", token)
+  }, accessToken)
 
-export async function logInUser(page: Page, email: string, password: string) {
-  await page.goto("/login")
-
-  await page.getByTestId("email-input").fill(email)
-  await page.getByTestId("password-input").fill(password)
-  await page.getByRole("button", { name: "Log In" }).click()
-  await page.waitForURL("/")
+  await page.goto("/")
   await expect(
     page.getByText("Welcome back, nice to see you again!"),
   ).toBeVisible()
@@ -30,6 +26,6 @@ export async function logInUser(page: Page, email: string, password: string) {
 
 export async function logOutUser(page: Page) {
   await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
-  await page.goto("/login")
+  await page.getByRole("menuitem", { name: "Log Out" }).click()
+  await page.waitForURL("/login")
 }

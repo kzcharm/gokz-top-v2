@@ -1,130 +1,105 @@
 from fastapi.encoders import jsonable_encoder
-from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlmodel import Session
 
 from app import crud
-from app.core.security import verify_password
-from app.models import User, UserCreate, UserUpdate
-from tests.utils.utils import random_email, random_lower_string
+from app.core.config import settings
+from app.models import UserCreate, UserUpdate
+from tests.utils.utils import random_steamid64
 
 
 def test_create_user(db: Session) -> None:
-    email = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=email, password=password)
+    steamid64 = random_steamid64()
+    user_in = UserCreate(steamid64=steamid64)
+
     user = crud.create_user(session=db, user_create=user_in)
-    assert user.email == email
-    assert hasattr(user, "hashed_password")
 
-
-def test_authenticate_user(db: Session) -> None:
-    email = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=email, password=password)
-    user = crud.create_user(session=db, user_create=user_in)
-    authenticated_user = crud.authenticate(session=db, email=email, password=password)
-    assert authenticated_user
-    assert user.email == authenticated_user.email
-
-
-def test_not_authenticate_user(db: Session) -> None:
-    email = random_email()
-    password = random_lower_string()
-    user = crud.authenticate(session=db, email=email, password=password)
-    assert user is None
-
-
-def test_check_if_user_is_active(db: Session) -> None:
-    email = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=email, password=password)
-    user = crud.create_user(session=db, user_create=user_in)
+    assert user.steamid64 == steamid64
     assert user.is_active is True
-
-
-def test_check_if_user_is_active_inactive(db: Session) -> None:
-    email = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=email, password=password, is_active=False)
-    user = crud.create_user(session=db, user_create=user_in)
-    assert user.is_active is False
-
-
-def test_check_if_user_is_superuser(db: Session) -> None:
-    email = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=email, password=password, is_superuser=True)
-    user = crud.create_user(session=db, user_create=user_in)
-    assert user.is_superuser is True
-
-
-def test_check_if_user_is_superuser_normal_user(db: Session) -> None:
-    username = random_email()
-    password = random_lower_string()
-    user_in = UserCreate(email=username, password=password)
-    user = crud.create_user(session=db, user_create=user_in)
     assert user.is_superuser is False
 
 
-def test_get_user(db: Session) -> None:
-    password = random_lower_string()
-    username = random_email()
-    user_in = UserCreate(email=username, password=password, is_superuser=True)
-    user = crud.create_user(session=db, user_create=user_in)
-    user_2 = db.get(User, user.id)
-    assert user_2
-    assert user.email == user_2.email
-    assert jsonable_encoder(user) == jsonable_encoder(user_2)
+def test_create_user_creates_player(db: Session) -> None:
+    steamid64 = random_steamid64()
+    user_in = UserCreate(steamid64=steamid64)
+
+    crud.create_user(session=db, user_create=user_in)
+    player = crud.get_player_by_steamid64(session=db, steamid64=steamid64)
+
+    assert player is not None
+    assert player.steamid64 == steamid64
+    assert player.name
 
 
-def test_update_user(db: Session) -> None:
-    password = random_lower_string()
-    email = random_email()
-    user_in = UserCreate(email=email, password=password, is_superuser=True)
-    user = crud.create_user(session=db, user_create=user_in)
-    new_password = random_lower_string()
-    user_in_update = UserUpdate(password=new_password, is_superuser=True)
-    if user.id is not None:
-        crud.update_user(session=db, db_user=user, user_in=user_in_update)
-    user_2 = db.get(User, user.id)
-    assert user_2
-    assert user.email == user_2.email
-    verified, _ = verify_password(new_password, user_2.hashed_password)
-    assert verified
+def test_get_user_by_steamid64(db: Session) -> None:
+    steamid64 = random_steamid64()
+    created = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+
+    fetched = crud.get_user_by_steamid64(session=db, steamid64=steamid64)
+
+    assert fetched is not None
+    assert fetched.id == created.id
+    assert fetched.steamid64 == steamid64
 
 
-def test_authenticate_user_with_bcrypt_upgrades_to_argon2(db: Session) -> None:
-    """Test that a user with bcrypt password hash gets upgraded to argon2 on login."""
-    email = random_email()
-    password = random_lower_string()
+def test_get_or_create_user_from_steam_is_idempotent(db: Session) -> None:
+    steamid64 = random_steamid64()
 
-    # Create a bcrypt hash directly (simulating legacy password)
-    bcrypt_hasher = BcryptHasher()
-    bcrypt_hash = bcrypt_hasher.hash(password)
-    assert bcrypt_hash.startswith("$2")  # bcrypt hashes start with $2
+    first = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    second = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
 
-    # Create user with bcrypt hash directly in the database
-    user = User(email=email, hashed_password=bcrypt_hash)
+    assert first.id == second.id
+    assert first.steamid64 == second.steamid64
+
+
+def test_get_or_create_user_from_steam_sets_superuser_for_configured_id(
+    db: Session,
+) -> None:
+    user = crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=settings.SUPER_USER_STEAMID64,
+    )
+
+    assert user.is_superuser is True
+
+
+def test_get_or_create_user_from_steam_clears_superuser_for_non_configured_id(
+    db: Session,
+) -> None:
+    steamid64 = random_steamid64()
+    user = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    user.is_superuser = True
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    # Verify the hash is bcrypt before authentication
-    assert user.hashed_password.startswith("$2")
+    refreshed = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
 
-    # Authenticate - this should upgrade the hash to argon2
-    authenticated_user = crud.authenticate(session=db, email=email, password=password)
-    assert authenticated_user
-    assert authenticated_user.email == email
+    assert refreshed.is_superuser is False
 
-    db.refresh(authenticated_user)
 
-    # Verify the hash was upgraded to argon2
-    assert authenticated_user.hashed_password.startswith("$argon2")
+def test_update_user(db: Session) -> None:
+    steamid64 = random_steamid64()
+    user = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
 
-    verified, updated_hash = verify_password(
-        password, authenticated_user.hashed_password
+    update = UserUpdate(is_active=False, is_superuser=True)
+    updated = crud.update_user(session=db, db_user=user, user_in=update)
+
+    assert updated.is_active is False
+    assert updated.is_superuser is True
+
+
+def test_to_user_public_includes_player(db: Session) -> None:
+    steamid64 = random_steamid64()
+    user = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+
+    user_public = crud.to_user_public(session=db, user=user)
+
+    assert user_public.steamid64 == steamid64
+    assert user_public.player is not None
+    assert user_public.player.steamid64 == steamid64
+
+    same_user = db.get(type(user), user.id)
+    assert same_user is not None
+    assert (
+        jsonable_encoder(user)["steamid64"] == jsonable_encoder(same_user)["steamid64"]
     )
-    assert verified
-    # Should not need another update since it's already argon2
-    assert updated_hash is None

@@ -6,6 +6,11 @@ export const randomTeamName = () =>
 
 export const randomPassword = () => `${Math.random().toString(36).substring(2)}`
 
+export const randomSteamid64 = () => {
+  const suffix = Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000
+  return Number(`76561${suffix}`)
+}
+
 export const slugify = (text: string) =>
   text
     .toLowerCase()

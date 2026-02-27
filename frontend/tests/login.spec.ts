@@ -1,109 +1,67 @@
-import { expect, type Page, test } from "@playwright/test"
-import { firstSuperuser, firstSuperuserPassword } from "./config.ts"
-import { randomPassword } from "./utils/random.ts"
+import { expect, test } from "@playwright/test"
+import { logInUser, logOutUser } from "./utils/user"
+import { randomSteamid64 } from "./utils/random"
+import { issueSessionToken } from "./utils/privateApi"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
-const fillForm = async (page: Page, email: string, password: string) => {
-  await page.getByTestId("email-input").fill(email)
-  await page.getByTestId("password-input").fill(password)
-}
-
-const verifyInput = async (page: Page, testId: string) => {
-  const input = page.getByTestId(testId)
-  await expect(input).toBeVisible()
-  await expect(input).toHaveText("")
-  await expect(input).toBeEditable()
-}
-
-test("Inputs are visible, empty and editable", async ({ page }) => {
+test("Steam login button is visible", async ({ page }) => {
   await page.goto("/login")
-
-  await verifyInput(page, "email-input")
-  await verifyInput(page, "password-input")
-})
-
-test("Log In button is visible", async ({ page }) => {
-  await page.goto("/login")
-
-  await expect(page.getByRole("button", { name: "Log In" })).toBeVisible()
-})
-
-test("Forgot Password link is visible", async ({ page }) => {
-  await page.goto("/login")
-
+  await expect(page.getByTestId("sidebar-login-button")).toBeVisible()
   await expect(
-    page.getByRole("link", { name: "Forgot your password?" }),
+    page.getByRole("button", { name: "Continue with Steam" }),
   ).toBeVisible()
 })
 
-test("Log in with valid email and password ", async ({ page }) => {
+test("Login button redirects to backend steam endpoint", async ({ page }) => {
   await page.goto("/login")
-
-  await fillForm(page, firstSuperuser, firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await page.waitForURL("/")
-
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
+  await page.getByRole("button", { name: "Continue with Steam" }).click()
+  await expect(page).toHaveURL(/\/api\/v1\/login\/steam/)
 })
 
-test("Log in with invalid email", async ({ page }) => {
+test("Login page stays accessible even with existing token", async ({
+  page,
+  request,
+}) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: randomSteamid64(),
+  })
   await page.goto("/login")
-
-  await fillForm(page, "invalidemail", firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await expect(page.getByText("Invalid email address")).toBeVisible()
-})
-
-test("Log in with invalid password", async ({ page }) => {
-  const password = randomPassword()
-
+  await page.evaluate((token) => {
+    localStorage.setItem("access_token", token)
+  }, accessToken)
   await page.goto("/login")
-  await fillForm(page, firstSuperuser, password)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await expect(page.getByText("Incorrect email or password")).toBeVisible()
+  await expect(page).toHaveURL("/login")
+  await expect(page.getByTestId("sidebar-login-button")).toBeVisible()
 })
 
 test("Successful log out", async ({ page }) => {
-  await page.goto("/login")
-
-  await fillForm(page, firstSuperuser, firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await page.waitForURL("/")
-
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
-
-  await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
-  await page.waitForURL("/login")
+  await logInUser(page, randomSteamid64())
+  await logOutUser(page)
+  await expect(page).toHaveURL("/login")
 })
 
 test("Logged-out user cannot access protected routes", async ({ page }) => {
-  await page.goto("/login")
-
-  await fillForm(page, firstSuperuser, firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-
-  await page.waitForURL("/")
-
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
-
-  await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
-  await page.waitForURL("/login")
-
   await page.goto("/settings")
-  await page.waitForURL("/login")
+  await expect(page).toHaveURL("/login")
+})
+
+test("Auth callback stores token from hash and redirects", async ({
+  page,
+  request,
+}) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: randomSteamid64(),
+  })
+
+  await page.goto(`/auth/callback#access_token=${accessToken}`)
+  await expect(page).toHaveURL("/")
+  const tokenFromStorage = await page.evaluate(() =>
+    localStorage.getItem("access_token"),
+  )
+  await expect(tokenFromStorage).toBe(accessToken)
 })
 
 test("Redirects to /login when token is wrong", async ({ page }) => {
@@ -112,6 +70,5 @@ test("Redirects to /login when token is wrong", async ({ page }) => {
     localStorage.setItem("access_token", "invalid_token")
   })
   await page.goto("/settings")
-  await page.waitForURL("/login")
   await expect(page).toHaveURL("/login")
 })
