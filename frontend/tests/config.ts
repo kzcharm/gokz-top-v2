@@ -15,5 +15,5 @@ function getEnvVar(name: string): string {
   return value
 }
 
-export const firstSuperuser = getEnvVar("FIRST_SUPERUSER")
-export const firstSuperuserPassword = getEnvVar("FIRST_SUPERUSER_PASSWORD")
+export const superUserSteamid64 = Number(getEnvVar("SUPER_USER_STEAMID64"))
+export const apiUrl = process.env.VITE_API_URL || "http://localhost:8000"

@@ -11,16 +11,16 @@ export type UserTableData = UserPublic & {
 
 export const columns: ColumnDef<UserTableData>[] = [
   {
-    accessorKey: "full_name",
-    header: "Full Name",
+    accessorKey: "player.name",
+    header: "Player",
     cell: ({ row }) => {
-      const fullName = row.original.full_name
+      const playerName = row.original.player?.name
       return (
         <div className="flex items-center gap-2">
           <span
-            className={cn("font-medium", !fullName && "text-muted-foreground")}
+            className={cn("font-medium", !playerName && "text-muted-foreground")}
           >
-            {fullName || "N/A"}
+            {playerName || "N/A"}
           </span>
           {row.original.isCurrentUser && (
             <Badge variant="outline" className="text-xs">
@@ -32,10 +32,12 @@ export const columns: ColumnDef<UserTableData>[] = [
     },
   },
   {
-    accessorKey: "email",
-    header: "Email",
+    accessorKey: "steamid64",
+    header: "Steam ID64",
     cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.original.email}</span>
+      <span className="text-muted-foreground font-mono">
+        {row.original.steamid64}
+      </span>
     ),
   },
   {

@@ -1,123 +1,114 @@
+import re
 from datetime import timedelta
-from typing import Annotated, Any
+from typing import Any
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.security import OAuth2PasswordRequestForm
+import httpx
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep
 from app.core import security
 from app.core.config import settings
-from app.models import Message, NewPassword, Token, UserPublic, UserUpdate
-from app.utils import (
-    generate_password_reset_token,
-    generate_reset_password_email,
-    send_email,
-    verify_password_reset_token,
-)
+from app.models import UserPublic
 
 router = APIRouter(tags=["login"])
 
+STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 
-@router.post("/login/access-token")
-def login_access_token(
-    session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
-) -> Token:
+
+@router.get("/login/steam")
+def login_steam(request: Request) -> RedirectResponse:
     """
-    OAuth2 compatible token login, get an access token for future requests
+    Initiate Steam OpenID authentication flow.
+    Redirects user to Steam's login page.
     """
-    user = crud.authenticate(
-        session=session, email=form_data.username, password=form_data.password
-    )
-    if not user:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
-    elif not user.is_active:
+    base_url = str(request.base_url).rstrip("/")
+    callback_path = f"{settings.API_V1_STR}/login/steam/callback"
+    return_url = f"{base_url}{callback_path}"
+
+    params = {
+        "openid.ns": "http://specs.openid.net/auth/2.0",
+        "openid.mode": "checkid_setup",
+        "openid.return_to": return_url,
+        "openid.realm": base_url,
+        "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select",
+        "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select",
+    }
+
+    return RedirectResponse(url=f"{STEAM_OPENID_URL}?{urlencode(params)}")
+
+
+@router.get("/login/steam/callback")
+def steam_callback(request: Request, session: SessionDep) -> RedirectResponse:
+    """
+    Handle Steam OpenID callback.
+    Verifies the OpenID response and creates/updates user.
+    Redirects to frontend with token in URL fragment.
+    """
+    query_params = dict(request.query_params)
+    openid_mode = query_params.get("openid.mode")
+    if openid_mode != "id_res":
+        raise HTTPException(status_code=400, detail="Invalid OpenID mode")
+
+    openid_claimed_id = query_params.get("openid.claimed_id")
+    if not openid_claimed_id:
+        raise HTTPException(status_code=400, detail="Missing OpenID claimed_id")
+
+    match = re.search(r"https://steamcommunity.com/openid/id/(\d+)$", openid_claimed_id)
+    if not match:
+        raise HTTPException(status_code=400, detail="Invalid Steam ID format")
+    steamid64 = int(match.group(1))
+
+    openid_signed = query_params.get("openid.signed")
+    openid_sig = query_params.get("openid.sig")
+    if not openid_signed or not openid_sig:
+        raise HTTPException(status_code=400, detail="Missing OpenID signature")
+
+    verify_params = {
+        "openid.ns": query_params.get("openid.ns", "http://specs.openid.net/auth/2.0"),
+        "openid.mode": "check_authentication",
+        "openid.op_endpoint": query_params.get("openid.op_endpoint"),
+        "openid.claimed_id": query_params.get("openid.claimed_id"),
+        "openid.identity": query_params.get("openid.identity"),
+        "openid.return_to": query_params.get("openid.return_to"),
+        "openid.response_nonce": query_params.get("openid.response_nonce"),
+        "openid.assoc_handle": query_params.get("openid.assoc_handle"),
+        "openid.signed": openid_signed,
+        "openid.sig": openid_sig,
+    }
+    verify_params = {k: v for k, v in verify_params.items() if v}
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(STEAM_OPENID_URL, data=verify_params)
+            response.raise_for_status()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail="Failed to verify OpenID response"
+        ) from exc
+
+    if "is_valid:true" not in response.text:
+        raise HTTPException(status_code=400, detail="OpenID verification failed")
+
+    user = crud.get_or_create_user_from_steam(session=session, steamid64=steamid64)
+    if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return Token(
-        access_token=security.create_access_token(
-            user.id, expires_delta=access_token_expires
-        )
+    token = security.create_access_token(
+        user.steamid64, expires_delta=access_token_expires
     )
+    frontend_url = (
+        f"{settings.FRONTEND_HOST.rstrip('/')}/auth/callback#access_token={token}"
+    )
+    return RedirectResponse(url=frontend_url)
 
 
 @router.post("/login/test-token", response_model=UserPublic)
-def test_token(current_user: CurrentUser) -> Any:
+def test_token(current_user: CurrentUser, session: SessionDep) -> Any:
     """
     Test access token
     """
-    return current_user
-
-
-@router.post("/password-recovery/{email}")
-def recover_password(email: str, session: SessionDep) -> Message:
-    """
-    Password Recovery
-    """
-    user = crud.get_user_by_email(session=session, email=email)
-
-    # Always return the same response to prevent email enumeration attacks
-    # Only send email if user actually exists
-    if user:
-        password_reset_token = generate_password_reset_token(email=email)
-        email_data = generate_reset_password_email(
-            email_to=user.email, email=email, token=password_reset_token
-        )
-        send_email(
-            email_to=user.email,
-            subject=email_data.subject,
-            html_content=email_data.html_content,
-        )
-    return Message(
-        message="If that email is registered, we sent a password recovery link"
-    )
-
-
-@router.post("/reset-password/")
-def reset_password(session: SessionDep, body: NewPassword) -> Message:
-    """
-    Reset password
-    """
-    email = verify_password_reset_token(token=body.token)
-    if not email:
-        raise HTTPException(status_code=400, detail="Invalid token")
-    user = crud.get_user_by_email(session=session, email=email)
-    if not user:
-        # Don't reveal that the user doesn't exist - use same error as invalid token
-        raise HTTPException(status_code=400, detail="Invalid token")
-    elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    user_in_update = UserUpdate(password=body.new_password)
-    crud.update_user(
-        session=session,
-        db_user=user,
-        user_in=user_in_update,
-    )
-    return Message(message="Password updated successfully")
-
-
-@router.post(
-    "/password-recovery-html-content/{email}",
-    dependencies=[Depends(get_current_active_superuser)],
-    response_class=HTMLResponse,
-)
-def recover_password_html_content(email: str, session: SessionDep) -> Any:
-    """
-    HTML Content for Password Recovery
-    """
-    user = crud.get_user_by_email(session=session, email=email)
-
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="The user with this username does not exist in the system.",
-        )
-    password_reset_token = generate_password_reset_token(email=email)
-    email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token
-    )
-
-    return HTMLResponse(
-        content=email_data.html_content, headers={"subject:": email_data.subject}
-    )
+    return crud.to_user_public(session=session, user=current_user)

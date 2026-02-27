@@ -1,13 +1,23 @@
 import { test as setup } from "@playwright/test"
-import { firstSuperuser, firstSuperuserPassword } from "./config.ts"
+import { apiUrl, superUserSteamid64 } from "./config.ts"
 
 const authFile = "playwright/.auth/user.json"
 
-setup("authenticate", async ({ page }) => {
+setup("authenticate", async ({ page, request }) => {
+  const response = await request.post(`${apiUrl}/api/v1/private/auth/session`, {
+    data: {
+      steamid64: superUserSteamid64,
+      is_superuser: true,
+      is_active: true,
+      name: "Super User",
+    },
+  })
+  const payload = await response.json()
+
   await page.goto("/login")
-  await page.getByTestId("email-input").fill(firstSuperuser)
-  await page.getByTestId("password-input").fill(firstSuperuserPassword)
-  await page.getByRole("button", { name: "Log In" }).click()
-  await page.waitForURL("/")
+  await page.evaluate((accessToken) => {
+    localStorage.setItem("access_token", accessToken)
+  }, payload.access_token)
+  await page.goto("/")
   await page.context().storageState({ path: authFile })
 })

@@ -5,22 +5,20 @@ from app.core.config import settings
 from app.models import User
 
 
-def test_create_user(client: TestClient, db: Session) -> None:
-    r = client.post(
-        f"{settings.API_V1_STR}/private/users/",
+def test_create_auth_session(client: TestClient, db: Session) -> None:
+    steamid64 = 76561199099999999
+    response = client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
         json={
-            "email": "pollo@listo.com",
-            "password": "password123",
-            "full_name": "Pollo Listo",
+            "steamid64": steamid64,
+            "is_superuser": False,
+            "is_active": True,
+            "name": "Pollo Listo",
         },
     )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "access_token" in payload
 
-    assert r.status_code == 200
-
-    data = r.json()
-
-    user = db.exec(select(User).where(User.id == data["id"])).first()
-
+    user = db.exec(select(User).where(User.steamid64 == steamid64)).first()
     assert user
-    assert user.email == "pollo@listo.com"
-    assert user.full_name == "Pollo Listo"

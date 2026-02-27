@@ -17,12 +17,19 @@ const baseItems: Item[] = [
   { icon: Briefcase, title: "Items", path: "/items" },
 ]
 
-export function AppSidebar() {
-  const { user: currentUser } = useAuth()
+interface AppSidebarProps {
+  forceLoginAction?: boolean
+}
 
-  const items = currentUser?.is_superuser
-    ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
-    : baseItems
+export function AppSidebar({ forceLoginAction = false }: AppSidebarProps) {
+  const { user: currentUser } = useAuth()
+  const showAuthenticatedSidebar = Boolean(currentUser) && !forceLoginAction
+
+  const items = showAuthenticatedSidebar
+    ? currentUser?.is_superuser
+      ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
+      : baseItems
+    : []
 
   return (
     <Sidebar collapsible="icon">
@@ -34,7 +41,10 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarAppearance />
-        <User user={currentUser} />
+        <User
+          user={showAuthenticatedSidebar ? currentUser : null}
+          forceLoginAction={forceLoginAction}
+        />
       </SidebarFooter>
     </Sidebar>
   )

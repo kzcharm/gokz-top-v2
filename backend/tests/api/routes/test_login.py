@@ -1,191 +1,161 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from urllib.parse import parse_qs, urlparse
 
 from fastapi.testclient import TestClient
-from pwdlib.hashers.bcrypt import BcryptHasher
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.core.security import get_password_hash, verify_password
-from app.crud import create_user
-from app.models import User, UserCreate
-from app.utils import generate_password_reset_token
-from tests.utils.user import user_authentication_headers
-from tests.utils.utils import random_email, random_lower_string
+from app.models import User
 
 
-def test_get_access_token(client: TestClient) -> None:
-    login_data = {
-        "username": settings.FIRST_SUPERUSER,
-        "password": settings.FIRST_SUPERUSER_PASSWORD,
+def _build_callback_params(steamid64: int) -> dict[str, str]:
+    return {
+        "openid.ns": "http://specs.openid.net/auth/2.0",
+        "openid.mode": "id_res",
+        "openid.op_endpoint": "https://steamcommunity.com/openid/login",
+        "openid.claimed_id": f"https://steamcommunity.com/openid/id/{steamid64}",
+        "openid.identity": f"https://steamcommunity.com/openid/id/{steamid64}",
+        "openid.return_to": "http://testserver/api/v1/login/steam/callback",
+        "openid.response_nonce": "2026-02-27T00:00:00Zabcdef",
+        "openid.assoc_handle": "1234567890",
+        "openid.signed": "op_endpoint,claimed_id,identity,return_to,response_nonce,assoc_handle",
+        "openid.sig": "fake-signature",
     }
-    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
-    tokens = r.json()
-    assert r.status_code == 200
-    assert "access_token" in tokens
-    assert tokens["access_token"]
 
 
-def test_get_access_token_incorrect_password(client: TestClient) -> None:
-    login_data = {
-        "username": settings.FIRST_SUPERUSER,
-        "password": "incorrect",
-    }
-    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
-    assert r.status_code == 400
+def test_login_steam_redirect_has_openid_params(client: TestClient) -> None:
+    response = client.get(f"{settings.API_V1_STR}/login/steam", follow_redirects=False)
+
+    assert response.status_code in {302, 307}
+    location = response.headers["location"]
+    parsed = urlparse(location)
+    params = parse_qs(parsed.query)
+
+    expected_base = str(client.base_url).rstrip("/")
+    expected_return_to = f"{expected_base}{settings.API_V1_STR}/login/steam/callback"
+
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "steamcommunity.com"
+    assert parsed.path == "/openid/login"
+    assert params["openid.mode"] == ["checkid_setup"]
+    assert params["openid.ns"] == ["http://specs.openid.net/auth/2.0"]
+    assert params["openid.realm"] == [expected_base]
+    assert params["openid.return_to"] == [expected_return_to]
+
+
+def test_steam_callback_invalid_mode(client: TestClient) -> None:
+    response = client.get(
+        f"{settings.API_V1_STR}/login/steam/callback",
+        params={"openid.mode": "cancel"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid OpenID mode"
+
+
+def test_steam_callback_missing_claimed_id(client: TestClient) -> None:
+    response = client.get(
+        f"{settings.API_V1_STR}/login/steam/callback",
+        params={"openid.mode": "id_res"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Missing OpenID claimed_id"
+
+
+def test_steam_callback_invalid_steamid_format(client: TestClient) -> None:
+    response = client.get(
+        f"{settings.API_V1_STR}/login/steam/callback",
+        params={
+            "openid.mode": "id_res",
+            "openid.claimed_id": "https://steamcommunity.com/openid/id/not-a-number",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid Steam ID format"
+
+
+def test_steam_callback_missing_signature(client: TestClient) -> None:
+    steamid64 = 76561199099990000
+    response = client.get(
+        f"{settings.API_V1_STR}/login/steam/callback",
+        params={
+            "openid.mode": "id_res",
+            "openid.claimed_id": f"https://steamcommunity.com/openid/id/{steamid64}",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Missing OpenID signature"
+
+
+def test_steam_callback_openid_verification_failure(client: TestClient) -> None:
+    steamid64 = 76561199099990001
+    params = _build_callback_params(steamid64)
+
+    mocked_response = Mock()
+    mocked_response.raise_for_status.return_value = None
+    mocked_response.text = "is_valid:false"
+
+    with patch("app.api.routes.login.httpx.Client.post", return_value=mocked_response):
+        response = client.get(
+            f"{settings.API_V1_STR}/login/steam/callback",
+            params=params,
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "OpenID verification failed"
+
+
+def test_steam_callback_success_creates_user_and_redirects(
+    client: TestClient,
+    db: Session,
+) -> None:
+    steamid64 = 76561199099990002
+    params = _build_callback_params(steamid64)
+
+    mocked_response = Mock()
+    mocked_response.raise_for_status.return_value = None
+    mocked_response.text = "ns:http://specs.openid.net/auth/2.0\nis_valid:true"
+
+    with patch("app.api.routes.login.httpx.Client.post", return_value=mocked_response):
+        response = client.get(
+            f"{settings.API_V1_STR}/login/steam/callback",
+            params=params,
+            follow_redirects=False,
+        )
+
+    assert response.status_code in {302, 307}
+    location = response.headers["location"]
+    assert location.startswith(
+        f"{settings.FRONTEND_HOST.rstrip('/')}/auth/callback#access_token="
+    )
+    token = location.split("#access_token=", maxsplit=1)[1]
+
+    test_token_response = client.post(
+        f"{settings.API_V1_STR}/login/test-token",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert test_token_response.status_code == 200
+    assert test_token_response.json()["steamid64"] == steamid64
+
+    user = db.exec(select(User).where(User.steamid64 == steamid64)).first()
+    assert user is not None
 
 
 def test_use_access_token(
-    client: TestClient, superuser_token_headers: dict[str, str]
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
 ) -> None:
-    r = client.post(
+    response = client.post(
         f"{settings.API_V1_STR}/login/test-token",
         headers=superuser_token_headers,
     )
-    result = r.json()
-    assert r.status_code == 200
-    assert "email" in result
 
-
-def test_recovery_password(
-    client: TestClient, normal_user_token_headers: dict[str, str]
-) -> None:
-    with (
-        patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
-        patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
-    ):
-        email = "test@example.com"
-        r = client.post(
-            f"{settings.API_V1_STR}/password-recovery/{email}",
-            headers=normal_user_token_headers,
-        )
-        assert r.status_code == 200
-        assert r.json() == {
-            "message": "If that email is registered, we sent a password recovery link"
-        }
-
-
-def test_recovery_password_user_not_exits(
-    client: TestClient, normal_user_token_headers: dict[str, str]
-) -> None:
-    email = "jVgQr@example.com"
-    r = client.post(
-        f"{settings.API_V1_STR}/password-recovery/{email}",
-        headers=normal_user_token_headers,
-    )
-    # Should return 200 with generic message to prevent email enumeration attacks
-    assert r.status_code == 200
-    assert r.json() == {
-        "message": "If that email is registered, we sent a password recovery link"
-    }
-
-
-def test_reset_password(client: TestClient, db: Session) -> None:
-    email = random_email()
-    password = random_lower_string()
-    new_password = random_lower_string()
-
-    user_create = UserCreate(
-        email=email,
-        full_name="Test User",
-        password=password,
-        is_active=True,
-        is_superuser=False,
-    )
-    user = create_user(session=db, user_create=user_create)
-    token = generate_password_reset_token(email=email)
-    headers = user_authentication_headers(client=client, email=email, password=password)
-    data = {"new_password": new_password, "token": token}
-
-    r = client.post(
-        f"{settings.API_V1_STR}/reset-password/",
-        headers=headers,
-        json=data,
-    )
-
-    assert r.status_code == 200
-    assert r.json() == {"message": "Password updated successfully"}
-
-    db.refresh(user)
-    verified, _ = verify_password(new_password, user.hashed_password)
-    assert verified
-
-
-def test_reset_password_invalid_token(
-    client: TestClient, superuser_token_headers: dict[str, str]
-) -> None:
-    data = {"new_password": "changethis", "token": "invalid"}
-    r = client.post(
-        f"{settings.API_V1_STR}/reset-password/",
-        headers=superuser_token_headers,
-        json=data,
-    )
-    response = r.json()
-
-    assert "detail" in response
-    assert r.status_code == 400
-    assert response["detail"] == "Invalid token"
-
-
-def test_login_with_bcrypt_password_upgrades_to_argon2(
-    client: TestClient, db: Session
-) -> None:
-    """Test that logging in with a bcrypt password hash upgrades it to argon2."""
-    email = random_email()
-    password = random_lower_string()
-
-    # Create a bcrypt hash directly (simulating legacy password)
-    bcrypt_hasher = BcryptHasher()
-    bcrypt_hash = bcrypt_hasher.hash(password)
-    assert bcrypt_hash.startswith("$2")  # bcrypt hashes start with $2
-
-    user = User(email=email, hashed_password=bcrypt_hash, is_active=True)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    assert user.hashed_password.startswith("$2")
-
-    login_data = {"username": email, "password": password}
-    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
-    assert r.status_code == 200
-    tokens = r.json()
-    assert "access_token" in tokens
-
-    db.refresh(user)
-
-    # Verify the hash was upgraded to argon2
-    assert user.hashed_password.startswith("$argon2")
-
-    verified, updated_hash = verify_password(password, user.hashed_password)
-    assert verified
-    # Should not need another update since it's already argon2
-    assert updated_hash is None
-
-
-def test_login_with_argon2_password_keeps_hash(client: TestClient, db: Session) -> None:
-    """Test that logging in with an argon2 password hash does not update it."""
-    email = random_email()
-    password = random_lower_string()
-
-    # Create an argon2 hash (current default)
-    argon2_hash = get_password_hash(password)
-    assert argon2_hash.startswith("$argon2")
-
-    # Create user with argon2 hash
-    user = User(email=email, hashed_password=argon2_hash, is_active=True)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    original_hash = user.hashed_password
-
-    login_data = {"username": email, "password": password}
-    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
-    assert r.status_code == 200
-    tokens = r.json()
-    assert "access_token" in tokens
-
-    db.refresh(user)
-
-    assert user.hashed_password == original_hash
-    assert user.hashed_password.startswith("$argon2")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["steamid64"] == settings.SUPER_USER_STEAMID64
+    assert result["is_superuser"] is True
+    assert result["player"] is not None

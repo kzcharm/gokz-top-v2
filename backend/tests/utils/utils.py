@@ -10,17 +10,40 @@ def random_lower_string() -> str:
     return "".join(random.choices(string.ascii_lowercase, k=32))
 
 
-def random_email() -> str:
-    return f"{random_lower_string()}@{random_lower_string()}.com"
+def random_steamid64() -> int:
+    suffix = random.randint(1_000_000_000, 9_999_999_999)
+    return int(f"76561{suffix}")
+
+
+def _token_headers_from_private_session(
+    client: TestClient, *, steamid64: int, is_superuser: bool = False
+) -> dict[str, str]:
+    response = client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": steamid64,
+            "is_superuser": is_superuser,
+            "is_active": True,
+            "name": "Test User",
+        },
+    )
+    payload = response.json()
+    return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
 def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
-    login_data = {
-        "username": settings.FIRST_SUPERUSER,
-        "password": settings.FIRST_SUPERUSER_PASSWORD,
-    }
-    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
-    tokens = r.json()
-    a_token = tokens["access_token"]
-    headers = {"Authorization": f"Bearer {a_token}"}
-    return headers
+    return _token_headers_from_private_session(
+        client,
+        steamid64=settings.SUPER_USER_STEAMID64,
+        is_superuser=True,
+    )
+
+
+def get_user_token_headers(
+    client: TestClient, steamid64: int | None = None
+) -> dict[str, str]:
+    return _token_headers_from_private_session(
+        client,
+        steamid64=steamid64 or random_steamid64(),
+        is_superuser=False,
+    )
