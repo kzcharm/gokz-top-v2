@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -97,7 +97,7 @@ def get_player_by_steamid64(*, session: Session, steamid64: int) -> Player | Non
 
 
 def create_or_update_player_from_steam(*, session: Session, steamid64: int) -> Player:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     steam_data = _fetch_player_from_steam_api(steamid64)
 
     player = get_player_by_steamid64(session=session, steamid64=steamid64)
