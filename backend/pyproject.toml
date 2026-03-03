@@ -11,6 +11,7 @@ dependencies = [
     "alembic<2.0.0,>=1.12.1",
     "httpx<1.0.0,>=0.25.1",
     "psycopg[binary]<4.0.0,>=3.1.13",
+    "greenlet<4.0.0,>=3.1.1",
     "sqlmodel<1.0.0,>=0.0.21",
     "pydantic-settings<3.0.0,>=2.2.1",
     "sentry-sdk[fastapi]>=2.0.0,<3.0.0",
@@ -21,6 +22,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest<8.0.0,>=7.4.3",
+    "pytest-asyncio<1.0.0,>=0.23.8",
     "mypy<2.0.0,>=1.8.0",
     "ruff<1.0.0,>=0.2.2",
     "prek>=0.2.24,<1.0.0",

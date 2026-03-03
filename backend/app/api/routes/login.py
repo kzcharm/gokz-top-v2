@@ -19,7 +19,7 @@ STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 
 
 @router.get("/login/steam")
-def login_steam(request: Request) -> RedirectResponse:
+async def login_steam(request: Request) -> RedirectResponse:
     """
     Initiate Steam OpenID authentication flow.
     Redirects user to Steam's login page.
@@ -41,7 +41,7 @@ def login_steam(request: Request) -> RedirectResponse:
 
 
 @router.get("/login/steam/callback")
-def steam_callback(request: Request, session: SessionDep) -> RedirectResponse:
+async def steam_callback(request: Request, session: SessionDep) -> RedirectResponse:
     """
     Handle Steam OpenID callback.
     Verifies the OpenID response and creates/updates user.
@@ -81,8 +81,8 @@ def steam_callback(request: Request, session: SessionDep) -> RedirectResponse:
     verify_params = {k: v for k, v in verify_params.items() if v}
 
     try:
-        with httpx.Client(timeout=10.0) as client:
-            response = client.post(STEAM_OPENID_URL, data=verify_params)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(STEAM_OPENID_URL, data=verify_params)
             response.raise_for_status()
     except Exception as exc:
         raise HTTPException(
@@ -92,7 +92,10 @@ def steam_callback(request: Request, session: SessionDep) -> RedirectResponse:
     if "is_valid:true" not in response.text:
         raise HTTPException(status_code=400, detail="OpenID verification failed")
 
-    user = crud.get_or_create_user_from_steam(session=session, steamid64=steamid64)
+    user = await crud.get_or_create_user_from_steam(
+        session=session,
+        steamid64=steamid64,
+    )
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
 
@@ -107,8 +110,8 @@ def steam_callback(request: Request, session: SessionDep) -> RedirectResponse:
 
 
 @router.post("/login/test-token", response_model=UserPublic)
-def test_token(current_user: CurrentUser, session: SessionDep) -> Any:
+async def test_token(current_user: CurrentUser, session: SessionDep) -> Any:
     """
     Test access token
     """
-    return crud.to_user_public(session=session, user=current_user)
+    return await crud.to_user_public(session=session, user=current_user)

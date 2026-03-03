@@ -1,13 +1,16 @@
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+import pytest
+from httpx import AsyncClient
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import User
 
 
-def test_create_auth_session(client: TestClient, db: Session) -> None:
+@pytest.mark.asyncio
+async def test_create_auth_session(client: AsyncClient, db: AsyncSession) -> None:
     steamid64 = 76561199099999999
-    response = client.post(
+    response = await client.post(
         f"{settings.API_V1_STR}/private/auth/session",
         json={
             "steamid64": steamid64,
@@ -20,5 +23,5 @@ def test_create_auth_session(client: TestClient, db: Session) -> None:
     payload = response.json()
     assert "access_token" in payload
 
-    user = db.exec(select(User).where(User.steamid64 == steamid64)).first()
+    user = (await db.exec(select(User).where(User.steamid64 == steamid64))).first()
     assert user

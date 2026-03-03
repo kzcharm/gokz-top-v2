@@ -1,8 +1,10 @@
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import parse_qs, urlparse
 
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+import pytest
+from httpx import AsyncClient
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import User
@@ -23,8 +25,12 @@ def _build_callback_params(steamid64: int) -> dict[str, str]:
     }
 
 
-def test_login_steam_redirect_has_openid_params(client: TestClient) -> None:
-    response = client.get(f"{settings.API_V1_STR}/login/steam", follow_redirects=False)
+@pytest.mark.asyncio
+async def test_login_steam_redirect_has_openid_params(client: AsyncClient) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/login/steam",
+        follow_redirects=False,
+    )
 
     assert response.status_code in {302, 307}
     location = response.headers["location"]
@@ -43,8 +49,9 @@ def test_login_steam_redirect_has_openid_params(client: TestClient) -> None:
     assert params["openid.return_to"] == [expected_return_to]
 
 
-def test_steam_callback_invalid_mode(client: TestClient) -> None:
-    response = client.get(
+@pytest.mark.asyncio
+async def test_steam_callback_invalid_mode(client: AsyncClient) -> None:
+    response = await client.get(
         f"{settings.API_V1_STR}/login/steam/callback",
         params={"openid.mode": "cancel"},
     )
@@ -53,8 +60,9 @@ def test_steam_callback_invalid_mode(client: TestClient) -> None:
     assert response.json()["detail"] == "Invalid OpenID mode"
 
 
-def test_steam_callback_missing_claimed_id(client: TestClient) -> None:
-    response = client.get(
+@pytest.mark.asyncio
+async def test_steam_callback_missing_claimed_id(client: AsyncClient) -> None:
+    response = await client.get(
         f"{settings.API_V1_STR}/login/steam/callback",
         params={"openid.mode": "id_res"},
     )
@@ -63,8 +71,9 @@ def test_steam_callback_missing_claimed_id(client: TestClient) -> None:
     assert response.json()["detail"] == "Missing OpenID claimed_id"
 
 
-def test_steam_callback_invalid_steamid_format(client: TestClient) -> None:
-    response = client.get(
+@pytest.mark.asyncio
+async def test_steam_callback_invalid_steamid_format(client: AsyncClient) -> None:
+    response = await client.get(
         f"{settings.API_V1_STR}/login/steam/callback",
         params={
             "openid.mode": "id_res",
@@ -76,9 +85,10 @@ def test_steam_callback_invalid_steamid_format(client: TestClient) -> None:
     assert response.json()["detail"] == "Invalid Steam ID format"
 
 
-def test_steam_callback_missing_signature(client: TestClient) -> None:
+@pytest.mark.asyncio
+async def test_steam_callback_missing_signature(client: AsyncClient) -> None:
     steamid64 = 76561199099990000
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/login/steam/callback",
         params={
             "openid.mode": "id_res",
@@ -90,7 +100,8 @@ def test_steam_callback_missing_signature(client: TestClient) -> None:
     assert response.json()["detail"] == "Missing OpenID signature"
 
 
-def test_steam_callback_openid_verification_failure(client: TestClient) -> None:
+@pytest.mark.asyncio
+async def test_steam_callback_openid_verification_failure(client: AsyncClient) -> None:
     steamid64 = 76561199099990001
     params = _build_callback_params(steamid64)
 
@@ -98,8 +109,11 @@ def test_steam_callback_openid_verification_failure(client: TestClient) -> None:
     mocked_response.raise_for_status.return_value = None
     mocked_response.text = "is_valid:false"
 
-    with patch("app.api.routes.login.httpx.Client.post", return_value=mocked_response):
-        response = client.get(
+    with patch(
+        "app.api.routes.login.httpx.AsyncClient.post",
+        new=AsyncMock(return_value=mocked_response),
+    ):
+        response = await client.get(
             f"{settings.API_V1_STR}/login/steam/callback",
             params=params,
             follow_redirects=False,
@@ -109,9 +123,10 @@ def test_steam_callback_openid_verification_failure(client: TestClient) -> None:
     assert response.json()["detail"] == "OpenID verification failed"
 
 
-def test_steam_callback_success_creates_user_and_redirects(
-    client: TestClient,
-    db: Session,
+@pytest.mark.asyncio
+async def test_steam_callback_success_creates_user_and_redirects(
+    client: AsyncClient,
+    db: AsyncSession,
 ) -> None:
     steamid64 = 76561199099990002
     params = _build_callback_params(steamid64)
@@ -120,8 +135,11 @@ def test_steam_callback_success_creates_user_and_redirects(
     mocked_response.raise_for_status.return_value = None
     mocked_response.text = "ns:http://specs.openid.net/auth/2.0\nis_valid:true"
 
-    with patch("app.api.routes.login.httpx.Client.post", return_value=mocked_response):
-        response = client.get(
+    with patch(
+        "app.api.routes.login.httpx.AsyncClient.post",
+        new=AsyncMock(return_value=mocked_response),
+    ):
+        response = await client.get(
             f"{settings.API_V1_STR}/login/steam/callback",
             params=params,
             follow_redirects=False,
@@ -134,22 +152,23 @@ def test_steam_callback_success_creates_user_and_redirects(
     )
     token = location.split("#access_token=", maxsplit=1)[1]
 
-    test_token_response = client.post(
+    test_token_response = await client.post(
         f"{settings.API_V1_STR}/login/test-token",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert test_token_response.status_code == 200
     assert test_token_response.json()["steamid64"] == str(steamid64)
 
-    user = db.exec(select(User).where(User.steamid64 == steamid64)).first()
+    user = (await db.exec(select(User).where(User.steamid64 == steamid64))).first()
     assert user is not None
 
 
-def test_use_access_token(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_use_access_token(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
-    response = client.post(
+    response = await client.post(
         f"{settings.API_V1_STR}/login/test-token",
         headers=superuser_token_headers,
     )

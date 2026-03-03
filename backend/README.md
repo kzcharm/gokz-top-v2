@@ -29,6 +29,12 @@ Make sure your editor is using the correct Python virtual environment, with the 
 
 Modify or add SQLModel models for data and SQL tables in `./backend/app/models/`, API endpoints in `./backend/app/api/`, CRUD (Create, Read, Update, Delete) utils in `./backend/app/crud/`.
 
+## Backend Async Policy
+
+- FastAPI runtime I/O paths must be async (`async def` routes/dependencies, async DB sessions, async outbound HTTP calls).
+- Alembic and one-off startup scripts remain sync by design.
+- New database and HTTP integrations should use async APIs.
+
 ## VS Code
 
 There are already configurations in place to run the backend through the VS Code debugger, so that you can use breakpoints, pause and explore variables, etc.

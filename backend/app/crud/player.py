@@ -2,7 +2,8 @@ import re
 from datetime import UTC, datetime
 
 import httpx
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import Player
@@ -26,7 +27,7 @@ def _extract_avatar_hash_from_url(avatar_url: str | None) -> str | None:
     return match.group(1)
 
 
-def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
+async def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
     if not settings.STEAM_API_KEY:
         return {
             "name": str(steamid64),
@@ -41,8 +42,8 @@ def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
     }
 
     try:
-        with httpx.Client(timeout=10.0) as client:
-            response = client.get(
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
                 "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/",
                 params=params,
             )
@@ -81,16 +82,20 @@ def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
     }
 
 
-def get_player_by_steamid64(*, session: Session, steamid64: int) -> Player | None:
+async def get_player_by_steamid64(
+    *, session: AsyncSession, steamid64: int
+) -> Player | None:
     statement = select(Player).where(Player.steamid64 == steamid64)
-    return session.exec(statement).first()
+    return (await session.exec(statement)).first()
 
 
-def create_or_update_player_from_steam(*, session: Session, steamid64: int) -> Player:
+async def create_or_update_player_from_steam(
+    *, session: AsyncSession, steamid64: int
+) -> Player:
     now = datetime.now(UTC)
-    steam_data = _fetch_player_from_steam_api(steamid64)
+    steam_data = await _fetch_player_from_steam_api(steamid64)
 
-    player = get_player_by_steamid64(session=session, steamid64=steamid64)
+    player = await get_player_by_steamid64(session=session, steamid64=steamid64)
     if player:
         player.name = steam_data["name"] or player.name
         player.custom_id = steam_data["custom_id"] or player.custom_id
@@ -98,8 +103,8 @@ def create_or_update_player_from_steam(*, session: Session, steamid64: int) -> P
         player.country = steam_data["country"] or player.country
         player.updated_at = now
         session.add(player)
-        session.commit()
-        session.refresh(player)
+        await session.commit()
+        await session.refresh(player)
         return player
 
     player = Player(
@@ -112,6 +117,6 @@ def create_or_update_player_from_steam(*, session: Session, steamid64: int) -> P
         updated_at=now,
     )
     session.add(player)
-    session.commit()
-    session.refresh(player)
+    await session.commit()
+    await session.refresh(player)
     return player

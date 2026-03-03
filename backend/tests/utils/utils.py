@@ -1,7 +1,7 @@
 import random
 import string
 
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from app.core.config import settings
 
@@ -15,10 +15,10 @@ def random_steamid64() -> int:
     return int(f"76561{suffix}")
 
 
-def _token_headers_from_private_session(
-    client: TestClient, *, steamid64: int, is_superuser: bool = False
+async def _token_headers_from_private_session(
+    client: AsyncClient, *, steamid64: int, is_superuser: bool = False
 ) -> dict[str, str]:
-    response = client.post(
+    response = await client.post(
         f"{settings.API_V1_STR}/private/auth/session",
         json={
             "steamid64": steamid64,
@@ -31,18 +31,18 @@ def _token_headers_from_private_session(
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
-def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
-    return _token_headers_from_private_session(
+async def get_superuser_token_headers(client: AsyncClient) -> dict[str, str]:
+    return await _token_headers_from_private_session(
         client,
         steamid64=settings.SUPER_USER_STEAMID64,
         is_superuser=True,
     )
 
 
-def get_user_token_headers(
-    client: TestClient, steamid64: int | None = None
+async def get_user_token_headers(
+    client: AsyncClient, steamid64: int | None = None
 ) -> dict[str, str]:
-    return _token_headers_from_private_session(
+    return await _token_headers_from_private_session(
         client,
         steamid64=steamid64 or random_steamid64(),
         is_superuser=False,

@@ -1,6 +1,7 @@
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import PlayerPublic, User, UserCreate, UserPublic, UserUpdate
@@ -8,37 +9,43 @@ from app.models import PlayerPublic, User, UserCreate, UserPublic, UserUpdate
 from .player import create_or_update_player_from_steam, get_player_by_steamid64
 
 
-def create_user(*, session: Session, user_create: UserCreate) -> User:
+async def create_user(*, session: AsyncSession, user_create: UserCreate) -> User:
     steamid64 = int(user_create.steamid64)
-    if not get_player_by_steamid64(session=session, steamid64=steamid64):
-        create_or_update_player_from_steam(session=session, steamid64=steamid64)
+    if not await get_player_by_steamid64(session=session, steamid64=steamid64):
+        await create_or_update_player_from_steam(session=session, steamid64=steamid64)
 
     db_obj = User.model_validate(user_create)
     session.add(db_obj)
-    session.commit()
-    session.refresh(db_obj)
+    await session.commit()
+    await session.refresh(db_obj)
     return db_obj
 
 
-def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
+async def update_user(
+    *, session: AsyncSession, db_user: User, user_in: UserUpdate
+) -> Any:
     user_data = user_in.model_dump(exclude_unset=True)
     db_user.sqlmodel_update(user_data)
     session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
+    await session.commit()
+    await session.refresh(db_user)
     return db_user
 
 
-def get_user_by_steamid64(*, session: Session, steamid64: int) -> User | None:
+async def get_user_by_steamid64(
+    *, session: AsyncSession, steamid64: int
+) -> User | None:
     statement = select(User).where(User.steamid64 == steamid64)
-    return session.exec(statement).first()
+    return (await session.exec(statement)).first()
 
 
-def get_or_create_user_from_steam(*, session: Session, steamid64: int | str) -> User:
+async def get_or_create_user_from_steam(
+    *, session: AsyncSession, steamid64: int | str
+) -> User:
     steamid64_int = int(steamid64)
-    create_or_update_player_from_steam(session=session, steamid64=steamid64_int)
+    await create_or_update_player_from_steam(session=session, steamid64=steamid64_int)
 
-    db_user = get_user_by_steamid64(session=session, steamid64=steamid64_int)
+    db_user = await get_user_by_steamid64(session=session, steamid64=steamid64_int)
     should_be_superuser = steamid64_int == settings.SUPER_USER_STEAMID64
 
     if not db_user:
@@ -48,21 +55,21 @@ def get_or_create_user_from_steam(*, session: Session, steamid64: int | str) -> 
             is_active=True,
         )
         session.add(db_user)
-        session.commit()
-        session.refresh(db_user)
+        await session.commit()
+        await session.refresh(db_user)
         return db_user
 
     if db_user.is_superuser != should_be_superuser:
         db_user.is_superuser = should_be_superuser
         session.add(db_user)
-        session.commit()
-        session.refresh(db_user)
+        await session.commit()
+        await session.refresh(db_user)
 
     return db_user
 
 
-def to_user_public(*, session: Session, user: User) -> UserPublic:
-    player = get_player_by_steamid64(session=session, steamid64=user.steamid64)
+async def to_user_public(*, session: AsyncSession, user: User) -> UserPublic:
+    player = await get_player_by_steamid64(session=session, steamid64=user.steamid64)
     player_public = None
     if player:
         player_public = PlayerPublic(
