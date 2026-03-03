@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import jwt
@@ -6,23 +6,23 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core import security
 from app.core.config import settings
-from app.core.db import engine
+from app.core.db import async_session_maker
 from app.models import TokenPayload, User
 
 security_scheme = HTTPBearer()
 
 
-def get_db() -> Generator[Session]:
-    with Session(engine) as session:
+async def get_db() -> AsyncGenerator[AsyncSession]:
+    async with async_session_maker() as session:
         yield session
 
 
-SessionDep = Annotated[Session, Depends(get_db)]
+SessionDep = Annotated[AsyncSession, Depends(get_db)]
 
 
 def get_token(
@@ -34,7 +34,7 @@ def get_token(
 TokenDep = Annotated[str, Depends(get_token)]
 
 
-def get_current_user(session: SessionDep, token: TokenDep) -> User:
+async def get_current_user(session: SessionDep, token: TokenDep) -> User:
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
@@ -59,7 +59,7 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             detail="Could not validate credentials",
         )
 
-    user = crud.get_user_by_steamid64(session=session, steamid64=steamid64)
+    user = await crud.get_user_by_steamid64(session=session, steamid64=steamid64)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if not user.is_active:

@@ -1,5 +1,7 @@
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+import pytest
+from httpx import AsyncClient
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
@@ -8,11 +10,12 @@ from tests.utils.user import create_random_user, user_authentication_headers
 from tests.utils.utils import random_steamid64
 
 
-def test_get_users_superuser_me(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_get_users_superuser_me(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/me", headers=superuser_token_headers
     )
 
@@ -25,11 +28,12 @@ def test_get_users_superuser_me(
     assert current_user["player"] is not None
 
 
-def test_get_users_normal_user_me(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_get_users_normal_user_me(
+    client: AsyncClient,
     normal_user_token_headers: dict[str, str],
 ) -> None:
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/me",
         headers=normal_user_token_headers,
     )
@@ -42,16 +46,18 @@ def test_get_users_normal_user_me(
     assert current_user["last_visited_at"] is not None
 
 
-def test_retrieve_users_as_superuser(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_retrieve_users_as_superuser(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
+    db: AsyncSession,
 ) -> None:
-    crud.get_or_create_user_from_steam(session=db, steamid64=random_steamid64())
-    crud.get_or_create_user_from_steam(session=db, steamid64=random_steamid64())
+    await crud.get_or_create_user_from_steam(session=db, steamid64=random_steamid64())
+    await crud.get_or_create_user_from_steam(session=db, steamid64=random_steamid64())
 
-    response = client.get(
-        f"{settings.API_V1_STR}/users/", headers=superuser_token_headers
+    response = await client.get(
+        f"{settings.API_V1_STR}/users/",
+        headers=superuser_token_headers,
     )
 
     assert response.status_code == 200
@@ -62,11 +68,12 @@ def test_retrieve_users_as_superuser(
         assert "steamid64" in user
 
 
-def test_retrieve_users_without_privileges(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_retrieve_users_without_privileges(
+    client: AsyncClient,
     normal_user_token_headers: dict[str, str],
 ) -> None:
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/",
         headers=normal_user_token_headers,
     )
@@ -74,14 +81,15 @@ def test_retrieve_users_without_privileges(
     assert response.status_code == 403
 
 
-def test_get_existing_user_as_superuser(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_get_existing_user_as_superuser(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
+    db: AsyncSession,
 ) -> None:
-    user = create_random_user(db)
+    user = await create_random_user(db)
 
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/{user.steamid64}",
         headers=superuser_token_headers,
     )
@@ -91,12 +99,13 @@ def test_get_existing_user_as_superuser(
     assert api_user["steamid64"] == str(user.steamid64)
 
 
-def test_get_non_existing_user_as_superuser(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_get_non_existing_user_as_superuser(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
     missing_steamid64 = random_steamid64()
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/{missing_steamid64}",
         headers=superuser_token_headers,
     )
@@ -105,12 +114,15 @@ def test_get_non_existing_user_as_superuser(
     assert response.json() == {"detail": "User not found"}
 
 
-def test_get_existing_user_current_user(client: TestClient, db: Session) -> None:
+@pytest.mark.asyncio
+async def test_get_existing_user_current_user(
+    client: AsyncClient, db: AsyncSession
+) -> None:
     steamid64 = random_steamid64()
-    user = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
-    headers = user_authentication_headers(client=client, steamid64=steamid64)
+    user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    headers = await user_authentication_headers(client=client, steamid64=steamid64)
 
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/{user.steamid64}",
         headers=headers,
     )
@@ -120,14 +132,15 @@ def test_get_existing_user_current_user(client: TestClient, db: Session) -> None
     assert api_user["steamid64"] == str(steamid64)
 
 
-def test_get_existing_user_permissions_error(
-    db: Session,
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_get_existing_user_permissions_error(
+    db: AsyncSession,
+    client: AsyncClient,
     normal_user_token_headers: dict[str, str],
 ) -> None:
-    other_user = create_random_user(db)
+    other_user = await create_random_user(db)
 
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/{other_user.steamid64}",
         headers=normal_user_token_headers,
     )
@@ -136,13 +149,14 @@ def test_get_existing_user_permissions_error(
     assert response.json() == {"detail": "The user doesn't have enough privileges"}
 
 
-def test_get_non_existing_user_permissions_error(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_get_non_existing_user_permissions_error(
+    client: AsyncClient,
     normal_user_token_headers: dict[str, str],
 ) -> None:
     user_id = random_steamid64()
 
-    response = client.get(
+    response = await client.get(
         f"{settings.API_V1_STR}/users/{user_id}",
         headers=normal_user_token_headers,
     )
@@ -151,15 +165,17 @@ def test_get_non_existing_user_permissions_error(
     assert response.json() == {"detail": "The user doesn't have enough privileges"}
 
 
-def test_update_user(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_update_user(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
+    db: AsyncSession,
 ) -> None:
-    user = create_random_user(db)
+    user = await create_random_user(db)
+    steamid64 = user.steamid64
 
-    response = client.patch(
-        f"{settings.API_V1_STR}/users/{user.steamid64}",
+    response = await client.patch(
+        f"{settings.API_V1_STR}/users/{steamid64}",
         headers=superuser_token_headers,
         json={"is_superuser": True, "is_active": False},
     )
@@ -170,18 +186,19 @@ def test_update_user(
     assert updated_user["is_active"] is False
 
     db.expire_all()
-    refreshed = db.get(User, user.steamid64)
+    refreshed = (await db.exec(select(User).where(User.steamid64 == steamid64))).first()
     assert refreshed is not None
     assert refreshed.is_superuser is True
     assert refreshed.is_active is False
 
 
-def test_update_user_not_exists(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_update_user_not_exists(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
     missing_steamid64 = random_steamid64()
-    response = client.patch(
+    response = await client.patch(
         f"{settings.API_V1_STR}/users/{missing_steamid64}",
         headers=superuser_token_headers,
         json={"is_active": True},
@@ -194,12 +211,13 @@ def test_update_user_not_exists(
     )
 
 
-def test_delete_user_me(client: TestClient, db: Session) -> None:
+@pytest.mark.asyncio
+async def test_delete_user_me(client: AsyncClient, db: AsyncSession) -> None:
     steamid64 = random_steamid64()
-    user = crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
-    headers = user_authentication_headers(client=client, steamid64=steamid64)
+    user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    headers = await user_authentication_headers(client=client, steamid64=steamid64)
 
-    response = client.delete(
+    response = await client.delete(
         f"{settings.API_V1_STR}/users/me",
         headers=headers,
     )
@@ -207,15 +225,18 @@ def test_delete_user_me(client: TestClient, db: Session) -> None:
     assert response.status_code == 200
     assert response.json()["message"] == "User deleted successfully"
 
-    result = db.exec(select(User).where(User.steamid64 == user.steamid64)).first()
+    result = (
+        await db.exec(select(User).where(User.steamid64 == user.steamid64))
+    ).first()
     assert result is None
 
 
-def test_delete_user_me_as_superuser(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_delete_user_me_as_superuser(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
-    response = client.delete(
+    response = await client.delete(
         f"{settings.API_V1_STR}/users/me",
         headers=superuser_token_headers,
     )
@@ -226,14 +247,15 @@ def test_delete_user_me_as_superuser(
     )
 
 
-def test_delete_user_super_user(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_delete_user_super_user(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
+    db: AsyncSession,
 ) -> None:
-    user = create_random_user(db)
+    user = await create_random_user(db)
 
-    response = client.delete(
+    response = await client.delete(
         f"{settings.API_V1_STR}/users/{user.steamid64}",
         headers=superuser_token_headers,
     )
@@ -241,16 +263,19 @@ def test_delete_user_super_user(
     assert response.status_code == 200
     assert response.json()["message"] == "User deleted successfully"
 
-    result = db.exec(select(User).where(User.steamid64 == user.steamid64)).first()
+    result = (
+        await db.exec(select(User).where(User.steamid64 == user.steamid64))
+    ).first()
     assert result is None
 
 
-def test_delete_user_not_found(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_delete_user_not_found(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
     missing_steamid64 = random_steamid64()
-    response = client.delete(
+    response = await client.delete(
         f"{settings.API_V1_STR}/users/{missing_steamid64}",
         headers=superuser_token_headers,
     )
@@ -259,17 +284,20 @@ def test_delete_user_not_found(
     assert response.json()["detail"] == "User not found"
 
 
-def test_delete_user_current_super_user_error(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_delete_user_current_super_user_error(
+    client: AsyncClient,
     superuser_token_headers: dict[str, str],
-    db: Session,
+    db: AsyncSession,
 ) -> None:
-    super_user = db.exec(
-        select(User).where(User.steamid64 == settings.SUPER_USER_STEAMID64)
+    super_user = (
+        await db.exec(
+            select(User).where(User.steamid64 == settings.SUPER_USER_STEAMID64)
+        )
     ).first()
     assert super_user is not None
 
-    response = client.delete(
+    response = await client.delete(
         f"{settings.API_V1_STR}/users/{super_user.steamid64}",
         headers=superuser_token_headers,
     )
@@ -280,14 +308,15 @@ def test_delete_user_current_super_user_error(
     )
 
 
-def test_delete_user_without_privileges(
-    client: TestClient,
+@pytest.mark.asyncio
+async def test_delete_user_without_privileges(
+    client: AsyncClient,
     normal_user_token_headers: dict[str, str],
-    db: Session,
+    db: AsyncSession,
 ) -> None:
-    other_user = create_random_user(db)
+    other_user = await create_random_user(db)
 
-    response = client.delete(
+    response = await client.delete(
         f"{settings.API_V1_STR}/users/{other_user.steamid64}",
         headers=normal_user_token_headers,
     )
