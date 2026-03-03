@@ -1,4 +1,4 @@
-import { Briefcase, Home, Users } from "lucide-react"
+import { Briefcase, Home, User as UserIcon, Users } from "lucide-react"
 
 import { SidebarAppearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
@@ -22,7 +22,11 @@ export function AppSidebar() {
 
   const items = currentUser
     ? currentUser.is_superuser
-      ? [...baseItems, { icon: Users, title: "Admin", path: "/admin" }]
+      ? [
+          ...baseItems,
+          { icon: Users, title: "Admin Users", path: "/admin/users" },
+          { icon: UserIcon, title: "Admin Players", path: "/admin/players" },
+        ]
       : baseItems
     : []
 

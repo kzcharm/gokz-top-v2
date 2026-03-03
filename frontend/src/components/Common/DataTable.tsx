@@ -1,8 +1,12 @@
 import {
   type ColumnDef,
   flexRender,
+  functionalUpdate,
   getCoreRowModel,
   getPaginationRowModel,
+  type OnChangeFn,
+  type PaginationState,
+  type SortingState,
   useReactTable,
 } from "@tanstack/react-table"
 import {
@@ -32,18 +36,80 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  serverPagination?: {
+    pageIndex: number
+    pageSize: number
+    totalCount: number
+    onPageChange: (pageIndex: number) => void
+    onPageSizeChange: (pageSize: number) => void
+  }
+  sorting?: {
+    state: SortingState
+    onSortingChange: OnChangeFn<SortingState>
+    manualSorting?: boolean
+  }
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  serverPagination,
+  sorting,
 }: DataTableProps<TData, TValue>) {
+  const paginationState = serverPagination
+    ? {
+        pageIndex: serverPagination.pageIndex,
+        pageSize: serverPagination.pageSize,
+      }
+    : undefined
+
+  const handlePaginationChange: OnChangeFn<PaginationState> | undefined =
+    serverPagination
+      ? (updater) => {
+          const current: PaginationState = {
+            pageIndex: serverPagination.pageIndex,
+            pageSize: serverPagination.pageSize,
+          }
+          const next = functionalUpdate(updater, current)
+
+          if (next.pageSize !== current.pageSize) {
+            serverPagination.onPageSizeChange(next.pageSize)
+          }
+
+          if (next.pageIndex !== current.pageIndex) {
+            serverPagination.onPageChange(next.pageIndex)
+          }
+        }
+      : undefined
+
   const table = useReactTable({
     data,
     columns,
+    state: {
+      ...(paginationState ? { pagination: paginationState } : {}),
+      ...(sorting ? { sorting: sorting.state } : {}),
+    },
+    onPaginationChange: handlePaginationChange,
+    onSortingChange: sorting?.onSortingChange,
+    manualPagination: Boolean(serverPagination),
+    manualSorting: sorting?.manualSorting ?? false,
+    pageCount: serverPagination
+      ? Math.max(
+          1,
+          Math.ceil(serverPagination.totalCount / serverPagination.pageSize),
+        )
+      : undefined,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   })
+
+  const totalCount = serverPagination
+    ? serverPagination.totalCount
+    : data.length
+  const pageIndex = table.getState().pagination.pageIndex
+  const pageSize = table.getState().pagination.pageSize
+  const startRow = totalCount === 0 ? 0 : pageIndex * pageSize + 1
+  const endRow = Math.min((pageIndex + 1) * pageSize, totalCount)
 
   return (
     <div className="flex flex-col gap-4">
@@ -94,18 +160,8 @@ export function DataTable<TData, TValue>({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-t bg-muted/20">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="text-sm text-muted-foreground">
-              Showing{" "}
-              {table.getState().pagination.pageIndex *
-                table.getState().pagination.pageSize +
-                1}{" "}
-              to{" "}
-              {Math.min(
-                (table.getState().pagination.pageIndex + 1) *
-                  table.getState().pagination.pageSize,
-                data.length,
-              )}{" "}
-              of{" "}
-              <span className="font-medium text-foreground">{data.length}</span>{" "}
+              Showing {startRow} to {endRow} of{" "}
+              <span className="font-medium text-foreground">{totalCount}</span>{" "}
               entries
             </div>
             <div className="flex items-center gap-x-2">
@@ -114,6 +170,7 @@ export function DataTable<TData, TValue>({
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => {
                   table.setPageSize(Number(value))
+                  table.setPageIndex(0)
                 }}
               >
                 <SelectTrigger className="h-8 w-[70px]">
@@ -122,7 +179,7 @@ export function DataTable<TData, TValue>({
                   />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[5, 10, 25, 50].map((pageSize) => (
+                  {[10, 20, 50, 100].map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                       {pageSize}
                     </SelectItem>

@@ -1,6 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table"
 
 import type { UserPublic } from "@/client"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { UserActionsMenu } from "./UserActionsMenu"
@@ -13,23 +14,19 @@ export const columns: ColumnDef<UserTableData>[] = [
   {
     accessorKey: "player.name",
     header: "Player",
-    cell: ({ row }) => {
-      const playerName = row.original.player?.name
-      return (
-        <div className="flex items-center gap-2">
-          <span
-            className={cn("font-medium", !playerName && "text-muted-foreground")}
-          >
-            {playerName || "N/A"}
-          </span>
-          {row.original.isCurrentUser && (
-            <Badge variant="outline" className="text-xs">
-              You
-            </Badge>
-          )}
-        </div>
-      )
-    },
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <PlayerDisplay
+          player={row.original.player}
+          fallbackSteamid64={row.original.steamid64}
+        />
+        {row.original.isCurrentUser && (
+          <Badge variant="outline" className="text-xs">
+            You
+          </Badge>
+        )}
+      </div>
+    ),
   },
   {
     accessorKey: "steamid64",

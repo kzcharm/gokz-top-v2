@@ -251,6 +251,97 @@ export const PlayerPublicSchema = {
     title: 'PlayerPublic'
 } as const;
 
+export const PlayerUpdateSchema = {
+    properties: {
+        alias: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alias'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        }
+    },
+    type: 'object',
+    title: 'PlayerUpdate'
+} as const;
+
+export const PlayersBatchPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                anyOf: [
+                    {
+                        '$ref': '#/components/schemas/PlayerPublic'
+                    },
+                    {
+                        type: 'null'
+                    }
+                ]
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayersBatchPublic'
+} as const;
+
+export const PlayersBatchReadSchema = {
+    properties: {
+        steamid64s: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Steamid64S'
+        }
+    },
+    type: 'object',
+    required: ['steamid64s'],
+    title: 'PlayersBatchRead'
+} as const;
+
+export const PlayersPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayersPublic'
+} as const;
+
 export const PrivateAuthSessionCreateSchema = {
     properties: {
         steamid64: {

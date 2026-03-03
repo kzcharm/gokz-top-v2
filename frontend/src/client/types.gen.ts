@@ -43,6 +43,25 @@ export type PlayerPublic = {
     steamid64: string;
 };
 
+export type PlayersBatchPublic = {
+    data: Array<(PlayerPublic | null)>;
+    count: number;
+};
+
+export type PlayersBatchRead = {
+    steamid64s: Array<(string)>;
+};
+
+export type PlayersPublic = {
+    data: Array<PlayerPublic>;
+    count: number;
+};
+
+export type PlayerUpdate = {
+    alias?: (string | null);
+    country?: (string | null);
+};
+
 export type PrivateAuthSessionCreate = {
     steamid64: number;
     is_superuser?: boolean;
@@ -121,6 +140,34 @@ export type LoginLoginSteamResponse = (unknown);
 export type LoginSteamCallbackResponse = (unknown);
 
 export type LoginTestTokenResponse = (UserPublic);
+
+export type PlayersReadPlayersData = {
+    limit?: number;
+    offset?: number;
+    sortBy?: 'created_at' | 'last_played_at';
+    sortOrder?: 'asc' | 'desc';
+};
+
+export type PlayersReadPlayersResponse = (PlayersPublic);
+
+export type PlayersReadPlayersBatchData = {
+    requestBody: PlayersBatchRead;
+};
+
+export type PlayersReadPlayersBatchResponse = (PlayersBatchPublic);
+
+export type PlayersUpsertPlayerFromSteamData = {
+    steamid64: string;
+};
+
+export type PlayersUpsertPlayerFromSteamResponse = (PlayerPublic);
+
+export type PlayersUpdatePlayerData = {
+    requestBody: PlayerUpdate;
+    steamid64: string;
+};
+
+export type PlayersUpdatePlayerResponse = (PlayerPublic);
 
 export type PrivateCreateAuthSessionData = {
     requestBody: PrivateAuthSessionCreate;

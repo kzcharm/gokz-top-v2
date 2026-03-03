@@ -13,13 +13,23 @@ from app import crud
 from app.api import deps
 from app.api.routes import items as items_routes
 from app.api.routes import login as login_routes
+from app.api.routes import players as players_routes
 from app.api.routes import private as private_routes
 from app.api.routes import users as users_routes
 from app.api.routes import utils as utils_routes
 from app.api.routes.private import PrivateAuthSessionCreate
 from app.core import security
 from app.core.config import settings
-from app.models import ItemCreate, ItemUpdate, User, UserUpdate
+from app.models import (
+    ItemCreate,
+    ItemUpdate,
+    Player,
+    PlayersBatchRead,
+    PlayersListQuery,
+    PlayerUpdate,
+    User,
+    UserUpdate,
+)
 from tests.utils.utils import random_steamid64
 
 
@@ -229,6 +239,75 @@ async def test_users_routes_direct_branches(db: AsyncSession) -> None:
         current_user=normal_to_delete,
     )
     assert deleted_me.message == "User deleted successfully"
+
+
+@pytest.mark.asyncio
+async def test_players_routes_direct_branches(db: AsyncSession) -> None:
+    future_time = datetime.now(UTC) + timedelta(days=2)
+    existing = Player(
+        steamid64=random_steamid64(),
+        name="Existing Player",
+        created_at=future_time,
+        updated_at=future_time,
+    )
+    db.add(existing)
+    await db.commit()
+    await db.refresh(existing)
+
+    listing = await players_routes.read_players(
+        session=db,
+        query=PlayersListQuery(offset=0, limit=10),
+    )
+    assert listing.count >= 1
+    assert any(player.steamid64 == str(existing.steamid64) for player in listing.data)
+
+    batch = await players_routes.read_players_batch(
+        session=db,
+        body=PlayersBatchRead(
+            steamid64s=[
+                str(existing.steamid64),
+                str(random_steamid64()),
+                str(existing.steamid64),
+            ]
+        ),
+    )
+    assert batch.count == 3
+    assert batch.data[0] is not None
+    assert batch.data[1] is None
+    assert batch.data[2] is not None
+
+    updated = await players_routes.update_player(
+        session=db,
+        steamid64=str(existing.steamid64),
+        player_in=PlayerUpdate(alias="Alias", country="DE"),
+    )
+    assert updated.alias == "Alias"
+    assert updated.country == "DE"
+
+    with pytest.raises(HTTPException, match="Player not found"):
+        await players_routes.update_player(
+            session=db,
+            steamid64=str(random_steamid64()),
+            player_in=PlayerUpdate(alias="Missing"),
+        )
+
+    with pytest.raises(HTTPException, match="Invalid steamid64"):
+        await players_routes.update_player(
+            session=db,
+            steamid64="not-a-number",
+            player_in=PlayerUpdate(alias="Invalid"),
+        )
+
+    mocked_upsert = Player(steamid64=random_steamid64(), name="Upserted Player")
+    with patch(
+        "app.api.routes.players.crud.create_or_update_player_from_steam",
+        new=AsyncMock(return_value=mocked_upsert),
+    ):
+        upserted = await players_routes.upsert_player_from_steam(
+            session=db,
+            steamid64=str(mocked_upsert.steamid64),
+        )
+    assert upserted.steamid64 == str(mocked_upsert.steamid64)
 
 
 @pytest.mark.asyncio

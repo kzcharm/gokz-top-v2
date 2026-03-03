@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import BigInteger, DateTime
 from sqlmodel import Field, SQLModel
@@ -37,3 +38,24 @@ class PlayerPublic(PlayerBase):
 class PlayersPublic(SQLModel):
     data: list[PlayerPublic]
     count: int
+
+
+class PlayersListQuery(SQLModel):
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=100)
+    sort_by: Literal["created_at", "last_played_at"] = "created_at"
+    sort_order: Literal["asc", "desc"] = "desc"
+
+
+class PlayersBatchRead(SQLModel):
+    steamid64s: list[str]
+
+
+class PlayersBatchPublic(SQLModel):
+    data: list[PlayerPublic | None]
+    count: int
+
+
+class PlayerUpdate(SQLModel):
+    alias: str | None = Field(default=None, max_length=25)
+    country: str | None = Field(default=None, max_length=2)

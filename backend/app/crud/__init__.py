@@ -5,6 +5,10 @@ from .player import (
     _fetch_player_from_steam_api,
     create_or_update_player_from_steam,
     get_player_by_steamid64,
+    read_players,
+    read_players_batch,
+    to_player_public,
+    update_player,
 )
 from .user import (
     create_user,
@@ -24,6 +28,10 @@ __all__ = [
     "get_or_create_user_from_steam",
     "get_player_by_steamid64",
     "get_user_by_steamid64",
+    "read_players",
+    "read_players_batch",
+    "to_player_public",
     "to_user_public",
+    "update_player",
     "update_user",
 ]
