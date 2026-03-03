@@ -5,12 +5,27 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
+FRONTEND_DIR="$ROOT_DIR/frontend"
+
+if [[ ! -d "$FRONTEND_DIR" ]]; then
+  echo "Error: frontend directory not found at $FRONTEND_DIR"
+  exit 1
+fi
 
 if command -v bun >/dev/null 2>&1; then
+  # Root package.json already maps dev -> frontend workspace.
   bun run dev
 elif command -v npm >/dev/null 2>&1; then
-  cd frontend
-  npm run dev
+  if [[ ! -x "$ROOT_DIR/node_modules/.bin/vite" && ! -x "$FRONTEND_DIR/node_modules/.bin/vite" ]]; then
+    cat <<EOF
+Error: frontend dependencies are not installed.
+Run one of:
+  npm install --workspace frontend
+  (or) bun install
+EOF
+    exit 1
+  fi
+  npm run dev --workspace frontend
 else
   echo "Error: neither bun nor npm is installed."
   exit 1
