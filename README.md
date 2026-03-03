@@ -127,8 +127,9 @@ You can then update configs in the `.env` files to customize your configurations
 Before deploying it, make sure you change at least the values for:
 
 - `SECRET_KEY`
-- `FIRST_SUPERUSER_PASSWORD`
 - `POSTGRES_PASSWORD`
+- `SUPER_USER_STEAMID64`
+- `STEAM_API_KEY`
 
 You can (and should) pass these as environment variables from secrets.
 

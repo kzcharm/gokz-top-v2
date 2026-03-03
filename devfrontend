@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Exit in case of error
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+if command -v bun >/dev/null 2>&1; then
+  bun run dev
+elif command -v npm >/dev/null 2>&1; then
+  cd frontend
+  npm run dev
+else
+  echo "Error: neither bun nor npm is installed."
+  exit 1
+fi
