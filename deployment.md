@@ -161,12 +161,6 @@ export SECRET_KEY="changethis"
 
 Note: you can use the Python command above to generate a secure secret key.
 
-Set the `FIRST_SUPER_USER_PASSWORD` to something different than `changethis`:
-
-```bash
-export FIRST_SUPERUSER_PASSWORD="changethis"
-```
-
 Set the `BACKEND_CORS_ORIGINS` to include your domain:
 
 ```bash
@@ -178,7 +172,8 @@ You can set several other environment variables:
 * `PROJECT_NAME`: The name of the project, used in the API for the docs and emails.
 * `STACK_NAME`: The name of the stack used for Docker Compose labels and project name, this should be different for `staging`, `production`, etc. You could use the same domain replacing dots with dashes, e.g. `fastapi-project-example-com` and `staging-fastapi-project-example-com`.
 * `BACKEND_CORS_ORIGINS`: A list of allowed CORS origins separated by commas.
-* `FIRST_SUPERUSER`: The email of the first superuser, this superuser will be the one that can create new users.
+* `SUPER_USER_STEAMID64`: SteamID64 for the bootstrap admin account.
+* `STEAM_API_KEY`: Steam Web API key used by the backend Steam auth flow.
 * `SMTP_HOST`: The SMTP server host to send emails, this would come from your email provider (E.g. Mailgun, Sparkpost, Sendgrid, etc).
 * `SMTP_USER`: The SMTP server user to send emails.
 * `SMTP_PASSWORD`: The SMTP server password to send emails.
@@ -299,8 +294,8 @@ The current Github Actions workflows expect these secrets:
 * `STACK_NAME_PRODUCTION`
 * `STACK_NAME_STAGING`
 * `EMAILS_FROM_EMAIL`
-* `FIRST_SUPERUSER`
-* `FIRST_SUPERUSER_PASSWORD`
+* `SUPER_USER_STEAMID64`
+* `STEAM_API_KEY`
 * `POSTGRES_PASSWORD`
 * `SECRET_KEY`
 * `LATEST_CHANGES`

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+# Exit in case of error
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Error: docker is required to run the local database."
+  exit 1
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Error: docker daemon is not running. Start Docker and retry."
+  exit 1
+fi
+
+LOCAL_DB_CONTAINER_ID="$(docker compose ps -q db 2>/dev/null || true)"
+
+while IFS= read -r CONTAINER_ID; do
+  [[ -z "$CONTAINER_ID" ]] && continue
+  if [[ -n "$LOCAL_DB_CONTAINER_ID" && "$CONTAINER_ID" == "$LOCAL_DB_CONTAINER_ID" ]]; then
+    continue
+  fi
+
+  CONTAINER_NAME="$(docker inspect --format '{{.Name}}' "$CONTAINER_ID" | sed 's#^/##')"
+  echo "Stopping container on port 5432: $CONTAINER_NAME"
+  docker stop --time 20 "$CONTAINER_ID" >/dev/null
+done < <(docker ps -q --filter "publish=5432")
+
+echo "Starting local db service..."
+docker compose up -d db >/dev/null
+
+LOCAL_DB_CONTAINER_ID="$(docker compose ps -q db 2>/dev/null || true)"
+if [[ -z "$LOCAL_DB_CONTAINER_ID" ]]; then
+  echo "Error: failed to start local db container."
+  exit 1
+fi
+
+echo "Waiting for local db to become healthy..."
+for _ in {1..30}; do
+  DB_STATUS="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$LOCAL_DB_CONTAINER_ID")"
+  if [[ "$DB_STATUS" == "healthy" || "$DB_STATUS" == "running" ]]; then
+    echo "Local db is ready."
+    break
+  fi
+  sleep 2
+done
+
+DB_STATUS="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$LOCAL_DB_CONTAINER_ID")"
+if [[ "$DB_STATUS" != "healthy" && "$DB_STATUS" != "running" ]]; then
+  echo "Error: local db did not become ready (status: $DB_STATUS)."
+  docker compose logs --tail=30 db || true
+  exit 1
+fi
+
+cd backend
+uv run fastapi dev app/main.py
