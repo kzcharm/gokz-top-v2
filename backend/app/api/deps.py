@@ -17,7 +17,7 @@ from app.models import TokenPayload, User
 security_scheme = HTTPBearer()
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     with Session(engine) as session:
         yield session
 
