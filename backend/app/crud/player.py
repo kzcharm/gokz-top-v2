@@ -2,11 +2,11 @@ import re
 from datetime import UTC, datetime
 
 import httpx
-from sqlmodel import select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Player
+from app.models import Player, PlayerPublic, PlayerUpdate
 
 
 def _extract_custom_id(profile_url: str | None) -> str | None:
@@ -89,6 +89,46 @@ async def get_player_by_steamid64(
     return (await session.exec(statement)).first()
 
 
+async def read_players(
+    *,
+    session: AsyncSession,
+    offset: int = 0,
+    limit: int = 20,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+) -> tuple[list[Player], int]:
+    count_statement = select(func.count()).select_from(Player)
+    count = (await session.exec(count_statement)).one()
+
+    sort_column = col(Player.created_at)
+    if sort_by == "last_played_at":
+        sort_column = col(Player.last_played_at)
+
+    sort_direction = (
+        sort_column.asc() if sort_order == "asc" else sort_column.desc()
+    )
+    statement = (
+        select(Player)
+        .order_by(sort_direction.nullslast(), col(Player.steamid64).desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    players = list((await session.exec(statement)).all())
+    return players, count
+
+
+async def read_players_batch(
+    *, session: AsyncSession, steamid64s: list[int]
+) -> list[Player | None]:
+    if not steamid64s:
+        return []
+
+    statement = select(Player).where(col(Player.steamid64).in_(steamid64s))
+    players = list((await session.exec(statement)).all())
+    players_by_steamid64 = {player.steamid64: player for player in players}
+    return [players_by_steamid64.get(steamid64) for steamid64 in steamid64s]
+
+
 async def create_or_update_player_from_steam(
     *, session: AsyncSession, steamid64: int
 ) -> Player:
@@ -120,3 +160,29 @@ async def create_or_update_player_from_steam(
     await session.commit()
     await session.refresh(player)
     return player
+
+
+async def update_player(
+    *, session: AsyncSession, db_player: Player, player_in: PlayerUpdate
+) -> Player:
+    player_data = player_in.model_dump(exclude_unset=True)
+    db_player.sqlmodel_update(player_data)
+    db_player.updated_at = datetime.now(UTC)
+    session.add(db_player)
+    await session.commit()
+    await session.refresh(db_player)
+    return db_player
+
+
+def to_player_public(*, player: Player) -> PlayerPublic:
+    return PlayerPublic(
+        steamid64=str(player.steamid64),
+        name=player.name,
+        alias=player.alias,
+        custom_id=player.custom_id,
+        avatar_hash=player.avatar_hash,
+        country=player.country,
+        created_at=player.created_at,
+        last_played_at=player.last_played_at,
+        updated_at=player.updated_at,
+    )

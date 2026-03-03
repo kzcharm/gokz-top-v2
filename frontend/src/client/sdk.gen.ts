@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class ItemsService {
     /**
@@ -156,6 +156,100 @@ export class LoginService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/login/test-token'
+        });
+    }
+}
+
+export class PlayersService {
+    /**
+     * Read Players
+     * Retrieve players.
+     * @param data The data for the request.
+     * @param data.offset
+     * @param data.limit
+     * @param data.sortBy
+     * @param data.sortOrder
+     * @returns PlayersPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayers(data: PlayersReadPlayersData = {}): CancelablePromise<PlayersReadPlayersResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/players/',
+            query: {
+                offset: data.offset,
+                limit: data.limit,
+                sort_by: data.sortBy,
+                sort_order: data.sortOrder
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Players Batch
+     * Retrieve players by steamid64 list.
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns PlayersBatchPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayersBatch(data: PlayersReadPlayersBatchData): CancelablePromise<PlayersReadPlayersBatchResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/players/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upsert Player From Steam
+     * Create or update player from Steam API.
+     * @param data The data for the request.
+     * @param data.steamid64
+     * @returns PlayerPublic Successful Response
+     * @throws ApiError
+     */
+    public static upsertPlayerFromSteam(data: PlayersUpsertPlayerFromSteamData): CancelablePromise<PlayersUpsertPlayerFromSteamResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/v1/players/{steamid64}/steam',
+            path: {
+                steamid64: data.steamid64
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Player
+     * Update player profile data.
+     * @param data The data for the request.
+     * @param data.steamid64
+     * @param data.requestBody
+     * @returns PlayerPublic Successful Response
+     * @throws ApiError
+     */
+    public static updatePlayer(data: PlayersUpdatePlayerData): CancelablePromise<PlayersUpdatePlayerResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/v1/players/{steamid64}',
+            path: {
+                steamid64: data.steamid64
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
 }
