@@ -11,8 +11,10 @@ from starlette.requests import Request
 
 from app import crud
 from app.api import deps
+from app.api.routes import admin_modes as admin_modes_routes
 from app.api.routes import items as items_routes
 from app.api.routes import login as login_routes
+from app.api.routes import modes as modes_routes
 from app.api.routes import players as players_routes
 from app.api.routes import private as private_routes
 from app.api.routes import users as users_routes
@@ -23,6 +25,7 @@ from app.core.config import settings
 from app.models import (
     ItemCreate,
     ItemUpdate,
+    ModeAdminUpdate,
     Player,
     PlayersBatchRead,
     PlayersListQuery,
@@ -308,6 +311,48 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
             steamid64=str(mocked_upsert.steamid64),
         )
     assert upserted.steamid64 == str(mocked_upsert.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_modes_routes_direct_branches(db: AsyncSession) -> None:
+    modes = await modes_routes.read_modes(session=db)
+    assert len(modes) >= 4
+
+    by_id = await modes_routes.read_mode_by_id(session=db, id=200)
+    by_name = await modes_routes.read_mode_by_name(session=db, mode_name="kz_timer")
+    assert by_id.id == 200
+    assert by_name.name == "kz_timer"
+
+    with pytest.raises(HTTPException, match="Mode not found"):
+        await modes_routes.read_mode_by_id(session=db, id=9999)
+
+    with pytest.raises(HTTPException, match="Mode not found"):
+        await modes_routes.read_mode_by_name(session=db, mode_name="missing_mode")
+
+    superuser = await _create_user(db, superuser=True)
+    updated = await admin_modes_routes.update_mode(
+        session=db,
+        id=200,
+        mode_in=ModeAdminUpdate(description="Direct route mode update"),
+        current_user=superuser,
+    )
+    assert updated.description == "Direct route mode update"
+
+    with pytest.raises(HTTPException, match="Invalid steamid64"):
+        await admin_modes_routes.update_mode(
+            session=db,
+            id=200,
+            mode_in=ModeAdminUpdate(contact_steamid64="not-a-number"),
+            current_user=superuser,
+        )
+
+    with pytest.raises(HTTPException, match="Mode not found"):
+        await admin_modes_routes.update_mode(
+            session=db,
+            id=9999,
+            mode_in=ModeAdminUpdate(description="No mode"),
+            current_user=superuser,
+        )
 
 
 @pytest.mark.asyncio

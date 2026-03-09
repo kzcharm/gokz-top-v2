@@ -1,4 +1,13 @@
 from .item import create_item
+from .mode import (
+    get_mode_by_id,
+    get_mode_by_name,
+    read_modes,
+    sync_canonical_modes,
+    sync_canonical_modes_sync,
+    to_mode_public,
+    update_mode_metadata,
+)
 from .player import (
     _extract_avatar_hash_from_url,
     _extract_custom_id,
@@ -25,13 +34,20 @@ __all__ = [
     "create_item",
     "create_or_update_player_from_steam",
     "create_user",
+    "get_mode_by_id",
+    "get_mode_by_name",
     "get_or_create_user_from_steam",
     "get_player_by_steamid64",
     "get_user_by_steamid64",
+    "read_modes",
     "read_players",
     "read_players_batch",
+    "sync_canonical_modes",
+    "sync_canonical_modes_sync",
+    "to_mode_public",
     "to_player_public",
     "to_user_public",
+    "update_mode_metadata",
     "update_player",
     "update_user",
 ]

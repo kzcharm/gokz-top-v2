@@ -31,6 +31,8 @@ def init_db(session: Session) -> None:
     # This works because the models are already imported and registered from app.models
     # SQLModel.metadata.create_all(engine)
 
+    crud.sync_canonical_modes_sync(session=session)
+
     statement = select(User).where(User.steamid64 == settings.SUPER_USER_STEAMID64)
     if session.exec(statement).first():
         return
@@ -46,6 +48,7 @@ def init_db(session: Session) -> None:
 
 
 async def init_db_async(session: AsyncSession) -> None:
+    await crud.sync_canonical_modes(session=session)
     await crud.get_or_create_user_from_steam(
         session=session,
         steamid64=settings.SUPER_USER_STEAMID64,

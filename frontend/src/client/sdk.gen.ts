@@ -3,7 +3,33 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+
+export class AdminModesService {
+    /**
+     * Update Mode
+     * Update mode metadata.
+     * @param data The data for the request.
+     * @param data.id
+     * @param data.requestBody
+     * @returns ModePublic Successful Response
+     * @throws ApiError
+     */
+    public static updateMode(data: AdminModesUpdateModeData): CancelablePromise<AdminModesUpdateModeResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/v1/admin/modes/{id}',
+            path: {
+                id: data.id
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
 
 export class ItemsService {
     /**
@@ -156,6 +182,63 @@ export class LoginService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/login/test-token'
+        });
+    }
+}
+
+export class ModesService {
+    /**
+     * Read Modes
+     * Retrieve all modes.
+     * @returns ModePublic Successful Response
+     * @throws ApiError
+     */
+    public static readModes(): CancelablePromise<ModesReadModesResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/modes/'
+        });
+    }
+    
+    /**
+     * Read Mode By Name
+     * Retrieve a mode by name.
+     * @param data The data for the request.
+     * @param data.modeName
+     * @returns ModePublic Successful Response
+     * @throws ApiError
+     */
+    public static readModeByName(data: ModesReadModeByNameData): CancelablePromise<ModesReadModeByNameResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/modes/name/{mode_name}',
+            path: {
+                mode_name: data.modeName
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Mode By Id
+     * Retrieve a mode by id.
+     * @param data The data for the request.
+     * @param data.id
+     * @returns ModePublic Successful Response
+     * @throws ApiError
+     */
+    public static readModeById(data: ModesReadModeByIdData): CancelablePromise<ModesReadModeByIdResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/modes/id/{id}',
+            path: {
+                id: data.id
+            },
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
 }

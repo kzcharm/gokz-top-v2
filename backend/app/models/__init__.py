@@ -2,6 +2,14 @@ from sqlmodel import SQLModel
 
 from .auth import Message, Token, TokenPayload
 from .item import Item, ItemBase, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate
+from .mode import (
+    CANONICAL_MODE_SEEDS,
+    CanonicalModeSeed,
+    Mode,
+    ModeAdminUpdate,
+    ModeBase,
+    ModePublic,
+)
 from .player import (
     Player,
     PlayerBase,
@@ -22,7 +30,13 @@ __all__ = [
     "ItemPublic",
     "ItemsPublic",
     "ItemUpdate",
+    "CANONICAL_MODE_SEEDS",
+    "CanonicalModeSeed",
     "Message",
+    "Mode",
+    "ModeAdminUpdate",
+    "ModeBase",
+    "ModePublic",
     "Player",
     "PlayerBase",
     "PlayerPublic",

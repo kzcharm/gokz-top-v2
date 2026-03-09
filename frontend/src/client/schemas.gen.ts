@@ -150,6 +150,176 @@ export const MessageSchema = {
     title: 'Message'
 } as const;
 
+export const ModeAdminUpdateSchema = {
+    properties: {
+        description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 1023
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        latest_version: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latest Version'
+        },
+        latest_version_description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latest Version Description'
+        },
+        website: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Website'
+        },
+        repo: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Repo'
+        },
+        contact_steamid64: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 32
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Contact Steamid64'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'ModeAdminUpdate'
+} as const;
+
+export const ModePublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        name_short: {
+            type: 'string',
+            title: 'Name Short'
+        },
+        id_plugin: {
+            type: 'integer',
+            title: 'Id Plugin'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
+        latest_version: {
+            type: 'integer',
+            title: 'Latest Version'
+        },
+        latest_version_description: {
+            type: 'string',
+            title: 'Latest Version Description'
+        },
+        website: {
+            type: 'string',
+            title: 'Website'
+        },
+        repo: {
+            type: 'string',
+            title: 'Repo'
+        },
+        contact_steamid64: {
+            type: 'string',
+            title: 'Contact Steamid64'
+        },
+        supported_tickrates: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'integer'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Supported Tickrates'
+        },
+        created_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created On'
+        },
+        updated_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Updated On'
+        },
+        updated_by_id: {
+            type: 'string',
+            title: 'Updated By Id'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'name_short', 'id_plugin', 'description', 'latest_version', 'latest_version_description', 'website', 'repo', 'contact_steamid64', 'updated_by_id'],
+    title: 'ModePublic'
+} as const;
+
 export const PlayerPublicSchema = {
     properties: {
         name: {
