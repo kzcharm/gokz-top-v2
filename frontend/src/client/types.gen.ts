@@ -31,6 +31,32 @@ export type Message = {
     message: string;
 };
 
+export type ModeAdminUpdate = {
+    description?: (string | null);
+    latest_version?: (number | null);
+    latest_version_description?: (string | null);
+    website?: (string | null);
+    repo?: (string | null);
+    contact_steamid64?: (string | null);
+};
+
+export type ModePublic = {
+    id: number;
+    name: string;
+    name_short: string;
+    id_plugin: number;
+    description: string;
+    latest_version: number;
+    latest_version_description: string;
+    website: string;
+    repo: string;
+    contact_steamid64: string;
+    supported_tickrates?: (Array<(number)> | null);
+    created_on?: (string | null);
+    updated_on?: (string | null);
+    updated_by_id: string;
+};
+
 export type PlayerPublic = {
     name: string;
     alias?: (string | null);
@@ -103,6 +129,13 @@ export type ValidationError = {
     };
 };
 
+export type AdminModesUpdateModeData = {
+    id: number;
+    requestBody: ModeAdminUpdate;
+};
+
+export type AdminModesUpdateModeResponse = (ModePublic);
+
 export type ItemsReadItemsData = {
     limit?: number;
     skip?: number;
@@ -140,6 +173,20 @@ export type LoginLoginSteamResponse = (unknown);
 export type LoginSteamCallbackResponse = (unknown);
 
 export type LoginTestTokenResponse = (UserPublic);
+
+export type ModesReadModesResponse = (Array<ModePublic>);
+
+export type ModesReadModeByNameData = {
+    modeName: string;
+};
+
+export type ModesReadModeByNameResponse = (ModePublic);
+
+export type ModesReadModeByIdData = {
+    id: number;
+};
+
+export type ModesReadModeByIdResponse = (ModePublic);
 
 export type PlayersReadPlayersData = {
     limit?: number;
