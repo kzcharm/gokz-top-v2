@@ -81,7 +81,7 @@ class MapCompatPublicV0(SQLModel):
         return ""
 
 
-class MapPublicV1(SQLModel):
+class MapPublic(SQLModel):
     id: int
     name: str
     filesize: int

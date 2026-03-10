@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
-import { logInUser, logOutUser } from "./utils/user"
-import { randomSteamid64 } from "./utils/random"
 import { issueSessionToken } from "./utils/privateApi"
+import { randomSteamid64 } from "./utils/random"
+import { logInUser, logOutUser } from "./utils/user"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 

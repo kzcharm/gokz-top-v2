@@ -11,15 +11,15 @@ from starlette.requests import Request
 
 from app import crud
 from app.api import deps
-from app.api.routes import admin_modes as admin_modes_routes
-from app.api.routes import items as items_routes
-from app.api.routes import login as login_routes
-from app.api.routes import modes as modes_routes
-from app.api.routes import players as players_routes
-from app.api.routes import private as private_routes
-from app.api.routes import users as users_routes
-from app.api.routes import utils as utils_routes
-from app.api.routes.private import PrivateAuthSessionCreate
+from app.api.v1 import admin_modes as admin_modes_routes
+from app.api.v1 import items as items_routes
+from app.api.v1 import login as login_routes
+from app.api.v1 import modes as modes_routes
+from app.api.v1 import players as players_routes
+from app.api.v1 import private as private_routes
+from app.api.v1 import users as users_routes
+from app.api.v1 import utils as utils_routes
+from app.api.v1.private import PrivateAuthSessionCreate
 from app.core import security
 from app.core.config import settings
 from app.models import (
@@ -303,7 +303,7 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
 
     mocked_upsert = Player(steamid64=random_steamid64(), name="Upserted Player")
     with patch(
-        "app.api.routes.players.crud.create_or_update_player_from_steam",
+        "app.api.v1.players.crud.create_or_update_player_from_steam",
         new=AsyncMock(return_value=mocked_upsert),
     ):
         upserted = await players_routes.upsert_player_from_steam(
@@ -428,7 +428,7 @@ async def test_login_route_direct_branches(db: AsyncSession) -> None:
             "openid.op_endpoint": "https://steamcommunity.com/openid/login",
             "openid.claimed_id": f"https://steamcommunity.com/openid/id/{steamid64}",
             "openid.identity": f"https://steamcommunity.com/openid/id/{steamid64}",
-            "openid.return_to": "http://testserver/api/v1/login/steam/callback",
+            "openid.return_to": f"http://testserver{settings.API_V1_STR}/login/steam/callback",
             "openid.response_nonce": "2026-02-27T00:00:00Zabcdef",
             "openid.assoc_handle": "1234567890",
             "openid.signed": "op_endpoint,claimed_id,identity,return_to,response_nonce,assoc_handle",
@@ -437,7 +437,7 @@ async def test_login_route_direct_branches(db: AsyncSession) -> None:
     )
 
     with patch(
-        "app.api.routes.login.httpx.AsyncClient.post",
+        "app.api.v1.login.httpx.AsyncClient.post",
         new=AsyncMock(side_effect=RuntimeError("boom")),
     ):
         with pytest.raises(HTTPException, match="Failed to verify OpenID response"):
@@ -450,11 +450,11 @@ async def test_login_route_direct_branches(db: AsyncSession) -> None:
     inactive = User(steamid64=steamid64, is_active=False, is_superuser=False)
     with (
         patch(
-            "app.api.routes.login.httpx.AsyncClient.post",
+            "app.api.v1.login.httpx.AsyncClient.post",
             new=AsyncMock(return_value=mocked_response),
         ),
         patch(
-            "app.api.routes.login.crud.get_or_create_user_from_steam",
+            "app.api.v1.login.crud.get_or_create_user_from_steam",
             new=AsyncMock(return_value=inactive),
         ),
     ):
@@ -464,11 +464,11 @@ async def test_login_route_direct_branches(db: AsyncSession) -> None:
     active = User(steamid64=steamid64, is_active=True, is_superuser=False)
     with (
         patch(
-            "app.api.routes.login.httpx.AsyncClient.post",
+            "app.api.v1.login.httpx.AsyncClient.post",
             new=AsyncMock(return_value=mocked_response),
         ),
         patch(
-            "app.api.routes.login.crud.get_or_create_user_from_steam",
+            "app.api.v1.login.crud.get_or_create_user_from_steam",
             new=AsyncMock(return_value=active),
         ),
     ):

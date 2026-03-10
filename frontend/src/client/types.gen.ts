@@ -27,6 +27,29 @@ export type ItemUpdate = {
     description?: (string | null);
 };
 
+export type MapPublic = {
+    id: number;
+    name: string;
+    filesize: number;
+    validated: boolean;
+    difficulty: number;
+    created_on: string;
+    updated_on: string;
+    approved_by_steamid64: string;
+    workshop_id?: (number | null);
+    synced_at: string;
+    authors?: Array<(string)>;
+    no_steamid_names?: Array<(string)>;
+    readonly workshop_url: (string | null);
+};
+
+export type MapSyncResult = {
+    processed: number;
+    created: number;
+    updated: number;
+    errors: number;
+};
+
 export type Message = {
     message: string;
 };
@@ -89,7 +112,7 @@ export type PlayerUpdate = {
 };
 
 export type PrivateAuthSessionCreate = {
-    steamid64: number;
+    steamid64?: (string | number);
     is_superuser?: boolean;
     is_active?: boolean;
     name?: (string | null);
@@ -173,6 +196,35 @@ export type LoginLoginSteamResponse = (unknown);
 export type LoginSteamCallbackResponse = (unknown);
 
 export type LoginTestTokenResponse = (UserPublic);
+
+export type MapsReadMapsData = {
+    createdSince?: (string | null);
+    difficulty?: (number | null);
+    id?: (Array<(number)> | null);
+    isValidated?: (boolean | null);
+    largerThanFilesize?: (number | null);
+    limit?: number;
+    name?: (string | null);
+    offset?: number;
+    smallerThanFilesize?: (number | null);
+    updatedSince?: (string | null);
+};
+
+export type MapsReadMapsResponse = (Array<MapPublic>);
+
+export type MapsReadMapByNameData = {
+    mapName: string;
+};
+
+export type MapsReadMapByNameResponse = (MapPublic);
+
+export type MapsReadMapByIdData = {
+    id: number;
+};
+
+export type MapsReadMapByIdResponse = (MapPublic);
+
+export type MapsTriggerMapSyncResponse = (MapSyncResult);
 
 export type ModesReadModesResponse = (Array<ModePublic>);
 

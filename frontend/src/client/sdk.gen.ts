@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminModesService {
     /**
@@ -18,7 +18,7 @@ export class AdminModesService {
     public static updateMode(data: AdminModesUpdateModeData): CancelablePromise<AdminModesUpdateModeResponse> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/api/v1/admin/modes/{id}',
+            url: '/v1/admin/modes/{id}',
             path: {
                 id: data.id
             },
@@ -44,7 +44,7 @@ export class ItemsService {
     public static readItems(data: ItemsReadItemsData = {}): CancelablePromise<ItemsReadItemsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/items/',
+            url: '/v1/items/',
             query: {
                 skip: data.skip,
                 limit: data.limit
@@ -66,7 +66,7 @@ export class ItemsService {
     public static createItem(data: ItemsCreateItemData): CancelablePromise<ItemsCreateItemResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/items/',
+            url: '/v1/items/',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -86,7 +86,7 @@ export class ItemsService {
     public static readItem(data: ItemsReadItemData): CancelablePromise<ItemsReadItemResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/items/{id}',
+            url: '/v1/items/{id}',
             path: {
                 id: data.id
             },
@@ -108,7 +108,7 @@ export class ItemsService {
     public static updateItem(data: ItemsUpdateItemData): CancelablePromise<ItemsUpdateItemResponse> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/api/v1/items/{id}',
+            url: '/v1/items/{id}',
             path: {
                 id: data.id
             },
@@ -131,7 +131,7 @@ export class ItemsService {
     public static deleteItem(data: ItemsDeleteItemData): CancelablePromise<ItemsDeleteItemResponse> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/api/v1/items/{id}',
+            url: '/v1/items/{id}',
             path: {
                 id: data.id
             },
@@ -153,7 +153,7 @@ export class LoginService {
     public static loginSteam(): CancelablePromise<LoginLoginSteamResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/login/steam'
+            url: '/v1/login/steam'
         });
     }
     
@@ -168,7 +168,7 @@ export class LoginService {
     public static steamCallback(): CancelablePromise<LoginSteamCallbackResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/login/steam/callback'
+            url: '/v1/login/steam/callback'
         });
     }
     
@@ -181,7 +181,99 @@ export class LoginService {
     public static testToken(): CancelablePromise<LoginTestTokenResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/login/test-token'
+            url: '/v1/login/test-token'
+        });
+    }
+}
+
+export class MapsService {
+    /**
+     * Read Maps
+     * @param data The data for the request.
+     * @param data.offset
+     * @param data.limit
+     * @param data.id
+     * @param data.name
+     * @param data.largerThanFilesize
+     * @param data.smallerThanFilesize
+     * @param data.isValidated
+     * @param data.difficulty
+     * @param data.createdSince
+     * @param data.updatedSince
+     * @returns MapPublic Successful Response
+     * @throws ApiError
+     */
+    public static readMaps(data: MapsReadMapsData = {}): CancelablePromise<MapsReadMapsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/maps',
+            query: {
+                offset: data.offset,
+                limit: data.limit,
+                id: data.id,
+                name: data.name,
+                larger_than_filesize: data.largerThanFilesize,
+                smaller_than_filesize: data.smallerThanFilesize,
+                is_validated: data.isValidated,
+                difficulty: data.difficulty,
+                created_since: data.createdSince,
+                updated_since: data.updatedSince
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Map By Name
+     * @param data The data for the request.
+     * @param data.mapName
+     * @returns MapPublic Successful Response
+     * @throws ApiError
+     */
+    public static readMapByName(data: MapsReadMapByNameData): CancelablePromise<MapsReadMapByNameResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/maps/name/{map_name}',
+            path: {
+                map_name: data.mapName
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Map By Id
+     * @param data The data for the request.
+     * @param data.id
+     * @returns MapPublic Successful Response
+     * @throws ApiError
+     */
+    public static readMapById(data: MapsReadMapByIdData): CancelablePromise<MapsReadMapByIdResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/maps/{id}',
+            path: {
+                id: data.id
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Trigger Map Sync
+     * @returns MapSyncResult Successful Response
+     * @throws ApiError
+     */
+    public static triggerMapSync(): CancelablePromise<MapsTriggerMapSyncResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/maps/sync'
         });
     }
 }
@@ -196,7 +288,7 @@ export class ModesService {
     public static readModes(): CancelablePromise<ModesReadModesResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/modes/'
+            url: '/v1/modes/'
         });
     }
     
@@ -211,7 +303,7 @@ export class ModesService {
     public static readModeByName(data: ModesReadModeByNameData): CancelablePromise<ModesReadModeByNameResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/modes/name/{mode_name}',
+            url: '/v1/modes/name/{mode_name}',
             path: {
                 mode_name: data.modeName
             },
@@ -232,7 +324,7 @@ export class ModesService {
     public static readModeById(data: ModesReadModeByIdData): CancelablePromise<ModesReadModeByIdResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/modes/id/{id}',
+            url: '/v1/modes/id/{id}',
             path: {
                 id: data.id
             },
@@ -258,7 +350,7 @@ export class PlayersService {
     public static readPlayers(data: PlayersReadPlayersData = {}): CancelablePromise<PlayersReadPlayersResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/players/',
+            url: '/v1/players/',
             query: {
                 offset: data.offset,
                 limit: data.limit,
@@ -282,7 +374,7 @@ export class PlayersService {
     public static readPlayersBatch(data: PlayersReadPlayersBatchData): CancelablePromise<PlayersReadPlayersBatchResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/players/',
+            url: '/v1/players/',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -302,7 +394,7 @@ export class PlayersService {
     public static upsertPlayerFromSteam(data: PlayersUpsertPlayerFromSteamData): CancelablePromise<PlayersUpsertPlayerFromSteamResponse> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/api/v1/players/{steamid64}/steam',
+            url: '/v1/players/{steamid64}/steam',
             path: {
                 steamid64: data.steamid64
             },
@@ -324,7 +416,7 @@ export class PlayersService {
     public static updatePlayer(data: PlayersUpdatePlayerData): CancelablePromise<PlayersUpdatePlayerResponse> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/api/v1/players/{steamid64}',
+            url: '/v1/players/{steamid64}',
             path: {
                 steamid64: data.steamid64
             },
@@ -350,7 +442,7 @@ export class PrivateService {
     public static createAuthSession(data: PrivateCreateAuthSessionData): CancelablePromise<PrivateCreateAuthSessionResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/v1/private/auth/session',
+            url: '/v1/private/auth/session',
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
@@ -373,7 +465,7 @@ export class UsersService {
     public static readUsers(data: UsersReadUsersData = {}): CancelablePromise<UsersReadUsersResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/users/',
+            url: '/v1/users/',
             query: {
                 skip: data.skip,
                 limit: data.limit
@@ -393,7 +485,7 @@ export class UsersService {
     public static readUserMe(): CancelablePromise<UsersReadUserMeResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/users/me'
+            url: '/v1/users/me'
         });
     }
     
@@ -406,7 +498,7 @@ export class UsersService {
     public static deleteUserMe(): CancelablePromise<UsersDeleteUserMeResponse> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/api/v1/users/me'
+            url: '/v1/users/me'
         });
     }
     
@@ -421,7 +513,7 @@ export class UsersService {
     public static readUserById(data: UsersReadUserByIdData): CancelablePromise<UsersReadUserByIdResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/users/{user_id}',
+            url: '/v1/users/{user_id}',
             path: {
                 user_id: data.userId
             },
@@ -443,7 +535,7 @@ export class UsersService {
     public static updateUser(data: UsersUpdateUserData): CancelablePromise<UsersUpdateUserResponse> {
         return __request(OpenAPI, {
             method: 'PATCH',
-            url: '/api/v1/users/{user_id}',
+            url: '/v1/users/{user_id}',
             path: {
                 user_id: data.userId
             },
@@ -466,7 +558,7 @@ export class UsersService {
     public static deleteUser(data: UsersDeleteUserData): CancelablePromise<UsersDeleteUserResponse> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/api/v1/users/{user_id}',
+            url: '/v1/users/{user_id}',
             path: {
                 user_id: data.userId
             },
@@ -486,7 +578,7 @@ export class UtilsService {
     public static healthCheck(): CancelablePromise<UtilsHealthCheckResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/v1/utils/health-check/'
+            url: '/v1/utils/health-check/'
         });
     }
 }

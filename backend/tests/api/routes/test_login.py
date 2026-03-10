@@ -17,7 +17,7 @@ def _build_callback_params(steamid64: int) -> dict[str, str]:
         "openid.op_endpoint": "https://steamcommunity.com/openid/login",
         "openid.claimed_id": f"https://steamcommunity.com/openid/id/{steamid64}",
         "openid.identity": f"https://steamcommunity.com/openid/id/{steamid64}",
-        "openid.return_to": "http://testserver/api/v1/login/steam/callback",
+        "openid.return_to": f"http://testserver{settings.API_V1_STR}/login/steam/callback",
         "openid.response_nonce": "2026-02-27T00:00:00Zabcdef",
         "openid.assoc_handle": "1234567890",
         "openid.signed": "op_endpoint,claimed_id,identity,return_to,response_nonce,assoc_handle",
@@ -110,7 +110,7 @@ async def test_steam_callback_openid_verification_failure(client: AsyncClient) -
     mocked_response.text = "is_valid:false"
 
     with patch(
-        "app.api.routes.login.httpx.AsyncClient.post",
+        "app.api.v1.login.httpx.AsyncClient.post",
         new=AsyncMock(return_value=mocked_response),
     ):
         response = await client.get(
@@ -136,7 +136,7 @@ async def test_steam_callback_success_creates_user_and_redirects(
     mocked_response.text = "ns:http://specs.openid.net/auth/2.0\nis_valid:true"
 
     with patch(
-        "app.api.routes.login.httpx.AsyncClient.post",
+        "app.api.v1.login.httpx.AsyncClient.post",
         new=AsyncMock(return_value=mocked_response),
     ):
         response = await client.get(

@@ -3,7 +3,11 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Footer } from "@/components/Common/Footer"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import { Button } from "@/components/ui/button"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
 import useAuth from "@/hooks/useAuth"
 
 export const Route = createFileRoute("/login")({

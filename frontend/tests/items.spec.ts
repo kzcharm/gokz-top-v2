@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test"
-import { randomItemDescription, randomItemTitle, randomSteamid64 } from "./utils/random"
+import {
+  randomItemDescription,
+  randomItemTitle,
+  randomSteamid64,
+} from "./utils/random"
 import { logInUser } from "./utils/user"
 
 test("Items page is accessible and shows correct title", async ({ page }) => {

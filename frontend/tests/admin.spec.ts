@@ -59,7 +59,7 @@ test("PlayerDisplay renders alias fallback, avatar, and country tooltip", async 
     name: fallbackName,
   })
 
-  await page.request.put(`${apiUrl}/api/v1/players/${aliasPlayer.steamid64}`, {
+  await page.request.put(`${apiUrl}/v1/players/${aliasPlayer.steamid64}`, {
     headers: {
       Authorization: `Bearer ${aliasPlayer.accessToken}`,
     },
