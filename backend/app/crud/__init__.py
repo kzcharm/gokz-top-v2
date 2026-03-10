@@ -4,7 +4,7 @@ from .map import (
     get_map_by_name,
     read_maps,
     to_map_compat_public_v0,
-    to_map_public_v1,
+    to_map_public,
 )
 from .mode import (
     get_mode_by_id,
@@ -55,7 +55,7 @@ __all__ = [
     "sync_canonical_modes",
     "sync_canonical_modes_sync",
     "to_map_compat_public_v0",
-    "to_map_public_v1",
+    "to_map_public",
     "to_mode_public",
     "to_player_public",
     "to_user_public",

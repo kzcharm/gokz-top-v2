@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.config import settings
 from app.models import Map, MapSyncResult
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
 
@@ -38,7 +39,7 @@ async def _create_map(db: AsyncSession, *, id: int = 930200) -> Map:
 async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> None:
     await _create_map(db, id=930200)
 
-    response = await client.get("/api/v0/maps", params={"id": 930200, "limit": 10000})
+    response = await client.get("/v0/maps", params={"id": 930200, "limit": 10000})
 
     assert response.status_code == 200
     payload = response.json()
@@ -58,7 +59,7 @@ async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> N
 async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     await _create_map(db, id=930201)
 
-    response = await client.get("/api/v1/maps/930201")
+    response = await client.get(f"{settings.API_V1_STR}/maps/930201")
 
     assert response.status_code == 200
     payload = response.json()
@@ -74,14 +75,14 @@ async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
 
 @pytest.mark.asyncio
 async def test_read_map_v0_not_found(client: AsyncClient) -> None:
-    response = await client.get("/api/v0/maps/999999")
+    response = await client.get("/v0/maps/999999")
     assert response.status_code == 404
     assert response.json() == {"detail": "Map not found"}
 
 
 @pytest.mark.asyncio
 async def test_sync_maps_v1_requires_authentication(client: AsyncClient) -> None:
-    response = await client.post("/api/v1/maps/sync")
+    response = await client.post(f"{settings.API_V1_STR}/maps/sync")
     assert response.status_code in {401, 403}
 
 
@@ -94,9 +95,12 @@ async def test_sync_maps_v1_superuser(
     mocked_sync = AsyncMock(
         return_value=MapSyncResult(processed=10, created=2, updated=8, errors=0)
     )
-    monkeypatch.setattr("app.api.routes.maps_v1.sync_maps_from_globalapi", mocked_sync)
+    monkeypatch.setattr("app.api.v1.maps.sync_maps_from_globalapi", mocked_sync)
 
-    response = await client.post("/api/v1/maps/sync", headers=superuser_token_headers)
+    response = await client.post(
+        f"{settings.API_V1_STR}/maps/sync",
+        headers=superuser_token_headers,
+    )
 
     assert response.status_code == 200
     assert response.json() == {
@@ -116,9 +120,12 @@ async def test_sync_maps_v1_returns_502_for_upstream_error(
     mocked_sync = AsyncMock(
         side_effect=GlobalAPIMapsSyncError("Failed to fetch maps from GlobalAPI")
     )
-    monkeypatch.setattr("app.api.routes.maps_v1.sync_maps_from_globalapi", mocked_sync)
+    monkeypatch.setattr("app.api.v1.maps.sync_maps_from_globalapi", mocked_sync)
 
-    response = await client.post("/api/v1/maps/sync", headers=superuser_token_headers)
+    response = await client.post(
+        f"{settings.API_V1_STR}/maps/sync",
+        headers=superuser_token_headers,
+    )
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Failed to fetch maps from GlobalAPI"}

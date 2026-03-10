@@ -21,9 +21,7 @@ function Dashboard() {
   return (
     <div>
       <div>
-        <h1 className="text-2xl truncate max-w-sm">
-          Hi, {displayName} 👋
-        </h1>
+        <h1 className="text-2xl truncate max-w-sm">Hi, {displayName} 👋</h1>
         <p className="text-muted-foreground">
           Welcome back, nice to see you again!!!
         </p>

@@ -39,7 +39,9 @@ function UserInfo({ name, steamid64, avatarHash }: UserInfoProps) {
         </AvatarFallback>
       </Avatar>
       <div className="flex flex-col items-start min-w-0">
-        <p className="text-sm font-medium truncate w-full">{name || "Unknown"}</p>
+        <p className="text-sm font-medium truncate w-full">
+          {name || "Unknown"}
+        </p>
         <p className="text-xs text-muted-foreground truncate w-full">
           {steamid64 || "N/A"}
         </p>

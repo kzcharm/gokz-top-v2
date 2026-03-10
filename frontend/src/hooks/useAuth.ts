@@ -20,7 +20,7 @@ const useAuth = () => {
 
   const loginWithSteam = () => {
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000"
-    window.location.href = `${apiUrl}/api/v1/login/steam`
+    window.location.href = `${apiUrl}/v1/login/steam`
   }
 
   const logout = () => {

@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
 from app.api.deps import SessionDep, get_current_active_superuser
-from app.models import MapPublicV1, MapSyncResult
+from app.models import MapPublic, MapSyncResult
 from app.services.globalapi_maps_sync import (
     GlobalAPIMapsSyncError,
     sync_maps_from_globalapi,
 )
 
-router = APIRouter(prefix="/api/v1/maps", tags=["maps-v1"])
+router = APIRouter(prefix="/v1/maps", tags=["maps"])
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +26,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return None
 
 
-@router.get("", response_model=list[MapPublicV1])
+@router.get("", response_model=list[MapPublic])
 async def read_maps(
     session: SessionDep,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -53,23 +53,23 @@ async def read_maps(
         created_since=_parse_datetime(created_since),
         updated_since=_parse_datetime(updated_since),
     )
-    return [crud.to_map_public_v1(map_obj=map_obj) for map_obj in maps]
+    return [crud.to_map_public(map_obj=map_obj) for map_obj in maps]
 
 
-@router.get("/name/{map_name}", response_model=MapPublicV1)
+@router.get("/name/{map_name}", response_model=MapPublic)
 async def read_map_by_name(session: SessionDep, map_name: str) -> Any:
     map_obj = await crud.get_map_by_name(session=session, map_name=map_name)
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
-    return crud.to_map_public_v1(map_obj=map_obj)
+    return crud.to_map_public(map_obj=map_obj)
 
 
-@router.get("/{id:int}", response_model=MapPublicV1)
+@router.get("/{id:int}", response_model=MapPublic)
 async def read_map_by_id(session: SessionDep, id: int) -> Any:
     map_obj = await crud.get_map_by_id(session=session, id=id)
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
-    return crud.to_map_public_v1(map_obj=map_obj)
+    return crud.to_map_public(map_obj=map_obj)
 
 
 @router.post(

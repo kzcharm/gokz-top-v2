@@ -138,6 +138,114 @@ export const ItemsPublicSchema = {
     title: 'ItemsPublic'
 } as const;
 
+export const MapPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        filesize: {
+            type: 'integer',
+            title: 'Filesize'
+        },
+        validated: {
+            type: 'boolean',
+            title: 'Validated'
+        },
+        difficulty: {
+            type: 'integer',
+            title: 'Difficulty'
+        },
+        created_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created On'
+        },
+        updated_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated On'
+        },
+        approved_by_steamid64: {
+            type: 'string',
+            title: 'Approved By Steamid64'
+        },
+        workshop_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Workshop Id'
+        },
+        synced_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Synced At'
+        },
+        authors: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Authors'
+        },
+        no_steamid_names: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'No Steamid Names'
+        },
+        workshop_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Workshop Url',
+            readOnly: true
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'filesize', 'validated', 'difficulty', 'created_on', 'updated_on', 'approved_by_steamid64', 'synced_at', 'workshop_url'],
+    title: 'MapPublic'
+} as const;
+
+export const MapSyncResultSchema = {
+    properties: {
+        processed: {
+            type: 'integer',
+            title: 'Processed'
+        },
+        created: {
+            type: 'integer',
+            title: 'Created'
+        },
+        updated: {
+            type: 'integer',
+            title: 'Updated'
+        },
+        errors: {
+            type: 'integer',
+            title: 'Errors'
+        }
+    },
+    type: 'object',
+    required: ['processed', 'created', 'updated', 'errors'],
+    title: 'MapSyncResult'
+} as const;
+
 export const MessageSchema = {
     properties: {
         message: {
@@ -515,13 +623,21 @@ export const PlayersPublicSchema = {
 export const PrivateAuthSessionCreateSchema = {
     properties: {
         steamid64: {
-            type: 'integer',
-            title: 'Steamid64'
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'integer'
+                }
+            ],
+            title: 'Steamid64',
+            default: '76561199022242128'
         },
         is_superuser: {
             type: 'boolean',
             title: 'Is Superuser',
-            default: false
+            default: true
         },
         is_active: {
             type: 'boolean',
@@ -537,12 +653,18 @@ export const PrivateAuthSessionCreateSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Name'
+            title: 'Name',
+            default: 'Docs Admin'
         }
     },
     type: 'object',
-    required: ['steamid64'],
-    title: 'PrivateAuthSessionCreate'
+    title: 'PrivateAuthSessionCreate',
+    example: {
+        is_active: true,
+        is_superuser: true,
+        name: 'Docs Admin',
+        steamid64: '76561199022242128'
+    }
 } as const;
 
 export const TokenSchema = {

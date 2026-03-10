@@ -15,21 +15,21 @@ Implement the new players backend endpoints and split admin UI routes so:
 ## API / Interface Changes
 
 ### Backend endpoints
-1. `GET /api/v1/players/` (public)
+1. `GET /v1/players/` (public)
 Uses query model (`offset`, `limit`) via FastAPI query-param model pattern.
 Returns `PlayersPublic` with `data` and `count`.
 
-2. `POST /api/v1/players/` (public)
+2. `POST /v1/players/` (public)
 Batch read by Steam IDs.
 Request: `steamid64s: list[str]`.
 Response preserves request order with null placeholders for missing players:
 `data: list[PlayerPublic | None]`, plus `count`.
 
-3. `PUT /api/v1/players/{steamid64}/steam` (authenticated)
+3. `PUT /v1/players/{steamid64}/steam` (authenticated)
 Upsert one player from Steam API.
 Returns `PlayerPublic`.
 
-4. `PUT /api/v1/players/{steamid64}` (authenticated)
+4. `PUT /v1/players/{steamid64}` (authenticated)
 Update editable player profile fields (for now: `alias`, `country`).
 Returns `PlayerPublic`.
 

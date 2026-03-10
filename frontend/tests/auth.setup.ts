@@ -4,7 +4,7 @@ import { apiUrl, superUserSteamid64 } from "./config.ts"
 const authFile = "playwright/.auth/user.json"
 
 setup("authenticate", async ({ page, request }) => {
-  const response = await request.post(`${apiUrl}/api/v1/private/auth/session`, {
+  const response = await request.post(`${apiUrl}/v1/private/auth/session`, {
     data: {
       steamid64: superUserSteamid64,
       is_superuser: true,

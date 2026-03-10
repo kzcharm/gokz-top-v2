@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Map, MapCompatPublicV0, MapPublicV1
+from app.models import Map, MapCompatPublicV0, MapPublic
 
 
 async def read_maps(
@@ -72,8 +72,8 @@ def to_map_compat_public_v0(*, map_obj: Map) -> MapCompatPublicV0:
     )
 
 
-def to_map_public_v1(*, map_obj: Map) -> MapPublicV1:
-    return MapPublicV1(
+def to_map_public(*, map_obj: Map) -> MapPublic:
+    return MapPublic(
         id=map_obj.id,
         name=map_obj.name,
         filesize=map_obj.filesize,

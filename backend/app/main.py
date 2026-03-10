@@ -1,16 +1,25 @@
+import json
+from typing import Any
+
 import sentry_sdk
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.openapi.docs import swagger_ui_default_parameters
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
-from app.api.routes.maps_v0 import router as maps_v0_router
-from app.api.routes.maps_v1 import router as maps_v1_router
+from app.api.v0.maps import router as maps_v0_router
+from app.api.v1.maps import router as maps_v1_router
 from app.core.config import settings
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
-    return f"{route.tags[0]}-{route.name}"
+    if route.tags:
+        return f"{route.tags[0]}-{route.name}"
+    return route.name
 
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
@@ -18,6 +27,7 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
+    docs_url=None,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
 )
@@ -35,3 +45,118 @@ if settings.all_cors_origins:
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.include_router(maps_v0_router)
 app.include_router(maps_v1_router)
+
+_openapi_v0_schema: dict[str, Any] | None = None
+_openapi_v1_schema: dict[str, Any] | None = None
+
+
+def _build_openapi_schema(
+    prefix: str,
+    title: str,
+    version: str,
+    description: str,
+) -> dict[str, Any]:
+    routes = [
+        route
+        for route in app.routes
+        if isinstance(route, APIRoute)
+        and route.path.startswith(prefix)
+        and route.include_in_schema
+    ]
+    return get_openapi(
+        title=title,
+        version=version,
+        description=description,
+        routes=routes,
+    )
+
+
+def custom_openapi_v1() -> dict[str, Any]:
+    global _openapi_v1_schema
+    if _openapi_v1_schema is None:
+        _openapi_v1_schema = _build_openapi_schema(
+            settings.API_V1_STR,
+            f"{settings.PROJECT_NAME} v1",
+            "v1",
+            "v1 for project endpoints.",
+        )
+    return _openapi_v1_schema
+
+
+app.openapi = custom_openapi_v1
+
+
+@app.get("/v0/openapi.json", include_in_schema=False)
+def openapi_v0() -> dict[str, Any]:
+    global _openapi_v0_schema
+    if _openapi_v0_schema is None:
+        _openapi_v0_schema = _build_openapi_schema(
+            "/v0",
+            f"{settings.PROJECT_NAME} v0",
+            "v0",
+            "v0 for GlobalAPI v2.0 compatibility.",
+        )
+    return _openapi_v0_schema
+
+
+@app.get("/docs", include_in_schema=False)
+def swagger_ui() -> HTMLResponse:
+    swagger_ui_parameters = swagger_ui_default_parameters.copy()
+    swagger_ui_parameters.update(
+        {
+            "url": f"{settings.API_V1_STR}/openapi.json",
+            "urls": [
+                {
+                    "url": f"{settings.API_V1_STR}/openapi.json",
+                    "name": "v1",
+                },
+                {
+                    "url": "/v0/openapi.json",
+                    "name": "v0 (GlobalAPI v2.0 compat)",
+                },
+            ],
+            "urls.primaryName": "v1",
+            "layout": "StandaloneLayout",
+        }
+    )
+
+    swagger_js_url = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
+    swagger_standalone_url = (
+        "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"
+    )
+    swagger_css_url = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"
+    swagger_favicon_url = "https://fastapi.tiangolo.com/img/favicon.png"
+    title = f"{settings.PROJECT_NAME} - API Docs"
+
+    params = ""
+    for key, value in swagger_ui_parameters.items():
+        params += f"{json.dumps(key)}: {json.dumps(jsonable_encoder(value))},\n"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="{swagger_css_url}">
+    <link rel="shortcut icon" href="{swagger_favicon_url}">
+    <title>{title}</title>
+    </head>
+    <body>
+    <div id="swagger-ui">
+    </div>
+    <script src="{swagger_js_url}"></script>
+    <script src="{swagger_standalone_url}"></script>
+    <!-- `SwaggerUIBundle` is now available on the page -->
+    <script>
+    const ui = SwaggerUIBundle({{
+        {params}
+    presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIStandalonePreset
+        ],
+    }})
+    </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(html)

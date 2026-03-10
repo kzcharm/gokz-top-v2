@@ -12,7 +12,7 @@ export const issueSessionToken = async ({
   isSuperuser?: boolean
   name?: string
 }) => {
-  const response = await request.post(`${apiUrl}/api/v1/private/auth/session`, {
+  const response = await request.post(`${apiUrl}/v1/private/auth/session`, {
     data: {
       steamid64,
       is_superuser: isSuperuser,
