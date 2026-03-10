@@ -1,5 +1,6 @@
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -55,9 +56,19 @@ async def get_or_create_user_from_steam(
             is_active=True,
         )
         session.add(db_user)
-        await session.commit()
-        await session.refresh(db_user)
-        return db_user
+        try:
+            await session.commit()
+            await session.refresh(db_user)
+            return db_user
+        except IntegrityError:
+            # Another request inserted this user concurrently.
+            await session.rollback()
+            existing_user = await get_user_by_steamid64(
+                session=session, steamid64=steamid64_int
+            )
+            if not existing_user:
+                raise
+            db_user = existing_user
 
     if db_user.is_superuser != should_be_superuser:
         db_user.is_superuser = should_be_superuser

@@ -1,4 +1,11 @@
 from .item import create_item
+from .map import (
+    get_map_by_id,
+    get_map_by_name,
+    read_maps,
+    to_map_compat_public_v0,
+    to_map_public_v1,
+)
 from .mode import (
     get_mode_by_id,
     get_mode_by_name,
@@ -34,16 +41,21 @@ __all__ = [
     "create_item",
     "create_or_update_player_from_steam",
     "create_user",
+    "get_map_by_id",
+    "get_map_by_name",
     "get_mode_by_id",
     "get_mode_by_name",
     "get_or_create_user_from_steam",
     "get_player_by_steamid64",
     "get_user_by_steamid64",
+    "read_maps",
     "read_modes",
     "read_players",
     "read_players_batch",
     "sync_canonical_modes",
     "sync_canonical_modes_sync",
+    "to_map_compat_public_v0",
+    "to_map_public_v1",
     "to_mode_public",
     "to_player_public",
     "to_user_public",

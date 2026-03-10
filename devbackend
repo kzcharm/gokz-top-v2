@@ -16,11 +16,70 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+add_project_candidate() {
+  local candidate="$1"
+  [[ -z "$candidate" ]] && return 0
+  for existing in "${PROJECT_CANDIDATES[@]-}"; do
+    [[ "$existing" == "$candidate" ]] && return 0
+  done
+  PROJECT_CANDIDATES+=("$candidate")
+}
+
+PROJECT_CANDIDATES=()
+
+if [[ -n "${COMPOSE_PROJECT_NAME-}" ]]; then
+  add_project_candidate "$COMPOSE_PROJECT_NAME"
+fi
+
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  STACK_NAME="$(awk -F= '$1=="STACK_NAME"{print $2}' "$ROOT_DIR/.env" | head -n1)"
+  STACK_NAME="${STACK_NAME#\"}"
+  STACK_NAME="${STACK_NAME%\"}"
+  add_project_candidate "$STACK_NAME"
+fi
+
+add_project_candidate "$(basename "$ROOT_DIR")"
+
+is_local_db_container() {
+  local container_id="$1"
+  local service_label=""
+  local working_dir_label=""
+  local project_label=""
+
+  service_label="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$container_id" 2>/dev/null || true)"
+  [[ "$service_label" != "db" ]] && return 1
+
+  working_dir_label="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$container_id" 2>/dev/null || true)"
+  if [[ -n "$working_dir_label" && "$working_dir_label" == "$ROOT_DIR" ]]; then
+    return 0
+  fi
+
+  project_label="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$container_id" 2>/dev/null || true)"
+  for candidate in "${PROJECT_CANDIDATES[@]-}"; do
+    [[ -n "$candidate" && "$project_label" == "$candidate" ]] && return 0
+  done
+
+  return 1
+}
+
 LOCAL_DB_CONTAINER_ID="$(docker compose ps -q db 2>/dev/null || true)"
+if [[ -z "$LOCAL_DB_CONTAINER_ID" ]]; then
+  LOCAL_DB_CONTAINER_ID="$(docker ps -q --filter "label=com.docker.compose.service=db" --filter "label=com.docker.compose.project.working_dir=$ROOT_DIR" | head -n1 || true)"
+fi
+if [[ -z "$LOCAL_DB_CONTAINER_ID" ]]; then
+  for candidate in "${PROJECT_CANDIDATES[@]-}"; do
+    [[ -z "$candidate" ]] && continue
+    LOCAL_DB_CONTAINER_ID="$(docker ps -q --filter "label=com.docker.compose.service=db" --filter "label=com.docker.compose.project=$candidate" | head -n1 || true)"
+    [[ -n "$LOCAL_DB_CONTAINER_ID" ]] && break
+  done
+fi
 
 while IFS= read -r CONTAINER_ID; do
   [[ -z "$CONTAINER_ID" ]] && continue
   if [[ -n "$LOCAL_DB_CONTAINER_ID" && "$CONTAINER_ID" == "$LOCAL_DB_CONTAINER_ID" ]]; then
+    continue
+  fi
+  if is_local_db_container "$CONTAINER_ID"; then
     continue
   fi
 
@@ -29,10 +88,23 @@ while IFS= read -r CONTAINER_ID; do
   docker stop --time 20 "$CONTAINER_ID" >/dev/null
 done < <(docker ps -q --filter "publish=5432")
 
-echo "Starting local db service..."
-docker compose up -d db >/dev/null
+START_DB=true
+if [[ -n "$LOCAL_DB_CONTAINER_ID" ]]; then
+  DB_STATUS="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$LOCAL_DB_CONTAINER_ID" 2>/dev/null || true)"
+  if [[ "$DB_STATUS" == "healthy" || "$DB_STATUS" == "running" ]]; then
+    START_DB=false
+    echo "Local db already running."
+  fi
+fi
 
-LOCAL_DB_CONTAINER_ID="$(docker compose ps -q db 2>/dev/null || true)"
+if [[ "$START_DB" == "true" ]]; then
+  echo "Starting local db service..."
+  docker compose up -d db >/dev/null
+fi
+
+if [[ -z "$LOCAL_DB_CONTAINER_ID" || "$START_DB" == "true" ]]; then
+  LOCAL_DB_CONTAINER_ID="$(docker compose ps -q db 2>/dev/null || true)"
+fi
 if [[ -z "$LOCAL_DB_CONTAINER_ID" ]]; then
   echo "Error: failed to start local db container."
   exit 1

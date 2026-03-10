@@ -2,6 +2,7 @@ import re
 from datetime import UTC, datetime
 
 import httpx
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -157,9 +158,29 @@ async def create_or_update_player_from_steam(
         updated_at=now,
     )
     session.add(player)
-    await session.commit()
-    await session.refresh(player)
-    return player
+    try:
+        await session.commit()
+        await session.refresh(player)
+        return player
+    except IntegrityError:
+        # Another request inserted this player concurrently.
+        await session.rollback()
+        existing_player = await get_player_by_steamid64(
+            session=session, steamid64=steamid64
+        )
+        if not existing_player:
+            raise
+        existing_player.name = steam_data["name"] or existing_player.name
+        existing_player.custom_id = steam_data["custom_id"] or existing_player.custom_id
+        existing_player.avatar_hash = (
+            steam_data["avatar_hash"] or existing_player.avatar_hash
+        )
+        existing_player.country = steam_data["country"] or existing_player.country
+        existing_player.updated_at = now
+        session.add(existing_player)
+        await session.commit()
+        await session.refresh(existing_player)
+        return existing_player
 
 
 async def update_player(

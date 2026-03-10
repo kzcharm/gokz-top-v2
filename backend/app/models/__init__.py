@@ -2,6 +2,7 @@ from sqlmodel import SQLModel
 
 from .auth import Message, Token, TokenPayload
 from .item import Item, ItemBase, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate
+from .map import Map, MapBase, MapCompatPublicV0, MapPublicV1, MapSyncResult
 from .mode import (
     CANONICAL_MODE_SEEDS,
     CanonicalModeSeed,
@@ -30,6 +31,11 @@ __all__ = [
     "ItemPublic",
     "ItemsPublic",
     "ItemUpdate",
+    "Map",
+    "MapBase",
+    "MapCompatPublicV0",
+    "MapPublicV1",
+    "MapSyncResult",
     "CANONICAL_MODE_SEEDS",
     "CanonicalModeSeed",
     "Message",
