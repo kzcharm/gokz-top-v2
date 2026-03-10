@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app import crud
 from app.api.deps import SessionDep
@@ -14,10 +14,21 @@ router = APIRouter(tags=["private"], prefix="/private")
 
 
 class PrivateAuthSessionCreate(BaseModel):
-    steamid64: int
-    is_superuser: bool = False
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "steamid64": str(settings.SUPER_USER_STEAMID64),
+                "is_superuser": True,
+                "is_active": True,
+                "name": "Docs Admin",
+            }
+        }
+    )
+
+    steamid64: str | int = str(settings.SUPER_USER_STEAMID64)
+    is_superuser: bool = True
     is_active: bool = True
-    name: str | None = None
+    name: str | None = "Docs Admin"
 
 
 @router.post("/auth/session", response_model=Token)
@@ -28,9 +39,10 @@ async def create_auth_session(
     Create or update a user by Steam ID and return a JWT token.
     Development/testing helper endpoint (local env only).
     """
+    steamid64 = int(body.steamid64)
     user = await crud.get_or_create_user_from_steam(
         session=session,
-        steamid64=body.steamid64,
+        steamid64=steamid64,
     )
 
     if body.name:

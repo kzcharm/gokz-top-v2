@@ -4,7 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import UserCreate, UserUpdate
+from app.models import Player, User, UserCreate, UserUpdate
 from tests.utils.utils import random_steamid64
 
 
@@ -114,3 +114,42 @@ async def test_to_user_public_includes_player(db: AsyncSession) -> None:
     assert (
         jsonable_encoder(user)["steamid64"] == jsonable_encoder(same_user)["steamid64"]
     )
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_user_from_steam_handles_duplicate_insert_race(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    db.add(Player(steamid64=steamid64, name=f"player_{steamid64}"))
+    db.add(User(steamid64=steamid64, is_active=True, is_superuser=False))
+    await db.commit()
+
+    async def _noop_create_or_update_player(
+        *, session: AsyncSession, steamid64: int
+    ) -> Player:
+        player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)
+        assert player is not None
+        return player
+
+    original_get_user = crud.get_user_by_steamid64
+    calls = 0
+
+    async def _stale_get_user(*, session: AsyncSession, steamid64: int) -> User | None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return None
+        return await original_get_user(session=session, steamid64=steamid64)
+
+    monkeypatch.setattr(
+        "app.crud.user.create_or_update_player_from_steam",
+        _noop_create_or_update_player,
+    )
+    monkeypatch.setattr("app.crud.user.get_user_by_steamid64", _stale_get_user)
+
+    user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+
+    assert user.steamid64 == steamid64
+    assert calls >= 2
