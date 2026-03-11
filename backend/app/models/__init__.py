@@ -9,6 +9,7 @@ from .mode import (
     Mode,
     ModeAdminUpdate,
     ModeBase,
+    ModeCompatPublicV0,
     ModePublic,
 )
 from .player import (
@@ -42,6 +43,7 @@ __all__ = [
     "Mode",
     "ModeAdminUpdate",
     "ModeBase",
+    "ModeCompatPublicV0",
     "ModePublic",
     "Player",
     "PlayerBase",

@@ -7,7 +7,7 @@ from app import crud
 from app.api.deps import SessionDep
 from app.models import MapCompatPublicV0
 
-router = APIRouter(prefix="/v0/maps", tags=["maps-v0"])
+router = APIRouter(prefix="/maps", tags=["maps"])
 
 
 def _parse_datetime(value: str | None) -> datetime | None:

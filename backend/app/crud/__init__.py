@@ -12,6 +12,7 @@ from .mode import (
     read_modes,
     sync_canonical_modes,
     sync_canonical_modes_sync,
+    to_mode_compat_public_v0,
     to_mode_public,
     update_mode_metadata,
 )
@@ -56,6 +57,7 @@ __all__ = [
     "sync_canonical_modes_sync",
     "to_map_compat_public_v0",
     "to_map_public",
+    "to_mode_compat_public_v0",
     "to_mode_public",
     "to_player_public",
     "to_user_public",

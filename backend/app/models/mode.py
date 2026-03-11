@@ -120,6 +120,21 @@ class ModePublic(SQLModel):
     updated_by_id: str
 
 
+class ModeCompatPublicV0(SQLModel):
+    id: int
+    name: str
+    description: str
+    latest_version: int
+    latest_version_description: str
+    website: str
+    repo: str
+    contact_steamid64: int
+    supported_tickrates: list[int] | None = None
+    created_on: datetime | None = None
+    updated_on: datetime | None = None
+    updated_by_id: int
+
+
 class ModeAdminUpdate(SQLModel):
     model_config = {"extra": "forbid"}
 
