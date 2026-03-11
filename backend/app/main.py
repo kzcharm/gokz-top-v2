@@ -11,8 +11,7 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
-from app.api.v0.maps import router as maps_v0_router
-from app.api.v1.maps import router as maps_v1_router
+from app.api.v0.main import router as v0_router
 from app.core.config import settings
 
 
@@ -43,8 +42,7 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
-app.include_router(maps_v0_router)
-app.include_router(maps_v1_router)
+app.include_router(v0_router)
 
 _openapi_v0_schema: dict[str, Any] | None = None
 _openapi_v1_schema: dict[str, Any] | None = None
@@ -120,7 +118,9 @@ def swagger_ui() -> HTMLResponse:
         }
     )
 
-    swagger_js_url = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
+    swagger_js_url = (
+        "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
+    )
     swagger_standalone_url = (
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"
     )

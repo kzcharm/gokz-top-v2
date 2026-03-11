@@ -1,6 +1,6 @@
 # Tech Stack
 
-This repository is a FastAPI + React rewrite of the GlobalAPI-compatible GOKZ.TOP platform. It keeps strict GlobalAPI v2 public API compatibility and adds v3 endpoints on top of a PostgreSQL-only data and cache layer.
+This repository is a FastAPI + React rewrite of the GlobalAPI-compatible GOKZ.TOP platform. It keeps strict GlobalAPI v2 public API compatibility in /v0 in this project and adds v1 endpoints on top of a PostgreSQL-only data and cache layer.
 
 ## Backend
 - Python 3.14

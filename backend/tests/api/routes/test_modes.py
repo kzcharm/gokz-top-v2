@@ -33,6 +33,26 @@ async def test_read_modes_public_returns_seeded_modes(client: AsyncClient) -> No
 
 
 @pytest.mark.asyncio
+async def test_read_modes_v0_contract(client: AsyncClient) -> None:
+    response = await client.get("/v0/modes")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 4
+    assert [mode["id"] for mode in payload] == [200, 201, 202, 203]
+
+    mode = payload[0]
+    assert mode["name"] == "kz_timer"
+    assert isinstance(mode["latest_version"], int)
+    assert isinstance(mode["latest_version_description"], str)
+    assert mode["supported_tickrates"] is None
+    assert isinstance(mode["contact_steamid64"], int)
+    assert isinstance(mode["updated_by_id"], int)
+    assert "name_short" not in mode
+    assert "id_plugin" not in mode
+
+
+@pytest.mark.asyncio
 async def test_get_mode_by_id_and_name(client: AsyncClient) -> None:
     by_id_response = await client.get(f"{settings.API_V1_STR}/modes/id/201")
     by_name_response = await client.get(f"{settings.API_V1_STR}/modes/name/kz_simple")
@@ -46,11 +66,36 @@ async def test_get_mode_by_id_and_name(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_mode_v0_by_id_and_name(client: AsyncClient) -> None:
+    by_id_response = await client.get("/v0/modes/id/201")
+    by_name_response = await client.get("/v0/modes/name/kz_simple")
+
+    assert by_id_response.status_code == 200
+    assert by_name_response.status_code == 200
+    assert by_id_response.json()["id"] == 201
+    assert by_id_response.json()["name"] == "kz_simple"
+    assert by_name_response.json()["id"] == 201
+    assert by_name_response.json()["name"] == "kz_simple"
+    assert "name_short" not in by_name_response.json()
+
+
+@pytest.mark.asyncio
 async def test_get_mode_not_found(client: AsyncClient) -> None:
     by_id_response = await client.get(f"{settings.API_V1_STR}/modes/id/999")
     by_name_response = await client.get(
         f"{settings.API_V1_STR}/modes/name/unknown_mode"
     )
+
+    assert by_id_response.status_code == 404
+    assert by_name_response.status_code == 404
+    assert by_id_response.json() == {"detail": "Mode not found"}
+    assert by_name_response.json() == {"detail": "Mode not found"}
+
+
+@pytest.mark.asyncio
+async def test_get_mode_v0_not_found(client: AsyncClient) -> None:
+    by_id_response = await client.get("/v0/modes/id/999")
+    by_name_response = await client.get("/v0/modes/name/unknown_mode")
 
     assert by_id_response.status_code == 404
     assert by_name_response.status_code == 404

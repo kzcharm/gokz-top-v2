@@ -12,7 +12,7 @@ from app.services.globalapi_maps_sync import (
     sync_maps_from_globalapi,
 )
 
-router = APIRouter(prefix="/v1/maps", tags=["maps"])
+router = APIRouter(prefix="/maps", tags=["maps"])
 logger = logging.getLogger(__name__)
 
 

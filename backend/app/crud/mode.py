@@ -3,7 +3,13 @@ from datetime import UTC, datetime
 from sqlmodel import Session, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import CANONICAL_MODE_SEEDS, Mode, ModeAdminUpdate, ModePublic
+from app.models import (
+    CANONICAL_MODE_SEEDS,
+    Mode,
+    ModeAdminUpdate,
+    ModeCompatPublicV0,
+    ModePublic,
+)
 
 
 def _get_datetime_utc() -> datetime:
@@ -152,4 +158,21 @@ def to_mode_public(*, mode: Mode) -> ModePublic:
         created_on=mode.created_on,
         updated_on=mode.updated_on,
         updated_by_id=str(mode.updated_by_id),
+    )
+
+
+def to_mode_compat_public_v0(*, mode: Mode) -> ModeCompatPublicV0:
+    return ModeCompatPublicV0(
+        id=mode.id,
+        name=mode.name,
+        description=mode.description,
+        latest_version=mode.latest_version,
+        latest_version_description=mode.latest_version_description,
+        website=mode.website,
+        repo=mode.repo,
+        contact_steamid64=mode.contact_steamid64,
+        supported_tickrates=None,
+        created_on=mode.created_on,
+        updated_on=mode.updated_on,
+        updated_by_id=mode.updated_by_id,
     )
