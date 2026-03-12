@@ -21,6 +21,8 @@
 ## Coding Style & Naming Conventions
 Use 4-space indentation in Python and explicit type hints; backend code is checked with strict `mypy` and `ruff`. Use `snake_case` for Python modules and functions.
 
+Use UUIDv7 for new UUID fields/defaults and, when touching existing UUID default factories, migrate them to UUIDv7 unless there is a documented compatibility reason not to.
+
 Frontend code uses TypeScript and Biome. Keep component filenames in `PascalCase` such as `DeleteUser.tsx`, hooks prefixed with `use`, and follow the formatter for quotes and semicolons.
 
 ## Testing Guidelines

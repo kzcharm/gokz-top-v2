@@ -40,6 +40,16 @@ fi
 
 add_project_candidate "$(basename "$ROOT_DIR")"
 
+read_dotenv_value() {
+  local key="$1"
+  [[ ! -f "$ROOT_DIR/.env" ]] && return 0
+  local value=""
+  value="$(awk -F= -v key="$key" '$1==key {print substr($0, index($0, "=") + 1)}' "$ROOT_DIR/.env" | head -n1)"
+  value="${value#\"}"
+  value="${value%\"}"
+  printf '%s' "$value"
+}
+
 is_local_db_container() {
   local container_id="$1"
   local service_label=""
@@ -97,9 +107,29 @@ if [[ -n "$LOCAL_DB_CONTAINER_ID" ]]; then
   fi
 fi
 
+SERVICES=(db)
+GEOIPUPDATE_ACCOUNT_ID_VALUE="${GEOIPUPDATE_ACCOUNT_ID-}"
+if [[ -z "$GEOIPUPDATE_ACCOUNT_ID_VALUE" ]]; then
+  GEOIPUPDATE_ACCOUNT_ID_VALUE="$(read_dotenv_value GEOIPUPDATE_ACCOUNT_ID)"
+fi
+
+GEOIPUPDATE_LICENSE_KEY_VALUE="${GEOIPUPDATE_LICENSE_KEY-}"
+if [[ -z "$GEOIPUPDATE_LICENSE_KEY_VALUE" ]]; then
+  GEOIPUPDATE_LICENSE_KEY_VALUE="$(read_dotenv_value GEOIPUPDATE_LICENSE_KEY)"
+fi
+
+if [[ -n "$GEOIPUPDATE_ACCOUNT_ID_VALUE" && -n "$GEOIPUPDATE_LICENSE_KEY_VALUE" ]]; then
+  SERVICES+=(geoipupdate)
+else
+  echo "GeoIP updater disabled locally; set GEOIPUPDATE_ACCOUNT_ID and GEOIPUPDATE_LICENSE_KEY to enable it."
+fi
+
 if [[ "$START_DB" == "true" ]]; then
-  echo "Starting local db service..."
-  docker compose up -d db >/dev/null
+  echo "Starting local services: ${SERVICES[*]}..."
+  docker compose up -d "${SERVICES[@]}" >/dev/null
+elif [[ "${#SERVICES[@]}" -gt 1 ]]; then
+  echo "Ensuring local services are running: ${SERVICES[*]}..."
+  docker compose up -d "${SERVICES[@]}" >/dev/null
 fi
 
 if [[ -z "$LOCAL_DB_CONTAINER_ID" || "$START_DB" == "true" ]]; then

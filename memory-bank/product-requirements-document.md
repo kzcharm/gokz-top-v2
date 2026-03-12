@@ -72,6 +72,9 @@ Scope model:
 - Public server registry and ownership-aware management.
 - Live status ingestion and display.
 - Server group support and filterable browsing.
+- Cached live status must be served from PostgreSQL-backed cache rows, not live upstream queries on page load.
+- Support richer plugin heartbeats keyed by server-group API keys, with A2S polling and Steam server-list discovery as collector-side inputs.
+- Preserve last-known server identity fields when a server goes offline so players can still see which server is down.
 
 ### 5.6 Jumpstats and Replays
 - Jumpstats submission/query/top views.

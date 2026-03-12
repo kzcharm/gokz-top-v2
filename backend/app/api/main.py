@@ -8,6 +8,9 @@ from app.api.v1 import (
     modes,
     players,
     private,
+    server_groups,
+    server_ws,
+    servers,
     users,
     utils,
 )
@@ -19,6 +22,9 @@ api_router.include_router(users.router)
 api_router.include_router(players.router)
 api_router.include_router(maps.router)
 api_router.include_router(modes.router)
+api_router.include_router(server_groups.router)
+api_router.include_router(servers.router)
+api_router.include_router(server_ws.router)
 api_router.include_router(admin_modes.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
