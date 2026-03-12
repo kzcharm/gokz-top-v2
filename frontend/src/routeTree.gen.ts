@@ -9,9 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ServersRouteImport } from './routes/servers'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as ServersServerAddressRouteImport } from './routes/servers.$serverAddress'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
@@ -19,6 +21,11 @@ import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
 
+const ServersRoute = ServersRouteImport.update({
+  id: '/servers',
+  path: '/servers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -32,6 +39,11 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => LayoutRoute,
+} as any)
+const ServersServerAddressRoute = ServersServerAddressRouteImport.update({
+  id: '/$serverAddress',
+  path: '/$serverAddress',
+  getParentRoute: () => ServersRoute,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
@@ -67,19 +79,23 @@ const LayoutAdminPlayersRoute = LayoutAdminPlayersRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
   '/login': typeof LoginRoute
+  '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/': typeof LayoutIndexRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
@@ -88,10 +104,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
   '/login': typeof LoginRoute
+  '/servers': typeof ServersRouteWithChildren
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
@@ -101,19 +119,23 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/servers'
     | '/admin'
     | '/items'
     | '/settings'
     | '/auth/callback'
+    | '/servers/$serverAddress'
     | '/admin/players'
     | '/admin/users'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/servers'
     | '/admin'
     | '/items'
     | '/settings'
     | '/auth/callback'
+    | '/servers/$serverAddress'
     | '/'
     | '/admin/players'
     | '/admin/users'
@@ -121,10 +143,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_layout'
     | '/login'
+    | '/servers'
     | '/_layout/admin'
     | '/_layout/items'
     | '/_layout/settings'
     | '/auth/callback'
+    | '/servers/$serverAddress'
     | '/_layout/'
     | '/_layout/admin/players'
     | '/_layout/admin/users'
@@ -133,11 +157,19 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ServersRoute: typeof ServersRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/servers': {
+      id: '/servers'
+      path: '/servers'
+      fullPath: '/servers'
+      preLoaderRoute: typeof ServersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -158,6 +190,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/servers/$serverAddress': {
+      id: '/servers/$serverAddress'
+      path: '/$serverAddress'
+      fullPath: '/servers/$serverAddress'
+      preLoaderRoute: typeof ServersServerAddressRouteImport
+      parentRoute: typeof ServersRoute
     }
     '/auth/callback': {
       id: '/auth/callback'
@@ -235,9 +274,21 @@ const LayoutRouteChildren: LayoutRouteChildren = {
 const LayoutRouteWithChildren =
   LayoutRoute._addFileChildren(LayoutRouteChildren)
 
+interface ServersRouteChildren {
+  ServersServerAddressRoute: typeof ServersServerAddressRoute
+}
+
+const ServersRouteChildren: ServersRouteChildren = {
+  ServersServerAddressRoute: ServersServerAddressRoute,
+}
+
+const ServersRouteWithChildren =
+  ServersRoute._addFileChildren(ServersRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   LoginRoute: LoginRoute,
+  ServersRoute: ServersRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport

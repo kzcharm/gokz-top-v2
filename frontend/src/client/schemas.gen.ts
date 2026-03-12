@@ -667,6 +667,706 @@ export const PrivateAuthSessionCreateSchema = {
     }
 } as const;
 
+export const ServerCreateSchema = {
+    properties: {
+        group_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Group Id'
+        },
+        ip: {
+            type: 'string',
+            maxLength: 64,
+            minLength: 1,
+            title: 'Ip'
+        },
+        port: {
+            type: 'integer',
+            maximum: 65535,
+            minimum: 1,
+            title: 'Port'
+        },
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled',
+            default: true
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        city: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'City'
+        }
+    },
+    type: 'object',
+    required: ['ip', 'port'],
+    title: 'ServerCreate'
+} as const;
+
+export const ServerDiscoveryRunPublicSchema = {
+    properties: {
+        started_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Started At'
+        },
+        completed_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Completed At'
+        },
+        regions_scanned: {
+            type: 'integer',
+            title: 'Regions Scanned'
+        },
+        candidate_count: {
+            type: 'integer',
+            title: 'Candidate Count'
+        },
+        upserted_count: {
+            type: 'integer',
+            title: 'Upserted Count'
+        }
+    },
+    type: 'object',
+    required: ['started_at', 'completed_at', 'regions_scanned', 'candidate_count', 'upserted_count'],
+    title: 'ServerDiscoveryRunPublic'
+} as const;
+
+export const ServerGroupApiKeyPublicSchema = {
+    properties: {
+        group: {
+            '$ref': '#/components/schemas/ServerGroupPublic'
+        },
+        api_key: {
+            type: 'string',
+            title: 'Api Key'
+        }
+    },
+    type: 'object',
+    required: ['group', 'api_key'],
+    title: 'ServerGroupApiKeyPublic'
+} as const;
+
+export const ServerGroupCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['name'],
+    title: 'ServerGroupCreate'
+} as const;
+
+export const ServerGroupPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        api_key_prefix: {
+            type: 'string',
+            title: 'Api Key Prefix'
+        },
+        api_key_created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Api Key Created At'
+        },
+        server_count: {
+            type: 'integer',
+            title: 'Server Count',
+            default: 0
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id', 'api_key_prefix', 'api_key_created_at', 'created_at', 'updated_at'],
+    title: 'ServerGroupPublic'
+} as const;
+
+export const ServerGroupSummarySchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name'],
+    title: 'ServerGroupSummary'
+} as const;
+
+export const ServerGroupUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    title: 'ServerGroupUpdate'
+} as const;
+
+export const ServerGroupsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ServerGroupPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ServerGroupsPublic'
+} as const;
+
+export const ServerHistoryBucketPublicSchema = {
+    properties: {
+        bucket_start: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Bucket Start'
+        },
+        heartbeat_count: {
+            type: 'integer',
+            title: 'Heartbeat Count'
+        },
+        hostname: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Hostname'
+        },
+        map: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Map'
+        },
+        player_count: {
+            type: 'integer',
+            title: 'Player Count'
+        },
+        max_players: {
+            type: 'integer',
+            title: 'Max Players'
+        },
+        players: {
+            items: {
+                additionalProperties: true,
+                type: 'object'
+            },
+            type: 'array',
+            title: 'Players'
+        },
+        is_online: {
+            type: 'boolean',
+            title: 'Is Online'
+        }
+    },
+    type: 'object',
+    required: ['bucket_start', 'heartbeat_count', 'player_count', 'max_players', 'is_online'],
+    title: 'ServerHistoryBucketPublic'
+} as const;
+
+export const ServerHistoryPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ServerHistoryBucketPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ServerHistoryPublic'
+} as const;
+
+export const ServerLiveStatusPublicSchema = {
+    properties: {
+        current_hostname: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current Hostname'
+        },
+        map: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Map'
+        },
+        player_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Player Count',
+            default: 0
+        },
+        max_players: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Max Players',
+            default: 0
+        },
+        players: {
+            items: {
+                additionalProperties: true,
+                type: 'object'
+            },
+            type: 'array',
+            title: 'Players'
+        },
+        is_online: {
+            type: 'boolean',
+            title: 'Is Online',
+            default: false
+        },
+        last_plugin_seen_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Plugin Seen At'
+        },
+        last_a2s_seen_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last A2S Seen At'
+        },
+        last_successful_seen_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Successful Seen At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    title: 'ServerLiveStatusPublic'
+} as const;
+
+export const ServerPublicSchema = {
+    properties: {
+        ip: {
+            type: 'string',
+            maxLength: 64,
+            minLength: 1,
+            title: 'Ip'
+        },
+        port: {
+            type: 'integer',
+            maximum: 65535,
+            minimum: 1,
+            title: 'Port'
+        },
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled',
+            default: true
+        },
+        configured_hostname: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Configured Hostname'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        city: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'City'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        group_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Group Id'
+        },
+        source: {
+            '$ref': '#/components/schemas/ServerSource'
+        },
+        last_discovered_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Discovered At'
+        },
+        map_tier: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Map Tier'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        group: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGroupSummary'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerLiveStatusPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['ip', 'port', 'id', 'source', 'created_at', 'updated_at'],
+    title: 'ServerPublic'
+} as const;
+
+export const ServerSourceSchema = {
+    type: 'string',
+    enum: ['manual', 'steam_master'],
+    title: 'ServerSource'
+} as const;
+
+export const ServerStatusPutSchema = {
+    properties: {
+        ip: {
+            type: 'string',
+            maxLength: 64,
+            minLength: 1,
+            title: 'Ip'
+        },
+        port: {
+            type: 'integer',
+            maximum: 65535,
+            minimum: 1,
+            title: 'Port'
+        },
+        observed_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Observed At'
+        },
+        hostname: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Hostname'
+        },
+        map: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Map'
+        },
+        player_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Player Count'
+        },
+        max_players: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Max Players'
+        },
+        players: {
+            items: {
+                additionalProperties: true,
+                type: 'object'
+            },
+            type: 'array',
+            title: 'Players'
+        }
+    },
+    type: 'object',
+    required: ['ip', 'port', 'observed_at', 'hostname', 'map', 'player_count', 'max_players'],
+    title: 'ServerStatusPut'
+} as const;
+
+export const ServerUpdateSchema = {
+    properties: {
+        group_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Group Id'
+        },
+        ip: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 64,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ip'
+        },
+        port: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 65535,
+                    minimum: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Port'
+        },
+        enabled: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Enabled'
+        },
+        configured_hostname: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Configured Hostname'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        city: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'City'
+        }
+    },
+    type: 'object',
+    title: 'ServerUpdate'
+} as const;
+
+export const ServersPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ServerPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ServersPublic'
+} as const;
+
 export const TokenSchema = {
     properties: {
         access_token: {

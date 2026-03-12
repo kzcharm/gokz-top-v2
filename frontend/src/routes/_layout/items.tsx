@@ -8,6 +8,7 @@ import { DataTable } from "@/components/Common/DataTable"
 import AddItem from "@/components/Items/AddItem"
 import { columns } from "@/components/Items/columns"
 import PendingItems from "@/components/Pending/PendingItems"
+import { getPageTitle } from "@/lib/site"
 
 function getItemsQueryOptions() {
   return {
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_layout/items")({
   head: () => ({
     meta: [
       {
-        title: "GOKZ TOP",
+        title: getPageTitle(),
       },
     ],
   }),

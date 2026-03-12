@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import useAuth from "@/hooks/useAuth"
+import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/")({
   component: Dashboard,
   head: () => ({
     meta: [
       {
-        title: "GOKZ TOP",
+        title: getPageTitle(),
       },
     ],
   }),

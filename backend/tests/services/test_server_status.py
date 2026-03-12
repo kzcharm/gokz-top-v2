@@ -1,4 +1,5 @@
 import asyncio
+import struct
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -69,6 +70,47 @@ class _FakeAdvisoryLockConnection:
 
     def cursor(self) -> _FakeAdvisoryLockCursor:
         return _FakeAdvisoryLockCursor(self)
+
+
+class _FakeA2SSocket:
+    def __init__(self, responses: list[bytes]) -> None:
+        self._responses = list(responses)
+        self.sent_packets: list[tuple[bytes, tuple[str, int]]] = []
+        self.timeout: float | None = None
+
+    def __enter__(self) -> _FakeA2SSocket:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    def settimeout(self, timeout: float) -> None:
+        self.timeout = timeout
+
+    def sendto(self, payload: bytes, address: tuple[str, int]) -> None:
+        self.sent_packets.append((payload, address))
+
+    def recvfrom(self, size: int) -> tuple[bytes, tuple[str, int]]:
+        del size
+        if not self._responses:
+            raise AssertionError("No fake A2S responses remaining")
+        return self._responses.pop(0), ("127.0.0.1", 27015)
+
+
+def _build_a2s_player_entry(
+    *,
+    index: int,
+    name: str,
+    score: int,
+    duration_seconds: float,
+) -> bytes:
+    return (
+        bytes([index])
+        + name.encode("utf-8")
+        + b"\x00"
+        + score.to_bytes(4, "little", signed=True)
+        + struct.pack("<f", duration_seconds)
+    )
 
 
 async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
@@ -269,6 +311,142 @@ async def test_query_server_a2s_info_wraps_socket_timeout(
 
     with pytest.raises(ServerQueryError):
         await server_status.query_server_a2s_info(ip="127.0.0.1", port=27015)
+
+
+async def test_query_a2s_info_sync_parses_players(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player_challenge = b"\x12\x34\x56\x78"
+    info_response = (
+        server_status.A2S_PACKET_PREFIX
+        + b"\x49\x11"
+        + b"Test Host\x00"
+        + b"kz_alpha\x00"
+        + b"csgo\x00"
+        + b"Counter-Strike 2\x00"
+        + (730).to_bytes(2, "little")
+        + bytes([2, 16])
+    )
+    player_challenge_response = (
+        server_status.A2S_PACKET_PREFIX + b"\x41" + player_challenge
+    )
+    player_response = (
+        server_status.A2S_PACKET_PREFIX
+        + b"\x44"
+        + bytes([2])
+        + _build_a2s_player_entry(
+            index=0,
+            name="Alice",
+            score=12,
+            duration_seconds=45.5,
+        )
+        + _build_a2s_player_entry(
+            index=1,
+            name="Bob",
+            score=-3,
+            duration_seconds=12.25,
+        )
+    )
+    fake_socket = _FakeA2SSocket(
+        [info_response, player_challenge_response, player_response]
+    )
+
+    monkeypatch.setattr(
+        server_status,
+        "_create_udp_socket",
+        lambda: fake_socket,
+    )
+
+    result = server_status._query_a2s_info_sync("127.0.0.1", 27015, 1.5)
+
+    assert fake_socket.timeout == 1.5
+    assert fake_socket.sent_packets == [
+        (server_status.A2S_INFO_REQUEST, ("127.0.0.1", 27015)),
+        (
+            server_status.A2S_PLAYER_REQUEST_PREFIX
+            + server_status.A2S_CHALLENGE_REQUEST,
+            ("127.0.0.1", 27015),
+        ),
+        (
+            server_status.A2S_PLAYER_REQUEST_PREFIX + player_challenge,
+            ("127.0.0.1", 27015),
+        ),
+    ]
+    assert result.hostname == "Test Host"
+    assert result.map_name == "kz_alpha"
+    assert result.player_count == 2
+    assert result.max_players == 16
+    assert result.players == [
+        {
+            "index": 0,
+            "name": "Alice",
+            "score": 12,
+            "duration_seconds": 45.5,
+        },
+        {
+            "index": 1,
+            "name": "Bob",
+            "score": -3,
+            "duration_seconds": 12.25,
+        },
+    ]
+
+
+async def test_run_server_a2s_refresh_cycle_updates_stale_players(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db)
+    assert server.live_status is not None
+    server.live_status.last_a2s_seen_at = datetime.now(UTC) - timedelta(seconds=10)
+    server.live_status.players = [{"name": "Old Player"}]
+    server.live_status.player_count = 1
+    db.add(server.live_status)
+    await db.commit()
+
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        assert ip == server.ip
+        assert port == server.port
+        return A2SInfoResult(
+            hostname="Refreshed Host",
+            map_name="kz_refresh",
+            player_count=2,
+            max_players=16,
+            players=[
+                {"name": "Player One", "score": 7, "duration_seconds": 33.0},
+                {"name": "Player Two", "score": 1, "duration_seconds": 11.0},
+            ],
+            observed_at=datetime.now(UTC),
+        )
+
+    monkeypatch.setattr(
+        server_status,
+        "query_server_a2s_info",
+        _fake_query_server_a2s_info,
+    )
+    monkeypatch.setattr(
+        server_status.crud,
+        "read_servers_due_for_a2s_poll",
+        lambda **kwargs: asyncio.sleep(0, result=[server]),
+    )
+    monkeypatch.setattr(
+        server_status,
+        "async_session_maker",
+        _StaticSessionFactory(db),
+    )
+
+    await server_status.run_server_a2s_refresh_cycle()
+
+    refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
+    assert refreshed is not None
+    assert refreshed.live_status is not None
+    assert refreshed.live_status.current_hostname == "Refreshed Host"
+    assert refreshed.live_status.map == "kz_refresh"
+    assert refreshed.live_status.player_count == 2
+    assert refreshed.live_status.players == [
+        {"name": "Player One", "score": 7, "duration_seconds": 33.0},
+        {"name": "Player Two", "score": 1, "duration_seconds": 11.0},
+    ]
 
 
 async def test_run_server_status_collector_in_app_uses_advisory_lock(

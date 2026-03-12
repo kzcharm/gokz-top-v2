@@ -1,0 +1,307 @@
+import { expect, test } from "@playwright/test"
+
+test.use({ storageState: { cookies: [], origins: [] } })
+
+const seedServers = {
+  count: 1,
+  data: [
+    {
+      id: "019d1111-1111-7111-8111-111111111111",
+      ip: "10.0.0.1",
+      port: 27015,
+      enabled: true,
+      configured_hostname: "Alpha Seed",
+      country: "US",
+      city: "Chicago",
+      source: "manual",
+      last_discovered_at: null,
+      map_tier: 2,
+      created_at: "2026-03-12T10:00:00Z",
+      updated_at: "2026-03-12T10:00:00Z",
+      group: { id: "019d0000-0000-7000-8000-000000000001", name: "Seed Group" },
+      status: {
+        current_hostname: "Alpha Seed",
+        map: "kz_seed",
+        player_count: 5,
+        max_players: 16,
+        players: [],
+        is_online: true,
+        last_plugin_seen_at: "2026-03-12T10:00:00Z",
+        last_a2s_seen_at: "2026-03-12T10:00:00Z",
+        last_successful_seen_at: "2026-03-12T10:00:00Z",
+        updated_at: "2026-03-12T10:00:00Z",
+      },
+    },
+  ],
+}
+
+const snapshotServers = {
+  type: "server.snapshot",
+  servers: [
+    ...seedServers.data,
+    {
+      id: "019d2222-2222-7222-8222-222222222222",
+      ip: "10.0.0.2",
+      port: 27016,
+      enabled: true,
+      configured_hostname: "Bravo Offline",
+      country: "DE",
+      city: "Berlin",
+      source: "manual",
+      last_discovered_at: null,
+      map_tier: 7,
+      created_at: "2026-03-12T10:00:00Z",
+      updated_at: "2026-03-12T10:00:00Z",
+      group: {
+        id: "019d0000-0000-7000-8000-000000000002",
+        name: "Berlin Group",
+      },
+      status: {
+        current_hostname: "Bravo Offline",
+        map: "kz_bravo",
+        player_count: 0,
+        max_players: 16,
+        players: [],
+        is_online: false,
+        last_plugin_seen_at: "2026-03-12T10:00:00Z",
+        last_a2s_seen_at: "2026-03-12T10:00:00Z",
+        last_successful_seen_at: "2026-03-12T10:00:00Z",
+        updated_at: "2026-03-12T10:00:00Z",
+      },
+    },
+    {
+      id: "019d3333-3333-7333-8333-333333333333",
+      ip: "10.0.0.3",
+      port: 27017,
+      enabled: true,
+      configured_hostname: "Gamma Live",
+      country: "DE",
+      city: "Frankfurt",
+      source: "manual",
+      last_discovered_at: null,
+      map_tier: 8,
+      created_at: "2026-03-12T10:00:00Z",
+      updated_at: "2026-03-12T10:00:00Z",
+      group: {
+        id: "019d0000-0000-7000-8000-000000000002",
+        name: "Berlin Group",
+      },
+      status: {
+        current_hostname: "Gamma Live",
+        map: "kz_gamma",
+        player_count: 7,
+        max_players: 24,
+        players: [
+          {
+            name: "Runner One",
+            steamid64: "76561198000000001",
+            mode: "kzt",
+            score: 650,
+            status: "in_progress",
+            teleports: 2,
+            timer_time: 142.5,
+          },
+        ],
+        is_online: true,
+        last_plugin_seen_at: "2026-03-12T10:00:00Z",
+        last_a2s_seen_at: "2026-03-12T10:00:00Z",
+        last_successful_seen_at: "2026-03-12T10:00:00Z",
+        updated_at: "2026-03-12T10:00:00Z",
+      },
+    },
+  ],
+}
+
+const updatedGammaServer = {
+  type: "server.updated",
+  server: {
+    id: "019d3333-3333-7333-8333-333333333333",
+    ip: "10.0.0.3",
+    port: 27017,
+    enabled: true,
+    configured_hostname: "Gamma Live Updated",
+    country: "DE",
+    city: "Frankfurt",
+    source: "manual",
+    last_discovered_at: null,
+    map_tier: 8,
+    created_at: "2026-03-12T10:00:00Z",
+    updated_at: "2026-03-12T10:05:00Z",
+    group: { id: "019d0000-0000-7000-8000-000000000002", name: "Berlin Group" },
+    status: {
+      current_hostname: "Gamma Live Updated",
+      map: "kz_gamma",
+      player_count: 9,
+      max_players: 24,
+      players: [
+        {
+          name: "Runner One",
+          steamid64: "76561198000000001",
+          mode: "kzt",
+          score: 800,
+          status: "finished",
+          teleports: 2,
+          timer_time: 155.4,
+        },
+      ],
+      is_online: true,
+      last_plugin_seen_at: "2026-03-12T10:05:00Z",
+      last_a2s_seen_at: "2026-03-12T10:05:00Z",
+      last_successful_seen_at: "2026-03-12T10:05:00Z",
+      updated_at: "2026-03-12T10:05:00Z",
+    },
+  },
+}
+
+test("Public servers page supports live updates, filters, and route-bound details", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const sockets: Array<{
+      readyState: number
+      onopen: ((event: Event) => void) | null
+      onmessage: ((event: { data: string }) => void) | null
+      onclose: ((event: Event) => void) | null
+      onerror: ((event: Event) => void) | null
+      dispatchMessage: (payload: unknown) => void
+      close: () => void
+      send: (_data?: unknown) => void
+    }> = []
+
+    class MockWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+
+      readyState = MockWebSocket.CONNECTING
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        sockets.push(this)
+        queueMicrotask(() => {
+          this.readyState = MockWebSocket.OPEN
+          this.onopen?.(new Event("open"))
+        })
+      }
+
+      send(_data?: unknown) {}
+
+      close() {
+        this.readyState = MockWebSocket.CLOSED
+        this.onclose?.(new Event("close"))
+      }
+
+      dispatchMessage(payload: unknown) {
+        this.onmessage?.({ data: JSON.stringify(payload) })
+      }
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+
+    Object.assign(window, {
+      __mockServerSockets: sockets,
+      __dispatchServerMessage: (payload: unknown) => {
+        for (const socket of sockets) {
+          socket.dispatchMessage(payload)
+        }
+      },
+    })
+  })
+
+  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seedServers),
+    })
+  })
+
+  await page.goto("/servers")
+
+  await expect(page).toHaveURL(/\/servers(\?.*)?$/)
+  await expect.poll(() => new URL(page.url()).search).toBe("")
+  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
+
+  await page.waitForFunction(() => {
+    return (
+      Array.isArray((window as any).__mockServerSockets) &&
+      (window as any).__mockServerSockets.length > 0
+    )
+  })
+
+  await page.evaluate((payload) => {
+    ;(window as any).__dispatchServerMessage(payload)
+  }, snapshotServers)
+
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
+
+  const hoverCard = page.getByTestId("server-card-10.0.0.3:27017")
+  await hoverCard.hover()
+  await page.waitForTimeout(250)
+  const hoveredBoxShadow = await hoverCard.evaluate((element) => {
+    return window.getComputedStyle(element).boxShadow
+  })
+  expect(hoveredBoxShadow).not.toBe("none")
+
+  await page.getByRole("checkbox", { name: "Show offline servers" }).click()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toBeVisible()
+
+  await page.getByRole("button", { name: /DE/ }).click()
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+
+  const searchInput = page.getByPlaceholder(
+    "Search IP, hostname, map, city, group...",
+  )
+  await searchInput.fill("Gamma Live")
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
+
+  await searchInput.fill("10.0.0.3:27017")
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+
+  await searchInput.fill("")
+  await page.getByTestId("server-card-10.0.0.3:27017").click()
+
+  await expect(page).toHaveURL(/\/servers\/10\.0\.0\.3:27017(\?|$)/)
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("status"))
+    .toBe("all")
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("country"))
+    .toBe("DE")
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("view"))
+    .toBeNull()
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("sort"))
+    .toBeNull()
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("dir"))
+    .toBeNull()
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("q"))
+    .toBeNull()
+  await expect(page.getByText("Gamma Live")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveClass(
+    /server-selected_650ms_ease-out/,
+  )
+
+  await page.evaluate((payload) => {
+    ;(window as any).__dispatchServerMessage(payload)
+  }, updatedGammaServer)
+
+  await expect(page.getByText("Gamma Live Updated")).toBeVisible()
+  await expect(page.getByText("9/24")).toBeVisible()
+})

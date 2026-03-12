@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 
+import { SITE_NAME } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
 interface LogoProps {
@@ -16,7 +17,7 @@ export function Logo({
   const logoMark = (
     <img
       src="/apple-touch-icon.png"
-      alt="GOKZ TOP"
+      alt={SITE_NAME}
       className={cn("size-8 rounded-xl shadow-sm", className)}
     />
   )
@@ -25,7 +26,7 @@ export function Logo({
     <span className="flex items-center gap-3">
       {logoMark}
       <span className="text-foreground text-sm font-semibold tracking-wide whitespace-nowrap">
-        GOKZ TOP
+        {SITE_NAME}
       </span>
     </span>
   )
@@ -36,15 +37,17 @@ export function Logo({
         <span className="group-data-[collapsible=icon]:hidden">{fullLogo}</span>
         <img
           src="/apple-touch-icon.png"
-          alt="GOKZ TOP"
+          alt={SITE_NAME}
           className={cn(
             "size-8 rounded-xl shadow-sm hidden group-data-[collapsible=icon]:block",
             className,
           )}
         />
       </>
+    ) : variant === "full" ? (
+      fullLogo
     ) : (
-      (variant === "full" ? fullLogo : logoMark)
+      logoMark
     )
 
   if (!asLink) {
