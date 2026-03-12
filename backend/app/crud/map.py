@@ -50,10 +50,7 @@ async def get_map_by_id(*, session: AsyncSession, id: int) -> Map | None:
 
 async def get_map_by_name(*, session: AsyncSession, map_name: str) -> Map | None:
     statement = (
-        select(Map)
-        .where(Map.name == map_name)
-        .order_by(col(Map.id).asc())
-        .limit(1)
+        select(Map).where(Map.name == map_name).order_by(col(Map.id).asc()).limit(1)
     )
     return (await session.exec(statement)).first()
 

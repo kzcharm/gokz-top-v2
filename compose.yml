@@ -42,6 +42,19 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=le
       - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
 
+  geoipupdate:
+    image: maxmindinc/geoipupdate:latest
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - GEOIPUPDATE_ACCOUNT_ID=${GEOIPUPDATE_ACCOUNT_ID}
+      - GEOIPUPDATE_LICENSE_KEY=${GEOIPUPDATE_LICENSE_KEY}
+      - GEOIPUPDATE_EDITION_IDS=${GEOIPUPDATE_EDITION_IDS:-GeoLite2-City}
+      - GEOIPUPDATE_FREQUENCY=${GEOIPUPDATE_FREQUENCY:-24}
+    volumes:
+      - ${GEOIP_DATA_DIR:-./.geoip}:/usr/share/GeoIP
+
   prestart:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
     build:
@@ -100,6 +113,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
+      - GEOIP_CITY_DB_PATH=${GEOIP_CITY_DB_PATH:-../.geoip/GeoLite2-City.mmdb}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/v1/utils/health-check/"]
@@ -110,6 +124,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    volumes:
+      - ${GEOIP_DATA_DIR:-./.geoip}:/app/.geoip:ro
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-public

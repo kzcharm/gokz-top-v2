@@ -1,0 +1,494 @@
+from __future__ import annotations
+
+import asyncio
+import ipaddress
+import socket
+from contextlib import suppress
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+from typing import Any
+
+import httpx
+import psycopg
+from sqlalchemy import text
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app import crud
+from app.core.config import settings
+from app.core.db import async_session_maker
+from app.models import ServerStatusPut
+
+SERVER_PLUGIN_FRESH_SECONDS = 5
+SERVER_A2S_POLL_SECONDS = 5
+SERVER_DISCOVERY_INTERVAL_SECONDS = 3600
+SERVER_HEARTBEAT_RETENTION_DAYS = 30
+SERVER_HEARTBEAT_FUTURE_PARTITIONS_DAYS = 7
+STEAM_SERVER_LIST_URL = (
+    "https://api.steampowered.com/IGameServersService/GetServerList/v1/"
+)
+STEAM_SERVER_LIST_REGIONS = tuple(range(8))
+STEAM_SERVER_LIST_TIMEOUT_SECONDS = 10.0
+SERVER_STATUS_COLLECTOR_LOCK_ID = 4_465_480
+
+
+@dataclass(slots=True)
+class ServerDiscoveryCycleResult:
+    started_at: datetime
+    completed_at: datetime
+    regions_scanned: int
+    candidate_count: int
+    upserted_count: int
+
+
+@dataclass(slots=True, frozen=True)
+class SteamServerListCandidate:
+    ip: str
+    port: int
+    hostname: str
+    map_name: str
+    player_count: int
+    max_players: int
+
+
+class ServerQueryError(RuntimeError):
+    pass
+
+
+@dataclass(slots=True)
+class A2SInfoResult:
+    hostname: str
+    map_name: str
+    player_count: int
+    max_players: int
+    players: list[dict[str, Any]]
+    observed_at: datetime
+
+
+def _read_cstring(payload: bytes, offset: int) -> tuple[str, int]:
+    end = payload.find(b"\x00", offset)
+    if end == -1:
+        raise ServerQueryError("Invalid A2S response string encoding")
+    return payload[offset:end].decode("utf-8", errors="replace"), end + 1
+
+
+def _query_a2s_info_sync(ip: str, port: int, timeout: float) -> A2SInfoResult:
+    request = b"\xff\xff\xff\xffTSource Engine Query\x00"
+    address = (ip, port)
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.settimeout(timeout)
+            sock.sendto(request, address)
+            response, _ = sock.recvfrom(4096)
+            if len(response) < 5 or response[:4] != b"\xff\xff\xff\xff":
+                raise ServerQueryError("Invalid A2S response header")
+
+            response_type = response[4]
+            if response_type == 0x41:
+                challenge = response[5:9]
+                if len(challenge) != 4:
+                    raise ServerQueryError("Invalid A2S challenge response")
+                sock.sendto(request + challenge, address)
+                response, _ = sock.recvfrom(4096)
+                if len(response) < 5 or response[:4] != b"\xff\xff\xff\xff":
+                    raise ServerQueryError("Invalid challenged A2S response header")
+                response_type = response[4]
+
+            if response_type != 0x49:
+                raise ServerQueryError("Unsupported A2S info response type")
+
+            offset = 6
+            hostname, offset = _read_cstring(response, offset)
+            map_name, offset = _read_cstring(response, offset)
+            _, offset = _read_cstring(response, offset)
+            _, offset = _read_cstring(response, offset)
+
+            if len(response) < offset + 4:
+                raise ServerQueryError("Incomplete A2S info payload")
+            offset += 2  # app id
+            player_count = response[offset]
+            max_players = response[offset + 1]
+
+            return A2SInfoResult(
+                hostname=hostname,
+                map_name=map_name,
+                player_count=player_count,
+                max_players=max_players,
+                players=[],
+                observed_at=datetime.now(UTC),
+            )
+    except OSError as exc:
+        raise ServerQueryError(f"A2S query failed for {ip}:{port}") from exc
+
+
+async def query_server_a2s_info(
+    *,
+    ip: str,
+    port: int,
+    timeout: float = 2.0,
+) -> A2SInfoResult:
+    try:
+        return await asyncio.to_thread(_query_a2s_info_sync, ip, port, timeout)
+    except OSError as exc:
+        raise ServerQueryError(f"A2S query failed for {ip}:{port}") from exc
+
+
+def _parse_server_addr(addr: str) -> tuple[str, int] | None:
+    host, separator, port_str = addr.rpartition(":")
+    if separator == "":
+        return None
+    if host.startswith("[") and host.endswith("]"):
+        host = host[1:-1]
+    try:
+        parsed_ip = ipaddress.ip_address(host)
+        port = int(port_str)
+    except ValueError:
+        return None
+    if parsed_ip.version != 4 or not 1 <= port <= 65535:
+        return None
+    return str(parsed_ip), port
+
+
+def _extract_server_list_candidates(
+    payloads: list[dict[str, Any]],
+) -> list[SteamServerListCandidate]:
+    deduped: list[SteamServerListCandidate] = []
+    seen: set[tuple[str, int]] = set()
+
+    for payload in payloads:
+        response_payload = payload.get("response")
+        if not isinstance(response_payload, dict):
+            continue
+        servers_payload = response_payload.get("servers")
+        if not isinstance(servers_payload, list):
+            continue
+
+        for server_payload in servers_payload:
+            if not isinstance(server_payload, dict):
+                continue
+            addr = server_payload.get("addr")
+            if not isinstance(addr, str):
+                continue
+            endpoint = _parse_server_addr(addr)
+            if endpoint is None or endpoint in seen:
+                continue
+            hostname = server_payload.get("name")
+            map_name = server_payload.get("map")
+            player_count = server_payload.get("players")
+            max_players = server_payload.get("max_players")
+            if not isinstance(hostname, str) or not hostname.strip():
+                continue
+            if not isinstance(map_name, str) or not map_name.strip():
+                continue
+            if not isinstance(player_count, int) or player_count < 0:
+                continue
+            if not isinstance(max_players, int) or max_players < 0:
+                continue
+            seen.add(endpoint)
+            deduped.append(
+                SteamServerListCandidate(
+                    ip=endpoint[0],
+                    port=endpoint[1],
+                    hostname=hostname.strip(),
+                    map_name=map_name.strip(),
+                    player_count=player_count,
+                    max_players=max_players,
+                )
+            )
+
+    return deduped
+
+
+async def query_steam_server_list_candidates() -> list[SteamServerListCandidate]:
+    if not settings.STEAM_API_KEY:
+        raise ServerQueryError("STEAM_API_KEY is not configured")
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=STEAM_SERVER_LIST_TIMEOUT_SECONDS
+        ) as client:
+            tasks = [
+                client.get(
+                    STEAM_SERVER_LIST_URL,
+                    params={
+                        "key": settings.STEAM_API_KEY,
+                        "filter": (
+                            f"\\appid\\{settings.STEAM_SERVER_LIST_APP_ID}"
+                            f"\\region\\{region}"
+                        ),
+                        "limit": settings.STEAM_SERVER_LIST_LIMIT,
+                    },
+                )
+                for region in STEAM_SERVER_LIST_REGIONS
+            ]
+            responses = await asyncio.gather(*tasks)
+    except httpx.HTTPError as exc:
+        raise ServerQueryError("Steam server list query failed") from exc
+
+    payloads: list[dict[str, Any]] = []
+    for response in responses:
+        try:
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise ServerQueryError("Steam server list query failed") from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ServerQueryError("Steam server list returned invalid JSON") from exc
+
+        if not isinstance(payload, dict):
+            raise ServerQueryError("Steam server list returned invalid payload")
+        payloads.append(payload)
+
+    return _extract_server_list_candidates(payloads)
+
+
+def _partition_name(partition_date: date) -> str:
+    return f"server_heartbeat_raw_p_{partition_date:%Y%m%d}"
+
+
+async def ensure_server_heartbeat_partitions(
+    *,
+    session: AsyncSession,
+    start_date: date,
+    end_date: date,
+) -> None:
+    partition_date = start_date
+    while partition_date <= end_date:
+        partition_name = _partition_name(partition_date)
+        next_date = partition_date + timedelta(days=1)
+        await session.execute(
+            text(
+                f'CREATE TABLE IF NOT EXISTS "{partition_name}" '
+                "PARTITION OF server_heartbeat_raw "
+                f"FOR VALUES FROM ('{partition_date.isoformat()}') "
+                f"TO ('{next_date.isoformat()}')"
+            )
+        )
+        partition_date = next_date
+
+
+async def drop_expired_server_heartbeat_partitions(
+    *,
+    session: AsyncSession,
+    reference_date: date,
+) -> None:
+    keep_from = reference_date - timedelta(days=SERVER_HEARTBEAT_RETENTION_DAYS - 1)
+    rows = list(
+        (
+            await session.execute(
+                text(
+                    "SELECT tablename "
+                    "FROM pg_tables "
+                    "WHERE schemaname = current_schema() "
+                    "AND tablename LIKE 'server_heartbeat_raw_p_%'"
+                )
+            )
+        ).all()
+    )
+    keep_from_name = _partition_name(keep_from)
+    for row in rows:
+        table_name = row[0]
+        if table_name < keep_from_name:
+            await session.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+
+
+async def maintain_server_heartbeat_partitions(*, session: AsyncSession) -> None:
+    today = datetime.now(UTC).date()
+    await ensure_server_heartbeat_partitions(
+        session=session,
+        start_date=today - timedelta(days=SERVER_HEARTBEAT_RETENTION_DAYS),
+        end_date=today + timedelta(days=SERVER_HEARTBEAT_FUTURE_PARTITIONS_DAYS),
+    )
+    await drop_expired_server_heartbeat_partitions(
+        session=session, reference_date=today
+    )
+    await session.commit()
+
+
+async def run_server_discovery_cycle() -> ServerDiscoveryCycleResult:
+    started_at = datetime.now(UTC)
+    candidates = await query_steam_server_list_candidates()
+    kz_candidates = [
+        candidate for candidate in candidates if candidate.map_name.startswith("kz_")
+    ]
+
+    async with async_session_maker() as session:
+        await maintain_server_heartbeat_partitions(session=session)
+        for candidate in kz_candidates:
+            await crud.upsert_discovered_server(
+                session=session,
+                ip=candidate.ip,
+                port=candidate.port,
+                hostname=candidate.hostname,
+                map_name=candidate.map_name,
+                player_count=candidate.player_count,
+                max_players=candidate.max_players,
+                players=[],
+                observed_at=started_at,
+                commit=False,
+            )
+        await session.commit()
+
+    return ServerDiscoveryCycleResult(
+        started_at=started_at,
+        completed_at=datetime.now(UTC),
+        regions_scanned=len(STEAM_SERVER_LIST_REGIONS),
+        candidate_count=len(candidates),
+        upserted_count=len(kz_candidates),
+    )
+
+
+async def run_server_a2s_refresh_cycle() -> None:
+    now = datetime.now(UTC)
+    async with async_session_maker() as session:
+        servers = await crud.read_servers_due_for_a2s_poll(
+            session=session,
+            now=now,
+            plugin_stale_after_seconds=SERVER_PLUGIN_FRESH_SECONDS,
+            a2s_poll_after_seconds=SERVER_A2S_POLL_SECONDS,
+        )
+
+    semaphore = asyncio.Semaphore(20)
+
+    async def _probe(
+        server_id: Any, ip: str, port: int
+    ) -> tuple[Any, A2SInfoResult | None]:
+        async with semaphore:
+            try:
+                result = await query_server_a2s_info(ip=ip, port=port)
+            except ServerQueryError:
+                return server_id, None
+        return server_id, result
+
+    server_refs = [(server.id, server.ip, server.port) for server in servers]
+    results = await asyncio.gather(
+        *[_probe(server_id, ip, port) for server_id, ip, port in server_refs],
+        return_exceptions=False,
+    )
+
+    for server_id, info in results:
+        async with async_session_maker() as session:
+            server = await crud.get_server_by_id(session=session, server_id=server_id)
+            if server is None:
+                continue
+            if info is None:
+                await crud.record_offline_mark(
+                    session=session,
+                    server=server,
+                    observed_at=datetime.now(UTC),
+                )
+                continue
+            await crud.record_a2s_success(
+                session=session,
+                server=server,
+                observed_at=info.observed_at,
+                hostname=info.hostname,
+                map_name=info.map_name,
+                player_count=info.player_count,
+                max_players=info.max_players,
+                players=info.players,
+            )
+
+
+async def run_server_status_collector() -> None:
+    last_discovery_at = datetime.min.replace(tzinfo=UTC)
+    while True:
+        now = datetime.now(UTC)
+        if (
+            now - last_discovery_at
+        ).total_seconds() >= SERVER_DISCOVERY_INTERVAL_SECONDS:
+            try:
+                await run_server_discovery_cycle()
+            except Exception:
+                pass
+            last_discovery_at = now
+
+        try:
+            await run_server_a2s_refresh_cycle()
+        except Exception:
+            pass
+
+        await asyncio.sleep(1)
+
+
+def _psycopg_database_uri() -> str:
+    return str(settings.SQLALCHEMY_DATABASE_URI).replace(
+        "postgresql+psycopg", "postgresql", 1
+    )
+
+
+async def run_server_status_collector_in_app() -> None:
+    while True:
+        try:
+            async with await psycopg.AsyncConnection.connect(
+                _psycopg_database_uri(),
+                autocommit=True,
+            ) as connection:
+                async with connection.cursor() as cursor:
+                    await cursor.execute(
+                        "SELECT pg_try_advisory_lock(%s)",
+                        (SERVER_STATUS_COLLECTOR_LOCK_ID,),
+                    )
+                    row = await cursor.fetchone()
+                if not row or row[0] is not True:
+                    await asyncio.sleep(5)
+                    continue
+
+                try:
+                    await run_server_status_collector()
+                finally:
+                    with suppress(Exception):
+                        async with connection.cursor() as cursor:
+                            await cursor.execute(
+                                "SELECT pg_advisory_unlock(%s)",
+                                (SERVER_STATUS_COLLECTOR_LOCK_ID,),
+                            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            await asyncio.sleep(1)
+
+
+async def stop_collector(task: asyncio.Task[None] | None) -> None:
+    if task is None:
+        return
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+
+async def put_server_status_from_plugin(
+    *,
+    api_key: str,
+    payload: ServerStatusPut,
+) -> None:
+    async with async_session_maker() as session:
+        group = await crud.get_server_group_by_api_key(session=session, api_key=api_key)
+        if group is None:
+            raise ServerQueryError("Invalid server group API key")
+
+        server = await crud.get_server_by_endpoint(
+            session=session,
+            ip=payload.ip,
+            port=payload.port,
+        )
+        if server is None:
+            raise ServerQueryError("Server not found")
+        if not server.enabled:
+            raise ServerQueryError("Server is disabled")
+        if server.group_id != group.id:
+            raise ServerQueryError("Server does not belong to this group")
+
+        await crud.record_plugin_heartbeat(
+            session=session, server=server, payload=payload
+        )
+
+
+def main() -> None:
+    asyncio.run(run_server_status_collector())
+
+
+if __name__ == "__main__":
+    main()

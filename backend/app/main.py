@@ -1,4 +1,6 @@
+import asyncio
 import json
+from contextlib import asynccontextmanager
 from typing import Any
 
 import sentry_sdk
@@ -13,6 +15,11 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.api.v0.main import router as v0_router
 from app.core.config import settings
+from app.services.server_events import listen_for_server_updates, stop_listener
+from app.services.server_status import (
+    run_server_status_collector_in_app,
+    stop_collector,
+)
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -24,11 +31,26 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    listener_task = asyncio.create_task(listen_for_server_updates())
+    collector_task: asyncio.Task[None] | None = None
+    if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
+        collector_task = asyncio.create_task(run_server_status_collector_in_app())
+    try:
+        yield
+    finally:
+        await stop_listener(listener_task)
+        await stop_collector(collector_task)
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     docs_url=None,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
+    lifespan=lifespan,
 )
 
 # Set all CORS enabled origins

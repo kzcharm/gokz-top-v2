@@ -105,9 +105,7 @@ async def read_players(
     if sort_by == "last_played_at":
         sort_column = col(Player.last_played_at)
 
-    sort_direction = (
-        sort_column.asc() if sort_order == "asc" else sort_column.desc()
-    )
+    sort_direction = sort_column.asc() if sort_order == "asc" else sort_column.desc()
     statement = (
         select(Player)
         .order_by(sort_direction.nullslast(), col(Player.steamid64).desc())

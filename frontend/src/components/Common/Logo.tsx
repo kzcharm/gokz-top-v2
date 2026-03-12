@@ -1,11 +1,6 @@
 import { Link } from "@tanstack/react-router"
 
-import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
-import icon from "/assets/images/fastapi-icon.svg"
-import iconLight from "/assets/images/fastapi-icon-light.svg"
-import logo from "/assets/images/fastapi-logo.svg"
-import logoLight from "/assets/images/fastapi-logo-light.svg"
 
 interface LogoProps {
   variant?: "full" | "icon" | "responsive"
@@ -18,38 +13,38 @@ export function Logo({
   className,
   asLink = true,
 }: LogoProps) {
-  const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme === "dark"
+  const logoMark = (
+    <img
+      src="/apple-touch-icon.png"
+      alt="GOKZ TOP"
+      className={cn("size-8 rounded-xl shadow-sm", className)}
+    />
+  )
 
-  const fullLogo = isDark ? logoLight : logo
-  const iconLogo = isDark ? iconLight : icon
+  const fullLogo = (
+    <span className="flex items-center gap-3">
+      {logoMark}
+      <span className="text-foreground text-sm font-semibold tracking-wide whitespace-nowrap">
+        GOKZ TOP
+      </span>
+    </span>
+  )
 
   const content =
     variant === "responsive" ? (
       <>
+        <span className="group-data-[collapsible=icon]:hidden">{fullLogo}</span>
         <img
-          src={fullLogo}
-          alt="FastAPI"
+          src="/apple-touch-icon.png"
+          alt="GOKZ TOP"
           className={cn(
-            "h-6 w-auto group-data-[collapsible=icon]:hidden",
-            className,
-          )}
-        />
-        <img
-          src={iconLogo}
-          alt="FastAPI"
-          className={cn(
-            "size-5 hidden group-data-[collapsible=icon]:block",
+            "size-8 rounded-xl shadow-sm hidden group-data-[collapsible=icon]:block",
             className,
           )}
         />
       </>
     ) : (
-      <img
-        src={variant === "full" ? fullLogo : iconLogo}
-        alt="FastAPI"
-        className={cn(variant === "full" ? "h-6 w-auto" : "size-5", className)}
-      />
+      (variant === "full" ? fullLogo : logoMark)
     )
 
   if (!asLink) {

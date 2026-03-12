@@ -5,7 +5,7 @@ from sqlalchemy import BigInteger, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 from .user import User
-from .utils import get_datetime_utc
+from .utils import generate_uuid7, get_datetime_utc
 
 
 class ItemBase(SQLModel):
@@ -22,7 +22,7 @@ class ItemUpdate(ItemBase):
 
 
 class Item(ItemBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore

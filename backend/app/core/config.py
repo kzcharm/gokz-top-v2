@@ -1,5 +1,6 @@
 import secrets
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import (
@@ -67,6 +68,10 @@ class Settings(BaseSettings):
         )
 
     STEAM_API_KEY: str | None = None
+    STEAM_SERVER_LIST_APP_ID: int = 4465480
+    STEAM_SERVER_LIST_LIMIT: int = 50_000
+    RUN_SERVER_STATUS_COLLECTOR_IN_APP: bool = True
+    GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")
     SUPER_USER_STEAMID64: int
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:

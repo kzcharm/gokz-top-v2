@@ -66,11 +66,14 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
         yield db
 
     app.dependency_overrides[get_db] = _get_test_db
+    previous_collector_setting = settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP
+    settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP = False
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://testserver") as c:
             yield c
     finally:
+        settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP = previous_collector_setting
         app.dependency_overrides.pop(get_db, None)
 
 

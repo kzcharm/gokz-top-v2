@@ -13,6 +13,13 @@
 - Data strategy:
   - PostgreSQL as primary persistent store
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
+  - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
+- Live server status subsystem:
+  - Public reads come from cached `/v1/servers` and `/v1/servers/{id}` responses only; browsers never trigger upstream A2S or Steam server-list queries
+  - Plugin heartbeats ingest through `PUT /v1/servers/status` with a server-group API key and resolve servers by `(ip, port)`
+  - Discovery uses Steam `IGameServersService/GetServerList` across regions `0..7`, with a one-hour background interval and a superuser-triggered manual run endpoint
+  - A separate collector process handles Steam server-list discovery, A2S refresh, offline marking, and raw heartbeat partition maintenance
+  - WebSocket updates are delivered from `/v1/ws/servers` after cache updates, using PostgreSQL `LISTEN/NOTIFY` to fan out change events from the backend
 
 ## Backend Runtime and Libraries
 - Python `>=3.14,<4.0`
@@ -84,3 +91,4 @@
   - `frontend/src/client/*`
   - `frontend/src/routeTree.gen.ts`
 - Keep compatibility behavior under `/v0` stable; project-native changes should go to `/v1`.
+- Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
