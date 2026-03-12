@@ -1,54 +1,86 @@
-# Tech Stack
+# Tech Stack - GOKZ.TOP v2
 
-This repository is a FastAPI + React rewrite of the GlobalAPI-compatible GOKZ.TOP platform. It keeps strict GlobalAPI v2 public API compatibility in /v0 in this project and adds v1 endpoints on top of a PostgreSQL-only data and cache layer.
+- Last Updated: 2026-03-12
+- Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
-## Backend
-- Python 3.14
-- FastAPI (fastapi[standard]) and Pydantic v2
-- SQLModel ORM and Alembic migrations
-- psycopg3 PostgreSQL driver
-- pydantic-settings for config
-- httpx for outbound HTTP
-- python-multipart for upload handling
-- pyjwt for JWT handling
-- pwdlib with argon2 and bcrypt for password hashing
-- tenacity for retries
-- Sentry SDK for error reporting
+## Architecture
+- Monorepo with:
+  - FastAPI backend in `backend/`
+  - React + TypeScript frontend in `frontend/`
+- API surfaces:
+  - `/v0` for GlobalAPI v2.0 compatibility behavior
+  - `/v1` for project-native endpoints
+- Data strategy:
+  - PostgreSQL as primary persistent store
+  - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
 
-## Data and Cache
-- PostgreSQL 18
-- Postgres-only cache strategy with unlogged tables and materialized views
-- No Redis dependency by design
+## Backend Runtime and Libraries
+- Python `>=3.14,<4.0`
+- FastAPI (`fastapi[standard]`)
+- Pydantic v2
+- SQLModel
+- Alembic
+- psycopg3 (`psycopg[binary]`)
+- pydantic-settings
+- httpx
+- python-multipart
+- tenacity
+- pyjwt
+- pwdlib (`argon2`, `bcrypt`)
+- sentry-sdk (FastAPI integration)
 
-## Frontend
-- React 19 and TypeScript 5.9
-- Vite 7 with SWC
-- Tailwind CSS 4 with tailwind-merge and class-variance-authority
+## Backend Quality Tooling
+- uv for environment and dependency management
+- Ruff for linting
+- mypy (strict mode)
+- pytest + pytest-asyncio
+- coverage (CI threshold target >= 90%)
+
+## Frontend Runtime and Libraries
+- React 19
+- TypeScript 5.9
+- Vite 7 + `@vitejs/plugin-react-swc`
+- Tailwind CSS 4 + `@tailwindcss/vite`
 - Radix UI primitives
-- TanStack Router, Query, and Table
-- React Hook Form with @hookform/resolvers and Zod
-- Axios for HTTP
-- next-themes for theming
-- lucide-react and react-icons for icons
-- sonner for toasts
-- OpenAPI client generation via @hey-api/openapi-ts
+- TanStack:
+  - React Router
+  - React Query
+  - React Table
+- Forms and validation:
+  - react-hook-form
+  - @hookform/resolvers
+  - zod
+- HTTP and utilities:
+  - axios
+  - clsx
+  - class-variance-authority
+  - tailwind-merge
+- UI helpers:
+  - next-themes
+  - sonner
+  - lucide-react
+  - react-icons
+- Generated API client:
+  - @hey-api/openapi-ts
 
-## Tooling and Tests
-- Bun for package management and scripts
-- Biome for frontend linting and formatting
-- Playwright for frontend E2E tests
-- uv for Python dependency management
-- Ruff for Python linting
-- mypy for Python type checking
-- pytest and pytest-asyncio for backend tests
-- coverage for test coverage reporting
+## Frontend Tooling and Tests
+- Bun workspace scripts at repository root
+- Biome for linting/formatting
+- Playwright for end-to-end tests
 
-## Infra and Deployment
-- Docker and Docker Compose
-- Traefik as reverse proxy for frontend and backend
-- Nginx serving the frontend build
-- Adminer for database administration
+## Infrastructure and Operations
+- Docker + Docker Compose
+- PostgreSQL 18 container (`postgres:18`)
+- Traefik for reverse proxy/routing
+- Adminer for DB admin
+- Frontend served by Nginx in production container
 
-## Compatibility Target (Legacy Reference)
-- GlobalAPI v2 compatibility target is based on an ASP.NET Core stack with Dapper, MySQL, Redis, Hangfire, and NLog
-- Those components are not used in this repository but are the contract and behavior reference for parity work
+## External Integrations
+- Steam OpenID and Steam Web API integration paths exist in backend flows.
+- GlobalAPI endpoints are consumed for synchronization/compatibility behavior.
+
+## Implementation Constraints
+- Do not hand-edit generated frontend files:
+  - `frontend/src/client/*`
+  - `frontend/src/routeTree.gen.ts`
+- Keep compatibility behavior under `/v0` stable; project-native changes should go to `/v1`.
