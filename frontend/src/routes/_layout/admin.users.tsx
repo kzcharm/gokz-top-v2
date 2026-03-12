@@ -7,6 +7,7 @@ import { columns, type UserTableData } from "@/components/Admin/columns"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import useAuth from "@/hooks/useAuth"
+import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/admin/users")({
   component: AdminUsers,
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_layout/admin/users")({
   head: () => ({
     meta: [
       {
-        title: "GOKZ TOP",
+        title: getPageTitle(),
       },
     ],
   }),

@@ -9,7 +9,7 @@ from app import crud
 from app.api.v1 import servers as servers_route
 from app.core.config import settings
 from app.crud import server as server_crud
-from app.models import ServerHeartbeatRaw, ServerStatusPut
+from app.models import Map, ServerHeartbeatRaw, ServerStatusPut
 from app.services.geoip import GeoIPLocation
 from app.services.server_status import (
     A2SInfoResult,
@@ -24,6 +24,33 @@ from tests.utils.server import (
 )
 
 pytestmark = pytest.mark.asyncio
+
+
+async def _create_map(
+    db: AsyncSession,
+    *,
+    id: int,
+    name: str,
+    difficulty: int,
+) -> Map:
+    map_obj = Map(
+        id=id,
+        name=name,
+        filesize=123456,
+        validated=True,
+        difficulty=difficulty,
+        created_on=datetime(2021, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2021, 1, 2, tzinfo=UTC),
+        approved_by_steamid64=76561198003275951,
+        workshop_id=1986459033,
+        authors=["76561198000000001"],
+        no_steamid_names=["Unknown Mapper"],
+        synced_at=datetime(2021, 1, 3, tzinfo=UTC),
+    )
+    db.add(map_obj)
+    await db.commit()
+    await db.refresh(map_obj)
+    return map_obj
 
 
 async def test_create_server_requires_successful_a2s_query(
@@ -379,6 +406,38 @@ async def test_offline_mark_preserves_identity_and_zeroes_player_state(
     assert matching["status"]["player_count"] == 0
     assert matching["status"]["players"] == []
     assert matching["status"]["is_online"] is False
+
+
+async def test_read_servers_returns_map_tier_for_known_map(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_map(db, id=930210, name="kz_tiered", difficulty=6)
+    await create_server(db, hostname="Tier Host", map_name="kz_tiered")
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers/",
+        params={"limit": 200},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    matching = next(item for item in payload["data"] if item["status"]["map"] == "kz_tiered")
+    assert matching["map_tier"] == 6
+
+
+async def test_read_server_returns_null_map_tier_for_unknown_map(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    server = await create_server(db, hostname="Unknown Tier", map_name="kz_missing_tier")
+
+    response = await client.get(f"{settings.API_V1_STR}/servers/{server.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"]["map"] == "kz_missing_tier"
+    assert payload["map_tier"] is None
 
 
 async def test_server_history_returns_bucketed_rows(

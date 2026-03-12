@@ -14,6 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.security import get_password_hash, verify_password
 from app.models import (
+    Map,
     Server,
     ServerCreate,
     ServerGroup,
@@ -106,6 +107,7 @@ def to_server_public(*, server: Server) -> ServerPublic:
         city=server.city,
         source=server.source,
         last_discovered_at=server.last_discovered_at,
+        map_tier=server.__dict__.get("map_tier"),
         created_at=server.created_at,
         updated_at=server.updated_at,
         status=(
@@ -768,6 +770,25 @@ async def _hydrate_servers(
     statuses = list((await session.exec(statuses_statement)).all())
     statuses_by_server_id = {status.server_id: status for status in statuses}
 
+    live_map_names = {
+        status.map.strip()
+        for status in statuses
+        if status.map is not None and status.map.strip()
+    }
+    map_tiers_by_name: dict[str, int] = {}
+    if live_map_names:
+        maps_statement = select(Map).where(col(Map.name).in_(live_map_names))
+        maps = list((await session.exec(maps_statement)).all())
+        map_tiers_by_name = {map_obj.name: map_obj.difficulty for map_obj in maps}
+
     for server in servers:
         server.group = groups_by_id.get(server.group_id) if server.group_id else None
         server.live_status = statuses_by_server_id.get(server.id)
+        live_map_name = (
+            server.live_status.map.strip()
+            if server.live_status and server.live_status.map
+            else None
+        )
+        server.__dict__["map_tier"] = (
+            map_tiers_by_name.get(live_map_name) if live_map_name else None
+        )

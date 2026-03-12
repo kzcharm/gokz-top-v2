@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import socket
+import struct
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -29,6 +31,10 @@ STEAM_SERVER_LIST_URL = (
 STEAM_SERVER_LIST_REGIONS = tuple(range(8))
 STEAM_SERVER_LIST_TIMEOUT_SECONDS = 10.0
 SERVER_STATUS_COLLECTOR_LOCK_ID = 4_465_480
+A2S_PACKET_PREFIX = b"\xff\xff\xff\xff"
+A2S_INFO_REQUEST = A2S_PACKET_PREFIX + b"TSource Engine Query\x00"
+A2S_PLAYER_REQUEST_PREFIX = A2S_PACKET_PREFIX + b"U"
+A2S_CHALLENGE_REQUEST = b"\xff\xff\xff\xff"
 
 
 @dataclass(slots=True)
@@ -71,50 +77,145 @@ def _read_cstring(payload: bytes, offset: int) -> tuple[str, int]:
     return payload[offset:end].decode("utf-8", errors="replace"), end + 1
 
 
+def _read_int32_le(payload: bytes, offset: int) -> tuple[int, int]:
+    if len(payload) < offset + 4:
+        raise ServerQueryError("Incomplete A2S int32 payload")
+    return int.from_bytes(payload[offset : offset + 4], "little", signed=True), (
+        offset + 4
+    )
+
+
+def _read_float32_le(payload: bytes, offset: int) -> tuple[float, int]:
+    if len(payload) < offset + 4:
+        raise ServerQueryError("Incomplete A2S float payload")
+    return struct.unpack_from("<f", payload, offset)[0], offset + 4
+
+
+def _recv_a2s_packet(sock: socket.socket) -> bytes:
+    response, _ = sock.recvfrom(4096)
+    if len(response) < 5 or response[:4] != A2S_PACKET_PREFIX:
+        raise ServerQueryError("Invalid A2S response header")
+    return response
+
+
+def _send_a2s_request(
+    sock: socket.socket,
+    *,
+    address: tuple[str, int],
+    request: bytes,
+    response_label: str,
+    expected_response_type: int,
+    challenged_request_builder: Callable[[bytes], bytes],
+) -> bytes:
+    sock.sendto(request, address)
+    response = _recv_a2s_packet(sock)
+    response_type = response[4]
+
+    # Some servers challenge the initial request before returning the payload.
+    for _ in range(2):
+        if response_type != 0x41:
+            break
+        challenge = response[5:9]
+        if len(challenge) != 4:
+            raise ServerQueryError(f"Invalid {response_label} challenge response")
+        sock.sendto(challenged_request_builder(challenge), address)
+        response = _recv_a2s_packet(sock)
+        response_type = response[4]
+
+    if response_type != expected_response_type:
+        raise ServerQueryError(f"Unsupported {response_label} response type")
+    return response
+
+
+def _parse_a2s_info_response(response: bytes) -> tuple[str, str, int, int]:
+    offset = 6
+    hostname, offset = _read_cstring(response, offset)
+    map_name, offset = _read_cstring(response, offset)
+    _, offset = _read_cstring(response, offset)
+    _, offset = _read_cstring(response, offset)
+
+    if len(response) < offset + 4:
+        raise ServerQueryError("Incomplete A2S info payload")
+    offset += 2  # app id
+    player_count = response[offset]
+    max_players = response[offset + 1]
+    return hostname, map_name, player_count, max_players
+
+
+def _query_a2s_players_sync(
+    sock: socket.socket,
+    *,
+    address: tuple[str, int],
+) -> list[dict[str, Any]]:
+    response = _send_a2s_request(
+        sock,
+        address=address,
+        request=A2S_PLAYER_REQUEST_PREFIX + A2S_CHALLENGE_REQUEST,
+        response_label="A2S player",
+        expected_response_type=0x44,
+        challenged_request_builder=lambda challenge: A2S_PLAYER_REQUEST_PREFIX
+        + challenge,
+    )
+    if len(response) < 6:
+        raise ServerQueryError("Incomplete A2S player payload")
+
+    declared_player_count = response[5]
+    offset = 6
+    players: list[dict[str, Any]] = []
+
+    for _ in range(declared_player_count):
+        if len(response) <= offset:
+            raise ServerQueryError("Incomplete A2S player payload")
+        player_index = response[offset]
+        offset += 1
+        name, offset = _read_cstring(response, offset)
+        score, offset = _read_int32_le(response, offset)
+        duration_seconds, offset = _read_float32_le(response, offset)
+        players.append(
+            {
+                "index": player_index,
+                "name": name,
+                "score": score,
+                "duration_seconds": duration_seconds,
+            }
+        )
+
+    return players
+
+
+def _create_udp_socket() -> socket.socket:
+    return socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+
 def _query_a2s_info_sync(ip: str, port: int, timeout: float) -> A2SInfoResult:
-    request = b"\xff\xff\xff\xffTSource Engine Query\x00"
     address = (ip, port)
 
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        with _create_udp_socket() as sock:
             sock.settimeout(timeout)
-            sock.sendto(request, address)
-            response, _ = sock.recvfrom(4096)
-            if len(response) < 5 or response[:4] != b"\xff\xff\xff\xff":
-                raise ServerQueryError("Invalid A2S response header")
-
-            response_type = response[4]
-            if response_type == 0x41:
-                challenge = response[5:9]
-                if len(challenge) != 4:
-                    raise ServerQueryError("Invalid A2S challenge response")
-                sock.sendto(request + challenge, address)
-                response, _ = sock.recvfrom(4096)
-                if len(response) < 5 or response[:4] != b"\xff\xff\xff\xff":
-                    raise ServerQueryError("Invalid challenged A2S response header")
-                response_type = response[4]
-
-            if response_type != 0x49:
-                raise ServerQueryError("Unsupported A2S info response type")
-
-            offset = 6
-            hostname, offset = _read_cstring(response, offset)
-            map_name, offset = _read_cstring(response, offset)
-            _, offset = _read_cstring(response, offset)
-            _, offset = _read_cstring(response, offset)
-
-            if len(response) < offset + 4:
-                raise ServerQueryError("Incomplete A2S info payload")
-            offset += 2  # app id
-            player_count = response[offset]
-            max_players = response[offset + 1]
+            info_response = _send_a2s_request(
+                sock,
+                address=address,
+                request=A2S_INFO_REQUEST,
+                response_label="A2S info",
+                expected_response_type=0x49,
+                challenged_request_builder=lambda challenge: A2S_INFO_REQUEST
+                + challenge,
+            )
+            hostname, map_name, player_count, max_players = _parse_a2s_info_response(
+                info_response
+            )
+            try:
+                players = _query_a2s_players_sync(sock, address=address)
+            except ServerQueryError:
+                players = []
 
             return A2SInfoResult(
                 hostname=hostname,
                 map_name=map_name,
                 player_count=player_count,
                 max_players=max_players,
-                players=[],
+                players=players,
                 observed_at=datetime.now(UTC),
             )
     except OSError as exc:

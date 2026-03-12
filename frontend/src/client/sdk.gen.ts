@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersDeleteUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminModesService {
     /**
@@ -445,6 +445,281 @@ export class PrivateService {
             url: '/v1/private/auth/session',
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class ServerGroupsService {
+    /**
+     * Read Server Groups
+     * @returns ServerGroupsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readServerGroups(): CancelablePromise<ServerGroupsReadServerGroupsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/server-groups/'
+        });
+    }
+    
+    /**
+     * Create Server Group
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ServerGroupApiKeyPublic Successful Response
+     * @throws ApiError
+     */
+    public static createServerGroup(data: ServerGroupsCreateServerGroupData): CancelablePromise<ServerGroupsCreateServerGroupResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/server-groups/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Server Group
+     * @param data The data for the request.
+     * @param data.groupId
+     * @param data.requestBody
+     * @returns ServerGroupPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateServerGroup(data: ServerGroupsUpdateServerGroupData): CancelablePromise<ServerGroupsUpdateServerGroupResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/v1/server-groups/{group_id}',
+            path: {
+                group_id: data.groupId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Server Group
+     * @param data The data for the request.
+     * @param data.groupId
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteServerGroup(data: ServerGroupsDeleteServerGroupData): CancelablePromise<ServerGroupsDeleteServerGroupResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/server-groups/{group_id}',
+            path: {
+                group_id: data.groupId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Rotate Server Group Api Key
+     * @param data The data for the request.
+     * @param data.groupId
+     * @returns ServerGroupApiKeyPublic Successful Response
+     * @throws ApiError
+     */
+    public static rotateServerGroupApiKey(data: ServerGroupsRotateServerGroupApiKeyData): CancelablePromise<ServerGroupsRotateServerGroupApiKeyResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/v1/server-groups/{group_id}/api-key',
+            path: {
+                group_id: data.groupId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class ServersService {
+    /**
+     * Put Server Status
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @param data.xServerGroupKey
+     * @returns ServerPublic Successful Response
+     * @throws ApiError
+     */
+    public static putServerStatus(data: ServersPutServerStatusData): CancelablePromise<ServersPutServerStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/v1/servers/status',
+            headers: {
+                'X-Server-Group-Key': data.xServerGroupKey
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Servers
+     * @param data The data for the request.
+     * @param data.offset
+     * @param data.limit
+     * @param data.online
+     * @param data.groupId
+     * @param data.country
+     * @param data.city
+     * @param data.source
+     * @returns ServersPublic Successful Response
+     * @throws ApiError
+     */
+    public static readServers(data: ServersReadServersData = {}): CancelablePromise<ServersReadServersResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/servers/',
+            query: {
+                offset: data.offset,
+                limit: data.limit,
+                online: data.online,
+                group_id: data.groupId,
+                country: data.country,
+                city: data.city,
+                source: data.source
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Server
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ServerPublic Successful Response
+     * @throws ApiError
+     */
+    public static createServer(data: ServersCreateServerData): CancelablePromise<ServersCreateServerResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/servers/',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Trigger Server Discovery
+     * @returns ServerDiscoveryRunPublic Successful Response
+     * @throws ApiError
+     */
+    public static triggerServerDiscovery(): CancelablePromise<ServersTriggerServerDiscoveryResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/servers/discovery'
+        });
+    }
+    
+    /**
+     * Read Server History
+     * @param data The data for the request.
+     * @param data.serverId
+     * @param data.fromAt
+     * @param data.toAt
+     * @param data.bucketSeconds
+     * @returns ServerHistoryPublic Successful Response
+     * @throws ApiError
+     */
+    public static readServerHistory(data: ServersReadServerHistoryData): CancelablePromise<ServersReadServerHistoryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/servers/{server_id}/history',
+            path: {
+                server_id: data.serverId
+            },
+            query: {
+                from_at: data.fromAt,
+                to_at: data.toAt,
+                bucket_seconds: data.bucketSeconds
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Server
+     * @param data The data for the request.
+     * @param data.serverId
+     * @returns ServerPublic Successful Response
+     * @throws ApiError
+     */
+    public static readServer(data: ServersReadServerData): CancelablePromise<ServersReadServerResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/servers/{server_id}',
+            path: {
+                server_id: data.serverId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Server
+     * @param data The data for the request.
+     * @param data.serverId
+     * @param data.requestBody
+     * @returns ServerPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateServer(data: ServersUpdateServerData): CancelablePromise<ServersUpdateServerResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/v1/servers/{server_id}',
+            path: {
+                server_id: data.serverId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Server
+     * @param data The data for the request.
+     * @param data.serverId
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteServer(data: ServersDeleteServerData): CancelablePromise<ServersDeleteServerResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/servers/{server_id}',
+            path: {
+                server_id: data.serverId
+            },
             errors: {
                 422: 'Validation Error'
             }

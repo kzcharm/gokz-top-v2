@@ -118,6 +118,137 @@ export type PrivateAuthSessionCreate = {
     name?: (string | null);
 };
 
+export type ServerCreate = {
+    group_id?: (string | null);
+    ip: string;
+    port: number;
+    enabled?: boolean;
+    country?: (string | null);
+    city?: (string | null);
+};
+
+export type ServerDiscoveryRunPublic = {
+    started_at: string;
+    completed_at: string;
+    regions_scanned: number;
+    candidate_count: number;
+    upserted_count: number;
+};
+
+export type ServerGroupApiKeyPublic = {
+    group: ServerGroupPublic;
+    api_key: string;
+};
+
+export type ServerGroupCreate = {
+    name: string;
+};
+
+export type ServerGroupPublic = {
+    name: string;
+    id: string;
+    api_key_prefix: string;
+    api_key_created_at: string;
+    server_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ServerGroupsPublic = {
+    data: Array<ServerGroupPublic>;
+    count: number;
+};
+
+export type ServerGroupSummary = {
+    id: string;
+    name: string;
+};
+
+export type ServerGroupUpdate = {
+    name?: (string | null);
+};
+
+export type ServerHistoryBucketPublic = {
+    bucket_start: string;
+    heartbeat_count: number;
+    hostname?: (string | null);
+    map?: (string | null);
+    player_count: number;
+    max_players: number;
+    players?: Array<{
+        [key: string]: unknown;
+    }>;
+    is_online: boolean;
+};
+
+export type ServerHistoryPublic = {
+    data: Array<ServerHistoryBucketPublic>;
+    count: number;
+};
+
+export type ServerLiveStatusPublic = {
+    current_hostname?: (string | null);
+    map?: (string | null);
+    player_count?: number;
+    max_players?: number;
+    players?: Array<{
+        [key: string]: unknown;
+    }>;
+    is_online?: boolean;
+    last_plugin_seen_at?: (string | null);
+    last_a2s_seen_at?: (string | null);
+    last_successful_seen_at?: (string | null);
+    updated_at?: string;
+};
+
+export type ServerPublic = {
+    ip: string;
+    port: number;
+    enabled?: boolean;
+    configured_hostname?: (string | null);
+    country?: (string | null);
+    city?: (string | null);
+    id: string;
+    group_id?: (string | null);
+    source: ServerSource;
+    last_discovered_at?: (string | null);
+    map_tier?: (number | null);
+    created_at: string;
+    updated_at: string;
+    group?: (ServerGroupSummary | null);
+    status?: (ServerLiveStatusPublic | null);
+};
+
+export type ServerSource = 'manual' | 'steam_master';
+
+export type ServersPublic = {
+    data: Array<ServerPublic>;
+    count: number;
+};
+
+export type ServerStatusPut = {
+    ip: string;
+    port: number;
+    observed_at: string;
+    hostname: string;
+    map: string;
+    player_count: number;
+    max_players: number;
+    players?: Array<{
+        [key: string]: unknown;
+    }>;
+};
+
+export type ServerUpdate = {
+    group_id?: (string | null);
+    ip?: (string | null);
+    port?: (number | null);
+    enabled?: (boolean | null);
+    configured_hostname?: (string | null);
+    country?: (string | null);
+    city?: (string | null);
+};
+
 export type Token = {
     access_token: string;
     token_type?: string;
@@ -273,6 +404,88 @@ export type PrivateCreateAuthSessionData = {
 };
 
 export type PrivateCreateAuthSessionResponse = (Token);
+
+export type ServerGroupsReadServerGroupsResponse = (ServerGroupsPublic);
+
+export type ServerGroupsCreateServerGroupData = {
+    requestBody: ServerGroupCreate;
+};
+
+export type ServerGroupsCreateServerGroupResponse = (ServerGroupApiKeyPublic);
+
+export type ServerGroupsUpdateServerGroupData = {
+    groupId: string;
+    requestBody: ServerGroupUpdate;
+};
+
+export type ServerGroupsUpdateServerGroupResponse = (ServerGroupPublic);
+
+export type ServerGroupsDeleteServerGroupData = {
+    groupId: string;
+};
+
+export type ServerGroupsDeleteServerGroupResponse = (Message);
+
+export type ServerGroupsRotateServerGroupApiKeyData = {
+    groupId: string;
+};
+
+export type ServerGroupsRotateServerGroupApiKeyResponse = (ServerGroupApiKeyPublic);
+
+export type ServersPutServerStatusData = {
+    requestBody: ServerStatusPut;
+    xServerGroupKey?: (string | null);
+};
+
+export type ServersPutServerStatusResponse = (ServerPublic);
+
+export type ServersReadServersData = {
+    city?: (string | null);
+    country?: (string | null);
+    groupId?: (string | null);
+    limit?: number;
+    offset?: number;
+    online?: (boolean | null);
+    source?: (ServerSource | null);
+};
+
+export type ServersReadServersResponse = (ServersPublic);
+
+export type ServersCreateServerData = {
+    requestBody: ServerCreate;
+};
+
+export type ServersCreateServerResponse = (ServerPublic);
+
+export type ServersTriggerServerDiscoveryResponse = (ServerDiscoveryRunPublic);
+
+export type ServersReadServerHistoryData = {
+    bucketSeconds?: number;
+    fromAt?: (string | null);
+    serverId: string;
+    toAt?: (string | null);
+};
+
+export type ServersReadServerHistoryResponse = (ServerHistoryPublic);
+
+export type ServersReadServerData = {
+    serverId: string;
+};
+
+export type ServersReadServerResponse = (ServerPublic);
+
+export type ServersUpdateServerData = {
+    requestBody: ServerUpdate;
+    serverId: string;
+};
+
+export type ServersUpdateServerResponse = (ServerPublic);
+
+export type ServersDeleteServerData = {
+    serverId: string;
+};
+
+export type ServersDeleteServerResponse = (Message);
 
 export type UsersReadUsersData = {
     limit?: number;

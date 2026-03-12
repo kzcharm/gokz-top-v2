@@ -11,6 +11,7 @@ import { PlayersService, UsersService } from "@/client"
 import { columns } from "@/components/AdminPlayers/columns"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
+import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/admin/players")({
   component: AdminPlayers,
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/_layout/admin/players")({
   head: () => ({
     meta: [
       {
-        title: "GOKZ TOP",
+        title: getPageTitle(),
       },
     ],
   }),
