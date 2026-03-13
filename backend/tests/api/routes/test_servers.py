@@ -55,7 +55,7 @@ async def _create_map(
 
 async def test_create_server_requires_successful_a2s_query(
     client: AsyncClient,
-    superuser_token_headers: dict[str, str],
+    normal_user_token_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
@@ -66,6 +66,8 @@ async def test_create_server_requires_successful_a2s_query(
             max_players=24,
             players=[],
             observed_at=datetime.now(UTC),
+            game_directory="csgo",
+            app_id=730,
         )
 
     monkeypatch.setattr(
@@ -79,7 +81,7 @@ async def test_create_server_requires_successful_a2s_query(
 
     response = await client.post(
         f"{settings.API_V1_STR}/servers/",
-        headers=superuser_token_headers,
+        headers=normal_user_token_headers,
         json={
             "ip": random_server_ip(),
             "port": random_server_port(),
@@ -100,7 +102,7 @@ async def test_create_server_requires_successful_a2s_query(
 
 async def test_create_server_fills_blank_location_from_geoip(
     client: AsyncClient,
-    superuser_token_headers: dict[str, str],
+    normal_user_token_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
@@ -112,6 +114,8 @@ async def test_create_server_fills_blank_location_from_geoip(
             max_players=24,
             players=[],
             observed_at=datetime.now(UTC),
+            game_directory="csgo",
+            app_id=730,
         )
 
     monkeypatch.setattr(
@@ -125,7 +129,7 @@ async def test_create_server_fills_blank_location_from_geoip(
 
     response = await client.post(
         f"{settings.API_V1_STR}/servers/",
-        headers=superuser_token_headers,
+        headers=normal_user_token_headers,
         json={
             "ip": random_server_ip(),
             "port": random_server_port(),
@@ -188,7 +192,7 @@ async def test_trigger_server_discovery_returns_summary(
 
 async def test_create_server_rejects_unreachable_server(
     client: AsyncClient,
-    superuser_token_headers: dict[str, str],
+    normal_user_token_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def _failing_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
@@ -202,11 +206,128 @@ async def test_create_server_rejects_unreachable_server(
 
     response = await client.post(
         f"{settings.API_V1_STR}/servers/",
-        headers=superuser_token_headers,
+        headers=normal_user_token_headers,
         json={"ip": random_server_ip(), "port": random_server_port()},
     )
 
     assert response.status_code == 422
+    assert response.json()["detail"].startswith("unreachable ")
+
+
+async def test_create_server_rejects_non_csgo_server(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        del ip, port
+        return A2SInfoResult(
+            hostname="Surf Server",
+            map_name="kz_alpha",
+            player_count=12,
+            max_players=24,
+            players=[],
+            observed_at=datetime.now(UTC),
+            game_directory="tf",
+            game_name="Team Fortress",
+            app_id=440,
+        )
+
+    monkeypatch.setattr(
+        servers_route,
+        "query_server_a2s_info",
+        _fake_query_server_a2s_info,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/servers/",
+        headers=normal_user_token_headers,
+        json={"ip": random_server_ip(), "port": random_server_port()},
+    )
+
+    assert response.status_code == 422
+    assert (
+        response.json()["detail"]
+        == "Server is running game 'Team Fortress', expected Counter-Strike"
+    )
+
+
+async def test_create_server_allows_zero_app_id_when_game_field_matches(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        return A2SInfoResult(
+            hostname=f"Queried {ip}:{port}",
+            map_name="kz_alpha",
+            player_count=3,
+            max_players=24,
+            players=[],
+            observed_at=datetime.now(UTC),
+            game_directory="",
+            game_name="Counter-Strike 2",
+            app_id=0,
+        )
+
+    monkeypatch.setattr(
+        servers_route,
+        "query_server_a2s_info",
+        _fake_query_server_a2s_info,
+    )
+    monkeypatch.setattr(
+        server_crud,
+        "lookup_geoip_city",
+        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/servers/",
+        headers=normal_user_token_headers,
+        json={"ip": random_server_ip(), "port": random_server_port()},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["configured_hostname"].startswith("Queried ")
+
+
+async def test_create_server_rejects_non_kz_map(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        del ip, port
+        return A2SInfoResult(
+            hostname="Pug Server",
+            map_name="de_dust2",
+            player_count=12,
+            max_players=24,
+            players=[],
+            observed_at=datetime.now(UTC),
+            game_directory="csgo",
+            game_name="Counter-Strike 2",
+            app_id=730,
+        )
+
+    monkeypatch.setattr(
+        servers_route,
+        "query_server_a2s_info",
+        _fake_query_server_a2s_info,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/servers/",
+        headers=normal_user_token_headers,
+        json={"ip": random_server_ip(), "port": random_server_port()},
+    )
+
+    assert response.status_code == 422
+    assert (
+        response.json()["detail"]
+        == "Server is running map 'de_dust2', expected one of kz_*, bkz_*, vnl_*, skz_*, xc_*, kzpro_*"
+    )
 
 
 async def test_update_server_requeries_when_endpoint_changes(

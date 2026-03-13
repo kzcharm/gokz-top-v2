@@ -30,6 +30,14 @@ SERVER_HEARTBEAT_FUTURE_PARTITIONS_DAYS = 7
 STEAM_SERVER_LIST_URL = (
     "https://api.steampowered.com/IGameServersService/GetServerList/v1/"
 )
+SUPPORTED_KZ_MAP_PREFIXES = (
+    "kz_",
+    "bkz_",
+    "vnl_",
+    "skz_",
+    "xc_",
+    "kzpro_",
+)
 STEAM_SERVER_LIST_REGIONS = tuple(range(8))
 STEAM_SERVER_LIST_TIMEOUT_SECONDS = 10.0
 SERVER_STATUS_COLLECTOR_LOCK_ID = 4_465_480
@@ -72,6 +80,36 @@ class A2SInfoResult:
     max_players: int
     players: list[dict[str, Any]]
     observed_at: datetime
+    game_directory: str | None = None
+    game_name: str | None = None
+    app_id: int | None = None
+
+
+def is_supported_kz_map_name(map_name: str) -> bool:
+    normalized_map_name = map_name.strip().casefold()
+    return normalized_map_name.startswith(SUPPORTED_KZ_MAP_PREFIXES)
+
+
+def validate_server_addition_info(result: A2SInfoResult) -> None:
+    game_directory = result.game_directory.strip() if result.game_directory else ""
+    game_name = result.game_name.strip() if result.game_name else ""
+    normalized_game_name = game_name.casefold()
+    is_cs_game = game_directory.casefold() == "csgo" or normalized_game_name in {
+        "counter-strike 2",
+        "counter-strike: global offensive",
+        "counter-strike",
+    }
+    if not is_cs_game:
+        observed_game = game_name or game_directory or "unknown"
+        raise ServerQueryError(
+            f"Server is running game '{observed_game}', expected Counter-Strike"
+        )
+
+    if not is_supported_kz_map_name(result.map_name):
+        allowed_prefixes = ", ".join(f"{prefix}*" for prefix in SUPPORTED_KZ_MAP_PREFIXES)
+        raise ServerQueryError(
+            f"Server is running map '{result.map_name}', expected one of {allowed_prefixes}"
+        )
 
 
 def _read_cstring(payload: bytes, offset: int) -> tuple[str, int]:
@@ -131,19 +169,30 @@ def _send_a2s_request(
     return response
 
 
-def _parse_a2s_info_response(response: bytes) -> tuple[str, str, int, int]:
+def _parse_a2s_info_response(
+    response: bytes,
+) -> tuple[str, str, str, str, int, int, int]:
     offset = 6
     hostname, offset = _read_cstring(response, offset)
     map_name, offset = _read_cstring(response, offset)
-    _, offset = _read_cstring(response, offset)
-    _, offset = _read_cstring(response, offset)
+    game_directory, offset = _read_cstring(response, offset)
+    game_name, offset = _read_cstring(response, offset)
 
     if len(response) < offset + 4:
         raise ServerQueryError("Incomplete A2S info payload")
-    offset += 2  # app id
+    app_id = int.from_bytes(response[offset : offset + 2], "little", signed=False)
+    offset += 2
     player_count = response[offset]
     max_players = response[offset + 1]
-    return hostname, map_name, player_count, max_players
+    return (
+        hostname,
+        map_name,
+        game_directory,
+        game_name,
+        app_id,
+        player_count,
+        max_players,
+    )
 
 
 def _query_a2s_players_sync(
@@ -206,9 +255,15 @@ def _query_a2s_info_sync(ip: str, port: int, timeout: float) -> A2SInfoResult:
                 challenged_request_builder=lambda challenge: A2S_INFO_REQUEST
                 + challenge,
             )
-            hostname, map_name, player_count, max_players = _parse_a2s_info_response(
-                info_response
-            )
+            (
+                hostname,
+                map_name,
+                game_directory,
+                game_name,
+                app_id,
+                player_count,
+                max_players,
+            ) = _parse_a2s_info_response(info_response)
             try:
                 players = _query_a2s_players_sync(sock, address=address)
             except ServerQueryError:
@@ -217,6 +272,9 @@ def _query_a2s_info_sync(ip: str, port: int, timeout: float) -> A2SInfoResult:
             return A2SInfoResult(
                 hostname=hostname,
                 map_name=map_name,
+                game_directory=game_directory,
+                game_name=game_name,
+                app_id=app_id,
                 player_count=player_count,
                 max_players=max_players,
                 players=players,
@@ -416,7 +474,9 @@ async def run_server_discovery_cycle() -> ServerDiscoveryCycleResult:
     started_at = datetime.now(UTC)
     candidates = await query_steam_server_list_candidates()
     kz_candidates = [
-        candidate for candidate in candidates if candidate.map_name.startswith("kz_")
+        candidate
+        for candidate in candidates
+        if is_supported_kz_map_name(candidate.map_name)
     ]
 
     async with async_session_maker() as session:
