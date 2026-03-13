@@ -94,15 +94,19 @@ def validate_server_addition_info(result: A2SInfoResult) -> None:
     game_directory = result.game_directory.strip() if result.game_directory else ""
     game_name = result.game_name.strip() if result.game_name else ""
     normalized_game_name = game_name.casefold()
-    is_cs_game = game_directory.casefold() == "csgo" or normalized_game_name in {
-        "counter-strike 2",
+    if normalized_game_name == "counter-strike 2":
+        raise ServerQueryError(
+            "Server is running game 'Counter-Strike 2', expected Counter-Strike: Global Offensive"
+        )
+
+    is_supported_game = game_directory.casefold() == "csgo" or normalized_game_name in {
         "counter-strike: global offensive",
         "counter-strike",
     }
-    if not is_cs_game:
+    if not is_supported_game:
         observed_game = game_name or game_directory or "unknown"
         raise ServerQueryError(
-            f"Server is running game '{observed_game}', expected Counter-Strike"
+            f"Server is running game '{observed_game}', expected Counter-Strike: Global Offensive"
         )
 
     if not is_supported_kz_map_name(result.map_name):
