@@ -35,7 +35,7 @@ test.describe("Profile and theme", () => {
     await logInUser(page, superUserSteamid64, { isSuperuser: true })
     await page.goto("/settings")
 
-    await page.getByTestId("theme-button").click()
+    await page.getByTestId("theme-button").click({ button: "right" })
     await page.getByTestId("dark-mode").click()
     await expect(page.locator("html")).toHaveClass(/dark/)
 
