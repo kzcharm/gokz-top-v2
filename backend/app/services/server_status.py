@@ -21,7 +21,9 @@ from app.core.db import async_session_maker
 from app.models import ServerStatusPut
 
 SERVER_PLUGIN_FRESH_SECONDS = 5
-SERVER_A2S_POLL_SECONDS = 5
+SERVER_A2S_POLL_SECONDS = 10
+SERVER_A2S_FAILURES_BEFORE_OFFLINE = 3
+SERVER_A2S_QUERY_TIMEOUT_SECONDS = 2.0
 SERVER_DISCOVERY_INTERVAL_SECONDS = 3600
 SERVER_HEARTBEAT_RETENTION_DAYS = 30
 SERVER_HEARTBEAT_FUTURE_PARTITIONS_DAYS = 7
@@ -35,6 +37,8 @@ A2S_PACKET_PREFIX = b"\xff\xff\xff\xff"
 A2S_INFO_REQUEST = A2S_PACKET_PREFIX + b"TSource Engine Query\x00"
 A2S_PLAYER_REQUEST_PREFIX = A2S_PACKET_PREFIX + b"U"
 A2S_CHALLENGE_REQUEST = b"\xff\xff\xff\xff"
+_server_a2s_failures: dict[Any, int] = {}
+_server_a2s_in_flight_until: dict[Any, datetime] = {}
 
 
 @dataclass(slots=True)
@@ -226,7 +230,7 @@ async def query_server_a2s_info(
     *,
     ip: str,
     port: int,
-    timeout: float = 2.0,
+    timeout: float = SERVER_A2S_QUERY_TIMEOUT_SECONDS,
 ) -> A2SInfoResult:
     try:
         return await asyncio.to_thread(_query_a2s_info_sync, ip, port, timeout)
@@ -441,6 +445,36 @@ async def run_server_discovery_cycle() -> ServerDiscoveryCycleResult:
     )
 
 
+def _is_server_a2s_query_in_flight(*, server_id: Any, now: datetime) -> bool:
+    in_flight_until = _server_a2s_in_flight_until.get(server_id)
+    if in_flight_until is None:
+        return False
+    if in_flight_until <= now:
+        _server_a2s_in_flight_until.pop(server_id, None)
+        return False
+    return True
+
+
+def _mark_server_a2s_query_started(*, server_id: Any, now: datetime) -> None:
+    _server_a2s_in_flight_until[server_id] = now + timedelta(
+        seconds=SERVER_A2S_QUERY_TIMEOUT_SECONDS
+    )
+
+
+def _mark_server_a2s_query_finished(*, server_id: Any) -> None:
+    _server_a2s_in_flight_until.pop(server_id, None)
+
+
+def _reset_server_a2s_failures(*, server_id: Any) -> None:
+    _server_a2s_failures.pop(server_id, None)
+
+
+def _increment_server_a2s_failures(*, server_id: Any) -> int:
+    next_failures = _server_a2s_failures.get(server_id, 0) + 1
+    _server_a2s_failures[server_id] = next_failures
+    return next_failures
+
+
 async def run_server_a2s_refresh_cycle() -> None:
     now = datetime.now(UTC)
     async with async_session_maker() as session:
@@ -452,18 +486,39 @@ async def run_server_a2s_refresh_cycle() -> None:
         )
 
     semaphore = asyncio.Semaphore(20)
+    eligible_servers = []
+    for server in servers:
+        status = server.live_status
+        if (
+            status is not None
+            and status.last_successful_seen_at is not None
+            and (
+                status.last_a2s_seen_at is None
+                or status.last_successful_seen_at >= status.last_a2s_seen_at
+            )
+        ):
+            _reset_server_a2s_failures(server_id=server.id)
+
+        if _is_server_a2s_query_in_flight(server_id=server.id, now=now):
+            continue
+
+        _mark_server_a2s_query_started(server_id=server.id, now=now)
+        eligible_servers.append(server)
 
     async def _probe(
         server_id: Any, ip: str, port: int
     ) -> tuple[Any, A2SInfoResult | None]:
-        async with semaphore:
-            try:
-                result = await query_server_a2s_info(ip=ip, port=port)
-            except ServerQueryError:
-                return server_id, None
-        return server_id, result
+        try:
+            async with semaphore:
+                try:
+                    result = await query_server_a2s_info(ip=ip, port=port)
+                except ServerQueryError:
+                    return server_id, None
+            return server_id, result
+        finally:
+            _mark_server_a2s_query_finished(server_id=server_id)
 
-    server_refs = [(server.id, server.ip, server.port) for server in servers]
+    server_refs = [(server.id, server.ip, server.port) for server in eligible_servers]
     results = await asyncio.gather(
         *[_probe(server_id, ip, port) for server_id, ip, port in server_refs],
         return_exceptions=False,
@@ -473,14 +528,18 @@ async def run_server_a2s_refresh_cycle() -> None:
         async with async_session_maker() as session:
             server = await crud.get_server_by_id(session=session, server_id=server_id)
             if server is None:
+                _reset_server_a2s_failures(server_id=server_id)
                 continue
             if info is None:
-                await crud.record_offline_mark(
+                failures = _increment_server_a2s_failures(server_id=server_id)
+                await crud.record_a2s_failure(
                     session=session,
                     server=server,
                     observed_at=datetime.now(UTC),
+                    mark_offline=failures >= SERVER_A2S_FAILURES_BEFORE_OFFLINE,
                 )
                 continue
+            _reset_server_a2s_failures(server_id=server_id)
             await crud.record_a2s_success(
                 session=session,
                 server=server,

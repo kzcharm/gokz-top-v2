@@ -1,4 +1,4 @@
-import { Copy, Pause, Play } from "lucide-react"
+import { Copy, LoaderCircle, Pause, Play } from "lucide-react"
 import { memo, useMemo } from "react"
 
 import type { ServerPublic } from "@/client"
@@ -24,6 +24,7 @@ import {
   getServerPlayerCount,
   getServerPlayers,
   getServerSurfaceClass,
+  isServerStatusRefreshing,
   isServerOnline,
   sortPlayersByProgress,
 } from "./utils"
@@ -50,8 +51,9 @@ export const ServerCard = memo(function ServerCard({
   const isFull = maxPlayers > 0 && playerCount >= maxPlayers
   const isEmpty = playerCount === 0
   const offline = !isServerOnline(server)
+  const isRefreshing = isServerStatusRefreshing(server)
   const sortedPlayers = useMemo(
-    () => sortPlayersByProgress(getServerPlayers(server)).slice(0, 4),
+    () => sortPlayersByProgress(getServerPlayers(server)),
     [server],
   )
 
@@ -141,6 +143,15 @@ export const ServerCard = memo(function ServerCard({
             >
               {getServerHostname(server)}
             </span>
+            {isRefreshing ? (
+              <span
+                className="inline-flex shrink-0 items-center text-muted-foreground"
+                title="Refreshing server status"
+                aria-label="Refreshing server status"
+              >
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              </span>
+            ) : null}
             <Badge
               className={cn(
                 "ml-auto shrink-0",

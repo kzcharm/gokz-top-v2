@@ -39,6 +39,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
               <TableHead className="w-10" />
               <TableHead>Player</TableHead>
               <TableHead>Timer</TableHead>
+              <TableHead>Duration</TableHead>
               <TableHead>Progress</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -47,7 +48,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
             {sortedPlayers.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
                   No live players on this server.
@@ -61,6 +62,10 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                 const country = getPlayerStringValue(player, "country")
                 const mode = getPlayerStringValue(player, "mode")
                 const timerTime = getPlayerNumberValue(player, "timer_time")
+                const durationSeconds = getPlayerNumberValue(
+                  player,
+                  "duration_seconds",
+                )
                 const progress = getPlayerProgressPercent(player)
                 const isPaused = getPlayerBooleanValue(player, "is_paused")
                 const { badgeClassName } = getPlayerStatusSurfaceClass(player)
@@ -100,6 +105,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                         <Pause className="ml-1 inline h-3 w-3 align-middle text-muted-foreground" />
                       ) : null}
                     </TableCell>
+                    <TableCell>{formatTimerTime(durationSeconds)}</TableCell>
                     <TableCell>
                       {progress !== null ? (
                         <div className="flex min-w-[9rem] items-center gap-2">
