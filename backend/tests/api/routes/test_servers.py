@@ -248,11 +248,53 @@ async def test_create_server_rejects_non_csgo_server(
     assert response.status_code == 422
     assert (
         response.json()["detail"]
-        == "Server is running game 'Team Fortress', expected Counter-Strike"
+        == "Server is running game 'Team Fortress', expected Counter-Strike: Global Offensive"
     )
 
 
-async def test_create_server_allows_zero_app_id_when_game_field_matches(
+async def test_create_server_rejects_counter_strike_2_even_when_folder_and_app_id_match(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        return A2SInfoResult(
+            hostname=f"Queried {ip}:{port}",
+            map_name="kz_alpha",
+            player_count=3,
+            max_players=24,
+            players=[],
+            observed_at=datetime.now(UTC),
+            game_directory="csgo",
+            game_name="Counter-Strike 2",
+            app_id=730,
+        )
+
+    monkeypatch.setattr(
+        servers_route,
+        "query_server_a2s_info",
+        _fake_query_server_a2s_info,
+    )
+    monkeypatch.setattr(
+        server_crud,
+        "lookup_geoip_city",
+        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/servers/",
+        headers=normal_user_token_headers,
+        json={"ip": random_server_ip(), "port": random_server_port()},
+    )
+
+    assert response.status_code == 422
+    assert (
+        response.json()["detail"]
+        == "Server is running game 'Counter-Strike 2', expected Counter-Strike: Global Offensive"
+    )
+
+
+async def test_create_server_allows_zero_app_id_when_game_field_matches_csgo(
     client: AsyncClient,
     normal_user_token_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
@@ -266,7 +308,7 @@ async def test_create_server_allows_zero_app_id_when_game_field_matches(
             players=[],
             observed_at=datetime.now(UTC),
             game_directory="",
-            game_name="Counter-Strike 2",
+            game_name="Counter-Strike: Global Offensive",
             app_id=0,
         )
 
@@ -307,7 +349,7 @@ async def test_create_server_rejects_non_kz_map(
             players=[],
             observed_at=datetime.now(UTC),
             game_directory="csgo",
-            game_name="Counter-Strike 2",
+            game_name="Counter-Strike: Global Offensive",
             app_id=730,
         )
 
