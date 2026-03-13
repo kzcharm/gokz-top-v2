@@ -361,10 +361,11 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                   : "Disconnected"}
             </Badge>
             <Badge className="bg-orange-500 text-white">
-              {onlinePlayerCount} live players
+              {onlinePlayerCount} Players
             </Badge>
-            <Badge variant="outline">{onlineServerCount} online servers</Badge>
-            <Badge variant="secondary">{servers.length} total servers</Badge>
+            <Badge className="bg-blue-600 text-white hover:bg-blue-600/90">
+              {onlineServerCount} Servers
+            </Badge>
             <div className="flex gap-1">
               <Button
                 variant={search.view === "table" ? "default" : "outline"}
@@ -471,12 +472,10 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                   onClick={() => handleSearchPatch({ country: countryCode })}
                 >
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="shrink-0">
-                      <CountryFlag
-                        countryCode={countryCode}
-                        showTooltip={false}
-                      />
-                    </span>
+                    <CountryFlag
+                      countryCode={countryCode}
+                      showTooltip={false}
+                    />
                     <span>{countryCode}</span>
                     <span className="text-xs opacity-80">({count})</span>
                   </div>
