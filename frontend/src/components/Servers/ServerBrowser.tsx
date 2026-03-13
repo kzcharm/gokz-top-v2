@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
-import { ArrowDown, ArrowUp, Grid, List, Search, Share2 } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  Download,
+  Grid,
+  List,
+  Search,
+  Share2,
+} from "lucide-react"
 import {
   startTransition,
   useDeferredValue,
@@ -21,6 +29,13 @@ import { ServerTable } from "@/components/Servers/ServerTable"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -32,6 +47,7 @@ import type {
   ServersSearchState,
 } from "./utils"
 import {
+  buildServerConfigFile,
   buildServersWebSocketUrl,
   countOnlinePlayers,
   countOnlineServers,
@@ -42,6 +58,7 @@ import {
   matchesServerSearch,
   matchesServerStatusFilter,
   normalizeServersSearch,
+  SERVER_CONFIG_FILENAME,
   sortServers,
 } from "./utils"
 
@@ -103,6 +120,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   const [servers, setServers] = useState<ServerPublic[]>([])
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting")
+  const [configDialogOpen, setConfigDialogOpen] = useState(false)
   const seededRef = useRef(false)
 
   const serversQuery = useQuery({
@@ -322,6 +340,29 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     }
   }
 
+  const handleDownloadConfig = () => {
+    try {
+      const blob = new Blob([buildServerConfigFile(sortedServers)], {
+        type: "text/plain;charset=utf-8",
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = SERVER_CONFIG_FILENAME
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      showSuccessToast(
+        `Downloaded config for ${sortedServers.length} visible server${sortedServers.length === 1 ? "" : "s"}.`,
+      )
+      setConfigDialogOpen(true)
+    } catch {
+      showErrorToast("Unable to download the server config right now.")
+    }
+  }
+
   const handleServerAdded = (server: ServerPublic) => {
     setServers((currentServers) => {
       const nextServers = [...currentServers]
@@ -447,6 +488,18 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
               </span>
             </button>
             <AddServerButton onServerAdded={handleServerAdded} />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={handleDownloadConfig}
+              disabled={sortedServers.length === 0}
+              aria-label="Download server config"
+              title="Download server config"
+              data-testid="download-servers-config-button"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -582,6 +635,32 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         onCopyAddress={handleCopyAddress}
         onSteamConnect={handleSteamConnect}
       />
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Server config downloaded</DialogTitle>
+            <DialogDescription>
+              The file includes the servers currently visible in this browser,
+              sorted by hostname.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Place <code>{SERVER_CONFIG_FILENAME}</code> in your game{" "}
+              <code>cfg</code> folder.
+            </p>
+            <p>
+              Run <code>exec {SERVER_CONFIG_FILENAME}</code> in the console, or
+              add it to your <code>autoexec.cfg</code>.
+            </p>
+            <p>
+              Executing the file prints the numbered hostnames to the console.
+              Use <code>s1</code>, <code>s2</code>, <code>s3</code>, and so on
+              to connect.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

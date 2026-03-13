@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
 
 test.use({ storageState: { cookies: [], origins: [] } })
@@ -342,6 +343,138 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByLabel("Refreshing server status")).toHaveCount(0)
 })
 
+test("Public servers page downloads a generic config for the visible sorted servers", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const sockets: Array<{
+      readyState: number
+      onopen: ((event: Event) => void) | null
+      onmessage: ((event: { data: string }) => void) | null
+      onclose: ((event: Event) => void) | null
+      onerror: ((event: Event) => void) | null
+      dispatchMessage: (payload: unknown) => void
+      close: () => void
+      send: (_data?: unknown) => void
+    }> = []
+
+    class MockWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+
+      readyState = MockWebSocket.CONNECTING
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        sockets.push(this)
+        queueMicrotask(() => {
+          this.readyState = MockWebSocket.OPEN
+          this.onopen?.(new Event("open"))
+        })
+      }
+
+      send(_data?: unknown) {}
+
+      close() {
+        this.readyState = MockWebSocket.CLOSED
+        this.onclose?.(new Event("close"))
+      }
+
+      dispatchMessage(payload: unknown) {
+        this.onmessage?.({ data: JSON.stringify(payload) })
+      }
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+
+    Object.assign(window, {
+      __mockServerSockets: sockets,
+      __dispatchServerMessage: (payload: unknown) => {
+        for (const socket of sockets) {
+          socket.dispatchMessage(payload)
+        }
+      },
+    })
+  })
+
+  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seedServers),
+    })
+  })
+
+  await page.goto("/servers")
+
+  await page.waitForFunction(() => {
+    return (
+      Array.isArray((window as any).__mockServerSockets) &&
+      (window as any).__mockServerSockets.length > 0
+    )
+  })
+
+  await page.evaluate((payload) => {
+    ;(window as any).__dispatchServerMessage(payload)
+  }, snapshotServers)
+
+  await page
+    .getByPlaceholder("Search IP, hostname, map, city, group...")
+    .fill("kz_")
+
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
+
+  const downloadPromise = page.waitForEvent("download")
+  await page.getByTestId("download-servers-config-button").click()
+  const download = await downloadPromise
+
+  expect(download.suggestedFilename()).toBe("servers.cfg")
+
+  const downloadPath = await download.path()
+  expect(downloadPath).not.toBeNull()
+
+  const configContent = await readFile(downloadPath!, "utf8")
+
+  expect(configContent).toContain("// GOKZ.TOP public servers config")
+  expect(configContent).toContain("// Run: exec servers.cfg")
+  expect(configContent).toContain('echo "GOKZ.TOP server aliases loaded:"')
+  expect(configContent).toContain("// 1. Alpha Seed")
+  expect(configContent).toContain('echo "1. Alpha Seed"')
+  expect(configContent).toContain('alias "s1" "connect 10.0.0.1:27015"')
+  expect(configContent).toContain("// 2. Gamma Live")
+  expect(configContent).toContain('echo "2. Gamma Live"')
+  expect(configContent).toContain('alias "s2" "connect 10.0.0.3:27017"')
+  expect(configContent).not.toContain("Bravo Offline")
+  expect(configContent).not.toContain("10.0.0.2:27016")
+  expect(configContent).not.toContain("kz_seed")
+  expect(configContent).not.toContain("kz_gamma")
+  expect(configContent).not.toContain("Seed Group")
+  expect(configContent).not.toContain("Berlin Group")
+  expect(configContent).not.toContain("online")
+  expect(configContent).not.toContain("offline")
+  expect(configContent).not.toContain("AXE")
+  expect(configContent).not.toContain("axekz")
+
+  await expect(
+    page.getByRole("heading", { name: "Server config downloaded" }),
+  ).toBeVisible()
+  await expect(
+    page.getByText(
+      "The file includes the servers currently visible in this browser, sorted by hostname.",
+    ),
+  ).toBeVisible()
+})
+
 test("Add server button prompts for Steam login when logged out", async ({
   page,
 }) => {
@@ -472,9 +605,7 @@ test("Logged-in users can add a server from the servers page", async ({
   await page.goto("/servers")
 
   await page.getByTestId("add-server-button").click()
-  await page
-    .getByTestId("add-server-address-input")
-    .fill("10.0.0.4:27018")
+  await page.getByTestId("add-server-address-input").fill("10.0.0.4:27018")
   await page.getByRole("button", { name: "Add" }).click()
 
   await expect(page.getByTestId("server-card-10.0.0.4:27018")).toBeVisible()
