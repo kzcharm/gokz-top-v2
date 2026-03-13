@@ -21,8 +21,8 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
 import type {
@@ -36,9 +36,9 @@ import {
   countOnlineServers,
   createServersSearchParams,
   getCountryCounts,
-  getCountryPlayerCounts,
   getSelectedServerAddress,
   getServerAddress,
+  matchesServerStatusFilter,
   matchesServerSearch,
   normalizeServersSearch,
   sortServers,
@@ -253,7 +253,7 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
 
   const filteredServers = useMemo(() => {
     return servers.filter((server) => {
-      if (search.status === "online" && !(server.status?.is_online ?? false)) {
+      if (!matchesServerStatusFilter(server, search.status)) {
         return false
       }
 
@@ -277,10 +277,6 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
     () => getCountryCounts(servers, search.status),
     [search.status, servers],
   )
-  const countryPlayerCounts = useMemo(
-    () => getCountryPlayerCounts(servers),
-    [servers],
-  )
   const onlinePlayerCount = useMemo(
     () => countOnlinePlayers(servers),
     [servers],
@@ -289,6 +285,7 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
     () => countOnlineServers(servers),
     [servers],
   )
+  const offlineServerCount = servers.length - onlineServerCount
 
   const handleSearchPatch = (patch: Partial<ServersSearchState>) => {
     updateLocationSearch({
@@ -417,34 +414,46 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button
+            <button
               type="button"
-              variant={search.status === "all" ? "default" : "outline"}
-              className="h-10 gap-2 px-3"
+              className={cn(
+                "flex h-8 items-center gap-2 rounded-md border px-2.5 shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                search.status === "online" &&
+                  "border-green-600/30 bg-green-600/5",
+              )}
               onClick={() =>
                 handleSearchPatch({
-                  status: search.status === "all" ? "online" : "all",
+                  status: search.status === "online" ? "offline" : "online",
                 })
               }
-              aria-pressed={search.status === "all"}
-              aria-label="Show offline servers"
+              title="Click to switch between online and offline servers"
             >
-              <Checkbox
-                checked={search.status === "all"}
-                className="pointer-events-none"
+              <Switch
                 aria-hidden="true"
+                checked={search.status === "online"}
+                className="pointer-events-none"
+                tabIndex={-1}
               />
-              Show offline
-            </Button>
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  search.status === "online" &&
+                    "text-green-700 dark:text-green-400",
+                )}
+              >
+                Online
+              </span>
+            </button>
             <Button
               type="button"
               variant="outline"
-              className="h-10 gap-2 px-3"
+              size="sm"
+              className="h-8 gap-1.5 px-2.5 text-xs"
               onClick={handleCopyShareLink}
               aria-label="Copy share link"
               title="Copy share link"
             >
-              <Share2 className="h-4 w-4" />
+              <Share2 className="h-3.5 w-3.5" />
               Share
             </Button>
           </div>
@@ -458,10 +467,10 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
                 size="sm"
                 onClick={() => handleSearchPatch({ country: "all" })}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 whitespace-nowrap">
                   <span>All</span>
                   <span className="text-xs opacity-80">
-                    ({onlinePlayerCount})
+                    ({search.status === "online" ? onlineServerCount : offlineServerCount})
                   </span>
                 </div>
               </Button>
@@ -474,15 +483,15 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
                   size="sm"
                   onClick={() => handleSearchPatch({ country: countryCode })}
                 >
-                  <div className="flex items-center gap-2">
-                    <CountryFlag
-                      countryCode={countryCode}
-                      showTooltip={false}
-                    />
-                    <span>{countryCode}</span>
-                    <span className="text-xs opacity-80">
-                      ({countryPlayerCounts.get(countryCode) ?? count})
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <span className="shrink-0">
+                      <CountryFlag
+                        countryCode={countryCode}
+                        showTooltip={false}
+                      />
                     </span>
+                    <span>{countryCode}</span>
+                    <span className="text-xs opacity-80">({count})</span>
                   </div>
                 </Button>
               ))}
