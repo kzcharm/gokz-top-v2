@@ -4,7 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.models import (
     Message,
     ServerCreate,
@@ -22,6 +22,7 @@ from app.services.server_status import (
     ServerQueryError,
     query_server_a2s_info,
     run_server_discovery_cycle,
+    validate_server_addition_info,
 )
 
 router = APIRouter(prefix="/servers", tags=["servers"])
@@ -139,18 +140,18 @@ async def read_server(*, session: SessionDep, server_id: uuid.UUID) -> Any:
 
 @router.post(
     "/",
-    dependencies=[Depends(get_current_active_superuser)],
     response_model=ServerPublic,
 )
 async def create_server(
     *,
     session: SessionDep,
     server_in: ServerCreate,
-    current_user: CurrentSuperuser,
+    current_user: CurrentUser,
 ) -> Any:
     del current_user
     try:
         queried = await query_server_a2s_info(ip=server_in.ip, port=server_in.port)
+        validate_server_addition_info(queried)
         server = await crud.create_server(
             session=session,
             server_in=server_in,
@@ -161,7 +162,7 @@ async def create_server(
             queried_players=queried.players,
         )
     except ServerQueryError as exc:
-        raise HTTPException(status_code=422, detail="Unable to query server") from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:
         detail = "Server group not found"
         if str(exc) == "Server already exists":

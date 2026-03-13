@@ -175,7 +175,7 @@ async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
     assert stale_server.id in due_server_ids
 
 
-async def test_run_server_discovery_cycle_only_tracks_kz_servers(
+async def test_run_server_discovery_cycle_only_tracks_supported_kz_prefixes(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -194,6 +194,14 @@ async def test_run_server_discovery_cycle_only_tracks_kz_servers(
             SteamServerListCandidate(
                 ip="127.10.0.2",
                 port=27016,
+                hostname="BKZ Server",
+                map_name="bkz_beta",
+                player_count=1,
+                max_players=20,
+            ),
+            SteamServerListCandidate(
+                ip="127.10.0.3",
+                port=27017,
                 hostname="Other Server",
                 map_name="de_dust2",
                 player_count=1,
@@ -230,19 +238,21 @@ async def test_run_server_discovery_cycle_only_tracks_kz_servers(
 
     statement = select(Server).where(
         col(Server.source) == ServerSource.STEAM_MASTER,
-        col(Server.ip) == "127.10.0.1",
-        col(Server.port) == 27015,
+        col(Server.ip).in_(("127.10.0.1", "127.10.0.2")),
     )
     servers = list((await db.exec(statement)).all())
     assert result.regions_scanned == 8
-    assert result.candidate_count == 2
-    assert result.upserted_count == 1
-    assert len(servers) == 1
-    assert servers[0].ip == "127.10.0.1"
-    assert servers[0].enabled is True
-    assert servers[0].configured_hostname == "KZ Server"
-    assert servers[0].country == "SE"
-    assert servers[0].city == "Stockholm"
+    assert result.candidate_count == 3
+    assert result.upserted_count == 2
+    assert len(servers) == 2
+    assert {server.ip for server in servers} == {"127.10.0.1", "127.10.0.2"}
+    assert all(server.enabled is True for server in servers)
+    assert {server.configured_hostname for server in servers} == {
+        "KZ Server",
+        "BKZ Server",
+    }
+    assert all(server.country == "SE" for server in servers)
+    assert all(server.city == "Stockholm" for server in servers)
 
 
 async def test_extract_server_list_candidates_dedupes_and_skips_invalid_rows() -> None:
@@ -384,6 +394,9 @@ async def test_query_a2s_info_sync_parses_players(
     ]
     assert result.hostname == "Test Host"
     assert result.map_name == "kz_alpha"
+    assert result.game_directory == "csgo"
+    assert result.game_name == "Counter-Strike 2"
+    assert result.app_id == 730
     assert result.player_count == 2
     assert result.max_players == 16
     assert result.players == [

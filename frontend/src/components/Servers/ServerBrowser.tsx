@@ -13,6 +13,7 @@ import {
 
 import { type ServerPublic, ServersService } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
+import { AddServerButton } from "@/components/Servers/AddServerButton"
 import { PendingServers } from "@/components/Servers/PendingServers"
 import { ServerCard } from "@/components/Servers/ServerCard"
 import { ServerDetailSheet } from "@/components/Servers/ServerDetailSheet"
@@ -321,6 +322,23 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     }
   }
 
+  const handleServerAdded = (server: ServerPublic) => {
+    setServers((currentServers) => {
+      const nextServers = [...currentServers]
+      const existingIndex = nextServers.findIndex(
+        (currentServer) => currentServer.id === server.id,
+      )
+
+      if (existingIndex === -1) {
+        nextServers.push(server)
+        return nextServers
+      }
+
+      nextServers[existingIndex] = server
+      return nextServers
+    })
+  }
+
   if (serversQuery.isLoading && servers.length === 0) {
     return <PendingServers />
   }
@@ -428,17 +446,17 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                 Online
               </span>
             </button>
+            <AddServerButton onServerAdded={handleServerAdded} />
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 px-2.5 text-xs"
+              size="icon-sm"
               onClick={handleCopyShareLink}
               aria-label="Copy share link"
               title="Copy share link"
+              data-testid="share-servers-button"
             >
               <Share2 className="h-3.5 w-3.5" />
-              Share
             </Button>
           </div>
         </div>

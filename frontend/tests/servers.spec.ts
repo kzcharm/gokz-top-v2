@@ -154,6 +154,34 @@ const updatedGammaServer = {
   },
 }
 
+const addedServer = {
+  id: "019d4444-4444-7444-8444-444444444444",
+  ip: "10.0.0.4",
+  port: 27018,
+  enabled: true,
+  configured_hostname: "Delta Added",
+  country: "FR",
+  city: "Paris",
+  source: "manual",
+  last_discovered_at: null,
+  map_tier: 4,
+  created_at: "2026-03-12T10:10:00Z",
+  updated_at: "2026-03-12T10:10:00Z",
+  group: null,
+  status: {
+    current_hostname: "Delta Added",
+    map: "bkz_delta",
+    player_count: 4,
+    max_players: 16,
+    players: [],
+    is_online: true,
+    last_plugin_seen_at: null,
+    last_a2s_seen_at: "2026-03-12T10:10:00Z",
+    last_successful_seen_at: "2026-03-12T10:10:00Z",
+    updated_at: "2026-03-12T10:10:00Z",
+  },
+}
+
 test("Public servers page supports live updates, filters, and route-bound details", async ({
   page,
 }) => {
@@ -312,4 +340,143 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByText("Gamma Live Updated")).toBeVisible()
   await expect(page.getByText("9/24")).toBeVisible()
   await expect(page.getByLabel("Refreshing server status")).toHaveCount(0)
+})
+
+test("Add server button prompts for Steam login when logged out", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    class MockWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+
+      readyState = MockWebSocket.OPEN
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        queueMicrotask(() => {
+          this.onopen?.(new Event("open"))
+        })
+      }
+
+      send(_data?: unknown) {}
+      close() {}
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+  })
+
+  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seedServers),
+    })
+  })
+
+  await page.goto("/servers")
+
+  await page.getByTestId("add-server-button").click()
+
+  await expect(page.getByRole("heading", { name: "Add Server" })).toBeVisible()
+  await expect(page.getByText("Login required")).toBeVisible()
+  await expect(
+    page.getByText("You need to log in with Steam before adding a server."),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Continue with Steam" }),
+  ).toBeVisible()
+})
+
+test("Logged-in users can add a server from the servers page", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "test-token")
+
+    class MockWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+
+      readyState = MockWebSocket.OPEN
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        queueMicrotask(() => {
+          this.onopen?.(new Event("open"))
+        })
+      }
+
+      send(_data?: unknown) {}
+      close() {}
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+  })
+
+  await page.route(/\/v1\/users\/me$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        steamid64: "76561198000000001",
+        is_superuser: false,
+        is_active: true,
+        player: {
+          steamid64: "76561198000000001",
+          name: "Runner One",
+          avatar_hash: null,
+        },
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toEqual({
+        ip: "10.0.0.4",
+        port: 27018,
+        enabled: true,
+      })
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(addedServer),
+      })
+      return
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seedServers),
+    })
+  })
+
+  await page.goto("/servers")
+
+  await page.getByTestId("add-server-button").click()
+  await page
+    .getByTestId("add-server-address-input")
+    .fill("10.0.0.4:27018")
+  await page.getByRole("button", { name: "Add" }).click()
+
+  await expect(page.getByTestId("server-card-10.0.0.4:27018")).toBeVisible()
+  await expect(page.getByText("Delta Added")).toBeVisible()
 })
