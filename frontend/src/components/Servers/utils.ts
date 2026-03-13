@@ -37,6 +37,8 @@ export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
   dir: "desc",
 }
 
+export const SERVER_CONFIG_FILENAME = "servers.cfg"
+
 interface CreateServersSearchParamsOptions {
   includeDefaults?: boolean
 }
@@ -326,6 +328,38 @@ export function getCountryPlayerCounts(servers: ServerPublic[]) {
   }
 
   return counts
+}
+
+function sanitizeConfigHostname(hostname: string) {
+  return hostname.replace(/\s+/g, " ").trim()
+}
+
+function getServerConfigComment(server: ServerPublic, index: number) {
+  return `// ${index + 1}. ${sanitizeConfigHostname(getServerHostname(server))}`
+}
+
+export function buildServerConfigFile(servers: ServerPublic[]) {
+  const sortedServers = [...servers].sort((left, right) =>
+    getServerHostname(left).localeCompare(getServerHostname(right)),
+  )
+  const lines = [
+    "// GOKZ.TOP public servers config",
+    "// Generated from the current filtered servers browser results.",
+    `// Run: exec ${SERVER_CONFIG_FILENAME}`,
+    "// Then connect with aliases s1, s2, s3, ...",
+    "",
+    'echo "GOKZ.TOP server aliases loaded:"',
+  ]
+
+  for (const [index, server] of sortedServers.entries()) {
+    const hostname = sanitizeConfigHostname(getServerHostname(server))
+    lines.push(getServerConfigComment(server, index))
+    lines.push(`echo "${index + 1}. ${hostname}"`)
+    lines.push(`alias "s${index + 1}" "connect ${getServerAddress(server)}"`)
+    lines.push("")
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`
 }
 
 export function getOccupancyVariant(server: ServerPublic) {
