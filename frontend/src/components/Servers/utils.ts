@@ -3,7 +3,7 @@ import { getCountryName } from "@/components/Common/CountryFlag"
 
 import { normalizeTierValue } from "./tier"
 
-export type ServerStatusFilter = "online" | "all"
+export type ServerStatusFilter = "online" | "offline"
 export type ServerViewMode = "grid" | "table"
 export type ServerSortKey = "players" | "hostname" | "map" | "tier"
 export type ServerSortDirection = "asc" | "desc"
@@ -42,7 +42,7 @@ interface CreateServersSearchParamsOptions {
 }
 
 function isServerStatusFilter(value: unknown): value is ServerStatusFilter {
-  return value === "online" || value === "all"
+  return value === "online" || value === "offline"
 }
 
 function isServerViewMode(value: unknown): value is ServerViewMode {
@@ -69,12 +69,17 @@ export function normalizeServersSearch(
     typeof search.country === "string"
       ? search.country.trim().toUpperCase()
       : ""
+  const rawStatus =
+    typeof search.status === "string" ? search.status.trim().toLowerCase() : ""
 
   return {
     q: typeof search.q === "string" ? search.q : DEFAULT_SERVERS_SEARCH.q,
-    status: isServerStatusFilter(search.status)
-      ? search.status
-      : DEFAULT_SERVERS_SEARCH.status,
+    status:
+      rawStatus === "all"
+        ? "offline"
+        : isServerStatusFilter(rawStatus)
+          ? rawStatus
+          : DEFAULT_SERVERS_SEARCH.status,
     country:
       rawCountry && rawCountry !== "ALL"
         ? rawCountry
@@ -139,6 +144,15 @@ export function getServerPlayers(server: ServerPublic) {
 
 export function isServerOnline(server: ServerPublic) {
   return server.status?.is_online ?? false
+}
+
+export function matchesServerStatusFilter(
+  server: ServerPublic,
+  statusFilter: ServerStatusFilter,
+) {
+  return statusFilter === "online"
+    ? isServerOnline(server)
+    : !isServerOnline(server)
 }
 
 export function getServerPlayerCount(server: ServerPublic) {
@@ -275,7 +289,7 @@ export function getCountryCounts(
   const counts = new Map<string, number>()
 
   for (const server of servers) {
-    if (statusFilter === "online" && !isServerOnline(server)) {
+    if (!matchesServerStatusFilter(server, statusFilter)) {
       continue
     }
 
