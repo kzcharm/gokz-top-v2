@@ -1,12 +1,10 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppShell } from "@/components/Common/AppShell"
 import { ServerBrowser } from "@/components/Servers/ServerBrowser"
-import { normalizeServersSearch } from "@/components/Servers/utils"
 import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/servers")({
-  validateSearch: normalizeServersSearch,
   component: ServersRoute,
   head: () => ({
     meta: [
@@ -18,11 +16,13 @@ export const Route = createFileRoute("/servers")({
 })
 
 function ServersRoute() {
-  const search = Route.useSearch()
+  const initialSearchString = useRouterState({
+    select: (state) => state.location.searchStr,
+  })
 
   return (
     <AppShell contentClassName="max-w-[1600px]">
-      <ServerBrowser search={search} />
+      <ServerBrowser initialSearchString={initialSearchString} />
       <Outlet />
     </AppShell>
   )

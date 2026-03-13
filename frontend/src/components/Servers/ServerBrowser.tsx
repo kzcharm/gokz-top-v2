@@ -17,12 +17,12 @@ import { PendingServers } from "@/components/Servers/PendingServers"
 import { ServerCard } from "@/components/Servers/ServerCard"
 import { ServerDetailSheet } from "@/components/Servers/ServerDetailSheet"
 import { ServerTable } from "@/components/Servers/ServerTable"
-import useCustomToast from "@/hooks/useCustomToast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import useCustomToast from "@/hooks/useCustomToast"
 import { cn } from "@/lib/utils"
 
 import type {
@@ -38,14 +38,14 @@ import {
   getCountryCounts,
   getSelectedServerAddress,
   getServerAddress,
-  matchesServerStatusFilter,
   matchesServerSearch,
+  matchesServerStatusFilter,
   normalizeServersSearch,
   sortServers,
 } from "./utils"
 
 interface ServerBrowserProps {
-  search: ServersSearchState
+  initialSearchString: string
 }
 
 type ConnectionState = "connecting" | "live" | "disconnected"
@@ -79,15 +79,25 @@ function SortControl({
   )
 }
 
-export function ServerBrowser({ search }: ServerBrowserProps) {
+export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   const navigate = useNavigate()
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const selectedAddress = getSelectedServerAddress(pathname)
+  const hydratedInitialSearch = useMemo(
+    () =>
+      normalizeServersSearch(
+        Object.fromEntries(new URLSearchParams(initialSearchString)),
+      ),
+    [initialSearchString],
+  )
 
-  const [searchInput, setSearchInput] = useState(search.q)
+  const [search, setSearch] = useState<ServersSearchState>(
+    () => hydratedInitialSearch,
+  )
+  const [searchInput, setSearchInput] = useState(() => hydratedInitialSearch.q)
   const deferredSearchInput = useDeferredValue(searchInput)
   const [servers, setServers] = useState<ServerPublic[]>([])
   const [connectionState, setConnectionState] =
@@ -103,8 +113,11 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
   })
 
   useEffect(() => {
-    setSearchInput(search.q)
-  }, [search.q])
+    startTransition(() => {
+      setSearch(hydratedInitialSearch)
+      setSearchInput(hydratedInitialSearch.q)
+    })
+  }, [hydratedInitialSearch])
 
   useEffect(() => {
     if (!serversQuery.data || seededRef.current) {
@@ -115,53 +128,20 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
     setServers(serversQuery.data.data)
   }, [serversQuery.data])
 
-  const updateLocationSearch = useEffectEvent(
-    (nextSearch: ServersSearchState) => {
-      const normalizedSearch = normalizeServersSearch({ ...nextSearch })
-      const nextPath = selectedAddress
-        ? `/servers/${selectedAddress}`
-        : "/servers"
-
-      startTransition(() => {
-        navigate({
-          to: nextPath,
-          search: normalizedSearch,
-          replace: true,
-        })
-      })
-    },
-  )
-
   useEffect(() => {
     if (deferredSearchInput === search.q) {
       return
     }
 
-    updateLocationSearch({ ...search, q: deferredSearchInput })
-  }, [deferredSearchInput, search])
-
-  const compactSearchString = useMemo(
-    () => createServersSearchParams(search).toString(),
-    [search],
-  )
-
-  useEffect(() => {
-    const currentSearchString = window.location.search.startsWith("?")
-      ? window.location.search.slice(1)
-      : window.location.search
-    const currentUrl = currentSearchString
-      ? `${window.location.pathname}?${currentSearchString}`
-      : window.location.pathname
-    const nextUrl = compactSearchString
-      ? `${pathname}?${compactSearchString}`
-      : pathname
-
-    if (currentUrl === nextUrl) {
-      return
-    }
-
-    window.history.replaceState(window.history.state, "", nextUrl)
-  }, [compactSearchString, pathname])
+    startTransition(() => {
+      setSearch((currentSearch) =>
+        normalizeServersSearch({
+          ...currentSearch,
+          q: deferredSearchInput,
+        }),
+      )
+    })
+  }, [deferredSearchInput, search.q])
 
   const handleRealtimeEvent = useEffectEvent((event: ServerRealtimeEvent) => {
     setServers((currentServers) => {
@@ -288,16 +268,19 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
   const offlineServerCount = servers.length - onlineServerCount
 
   const handleSearchPatch = (patch: Partial<ServersSearchState>) => {
-    updateLocationSearch({
-      ...search,
-      ...patch,
+    startTransition(() => {
+      setSearch((currentSearch) =>
+        normalizeServersSearch({
+          ...currentSearch,
+          ...patch,
+        }),
+      )
     })
   }
 
   const handleSelectServer = (server: ServerPublic) => {
     navigate({
       to: `/servers/${getServerAddress(server)}`,
-      search,
     })
   }
 
@@ -470,7 +453,11 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   <span>All</span>
                   <span className="text-xs opacity-80">
-                    ({search.status === "online" ? onlineServerCount : offlineServerCount})
+                    (
+                    {search.status === "online"
+                      ? onlineServerCount
+                      : offlineServerCount}
+                    )
                   </span>
                 </div>
               </Button>
@@ -572,7 +559,6 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
 
           navigate({
             to: "/servers",
-            search,
             replace: true,
           })
         }}
