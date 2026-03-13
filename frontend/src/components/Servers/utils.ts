@@ -149,6 +149,20 @@ export function getServerMaxPlayers(server: ServerPublic) {
   return server.status?.max_players ?? 0
 }
 
+export function isServerStatusRefreshing(server: ServerPublic) {
+  if (!isServerOnline(server)) {
+    return false
+  }
+
+  const lastA2SSeenAt = server.status?.last_a2s_seen_at
+  const lastSuccessfulSeenAt = server.status?.last_successful_seen_at
+  if (!lastA2SSeenAt || !lastSuccessfulSeenAt) {
+    return false
+  }
+
+  return Date.parse(lastA2SSeenAt) > Date.parse(lastSuccessfulSeenAt)
+}
+
 export function getServerLocation(server: ServerPublic) {
   return [server.city, server.country].filter(Boolean).join(", ")
 }

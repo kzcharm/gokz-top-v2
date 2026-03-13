@@ -550,6 +550,54 @@ async def record_a2s_success(
     return await get_server_by_id(session=session, server_id=server.id) or server
 
 
+async def record_a2s_failure(
+    *,
+    session: AsyncSession,
+    server: Server,
+    observed_at: datetime,
+    mark_offline: bool,
+) -> Server:
+    status = await _get_server_live_status(session=session, server=server)
+    if status is None:
+        status = ServerLiveStatus(server_id=server.id)
+        session.add(status)
+        server.live_status = status
+
+    status.last_a2s_seen_at = observed_at
+    status.current_hostname = status.current_hostname or server.configured_hostname
+    session.add(status)
+
+    if not status.is_online:
+        await session.commit()
+        return await get_server_by_id(session=session, server_id=server.id) or server
+    if not mark_offline:
+        await notify_server_status_updated(session=session, server_id=server.id)
+        await session.commit()
+        return await get_server_by_id(session=session, server_id=server.id) or server
+
+    status.player_count = 0
+    status.players = []
+    status.is_online = False
+    status.updated_at = observed_at
+    session.add(status)
+
+    heartbeat = ServerHeartbeatRaw(
+        server_id=server.id,
+        source=ServerHeartbeatSource.OFFLINE_MARK,
+        observed_at=observed_at,
+        hostname=status.current_hostname,
+        map=status.map,
+        player_count=0,
+        max_players=status.max_players,
+        players=[],
+        is_online=False,
+    )
+    session.add(heartbeat)
+    await notify_server_status_updated(session=session, server_id=server.id)
+    await session.commit()
+    return await get_server_by_id(session=session, server_id=server.id) or server
+
+
 async def record_offline_mark(
     *,
     session: AsyncSession,

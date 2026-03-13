@@ -281,6 +281,14 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
     () => getCountryPlayerCounts(servers),
     [servers],
   )
+  const onlinePlayerCount = useMemo(
+    () => countOnlinePlayers(servers),
+    [servers],
+  )
+  const onlineServerCount = useMemo(
+    () => countOnlineServers(servers),
+    [servers],
+  )
 
   const handleSearchPatch = (patch: Partial<ServersSearchState>) => {
     updateLocationSearch({
@@ -372,13 +380,11 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
                   ? "Reconnecting"
                   : "Disconnected"}
             </Badge>
-            <span className="text-sm text-muted-foreground">Online:</span>
             <Badge className="bg-orange-500 text-white">
-              {countOnlinePlayers(servers)} players
+              {onlinePlayerCount} live players
             </Badge>
-            <Badge variant="outline">
-              {countOnlineServers(servers)} servers
-            </Badge>
+            <Badge variant="outline">{onlineServerCount} online servers</Badge>
+            <Badge variant="secondary">{servers.length} total servers</Badge>
             <div className="flex gap-1">
               <Button
                 variant={search.view === "table" ? "default" : "outline"}
@@ -455,7 +461,7 @@ export function ServerBrowser({ search }: ServerBrowserProps) {
                 <div className="flex items-center gap-2">
                   <span>All</span>
                   <span className="text-xs opacity-80">
-                    ({countOnlinePlayers(servers)})
+                    ({onlinePlayerCount})
                   </span>
                 </div>
               </Button>

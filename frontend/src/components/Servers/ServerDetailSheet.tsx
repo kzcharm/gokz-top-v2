@@ -1,4 +1,4 @@
-import { Copy, Play } from "lucide-react"
+import { Copy, LoaderCircle, Play } from "lucide-react"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -25,6 +25,7 @@ import {
   getServerMapName,
   getServerPlayerCount,
   getServerPlayers,
+  isServerStatusRefreshing,
   isServerOnline,
 } from "./utils"
 
@@ -58,6 +59,7 @@ export function ServerDetailSheet({
 }: ServerDetailSheetProps) {
   const mapName = server ? getServerMapName(server) : null
   const mapImageUrl = getServerMapImageUrl(mapName)
+  const isRefreshing = server ? isServerStatusRefreshing(server) : false
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,6 +83,15 @@ export function ServerDetailSheet({
                 >
                   {isServerOnline(server) ? "Online" : "Offline"}
                 </Badge>
+                {isRefreshing ? (
+                  <span
+                    className="inline-flex items-center text-muted-foreground"
+                    title="Refreshing server status"
+                    aria-label="Refreshing server status"
+                  >
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  </span>
+                ) : null}
               </DialogTitle>
               <DialogDescription>
                 {server.group?.name ? `${server.group.name} • ` : ""}

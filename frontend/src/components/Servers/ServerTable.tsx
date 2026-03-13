@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Copy, Play } from "lucide-react"
+import { ArrowDown, ArrowUp, Copy, LoaderCircle, Play } from "lucide-react"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -22,6 +22,7 @@ import {
   getServerHostname,
   getServerMapImageUrl,
   getServerMapName,
+  isServerStatusRefreshing,
   isServerOnline,
 } from "./utils"
 
@@ -127,6 +128,7 @@ export function ServerTable({
               const mapName = getServerMapName(server)
               const mapImageUrl = getServerMapImageUrl(mapName)
               const isSelected = selectedAddress === address
+              const isRefreshing = isServerStatusRefreshing(server)
 
               return (
                 <TableRow
@@ -165,6 +167,15 @@ export function ServerTable({
                         >
                           {getServerHostname(server)}
                         </span>
+                        {isRefreshing ? (
+                          <span
+                            className="inline-flex items-center text-muted-foreground"
+                            title="Refreshing server status"
+                            aria-label="Refreshing server status"
+                          >
+                            <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                          </span>
+                        ) : null}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         <span className="font-mono">{address}</span>

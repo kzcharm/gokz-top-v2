@@ -100,11 +100,12 @@ const snapshotServers = {
             status: "in_progress",
             teleports: 2,
             timer_time: 142.5,
+            duration_seconds: 412.25,
           },
         ],
         is_online: true,
         last_plugin_seen_at: "2026-03-12T10:00:00Z",
-        last_a2s_seen_at: "2026-03-12T10:00:00Z",
+        last_a2s_seen_at: "2026-03-12T10:00:05Z",
         last_successful_seen_at: "2026-03-12T10:00:00Z",
         updated_at: "2026-03-12T10:00:00Z",
       },
@@ -244,6 +245,10 @@ test("Public servers page supports live updates, filters, and route-bound detail
 
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
+  await expect(page.getByText("12 live players")).toBeVisible()
+  await expect(page.getByText("2 online servers")).toBeVisible()
+  await expect(page.getByText("3 total servers")).toBeVisible()
+  await expect(page.getByLabel("Refreshing server status")).toHaveCount(1)
 
   const hoverCard = page.getByTestId("server-card-10.0.0.3:27017")
   await hoverCard.hover()
@@ -290,10 +295,12 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect
     .poll(() => new URL(page.url()).searchParams.get("dir"))
     .toBeNull()
-  await expect
-    .poll(() => new URL(page.url()).searchParams.get("q"))
-    .toBeNull()
+  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBeNull()
   await expect(page.getByText("Gamma Live")).toBeVisible()
+  await expect(
+    page.getByRole("columnheader", { name: "Duration" }),
+  ).toBeVisible()
+  await expect(page.getByRole("cell", { name: "6:52" })).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveClass(
     /server-selected_650ms_ease-out/,
   )
@@ -304,4 +311,5 @@ test("Public servers page supports live updates, filters, and route-bound detail
 
   await expect(page.getByText("Gamma Live Updated")).toBeVisible()
   await expect(page.getByText("9/24")).toBeVisible()
+  await expect(page.getByLabel("Refreshing server status")).toHaveCount(0)
 })

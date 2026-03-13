@@ -1,5 +1,6 @@
 import asyncio
 import struct
+from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -19,6 +20,15 @@ from app.services.server_status import (
 from tests.utils.server import create_server
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture(autouse=True)
+def reset_server_status_runtime_state() -> Generator[None]:
+    server_status._server_a2s_failures.clear()
+    server_status._server_a2s_in_flight_until.clear()
+    yield
+    server_status._server_a2s_failures.clear()
+    server_status._server_a2s_in_flight_until.clear()
 
 
 class _StaticSessionFactory:
@@ -447,6 +457,172 @@ async def test_run_server_a2s_refresh_cycle_updates_stale_players(
         {"name": "Player One", "score": 7, "duration_seconds": 33.0},
         {"name": "Player Two", "score": 1, "duration_seconds": 11.0},
     ]
+
+
+async def test_run_server_a2s_refresh_cycle_keeps_recent_server_online_on_single_failure(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db, player_count=4, max_players=20)
+    assert server.live_status is not None
+
+    previous_success_at = datetime.now(UTC) - timedelta(seconds=10)
+    server.live_status.last_successful_seen_at = previous_success_at
+    server.live_status.last_a2s_seen_at = previous_success_at - timedelta(seconds=10)
+    server.live_status.is_online = True
+    server.live_status.players = [{"name": "Player One"}]
+    db.add(server.live_status)
+    await db.commit()
+
+    async def _failing_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        del ip, port
+        raise ServerQueryError("temporary timeout")
+
+    monkeypatch.setattr(
+        server_status,
+        "query_server_a2s_info",
+        _failing_query_server_a2s_info,
+    )
+    monkeypatch.setattr(
+        server_status.crud,
+        "read_servers_due_for_a2s_poll",
+        lambda **kwargs: asyncio.sleep(0, result=[server]),
+    )
+    monkeypatch.setattr(
+        server_status,
+        "async_session_maker",
+        _StaticSessionFactory(db),
+    )
+
+    await server_status.run_server_a2s_refresh_cycle()
+
+    refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
+    assert refreshed is not None
+    assert refreshed.live_status is not None
+    assert refreshed.live_status.is_online is True
+    assert refreshed.live_status.player_count == 4
+    assert refreshed.live_status.players == [{"name": "Player One"}]
+    assert refreshed.live_status.last_successful_seen_at == previous_success_at
+    assert refreshed.live_status.last_a2s_seen_at is not None
+    assert refreshed.live_status.last_a2s_seen_at > previous_success_at
+
+
+async def test_run_server_a2s_refresh_cycle_marks_server_offline_after_three_failures(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db, player_count=4, max_players=20)
+    assert server.live_status is not None
+
+    previous_success_at = datetime.now(UTC) - timedelta(seconds=10)
+    server.live_status.last_successful_seen_at = previous_success_at
+    server.live_status.last_a2s_seen_at = previous_success_at - timedelta(seconds=10)
+    server.live_status.is_online = True
+    server.live_status.players = [{"name": "Player One"}]
+    db.add(server.live_status)
+    await db.commit()
+
+    async def _failing_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        del ip, port
+        raise ServerQueryError("server unreachable")
+
+    monkeypatch.setattr(
+        server_status,
+        "query_server_a2s_info",
+        _failing_query_server_a2s_info,
+    )
+    monkeypatch.setattr(
+        server_status.crud,
+        "read_servers_due_for_a2s_poll",
+        lambda **kwargs: asyncio.sleep(0, result=[server]),
+    )
+    monkeypatch.setattr(
+        server_status,
+        "async_session_maker",
+        _StaticSessionFactory(db),
+    )
+
+    await server_status.run_server_a2s_refresh_cycle()
+    first_failure = await crud.get_server_by_id(session=db, server_id=server.id)
+    assert first_failure is not None
+    assert first_failure.live_status is not None
+    assert first_failure.live_status.is_online is True
+    assert first_failure.live_status.player_count == 4
+    assert first_failure.live_status.players == [{"name": "Player One"}]
+
+    await server_status.run_server_a2s_refresh_cycle()
+    second_failure = await crud.get_server_by_id(session=db, server_id=server.id)
+    assert second_failure is not None
+    assert second_failure.live_status is not None
+    assert second_failure.live_status.is_online is True
+    assert second_failure.live_status.player_count == 4
+    assert second_failure.live_status.players == [{"name": "Player One"}]
+
+    await server_status.run_server_a2s_refresh_cycle()
+
+    refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
+    assert refreshed is not None
+    assert refreshed.live_status is not None
+    assert refreshed.live_status.is_online is False
+    assert refreshed.live_status.player_count == 0
+    assert refreshed.live_status.players == []
+    assert refreshed.live_status.current_hostname == "Test Server"
+
+
+async def test_run_server_a2s_refresh_cycle_skips_server_with_inflight_query(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db)
+    assert server.live_status is not None
+    server.live_status.last_a2s_seen_at = datetime.now(UTC) - timedelta(seconds=10)
+    db.add(server.live_status)
+    await db.commit()
+
+    query_started = asyncio.Event()
+    allow_query_to_finish = asyncio.Event()
+    query_call_count = 0
+
+    async def _slow_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        nonlocal query_call_count
+        query_call_count += 1
+        assert ip == server.ip
+        assert port == server.port
+        query_started.set()
+        await allow_query_to_finish.wait()
+        return A2SInfoResult(
+            hostname="Recovered Host",
+            map_name="kz_recovered",
+            player_count=2,
+            max_players=16,
+            players=[],
+            observed_at=datetime.now(UTC),
+        )
+
+    monkeypatch.setattr(
+        server_status,
+        "query_server_a2s_info",
+        _slow_query_server_a2s_info,
+    )
+    monkeypatch.setattr(
+        server_status.crud,
+        "read_servers_due_for_a2s_poll",
+        lambda **kwargs: asyncio.sleep(0, result=[server]),
+    )
+    monkeypatch.setattr(
+        server_status,
+        "async_session_maker",
+        _StaticSessionFactory(db),
+    )
+
+    first_cycle = asyncio.create_task(server_status.run_server_a2s_refresh_cycle())
+    await query_started.wait()
+
+    await server_status.run_server_a2s_refresh_cycle()
+    assert query_call_count == 1
+
+    allow_query_to_finish.set()
+    await first_cycle
 
 
 async def test_run_server_status_collector_in_app_uses_advisory_lock(
