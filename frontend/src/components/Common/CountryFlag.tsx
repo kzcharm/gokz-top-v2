@@ -65,18 +65,11 @@ export function CountryFlag({
   }
 
   const content = (
-    <span
+    <FlagComponent
       role="img"
       aria-label={countryName || normalizedCountryCode || "Unknown country"}
-      className="inline-flex rounded-sm"
-    >
-      <FlagComponent
-        className={cn(
-          "h-4 w-6 rounded-[2px] shadow-xs ring-1 ring-border",
-          className,
-        )}
-      />
-    </span>
+      className={cn("h-4 w-6 shrink-0", className)}
+    />
   )
 
   if (!showTooltip) {

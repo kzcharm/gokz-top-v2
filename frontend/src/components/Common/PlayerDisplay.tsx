@@ -55,11 +55,11 @@ export function PlayerDisplay({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="inline-flex rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="inline-flex appearance-none border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 data-testid={`country-flag-${steamid64}`}
                 aria-label={countryName || countryCode || "Unknown country"}
               >
-                <FlagComponent className="h-4 w-6 rounded-[2px] shadow-xs ring-1 ring-border" />
+                <FlagComponent className="h-4 w-6 shrink-0" />
               </button>
             </TooltipTrigger>
             <TooltipContent sideOffset={8}>
