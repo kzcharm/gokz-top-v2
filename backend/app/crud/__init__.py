@@ -53,6 +53,12 @@ from .server import (
     update_server_group,
     upsert_discovered_server,
 )
+from .server_globalapi import (
+    get_server_globalapi_by_id,
+    read_server_globalapi,
+    read_server_globalapi_by_name,
+    to_server_globalapi_compat_public_v0,
+)
 from .user import (
     create_user,
     get_or_create_user_from_steam,
@@ -81,6 +87,8 @@ __all__ = [
     "read_players_batch",
     "read_server_groups",
     "read_server_history",
+    "read_server_globalapi",
+    "read_server_globalapi_by_name",
     "read_servers",
     "read_servers_due_for_a2s_poll",
     "sync_canonical_modes",
@@ -91,6 +99,7 @@ __all__ = [
     "to_mode_public",
     "to_player_public",
     "to_server_public",
+    "to_server_globalapi_compat_public_v0",
     "to_user_public",
     "update_mode_metadata",
     "update_player",
@@ -105,6 +114,7 @@ __all__ = [
     "generate_server_group_api_key",
     "get_server_by_endpoint",
     "get_server_by_id",
+    "get_server_globalapi_by_id",
     "get_server_group_by_api_key",
     "get_server_group_by_id",
     "notify_server_status_updated",

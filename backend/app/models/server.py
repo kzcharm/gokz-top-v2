@@ -59,6 +59,9 @@ class ServerGroup(ServerGroupBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
     servers: list["Server"] = Relationship(back_populates="group")  # noqa: UP037
+    globalapi_servers: list["ServerGlobalapi"] = Relationship(  # noqa: F821, UP037
+        back_populates="group"
+    )
 
 
 class ServerBase(SQLModel):
