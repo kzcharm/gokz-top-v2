@@ -70,7 +70,13 @@ class Settings(BaseSettings):
     STEAM_API_KEY: str | None = None
     STEAM_SERVER_LIST_APP_ID: int = 4465480
     STEAM_SERVER_LIST_LIMIT: int = 50_000
+    GLOBALAPI_BASE_URL: str = "https://kztimerglobal.com/api/v2.0"
+    GLOBALAPI_TIMEOUT_SECONDS: float = 45.0
+    GLOBALAPI_SYNC_INTERVAL_SECONDS: int = 86_400
+    GLOBALAPI_SYNC_STALE_AFTER_SECONDS: int = 86_400
+    GLOBALAPI_SERVERS_LIMIT: int = 9_999
     RUN_SERVER_STATUS_COLLECTOR_IN_APP: bool = True
+    RUN_GLOBALAPI_SYNC_RUNNER_IN_APP: bool = True
     GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")
     SUPER_USER_STEAMID64: int
 

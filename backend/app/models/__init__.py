@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel
 
 from .auth import Message, Token, TokenPayload
+from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .item import Item, ItemBase, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate
 from .map import Map, MapBase, MapCompatPublicV0, MapPublic, MapSyncResult
 from .mode import (
@@ -26,6 +27,7 @@ from .server import (
     Server,
     ServerBase,
     ServerCreate,
+    ServerDiscoveryRunPublic,
     ServerGroup,
     ServerGroupApiKeyPublic,
     ServerGroupBase,
@@ -34,7 +36,6 @@ from .server import (
     ServerGroupsPublic,
     ServerGroupSummary,
     ServerGroupUpdate,
-    ServerDiscoveryRunPublic,
     ServerHeartbeatRaw,
     ServerHeartbeatSource,
     ServerHistoryBucketPublic,
@@ -52,10 +53,18 @@ from .server import (
     ServerUpdate,
     ServerUpdateEvent,
 )
+from .server_globalapi import (
+    ServerGlobalapi,
+    ServerGlobalapiBase,
+    ServerGlobalapiCompatPublicV0,
+    ServerGlobalapiListQuery,
+)
 from .user import User, UserBase, UserCreate, UserPublic, UsersPublic, UserUpdate
 from .utils import generate_uuid7, get_datetime_utc
 
 __all__ = [
+    "GlobalApiSyncResult",
+    "GlobalApiSyncState",
     "Item",
     "ItemBase",
     "ItemCreate",
@@ -100,6 +109,10 @@ __all__ = [
     "ServerHistoryBucketPublic",
     "ServerHistoryPublic",
     "ServerHistoryQuery",
+    "ServerGlobalapi",
+    "ServerGlobalapiBase",
+    "ServerGlobalapiCompatPublicV0",
+    "ServerGlobalapiListQuery",
     "ServerListQuery",
     "ServerLiveStatus",
     "ServerLiveStatusBase",
