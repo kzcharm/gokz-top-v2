@@ -496,8 +496,6 @@ export type UsersReadUsersResponse = (UsersPublic);
 
 export type UsersReadUserMeResponse = (UserPublic);
 
-export type UsersDeleteUserMeResponse = (Message);
-
 export type UsersReadUserByIdData = {
     userId: string;
 };
