@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
 import { type UserPublic, UsersService } from "@/client"
+import { redirectToSteamLogin } from "@/lib/auth"
 
 const isLoggedIn = () => {
   return localStorage.getItem("access_token") !== null
@@ -19,8 +20,7 @@ const useAuth = () => {
   })
 
   const loginWithSteam = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000"
-    window.location.href = `${apiUrl}/v1/login/steam`
+    redirectToSteamLogin()
   }
 
   const logout = () => {
