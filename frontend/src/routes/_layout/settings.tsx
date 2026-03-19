@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import DeleteAccount from "@/components/UserSettings/DeleteAccount"
 import UserInformation from "@/components/UserSettings/UserInformation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
@@ -8,7 +7,6 @@ import { getPageTitle } from "@/lib/site"
 
 const tabsConfig = [
   { value: "my-profile", title: "My profile", component: UserInformation },
-  { value: "danger-zone", title: "Danger zone", component: DeleteAccount },
 ]
 
 export const Route = createFileRoute("/_layout/settings")({
@@ -24,9 +22,6 @@ export const Route = createFileRoute("/_layout/settings")({
 
 function UserSettings() {
   const { user: currentUser } = useAuth()
-  const finalTabs = currentUser?.is_superuser
-    ? tabsConfig.slice(0, 2)
-    : tabsConfig
 
   if (!currentUser) {
     return null
@@ -43,13 +38,13 @@ function UserSettings() {
 
       <Tabs defaultValue="my-profile">
         <TabsList>
-          {finalTabs.map((tab) => (
+          {tabsConfig.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
               {tab.title}
             </TabsTrigger>
           ))}
         </TabsList>
-        {finalTabs.map((tab) => (
+        {tabsConfig.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <tab.component />
           </TabsContent>

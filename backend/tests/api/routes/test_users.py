@@ -212,42 +212,6 @@ async def test_update_user_not_exists(
 
 
 @pytest.mark.asyncio
-async def test_delete_user_me(client: AsyncClient, db: AsyncSession) -> None:
-    steamid64 = random_steamid64()
-    user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
-    headers = await user_authentication_headers(client=client, steamid64=steamid64)
-
-    response = await client.delete(
-        f"{settings.API_V1_STR}/users/me",
-        headers=headers,
-    )
-
-    assert response.status_code == 200
-    assert response.json()["message"] == "User deleted successfully"
-
-    result = (
-        await db.exec(select(User).where(User.steamid64 == user.steamid64))
-    ).first()
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_delete_user_me_as_superuser(
-    client: AsyncClient,
-    superuser_token_headers: dict[str, str],
-) -> None:
-    response = await client.delete(
-        f"{settings.API_V1_STR}/users/me",
-        headers=superuser_token_headers,
-    )
-
-    assert response.status_code == 403
-    assert (
-        response.json()["detail"] == "Super users are not allowed to delete themselves"
-    )
-
-
-@pytest.mark.asyncio
 async def test_delete_user_super_user(
     client: AsyncClient,
     superuser_token_headers: dict[str, str],

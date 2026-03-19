@@ -3,21 +3,19 @@ import { superUserSteamid64 } from "./config"
 import { randomSteamid64 } from "./utils/random"
 import { logInUser, logOutUser } from "./utils/user"
 
-const tabs = ["My profile", "Danger zone"]
-
 test("My profile tab is active by default", async ({ page }) => {
   await page.goto("/settings")
   await expect(page.getByRole("tab", { name: "My profile" })).toHaveAttribute(
     "aria-selected",
     "true",
   )
+  await expect(page.getByRole("tab", { name: "Danger zone" })).toHaveCount(0)
 })
 
 test("Only steam-era tabs are visible", async ({ page }) => {
   await page.goto("/settings")
-  for (const tab of tabs) {
-    await expect(page.getByRole("tab", { name: tab })).toBeVisible()
-  }
+  await expect(page.getByRole("tab", { name: "My profile" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Danger zone" })).toHaveCount(0)
   await expect(page.getByRole("tab", { name: "Password" })).toHaveCount(0)
 })
 

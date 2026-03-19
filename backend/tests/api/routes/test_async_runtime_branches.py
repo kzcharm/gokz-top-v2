@@ -233,16 +233,6 @@ async def test_users_routes_direct_branches(db: AsyncSession) -> None:
     )
     assert deleted.message == "User deleted successfully"
 
-    with pytest.raises(HTTPException, match="delete themselves"):
-        await users_routes.delete_user_me(session=db, current_user=superuser)
-
-    normal_to_delete = await _create_user(db)
-    deleted_me = await users_routes.delete_user_me(
-        session=db,
-        current_user=normal_to_delete,
-    )
-    assert deleted_me.message == "User deleted successfully"
-
 
 @pytest.mark.asyncio
 async def test_players_routes_direct_branches(db: AsyncSession) -> None:
