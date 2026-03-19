@@ -13,11 +13,9 @@ export async function logInUser(
     name: opts?.name ?? "Test User",
   })
 
-  await page.goto("/login")
-  await page.evaluate((token) => {
+  await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
   }, accessToken)
-
   await page.goto("/")
   await expect(
     page.getByText("Welcome back, nice to see you again!"),
@@ -27,5 +25,5 @@ export async function logInUser(
 export async function logOutUser(page: Page) {
   await page.getByTestId("user-menu").click()
   await page.getByRole("menuitem", { name: "Log Out" }).click()
-  await page.waitForURL("/login")
+  await page.waitForURL(/\/v1\/login\/steam/)
 }

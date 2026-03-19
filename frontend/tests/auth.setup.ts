@@ -14,8 +14,7 @@ setup("authenticate", async ({ page, request }) => {
   })
   const payload = await response.json()
 
-  await page.goto("/login")
-  await page.evaluate((accessToken) => {
+  await page.addInitScript((accessToken) => {
     localStorage.setItem("access_token", accessToken)
   }, payload.access_token)
   await page.goto("/")
