@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import AppearanceSettings from "@/components/UserSettings/AppearanceSettings"
 import UserInformation from "@/components/UserSettings/UserInformation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
@@ -7,6 +8,7 @@ import { getPageTitle } from "@/lib/site"
 
 const tabsConfig = [
   { value: "my-profile", title: "My profile", component: UserInformation },
+  { value: "appearance", title: "Appearance", component: AppearanceSettings },
 ]
 
 export const Route = createFileRoute("/_layout/settings")({

@@ -2,16 +2,9 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { ArrowDown, ArrowUp } from "lucide-react"
 
 import type { PlayerPublic } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Button } from "@/components/ui/button"
-
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) {
-    return "N/A"
-  }
-
-  return new Date(dateString).toLocaleString()
-}
 
 function SortableDateHeader({
   title,
@@ -62,9 +55,11 @@ export const columns: ColumnDef<PlayerPublic>[] = [
       <SortableDateHeader title="Created At" column={column} />
     ),
     cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {formatDate(row.original.created_at)}
-      </span>
+      <FormattedDateTime
+        className="text-muted-foreground"
+        value={row.original.created_at}
+        fallback="N/A"
+      />
     ),
   },
   {
@@ -73,9 +68,11 @@ export const columns: ColumnDef<PlayerPublic>[] = [
       <SortableDateHeader title="Last Played At" column={column} />
     ),
     cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {formatDate(row.original.last_played_at)}
-      </span>
+      <FormattedDateTime
+        className="text-muted-foreground"
+        value={row.original.last_played_at}
+        fallback="N/A"
+      />
     ),
   },
 ]

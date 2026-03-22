@@ -1,4 +1,11 @@
-import { Briefcase, Home, Server, User as UserIcon, Users } from "lucide-react"
+import {
+  Briefcase,
+  Home,
+  Server,
+  Settings,
+  User as UserIcon,
+  Users,
+} from "lucide-react"
 
 import { Logo } from "@/components/Common/Logo"
 import {
@@ -18,27 +25,26 @@ const publicItems: Item[] = [
 const privateItems: Item[] = [
   { type: "link", icon: Home, title: "Dashboard", path: "/" },
   { type: "link", icon: Briefcase, title: "Items", path: "/items" },
+  { type: "link", icon: Settings, title: "Settings", path: "/settings" },
 ]
+
+const adminItem: Item = {
+  type: "group",
+  icon: Users,
+  title: "Admin",
+  pathPrefix: "/admin",
+  children: [
+    { title: "Users", path: "/admin/users", icon: Users },
+    { title: "Players", path: "/admin/players", icon: UserIcon },
+  ],
+}
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
 
-  const items = currentUser
+  const items: Item[] = currentUser
     ? currentUser.is_superuser
-      ? [
-          ...publicItems,
-          ...privateItems,
-          {
-            type: "group",
-            icon: Users,
-            title: "Admin",
-            pathPrefix: "/admin",
-            children: [
-              { title: "Users", path: "/admin/users", icon: Users },
-              { title: "Players", path: "/admin/players", icon: UserIcon },
-            ],
-          },
-        ]
+      ? [...publicItems, ...privateItems, adminItem]
       : [...publicItems, ...privateItems]
     : publicItems
 

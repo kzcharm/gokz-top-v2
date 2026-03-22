@@ -187,6 +187,8 @@ test("Public servers page supports live updates, filters, and route-bound detail
   page,
 }) => {
   await page.addInitScript(() => {
+    localStorage.setItem("gokz-datetime-format", "iso")
+
     const sockets: Array<{
       readyState: number
       onopen: ((event: Event) => void) | null
@@ -274,9 +276,8 @@ test("Public servers page supports live updates, filters, and route-bound detail
 
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
-  await expect(page.getByText("12 live players")).toBeVisible()
-  await expect(page.getByText("2 online servers")).toBeVisible()
-  await expect(page.getByText("3 total servers")).toBeVisible()
+  await expect(page.getByText("12 Players")).toBeVisible()
+  await expect(page.getByText("2 Servers")).toBeVisible()
   await expect(page.getByLabel("Refreshing server status")).toHaveCount(1)
 
   const hoverCard = page.getByTestId("server-card-10.0.0.3:27017")
@@ -287,7 +288,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
   })
   expect(hoveredBoxShadow).not.toBe("none")
 
-  await page.getByRole("checkbox", { name: "Show offline servers" }).click()
+  await page.getByRole("button", { name: "Online" }).click()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toBeVisible()
 
   await page.getByRole("button", { name: /DE/ }).click()
@@ -330,6 +331,9 @@ test("Public servers page supports live updates, filters, and route-bound detail
     page.getByRole("columnheader", { name: "Duration" }),
   ).toBeVisible()
   await expect(page.getByRole("cell", { name: "6:52" })).toBeVisible()
+  await expect(
+    page.getByText(/ago/),
+  ).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveClass(
     /server-selected_650ms_ease-out/,
   )

@@ -508,11 +508,3 @@ export function sortPlayersByProgress(players: ServerPlayer[]) {
     return rightScore - leftScore
   })
 }
-
-export function formatDateTime(value: string | null | undefined) {
-  if (!value) {
-    return "Unknown"
-  }
-
-  return new Date(value).toLocaleString()
-}
