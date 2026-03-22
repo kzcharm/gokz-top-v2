@@ -12,12 +12,12 @@ import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const publicItems: Item[] = [
-  { icon: Server, title: "Servers", path: "/servers" },
+  { type: "link", icon: Server, title: "Servers", path: "/servers" },
 ]
 
 const privateItems: Item[] = [
-  { icon: Home, title: "Dashboard", path: "/" },
-  { icon: Briefcase, title: "Items", path: "/items" },
+  { type: "link", icon: Home, title: "Dashboard", path: "/" },
+  { type: "link", icon: Briefcase, title: "Items", path: "/items" },
 ]
 
 export function AppSidebar() {
@@ -28,8 +28,16 @@ export function AppSidebar() {
       ? [
           ...publicItems,
           ...privateItems,
-          { icon: Users, title: "Admin Users", path: "/admin/users" },
-          { icon: UserIcon, title: "Admin Players", path: "/admin/players" },
+          {
+            type: "group",
+            icon: Users,
+            title: "Admin",
+            pathPrefix: "/admin",
+            children: [
+              { title: "Users", path: "/admin/users", icon: Users },
+              { title: "Players", path: "/admin/players", icon: UserIcon },
+            ],
+          },
         ]
       : [...publicItems, ...privateItems]
     : publicItems

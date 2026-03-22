@@ -10,6 +10,34 @@ test("Admin root redirects to users page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible()
 })
 
+test("Superuser sidebar groups admin users and players under admin", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  const adminButton = page.getByRole("button", { name: "Admin" })
+  const usersLink = page.getByRole("link", { name: "Users", exact: true })
+  const playersLink = page.getByRole("link", { name: "Players", exact: true })
+
+  await expect(adminButton).toBeVisible()
+  await expect(usersLink).toHaveCount(0)
+  await expect(playersLink).toHaveCount(0)
+
+  await adminButton.click()
+  await expect(usersLink).toBeVisible()
+  await expect(playersLink).toBeVisible()
+
+  await usersLink.click()
+  await expect(page).toHaveURL(/\/admin\/users$/)
+  await expect(adminButton).toHaveAttribute("data-active", "true")
+  await expect(usersLink).toBeVisible()
+
+  await playersLink.click()
+  await expect(page).toHaveURL(/\/admin\/players$/)
+  await expect(adminButton).toHaveAttribute("data-active", "true")
+  await expect(playersLink).toBeVisible()
+})
+
 test("Superuser can access users and players admin pages", async ({ page }) => {
   await page.goto("/admin/users")
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible()
