@@ -1,6 +1,7 @@
 import { Copy, LoaderCircle, Play } from "lucide-react"
 
 import type { ServerPublic } from "@/client"
+import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { ServerPlayerList } from "@/components/Servers/ServerPlayerList"
 import { TierBadge } from "@/components/Servers/TierBadge"
@@ -16,7 +17,6 @@ import {
 import { cn } from "@/lib/utils"
 
 import {
-  formatDateTime,
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
@@ -57,6 +57,7 @@ export function ServerDetailSheet({
   onCopyAddress,
   onSteamConnect,
 }: ServerDetailSheetProps) {
+  const { formatDateTime } = useDateTimeFormat()
   const mapName = server ? getServerMapName(server) : null
   const mapImageUrl = getServerMapImageUrl(mapName)
   const isRefreshing = server ? isServerStatusRefreshing(server) : false
@@ -129,7 +130,10 @@ export function ServerDetailSheet({
                 <DetailCard label="Endpoint" value={getServerAddress(server)} />
                 <DetailCard
                   label="Last update"
-                  value={formatDateTime(server.status?.updated_at)}
+                  value={formatDateTime(server.status?.updated_at, {
+                    fallback: "Unknown",
+                    display: "relative",
+                  })}
                 />
                 <DetailCard
                   label="Group"
