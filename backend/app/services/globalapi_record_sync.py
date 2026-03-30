@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -14,9 +15,7 @@ from app.models import (
     GlobalApiSyncState,
     Map,
     Player,
-    Record,
     ServerGlobalapi,
-    generate_uuid7,
     get_datetime_utc,
 )
 
@@ -252,7 +251,7 @@ async def _upsert_record(
     *,
     session: AsyncSession,
     payload: dict[str, Any],
-) -> tuple[bool, bool]:
+) -> tuple[uuid.UUID, bool, bool]:
     record_id = _parse_int(payload.get("id"), field_name="id")
     steamid64 = _parse_int(payload.get("steamid64"), field_name="steamid64")
     server_id = _parse_int(payload.get("server_id"), field_name="server_id")
@@ -294,44 +293,25 @@ async def _upsert_record(
         server_name=_parse_string(payload.get("server_name")),
     )
 
-    existing_record = await crud.get_record_by_id(session=session, record_id=record_id)
-    if existing_record is None:
-        session.add(
-            Record(
-                uuid=generate_uuid7(timestamp=created_on),
-                id=record_id,
-                steamid64=steamid64,
-                server_id=server_id,
-                mode_id=mode.id,
-                map_id=map_id,
-                stage=stage,
-                time=record_time,
-                teleports=teleports,
-                points=points,
-                created_on=created_on,
-                updated_on=updated_on,
-                updated_by=updated_by,
-                replay_id=replay_id,
-                is_valid=True,
-            )
-        )
-        return True, False
-
-    existing_record.steamid64 = steamid64
-    existing_record.server_id = server_id
-    existing_record.mode_id = mode.id
-    existing_record.map_id = map_id
-    existing_record.stage = stage
-    existing_record.time = record_time
-    existing_record.teleports = teleports
-    existing_record.points = points
-    existing_record.created_on = created_on
-    existing_record.updated_on = updated_on
-    existing_record.updated_by = updated_by
-    existing_record.replay_id = replay_id
-    existing_record.is_valid = True
-    session.add(existing_record)
-    return False, True
+    record, created, updated = await crud.upsert_record(
+        session=session,
+        record_id=record_id,
+        record_uuid=None,
+        steamid64=steamid64,
+        server_id=server_id,
+        mode_id=mode.id,
+        map_id=map_id,
+        stage=stage,
+        time_seconds=record_time,
+        teleports=teleports,
+        points=points,
+        created_on=created_on,
+        updated_on=updated_on,
+        updated_by=updated_by,
+        replay_id=replay_id,
+        is_valid=True,
+    )
+    return record.uuid, created, updated
 
 
 async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSyncResult:
@@ -353,7 +333,7 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
             fetch_result = await _fetch_record_with_retry(client=client, record_id=cursor)
             if fetch_result.kind == "record":
                 try:
-                    row_created, row_updated = await _upsert_record(
+                    record_uuid, row_created, row_updated = await _upsert_record(
                         session=session,
                         payload=fetch_result.payload or {},
                     )
@@ -370,6 +350,10 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 updated += int(row_updated)
                 state.cursor = cursor + 1
                 session.add(state)
+                await crud.notify_recent_record_updated(
+                    session=session,
+                    record_uuid=record_uuid,
+                )
                 await session.commit()
                 cursor += 1
                 continue
@@ -384,7 +368,7 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 if probe_result.kind != "record":
                     continue
                 try:
-                    row_created, row_updated = await _upsert_record(
+                    record_uuid, row_created, row_updated = await _upsert_record(
                         session=session,
                         payload=probe_result.payload or {},
                     )
@@ -402,6 +386,10 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 updated += int(row_updated)
                 state.cursor = probe_id + 1
                 session.add(state)
+                await crud.notify_recent_record_updated(
+                    session=session,
+                    record_uuid=record_uuid,
+                )
                 await session.commit()
                 cursor = probe_id + 1
                 probe_success = True

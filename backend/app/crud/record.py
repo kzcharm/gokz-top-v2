@@ -1,8 +1,9 @@
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import case
+from sqlalchemy import case, text
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -11,6 +12,12 @@ from app.models import (
     Mode,
     Player,
     RecentRecordCompatPublicV0,
+    RecentRecordListQuery,
+    RecentRecordMapPublic,
+    RecentRecordModePublic,
+    RecentRecordPlayerPublic,
+    RecentRecordPublic,
+    RecentRecordServerPublic,
     Record,
     RecordCompatPublicV0,
     RecordListQuery,
@@ -20,8 +27,11 @@ from app.models import (
     ServerGlobalapiCompatPublicV0,
     TeleportsType,
     WorldRecordCountCompatPublicV0,
+    generate_uuid7,
     get_datetime_utc,
 )
+
+RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
 
 
 def _record_tie_breakers() -> tuple:
@@ -89,6 +99,46 @@ def to_record_public(
         updated_by=str(record.updated_by),
         replay_id=record.replay_id,
         is_valid=record.is_valid,
+    )
+
+
+def to_recent_record_public(
+    *,
+    record: Record,
+    player: Player,
+    server: ServerGlobalapi,
+    map_obj: Map,
+    mode: Mode,
+) -> RecentRecordPublic:
+    return RecentRecordPublic(
+        uuid=record.uuid,
+        id=record.id,
+        player=RecentRecordPlayerPublic(
+            steamid64=str(player.steamid64),
+            name=player.name,
+            alias=player.alias,
+            avatar_hash=player.avatar_hash,
+            country=player.country,
+        ),
+        map=RecentRecordMapPublic(
+            id=map_obj.id,
+            name=map_obj.name,
+            tier=map_obj.difficulty,
+        ),
+        server=RecentRecordServerPublic(
+            id=server.id,
+            name=server.name or "",
+        ),
+        mode=RecentRecordModePublic(
+            id=mode.id,
+            name=mode.name,
+        ),
+        stage=record.stage,
+        teleports=record.teleports,
+        time=float(record.time),
+        points=record.points,
+        created_on=record.created_on,
+        updated_on=record.updated_on,
     )
 
 
@@ -172,6 +222,49 @@ async def read_records(
     return records, count
 
 
+async def read_recent_records(
+    *,
+    session: AsyncSession,
+    query: RecentRecordListQuery,
+) -> tuple[list[RecentRecordPublic], int]:
+    count_statement = (
+        select(func.count())
+        .select_from(Record)
+        .where(col(Record.is_valid).is_(True))
+    )
+    count = (await session.exec(count_statement)).one()
+
+    statement = (
+        select(Record, Player, ServerGlobalapi, Map, Mode)
+        .join(Player, col(Record.steamid64) == col(Player.steamid64))
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .join(Map, col(Record.map_id) == col(Map.id))
+        .join(Mode, col(Record.mode_id) == col(Mode.id))
+        .where(col(Record.is_valid).is_(True))
+        .order_by(
+            col(Record.created_on).desc(),
+            col(Record.id).desc().nullslast(),
+            col(Record.uuid).desc(),
+        )
+        .offset(query.offset)
+        .limit(query.limit)
+    )
+    rows = (await session.exec(statement)).all()
+    return (
+        [
+            to_recent_record_public(
+                record=record,
+                player=player,
+                server=server,
+                map_obj=map_obj,
+                mode=mode,
+            )
+            for record, player, server, map_obj, mode in rows
+        ],
+        count,
+    )
+
+
 async def get_record_by_uuid(
     *,
     session: AsyncSession,
@@ -187,6 +280,107 @@ async def get_record_by_id(
 ) -> Record | None:
     statement = select(Record).where(col(Record.id) == record_id).limit(1)
     return (await session.exec(statement)).first()
+
+
+async def get_recent_record_public_by_uuid(
+    *,
+    session: AsyncSession,
+    record_uuid: uuid.UUID,
+) -> RecentRecordPublic | None:
+    statement = (
+        select(Record, Player, ServerGlobalapi, Map, Mode)
+        .join(Player, col(Record.steamid64) == col(Player.steamid64))
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .join(Map, col(Record.map_id) == col(Map.id))
+        .join(Mode, col(Record.mode_id) == col(Mode.id))
+        .where(col(Record.uuid) == record_uuid)
+        .limit(1)
+    )
+    row = (await session.exec(statement)).first()
+    if row is None:
+        return None
+
+    record, player, server, map_obj, mode = row
+    return to_recent_record_public(
+        record=record,
+        player=player,
+        server=server,
+        map_obj=map_obj,
+        mode=mode,
+    )
+
+
+async def notify_recent_record_updated(
+    *,
+    session: AsyncSession,
+    record_uuid: uuid.UUID,
+) -> None:
+    await session.execute(
+        text(f"SELECT pg_notify('{RECENT_RECORD_NOTIFY_CHANNEL}', :record_uuid)"),
+        {"record_uuid": str(record_uuid)},
+    )
+
+
+async def upsert_record(
+    *,
+    session: AsyncSession,
+    record_id: int | None,
+    record_uuid: uuid.UUID | None,
+    steamid64: int,
+    server_id: int,
+    mode_id: int,
+    map_id: int,
+    stage: int,
+    time_seconds: Decimal,
+    teleports: int,
+    points: int,
+    created_on: datetime,
+    updated_on: datetime,
+    updated_by: int,
+    replay_id: int | None,
+    is_valid: bool,
+) -> tuple[Record, bool, bool]:
+    existing_record = (
+        await get_record_by_id(session=session, record_id=record_id)
+        if record_id is not None
+        else None
+    )
+    if existing_record is None:
+        record = Record(
+            uuid=record_uuid or generate_uuid7(timestamp=created_on),
+            id=record_id,
+            steamid64=steamid64,
+            server_id=server_id,
+            mode_id=mode_id,
+            map_id=map_id,
+            stage=stage,
+            time=time_seconds,
+            teleports=teleports,
+            points=points,
+            created_on=created_on,
+            updated_on=updated_on,
+            updated_by=updated_by,
+            replay_id=replay_id,
+            is_valid=is_valid,
+        )
+        session.add(record)
+        return record, True, False
+
+    existing_record.steamid64 = steamid64
+    existing_record.server_id = server_id
+    existing_record.mode_id = mode_id
+    existing_record.map_id = map_id
+    existing_record.stage = stage
+    existing_record.time = time_seconds
+    existing_record.teleports = teleports
+    existing_record.points = points
+    existing_record.created_on = created_on
+    existing_record.updated_on = updated_on
+    existing_record.updated_by = updated_by
+    existing_record.replay_id = replay_id
+    existing_record.is_valid = is_valid
+    session.add(existing_record)
+    return existing_record, False, True
 
 
 async def update_record_validity(

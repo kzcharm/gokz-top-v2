@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import useAuth from "@/hooks/useAuth"
+import { RecentRecordsPanel } from "@/components/Records/RecentRecordsPanel"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/")({
@@ -15,18 +16,23 @@ export const Route = createFileRoute("/_layout/")({
 })
 
 function Dashboard() {
-  const { user: currentUser } = useAuth()
-  const displayName =
-    currentUser?.player?.name || `Player ${currentUser?.steamid64 ?? ""}`
-
   return (
-    <div>
-      <div>
-        <h1 className="text-2xl truncate max-w-sm">Hi, {displayName} 👋</h1>
-        <p className="text-muted-foreground">
-          Welcome back, nice to see you again!!!
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Follow the latest runs as they land across the platform.
         </p>
       </div>
+
+      <Tabs defaultValue="records" className="flex flex-col gap-4">
+        <TabsList className="w-fit">
+          <TabsTrigger value="records">Records</TabsTrigger>
+        </TabsList>
+        <TabsContent value="records" className="mt-0">
+          <RecentRecordsPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

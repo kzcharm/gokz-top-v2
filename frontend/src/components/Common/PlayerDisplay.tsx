@@ -1,7 +1,6 @@
 import * as Flags from "country-flag-icons/react/3x2"
 import type { ComponentType, SVGProps } from "react"
 
-import type { PlayerPublic } from "@/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Tooltip,
@@ -22,7 +21,13 @@ const flagComponents = Flags as Record<
 >
 
 interface PlayerDisplayProps {
-  player?: PlayerPublic | null
+  player?: {
+    steamid64: string
+    name: string
+    alias?: string | null
+    avatar_hash?: string | null
+    country?: string | null
+  } | null
   fallbackSteamid64?: string
   showSteamid?: boolean
   className?: string

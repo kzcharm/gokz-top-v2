@@ -19,11 +19,11 @@ import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const publicItems: Item[] = [
+  { type: "link", icon: Home, title: "Dashboard", path: "/" },
   { type: "link", icon: Server, title: "Servers", path: "/servers" },
 ]
 
 const privateItems: Item[] = [
-  { type: "link", icon: Home, title: "Dashboard", path: "/" },
   { type: "link", icon: Briefcase, title: "Items", path: "/items" },
   { type: "link", icon: Settings, title: "Settings", path: "/settings" },
 ]

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Literal
 
 from sqlalchemy import BigInteger, CheckConstraint, DateTime, Index, Numeric, text
 from sqlmodel import Field, SQLModel
@@ -197,6 +198,65 @@ class RecordPublic(SQLModel):
 class RecordsPublic(SQLModel):
     data: list[RecordPublic]
     count: int
+
+
+class RecentRecordPlayerPublic(SQLModel):
+    steamid64: str
+    name: str
+    alias: str | None = None
+    avatar_hash: str | None = None
+    country: str | None = None
+
+
+class RecentRecordMapPublic(SQLModel):
+    id: int
+    name: str
+    tier: int
+
+
+class RecentRecordServerPublic(SQLModel):
+    id: int
+    name: str
+
+
+class RecentRecordModePublic(SQLModel):
+    id: int
+    name: str
+
+
+class RecentRecordPublic(SQLModel):
+    uuid: uuid.UUID
+    id: int | None = None
+    player: RecentRecordPlayerPublic
+    map: RecentRecordMapPublic
+    server: RecentRecordServerPublic
+    mode: RecentRecordModePublic
+    stage: int
+    teleports: int
+    time: float
+    points: int
+    created_on: datetime
+    updated_on: datetime
+
+
+class RecentRecordsPublic(SQLModel):
+    data: list[RecentRecordPublic]
+    count: int
+
+
+class RecentRecordListQuery(SQLModel):
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1, le=10000)
+
+
+class RecentRecordSnapshotEvent(SQLModel):
+    type: Literal["record.snapshot"] = "record.snapshot"
+    records: list[RecentRecordPublic]
+
+
+class RecentRecordUpsertEvent(SQLModel):
+    type: Literal["record.upserted"] = "record.upserted"
+    record: RecentRecordPublic
 
 
 class RecordCompatPublicV0(SQLModel):

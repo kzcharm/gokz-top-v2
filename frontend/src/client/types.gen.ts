@@ -118,6 +118,84 @@ export type PrivateAuthSessionCreate = {
     name?: (string | null);
 };
 
+export type RecentRecordMapPublic = {
+    id: number;
+    name: string;
+    tier: number;
+};
+
+export type RecentRecordModePublic = {
+    id: number;
+    name: string;
+};
+
+export type RecentRecordPlayerPublic = {
+    steamid64: string;
+    name: string;
+    alias?: (string | null);
+    avatar_hash?: (string | null);
+    country?: (string | null);
+};
+
+export type RecentRecordPublic = {
+    uuid: string;
+    id?: (number | null);
+    player: RecentRecordPlayerPublic;
+    map: RecentRecordMapPublic;
+    server: RecentRecordServerPublic;
+    mode: RecentRecordModePublic;
+    stage: number;
+    teleports: number;
+    time: number;
+    points: number;
+    created_on: string;
+    updated_on: string;
+};
+
+export type RecentRecordServerPublic = {
+    id: number;
+    name: string;
+};
+
+export type RecentRecordsPublic = {
+    data: Array<RecentRecordPublic>;
+    count: number;
+};
+
+export type RecordPatch = {
+    is_valid: boolean;
+};
+
+export type RecordPublic = {
+    uuid: string;
+    id?: (number | null);
+    steamid64: string;
+    player_name: string;
+    player_avatar_hash?: (string | null);
+    steam_id?: (string | null);
+    server_id: number;
+    server_name: string;
+    map_id: number;
+    map_name: string;
+    mode_id: number;
+    mode: string;
+    stage: number;
+    tickrate?: number;
+    time: number;
+    teleports: number;
+    points: number;
+    created_on: string;
+    updated_on: string;
+    updated_by: string;
+    replay_id?: (number | null);
+    is_valid: boolean;
+};
+
+export type RecordsPublic = {
+    data: Array<RecordPublic>;
+    count: number;
+};
+
 export type ServerCreate = {
     group_id?: (string | null);
     ip: string;
@@ -248,6 +326,8 @@ export type ServerUpdate = {
     country?: (string | null);
     city?: (string | null);
 };
+
+export type TeleportsType = 'PRO' | 'NUB' | 'OVR';
 
 export type Token = {
     access_token: string;
@@ -404,6 +484,55 @@ export type PrivateCreateAuthSessionData = {
 };
 
 export type PrivateCreateAuthSessionResponse = (Token);
+
+export type RecordsReadRecordsData = {
+    createdSince?: (string | null);
+    id?: (Array<(number)> | null);
+    isValid?: (boolean | null);
+    limit?: number;
+    mapId?: (number | null);
+    modeId?: (number | null);
+    offset?: number;
+    replayId?: (number | null);
+    serverId?: (number | null);
+    stage?: (number | null);
+    steamid64?: (number | null);
+    teleports?: (number | null);
+    updatedSince?: (string | null);
+};
+
+export type RecordsReadRecordsResponse = (RecordsPublic);
+
+export type RecordsReadRecentRecordsData = {
+    limit?: number;
+    offset?: number;
+};
+
+export type RecordsReadRecentRecordsResponse = (RecentRecordsPublic);
+
+export type RecordsReadPbRecordsData = {
+    mapId?: (number | null);
+    modeIds: Array<(number)>;
+    serverIds?: (Array<(number)> | null);
+    stage?: number;
+    steamid64?: (number | null);
+    teleportsType: TeleportsType;
+};
+
+export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);
+
+export type RecordsReadRecordData = {
+    recordUuid: string;
+};
+
+export type RecordsReadRecordResponse = (RecordPublic);
+
+export type RecordsPatchRecordData = {
+    recordUuid: string;
+    requestBody: RecordPatch;
+};
+
+export type RecordsPatchRecordResponse = (RecordPublic);
 
 export type ServerGroupsReadServerGroupsResponse = (ServerGroupsPublic);
 

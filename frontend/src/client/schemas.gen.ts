@@ -667,6 +667,348 @@ export const PrivateAuthSessionCreateSchema = {
     }
 } as const;
 
+export const RecentRecordMapPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        tier: {
+            type: 'integer',
+            title: 'Tier'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'tier'],
+    title: 'RecentRecordMapPublic'
+} as const;
+
+export const RecentRecordModePublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name'],
+    title: 'RecentRecordModePublic'
+} as const;
+
+export const RecentRecordPlayerPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        alias: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alias'
+        },
+        avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Avatar Hash'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'name'],
+    title: 'RecentRecordPlayerPublic'
+} as const;
+
+export const RecentRecordPublicSchema = {
+    properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
+        id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Id'
+        },
+        player: {
+            '$ref': '#/components/schemas/RecentRecordPlayerPublic'
+        },
+        map: {
+            '$ref': '#/components/schemas/RecentRecordMapPublic'
+        },
+        server: {
+            '$ref': '#/components/schemas/RecentRecordServerPublic'
+        },
+        mode: {
+            '$ref': '#/components/schemas/RecentRecordModePublic'
+        },
+        stage: {
+            type: 'integer',
+            title: 'Stage'
+        },
+        teleports: {
+            type: 'integer',
+            title: 'Teleports'
+        },
+        time: {
+            type: 'number',
+            title: 'Time'
+        },
+        points: {
+            type: 'integer',
+            title: 'Points'
+        },
+        created_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created On'
+        },
+        updated_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated On'
+        }
+    },
+    type: 'object',
+    required: ['uuid', 'player', 'map', 'server', 'mode', 'stage', 'teleports', 'time', 'points', 'created_on', 'updated_on'],
+    title: 'RecentRecordPublic'
+} as const;
+
+export const RecentRecordServerPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name'],
+    title: 'RecentRecordServerPublic'
+} as const;
+
+export const RecentRecordsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecentRecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RecentRecordsPublic'
+} as const;
+
+export const RecordPatchSchema = {
+    properties: {
+        is_valid: {
+            type: 'boolean',
+            title: 'Is Valid'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['is_valid'],
+    title: 'RecordPatch'
+} as const;
+
+export const RecordPublicSchema = {
+    properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
+        id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Id'
+        },
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        player_name: {
+            type: 'string',
+            title: 'Player Name'
+        },
+        player_avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Player Avatar Hash'
+        },
+        steam_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Id'
+        },
+        server_id: {
+            type: 'integer',
+            title: 'Server Id'
+        },
+        server_name: {
+            type: 'string',
+            title: 'Server Name'
+        },
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        map_name: {
+            type: 'string',
+            title: 'Map Name'
+        },
+        mode_id: {
+            type: 'integer',
+            title: 'Mode Id'
+        },
+        mode: {
+            type: 'string',
+            title: 'Mode'
+        },
+        stage: {
+            type: 'integer',
+            title: 'Stage'
+        },
+        tickrate: {
+            type: 'integer',
+            title: 'Tickrate',
+            default: 128
+        },
+        time: {
+            type: 'number',
+            title: 'Time'
+        },
+        teleports: {
+            type: 'integer',
+            title: 'Teleports'
+        },
+        points: {
+            type: 'integer',
+            title: 'Points'
+        },
+        created_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created On'
+        },
+        updated_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated On'
+        },
+        updated_by: {
+            type: 'string',
+            title: 'Updated By'
+        },
+        replay_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Replay Id'
+        },
+        is_valid: {
+            type: 'boolean',
+            title: 'Is Valid'
+        }
+    },
+    type: 'object',
+    required: ['uuid', 'steamid64', 'player_name', 'server_id', 'server_name', 'map_id', 'map_name', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_valid'],
+    title: 'RecordPublic'
+} as const;
+
+export const RecordsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RecordsPublic'
+} as const;
+
 export const ServerCreateSchema = {
     properties: {
         group_id: {
@@ -1365,6 +1707,12 @@ export const ServersPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ServersPublic'
+} as const;
+
+export const TeleportsTypeSchema = {
+    type: 'string',
+    enum: ['PRO', 'NUB', 'OVR'],
+    title: 'TeleportsType'
 } as const;
 
 export const TokenSchema = {

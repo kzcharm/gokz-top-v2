@@ -19,6 +19,12 @@ from app.services.globalapi_sync import (
     run_globalapi_sync_runner_in_app,
     stop_globalapi_sync_runner,
 )
+from app.services.record_events import (
+    listen_for_recent_record_updates,
+)
+from app.services.record_events import (
+    stop_listener as stop_record_listener,
+)
 from app.services.server_events import listen_for_server_updates, stop_listener
 from app.services.server_status import (
     run_server_status_collector_in_app,
@@ -39,6 +45,7 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     listener_task = asyncio.create_task(listen_for_server_updates())
+    recent_record_listener_task = asyncio.create_task(listen_for_recent_record_updates())
     collector_task: asyncio.Task[None] | None = None
     globalapi_sync_task: asyncio.Task[None] | None = None
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
@@ -49,6 +56,7 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         await stop_listener(listener_task)
+        await stop_record_listener(recent_record_listener_task)
         await stop_collector(collector_task)
         await stop_globalapi_sync_runner(globalapi_sync_task)
 
