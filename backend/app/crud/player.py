@@ -9,6 +9,19 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.models import Player, PlayerPublic, PlayerUpdate
 
+MAX_PLAYER_CUSTOM_ID_LENGTH = 25
+
+
+def normalize_custom_id(custom_id: str | None) -> str | None:
+    if not custom_id:
+        return None
+    normalized = custom_id.strip()
+    if not normalized:
+        return None
+    if len(normalized) > MAX_PLAYER_CUSTOM_ID_LENGTH:
+        return None
+    return normalized
+
 
 def _extract_custom_id(profile_url: str | None) -> str | None:
     if not profile_url:
@@ -16,7 +29,7 @@ def _extract_custom_id(profile_url: str | None) -> str | None:
     match = re.search(r"/id/([^/]+)", profile_url)
     if not match:
         return None
-    return match.group(1)
+    return normalize_custom_id(match.group(1))
 
 
 def _extract_avatar_hash_from_url(avatar_url: str | None) -> str | None:
@@ -75,7 +88,7 @@ async def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
 
     return {
         "name": str(player.get("personaname") or steamid64),
-        "custom_id": _extract_custom_id(profile_url),
+        "custom_id": normalize_custom_id(_extract_custom_id(profile_url)),
         "avatar_hash": str(avatar_hash) if avatar_hash else None,
         "country": str(player.get("loccountrycode"))
         if player.get("loccountrycode")
@@ -137,7 +150,7 @@ async def create_or_update_player_from_steam(
     player = await get_player_by_steamid64(session=session, steamid64=steamid64)
     if player:
         player.name = steam_data["name"] or player.name
-        player.custom_id = steam_data["custom_id"] or player.custom_id
+        player.custom_id = normalize_custom_id(steam_data["custom_id"]) or player.custom_id
         player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
         player.country = steam_data["country"] or player.country
         player.updated_at = now
@@ -149,7 +162,7 @@ async def create_or_update_player_from_steam(
     player = Player(
         steamid64=steamid64,
         name=steam_data["name"] or str(steamid64),
-        custom_id=steam_data["custom_id"],
+        custom_id=normalize_custom_id(steam_data["custom_id"]),
         avatar_hash=steam_data["avatar_hash"],
         country=steam_data["country"],
         created_at=now,
@@ -169,7 +182,9 @@ async def create_or_update_player_from_steam(
         if not existing_player:
             raise
         existing_player.name = steam_data["name"] or existing_player.name
-        existing_player.custom_id = steam_data["custom_id"] or existing_player.custom_id
+        existing_player.custom_id = (
+            normalize_custom_id(steam_data["custom_id"]) or existing_player.custom_id
+        )
         existing_player.avatar_hash = (
             steam_data["avatar_hash"] or existing_player.avatar_hash
         )
