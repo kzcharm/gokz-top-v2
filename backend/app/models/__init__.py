@@ -23,6 +23,18 @@ from .player import (
     PlayersPublic,
     PlayerUpdate,
 )
+from .record import (
+    Record,
+    RecordBase,
+    RecordCompatPublicV0,
+    RecordListQuery,
+    RecordPatch,
+    RecordPublic,
+    RecordsPublic,
+    RecentRecordCompatPublicV0,
+    TeleportsType,
+    WorldRecordCountCompatPublicV0,
+)
 from .server import (
     Server,
     ServerBase,
@@ -92,6 +104,14 @@ __all__ = [
     "PlayersListQuery",
     "PlayersPublic",
     "PlayerUpdate",
+    "Record",
+    "RecordBase",
+    "RecordCompatPublicV0",
+    "RecordListQuery",
+    "RecordPatch",
+    "RecordPublic",
+    "RecordsPublic",
+    "RecentRecordCompatPublicV0",
     "Server",
     "ServerBase",
     "ServerCreate",
@@ -133,6 +153,8 @@ __all__ = [
     "UserPublic",
     "UsersPublic",
     "UserUpdate",
+    "TeleportsType",
+    "WorldRecordCountCompatPublicV0",
     "generate_uuid7",
     "get_datetime_utc",
 ]
