@@ -32,6 +32,7 @@ class GlobalApiSyncState(SQLModel, table=True):
         default=None,
         sa_column=Column(Text, nullable=True),
     )
+    cursor: int | None = None
     last_processed: int = 0
     last_created: int = 0
     last_updated: int = 0

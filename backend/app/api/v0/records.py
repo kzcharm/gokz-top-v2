@@ -10,9 +10,9 @@ from app.models import (
     Map,
     Mode,
     Player,
+    RecentRecordCompatPublicV0,
     Record,
     RecordCompatPublicV0,
-    RecentRecordCompatPublicV0,
     ServerGlobalapi,
     WorldRecordCountCompatPublicV0,
 )

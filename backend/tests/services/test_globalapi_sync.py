@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 
 import pytest
+from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import GlobalApiSyncResult, GlobalApiSyncState, get_datetime_utc
@@ -130,7 +131,11 @@ async def test_stop_globalapi_sync_runner_stops_background_loop(
         "GLOBALAPI_SYNC_TASKS",
         (globalapi_sync.GlobalApiSyncTask("runner", 0, _task),),
     )
-    monkeypatch.setattr(globalapi_sync.settings, "GLOBALAPI_SYNC_INTERVAL_SECONDS", 3600)
+    monkeypatch.setattr(
+        globalapi_sync.settings,
+        "GLOBALAPI_SYNC_RUNNER_POLL_SECONDS",
+        3600,
+    )
 
     runner_task = asyncio.create_task(globalapi_sync.run_globalapi_sync_runner_in_app())
     await executed.wait()
@@ -174,3 +179,45 @@ async def test_run_globalapi_sync_tasks_records_state(
     assert state.last_updated == 3
     assert state.last_errors == 1
     assert state.last_warnings == 4
+
+
+async def test_run_globalapi_sync_tasks_honors_per_task_staleness(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    calls: list[str] = []
+
+    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "servers"))
+    await db.commit()
+
+    fresh_server = GlobalApiSyncState(
+        task_name="servers",
+        last_successful_at=get_datetime_utc(),
+    )
+    db.add(fresh_server)
+    await db.commit()
+
+    async def _servers(*, session: AsyncSession) -> GlobalApiSyncResult:
+        del session
+        calls.append("servers")
+        return GlobalApiSyncResult(processed=1, created=0, updated=1, errors=0)
+
+    async def _records(*, session: AsyncSession) -> GlobalApiSyncResult:
+        del session
+        calls.append("records")
+        return GlobalApiSyncResult(processed=1, created=1, updated=0, errors=0)
+
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (
+            globalapi_sync.GlobalApiSyncTask("servers", 86_400, _servers),
+            globalapi_sync.GlobalApiSyncTask("records", 0, _records),
+        ),
+    )
+
+    results = await globalapi_sync.run_globalapi_sync_tasks(only_stale=True)
+
+    assert calls == ["records"]
+    assert set(results) == {"records"}

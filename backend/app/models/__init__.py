@@ -24,6 +24,7 @@ from .player import (
     PlayerUpdate,
 )
 from .record import (
+    RecentRecordCompatPublicV0,
     Record,
     RecordBase,
     RecordCompatPublicV0,
@@ -31,7 +32,6 @@ from .record import (
     RecordPatch,
     RecordPublic,
     RecordsPublic,
-    RecentRecordCompatPublicV0,
     TeleportsType,
     WorldRecordCountCompatPublicV0,
 )

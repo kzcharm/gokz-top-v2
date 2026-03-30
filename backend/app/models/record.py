@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, DateTime, Index, Numeric, text
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Index, Numeric, text
 from sqlmodel import Field, SQLModel
 
 from .server_globalapi import ServerGlobalapiCompatPublicV0
@@ -40,6 +40,7 @@ class RecordBase(SQLModel):
         sa_type=Numeric(12, 3),
     )
     teleports: int = Field(default=0, ge=0)
+    points: int = Field(default=0, ge=0, le=1000)
     created_on: datetime = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
@@ -58,6 +59,9 @@ class RecordBase(SQLModel):
 
 class Record(RecordBase, table=True):
     __table_args__ = (
+        CheckConstraint(
+            "points >= 0 AND points <= 1000", name="ck_record_points_range"
+        ),
         Index(
             "ux_record_id_not_null",
             "id",
@@ -182,6 +186,7 @@ class RecordPublic(SQLModel):
     tickrate: int = 128
     time: float
     teleports: int
+    points: int
     created_on: datetime
     updated_on: datetime
     updated_by: str
@@ -208,11 +213,11 @@ class RecordCompatPublicV0(SQLModel):
     tickrate: int = 128
     time: float
     teleports: int
+    points: int
     created_on: datetime
     updated_on: datetime
     updated_by: int
     record_filter_id: int = 0
-    points: int = 0
     replay_id: int | None = None
     server: ServerGlobalapiCompatPublicV0 | None = None
 
@@ -229,4 +234,3 @@ class WorldRecordCountCompatPublicV0(SQLModel):
     player_name: str
     steam_id: str | None = None
     world_records: int
-

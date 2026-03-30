@@ -10,12 +10,12 @@ from app.models import (
     Map,
     Mode,
     Player,
+    RecentRecordCompatPublicV0,
     Record,
     RecordCompatPublicV0,
     RecordListQuery,
     RecordPatch,
     RecordPublic,
-    RecentRecordCompatPublicV0,
     ServerGlobalapi,
     ServerGlobalapiCompatPublicV0,
     TeleportsType,
@@ -83,6 +83,7 @@ def to_record_public(
         tickrate=128,
         time=float(record.time),
         teleports=record.teleports,
+        points=record.points,
         created_on=record.created_on,
         updated_on=record.updated_on,
         updated_by=str(record.updated_by),
@@ -115,11 +116,11 @@ def to_record_compat_public_v0(
         tickrate=128,
         time=float(record.time),
         teleports=record.teleports,
+        points=record.points,
         created_on=record.created_on,
         updated_on=record.updated_on,
         updated_by=record.updated_by,
         record_filter_id=0,
-        points=0,
         replay_id=record.replay_id,
         server=_to_server_globalapi_compat_public_v0(server=server),
     )
@@ -592,4 +593,3 @@ async def get_recent_top_records_v0(
         )
 
     return results[offset : offset + limit]
-
