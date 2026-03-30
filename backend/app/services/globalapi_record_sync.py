@@ -161,7 +161,7 @@ async def _ensure_player(
         player = Player(
             steamid64=steamid64,
             name=resolved_name,
-            custom_id=steam_data.get("custom_id"),
+            custom_id=crud.normalize_custom_id(steam_data.get("custom_id")),
             avatar_hash=steam_data.get("avatar_hash"),
             country=steam_data.get("country"),
             created_at=created_on,
@@ -176,7 +176,9 @@ async def _ensure_player(
     elif steam_name and steam_name != str(steamid64):
         player.name = steam_name
     if steam_data.get("custom_id"):
-        player.custom_id = steam_data["custom_id"]
+        normalized_custom_id = crud.normalize_custom_id(steam_data["custom_id"])
+        if normalized_custom_id:
+            player.custom_id = normalized_custom_id
     if steam_data.get("avatar_hash"):
         player.avatar_hash = steam_data["avatar_hash"]
     if steam_data.get("country"):

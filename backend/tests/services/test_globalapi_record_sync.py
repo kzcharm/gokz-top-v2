@@ -269,6 +269,47 @@ async def test_sync_records_from_globalapi_creates_dependencies_points_and_uuid_
     assert state.cursor == record_id + 1
 
 
+async def test_sync_records_from_globalapi_discards_overlong_custom_id(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record_id = 998200
+    await _set_records_cursor(db, record_id)
+    steamid64 = random_steamid64()
+    payload = _build_payload(record_id=record_id, steamid64=steamid64, points=750)
+
+    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client
+        if record_id == payload["id"]:
+            return record_sync.RecordFetchResult(kind="record", payload=payload)
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _fake_player_fetch(_steamid64: int) -> dict[str, str | None]:
+        return {
+            "name": "Steam Runner",
+            "custom_id": "zppppppppppppppppppppppdfff",
+            "avatar_hash": "a" * 40,
+            "country": "DE",
+        }
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+
+    result = await record_sync.sync_records_from_globalapi(session=db)
+
+    assert result.processed == 1
+    assert result.created == 1
+    assert result.errors == 0
+
+    player = await db.get(Player, steamid64)
+    assert player is not None
+    assert player.custom_id is None
+
+
 async def test_sync_records_from_globalapi_probes_next_ids_after_null(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
