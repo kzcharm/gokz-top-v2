@@ -226,8 +226,15 @@ async def test_sync_records_from_globalapi_creates_dependencies_points_and_uuid_
     async def _no_sleep(_: float) -> None:
         return None
 
+    notified_record_ids: list[str] = []
+
+    async def _fake_notify(*, session: AsyncSession, record_uuid: object) -> None:
+        del session
+        notified_record_ids.append(str(record_uuid))
+
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
     monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(record_sync.crud, "notify_recent_record_updated", _fake_notify)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
     result = await record_sync.sync_records_from_globalapi(session=db)
@@ -245,6 +252,7 @@ async def test_sync_records_from_globalapi_creates_dependencies_points_and_uuid_
     assert synced_record.points == 750
     assert synced_record.uuid.version == 7
     assert synced_record.uuid.time == int(expected_created_on.timestamp() * 1000)
+    assert notified_record_ids == [str(synced_record.uuid)]
 
     player = await db.get(Player, steamid64)
     assert player is not None
@@ -414,8 +422,15 @@ async def test_sync_records_from_globalapi_updates_existing_record_without_chang
     async def _no_sleep(_: float) -> None:
         return None
 
+    notified_record_ids: list[str] = []
+
+    async def _fake_notify(*, session: AsyncSession, record_uuid: object) -> None:
+        del session
+        notified_record_ids.append(str(record_uuid))
+
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
     monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(record_sync.crud, "notify_recent_record_updated", _fake_notify)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
     result = await record_sync.sync_records_from_globalapi(session=db)
@@ -431,3 +446,4 @@ async def test_sync_records_from_globalapi_updates_existing_record_without_chang
     assert refreshed is not None
     assert refreshed.uuid == existing.uuid
     assert refreshed.points == 999
+    assert notified_record_ids == [str(existing.uuid)]

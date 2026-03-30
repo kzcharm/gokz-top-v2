@@ -6,13 +6,26 @@ import { type UserPublic, UsersService } from "@/client"
 import { columns, type UserTableData } from "@/components/Admin/columns"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
-import useAuth from "@/hooks/useAuth"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/admin/users")({
   component: AdminUsers,
   beforeLoad: async () => {
-    const user = await UsersService.readUserMe()
+    if (!isLoggedIn()) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+    let user
+    try {
+      user = await UsersService.readUserMe()
+    } catch {
+      localStorage.removeItem("access_token")
+      throw redirect({
+        to: "/login",
+      })
+    }
     if (!user.is_superuser) {
       throw redirect({
         to: "/",

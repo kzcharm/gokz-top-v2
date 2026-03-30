@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, Copy, LoaderCircle, Play } from "lucide-react"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
+import { MapDisplay } from "@/components/Common/MapDisplay"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,10 +21,9 @@ import {
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
-  getServerMapImageUrl,
   getServerMapName,
-  isServerStatusRefreshing,
   isServerOnline,
+  isServerStatusRefreshing,
 } from "./utils"
 
 interface ServerTableProps {
@@ -126,7 +126,6 @@ export function ServerTable({
             servers.map((server) => {
               const address = getServerAddress(server)
               const mapName = getServerMapName(server)
-              const mapImageUrl = getServerMapImageUrl(mapName)
               const isSelected = selectedAddress === address
               const isRefreshing = isServerStatusRefreshing(server)
 
@@ -189,26 +188,7 @@ export function ServerTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {mapName ? (
-                      <div
-                        className="relative h-10 w-56 overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800"
-                        style={
-                          mapImageUrl
-                            ? {
-                                backgroundImage: `url(${mapImageUrl})`,
-                                backgroundPosition: "center",
-                                backgroundSize: "cover",
-                              }
-                            : undefined
-                        }
-                      >
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/30 px-2 py-1 text-sm font-medium text-white drop-shadow-lg [text-shadow:_0_1px_2px_rgb(0_0_0_/_0.8)]">
-                          {mapName}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
+                    <MapDisplay mapName={mapName} />
                   </TableCell>
                   <TableCell>
                     {server.map_tier === null ||

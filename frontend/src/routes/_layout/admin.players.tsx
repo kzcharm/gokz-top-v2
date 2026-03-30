@@ -11,12 +11,26 @@ import { PlayersService, UsersService } from "@/client"
 import { columns } from "@/components/AdminPlayers/columns"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
+import { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/admin/players")({
   component: AdminPlayers,
   beforeLoad: async () => {
-    const user = await UsersService.readUserMe()
+    if (!isLoggedIn()) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+    let user
+    try {
+      user = await UsersService.readUserMe()
+    } catch {
+      localStorage.removeItem("access_token")
+      throw redirect({
+        to: "/login",
+      })
+    }
     if (!user.is_superuser) {
       throw redirect({
         to: "/",

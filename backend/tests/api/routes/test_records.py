@@ -19,10 +19,19 @@ async def _create_player(
     *,
     steamid64: int,
     name: str,
+    alias: str | None = None,
+    avatar_hash: str | None = None,
+    country: str | None = None,
 ) -> Player:
     await db.exec(delete(Player).where(Player.steamid64 == steamid64))
     await db.commit()
-    player = Player(steamid64=steamid64, name=name)
+    player = Player(
+        steamid64=steamid64,
+        name=name,
+        alias=alias,
+        avatar_hash=avatar_hash,
+        country=country,
+    )
     db.add(player)
     await db.commit()
     await db.refresh(player)
@@ -34,6 +43,7 @@ async def _create_map(
     *,
     id: int,
     name: str,
+    difficulty: int = 4,
 ) -> Map:
     await db.exec(delete(Map).where(Map.id == id))
     await db.commit()
@@ -42,7 +52,7 @@ async def _create_map(
         name=name,
         filesize=123456,
         validated=True,
-        difficulty=4,
+        difficulty=difficulty,
         approved_by_steamid64=76561198003275951,
     )
     db.add(map_obj)
@@ -121,11 +131,12 @@ async def _seed_record_dependencies(
     *,
     map_id: int = 980200,
     map_name: str = "kz_record_test",
+    map_difficulty: int = 4,
     server_id: int = 980300,
     server_name: str = "Record Test Server",
     players: list[tuple[int, str]] | None = None,
 ) -> None:
-    await _create_map(db, id=map_id, name=map_name)
+    await _create_map(db, id=map_id, name=map_name, difficulty=map_difficulty)
     await _create_server_globalapi(db, id=server_id, name=server_name)
     for steamid64, name in players or []:
         await _create_player(db, steamid64=steamid64, name=name)
@@ -177,6 +188,156 @@ async def test_read_records_v1_list_and_detail(
     detail_response = await client.get(f"{settings.API_V1_STR}/records/{record.uuid}")
     assert detail_response.status_code == 200
     assert detail_response.json()["uuid"] == str(record.uuid)
+
+
+async def test_read_recent_records_v1_returns_nested_public_feed(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await db.exec(delete(Record))
+    await db.commit()
+
+    first_player_id = random_steamid64()
+    second_player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (first_player_id, "Runner One"),
+            (second_player_id, "Runner Two"),
+        ],
+        map_difficulty=6,
+    )
+    await _create_player(
+        db,
+        steamid64=first_player_id,
+        name="Runner One",
+        alias="Alias One",
+        avatar_hash="a" * 40,
+        country="DE",
+    )
+
+    oldest = await _create_record(
+        db,
+        id=980450,
+        steamid64=first_player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+        points=300,
+        created_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+    )
+    newest = await _create_record(
+        db,
+        id=980451,
+        steamid64=second_player_id,
+        server_id=980300,
+        mode_id=201,
+        map_id=980200,
+        stage=2,
+        time="25.000",
+        teleports=3,
+        points=450,
+        created_on=datetime(2026, 3, 30, 12, 2, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 2, tzinfo=UTC),
+    )
+    null_id = await _create_record(
+        db,
+        id=None,
+        steamid64=first_player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=1,
+        time="24.000",
+        teleports=1,
+        points=325,
+        created_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+    )
+    await _create_record(
+        db,
+        id=980452,
+        steamid64=second_player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="19.000",
+        teleports=0,
+        points=500,
+        is_valid=False,
+        created_on=datetime(2026, 3, 30, 12, 3, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 3, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"limit": 2},
+    )
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["count"] == 3
+    assert [row["uuid"] for row in payload["data"]] == [
+        str(newest.uuid),
+        str(null_id.uuid),
+    ]
+
+    first_row = payload["data"][0]
+    assert first_row["id"] == 980451
+    assert first_row["player"] == {
+        "steamid64": str(second_player_id),
+        "name": "Runner Two",
+        "alias": None,
+        "avatar_hash": None,
+        "country": None,
+    }
+    assert first_row["map"] == {
+        "id": 980200,
+        "name": "kz_record_test",
+        "tier": 6,
+    }
+    assert first_row["server"] == {
+        "id": 980300,
+        "name": "Record Test Server",
+    }
+    assert first_row["mode"] == {
+        "id": 201,
+        "name": "kz_simple",
+    }
+    assert first_row["stage"] == 2
+    assert first_row["teleports"] == 3
+    assert first_row["time"] == 25.0
+
+    offset_response = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"offset": 2, "limit": 2},
+    )
+    assert offset_response.status_code == 200
+    offset_payload = offset_response.json()
+    assert [row["uuid"] for row in offset_payload["data"]] == [str(oldest.uuid)]
+    assert offset_payload["data"][0]["player"] == {
+        "steamid64": str(first_player_id),
+        "name": "Runner One",
+        "alias": "Alias One",
+        "avatar_hash": "a" * 40,
+        "country": "DE",
+    }
+
+
+async def test_read_recent_records_v1_rejects_limit_above_max(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"limit": 10001},
+    )
+
+    assert response.status_code == 422
 
 
 async def test_patch_record_v1_updates_validity(

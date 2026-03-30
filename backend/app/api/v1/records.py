@@ -9,6 +9,8 @@ from app.models import (
     Map,
     Mode,
     Player,
+    RecentRecordListQuery,
+    RecentRecordsPublic,
     Record,
     RecordListQuery,
     RecordPatch,
@@ -50,6 +52,15 @@ async def read_records(
         data=[await _to_record_public(session, record) for record in records],
         count=count,
     )
+
+
+@router.get("/recent", response_model=RecentRecordsPublic)
+async def read_recent_records(
+    session: SessionDep,
+    query: Annotated[RecentRecordListQuery, Query()],
+) -> Any:
+    records, count = await crud.read_recent_records(session=session, query=query)
+    return RecentRecordsPublic(data=records, count=count)
 
 
 @router.get("/pb", response_model=list[RecordPublic])

@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, ItemsReadItemsData, ItemsReadItemsResponse, ItemsCreateItemData, ItemsCreateItemResponse, ItemsReadItemData, ItemsReadItemResponse, ItemsUpdateItemData, ItemsUpdateItemResponse, ItemsDeleteItemData, ItemsDeleteItemResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminModesService {
     /**
@@ -443,6 +443,147 @@ export class PrivateService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/v1/private/auth/session',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class RecordsService {
+    /**
+     * Read Records
+     * @param data The data for the request.
+     * @param data.offset
+     * @param data.limit
+     * @param data.id
+     * @param data.steamid64
+     * @param data.serverId
+     * @param data.modeId
+     * @param data.mapId
+     * @param data.stage
+     * @param data.teleports
+     * @param data.replayId
+     * @param data.isValid
+     * @param data.createdSince
+     * @param data.updatedSince
+     * @returns RecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readRecords(data: RecordsReadRecordsData = {}): CancelablePromise<RecordsReadRecordsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/records/',
+            query: {
+                offset: data.offset,
+                limit: data.limit,
+                id: data.id,
+                steamid64: data.steamid64,
+                server_id: data.serverId,
+                mode_id: data.modeId,
+                map_id: data.mapId,
+                stage: data.stage,
+                teleports: data.teleports,
+                replay_id: data.replayId,
+                is_valid: data.isValid,
+                created_since: data.createdSince,
+                updated_since: data.updatedSince
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Recent Records
+     * @param data The data for the request.
+     * @param data.offset
+     * @param data.limit
+     * @returns RecentRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readRecentRecords(data: RecordsReadRecentRecordsData = {}): CancelablePromise<RecordsReadRecentRecordsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/records/recent',
+            query: {
+                offset: data.offset,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Pb Records
+     * @param data The data for the request.
+     * @param data.modeIds
+     * @param data.teleportsType
+     * @param data.mapId
+     * @param data.stage
+     * @param data.steamid64
+     * @param data.serverIds
+     * @returns RecordPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPbRecords(data: RecordsReadPbRecordsData): CancelablePromise<RecordsReadPbRecordsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/records/pb',
+            query: {
+                mode_ids: data.modeIds,
+                teleports_type: data.teleportsType,
+                map_id: data.mapId,
+                stage: data.stage,
+                steamid64: data.steamid64,
+                server_ids: data.serverIds
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Record
+     * @param data The data for the request.
+     * @param data.recordUuid
+     * @returns RecordPublic Successful Response
+     * @throws ApiError
+     */
+    public static readRecord(data: RecordsReadRecordData): CancelablePromise<RecordsReadRecordResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/records/{record_uuid}',
+            path: {
+                record_uuid: data.recordUuid
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Patch Record
+     * @param data The data for the request.
+     * @param data.recordUuid
+     * @param data.requestBody
+     * @returns RecordPublic Successful Response
+     * @throws ApiError
+     */
+    public static patchRecord(data: RecordsPatchRecordData): CancelablePromise<RecordsPatchRecordResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/v1/records/{record_uuid}',
+            path: {
+                record_uuid: data.recordUuid
+            },
             body: data.requestBody,
             mediaType: 'application/json',
             errors: {
