@@ -85,6 +85,7 @@ async def _create_record(
     stage: int,
     time: str,
     teleports: int,
+    points: int = 0,
     is_valid: bool = True,
     replay_id: int | None = None,
     created_on: datetime | None = None,
@@ -102,6 +103,7 @@ async def _create_record(
         stage=stage,
         time=Decimal(time),
         teleports=teleports,
+        points=points,
         created_on=created_on or datetime(2026, 1, 1, tzinfo=UTC),
         updated_on=updated_on or datetime(2026, 1, 1, tzinfo=UTC),
         updated_by=steamid64,
@@ -148,6 +150,7 @@ async def test_read_records_v1_list_and_detail(
         stage=0,
         time="35.289",
         teleports=0,
+        points=420,
         replay_id=123,
     )
 
@@ -167,6 +170,7 @@ async def test_read_records_v1_list_and_detail(
     assert payload["data"][0]["mode"] == "kz_timer"
     assert payload["data"][0]["tickrate"] == 128
     assert payload["data"][0]["time"] == 35.289
+    assert payload["data"][0]["points"] == 420
     assert payload["data"][0]["replay_id"] == 123
     assert payload["data"][0]["is_valid"] is True
 
@@ -426,7 +430,7 @@ async def test_read_record_v0_top_place_world_records_and_recent(
         ],
     )
     now = datetime(2026, 3, 1, tzinfo=UTC)
-    winning = await _create_record(
+    await _create_record(
         db,
         id=980430,
         steamid64=player_one,

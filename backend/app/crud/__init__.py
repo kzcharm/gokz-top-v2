@@ -30,10 +30,10 @@ from .player import (
 from .record import (
     get_max_record_globalapi_id,
     get_pb_records,
+    get_recent_top_records_v0,
     get_record_by_id,
     get_record_by_uuid,
     get_record_place,
-    get_recent_top_records_v0,
     get_top_records_v0,
     get_world_record_counts_v0,
     read_records,
