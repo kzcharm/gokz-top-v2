@@ -388,8 +388,16 @@ async def test_deps_direct_branches(db: AsyncSession) -> None:
         str(random_steamid64()),
         expires_delta=timedelta(minutes=5),
     )
-    with pytest.raises(HTTPException, match="User not found"):
-        await deps.get_current_user(session=db, token=missing_user_token)
+    recreated = await deps.get_current_user(session=db, token=missing_user_token)
+    assert recreated.steamid64 == int(jwt.decode(missing_user_token, options={"verify_signature": False})["sub"])
+
+    with patch.object(settings, "ENVIRONMENT", "production"):
+        missing_user_token = security.create_access_token(
+            str(random_steamid64()),
+            expires_delta=timedelta(minutes=5),
+        )
+        with pytest.raises(HTTPException, match="User not found"):
+            await deps.get_current_user(session=db, token=missing_user_token)
 
     inactive_user = await _create_user(db, active=False)
     inactive_token = security.create_access_token(

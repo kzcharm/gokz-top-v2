@@ -32,6 +32,7 @@ from app.models import (
 )
 
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
+RECENT_RECORD_EXACT_COUNT_THRESHOLD = 100_000
 
 
 def _record_tie_breakers() -> tuple:
@@ -39,6 +40,78 @@ def _record_tie_breakers() -> tuple:
         col(Record.id).asc().nullslast(),
         col(Record.uuid).asc(),
     )
+
+
+def _parse_pg_stats_boolean_frequency(
+    *,
+    most_common_vals: str | None,
+    most_common_freqs: Sequence[float] | None,
+    value: bool,
+) -> float | None:
+    if not most_common_vals or not most_common_freqs:
+        return None
+
+    normalized_values = [
+        item.strip() for item in most_common_vals.strip("{}").split(",") if item.strip()
+    ]
+    target_value = "t" if value else "f"
+    for index, current_value in enumerate(normalized_values):
+        if current_value != target_value or index >= len(most_common_freqs):
+            continue
+        return float(most_common_freqs[index])
+
+    return None
+
+
+async def _estimate_record_count(
+    *,
+    session: AsyncSession,
+    is_valid: bool | None = None,
+) -> int:
+    total_estimate = (
+        await session.exec(
+            text("SELECT COALESCE(reltuples, 0) FROM pg_class WHERE oid = 'record'::regclass")
+        )
+    ).one()
+    normalized_total_estimate = max(int(round(float(total_estimate[0]))), 0)
+
+    # Exact counts dominate latency once the table reaches tens of millions of rows.
+    # Keep exact results for smaller datasets and tests, then fall back to planner
+    # statistics when the table is large.
+    if normalized_total_estimate < RECENT_RECORD_EXACT_COUNT_THRESHOLD:
+        count_statement = select(func.count()).select_from(Record)
+        if is_valid is not None:
+            count_statement = count_statement.where(col(Record.is_valid).is_(is_valid))
+        return (await session.exec(count_statement)).one()
+
+    if is_valid is None:
+        return normalized_total_estimate
+
+    row = (
+        await session.exec(
+            text(
+                """
+                SELECT most_common_vals, most_common_freqs
+                FROM pg_stats
+                WHERE schemaname = 'public'
+                  AND tablename = 'record'
+                  AND attname = 'is_valid'
+                """
+            )
+        )
+    ).one_or_none()
+    if row is None:
+        return normalized_total_estimate
+
+    selectivity = _parse_pg_stats_boolean_frequency(
+        most_common_vals=row[0],
+        most_common_freqs=row[1],
+        value=is_valid,
+    )
+    if selectivity is None:
+        return normalized_total_estimate
+
+    return max(int(round(normalized_total_estimate * selectivity)), 0)
 
 
 async def _load_record_context(
@@ -227,12 +300,7 @@ async def read_recent_records(
     session: AsyncSession,
     query: RecentRecordListQuery,
 ) -> tuple[list[RecentRecordPublic], int]:
-    count_statement = (
-        select(func.count())
-        .select_from(Record)
-        .where(col(Record.is_valid).is_(True))
-    )
-    count = (await session.exec(count_statement)).one()
+    count = await _estimate_record_count(session=session, is_valid=True)
 
     statement = (
         select(Record, Player, ServerGlobalapi, Map, Mode)

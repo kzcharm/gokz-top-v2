@@ -61,7 +61,13 @@ async def get_current_user(session: SessionDep, token: TokenDep) -> User:
 
     user = await crud.get_user_by_steamid64(session=session, steamid64=steamid64)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        if settings.ENVIRONMENT == "local":
+            user = await crud.get_or_create_user_from_steam(
+                session=session,
+                steamid64=steamid64,
+            )
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return user
