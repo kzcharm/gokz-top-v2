@@ -178,7 +178,7 @@ async def test_read_records_v1_list_and_detail(
     assert payload["data"][0]["player_name"] == "Runner One"
     assert payload["data"][0]["server_name"] == "Record Test Server"
     assert payload["data"][0]["mode_id"] == 200
-    assert payload["data"][0]["mode"] == "kz_timer"
+    assert payload["data"][0]["mode"] == "KZT"
     assert payload["data"][0]["tickrate"] == 128
     assert payload["data"][0]["time"] == 35.289
     assert payload["data"][0]["points"] == 420
@@ -308,7 +308,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     }
     assert first_row["mode"] == {
         "id": 201,
-        "name": "kz_simple",
+        "name": "SKZ",
     }
     assert first_row["stage"] == 2
     assert first_row["teleports"] == 3

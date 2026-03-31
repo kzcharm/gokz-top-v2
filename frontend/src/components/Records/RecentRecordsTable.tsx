@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table"
 import { truncateText } from "@/lib/utils"
 
+import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import { StageBadge } from "./StageBadge"
 import { TeleportsBadge } from "./TeleportsBadge"
@@ -35,6 +36,9 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
               </TableHead>
               <TableHead className={`min-w-60 ${tableHeadClassName}`}>
                 Map
+              </TableHead>
+              <TableHead className={`min-w-20 ${tableHeadClassName}`}>
+                Mode
               </TableHead>
               <TableHead className={`min-w-28 ${tableHeadClassName}`}>
                 Stage
@@ -79,6 +83,9 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
                     <MapDisplay mapName={record.map.name} />
                   </TableCell>
                   <TableCell>
+                    <ModeBadge mode={record.mode.name} />
+                  </TableCell>
+                  <TableCell>
                     <StageBadge stage={record.stage} />
                   </TableCell>
                   <TableCell>
@@ -113,7 +120,7 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={10}
                   className="h-32 text-center text-muted-foreground"
                 >
                   No recent records yet.

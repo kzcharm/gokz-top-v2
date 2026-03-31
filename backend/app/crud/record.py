@@ -161,7 +161,7 @@ def to_record_public(
         map_id=record.map_id,
         map_name=map_obj.name,
         mode_id=record.mode_id,
-        mode=mode.name,
+        mode=mode.name_short,
         stage=record.stage,
         tickrate=128,
         time=float(record.time),
@@ -204,7 +204,7 @@ def to_recent_record_public(
         ),
         mode=RecentRecordModePublic(
             id=mode.id,
-            name=mode.name,
+            name=mode.name_short,
         ),
         stage=record.stage,
         teleports=record.teleports,

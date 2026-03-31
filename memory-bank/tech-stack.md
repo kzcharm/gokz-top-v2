@@ -72,6 +72,7 @@
 
 ## Frontend Tooling and Tests
 - Bun workspace scripts at repository root
+- Node.js 24 for local npm-compatible frontend tooling
 - Biome for linting/formatting
 - Playwright for end-to-end tests
 
