@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table"
 import { truncateText } from "@/lib/utils"
 
+import { PointsBadge } from "./PointsBadge"
 import { StageBadge } from "./StageBadge"
 import { TeleportsBadge } from "./TeleportsBadge"
 import { formatRecordTime, type RecentRecord } from "./utils"
@@ -21,21 +22,41 @@ interface RecentRecordsTableProps {
 }
 
 export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
+  const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-56">Player</TableHead>
-              <TableHead className="min-w-60">Map</TableHead>
-              <TableHead className="min-w-28">Stage</TableHead>
-              <TableHead className="min-w-20">Tier</TableHead>
-              <TableHead className="min-w-20">TPs</TableHead>
-              <TableHead className="min-w-24">Time</TableHead>
-              <TableHead className="min-w-24">Points</TableHead>
-              <TableHead className="min-w-44">Server</TableHead>
-              <TableHead className="min-w-32">Datetime</TableHead>
+              <TableHead className={`min-w-56 ${tableHeadClassName}`}>
+                Player
+              </TableHead>
+              <TableHead className={`min-w-60 ${tableHeadClassName}`}>
+                Map
+              </TableHead>
+              <TableHead className={`min-w-28 ${tableHeadClassName}`}>
+                Stage
+              </TableHead>
+              <TableHead className={`min-w-20 ${tableHeadClassName}`}>
+                Tier
+              </TableHead>
+              <TableHead className={`min-w-20 ${tableHeadClassName}`}>
+                TPs
+              </TableHead>
+              <TableHead className={`min-w-24 ${tableHeadClassName}`}>
+                Time
+              </TableHead>
+              <TableHead className={`min-w-24 ${tableHeadClassName}`}>
+                Points
+              </TableHead>
+              <TableHead className={`min-w-44 ${tableHeadClassName}`}>
+                Server
+              </TableHead>
+              <TableHead className={`min-w-32 ${tableHeadClassName}`}>
+                Datetime
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -67,7 +88,9 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
                   <TableCell className="font-mono font-medium">
                     {formatRecordTime(record.time)}
                   </TableCell>
-                  <TableCell className="font-medium">{record.points}</TableCell>
+                  <TableCell>
+                    <PointsBadge points={record.points} />
+                  </TableCell>
                   <TableCell className="text-sm text-foreground/90">
                     <span
                       className="block max-w-[14rem] truncate"

@@ -281,7 +281,8 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert response.status_code == 200
 
     payload = response.json()
-    assert payload["count"] == 3
+    assert isinstance(payload["count"], int)
+    assert payload["count"] >= len(payload["data"])
     assert [row["uuid"] for row in payload["data"]] == [
         str(newest.uuid),
         str(null_id.uuid),

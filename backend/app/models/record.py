@@ -129,6 +129,12 @@ class Record(RecordBase, table=True):
             "server_id",
         ),
         Index(
+            "ix_records_created_on_order",
+            text("created_on DESC"),
+            text("id DESC NULLS LAST"),
+            text("uuid DESC"),
+        ),
+        Index(
             "ix_records_is_valid_created_on",
             "is_valid",
             text("created_on DESC"),
