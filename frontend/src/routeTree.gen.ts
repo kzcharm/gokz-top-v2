@@ -17,7 +17,9 @@ import { Route as ServersServerAddressRouteImport } from './routes/servers.$serv
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
 
@@ -60,10 +62,20 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
   path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutDashboardRecordsRoute = LayoutDashboardRecordsRouteImport.update({
+  id: '/records',
+  path: '/records',
+  getParentRoute: () => LayoutDashboardRoute,
 } as any)
 const LayoutAdminUsersRoute = LayoutAdminUsersRouteImport.update({
   id: '/users',
@@ -81,17 +93,20 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
+  '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
+  '/dashboard/records': typeof LayoutDashboardRecordsRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
+  '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -99,6 +114,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
+  '/dashboard/records': typeof LayoutDashboardRecordsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,6 +122,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/servers': typeof ServersRouteWithChildren
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
+  '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -113,6 +130,7 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
+  '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,17 +139,20 @@ export interface FileRouteTypes {
     | '/login'
     | '/servers'
     | '/admin'
+    | '/dashboard'
     | '/items'
     | '/settings'
     | '/auth/callback'
     | '/servers/$serverAddress'
     | '/admin/players'
     | '/admin/users'
+    | '/dashboard/records'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/servers'
     | '/admin'
+    | '/dashboard'
     | '/items'
     | '/settings'
     | '/auth/callback'
@@ -139,12 +160,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/players'
     | '/admin/users'
+    | '/dashboard/records'
   id:
     | '__root__'
     | '/_layout'
     | '/login'
     | '/servers'
     | '/_layout/admin'
+    | '/_layout/dashboard'
     | '/_layout/items'
     | '/_layout/settings'
     | '/auth/callback'
@@ -152,6 +175,7 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/admin/players'
     | '/_layout/admin/users'
+    | '/_layout/dashboard/records'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -219,12 +243,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/dashboard': {
+      id: '/_layout/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof LayoutDashboardRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/_layout/dashboard/records': {
+      id: '/_layout/dashboard/records'
+      path: '/records'
+      fullPath: '/dashboard/records'
+      preLoaderRoute: typeof LayoutDashboardRecordsRouteImport
+      parentRoute: typeof LayoutDashboardRoute
     }
     '/_layout/admin/users': {
       id: '/_layout/admin/users'
@@ -257,8 +295,21 @@ const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(
   LayoutAdminRouteChildren,
 )
 
+interface LayoutDashboardRouteChildren {
+  LayoutDashboardRecordsRoute: typeof LayoutDashboardRecordsRoute
+}
+
+const LayoutDashboardRouteChildren: LayoutDashboardRouteChildren = {
+  LayoutDashboardRecordsRoute: LayoutDashboardRecordsRoute,
+}
+
+const LayoutDashboardRouteWithChildren = LayoutDashboardRoute._addFileChildren(
+  LayoutDashboardRouteChildren,
+)
+
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
+  LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -266,6 +317,7 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
+  LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,

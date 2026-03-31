@@ -20,7 +20,7 @@ export function TeleportsBadge({ teleports, className }: TeleportsBadgeProps) {
         backgroundColor: hasTeleports ? "#f2c40f" : "#3598db",
       }}
     >
-      {teleports}
+      {hasTeleports ? teleports : "PRO"}
     </Badge>
   )
 }

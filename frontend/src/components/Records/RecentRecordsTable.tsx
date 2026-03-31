@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { truncateText } from "@/lib/utils"
 
 import { StageBadge } from "./StageBadge"
 import { TeleportsBadge } from "./TeleportsBadge"
@@ -45,7 +46,11 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
                   data-testid={`recent-record-row-${record.uuid}`}
                 >
                   <TableCell>
-                    <PlayerDisplay player={record.player} />
+                    <PlayerDisplay
+                      player={record.player}
+                      nameMaxLength={24}
+                      className="max-w-[15rem]"
+                    />
                   </TableCell>
                   <TableCell>
                     <MapDisplay mapName={record.map.name} />
@@ -64,7 +69,12 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
                   </TableCell>
                   <TableCell className="font-medium">{record.points}</TableCell>
                   <TableCell className="text-sm text-foreground/90">
-                    {record.server.name}
+                    <span
+                      className="block max-w-[14rem] truncate"
+                      title={record.server.name}
+                    >
+                      {truncateText(record.server.name, 32)}
+                    </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     <FormattedDateTime
