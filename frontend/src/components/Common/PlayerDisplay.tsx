@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
+import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
 const countryNameFormatter =
@@ -31,6 +31,7 @@ interface PlayerDisplayProps {
   fallbackSteamid64?: string
   showSteamid?: boolean
   className?: string
+  nameMaxLength?: number
 }
 
 export function PlayerDisplay({
@@ -38,9 +39,11 @@ export function PlayerDisplay({
   fallbackSteamid64,
   showSteamid = false,
   className,
+  nameMaxLength,
 }: PlayerDisplayProps) {
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
   const displayName = player?.alias || player?.name || steamid64
+  const truncatedDisplayName = truncateText(displayName, nameMaxLength)
   const avatarSrc = player?.avatar_hash
     ? `https://avatars.steamstatic.com/${player.avatar_hash}_full.jpg`
     : undefined
@@ -89,7 +92,9 @@ export function PlayerDisplay({
       </div>
 
       <div className="min-w-0">
-        <p className="truncate font-medium">{displayName}</p>
+        <p className="truncate font-medium" title={displayName}>
+          {truncatedDisplayName}
+        </p>
         {showSteamid && (
           <p className="truncate font-mono text-xs text-muted-foreground">
             {steamid64}

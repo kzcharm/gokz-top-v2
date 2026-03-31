@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { useEffect, useEffectEvent, useMemo, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -104,23 +104,8 @@ export function RecentRecordsPanel() {
     }
   }, [])
 
-  const summaryText = useMemo(() => {
-    if (recordsQuery.isPending) {
-      return "Loading the latest runs..."
-    }
-    if (records.length === 0) {
-      return "New records will appear here as they are synced."
-    }
-    return "Newest runs appear at the top and update live as records are synced."
-  }, [records.length, recordsQuery.isPending])
-
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold tracking-tight">Recent Records</h2>
-        <p className="text-sm text-muted-foreground">{summaryText}</p>
-      </div>
-
       {recordsQuery.isError ? (
         <Alert variant="destructive">
           <AlertDescription>
