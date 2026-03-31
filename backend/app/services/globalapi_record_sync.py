@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -23,6 +24,8 @@ DEFAULT_RECORD_START_ID = 200
 NULL_PROBE_WINDOW = 4
 RATE_LIMIT_SLEEP_SECONDS = 300
 NULL_SLEEP_SECONDS = 1
+
+logger = logging.getLogger(__name__)
 
 
 class GlobalApiRecordSyncError(RuntimeError):
@@ -138,6 +141,11 @@ async def _fetch_record_with_retry(
         try:
             return await _fetch_record_once(client=client, record_id=record_id)
         except GlobalApiRecordSyncRateLimitError:
+            logger.warning(
+                "GlobalAPI record sync hit rate limit for record_id=%s; retrying in %ss",
+                record_id,
+                RATE_LIMIT_SLEEP_SECONDS,
+            )
             await asyncio.sleep(RATE_LIMIT_SLEEP_SECONDS)
 
 
@@ -330,8 +338,16 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
     updated = 0
     errors = 0
 
+    logger.info(
+        "Starting GlobalAPI records sync from cursor=%s (stored_cursor=%s, local_max_record_id=%s)",
+        cursor,
+        state.cursor,
+        max_record_id,
+    )
+
     async with httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS) as client:
         while True:
+            logger.debug("Fetching GlobalAPI record record_id=%s", cursor)
             fetch_result = await _fetch_record_with_retry(client=client, record_id=cursor)
             if fetch_result.kind == "record":
                 try:
@@ -339,7 +355,12 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                         session=session,
                         payload=fetch_result.payload or {},
                     )
-                except ValueError:
+                except ValueError as exc:
+                    logger.warning(
+                        "Skipping malformed GlobalAPI record record_id=%s: %s",
+                        cursor,
+                        exc,
+                    )
                     errors += 1
                     state.cursor = cursor + 1
                     session.add(state)
@@ -350,6 +371,17 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 processed += 1
                 created += int(row_created)
                 updated += int(row_updated)
+                sync_action = "created" if row_created else "updated"
+                logger.debug(
+                    "Synced GlobalAPI record record_id=%s action=%s steamid64=%s map_id=%s server_id=%s points=%s uuid=%s",
+                    fetch_result.payload.get("id"),
+                    sync_action,
+                    fetch_result.payload.get("steamid64"),
+                    fetch_result.payload.get("map_id"),
+                    fetch_result.payload.get("server_id"),
+                    fetch_result.payload.get("points"),
+                    record_uuid,
+                )
                 state.cursor = cursor + 1
                 session.add(state)
                 await crud.notify_recent_record_updated(
@@ -360,9 +392,19 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 cursor += 1
                 continue
 
+            logger.debug(
+                "GlobalAPI record record_id=%s not found; probing next %s ids",
+                cursor,
+                NULL_PROBE_WINDOW,
+            )
             await asyncio.sleep(NULL_SLEEP_SECONDS)
             probe_success = False
             for probe_id in range(cursor + 1, cursor + NULL_PROBE_WINDOW + 1):
+                logger.debug(
+                    "Probing GlobalAPI record record_id=%s after missing cursor=%s",
+                    probe_id,
+                    cursor,
+                )
                 probe_result = await _fetch_record_with_retry(
                     client=client,
                     record_id=probe_id,
@@ -374,7 +416,12 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                         session=session,
                         payload=probe_result.payload or {},
                     )
-                except ValueError:
+                except ValueError as exc:
+                    logger.warning(
+                        "Skipping malformed probed GlobalAPI record record_id=%s: %s",
+                        probe_id,
+                        exc,
+                    )
                     errors += 1
                     state.cursor = probe_id + 1
                     session.add(state)
@@ -386,6 +433,17 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 processed += 1
                 created += int(row_created)
                 updated += int(row_updated)
+                sync_action = "created" if row_created else "updated"
+                logger.debug(
+                    "Synced probed GlobalAPI record record_id=%s action=%s steamid64=%s map_id=%s server_id=%s points=%s uuid=%s",
+                    probe_result.payload.get("id"),
+                    sync_action,
+                    probe_result.payload.get("steamid64"),
+                    probe_result.payload.get("map_id"),
+                    probe_result.payload.get("server_id"),
+                    probe_result.payload.get("points"),
+                    record_uuid,
+                )
                 state.cursor = probe_id + 1
                 session.add(state)
                 await crud.notify_recent_record_updated(
@@ -403,9 +461,19 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
             state.cursor = cursor
             session.add(state)
             await session.commit()
-            return GlobalApiSyncResult(
+            result = GlobalApiSyncResult(
                 processed=processed,
                 created=created,
                 updated=updated,
                 errors=errors,
             )
+            logger.info(
+                "Finished GlobalAPI records sync at cursor=%s processed=%s created=%s updated=%s errors=%s warnings=%s",
+                cursor,
+                result.processed,
+                result.created,
+                result.updated,
+                result.errors,
+                result.warnings,
+            )
+            return result
