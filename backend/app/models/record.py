@@ -124,24 +124,19 @@ class Record(RecordBase, table=True):
             postgresql_where=text("is_valid = true"),
         ),
         Index(
-            "ix_records_server",
+            "ix_records_is_valid_server_id",
+            "is_valid",
             "server_id",
-            postgresql_where=text("is_valid = true"),
         ),
         Index(
-            "ix_records_created_on",
+            "ix_records_is_valid_created_on",
+            "is_valid",
             text("created_on DESC"),
-            postgresql_where=text("is_valid = true"),
         ),
         Index(
-            "ix_records_updated_on",
+            "ix_records_is_valid_updated_on",
+            "is_valid",
             text("updated_on DESC"),
-            postgresql_where=text("is_valid = true"),
-        ),
-        Index(
-            "ix_records_invalid",
-            text("created_on DESC"),
-            postgresql_where=text("is_valid = false"),
         ),
     )
 
