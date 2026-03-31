@@ -4,7 +4,7 @@ The frontend is built with [Vite](https://vitejs.dev/), [React](https://reactjs.
 
 ## Requirements
 
-- [Bun](https://bun.sh/) (recommended) or [Node.js](https://nodejs.org/)
+- [Bun](https://bun.sh/) (recommended) or [Node.js 24](https://nodejs.org/)
 
 ## Quick Start
 

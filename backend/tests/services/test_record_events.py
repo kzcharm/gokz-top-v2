@@ -152,7 +152,7 @@ async def test_build_recent_record_snapshot_event_returns_latest_records(
     assert event.type == "record.snapshot"
     assert [record.uuid for record in event.records] == [newest.uuid, oldest.uuid]
     assert event.records[0].map.tier == 5
-    assert event.records[0].mode.name == "kz_simple"
+    assert event.records[0].mode.name == "SKZ"
 
 
 async def test_build_recent_record_upsert_event_returns_single_record_payload(
@@ -186,6 +186,7 @@ async def test_build_recent_record_upsert_event_returns_single_record_payload(
     assert event.record.uuid == record.uuid
     assert event.record.player.name == "Realtime Runner"
     assert event.record.server.name == "Realtime Server"
+    assert event.record.mode.name == "KZT"
 
 
 async def test_build_recent_record_upsert_event_rejects_invalid_or_missing_record() -> None:
