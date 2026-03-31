@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     GLOBALAPI_SERVERS_LIMIT: int = 9_999
     RUN_SERVER_STATUS_COLLECTOR_IN_APP: bool = True
     RUN_GLOBALAPI_SYNC_RUNNER_IN_APP: bool = True
+    LOG_LEVEL: str = "INFO"
     GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")
     SUPER_USER_STEAMID64: int
 

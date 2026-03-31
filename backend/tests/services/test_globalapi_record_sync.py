@@ -1,5 +1,7 @@
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
+from io import StringIO
 
 import pytest
 from sqlmodel import delete
@@ -22,6 +24,11 @@ async def _reset_records_sync_state(db: AsyncSession) -> None:
 async def _set_records_cursor(db: AsyncSession, cursor: int) -> None:
     await _reset_records_sync_state(db)
     db.add(GlobalApiSyncState(task_name="records", cursor=cursor))
+    await db.commit()
+
+
+async def _delete_record_by_id(db: AsyncSession, *, record_id: int) -> None:
+    await db.exec(delete(Record).where(Record.id == record_id))
     await db.commit()
 
 
@@ -144,8 +151,13 @@ async def test_sync_records_from_globalapi_starts_from_largest_local_id_or_200(
     async def _no_sleep(_: float) -> None:
         return None
 
+    async def _fake_max_record_id(*, session: AsyncSession) -> int:
+        del session
+        return 981210
+
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr(record_sync.crud, "get_max_record_globalapi_id", _fake_max_record_id)
 
     result = await record_sync.sync_records_from_globalapi(session=db)
 
@@ -205,6 +217,7 @@ async def test_sync_records_from_globalapi_creates_dependencies_points_and_uuid_
 ) -> None:
     record_id = 998200
     await _set_records_cursor(db, record_id)
+    await _delete_record_by_id(db, record_id=record_id)
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=750)
     expected_created_on = datetime(2026, 3, 30, 12, 34, 56, tzinfo=UTC)
@@ -275,6 +288,7 @@ async def test_sync_records_from_globalapi_discards_overlong_custom_id(
 ) -> None:
     record_id = 998200
     await _set_records_cursor(db, record_id)
+    await _delete_record_by_id(db, record_id=record_id)
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=750)
 
@@ -317,6 +331,7 @@ async def test_sync_records_from_globalapi_probes_next_ids_after_null(
     start_id = 998200
     success_id = start_id + 2
     await _set_records_cursor(db, start_id)
+    await _delete_record_by_id(db, record_id=success_id)
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=success_id, steamid64=steamid64, points=321)
     requested_ids: list[int] = []
@@ -393,6 +408,7 @@ async def test_sync_records_from_globalapi_counts_malformed_points_and_advances_
 ) -> None:
     record_id = 998200
     await _set_records_cursor(db, record_id)
+    await _delete_record_by_id(db, record_id=record_id)
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=2001)
 
@@ -488,3 +504,60 @@ async def test_sync_records_from_globalapi_updates_existing_record_without_chang
     assert refreshed.uuid == existing.uuid
     assert refreshed.points == 999
     assert notified_record_ids == [str(existing.uuid)]
+
+
+async def test_sync_records_from_globalapi_emits_debug_logs_for_synced_records(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record_id = 998300
+    await _set_records_cursor(db, record_id)
+    await _delete_record_by_id(db, record_id=record_id)
+    steamid64 = random_steamid64()
+    payload = _build_payload(record_id=record_id, steamid64=steamid64, points=444)
+
+    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client
+        if record_id == payload["id"]:
+            return record_sync.RecordFetchResult(kind="record", payload=payload)
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _fake_player_fetch(_steamid64: int) -> dict[str, str | None]:
+        return {
+            "name": "Steam Runner",
+            "custom_id": None,
+            "avatar_hash": None,
+            "country": None,
+        }
+
+    async def _fake_notify(*, session: AsyncSession, record_uuid: object) -> None:
+        del session, record_uuid
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(record_sync.crud, "notify_recent_record_updated", _fake_notify)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+
+    logger = logging.getLogger("app.services.globalapi_record_sync")
+    previous_level = logger.level
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    try:
+        await record_sync.sync_records_from_globalapi(session=db)
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
+        logger.setLevel(previous_level)
+
+    output = stream.getvalue()
+    assert f"Fetching GlobalAPI record record_id={record_id}" in output
+    assert f"Synced GlobalAPI record record_id={record_id} action=created" in output
+    assert (
+        f"Finished GlobalAPI records sync at cursor={record_id + 1} processed=1 created=1 updated=0 errors=0 warnings=0"
+        in output
+    )

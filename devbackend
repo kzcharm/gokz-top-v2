@@ -6,6 +6,18 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+LOG_LEVEL_OVERRIDE="${LOG_LEVEL-}"
+if [[ "${1-}" == "d" ]]; then
+  LOG_LEVEL_OVERRIDE="DEBUG"
+  shift
+  echo "Backend debug logging enabled (LOG_LEVEL=DEBUG)."
+fi
+
+if [[ $# -gt 0 ]]; then
+  echo "Usage: ./devbackend [d]"
+  exit 1
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "Error: docker is required to run the local database."
   exit 1
@@ -158,4 +170,5 @@ if [[ "$DB_STATUS" != "healthy" && "$DB_STATUS" != "running" ]]; then
 fi
 
 cd backend
+export LOG_LEVEL="$LOG_LEVEL_OVERRIDE"
 uv run fastapi dev app/main.py

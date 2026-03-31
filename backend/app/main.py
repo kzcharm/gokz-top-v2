@@ -15,6 +15,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.api.v0.main import router as v0_router
 from app.core.config import settings
+from app.core.logging import configure_app_logging
 from app.services.globalapi_sync import (
     run_globalapi_sync_runner_in_app,
     stop_globalapi_sync_runner,
@@ -30,6 +31,8 @@ from app.services.server_status import (
     run_server_status_collector_in_app,
     stop_collector,
 )
+
+configure_app_logging(settings.LOG_LEVEL)
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
