@@ -106,12 +106,16 @@ export function formatRecordTime(seconds: number) {
   const minutes = Math.floor((totalMilliseconds % 3_600_000) / 60_000)
   const secs = Math.floor((totalMilliseconds % 60_000) / 1000)
   const milliseconds = totalMilliseconds % 1000
-  const secondPart = `${secs.toString().padStart(hours > 0 ? 2 : 1, "0")}.${milliseconds
+  const secondPart = `${secs.toString().padStart(hours > 0 || minutes > 0 ? 2 : 1, "0")}.${milliseconds
     .toString()
     .padStart(3, "0")}`
 
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, "0")}:${secondPart.padStart(6, "0")}`
+  }
+
+  if (minutes === 0) {
+    return secondPart
   }
 
   return `${minutes}:${secondPart.padStart(6, "0")}`

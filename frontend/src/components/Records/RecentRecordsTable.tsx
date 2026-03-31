@@ -45,7 +45,9 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
               <TableHead className={`min-w-20 ${tableHeadClassName}`}>
                 TPs
               </TableHead>
-              <TableHead className={`min-w-24 ${tableHeadClassName}`}>
+              <TableHead
+                className={`min-w-24 text-right ${tableHeadClassName}`}
+              >
                 Time
               </TableHead>
               <TableHead className={`min-w-24 ${tableHeadClassName}`}>
@@ -85,7 +87,7 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
                   <TableCell>
                     <TeleportsBadge teleports={record.teleports} />
                   </TableCell>
-                  <TableCell className="font-mono font-medium">
+                  <TableCell className="text-right font-mono font-medium">
                     {formatRecordTime(record.time)}
                   </TableCell>
                   <TableCell>
