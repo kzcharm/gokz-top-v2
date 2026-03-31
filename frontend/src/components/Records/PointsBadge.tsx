@@ -7,6 +7,10 @@ interface PointsBadgeProps {
 }
 
 function getPointsToneClassName(points: number) {
+  if (points === 0) {
+    return "bg-muted text-foreground/80 ring-1 ring-border"
+  }
+
   if (points >= 1000) {
     return "bg-amber-100 text-yellow-700 ring-1 ring-yellow-300"
   }
@@ -19,7 +23,7 @@ function getPointsToneClassName(points: number) {
     return "bg-orange-100 text-amber-800 ring-1 ring-amber-300"
   }
 
-  return "bg-muted text-foreground/80 ring-1 ring-border"
+  return "bg-slate-100 text-slate-600 ring-1 ring-slate-300"
 }
 
 export function PointsBadge({ points, className }: PointsBadgeProps) {

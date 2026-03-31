@@ -149,6 +149,107 @@ async def _fetch_record_with_retry(
             await asyncio.sleep(RATE_LIMIT_SLEEP_SECONDS)
 
 
+async def _hydrate_main_stage_points_from_top(
+    *,
+    client: httpx.AsyncClient,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    record_id = payload.get("id")
+    try:
+        parsed_record_id = _parse_int(record_id, field_name="id")
+        stage = _parse_int(payload.get("stage", 0), field_name="stage")
+        if stage != 0:
+            return payload
+
+        steamid64 = _parse_int(payload.get("steamid64"), field_name="steamid64")
+        map_id = _parse_int(payload.get("map_id"), field_name="map_id")
+        mode_name = _parse_string(payload.get("mode"))
+        if not mode_name:
+            return payload
+        teleports = _parse_int(payload.get("teleports", 0), field_name="teleports")
+    except ValueError as exc:
+        logger.warning(
+            "Skipping GlobalAPI top points lookup for malformed record record_id=%s: %s",
+            record_id,
+            exc,
+        )
+        return payload
+
+    try:
+        response = await client.get(
+            f"{settings.GLOBALAPI_BASE_URL}/records/top",
+            params={
+                "steamid64": steamid64,
+                "map_id": map_id,
+                "stage": 0,
+                "modes_list_string": mode_name,
+                "has_teleports": teleports > 0,
+                "tickrate": 128,
+                "limit": 1,
+            },
+        )
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "Failed to hydrate GlobalAPI points from records/top for record_id=%s: %s",
+            parsed_record_id,
+            exc,
+        )
+        return payload
+
+    if response.status_code >= 400:
+        logger.warning(
+            "GlobalAPI records/top returned %s while hydrating points for record_id=%s",
+            response.status_code,
+            parsed_record_id,
+        )
+        return payload
+
+    try:
+        top_payload = response.json()
+    except ValueError:
+        logger.warning(
+            "GlobalAPI records/top returned invalid JSON while hydrating points for record_id=%s",
+            parsed_record_id,
+        )
+        return payload
+
+    if not isinstance(top_payload, list) or not top_payload:
+        return payload
+
+    top_record = top_payload[0]
+    if not isinstance(top_record, dict):
+        logger.warning(
+            "GlobalAPI records/top returned unexpected payload item while hydrating points for record_id=%s",
+            parsed_record_id,
+        )
+        return payload
+
+    try:
+        top_record_id = _parse_int(top_record.get("id"), field_name="id")
+        points = _parse_int(top_record.get("points", 0), field_name="points")
+    except ValueError as exc:
+        logger.warning(
+            "Skipping malformed GlobalAPI records/top payload for record_id=%s: %s",
+            parsed_record_id,
+            exc,
+        )
+        return payload
+
+    if top_record_id != parsed_record_id:
+        return payload
+    if not 0 <= points <= 1000:
+        logger.warning(
+            "Skipping out-of-range GlobalAPI records/top points for record_id=%s: %s",
+            parsed_record_id,
+            points,
+        )
+        return payload
+
+    hydrated_payload = dict(payload)
+    hydrated_payload["points"] = points
+    return hydrated_payload
+
+
 async def _ensure_player(
     *,
     session: AsyncSession,
@@ -350,10 +451,14 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
             logger.debug("Fetching GlobalAPI record record_id=%s", cursor)
             fetch_result = await _fetch_record_with_retry(client=client, record_id=cursor)
             if fetch_result.kind == "record":
+                hydrated_payload = await _hydrate_main_stage_points_from_top(
+                    client=client,
+                    payload=fetch_result.payload or {},
+                )
                 try:
                     record_uuid, row_created, row_updated = await _upsert_record(
                         session=session,
-                        payload=fetch_result.payload or {},
+                        payload=hydrated_payload,
                     )
                 except ValueError as exc:
                     logger.warning(
@@ -374,12 +479,12 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 sync_action = "created" if row_created else "updated"
                 logger.debug(
                     "Synced GlobalAPI record record_id=%s action=%s steamid64=%s map_id=%s server_id=%s points=%s uuid=%s",
-                    fetch_result.payload.get("id"),
+                    hydrated_payload.get("id"),
                     sync_action,
-                    fetch_result.payload.get("steamid64"),
-                    fetch_result.payload.get("map_id"),
-                    fetch_result.payload.get("server_id"),
-                    fetch_result.payload.get("points"),
+                    hydrated_payload.get("steamid64"),
+                    hydrated_payload.get("map_id"),
+                    hydrated_payload.get("server_id"),
+                    hydrated_payload.get("points"),
                     record_uuid,
                 )
                 state.cursor = cursor + 1
@@ -411,10 +516,14 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 )
                 if probe_result.kind != "record":
                     continue
+                hydrated_payload = await _hydrate_main_stage_points_from_top(
+                    client=client,
+                    payload=probe_result.payload or {},
+                )
                 try:
                     record_uuid, row_created, row_updated = await _upsert_record(
                         session=session,
-                        payload=probe_result.payload or {},
+                        payload=hydrated_payload,
                     )
                 except ValueError as exc:
                     logger.warning(
@@ -436,12 +545,12 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 sync_action = "created" if row_created else "updated"
                 logger.debug(
                     "Synced probed GlobalAPI record record_id=%s action=%s steamid64=%s map_id=%s server_id=%s points=%s uuid=%s",
-                    probe_result.payload.get("id"),
+                    hydrated_payload.get("id"),
                     sync_action,
-                    probe_result.payload.get("steamid64"),
-                    probe_result.payload.get("map_id"),
-                    probe_result.payload.get("server_id"),
-                    probe_result.payload.get("points"),
+                    hydrated_payload.get("steamid64"),
+                    hydrated_payload.get("map_id"),
+                    hydrated_payload.get("server_id"),
+                    hydrated_payload.get("points"),
                     record_uuid,
                 )
                 state.cursor = probe_id + 1

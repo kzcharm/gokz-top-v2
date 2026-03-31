@@ -2,6 +2,7 @@ import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 from io import StringIO
+from typing import Any
 
 import pytest
 from sqlmodel import delete
@@ -125,6 +126,15 @@ def _build_payload(
         "updated_by": str(steamid64),
         "replay_id": 321,
     }
+
+
+class _StubResponse:
+    def __init__(self, *, status_code: int, payload: Any) -> None:
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self) -> Any:
+        return self._payload
 
 
 async def test_sync_records_from_globalapi_starts_from_largest_local_id_or_200(
@@ -504,6 +514,193 @@ async def test_sync_records_from_globalapi_updates_existing_record_without_chang
     assert refreshed.uuid == existing.uuid
     assert refreshed.points == 999
     assert notified_record_ids == [str(existing.uuid)]
+
+
+async def test_sync_records_from_globalapi_hydrates_main_stage_points_from_top(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record_id = 998250
+    await _set_records_cursor(db, record_id)
+    await _delete_record_by_id(db, record_id=record_id)
+    steamid64 = random_steamid64()
+    payload = _build_payload(record_id=record_id, steamid64=steamid64, points=0)
+
+    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client
+        if record_id == payload["id"]:
+            return record_sync.RecordFetchResult(kind="record", payload=payload)
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _fake_player_fetch(_steamid64: int) -> dict[str, str | None]:
+        return {
+            "name": "Steam Runner",
+            "custom_id": None,
+            "avatar_hash": None,
+            "country": None,
+        }
+
+    class _FakeClient:
+        def __init__(self, *_: object, **__: object) -> None:
+            self.top_calls: list[dict[str, Any]] = []
+
+        async def __aenter__(self) -> "_FakeClient":
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+
+        async def get(
+            self,
+            url: str,
+            params: dict[str, Any] | None = None,
+        ) -> _StubResponse:
+            if url.endswith(f"/records/{record_id}"):
+                return _StubResponse(status_code=200, payload=payload)
+            self.top_calls.append({"url": url, "params": params or {}})
+            return _StubResponse(
+                status_code=200,
+                payload=[{"id": record_id, "points": 432}],
+            )
+
+    fake_client = _FakeClient()
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr(
+        record_sync.httpx,
+        "AsyncClient",
+        lambda *args, **kwargs: fake_client,
+    )
+
+    result = await record_sync.sync_records_from_globalapi(session=db)
+
+    assert result.processed == 1
+    synced_record = await record_sync.crud.get_record_by_id(
+        session=db,
+        record_id=record_id,
+    )
+    assert synced_record is not None
+    assert synced_record.points == 432
+    assert fake_client.top_calls == [
+        {
+            "url": f"{record_sync.settings.GLOBALAPI_BASE_URL}/records/top",
+            "params": {
+                "steamid64": steamid64,
+                "map_id": payload["map_id"],
+                "stage": 0,
+                "modes_list_string": payload["mode"],
+                "has_teleports": False,
+                "tickrate": 128,
+                "limit": 1,
+            },
+        }
+    ]
+
+
+async def test_sync_records_from_globalapi_skips_top_points_lookup_for_non_main_stage(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record_id = 998260
+    await _set_records_cursor(db, record_id)
+    await _delete_record_by_id(db, record_id=record_id)
+    steamid64 = random_steamid64()
+    payload = _build_payload(record_id=record_id, steamid64=steamid64, points=0)
+    payload["stage"] = 3
+
+    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client
+        if record_id == payload["id"]:
+            return record_sync.RecordFetchResult(kind="record", payload=payload)
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _fake_player_fetch(_steamid64: int) -> dict[str, str | None]:
+        return {
+            "name": "Steam Runner",
+            "custom_id": None,
+            "avatar_hash": None,
+            "country": None,
+        }
+
+    top_calls: list[dict[str, Any]] = []
+
+    class _FakeClient:
+        async def __aenter__(self) -> "_FakeClient":
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+
+        async def get(
+            self,
+            url: str,
+            params: dict[str, Any] | None = None,
+        ) -> _StubResponse:
+            top_calls.append({"url": url, "params": params or {}})
+            return _StubResponse(status_code=200, payload=[])
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr(
+        record_sync.httpx,
+        "AsyncClient",
+        lambda *args, **kwargs: _FakeClient(),
+    )
+
+    result = await record_sync.sync_records_from_globalapi(session=db)
+
+    assert result.processed == 1
+    synced_record = await record_sync.crud.get_record_by_id(
+        session=db,
+        record_id=record_id,
+    )
+    assert synced_record is not None
+    assert synced_record.points == 0
+    assert top_calls == []
+
+
+async def test_hydrate_main_stage_points_from_top_does_not_retry_on_rate_limit() -> None:
+    payload = _build_payload(record_id=998270, steamid64=random_steamid64(), points=0)
+    calls: list[dict[str, Any]] = []
+
+    class _FakeClient:
+        async def get(
+            self,
+            url: str,
+            params: dict[str, Any] | None = None,
+        ) -> _StubResponse:
+            calls.append({"url": url, "params": params or {}})
+            return _StubResponse(status_code=429, payload={"detail": "limited"})
+
+    hydrated = await record_sync._hydrate_main_stage_points_from_top(
+        client=_FakeClient(),
+        payload=payload,
+    )
+
+    assert hydrated is payload
+    assert calls == [
+        {
+            "url": f"{record_sync.settings.GLOBALAPI_BASE_URL}/records/top",
+            "params": {
+                "steamid64": int(payload["steamid64"]),
+                "map_id": payload["map_id"],
+                "stage": 0,
+                "modes_list_string": payload["mode"],
+                "has_teleports": False,
+                "tickrate": 128,
+                "limit": 1,
+            },
+        }
+    ]
 
 
 async def test_sync_records_from_globalapi_emits_debug_logs_for_synced_records(
