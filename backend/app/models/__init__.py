@@ -2,7 +2,6 @@ from sqlmodel import SQLModel
 
 from .auth import Message, Token, TokenPayload
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
-from .item import Item, ItemBase, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate
 from .map import Map, MapBase, MapCompatPublicV0, MapPublic, MapSyncResult
 from .mode import (
     CANONICAL_MODE_SEEDS,
@@ -86,12 +85,6 @@ from .utils import generate_uuid7, get_datetime_utc
 __all__ = [
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
-    "Item",
-    "ItemBase",
-    "ItemCreate",
-    "ItemPublic",
-    "ItemsPublic",
-    "ItemUpdate",
     "Map",
     "MapBase",
     "MapCompatPublicV0",

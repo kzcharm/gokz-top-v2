@@ -2,7 +2,6 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin_modes,
-    items,
     login,
     maps,
     modes,
@@ -31,7 +30,6 @@ api_router.include_router(servers.router)
 api_router.include_router(server_ws.router)
 api_router.include_router(admin_modes.router)
 api_router.include_router(utils.router)
-api_router.include_router(items.router)
 
 
 if settings.ENVIRONMENT == "local":

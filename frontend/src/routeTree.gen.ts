@@ -16,7 +16,6 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as ServersServerAddressRouteImport } from './routes/servers.$serverAddress'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
-import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutProfileSteamid64RouteImport } from './routes/_layout/profile.$steamid64'
@@ -58,11 +57,6 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutItemsRoute = LayoutItemsRouteImport.update({
-  id: '/items',
-  path: '/items',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
@@ -114,7 +108,6 @@ export interface FileRoutesByFullPath {
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/dashboard': typeof LayoutDashboardRouteWithChildren
-  '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -130,7 +123,6 @@ export interface FileRoutesByTo {
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/dashboard': typeof LayoutDashboardRouteWithChildren
-  '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -149,7 +141,6 @@ export interface FileRoutesById {
   '/servers': typeof ServersRouteWithChildren
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
-  '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -169,7 +160,6 @@ export interface FileRouteTypes {
     | '/servers'
     | '/admin'
     | '/dashboard'
-    | '/items'
     | '/settings'
     | '/auth/callback'
     | '/servers/$serverAddress'
@@ -185,7 +175,6 @@ export interface FileRouteTypes {
     | '/servers'
     | '/admin'
     | '/dashboard'
-    | '/items'
     | '/settings'
     | '/auth/callback'
     | '/servers/$serverAddress'
@@ -203,7 +192,6 @@ export interface FileRouteTypes {
     | '/servers'
     | '/_layout/admin'
     | '/_layout/dashboard'
-    | '/_layout/items'
     | '/_layout/settings'
     | '/auth/callback'
     | '/servers/$serverAddress'
@@ -272,13 +260,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof LayoutSettingsRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/items': {
-      id: '/_layout/items'
-      path: '/items'
-      fullPath: '/items'
-      preLoaderRoute: typeof LayoutItemsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/dashboard': {
@@ -385,7 +366,6 @@ const LayoutProfileSteamid64RouteWithChildren =
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
-  LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutProfileSteamid64Route: typeof LayoutProfileSteamid64RouteWithChildren
@@ -394,7 +374,6 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
   LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
-  LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutProfileSteamid64Route: LayoutProfileSteamid64RouteWithChildren,
