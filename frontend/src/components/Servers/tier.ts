@@ -7,7 +7,7 @@ export const TIER_COLORS = {
   t5: "#E84C3D",
   t6: "#A62010",
   t7: "#8B1099",
-  t8: "#FF00FF",
+  t8: "#B83280",
 } as const
 
 export function normalizeTierValue(tier: number | null | undefined) {

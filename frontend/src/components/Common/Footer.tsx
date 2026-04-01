@@ -1,42 +1,26 @@
-import { FaGithub, FaLinkedinIn } from "react-icons/fa"
-import { FaXTwitter } from "react-icons/fa6"
+import { FaDiscord } from "react-icons/fa"
 
 import { getCopyrightYearRange, SITE_NAME } from "@/lib/site"
 
-const socialLinks = [
-  {
-    icon: FaGithub,
-    href: "https://github.com/fastapi/fastapi",
-    label: "GitHub",
-  },
-  { icon: FaXTwitter, href: "https://x.com/fastapi", label: "X" },
-  {
-    icon: FaLinkedinIn,
-    href: "https://linkedin.com/company/fastapi",
-    label: "LinkedIn",
-  },
-]
-
 export function Footer() {
   return (
-    <footer className="border-t py-4 px-6">
-      <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-        <p className="text-muted-foreground text-sm">
-          {SITE_NAME} {getCopyrightYearRange()}
-        </p>
-        <div className="flex items-center gap-4">
-          {socialLinks.map(({ icon: Icon, href, label }) => (
-            <a
-              key={label}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={label}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Icon className="h-5 w-5" />
-            </a>
-          ))}
+    <footer className="shrink-0 border-t px-6 py-3">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-center text-center text-sm text-muted-foreground">
+        <div className="inline-flex flex-wrap items-center justify-center gap-2 leading-none">
+          <span>
+            {SITE_NAME} {getCopyrightYearRange()} | Questions, feedback, or need
+            support?
+          </span>
+          <a
+            href="https://discord.gg/RmkKqq9GBk"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Join us on Discord"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+          >
+            <span>Join us on Discord</span>
+            <FaDiscord className="h-4 w-4" />
+          </a>
         </div>
       </div>
     </footer>

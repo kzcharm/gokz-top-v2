@@ -1,3 +1,5 @@
+import { getTierColor } from "@/components/Servers/tier"
+
 export type ProfileActivityYear = "2025" | "2026"
 
 export type ProfileHomePlaceholder = {
@@ -53,19 +55,8 @@ export type ProfileHomePlaceholder = {
   }>
 }
 
-const tierPalette = [
-  "#7F77DD",
-  "#378ADD",
-  "#1D9E75",
-  "#639922",
-  "#EF9F27",
-  "#D85A30",
-  "#D4537E",
-  "#E24B4A",
-]
-
 function buildActivity(seed: number) {
-  return Array.from({ length: 26 * 7 }, (_, index) => {
+  return Array.from({ length: 53 * 7 }, (_, index) => {
     const week = Math.floor(index / 7)
     const day = index % 7
     const raw = (week * 7 + day * 3 + seed) % 17
@@ -110,7 +101,7 @@ export const profileHomePlaceholder: ProfileHomePlaceholder = {
     overall: {
       completed: 487,
       total: 780,
-      tiers: tierPalette.map((color, index) => {
+      tiers: Array.from({ length: 8 }, (_, index) => {
         const values = [
           [120, 120],
           [98, 105],
@@ -125,14 +116,14 @@ export const profileHomePlaceholder: ProfileHomePlaceholder = {
           label: `T${index + 1}`,
           complete: values[0],
           total: values[1],
-          color,
+          color: getTierColor(index + 1) ?? "#6B7280",
         }
       }),
     },
     pro: {
       completed: 231,
       total: 780,
-      tiers: tierPalette.map((color, index) => {
+      tiers: Array.from({ length: 8 }, (_, index) => {
         const values = [
           [80, 120],
           [55, 105],
@@ -147,7 +138,7 @@ export const profileHomePlaceholder: ProfileHomePlaceholder = {
           label: `T${index + 1}`,
           complete: values[0],
           total: values[1],
-          color,
+          color: getTierColor(index + 1) ?? "#6B7280",
         }
       }),
     },
