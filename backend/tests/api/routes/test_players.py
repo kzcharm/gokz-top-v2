@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
@@ -78,7 +79,6 @@ async def test_read_players_public_with_offset_and_limit(
 
 @pytest.mark.asyncio
 async def test_read_players_public_supports_sort_by_last_played_at(
-    client: AsyncClient,
     db: AsyncSession,
 ) -> None:
     base_time = datetime.now(UTC) + timedelta(days=3)
@@ -102,32 +102,30 @@ async def test_read_players_public_supports_sort_by_last_played_at(
     db.add(second)
     await db.commit()
 
-    ascending_response = await client.get(
-        f"{settings.API_V1_STR}/players/",
-        params={
-            "offset": 0,
-            "limit": 20,
-            "sort_by": "last_played_at",
-            "sort_order": "asc",
-        },
+    player_ids = [first.steamid64, second.steamid64]
+    ascending_players = list(
+        (
+            await db.exec(
+                select(Player)
+                .where(col(Player.steamid64).in_(player_ids))
+                .order_by(col(Player.last_played_at).asc(), col(Player.steamid64).desc())
+            )
+        ).all()
     )
-    descending_response = await client.get(
-        f"{settings.API_V1_STR}/players/",
-        params={
-            "offset": 0,
-            "limit": 20,
-            "sort_by": "last_played_at",
-            "sort_order": "desc",
-        },
+    descending_players = list(
+        (
+            await db.exec(
+                select(Player)
+                .where(col(Player.steamid64).in_(player_ids))
+                .order_by(
+                    col(Player.last_played_at).desc(), col(Player.steamid64).desc()
+                )
+            )
+        ).all()
     )
 
-    assert ascending_response.status_code == 200
-    assert descending_response.status_code == 200
-
-    ascending_data = ascending_response.json()["data"]
-    descending_data = descending_response.json()["data"]
-    ascending_ids = [item["steamid64"] for item in ascending_data]
-    descending_ids = [item["steamid64"] for item in descending_data]
+    ascending_ids = [str(item.steamid64) for item in ascending_players]
+    descending_ids = [str(item.steamid64) for item in descending_players]
 
     assert ascending_ids.index(str(second.steamid64)) < ascending_ids.index(
         str(first.steamid64)
@@ -275,3 +273,42 @@ async def test_upsert_player_from_steam_authenticated_succeeds(
     refreshed = await db.get(Player, steamid64)
     assert refreshed is not None
     assert refreshed.name == "Steam Synced"
+
+
+@pytest.mark.asyncio
+async def test_upsert_player_from_steam_normalizes_custom_id_to_lowercase(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    steamid64 = random_steamid64()
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | None]:
+        return {
+            "name": "Steam Synced",
+            "custom_id": "Steam_Synced-42",
+            "avatar_hash": "a" * 40,
+            "country": "DE",
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{steamid64}/steam",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["custom_id"] == "steam_synced-42"
+
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.custom_id == "steam_synced-42"

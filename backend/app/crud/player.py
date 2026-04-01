@@ -8,19 +8,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import Player, PlayerPublic, PlayerUpdate
-
-MAX_PLAYER_CUSTOM_ID_LENGTH = 25
+from app.models.player import validate_player_custom_id
 
 
 def normalize_custom_id(custom_id: str | None) -> str | None:
-    if not custom_id:
+    try:
+        return validate_player_custom_id(custom_id)
+    except ValueError:
         return None
-    normalized = custom_id.strip()
-    if not normalized:
-        return None
-    if len(normalized) > MAX_PLAYER_CUSTOM_ID_LENGTH:
-        return None
-    return normalized
 
 
 def _extract_custom_id(profile_url: str | None) -> str | None:
@@ -213,7 +208,7 @@ def to_player_public(*, player: Player) -> PlayerPublic:
         steamid64=str(player.steamid64),
         name=player.name,
         alias=player.alias,
-        custom_id=player.custom_id,
+        custom_id=normalize_custom_id(player.custom_id),
         avatar_hash=player.avatar_hash,
         country=player.country,
         created_at=player.created_at,
