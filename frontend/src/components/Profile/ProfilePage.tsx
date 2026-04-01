@@ -2,17 +2,14 @@ import { Link } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import {
   BarChart3,
-  Eye,
-  Heart,
-  Medal,
-  Sparkles,
   Trophy,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 
 import { type PlayerPublic, PlayersService } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import ErrorComponent from "@/components/Common/ErrorComponent"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -39,10 +36,10 @@ const tabDefinitions: Array<{
 
 const activityTones = [
   "bg-muted/70",
-  "bg-lime-300/55 dark:bg-lime-700/60",
-  "bg-lime-500/70 dark:bg-lime-500/70",
-  "bg-emerald-600/80 dark:bg-emerald-500/80",
-  "bg-emerald-900 dark:bg-emerald-300",
+  "bg-primary/15",
+  "bg-primary/30",
+  "bg-primary/55",
+  "bg-primary",
 ]
 
 const badgeToneClasses: Record<string, string> = {
@@ -75,29 +72,16 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value)
 }
 
-function formatDate(value?: string | null) {
-  if (!value) {
-    return "Unknown"
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return "Unknown"
-  }
-
-  return parsed.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
 function formatHours(hours: number) {
   return `${formatNumber(hours)} hrs`
 }
 
 function formatCompactPercent(value: number) {
   return `${Math.round(value * 100)}%`
+}
+
+function formatRatingBadge(value: number) {
+  return (value / 1158).toFixed(2)
 }
 
 function getAvatarUrl(player: PlayerPublic) {
@@ -112,7 +96,7 @@ function ProfileSkeleton() {
   return (
     <div className="space-y-8">
       <Skeleton className="h-56 rounded-[28px]" />
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Skeleton className="h-[680px] rounded-[28px]" />
         <div className="space-y-6">
           <Skeleton className="h-48 rounded-[28px]" />
@@ -133,7 +117,7 @@ function ProfileTabs({
 }) {
   return (
     <Tabs value={activeTab} className="flex flex-col gap-4">
-      <TabsList className="w-fit">
+      <TabsList className="w-fit border border-border bg-background/60">
         {tabDefinitions.map((tab) => (
           <TabsTrigger key={tab.key} value={tab.key} asChild>
             <Link to={tab.to} params={{ steamid64 }}>
@@ -148,6 +132,7 @@ function ProfileTabs({
 
 function ProfileIdentityCard({ player }: { player: PlayerPublic }) {
   const avatarUrl = getAvatarUrl(player)
+  const summary = profileHomePlaceholder.summary
 
   return (
     <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
@@ -188,33 +173,21 @@ function ProfileIdentityCard({ player }: { player: PlayerPublic }) {
               </div>
               <p className="text-sm text-muted-foreground">{player.name}</p>
             </div>
+
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
+                Rating {formatRatingBadge(summary.rating)}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
+                Global #{formatNumber(summary.globalRank)}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
+                EU #{formatNumber(summary.regionalRank)}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-3">
-          <div className="rounded-[22px] border border-border/70 bg-background/75 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Placeholder points
-            </p>
-            <p className="mt-3 text-3xl font-semibold tracking-tight">
-              {formatNumber(profileHomePlaceholder.summary.points)}
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Shared profile-home metrics until v2 profile endpoints land.
-            </p>
-          </div>
-          <div className="rounded-[22px] border border-border/70 bg-background/75 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Global standing
-            </p>
-            <p className="mt-3 text-3xl font-semibold tracking-tight">
-              #{formatNumber(profileHomePlaceholder.summary.globalRank)}
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Home tab visuals are public and reusable for every player.
-            </p>
-          </div>
-        </div>
       </CardContent>
     </Card>
   )
@@ -225,32 +198,46 @@ function DetailRow({
   value,
 }: {
   label: string
-  value: string
+  value: ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value}</span>
+    <div className="flex items-baseline justify-between gap-3 py-0.5 text-sm">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-right text-sm font-semibold">{value}</span>
     </div>
   )
 }
 
 function SummaryMiniCard({
-  icon: Icon,
   label,
   value,
 }: {
-  icon: typeof Eye
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5">
+      <p className="text-lg font-semibold tracking-tight">{value}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+    </div>
+  )
+}
+
+function MainSummaryCard({
+  label,
+  value,
+}: {
   label: string
   value: string
 }) {
   return (
     <div className="rounded-[20px] border border-border/70 bg-background/65 p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        <Icon className="h-4 w-4" />
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
-      </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight">{value}</p>
+      </p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
     </div>
   )
 }
@@ -339,7 +326,7 @@ function SkillRadar() {
                   dominantBaseline="middle"
                   className="fill-muted-foreground text-[11px] font-medium"
                 >
-                  {skill.shortLabel}
+                  {skill.label}
                 </text>
               </g>
             )
@@ -395,7 +382,7 @@ function CompletionCard({
             {formatNumber(completed)} / {formatNumber(total)}
           </p>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {tiers.map((tier) => {
             const width = `${(tier.complete / tier.total) * 100}%`
             return (
@@ -403,7 +390,7 @@ function CompletionCard({
                 <span className="text-xs font-semibold text-muted-foreground">
                   {tier.label}
                 </span>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-5 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full"
                     style={{ width, backgroundColor: tier.color }}
@@ -426,7 +413,7 @@ function ActivityCard() {
   const levels = profileHomePlaceholder.activity[activeYear]
 
   const weeks = useMemo(() => {
-    return Array.from({ length: 26 }, (_, weekIndex) =>
+    return Array.from({ length: 53 }, (_, weekIndex) =>
       Array.from({ length: 7 }, (_, dayIndex) => levels[weekIndex * 7 + dayIndex]),
     )
   }, [levels])
@@ -438,10 +425,6 @@ function ActivityCard() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Activity
-            </p>
-            <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-              Shared placeholder contribution grid while per-profile activity
-              slices are still missing in v2.
             </p>
           </div>
           <div className="inline-flex rounded-full border border-border/70 bg-background/75 p-1">
@@ -464,14 +447,14 @@ function ActivityCard() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[360px] space-y-1.5">
+          <div className="min-w-[720px] space-y-1.5">
             {Array.from({ length: 7 }, (_, rowIndex) => (
               <div key={rowIndex} className="flex gap-1.5">
                 {weeks.map((week, weekIndex) => (
                   <span
                     key={`${weekIndex}-${rowIndex}`}
                     className={cn(
-                      "h-3.5 w-3.5 rounded-[4px] border border-black/0",
+                      "h-3 w-3 shrink-0 rounded-[4px] border border-black/0",
                       activityTones[week[rowIndex]],
                     )}
                   />
@@ -504,10 +487,6 @@ function PinnedRecordsCard() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Pinned records
-            </p>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Shared placeholder cards copied from the current gokz.top profile
-              shape.
             </p>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -620,30 +599,33 @@ export function ProfilePage({
       <ProfileTabs activeTab={activeTab} steamid64={steamid64} />
 
       {activeTab === "home" ? (
-        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="space-y-6">
             <ProfileIdentityCard player={player} />
 
             <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
-              <CardContent className="space-y-6 p-6">
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                    Account info
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Identity fields below come from the current v2 backend.
-                  </p>
-                </div>
-
-                <div className="space-y-1">
+              <CardContent className="space-y-4 p-6">
+                <div className="space-y-0.5">
                   <DetailRow label="SteamID64" value={player.steamid64} />
                   <DetailRow
-                    label="Joined"
-                    value={formatDate(player.created_at)}
+                    label="Date Joined"
+                    value={
+                      <FormattedDateTime
+                        value={player.created_at}
+                        display="relative"
+                        fallback="Unknown"
+                      />
+                    }
                   />
                   <DetailRow
-                    label="Last played"
-                    value={formatDate(player.last_played_at)}
+                    label="Last Played"
+                    value={
+                      <FormattedDateTime
+                        value={player.last_played_at}
+                        display="relative"
+                        fallback="Unknown"
+                      />
+                    }
                   />
                   <DetailRow
                     label="Playtime"
@@ -651,15 +633,13 @@ export function ProfilePage({
                   />
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <div className="grid grid-cols-2 gap-3">
                   <SummaryMiniCard
-                    icon={Eye}
-                    label="Profile views"
+                    label="Views"
                     value={formatNumber(placeholder.summary.profileViews)}
                   />
                   <SummaryMiniCard
-                    icon={Heart}
-                    label="Likes"
+                    label="Followers"
                     value={formatNumber(placeholder.summary.likes)}
                   />
                 </div>
@@ -667,50 +647,10 @@ export function ProfilePage({
             </Card>
 
             <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
-              <CardContent className="space-y-6 p-6">
+              <CardContent className="space-y-5 p-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                    Rating
-                  </p>
-                  <div className="mt-4 flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-                      <Medal />
-                    </div>
-                    <div>
-                      <p className="text-3xl font-semibold tracking-tight text-primary">
-                        {formatNumber(placeholder.summary.rating)}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {placeholder.summary.ratingTier} · Top 1.2%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <SummaryMiniCard
-                    icon={Trophy}
-                    label="Global"
-                    value={`#${formatNumber(placeholder.summary.globalRank)}`}
-                  />
-                  <SummaryMiniCard
-                    icon={Sparkles}
-                    label={placeholder.summary.regionalLabel}
-                    value={`#${formatNumber(placeholder.summary.regionalRank)}`}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
-              <CardContent className="space-y-5 p-6">
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                     Skill radar
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Placeholder skill fingerprint from the legacy profile
-                    experience.
                   </p>
                 </div>
                 <SkillRadar />
@@ -719,6 +659,21 @@ export function ProfilePage({
           </aside>
 
           <section className="space-y-6">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <MainSummaryCard
+                label="Total Points"
+                value={formatNumber(placeholder.summary.points)}
+              />
+              <MainSummaryCard
+                label="Rank"
+                value={placeholder.summary.ratingTier}
+              />
+              <MainSummaryCard
+                label="Global Standing"
+                value={`#${formatNumber(placeholder.summary.globalRank)}`}
+              />
+            </div>
+
             <div className="grid gap-6 2xl:grid-cols-2">
               <CompletionCard
                 title="Overall completion"
