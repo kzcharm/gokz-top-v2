@@ -14,7 +14,9 @@ function Layout() {
   return (
     <AppShell
       contentClassName={
-        pathname.startsWith("/dashboard") ? "max-w-[1600px]" : undefined
+        pathname.startsWith("/dashboard") || pathname.startsWith("/profile")
+          ? "max-w-[1600px]"
+          : undefined
       }
     >
       <Outlet />

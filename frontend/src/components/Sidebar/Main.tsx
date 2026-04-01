@@ -20,6 +20,7 @@ type LinkItem = {
   icon: LucideIcon
   title: string
   path: string
+  activePrefixes?: string[]
 }
 
 type GroupChildItem = {
@@ -48,6 +49,18 @@ function isPathActive(path: string, currentPath: string) {
     : currentPath === path || currentPath.startsWith(`${path}/`)
 }
 
+function isLinkItemActive(item: LinkItem, currentPath: string) {
+  if (isPathActive(item.path, currentPath)) {
+    return true
+  }
+
+  if (!item.activePrefixes) {
+    return false
+  }
+
+  return item.activePrefixes.some((prefix) => isPathActive(prefix, currentPath))
+}
+
 function MainMenuLink({
   item,
   currentPath,
@@ -61,7 +74,7 @@ function MainMenuLink({
     <SidebarMenuItem>
       <SidebarMenuButton
         tooltip={item.title}
-        isActive={isPathActive(item.path, currentPath)}
+        isActive={isLinkItemActive(item, currentPath)}
         asChild
       >
         <RouterLink to={item.path} onClick={onNavigate}>

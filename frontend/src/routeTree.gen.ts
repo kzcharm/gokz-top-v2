@@ -19,9 +19,12 @@ import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutProfileSteamid64RouteImport } from './routes/_layout/profile.$steamid64'
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
+import { Route as LayoutProfileSteamid64StatsRouteImport } from './routes/_layout/profile.$steamid64.stats'
+import { Route as LayoutProfileSteamid64RecordsRouteImport } from './routes/_layout/profile.$steamid64.records'
 
 const ServersRoute = ServersRouteImport.update({
   id: '/servers',
@@ -72,6 +75,11 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutProfileSteamid64Route = LayoutProfileSteamid64RouteImport.update({
+  id: '/profile/$steamid64',
+  path: '/profile/$steamid64',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutDashboardRecordsRoute = LayoutDashboardRecordsRouteImport.update({
   id: '/records',
   path: '/records',
@@ -87,6 +95,18 @@ const LayoutAdminPlayersRoute = LayoutAdminPlayersRouteImport.update({
   path: '/players',
   getParentRoute: () => LayoutAdminRoute,
 } as any)
+const LayoutProfileSteamid64StatsRoute =
+  LayoutProfileSteamid64StatsRouteImport.update({
+    id: '/stats',
+    path: '/stats',
+    getParentRoute: () => LayoutProfileSteamid64Route,
+  } as any)
+const LayoutProfileSteamid64RecordsRoute =
+  LayoutProfileSteamid64RecordsRouteImport.update({
+    id: '/records',
+    path: '/records',
+    getParentRoute: () => LayoutProfileSteamid64Route,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -101,6 +121,9 @@ export interface FileRoutesByFullPath {
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
+  '/profile/$steamid64': typeof LayoutProfileSteamid64RouteWithChildren
+  '/profile/$steamid64/records': typeof LayoutProfileSteamid64RecordsRoute
+  '/profile/$steamid64/stats': typeof LayoutProfileSteamid64StatsRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -115,6 +138,9 @@ export interface FileRoutesByTo {
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
+  '/profile/$steamid64': typeof LayoutProfileSteamid64RouteWithChildren
+  '/profile/$steamid64/records': typeof LayoutProfileSteamid64RecordsRoute
+  '/profile/$steamid64/stats': typeof LayoutProfileSteamid64StatsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -131,6 +157,9 @@ export interface FileRoutesById {
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
+  '/_layout/profile/$steamid64': typeof LayoutProfileSteamid64RouteWithChildren
+  '/_layout/profile/$steamid64/records': typeof LayoutProfileSteamid64RecordsRoute
+  '/_layout/profile/$steamid64/stats': typeof LayoutProfileSteamid64StatsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -147,6 +176,9 @@ export interface FileRouteTypes {
     | '/admin/players'
     | '/admin/users'
     | '/dashboard/records'
+    | '/profile/$steamid64'
+    | '/profile/$steamid64/records'
+    | '/profile/$steamid64/stats'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -161,6 +193,9 @@ export interface FileRouteTypes {
     | '/admin/players'
     | '/admin/users'
     | '/dashboard/records'
+    | '/profile/$steamid64'
+    | '/profile/$steamid64/records'
+    | '/profile/$steamid64/stats'
   id:
     | '__root__'
     | '/_layout'
@@ -176,6 +211,9 @@ export interface FileRouteTypes {
     | '/_layout/admin/players'
     | '/_layout/admin/users'
     | '/_layout/dashboard/records'
+    | '/_layout/profile/$steamid64'
+    | '/_layout/profile/$steamid64/records'
+    | '/_layout/profile/$steamid64/stats'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -257,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/profile/$steamid64': {
+      id: '/_layout/profile/$steamid64'
+      path: '/profile/$steamid64'
+      fullPath: '/profile/$steamid64'
+      preLoaderRoute: typeof LayoutProfileSteamid64RouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/dashboard/records': {
       id: '/_layout/dashboard/records'
       path: '/records'
@@ -277,6 +322,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/players'
       preLoaderRoute: typeof LayoutAdminPlayersRouteImport
       parentRoute: typeof LayoutAdminRoute
+    }
+    '/_layout/profile/$steamid64/stats': {
+      id: '/_layout/profile/$steamid64/stats'
+      path: '/stats'
+      fullPath: '/profile/$steamid64/stats'
+      preLoaderRoute: typeof LayoutProfileSteamid64StatsRouteImport
+      parentRoute: typeof LayoutProfileSteamid64Route
+    }
+    '/_layout/profile/$steamid64/records': {
+      id: '/_layout/profile/$steamid64/records'
+      path: '/records'
+      fullPath: '/profile/$steamid64/records'
+      preLoaderRoute: typeof LayoutProfileSteamid64RecordsRouteImport
+      parentRoute: typeof LayoutProfileSteamid64Route
     }
   }
 }
@@ -307,12 +366,29 @@ const LayoutDashboardRouteWithChildren = LayoutDashboardRoute._addFileChildren(
   LayoutDashboardRouteChildren,
 )
 
+interface LayoutProfileSteamid64RouteChildren {
+  LayoutProfileSteamid64RecordsRoute: typeof LayoutProfileSteamid64RecordsRoute
+  LayoutProfileSteamid64StatsRoute: typeof LayoutProfileSteamid64StatsRoute
+}
+
+const LayoutProfileSteamid64RouteChildren: LayoutProfileSteamid64RouteChildren =
+  {
+    LayoutProfileSteamid64RecordsRoute: LayoutProfileSteamid64RecordsRoute,
+    LayoutProfileSteamid64StatsRoute: LayoutProfileSteamid64StatsRoute,
+  }
+
+const LayoutProfileSteamid64RouteWithChildren =
+  LayoutProfileSteamid64Route._addFileChildren(
+    LayoutProfileSteamid64RouteChildren,
+  )
+
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutProfileSteamid64Route: typeof LayoutProfileSteamid64RouteWithChildren
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -321,6 +397,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutProfileSteamid64Route: LayoutProfileSteamid64RouteWithChildren,
 }
 
 const LayoutRouteWithChildren =

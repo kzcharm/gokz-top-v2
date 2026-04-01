@@ -3,6 +3,7 @@ import {
   Home,
   Server,
   Settings,
+  UserCircle2,
   User as UserIcon,
   Users,
 } from "lucide-react"
@@ -17,11 +18,6 @@ import {
 import useAuth from "@/hooks/useAuth"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
-
-const publicItems: Item[] = [
-  { type: "link", icon: Server, title: "Servers", path: "/servers" },
-  { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
-]
 
 const privateItems: Item[] = [
   { type: "link", icon: Briefcase, title: "Items", path: "/items" },
@@ -41,6 +37,19 @@ const adminItem: Item = {
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
+  const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
+
+  const publicItems: Item[] = [
+    {
+      type: "link",
+      icon: UserCircle2,
+      title: "Profile",
+      path: `/profile/${profileSteamid64}`,
+      activePrefixes: ["/profile"],
+    },
+    { type: "link", icon: Server, title: "Servers", path: "/servers" },
+    { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
+  ]
 
   const items: Item[] = currentUser
     ? currentUser.is_superuser
