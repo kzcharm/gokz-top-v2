@@ -1,14 +1,10 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 from .player import Player, PlayerPublic
 from .utils import get_datetime_utc
-
-if TYPE_CHECKING:
-    from .item import Item
 
 
 class UserBase(SQLModel):
@@ -42,7 +38,6 @@ class User(UserBase, table=True):
     player: Player | None = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[User.steamid64]", "uselist": False}
     )
-    items: list[Item] = Relationship(back_populates="owner", cascade_delete=True)
 
 
 class UserPublic(UserBase):

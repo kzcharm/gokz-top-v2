@@ -1,4 +1,3 @@
-from .item import create_item
 from .map import (
     get_map_by_id,
     get_map_by_name,
@@ -92,7 +91,6 @@ __all__ = [
     "_extract_avatar_hash_from_url",
     "_extract_custom_id",
     "_fetch_player_from_steam_api",
-    "create_item",
     "create_or_update_player_from_steam",
     "create_user",
     "get_map_by_id",

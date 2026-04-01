@@ -12,7 +12,6 @@ from starlette.requests import Request
 from app import crud
 from app.api import deps
 from app.api.v1 import admin_modes as admin_modes_routes
-from app.api.v1 import items as items_routes
 from app.api.v1 import login as login_routes
 from app.api.v1 import modes as modes_routes
 from app.api.v1 import players as players_routes
@@ -23,8 +22,6 @@ from app.api.v1.private import PrivateAuthSessionCreate
 from app.core import security
 from app.core.config import settings
 from app.models import (
-    ItemCreate,
-    ItemUpdate,
     ModeAdminUpdate,
     Player,
     PlayersBatchRead,
@@ -72,80 +69,6 @@ async def _create_user(
     await db.commit()
     await db.refresh(user)
     return user
-
-
-@pytest.mark.asyncio
-async def test_items_routes_direct_branches(db: AsyncSession) -> None:
-    superuser = await _create_user(db, superuser=True)
-    owner = await _create_user(db)
-    outsider = await _create_user(db)
-
-    created = await items_routes.create_item(
-        session=db,
-        current_user=owner,
-        item_in=ItemCreate(title="t1", description="d1"),
-    )
-
-    super_list = await items_routes.read_items(session=db, current_user=superuser)
-    assert super_list.count >= 1
-
-    owner_list = await items_routes.read_items(session=db, current_user=owner)
-    assert owner_list.count >= 1
-
-    by_id = await items_routes.read_item(
-        session=db, current_user=superuser, id=created.id
-    )
-    assert by_id.id == created.id
-
-    updated = await items_routes.update_item(
-        session=db,
-        current_user=owner,
-        id=created.id,
-        item_in=ItemUpdate(title="updated"),
-    )
-    assert updated.title == "updated"
-
-    other_item = await items_routes.create_item(
-        session=db,
-        current_user=outsider,
-        item_in=ItemCreate(title="t2", description="d2"),
-    )
-
-    with pytest.raises(HTTPException, match="Not enough permissions"):
-        await items_routes.read_item(session=db, current_user=owner, id=other_item.id)
-
-    with pytest.raises(HTTPException, match="Not enough permissions"):
-        await items_routes.update_item(
-            session=db,
-            current_user=owner,
-            id=other_item.id,
-            item_in=ItemUpdate(description="blocked"),
-        )
-
-    with pytest.raises(HTTPException, match="Not enough permissions"):
-        await items_routes.delete_item(session=db, current_user=owner, id=other_item.id)
-
-    missing_id = uuid4()
-    with pytest.raises(HTTPException, match="Item not found"):
-        await items_routes.read_item(session=db, current_user=superuser, id=missing_id)
-    with pytest.raises(HTTPException, match="Item not found"):
-        await items_routes.update_item(
-            session=db,
-            current_user=superuser,
-            id=missing_id,
-            item_in=ItemUpdate(title="n/a"),
-        )
-    with pytest.raises(HTTPException, match="Item not found"):
-        await items_routes.delete_item(
-            session=db, current_user=superuser, id=missing_id
-        )
-
-    deleted = await items_routes.delete_item(
-        session=db,
-        current_user=superuser,
-        id=created.id,
-    )
-    assert deleted.message == "Item deleted successfully"
 
 
 @pytest.mark.asyncio

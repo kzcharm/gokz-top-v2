@@ -10,7 +10,7 @@ from app.api.deps import get_db
 from app.core.config import settings
 from app.core.db import async_engine, engine, init_db
 from app.main import app
-from app.models import Item, User
+from app.models import User
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_superuser_token_headers, random_steamid64
 
@@ -39,7 +39,6 @@ def setup_db() -> Generator[None]:
     yield
 
     with Session(engine) as session:
-        session.execute(delete(Item))
         session.execute(delete(User))
         session.commit()
 

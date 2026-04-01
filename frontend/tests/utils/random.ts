@@ -13,9 +13,3 @@ export const slugify = (text: string) =>
     .toLowerCase()
     .replace(/\s+/g, "-")
     .replace(/[^\w-]+/g, "")
-
-export const randomItemTitle = () =>
-  `Item ${Math.random().toString(36).substring(7)}`
-
-export const randomItemDescription = () =>
-  `Description ${Math.random().toString(36).substring(7)}`

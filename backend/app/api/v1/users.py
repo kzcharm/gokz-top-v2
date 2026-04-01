@@ -1,12 +1,11 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import col, delete, func, select
+from sqlmodel import col, func, select
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.models import (
-    Item,
     Message,
     User,
     UserPublic,
@@ -122,8 +121,6 @@ async def delete_user(
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
-    statement = delete(Item).where(col(Item.owner_id) == steamid64)
-    await session.exec(statement)
     await session.delete(user)
     await session.commit()
     return Message(message="User deleted successfully")
