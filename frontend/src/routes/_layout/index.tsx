@@ -1,32 +1,17 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { UsersService } from "@/client"
+import { getSteamid64FromAccessToken } from "@/lib/auth"
 
 export const Route = createFileRoute("/_layout/")({
-  beforeLoad: async () => {
+  beforeLoad: () => {
     const fallbackSteamid64 = "76561198417871586"
     const accessToken = localStorage.getItem("access_token")
+    const steamid64 = getSteamid64FromAccessToken(accessToken)
 
-    if (!accessToken) {
-      throw redirect({
-        to: "/profile/$steamid64",
-        params: { steamid64: fallbackSteamid64 },
-      })
-    }
-
-    try {
-      const currentUser = await UsersService.readUserMe()
-      throw redirect({
-        to: "/profile/$steamid64",
-        params: { steamid64: currentUser.steamid64 },
-      })
-    } catch {
-      localStorage.removeItem("access_token")
-      throw redirect({
-        to: "/profile/$steamid64",
-        params: { steamid64: fallbackSteamid64 },
-      })
-    }
+    throw redirect({
+      to: "/profile/$steamid64",
+      params: { steamid64: steamid64 ?? fallbackSteamid64 },
+    })
   },
   component: IndexRedirect,
 })

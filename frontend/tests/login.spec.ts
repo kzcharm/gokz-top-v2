@@ -27,13 +27,14 @@ test("Auth callback stores token from hash and redirects", async ({
   page,
   request,
 }) => {
+  const steamid64 = randomSteamid64()
   const { accessToken } = await issueSessionToken({
     request,
-    steamid64: randomSteamid64(),
+    steamid64,
   })
 
   await page.goto(`/auth/callback#access_token=${accessToken}`)
-  await expect(page).toHaveURL("/")
+  await expect(page).toHaveURL(new RegExp(`/profile/${steamid64}$`))
   const tokenFromStorage = await page.evaluate(() =>
     localStorage.getItem("access_token"),
   )
