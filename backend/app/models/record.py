@@ -1,10 +1,18 @@
 import uuid
 from datetime import datetime
-from decimal import Decimal
-from enum import StrEnum
+from decimal import ROUND_HALF_UP, Decimal
+from enum import IntEnum, StrEnum
 from typing import Literal
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Index, Numeric, text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Index,
+    Numeric,
+    SmallInteger,
+    text,
+)
 from sqlmodel import Field, SQLModel
 
 from .server_globalapi import ServerGlobalapiCompatPublicV0
@@ -15,6 +23,69 @@ class TeleportsType(StrEnum):
     PRO = "PRO"
     NUB = "NUB"
     OVR = "OVR"
+
+
+class RecordScope(StrEnum):
+    OVR = "OVR"
+    KZT = "KZT"
+    SKZ = "SKZ"
+    VNL = "VNL"
+
+
+class RecordScopeId(IntEnum):
+    OVR = 0
+    KZT = 1
+    SKZ = 2
+    VNL = 3
+
+
+SCOPE_ID_BY_SCOPE: dict[RecordScope, int] = {
+    RecordScope.OVR: RecordScopeId.OVR,
+    RecordScope.KZT: RecordScopeId.KZT,
+    RecordScope.SKZ: RecordScopeId.SKZ,
+    RecordScope.VNL: RecordScopeId.VNL,
+}
+
+SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
+    RecordScopeId.OVR: (200, 201, 202, 203),
+    RecordScopeId.KZT: (200, 203),
+    RecordScopeId.SKZ: (201,),
+    RecordScopeId.VNL: (202,),
+}
+
+
+def scope_to_id(scope: RecordScope) -> int:
+    return int(SCOPE_ID_BY_SCOPE[scope])
+
+
+def scope_mode_ids(scope_id: int) -> tuple[int, ...]:
+    return SCOPE_MODE_IDS[scope_id]
+
+
+def seconds_to_time_ms(value: Decimal | float | int | str) -> int:
+    decimal_value = Decimal(str(value))
+    return int((decimal_value * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def time_ms_to_seconds(time_ms: int) -> float:
+    return round(time_ms / 1000, 3)
+
+
+class MapCourseBase(SQLModel):
+    map_id: int = Field(
+        foreign_key="map.id",
+        nullable=False,
+    )
+    stage: int = Field(default=0, ge=0)
+
+
+class MapCourse(MapCourseBase, table=True):
+    __tablename__ = "map_course"
+    __table_args__ = (
+        Index("ux_map_course_map_id_stage", "map_id", "stage", unique=True),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
 
 
 class RecordBase(SQLModel):
@@ -97,6 +168,28 @@ class Record(RecordBase, table=True):
             postgresql_where=text("is_valid = true"),
         ),
         Index(
+            "ix_record_valid_map_stage_mode_player_time",
+            "map_id",
+            "stage",
+            "mode_id",
+            "steamid64",
+            "time",
+            "id",
+            "uuid",
+            postgresql_where=text("is_valid = true"),
+        ),
+        Index(
+            "ix_record_valid_pro_map_stage_mode_player_time",
+            "map_id",
+            "stage",
+            "mode_id",
+            "steamid64",
+            "time",
+            "id",
+            "uuid",
+            postgresql_where=text("is_valid = true AND teleports = 0"),
+        ),
+        Index(
             "ix_pb_player_pro",
             "steamid64",
             "map_id",
@@ -124,6 +217,28 @@ class Record(RecordBase, table=True):
             postgresql_where=text("is_valid = true"),
         ),
         Index(
+            "ix_record_valid_player_mode_map_stage_time",
+            "steamid64",
+            "mode_id",
+            "map_id",
+            "stage",
+            "time",
+            "id",
+            "uuid",
+            postgresql_where=text("is_valid = true"),
+        ),
+        Index(
+            "ix_record_valid_pro_player_mode_map_stage_time",
+            "steamid64",
+            "mode_id",
+            "map_id",
+            "stage",
+            "time",
+            "id",
+            "uuid",
+            postgresql_where=text("is_valid = true AND teleports = 0"),
+        ),
+        Index(
             "ix_records_is_valid_server_id",
             "is_valid",
             "server_id",
@@ -149,9 +264,64 @@ class Record(RecordBase, table=True):
     uuid: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
 
 
+class RecordPbBase(SQLModel):
+    scope: int = Field(sa_type=SmallInteger, primary_key=True)
+    course_id: int = Field(foreign_key="map_course.id", primary_key=True)
+    steamid64: int = Field(
+        foreign_key="player.steamid64",
+        sa_type=BigInteger,
+        primary_key=True,
+    )
+    is_pro_only: bool = Field(primary_key=True)
+    record_uuid: uuid.UUID = Field(foreign_key="record.uuid", nullable=False)
+    time_ms: int = Field(sa_type=BigInteger)
+    points: int = Field(
+        default=1,
+        ge=1,
+        le=1000,
+        sa_column_kwargs={"server_default": text("1")},
+    )
+    updated_on: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+    )
+
+
+class RecordPb(RecordPbBase, table=True):
+    __tablename__ = "record_pb"
+    __table_args__ = (
+        CheckConstraint(
+            "points >= 1 AND points <= 1000", name="ck_record_pb_points_range"
+        ),
+        Index(
+            "ix_record_pb_scope_course_pro_time_uuid",
+            "scope",
+            "course_id",
+            "is_pro_only",
+            "time_ms",
+            "record_uuid",
+        ),
+        Index(
+            "ix_record_pb_player_scope_pro_course_time",
+            "steamid64",
+            "scope",
+            "is_pro_only",
+            "course_id",
+            "time_ms",
+        ),
+        Index(
+            "ix_record_pb_record_uuid_scope_pro",
+            "record_uuid",
+            "scope",
+            "is_pro_only",
+        ),
+    )
+
+
 class RecordListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=10000)
+    scope: RecordScope = RecordScope.OVR
     id: list[int] | None = None
     steamid64: int | None = Field(default=None, sa_type=BigInteger)
     server_id: int | None = None
@@ -248,6 +418,9 @@ class RecentRecordsPublic(SQLModel):
 class RecentRecordListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=50, ge=1, le=10000)
+    scope: RecordScope = RecordScope.OVR
+    points_more_or_equal_than: int | None = Field(default=None, ge=0, le=1000)
+    is_pro_only: bool | None = None
 
 
 class RecentRecordSnapshotEvent(SQLModel):

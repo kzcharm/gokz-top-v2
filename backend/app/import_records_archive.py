@@ -17,7 +17,14 @@ from sqlmodel import select
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import Map, Mode, Player, Record, ServerGlobalapi, generate_uuid7
+from app.models import (
+    Map,
+    Mode,
+    Player,
+    Record,
+    ServerGlobalapi,
+    generate_uuid7,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -535,6 +542,10 @@ async def import_records_from_path(
             processed += len(pending_rows)
             created += batch_created
             updated += batch_updated
+
+        if processed > 0:
+            await crud.rebuild_record_pbs(session=session)
+            await session.commit()
 
     return ImportArchiveResult(
         read=read,
