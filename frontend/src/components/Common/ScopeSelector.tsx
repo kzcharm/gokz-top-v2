@@ -12,30 +12,25 @@ import {
 import { cn } from "@/lib/utils"
 
 const SCOPE_OPTIONS: Array<{
-  description: string
   toneClassName: string
   value: AppScope
 }> = [
   {
-    description: "Overall leaderboard scope",
     toneClassName:
       "border-transparent bg-slate-800 text-slate-50 dark:bg-slate-100 dark:text-slate-900",
     value: "OVR",
   },
   {
-    description: "KZTimer scope",
     toneClassName:
       "border-transparent bg-sky-600 text-white dark:bg-sky-500 dark:text-slate-950",
     value: "KZT",
   },
   {
-    description: "SimpleKZ scope",
     toneClassName:
       "border-transparent bg-emerald-600 text-white dark:bg-emerald-500 dark:text-slate-950",
     value: "SKZ",
   },
   {
-    description: "Vanilla scope",
     toneClassName:
       "border-transparent bg-amber-500 text-slate-950 dark:bg-amber-400 dark:text-slate-950",
     value: "VNL",
@@ -68,7 +63,7 @@ export function ScopeSelector() {
           <ChevronDown className="size-3.5 opacity-75" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-44">
+      <DropdownMenuContent align="end" className="min-w-28">
         <DropdownMenuRadioGroup
           value={scope}
           onValueChange={(value) => setScope(value as AppScope)}
@@ -76,16 +71,12 @@ export function ScopeSelector() {
           {SCOPE_OPTIONS.map((option) => (
             <DropdownMenuRadioItem key={option.value} value={option.value}>
               <span
-                aria-hidden="true"
                 className={cn(
-                  "inline-flex min-w-11 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em]",
+                  "inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em]",
                   option.toneClassName,
                 )}
               >
                 {option.value}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {option.description}
               </span>
             </DropdownMenuRadioItem>
           ))}
