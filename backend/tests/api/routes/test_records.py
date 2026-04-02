@@ -4,11 +4,12 @@ from decimal import Decimal
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.core.config import settings
-from app.models import Map, Player, Record, ServerGlobalapi
+from app.models import Map, Player, Record, RecordPb, ServerGlobalapi
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -102,6 +103,10 @@ async def _create_record(
     updated_on: datetime | None = None,
 ) -> Record:
     if id is not None:
+        record_uuid_subquery = select(Record.uuid).where(Record.id == id)
+        await db.exec(
+            delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery))
+        )
         await db.exec(delete(Record).where(Record.id == id))
         await db.commit()
     record = Record(
@@ -121,6 +126,8 @@ async def _create_record(
         is_valid=is_valid,
     )
     db.add(record)
+    await db.commit()
+    await crud.rebuild_record_pbs(session=db)
     await db.commit()
     await db.refresh(record)
     return record
@@ -181,13 +188,14 @@ async def test_read_records_v1_list_and_detail(
     assert payload["data"][0]["mode"] == "KZT"
     assert payload["data"][0]["tickrate"] == 128
     assert payload["data"][0]["time"] == 35.289
-    assert payload["data"][0]["points"] == 420
+    assert payload["data"][0]["points"] == 1
     assert payload["data"][0]["replay_id"] == 123
     assert payload["data"][0]["is_valid"] is True
 
     detail_response = await client.get(f"{settings.API_V1_STR}/records/{record.uuid}")
     assert detail_response.status_code == 200
     assert detail_response.json()["uuid"] == str(record.uuid)
+    assert detail_response.json()["points"] == 1
 
 
 async def test_read_recent_records_v1_returns_nested_public_feed(
@@ -313,6 +321,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert first_row["stage"] == 2
     assert first_row["teleports"] == 3
     assert first_row["time"] == 25.0
+    assert first_row["points"] == 1
 
     offset_response = await client.get(
         f"{settings.API_V1_STR}/records/recent",
@@ -339,6 +348,82 @@ async def test_read_recent_records_v1_rejects_limit_above_max(
     )
 
     assert response.status_code == 422
+
+
+async def test_read_recent_records_v1_scope_points_and_pro_filters(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(db, players=[(player_id, "Filter Runner")])
+
+    pb_pro = await _create_record(
+        db,
+        id=980460,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+        created_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+    )
+    non_pb_nub = await _create_record(
+        db,
+        id=980461,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="21.000",
+        teleports=5,
+        created_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+    )
+    pb_nub = await _create_record(
+        db,
+        id=980462,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=201,
+        map_id=980200,
+        stage=1,
+        time="22.000",
+        teleports=3,
+        created_on=datetime(2026, 3, 30, 12, 2, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 2, tzinfo=UTC),
+    )
+
+    filtered = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"scope": "OVR", "points_more_or_equal_than": 1},
+    )
+    assert filtered.status_code == 200
+    assert [row["id"] for row in filtered.json()["data"]] == [980462, 980460]
+
+    pro_only = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={
+            "scope": "OVR",
+            "points_more_or_equal_than": 1,
+            "is_pro_only": True,
+        },
+    )
+    assert pro_only.status_code == 200
+    assert [row["id"] for row in pro_only.json()["data"]] == [pb_pro.id]
+
+    all_recent = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"scope": "OVR"},
+    )
+    assert all_recent.status_code == 200
+    points_by_id = {row["id"]: row["points"] for row in all_recent.json()["data"][:3]}
+    assert points_by_id[pb_pro.id] == 1
+    assert points_by_id[pb_nub.id] == 1
+    assert points_by_id[non_pb_nub.id] == 0
 
 
 async def test_patch_record_v1_updates_validity(
@@ -442,9 +527,8 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
         params=[
             ("map_id", 980200),
             ("stage", 0),
-            ("mode_ids", 200),
-            ("mode_ids", 201),
-            ("teleports_type", "PRO"),
+            ("scope", "OVR"),
+            ("is_pro_only", True),
         ],
     )
     assert response.status_code == 200
@@ -465,7 +549,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         players=[(player_id, "Runner Gamma")],
     )
     await _create_server_globalapi(db, id=980301, name="Secondary Server")
-    fastest_map_one = await _create_record(
+    await _create_record(
         db,
         id=980420,
         steamid64=player_id,
@@ -516,9 +600,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         f"{settings.API_V1_STR}/records/pb",
         params=[
             ("steamid64", player_id),
-            ("mode_ids", 200),
-            ("mode_ids", 201),
-            ("teleports_type", "NUB"),
+            ("scope", "OVR"),
         ],
     )
     assert response.status_code == 200
@@ -527,31 +609,133 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         (980200, 0),
         (980201, 1),
     ]
-    assert payload[0]["uuid"] == str(fastest_map_one.uuid)
+    assert payload[0]["id"] == 980421
+    assert payload[0]["teleports"] == 0
     assert payload[1]["uuid"] == str(fastest_map_two.uuid)
 
     pro_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
             ("steamid64", player_id),
-            ("mode_ids", 200),
-            ("mode_ids", 201),
-            ("teleports_type", "PRO"),
+            ("scope", "OVR"),
+            ("is_pro_only", True),
         ],
     )
     assert [row["map_id"] for row in pro_response.json()] == [980200]
 
-    ovr_server_filtered = await client.get(
+    skz_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
             ("steamid64", player_id),
-            ("mode_ids", 200),
-            ("mode_ids", 201),
-            ("teleports_type", "OVR"),
-            ("server_ids", 980301),
+            ("scope", "SKZ"),
         ],
     )
-    assert [row["map_id"] for row in ovr_server_filtered.json()] == [980201]
+    assert [row["id"] for row in skz_response.json()] == [980420]
+
+
+async def test_read_pb_records_v1_supports_offset_and_limit(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_one = random_steamid64()
+    player_two = random_steamid64()
+    player_three = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (player_one, "Runner One"),
+            (player_two, "Runner Two"),
+            (player_three, "Runner Three"),
+        ],
+    )
+    await _create_map(db, id=980202, name="kz_record_paging_a")
+    await _create_map(db, id=980203, name="kz_record_paging_b")
+
+    first = await _create_record(
+        db,
+        id=980424,
+        steamid64=player_one,
+        server_id=980300,
+        mode_id=200,
+        map_id=980202,
+        stage=0,
+        time="20.000",
+        teleports=0,
+    )
+    second = await _create_record(
+        db,
+        id=980425,
+        steamid64=player_two,
+        server_id=980300,
+        mode_id=200,
+        map_id=980202,
+        stage=0,
+        time="21.000",
+        teleports=0,
+    )
+    third = await _create_record(
+        db,
+        id=980426,
+        steamid64=player_three,
+        server_id=980300,
+        mode_id=200,
+        map_id=980202,
+        stage=0,
+        time="22.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=980427,
+        steamid64=player_one,
+        server_id=980300,
+        mode_id=200,
+        map_id=980203,
+        stage=0,
+        time="30.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=980428,
+        steamid64=player_one,
+        server_id=980300,
+        mode_id=201,
+        map_id=980203,
+        stage=1,
+        time="35.000",
+        teleports=0,
+    )
+
+    map_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params=[
+            ("map_id", 980202),
+            ("stage", 0),
+            ("scope", "OVR"),
+            ("offset", 1),
+            ("limit", 1),
+        ],
+    )
+    assert map_response.status_code == 200
+    assert [row["id"] for row in map_response.json()] == [second.id]
+
+    player_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params=[
+            ("steamid64", player_one),
+            ("scope", "OVR"),
+            ("offset", 1),
+            ("limit", 1),
+        ],
+    )
+    assert player_response.status_code == 200
+    payload = player_response.json()
+    assert len(payload) == 1
+    assert payload[0]["map_id"] == 980203
+    assert payload[0]["stage"] == 0
+    assert payload[0]["id"] != first.id
+    assert payload[0]["id"] != third.id
 
 
 async def test_read_pb_records_v1_rejects_invalid_anchor_combinations(
@@ -562,8 +746,7 @@ async def test_read_pb_records_v1_rejects_invalid_anchor_combinations(
         params=[
             ("map_id", 1),
             ("steamid64", random_steamid64()),
-            ("mode_ids", 200),
-            ("teleports_type", "OVR"),
+            ("scope", "OVR"),
         ],
     )
     assert both.status_code == 422
@@ -571,8 +754,7 @@ async def test_read_pb_records_v1_rejects_invalid_anchor_combinations(
     neither = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
-            ("mode_ids", 200),
-            ("teleports_type", "OVR"),
+            ("scope", "OVR"),
         ],
     )
     assert neither.status_code == 422

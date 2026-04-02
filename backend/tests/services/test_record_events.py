@@ -7,6 +7,7 @@ import pytest
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.models import Map, Player, Record, ServerGlobalapi
 from app.services import record_events
 from app.services.record_events import (
@@ -104,6 +105,8 @@ async def _create_record(
         is_valid=True,
     )
     db.add(record)
+    await db.commit()
+    await crud.rebuild_record_pbs(session=db)
     await db.commit()
     await db.refresh(record)
     return record

@@ -9,6 +9,7 @@ import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { ApiError, OpenAPI } from "./client"
 import { DateTimeFormatProvider } from "./components/date-time-format-provider"
+import { ScopeProvider } from "./components/scope-provider"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
@@ -44,12 +45,14 @@ declare module "@tanstack/react-router" {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <DateTimeFormatProvider>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-          <Toaster richColors closeButton />
-        </QueryClientProvider>
-      </DateTimeFormatProvider>
+      <ScopeProvider defaultScope="OVR" storageKey="gokz-app-scope">
+        <DateTimeFormatProvider>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+            <Toaster richColors closeButton />
+          </QueryClientProvider>
+        </DateTimeFormatProvider>
+      </ScopeProvider>
     </ThemeProvider>
   </StrictMode>,
 )

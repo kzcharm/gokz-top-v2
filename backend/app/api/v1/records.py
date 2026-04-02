@@ -15,9 +15,9 @@ from app.models import (
     RecordListQuery,
     RecordPatch,
     RecordPublic,
+    RecordScope,
     RecordsPublic,
     ServerGlobalapi,
-    TeleportsType,
     User,
 )
 
@@ -26,7 +26,12 @@ router = APIRouter(prefix="/records", tags=["records"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
 
 
-async def _to_record_public(session: SessionDep, record: Record) -> RecordPublic:
+async def _to_record_public(
+    session: SessionDep,
+    record: Record,
+    *,
+    points: int,
+) -> RecordPublic:
     player = await session.get(Player, record.steamid64)
     server = await session.get(ServerGlobalapi, record.server_id)
     map_obj = await session.get(Map, record.map_id)
@@ -39,7 +44,29 @@ async def _to_record_public(session: SessionDep, record: Record) -> RecordPublic
         server=server,
         map_obj=map_obj,
         mode=mode,
+        points=points,
     )
+
+
+async def _to_record_publics(
+    session: SessionDep,
+    records: list[Record],
+    *,
+    scope: RecordScope,
+) -> list[RecordPublic]:
+    points_by_uuid = await crud.load_scoped_points_by_record_uuid(
+        session=session,
+        record_uuids=[record.uuid for record in records],
+        scope=scope,
+    )
+    return [
+        await _to_record_public(
+            session,
+            record,
+            points=points_by_uuid.get(record.uuid, 0),
+        )
+        for record in records
+    ]
 
 
 @router.get("/", response_model=RecordsPublic)
@@ -49,7 +76,7 @@ async def read_records(
 ) -> Any:
     records, count = await crud.read_records(session=session, query=query)
     return RecordsPublic(
-        data=[await _to_record_public(session, record) for record in records],
+        data=await _to_record_publics(session, records, scope=query.scope),
         count=count,
     )
 
@@ -66,15 +93,14 @@ async def read_recent_records(
 @router.get("/pb", response_model=list[RecordPublic])
 async def read_pb_records(
     session: SessionDep,
-    mode_ids: Annotated[list[int], Query()],
-    teleports_type: TeleportsType,
+    scope: RecordScope = RecordScope.OVR,
+    is_pro_only: bool = False,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=10000)] = 100,
     map_id: Annotated[int | None, Query()] = None,
     stage: Annotated[int, Query(ge=0)] = 0,
     steamid64: Annotated[int | None, Query()] = None,
-    server_ids: Annotated[list[int] | None, Query()] = None,
 ) -> Any:
-    if not mode_ids:
-        raise HTTPException(status_code=422, detail="mode_ids must not be empty")
     if (map_id is None) == (steamid64 is None):
         raise HTTPException(
             status_code=422,
@@ -86,22 +112,26 @@ async def read_pb_records(
         map_id=map_id,
         stage=stage,
         steamid64=steamid64,
-        mode_ids=mode_ids,
-        teleports_type=teleports_type,
-        server_ids=server_ids,
+        scope=scope,
+        is_pro_only=is_pro_only,
+        offset=offset,
+        limit=limit,
     )
-    return [await _to_record_public(session, record) for record in records]
+    return await _to_record_publics(session, records, scope=scope)
 
 
 @router.get("/{record_uuid}", response_model=RecordPublic)
 async def read_record(
     session: SessionDep,
     record_uuid: uuid.UUID,
+    scope: RecordScope = RecordScope.OVR,
 ) -> Any:
     record = await crud.get_record_by_uuid(session=session, record_uuid=record_uuid)
     if record is None:
         raise HTTPException(status_code=404, detail="Record not found")
-    return await _to_record_public(session, record)
+    return (
+        await _to_record_publics(session, [record], scope=scope)
+    )[0]
 
 
 @router.patch(
@@ -121,4 +151,6 @@ async def patch_record(
     if record is None:
         raise HTTPException(status_code=404, detail="Record not found")
     record = await crud.update_record_validity(session=session, record=record, patch=patch)
-    return await _to_record_public(session, record)
+    return (
+        await _to_record_publics(session, [record], scope=RecordScope.OVR)
+    )[0]

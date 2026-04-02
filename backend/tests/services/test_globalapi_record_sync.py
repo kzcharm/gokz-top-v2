@@ -544,7 +544,7 @@ async def test_sync_records_from_globalapi_hydrates_main_stage_points_from_top(
         def __init__(self, *_: object, **__: object) -> None:
             self.top_calls: list[dict[str, Any]] = []
 
-        async def __aenter__(self) -> "_FakeClient":
+        async def __aenter__(self) -> _FakeClient:
             return self
 
         async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
@@ -630,7 +630,7 @@ async def test_sync_records_from_globalapi_skips_top_points_lookup_for_non_main_
     top_calls: list[dict[str, Any]] = []
 
     class _FakeClient:
-        async def __aenter__(self) -> "_FakeClient":
+        async def __aenter__(self) -> _FakeClient:
             return self
 
         async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:

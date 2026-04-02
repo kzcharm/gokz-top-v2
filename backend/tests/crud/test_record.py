@@ -2,11 +2,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.models import Map, Player, Record, ServerGlobalapi, TeleportsType
+from app.models import Map, Player, Record, RecordPb, RecordScope, ServerGlobalapi
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -65,6 +65,10 @@ async def _create_record(
     teleports: int,
 ) -> Record:
     if id is not None:
+        record_uuid_subquery = select(Record.uuid).where(Record.id == id)
+        await db.exec(
+            delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery))
+        )
         await db.exec(delete(Record).where(Record.id == id))
         await db.commit()
     record = Record(
@@ -82,6 +86,8 @@ async def _create_record(
         is_valid=True,
     )
     db.add(record)
+    await db.commit()
+    await crud.rebuild_record_pbs(session=db)
     await db.commit()
     await db.refresh(record)
     return record
@@ -123,9 +129,8 @@ async def test_get_pb_records_tie_break_prefers_lower_globalapi_id(
         map_id=981000,
         stage=0,
         steamid64=None,
-        mode_ids=[200, 201],
-        teleports_type=TeleportsType.OVR,
-        server_ids=None,
+        scope=RecordScope.OVR,
+        is_pro_only=False,
     )
 
     assert [record.id for record in records] == [winner.id]
