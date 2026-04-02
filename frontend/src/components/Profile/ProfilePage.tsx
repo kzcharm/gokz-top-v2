@@ -447,20 +447,22 @@ function ActivityCard() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[720px] space-y-1.5">
-            {Array.from({ length: 7 }, (_, rowIndex) => (
-              <div key={rowIndex} className="flex gap-1.5">
-                {weeks.map((week, weekIndex) => (
-                  <span
-                    key={`${weekIndex}-${rowIndex}`}
-                    className={cn(
-                      "h-3 w-3 shrink-0 rounded-[4px] border border-black/0",
-                      activityTones[week[rowIndex]],
-                    )}
-                  />
-                ))}
-              </div>
-            ))}
+          <div className="flex w-full justify-center">
+            <div className="min-w-[720px] space-y-1.5">
+              {Array.from({ length: 7 }, (_, rowIndex) => (
+                <div key={rowIndex} className="flex gap-1.5">
+                  {weeks.map((week, weekIndex) => (
+                    <span
+                      key={`${weekIndex}-${rowIndex}`}
+                      className={cn(
+                        "h-3 w-3 shrink-0 rounded-[4px] border border-black/0",
+                        activityTones[week[rowIndex]],
+                      )}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -635,7 +637,7 @@ export function ProfilePage({
 
                 <div className="grid grid-cols-2 gap-3">
                   <SummaryMiniCard
-                    label="Views"
+                    label="Profile Views"
                     value={formatNumber(placeholder.summary.profileViews)}
                   />
                   <SummaryMiniCard
