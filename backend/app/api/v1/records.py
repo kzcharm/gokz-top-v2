@@ -99,7 +99,7 @@ async def read_pb_records(
     limit: Annotated[int, Query(ge=1, le=10000)] = 100,
     map_id: Annotated[int | None, Query()] = None,
     stage: Annotated[int, Query(ge=0)] = 0,
-    steamid64: Annotated[int | None, Query()] = None,
+    steamid64: Annotated[str | None, Query(pattern=r"^\d{17}$")] = None,
 ) -> Any:
     if (map_id is None) == (steamid64 is None):
         raise HTTPException(
@@ -111,7 +111,7 @@ async def read_pb_records(
         session,
         map_id=map_id,
         stage=stage,
-        steamid64=steamid64,
+        steamid64=int(steamid64) if steamid64 is not None else None,
         scope=scope,
         is_pro_only=is_pro_only,
         offset=offset,

@@ -586,6 +586,7 @@ def to_record_public(
         server_name=server.name or "",
         map_id=record.map_id,
         map_name=map_obj.name,
+        map_tier=map_obj.difficulty,
         mode_id=record.mode_id,
         mode=mode.name_short,
         stage=record.stage,

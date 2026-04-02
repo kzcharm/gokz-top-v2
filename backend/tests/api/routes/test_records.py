@@ -610,6 +610,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         (980201, 1),
     ]
     assert payload[0]["id"] == 980421
+    assert payload[0]["map_tier"] == 4
     assert payload[0]["teleports"] == 0
     assert payload[1]["uuid"] == str(fastest_map_two.uuid)
 

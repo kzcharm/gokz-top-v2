@@ -347,6 +347,7 @@ export class RecordsService {
      * @param data The data for the request.
      * @param data.offset
      * @param data.limit
+     * @param data.scope
      * @param data.id
      * @param data.steamid64
      * @param data.serverId
@@ -368,6 +369,7 @@ export class RecordsService {
             query: {
                 offset: data.offset,
                 limit: data.limit,
+                scope: data.scope,
                 id: data.id,
                 steamid64: data.steamid64,
                 server_id: data.serverId,
@@ -391,6 +393,9 @@ export class RecordsService {
      * @param data The data for the request.
      * @param data.offset
      * @param data.limit
+     * @param data.scope
+     * @param data.pointsMoreOrEqualThan
+     * @param data.isProOnly
      * @returns RecentRecordsPublic Successful Response
      * @throws ApiError
      */
@@ -400,7 +405,10 @@ export class RecordsService {
             url: '/v1/records/recent',
             query: {
                 offset: data.offset,
-                limit: data.limit
+                limit: data.limit,
+                scope: data.scope,
+                points_more_or_equal_than: data.pointsMoreOrEqualThan,
+                is_pro_only: data.isProOnly
             },
             errors: {
                 422: 'Validation Error'
@@ -411,26 +419,28 @@ export class RecordsService {
     /**
      * Read Pb Records
      * @param data The data for the request.
-     * @param data.modeIds
-     * @param data.teleportsType
+     * @param data.scope
+     * @param data.isProOnly
+     * @param data.offset
+     * @param data.limit
      * @param data.mapId
      * @param data.stage
      * @param data.steamid64
-     * @param data.serverIds
      * @returns RecordPublic Successful Response
      * @throws ApiError
      */
-    public static readPbRecords(data: RecordsReadPbRecordsData): CancelablePromise<RecordsReadPbRecordsResponse> {
+    public static readPbRecords(data: RecordsReadPbRecordsData = {}): CancelablePromise<RecordsReadPbRecordsResponse> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/v1/records/pb',
             query: {
-                mode_ids: data.modeIds,
-                teleports_type: data.teleportsType,
+                scope: data.scope,
+                is_pro_only: data.isProOnly,
+                offset: data.offset,
+                limit: data.limit,
                 map_id: data.mapId,
                 stage: data.stage,
-                steamid64: data.steamid64,
-                server_ids: data.serverIds
+                steamid64: data.steamid64
             },
             errors: {
                 422: 'Validation Error'
@@ -442,6 +452,7 @@ export class RecordsService {
      * Read Record
      * @param data The data for the request.
      * @param data.recordUuid
+     * @param data.scope
      * @returns RecordPublic Successful Response
      * @throws ApiError
      */
@@ -451,6 +462,9 @@ export class RecordsService {
             url: '/v1/records/{record_uuid}',
             path: {
                 record_uuid: data.recordUuid
+            },
+            query: {
+                scope: data.scope
             },
             errors: {
                 422: 'Validation Error'

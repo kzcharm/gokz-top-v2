@@ -352,6 +352,7 @@ class RecordPublic(SQLModel):
     server_name: str
     map_id: int
     map_name: str
+    map_tier: int
     mode_id: int
     mode: str
     stage: int

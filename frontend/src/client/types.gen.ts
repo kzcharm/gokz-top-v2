@@ -154,6 +154,7 @@ export type RecordPublic = {
     server_name: string;
     map_id: number;
     map_name: string;
+    map_tier: number;
     mode_id: number;
     mode: string;
     stage: number;
@@ -167,6 +168,8 @@ export type RecordPublic = {
     replay_id?: (number | null);
     is_valid: boolean;
 };
+
+export type RecordScope = 'OVR' | 'KZT' | 'SKZ' | 'VNL';
 
 export type RecordsPublic = {
     data: Array<RecordPublic>;
@@ -304,8 +307,6 @@ export type ServerUpdate = {
     city?: (string | null);
 };
 
-export type TeleportsType = 'PRO' | 'NUB' | 'OVR';
-
 export type Token = {
     access_token: string;
     token_type?: string;
@@ -439,6 +440,7 @@ export type RecordsReadRecordsData = {
     modeId?: (number | null);
     offset?: number;
     replayId?: (number | null);
+    scope?: RecordScope;
     serverId?: (number | null);
     stage?: (number | null);
     steamid64?: (number | null);
@@ -449,25 +451,30 @@ export type RecordsReadRecordsData = {
 export type RecordsReadRecordsResponse = (RecordsPublic);
 
 export type RecordsReadRecentRecordsData = {
+    isProOnly?: (boolean | null);
     limit?: number;
     offset?: number;
+    pointsMoreOrEqualThan?: (number | null);
+    scope?: RecordScope;
 };
 
 export type RecordsReadRecentRecordsResponse = (RecentRecordsPublic);
 
 export type RecordsReadPbRecordsData = {
+    isProOnly?: boolean;
+    limit?: number;
     mapId?: (number | null);
-    modeIds: Array<(number)>;
-    serverIds?: (Array<(number)> | null);
+    offset?: number;
+    scope?: RecordScope;
     stage?: number;
-    steamid64?: (number | null);
-    teleportsType: TeleportsType;
+    steamid64?: (string | null);
 };
 
 export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);
 
 export type RecordsReadRecordData = {
     recordUuid: string;
+    scope?: RecordScope;
 };
 
 export type RecordsReadRecordResponse = (RecordPublic);
