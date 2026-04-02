@@ -802,6 +802,10 @@ export const RecordPublicSchema = {
             type: 'string',
             title: 'Map Name'
         },
+        map_tier: {
+            type: 'integer',
+            title: 'Map Tier'
+        },
         mode_id: {
             type: 'integer',
             title: 'Mode Id'
@@ -862,8 +866,14 @@ export const RecordPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'steamid64', 'player_name', 'server_id', 'server_name', 'map_id', 'map_name', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_valid'],
+    required: ['uuid', 'steamid64', 'player_name', 'server_id', 'server_name', 'map_id', 'map_name', 'map_tier', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_valid'],
     title: 'RecordPublic'
+} as const;
+
+export const RecordScopeSchema = {
+    type: 'string',
+    enum: ['OVR', 'KZT', 'SKZ', 'VNL'],
+    title: 'RecordScope'
 } as const;
 
 export const RecordsPublicSchema = {
@@ -1583,12 +1593,6 @@ export const ServersPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ServersPublic'
-} as const;
-
-export const TeleportsTypeSchema = {
-    type: 'string',
-    enum: ['PRO', 'NUB', 'OVR'],
-    title: 'TeleportsType'
 } as const;
 
 export const TokenSchema = {
