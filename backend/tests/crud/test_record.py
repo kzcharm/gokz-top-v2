@@ -316,6 +316,55 @@ async def test_load_scoped_course_tiers_uses_scope_min_and_stage_fallbacks(
     assert tiers[(981003, 2)] == 0
 
 
+async def test_load_map_tiers_by_scope_uses_scope_min_and_main_fallbacks(
+    db: AsyncSession,
+) -> None:
+    await _create_map(db, id=981006, name="kz_map_tiers")
+    await _create_map(db, id=981007, name="kz_map_tiers_fallback")
+    await _create_record_filter(
+        db,
+        id=981303,
+        map_id=981006,
+        stage=0,
+        mode_id=200,
+        tier=6,
+    )
+    await _create_record_filter(
+        db,
+        id=981304,
+        map_id=981006,
+        stage=0,
+        mode_id=201,
+        tier=2,
+    )
+    await _create_record_filter(
+        db,
+        id=981305,
+        map_id=981006,
+        stage=0,
+        mode_id=202,
+        tier=8,
+    )
+
+    tiers_by_map_id = await crud.load_map_tiers_by_scope(
+        session=db,
+        map_ids=[981006, 981007],
+    )
+
+    assert tiers_by_map_id[981006].model_dump() == {
+        "OVR": 2,
+        "KZT": 6,
+        "SKZ": 2,
+        "VNL": 8,
+    }
+    assert tiers_by_map_id[981007].model_dump() == {
+        "OVR": 1,
+        "KZT": 1,
+        "SKZ": 1,
+        "VNL": 1,
+    }
+
+
 async def test_get_recent_record_public_by_uuid_uses_bonus_fallback_zero(
     db: AsyncSession,
 ) -> None:

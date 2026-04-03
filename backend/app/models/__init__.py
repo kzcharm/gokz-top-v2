@@ -2,7 +2,7 @@ from sqlmodel import SQLModel
 
 from .auth import Message, Token, TokenPayload
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
-from .map import Map, MapBase, MapCompatPublicV0, MapPublic, MapSyncResult
+from .map import Map, MapBase, MapCompatPublicV0, MapPublic, MapSyncResult, MapTiers
 from .mode import (
     CANONICAL_MODE_SEEDS,
     CanonicalModeSeed,
@@ -104,6 +104,7 @@ __all__ = [
     "MapCourse",
     "MapPublic",
     "MapSyncResult",
+    "MapTiers",
     "CANONICAL_MODE_SEEDS",
     "CanonicalModeSeed",
     "Message",

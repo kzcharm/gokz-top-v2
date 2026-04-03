@@ -97,13 +97,14 @@ async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     assert payload["workshop_id"] == 1986459033
     assert payload["authors"] == ["76561198000000001"]
     assert payload["no_steamid_names"] == ["Unknown Mapper"]
+    assert payload["tiers"] == {"OVR": 5, "KZT": 5, "SKZ": 5, "VNL": 5}
     assert payload["workshop_url"] == (
         "https://steamcommunity.com/sharedfiles/filedetails/?id=1986459033"
     )
 
 
 @pytest.mark.asyncio
-async def test_read_map_v1_uses_scope_aware_main_course_difficulty(
+async def test_read_map_v1_returns_scope_aware_main_course_tiers(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -124,26 +125,43 @@ async def test_read_map_v1_uses_scope_aware_main_course_difficulty(
         mode_id=201,
         tier=3,
     )
+    await _create_record_filter(
+        db,
+        id=930262,
+        map_id=930202,
+        stage=0,
+        mode_id=202,
+        tier=8,
+    )
 
-    by_id_response = await client.get(
-        f"{settings.API_V1_STR}/maps/930202",
-        params={"scope": "OVR"},
-    )
-    by_name_response = await client.get(
-        f"{settings.API_V1_STR}/maps/name/kz_test_930202",
-        params={"scope": "KZT"},
-    )
+    by_id_response = await client.get(f"{settings.API_V1_STR}/maps/930202")
+    by_name_response = await client.get(f"{settings.API_V1_STR}/maps/name/kz_test_930202")
     filtered_response = await client.get(
         f"{settings.API_V1_STR}/maps",
-        params={"id": 930202, "scope": "OVR", "difficulty": 3},
+        params={"id": 930202},
     )
 
     assert by_id_response.status_code == 200
-    assert by_id_response.json()["difficulty"] == 3
+    assert by_id_response.json()["tiers"] == {
+        "OVR": 3,
+        "KZT": 6,
+        "SKZ": 3,
+        "VNL": 8,
+    }
     assert by_name_response.status_code == 200
-    assert by_name_response.json()["difficulty"] == 6
+    assert by_name_response.json()["tiers"] == {
+        "OVR": 3,
+        "KZT": 6,
+        "SKZ": 3,
+        "VNL": 8,
+    }
     assert filtered_response.status_code == 200
-    assert filtered_response.json()[0]["difficulty"] == 3
+    assert filtered_response.json()[0]["tiers"] == {
+        "OVR": 3,
+        "KZT": 6,
+        "SKZ": 3,
+        "VNL": 8,
+    }
 
 
 @pytest.mark.asyncio

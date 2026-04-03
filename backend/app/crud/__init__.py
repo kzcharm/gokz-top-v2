@@ -5,6 +5,7 @@ from .map import (
     read_maps_v1,
     to_map_compat_public_v0,
     to_map_public,
+    to_map_publics,
 )
 from .mode import (
     get_mode_by_id,
@@ -53,6 +54,7 @@ from .record import (
     upsert_record,
 )
 from .record_filter import (
+    load_map_tiers_by_scope,
     load_scoped_course_tiers,
     read_record_filters_v0,
     record_filter_exists_for_course_mode,
@@ -123,6 +125,7 @@ __all__ = [
     "read_maps_v1",
     "read_modes",
     "load_scoped_points_by_record_uuid",
+    "load_map_tiers_by_scope",
     "load_scoped_course_tiers",
     "normalize_custom_id",
     "read_players",
@@ -140,6 +143,7 @@ __all__ = [
     "sync_canonical_modes_sync",
     "to_map_compat_public_v0",
     "to_map_public",
+    "to_map_publics",
     "to_mode_compat_public_v0",
     "to_mode_public",
     "to_player_public",
