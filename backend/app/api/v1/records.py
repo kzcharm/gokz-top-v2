@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
 from app.api.deps import SessionDep, get_current_active_superuser
+from app.crud.record import get_pb_record_publics
 from app.models import (
     Map,
     Mode,
@@ -107,7 +108,7 @@ async def read_pb_records(
             detail="Exactly one of map_id or steamid64 must be provided",
         )
 
-    records = await crud.get_pb_records(
+    return await get_pb_record_publics(
         session,
         map_id=map_id,
         stage=stage,
@@ -117,7 +118,6 @@ async def read_pb_records(
         offset=offset,
         limit=limit,
     )
-    return await _to_record_publics(session, records, scope=scope)
 
 
 @router.get("/{record_uuid}", response_model=RecordPublic)
