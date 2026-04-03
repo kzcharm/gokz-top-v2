@@ -52,7 +52,9 @@ function CompletionCard({
   }>
 }) {
   const progress =
-    total === 0 ? formatCompactPercent(0) : formatCompactPercent(completed / total)
+    total === 0
+      ? formatCompactPercent(0)
+      : formatCompactPercent(completed / total)
 
   return (
     <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">

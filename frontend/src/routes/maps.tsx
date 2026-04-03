@@ -1,8 +1,4 @@
-import {
-  createFileRoute,
-  Outlet,
-  useRouterState,
-} from "@tanstack/react-router"
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppShell } from "@/components/Common/AppShell"
 import { MapsCatalog } from "@/components/Maps/MapsCatalog"

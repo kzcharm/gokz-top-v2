@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { useEffect, useMemo } from "react"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import NotFound from "@/components/Common/NotFound"
 import { useScope } from "@/components/scope-provider"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useEffect, useMemo } from "react"
 
 import { ProfileHomeContent } from "./ProfileHomeContent"
 import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
@@ -99,7 +99,9 @@ export function ProfilePage({
   }, [mapsQuery.data, nubRecordsQuery.data, proRecordsQuery.data, scope])
 
   const completionLoading =
-    mapsQuery.isLoading || nubRecordsQuery.isLoading || proRecordsQuery.isLoading
+    mapsQuery.isLoading ||
+    nubRecordsQuery.isLoading ||
+    proRecordsQuery.isLoading
   const completionError =
     mapsQuery.isError || nubRecordsQuery.isError || proRecordsQuery.isError
 

@@ -188,9 +188,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
       <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight">
-              Map top
-            </h2>
+            <h2 className="text-xl font-semibold tracking-tight">Map top</h2>
           </div>
 
           <Label
@@ -210,9 +208,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
       {recordsQuery.isError ? (
         <Alert variant="destructive">
           <AlertTitle>Unable to load map leaderboard</AlertTitle>
-          <AlertDescription>
-            Reload the page and try again.
-          </AlertDescription>
+          <AlertDescription>Reload the page and try again.</AlertDescription>
         </Alert>
       ) : null}
 
