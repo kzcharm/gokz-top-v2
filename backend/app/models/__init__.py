@@ -51,6 +51,11 @@ from .record import (
     seconds_to_time_ms,
     time_ms_to_seconds,
 )
+from .record_filter import (
+    RecordFilter,
+    RecordFilterBase,
+    RecordFilterCompatPublicV0,
+)
 from .server import (
     Server,
     ServerBase,
@@ -135,6 +140,9 @@ __all__ = [
     "RecordScopeId",
     "RecordsPublic",
     "RecentRecordCompatPublicV0",
+    "RecordFilter",
+    "RecordFilterBase",
+    "RecordFilterCompatPublicV0",
     "Server",
     "ServerBase",
     "ServerCreate",
