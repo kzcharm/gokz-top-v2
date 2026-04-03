@@ -1,8 +1,10 @@
 import {
+  Activity,
   Home,
   Map,
   Server,
   Settings,
+  Trophy,
   UserCircle2,
   User as UserIcon,
   Users,
@@ -39,6 +41,7 @@ export function AppSidebar() {
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
 
   const publicItems: Item[] = [
+    { type: "link", icon: Server, title: "Servers", path: "/servers" },
     {
       type: "link",
       icon: UserCircle2,
@@ -46,9 +49,15 @@ export function AppSidebar() {
       path: `/profile/${profileSteamid64}`,
       activePrefixes: ["/profile"],
     },
-    { type: "link", icon: Map, title: "Maps", path: "/maps" },
-    { type: "link", icon: Server, title: "Servers", path: "/servers" },
+    {
+      type: "link",
+      icon: Trophy,
+      title: "Leaderboards",
+      path: "/leaderboards",
+    },
     { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
+    { type: "link", icon: Map, title: "Maps", path: "/maps" },
+    { type: "link", icon: Activity, title: "Live", path: "/live" },
   ]
 
   const items: Item[] = currentUser
