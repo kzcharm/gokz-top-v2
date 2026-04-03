@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { startTransition, useEffect, useMemo, useRef, useState } from "react"
 
-import { type RecordPublic } from "@/client"
+import {
+  PbRecordsTable,
+} from "@/components/Records/PbRecordsTable"
 import {
   type PbRecordsColumn,
   type PbRecordsSortState,
-  PbRecordsTable,
-} from "@/components/Records/PbRecordsTable"
+  sortPbRecords,
+} from "@/components/Records/pb-records-utils"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,56 +18,6 @@ import { Switch } from "@/components/ui/switch"
 import { getProfilePbRecordsQueryOptions } from "./profile-utils"
 
 const PROFILE_RECORDS_PAGE_SIZE = 50
-
-function compareStrings(left: string, right: string) {
-  return left.localeCompare(right, undefined, {
-    numeric: true,
-    sensitivity: "base",
-  })
-}
-
-function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
-  switch (column) {
-    case "player":
-      return record.player_name
-    case "map":
-      return record.map_name
-    case "mode":
-      return record.mode
-    case "tier":
-      return record.map_tier
-    case "tps":
-      return record.teleports
-    case "time":
-      return record.time
-    case "points":
-      return record.points
-    case "server":
-      return record.server_name
-    case "datetime":
-      return Date.parse(record.created_on)
-  }
-}
-
-function sortRecords(records: RecordPublic[], sort: PbRecordsSortState) {
-  return [...records].sort((left, right) => {
-    const leftValue = getRecordSortValue(sort.column, left)
-    const rightValue = getRecordSortValue(sort.column, right)
-
-    let comparison = 0
-    if (typeof leftValue === "string" && typeof rightValue === "string") {
-      comparison = compareStrings(leftValue, rightValue)
-    } else {
-      comparison = Number(leftValue) - Number(rightValue)
-    }
-
-    if (comparison === 0) {
-      comparison = compareStrings(left.uuid, right.uuid)
-    }
-
-    return sort.direction === "asc" ? comparison : -comparison
-  })
-}
 
 function ProfileRecordsTableSkeleton() {
   return (
@@ -99,7 +51,7 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
   })
 
   const sortedRecords = useMemo(() => {
-    return sortRecords(recordsQuery.data ?? [], sort)
+    return sortPbRecords(recordsQuery.data ?? [], sort)
   }, [recordsQuery.data, sort])
 
   const visibleRecords = useMemo(() => {

@@ -19,25 +19,11 @@ import { truncateText } from "@/lib/utils"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import { TeleportsBadge } from "./TeleportsBadge"
+import type {
+  PbRecordsColumn,
+  PbRecordsSortState,
+} from "./pb-records-utils"
 import { formatRecordTime } from "./utils"
-
-export type PbRecordsColumn =
-  | "player"
-  | "map"
-  | "mode"
-  | "tier"
-  | "tps"
-  | "time"
-  | "points"
-  | "server"
-  | "datetime"
-
-export type PbRecordsSortDirection = "asc" | "desc"
-
-export interface PbRecordsSortState {
-  column: PbRecordsColumn
-  direction: PbRecordsSortDirection
-}
 
 interface PbRecordsTableProps {
   records: RecordPublic[]

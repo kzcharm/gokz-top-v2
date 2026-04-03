@@ -6,8 +6,8 @@ import {
   type PlayerPublic,
   PlayersService,
   type RecordPublic,
-  RecordsService,
 } from "@/client"
+import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { getTierColor, normalizeTierValue } from "@/components/Servers/tier"
 import type { AppScope } from "@/components/scope-provider"
 
@@ -57,33 +57,7 @@ export function getProfileValidatedMapsQueryOptions() {
   })
 }
 
-export function getProfilePbRecordsQueryOptions({
-  steamid64,
-  scope,
-  isProOnly,
-}: {
-  steamid64: string | null
-  scope: AppScope
-  isProOnly: boolean
-}) {
-  return queryOptions({
-    queryKey: ["profile-records", steamid64, scope, isProOnly],
-    queryFn: async () => {
-      if (!steamid64) {
-        return []
-      }
-
-      return await RecordsService.readPbRecords({
-        steamid64,
-        scope,
-        stage: 0,
-        isProOnly,
-        limit: PROFILE_QUERY_LIMIT,
-      })
-    },
-    ...PROFILE_SESSION_QUERY_CONFIG,
-  })
-}
+export { getProfilePbRecordsQueryOptions }
 
 type ProfileCompletionTier = {
   label: string

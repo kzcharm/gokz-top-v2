@@ -68,10 +68,70 @@ seededMaps[2] = {
   updated_on: "2026-03-15T12:00:00Z",
 }
 
-test("Maps catalog supports search, sorting, pagination, and placeholder navigation", async ({
+const mapLeaderboardRecords = [
+  {
+    uuid: "019e1111-1111-7111-8111-111111111111",
+    id: 980900,
+    steamid64: "76561198000000001",
+    player_name: "Alpha Runner",
+    player_avatar_hash: null,
+    steam_id: null,
+    server_id: 980300,
+    server_name: "Alpha Server",
+    map_id: seededMaps[0].id,
+    map_name: seededMaps[0].name,
+    map_tier: seededMaps[0].tiers.OVR,
+    mode_id: 200,
+    mode: "KZT",
+    stage: 0,
+    tickrate: 128,
+    time: 41.123,
+    teleports: 0,
+    points: 415,
+    created_on: "2026-03-31T12:00:00Z",
+    updated_on: "2026-03-31T12:00:00Z",
+    updated_by: "76561198000000001",
+    replay_id: null,
+    is_valid: true,
+  },
+  {
+    uuid: "019e2222-2222-7222-8222-222222222222",
+    id: 980901,
+    steamid64: "76561198000000002",
+    player_name: "TP Runner",
+    player_avatar_hash: null,
+    steam_id: null,
+    server_id: 980301,
+    server_name: "Teleport Server",
+    map_id: seededMaps[0].id,
+    map_name: seededMaps[0].name,
+    map_tier: seededMaps[0].tiers.OVR,
+    mode_id: 201,
+    mode: "SKZ",
+    stage: 0,
+    tickrate: 128,
+    time: 44.456,
+    teleports: 3,
+    points: 320,
+    created_on: "2026-03-30T12:00:00Z",
+    updated_on: "2026-03-30T12:00:00Z",
+    updated_by: "76561198000000002",
+    replay_id: null,
+    is_valid: true,
+  },
+]
+
+test("Maps catalog supports search, sorting, pagination, and map detail navigation", async ({
   page,
 }) => {
   let mapsRequestUrl = ""
+  const pbRequests: Array<{
+    isProOnly: string | null
+    limit: string | null
+    mapId: string | null
+    scope: string | null
+    stage: string | null
+  }> = []
 
   await page.addInitScript(() => {
     localStorage.setItem("gokz-datetime-format", "iso")
@@ -83,6 +143,54 @@ test("Maps catalog supports search, sorting, pagination, and placeholder navigat
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(seededMaps),
+    })
+  })
+
+  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+    const name = decodeURIComponent(route.request().url().split("/name/")[1] ?? "")
+    const map = seededMaps.find((entry) => entry.name === name)
+
+    if (!map) {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Map not found" }),
+      })
+      return
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(map),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    const isProOnly = url.searchParams.get("is_pro_only")
+    const scope = url.searchParams.get("scope")
+    const mapId = url.searchParams.get("map_id")
+
+    pbRequests.push({
+      scope,
+      isProOnly,
+      limit: url.searchParams.get("limit"),
+      stage: url.searchParams.get("stage"),
+      mapId,
+    })
+
+    const payload =
+      scope === "SKZ"
+        ? []
+        : isProOnly === "true"
+          ? [mapLeaderboardRecords[0]]
+          : mapLeaderboardRecords
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(payload),
     })
   })
 
@@ -121,15 +229,107 @@ test("Maps catalog supports search, sorting, pagination, and placeholder navigat
 
   await page.getByRole("combobox", { name: "Sort maps" }).click()
   await page.getByRole("option", { name: "Tier high-low" }).click()
-  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_omega")
+  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_07")
 
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_alpha")
 
+  await page.evaluate(() => {
+    localStorage.setItem("gokz-app-scope", "OVR")
+  })
+  await page.reload()
+  await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+
   await page.getByTestId("map-card-kz_alpha").click()
 
   await expect(page).toHaveURL(/\/maps\/kz_alpha$/)
   await expect(page.getByRole("heading", { name: "kz_alpha" })).toBeVisible()
-  await expect(page.getByText(/Map page coming soon/)).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Map top" })).toBeVisible()
+  await expect(page.getByText("Alpha Runner")).toBeVisible()
+  await expect(page.getByText("TP Runner")).toBeVisible()
+  await expect(page.getByRole("columnheader", { name: "Rank" })).toBeVisible()
+  await expect(page.getByText("#1")).toBeVisible()
+  await expect(page.getByText("#2")).toBeVisible()
+  await expect(page.getByRole("columnheader", { name: "Player" })).toBeVisible()
+  await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
+
+  await page.getByRole("switch", { name: "Pro only" }).click()
+  await expect(page.getByText("Alpha Runner")).toBeVisible()
+  await expect(page.getByText("TP Runner")).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Select record scope" }).click()
+  await page.getByRole("menuitemradio", { name: "SKZ" }).click()
+  await expect(
+    page.getByText(
+      "No stage 0 pro records found for this map in the selected scope.",
+    ),
+  ).toBeVisible()
+
+  expect(pbRequests).toEqual(
+    expect.arrayContaining([
+      {
+        scope: "OVR",
+        isProOnly: "false",
+        limit: "100",
+        stage: "0",
+        mapId: `${seededMaps[0].id}`,
+      },
+      {
+        scope: "OVR",
+        isProOnly: "true",
+        limit: "100",
+        stage: "0",
+        mapId: `${seededMaps[0].id}`,
+      },
+      {
+        scope: "SKZ",
+        isProOnly: "true",
+        limit: "100",
+        stage: "0",
+        mapId: `${seededMaps[0].id}`,
+      },
+    ]),
+  )
+})
+
+test("Map detail shows not found for an unknown map", async ({ page }) => {
+  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Map not found" }),
+    })
+  })
+
+  await page.goto("/maps/kz_missing_map")
+
+  await expect(page.getByTestId("not-found")).toBeVisible()
+})
+
+test("Map detail shows leaderboard error state when PB loading fails", async ({
+  page,
+}) => {
+  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seededMaps[0]),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "boom" }),
+    })
+  })
+
+  await page.goto(`/maps/${seededMaps[0].name}`)
+
+  await expect(
+    page.getByText("Unable to load map leaderboard"),
+  ).toBeVisible()
 })
