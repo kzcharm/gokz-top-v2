@@ -19,17 +19,17 @@ const tabDefinitions: Array<{
 
 export function ProfileTabs({
   activeTab,
-  steamid64,
+  identifier,
 }: {
   activeTab: ProfileTab
-  steamid64: string
+  identifier: string
 }) {
   return (
     <Tabs value={activeTab} className="flex flex-col gap-4">
       <TabsList className="w-fit border border-border bg-background/60">
         {tabDefinitions.map((tab) => (
           <TabsTrigger key={tab.key} value={tab.key} asChild>
-            <Link to={tab.to} params={{ steamid64 }}>
+            <Link to={tab.to} params={{ steamid64: identifier }}>
               {tab.label}
             </Link>
           </TabsTrigger>

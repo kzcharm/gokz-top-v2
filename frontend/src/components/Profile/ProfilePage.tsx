@@ -1,18 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import NotFound from "@/components/Common/NotFound"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useEffect } from "react"
 
 import { ProfileHomeContent } from "./ProfileHomeContent"
 import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileTabs } from "./ProfileTabs"
-import {
-  fetchProfilePlayer,
-  isValidSteamid64,
-  type ProfileTab,
-} from "./profile-utils"
+import { fetchProfilePlayer, type ProfileTab } from "./profile-utils"
 
 function ProfileSkeleton() {
   return (
@@ -31,23 +29,39 @@ function ProfileSkeleton() {
 }
 
 export function ProfilePage({
-  steamid64,
+  identifier,
   activeTab,
 }: {
-  steamid64: string
+  identifier: string
   activeTab: ProfileTab
 }) {
-  const isValid = isValidSteamid64(steamid64)
+  const navigate = useNavigate()
   const playerQuery = useQuery({
-    queryKey: ["profile-player", steamid64],
-    queryFn: () => fetchProfilePlayer(steamid64),
-    enabled: isValid,
+    queryKey: ["profile-player", identifier],
+    queryFn: () => fetchProfilePlayer(identifier),
     retry: false,
   })
+  const canonicalIdentifier =
+    playerQuery.data?.custom_id || playerQuery.data?.steamid64 || null
+  const usesSidebarLayout = activeTab === "home" || activeTab === "records"
+  const activeTabRoute =
+    activeTab === "records"
+      ? "/profile/$steamid64/records"
+      : activeTab === "stats"
+        ? "/profile/$steamid64/stats"
+        : "/profile/$steamid64"
 
-  if (!isValid) {
-    return <NotFound />
-  }
+  useEffect(() => {
+    if (!canonicalIdentifier || identifier === canonicalIdentifier) {
+      return
+    }
+
+    void navigate({
+      to: activeTabRoute,
+      params: { steamid64: canonicalIdentifier },
+      replace: true,
+    })
+  }, [activeTabRoute, canonicalIdentifier, identifier, navigate])
 
   if (playerQuery.isLoading) {
     return <ProfileSkeleton />
@@ -62,11 +76,14 @@ export function ProfilePage({
   }
 
   const player = playerQuery.data
-  const usesSidebarLayout = activeTab === "home" || activeTab === "records"
+
+  if (identifier !== canonicalIdentifier) {
+    return <ProfileSkeleton />
+  }
 
   return (
     <div className="space-y-8">
-      <ProfileTabs activeTab={activeTab} steamid64={steamid64} />
+      <ProfileTabs activeTab={activeTab} identifier={canonicalIdentifier} />
 
       {usesSidebarLayout ? (
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -78,7 +95,7 @@ export function ProfilePage({
             {activeTab === "home" ? (
               <ProfileHomeContent />
             ) : (
-              <ProfileRecordsTab steamid64={steamid64} />
+              <ProfileRecordsTab steamid64={player.steamid64} />
             )}
           </section>
         </div>
