@@ -1,17 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
-import {
-  startTransition,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { startTransition, useEffect, useMemo, useRef, useState } from "react"
 
 import { type RecordPublic, RecordsService } from "@/client"
 import {
   type PbRecordsColumn,
-  PbRecordsTable,
   type PbRecordsSortState,
+  PbRecordsTable,
 } from "@/components/Records/PbRecordsTable"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -86,11 +80,7 @@ function ProfileRecordsTableSkeleton() {
   )
 }
 
-export function ProfileRecordsTab({
-  steamid64,
-}: {
-  steamid64: string
-}) {
+export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
   const { scope } = useScope()
   const [isProOnly, setIsProOnly] = useState(false)
   const [sort, setSort] = useState<PbRecordsSortState>({
@@ -216,6 +206,7 @@ export function ProfileRecordsTab({
                 ? "No stage 0 pro records found for this player in the selected scope."
                 : "No stage 0 records found for this player in the selected scope."
             }
+            dateTimeDisplay="contextual-relative"
             sort={sort}
             onSortChange={handleSortChange}
           />
