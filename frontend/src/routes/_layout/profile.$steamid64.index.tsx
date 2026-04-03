@@ -16,5 +16,5 @@ export const Route = createFileRoute("/_layout/profile/$steamid64/")({
 
 function ProfileHomeRoute() {
   const { steamid64 } = Route.useParams()
-  return <ProfilePage steamid64={steamid64} activeTab="home" />
+  return <ProfilePage identifier={steamid64} activeTab="home" />
 }

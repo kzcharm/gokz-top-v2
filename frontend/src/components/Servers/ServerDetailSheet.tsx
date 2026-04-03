@@ -1,8 +1,8 @@
 import { Copy, LoaderCircle, Play } from "lucide-react"
 
 import type { ServerPublic } from "@/client"
-import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { CountryFlag } from "@/components/Common/CountryFlag"
+import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { ServerPlayerList } from "@/components/Servers/ServerPlayerList"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
@@ -25,8 +25,8 @@ import {
   getServerMapName,
   getServerPlayerCount,
   getServerPlayers,
-  isServerStatusRefreshing,
   isServerOnline,
+  isServerStatusRefreshing,
 } from "./utils"
 
 interface ServerDetailSheetProps {

@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { ApiError, type ServerPublic, ServersService } from "@/client"
+import { type ApiError, type ServerPublic, ServersService } from "@/client"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -153,8 +153,7 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Server address{" "}
-                      <span className="text-destructive">*</span>
+                      Server address <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -200,7 +199,11 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
               </AlertDescription>
             </Alert>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="button" onClick={loginWithSteam}>

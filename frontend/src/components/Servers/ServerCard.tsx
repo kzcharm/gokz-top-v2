@@ -24,8 +24,8 @@ import {
   getServerPlayerCount,
   getServerPlayers,
   getServerSurfaceClass,
-  isServerStatusRefreshing,
   isServerOnline,
+  isServerStatusRefreshing,
   sortPlayersByProgress,
 } from "./utils"
 

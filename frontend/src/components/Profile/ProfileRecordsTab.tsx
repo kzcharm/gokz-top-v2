@@ -113,7 +113,7 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
 
   useEffect(() => {
     setVisibleCount(PROFILE_RECORDS_PAGE_SIZE)
-  }, [recordsQuery.data, sort, scope, isProOnly, steamid64])
+  }, [])
 
   useEffect(() => {
     const target = loadMoreRef.current

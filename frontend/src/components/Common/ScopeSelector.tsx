@@ -1,6 +1,6 @@
 import { ChevronDown } from "lucide-react"
 
-import { useScope, type AppScope } from "@/components/scope-provider"
+import { type AppScope, useScope } from "@/components/scope-provider"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
