@@ -312,3 +312,59 @@ async def test_upsert_player_from_steam_normalizes_custom_id_to_lowercase(
     refreshed = await db.get(Player, steamid64)
     assert refreshed is not None
     assert refreshed.custom_id == "steam_synced-42"
+
+
+@pytest.mark.asyncio
+async def test_upsert_player_from_steam_does_not_overwrite_existing_player_when_fetch_fails(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    steamid64 = random_steamid64()
+    db.add(
+        Player(
+            steamid64=steamid64,
+            name="Existing Name",
+            custom_id="existing_custom",
+            avatar_hash="b" * 40,
+            country="US",
+        )
+    )
+    await db.commit()
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | None]:
+        return {
+            "name": str(_steamid64),
+            "custom_id": None,
+            "avatar_hash": None,
+            "country": None,
+            "fetched": None,
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{steamid64}/steam",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["name"] == "Existing Name"
+    assert payload["custom_id"] == "existing_custom"
+    assert payload["country"] == "US"
+
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.name == "Existing Name"
+    assert refreshed.custom_id == "existing_custom"
+    assert refreshed.avatar_hash == "b" * 40
+    assert refreshed.country == "US"

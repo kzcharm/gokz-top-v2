@@ -36,13 +36,16 @@ def _extract_avatar_hash_from_url(avatar_url: str | None) -> str | None:
     return match.group(1)
 
 
-async def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
+async def _fetch_player_from_steam_api(
+    steamid64: int,
+) -> dict[str, str | bool | None]:
     if not settings.STEAM_API_KEY:
         return {
             "name": str(steamid64),
             "custom_id": None,
             "avatar_hash": None,
             "country": None,
+            "fetched": False,
         }
 
     params = {
@@ -64,6 +67,7 @@ async def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
             "custom_id": None,
             "avatar_hash": None,
             "country": None,
+            "fetched": False,
         }
 
     players = payload.get("response", {}).get("players", [])
@@ -73,6 +77,7 @@ async def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
             "custom_id": None,
             "avatar_hash": None,
             "country": None,
+            "fetched": False,
         }
 
     player = players[0]
@@ -88,6 +93,7 @@ async def _fetch_player_from_steam_api(steamid64: int) -> dict[str, str | None]:
         "country": str(player.get("loccountrycode"))
         if player.get("loccountrycode")
         else None,
+        "fetched": True,
     }
 
 
@@ -141,17 +147,21 @@ async def create_or_update_player_from_steam(
 ) -> Player:
     now = datetime.now(UTC)
     steam_data = await _fetch_player_from_steam_api(steamid64)
+    fetched_from_steam = steam_data.get("fetched") is True
 
     player = await get_player_by_steamid64(session=session, steamid64=steamid64)
     if player:
-        player.name = steam_data["name"] or player.name
-        player.custom_id = normalize_custom_id(steam_data["custom_id"]) or player.custom_id
-        player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
-        player.country = steam_data["country"] or player.country
-        player.updated_at = now
-        session.add(player)
-        await session.commit()
-        await session.refresh(player)
+        if fetched_from_steam:
+            player.name = steam_data["name"] or player.name
+            player.custom_id = (
+                normalize_custom_id(steam_data["custom_id"]) or player.custom_id
+            )
+            player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
+            player.country = steam_data["country"] or player.country
+            player.updated_at = now
+            session.add(player)
+            await session.commit()
+            await session.refresh(player)
         return player
 
     player = Player(
@@ -176,18 +186,20 @@ async def create_or_update_player_from_steam(
         )
         if not existing_player:
             raise
-        existing_player.name = steam_data["name"] or existing_player.name
-        existing_player.custom_id = (
-            normalize_custom_id(steam_data["custom_id"]) or existing_player.custom_id
-        )
-        existing_player.avatar_hash = (
-            steam_data["avatar_hash"] or existing_player.avatar_hash
-        )
-        existing_player.country = steam_data["country"] or existing_player.country
-        existing_player.updated_at = now
-        session.add(existing_player)
-        await session.commit()
-        await session.refresh(existing_player)
+        if fetched_from_steam:
+            existing_player.name = steam_data["name"] or existing_player.name
+            existing_player.custom_id = (
+                normalize_custom_id(steam_data["custom_id"])
+                or existing_player.custom_id
+            )
+            existing_player.avatar_hash = (
+                steam_data["avatar_hash"] or existing_player.avatar_hash
+            )
+            existing_player.country = steam_data["country"] or existing_player.country
+            existing_player.updated_at = now
+            session.add(existing_player)
+            await session.commit()
+            await session.refresh(existing_player)
         return existing_player
 
 
