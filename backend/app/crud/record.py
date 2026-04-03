@@ -1120,6 +1120,156 @@ async def get_pb_records(
     return []
 
 
+async def get_pb_record_publics(
+    session: AsyncSession,
+    *,
+    map_id: int | None,
+    stage: int,
+    steamid64: int | None,
+    scope: RecordScope,
+    is_pro_only: bool,
+    offset: int = 0,
+    limit: int = 100,
+) -> list[RecordPublic]:
+    scope_id = scope_to_id(scope)
+    anchor_pb = aliased(RecordPb)
+    pro_pb = aliased(RecordPb)
+    ovr_pb = aliased(RecordPb)
+    scoped_points = func.coalesce(pro_pb.points, ovr_pb.points, 0)
+
+    statement = (
+        select(
+            Record.uuid,
+            Record.id,
+            Record.steamid64,
+            Player.name,
+            Player.avatar_hash,
+            Record.server_id,
+            ServerGlobalapi.name.label("server_name"),
+            Record.map_id,
+            Map.name.label("map_name"),
+            Map.difficulty,
+            Record.mode_id,
+            Mode.name_short,
+            Record.stage,
+            Record.time,
+            Record.teleports,
+            scoped_points.label("points"),
+            Record.created_on,
+            Record.updated_on,
+            Record.updated_by,
+            Record.replay_id,
+            Record.is_valid,
+        )
+        .join(anchor_pb, anchor_pb.record_uuid == Record.uuid)
+        .join(Player, col(Record.steamid64) == col(Player.steamid64))
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .join(Map, col(Record.map_id) == col(Map.id))
+        .join(Mode, col(Record.mode_id) == col(Mode.id))
+        .outerjoin(
+            pro_pb,
+            and_(
+                pro_pb.record_uuid == Record.uuid,
+                pro_pb.scope == scope_id,
+                pro_pb.is_pro_only.is_(True),
+            ),
+        )
+        .outerjoin(
+            ovr_pb,
+            and_(
+                ovr_pb.record_uuid == Record.uuid,
+                ovr_pb.scope == scope_id,
+                ovr_pb.is_pro_only.is_(False),
+            ),
+        )
+    )
+
+    if map_id is not None:
+        course = await _get_map_course_by_map_stage(
+            session=session,
+            map_id=map_id,
+            stage=stage,
+        )
+        if course is None or course.id is None:
+            return []
+
+        statement = statement.where(
+            anchor_pb.scope == scope_id,
+            anchor_pb.course_id == course.id,
+            anchor_pb.is_pro_only.is_(is_pro_only),
+        ).order_by(anchor_pb.time_ms.asc(), anchor_pb.record_uuid.asc())
+    elif steamid64 is not None:
+        course = aliased(MapCourse)
+        statement = (
+            statement.join(course, course.id == anchor_pb.course_id)
+            .where(
+                anchor_pb.scope == scope_id,
+                anchor_pb.steamid64 == steamid64,
+                anchor_pb.is_pro_only.is_(is_pro_only),
+            )
+            .order_by(
+                course.map_id.asc(),
+                course.stage.asc(),
+                anchor_pb.time_ms.asc(),
+                anchor_pb.record_uuid.asc(),
+            )
+        )
+    else:
+        return []
+
+    rows = (await session.exec(statement.offset(offset).limit(limit))).all()
+    return [
+        RecordPublic(
+            uuid=record_uuid,
+            id=record_id,
+            steamid64=str(record_steamid64),
+            player_name=player_name,
+            player_avatar_hash=player_avatar_hash,
+            steam_id=None,
+            server_id=server_id,
+            server_name=server_name or "",
+            map_id=record_map_id,
+            map_name=map_name,
+            map_tier=map_tier,
+            mode_id=record_mode_id,
+            mode=mode_name,
+            stage=record_stage,
+            tickrate=128,
+            time=float(record_time),
+            teleports=record_teleports,
+            points=points,
+            created_on=created_on,
+            updated_on=updated_on,
+            updated_by=str(updated_by),
+            replay_id=replay_id,
+            is_valid=is_valid,
+        )
+        for (
+            record_uuid,
+            record_id,
+            record_steamid64,
+            player_name,
+            player_avatar_hash,
+            server_id,
+            server_name,
+            record_map_id,
+            map_name,
+            map_tier,
+            record_mode_id,
+            mode_name,
+            record_stage,
+            record_time,
+            record_teleports,
+            points,
+            created_on,
+            updated_on,
+            updated_by,
+            replay_id,
+            is_valid,
+        ) in rows
+    ]
+
+
 def _teleports_bucket_expression():
     return case((col(Record.teleports) == 0, 0), else_=1)
 
