@@ -51,6 +51,10 @@ from .record import (
     update_record_validity,
     upsert_record,
 )
+from .record_filter import (
+    read_record_filters_v0,
+    record_filter_exists_for_course_mode,
+)
 from .server import (
     SERVER_STATUS_NOTIFY_CHANNEL,
     create_server,
@@ -121,6 +125,7 @@ __all__ = [
     "read_players_batch",
     "read_records",
     "read_recent_records",
+    "read_record_filters_v0",
     "read_server_groups",
     "read_server_history",
     "read_server_globalapi",
@@ -165,6 +170,7 @@ __all__ = [
     "notify_recent_record_updated",
     "record_a2s_failure",
     "record_a2s_success",
+    "record_filter_exists_for_course_mode",
     "record_offline_mark",
     "record_plugin_heartbeat",
     "rotate_server_group_api_key",

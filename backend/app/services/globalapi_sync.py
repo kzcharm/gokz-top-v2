@@ -12,6 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import GlobalApiSyncResult, GlobalApiSyncState, get_datetime_utc
+from app.services.globalapi_record_filter_sync import sync_record_filters_from_globalapi
 from app.services.globalapi_record_sync import sync_records_from_globalapi
 from app.services.globalapi_server_sync import sync_servers_from_globalapi
 
@@ -23,6 +24,8 @@ class GlobalApiSyncTask:
     task_name: str
     stale_after_seconds: int
     run: Callable[..., Awaitable[GlobalApiSyncResult]]
+    schedule_hour_utc: int | None = None
+    startup_stale_after_seconds: int | None = None
 
 
 GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
@@ -30,6 +33,13 @@ GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
         task_name="servers",
         stale_after_seconds=settings.GLOBALAPI_SERVERS_SYNC_STALE_AFTER_SECONDS,
         run=sync_servers_from_globalapi,
+    ),
+    GlobalApiSyncTask(
+        task_name="record_filters",
+        stale_after_seconds=settings.GLOBALAPI_RECORD_FILTERS_SYNC_STALE_AFTER_SECONDS,
+        run=sync_record_filters_from_globalapi,
+        schedule_hour_utc=settings.GLOBALAPI_RECORD_FILTERS_SYNC_HOUR_UTC,
+        startup_stale_after_seconds=86_400,
     ),
     GlobalApiSyncTask(
         task_name="records",
@@ -62,13 +72,34 @@ async def _task_is_stale(
     *,
     session: AsyncSession,
     task: GlobalApiSyncTask,
+    startup: bool,
 ) -> bool:
     state = await session.get(GlobalApiSyncState, task.task_name)
+    now = get_datetime_utc()
+
+    if startup and task.startup_stale_after_seconds is not None:
+        if state is None or state.last_successful_at is None:
+            return True
+        return now - state.last_successful_at >= timedelta(
+            seconds=task.startup_stale_after_seconds
+        )
+
+    if task.schedule_hour_utc is not None:
+        scheduled_at = now.replace(
+            hour=task.schedule_hour_utc,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        if now < scheduled_at:
+            return False
+        if state is None or state.last_successful_at is None:
+            return True
+        return state.last_successful_at < scheduled_at
+
     if state is None or state.last_successful_at is None:
         return True
-    return get_datetime_utc() - state.last_successful_at >= timedelta(
-        seconds=task.stale_after_seconds
-    )
+    return now - state.last_successful_at >= timedelta(seconds=task.stale_after_seconds)
 
 
 async def _mark_task_started(*, task_name: str) -> None:
@@ -106,6 +137,7 @@ async def _mark_task_finished(
 async def run_globalapi_sync_tasks(
     *,
     only_stale: bool,
+    startup: bool = False,
 ) -> dict[str, GlobalApiSyncResult]:
     if _globalapi_sync_run_lock.locked():
         logger.info("Skipping GlobalAPI sync run because another run is in progress")
@@ -116,7 +148,11 @@ async def run_globalapi_sync_tasks(
         for task in GLOBALAPI_SYNC_TASKS:
             if only_stale:
                 async with async_session_maker() as session:
-                    if not await _task_is_stale(session=session, task=task):
+                    if not await _task_is_stale(
+                        session=session,
+                        task=task,
+                        startup=startup,
+                    ):
                         continue
 
             await _mark_task_started(task_name=task.task_name)
@@ -149,7 +185,7 @@ async def run_globalapi_sync_runner_in_app() -> None:
     _globalapi_sync_stop_event = stop_event
 
     try:
-        await run_globalapi_sync_tasks(only_stale=True)
+        await run_globalapi_sync_tasks(only_stale=True, startup=True)
         while True:
             try:
                 await asyncio.wait_for(
