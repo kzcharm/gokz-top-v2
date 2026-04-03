@@ -7,7 +7,7 @@ from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Map, MapSyncResult
+from app.models import Map, MapSyncResult, RecordFilter
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
 
 
@@ -33,6 +33,35 @@ async def _create_map(db: AsyncSession, *, id: int = 930200) -> Map:
     await db.commit()
     await db.refresh(map_obj)
     return map_obj
+
+
+async def _create_record_filter(
+    db: AsyncSession,
+    *,
+    id: int,
+    map_id: int,
+    stage: int,
+    mode_id: int,
+    tier: int | None,
+    tickrate: int = 128,
+    has_teleports: bool = False,
+) -> RecordFilter:
+    await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
+    await db.commit()
+    record_filter = RecordFilter(
+        id=id,
+        map_id=map_id,
+        stage=stage,
+        mode_id=mode_id,
+        tickrate=tickrate,
+        has_teleports=has_teleports,
+        tier=tier,
+        updated_by_id="0",
+    )
+    db.add(record_filter)
+    await db.commit()
+    await db.refresh(record_filter)
+    return record_filter
 
 
 @pytest.mark.asyncio
@@ -71,6 +100,50 @@ async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     assert payload["workshop_url"] == (
         "https://steamcommunity.com/sharedfiles/filedetails/?id=1986459033"
     )
+
+
+@pytest.mark.asyncio
+async def test_read_map_v1_uses_scope_aware_main_course_difficulty(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_map(db, id=930202)
+    await _create_record_filter(
+        db,
+        id=930260,
+        map_id=930202,
+        stage=0,
+        mode_id=200,
+        tier=6,
+    )
+    await _create_record_filter(
+        db,
+        id=930261,
+        map_id=930202,
+        stage=0,
+        mode_id=201,
+        tier=3,
+    )
+
+    by_id_response = await client.get(
+        f"{settings.API_V1_STR}/maps/930202",
+        params={"scope": "OVR"},
+    )
+    by_name_response = await client.get(
+        f"{settings.API_V1_STR}/maps/name/kz_test_930202",
+        params={"scope": "KZT"},
+    )
+    filtered_response = await client.get(
+        f"{settings.API_V1_STR}/maps",
+        params={"id": 930202, "scope": "OVR", "difficulty": 3},
+    )
+
+    assert by_id_response.status_code == 200
+    assert by_id_response.json()["difficulty"] == 3
+    assert by_name_response.status_code == 200
+    assert by_name_response.json()["difficulty"] == 6
+    assert filtered_response.status_code == 200
+    assert filtered_response.json()[0]["difficulty"] == 3
 
 
 @pytest.mark.asyncio

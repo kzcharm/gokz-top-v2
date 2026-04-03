@@ -38,6 +38,8 @@ from app.models import (
     seconds_to_time_ms,
 )
 
+from .record_filter import load_scoped_course_tiers
+
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
 RECENT_RECORD_EXACT_COUNT_THRESHOLD = 100_000
 
@@ -141,6 +143,19 @@ async def load_scoped_points_by_record_uuid(
     return await _load_pb_points_by_record_uuid(
         session=session,
         record_uuids=record_uuids,
+        scope=scope,
+    )
+
+
+async def _load_scoped_record_tiers(
+    *,
+    session: AsyncSession,
+    record_courses: Sequence[tuple[int, int]],
+    scope: RecordScope,
+) -> dict[tuple[int, int], int]:
+    return await load_scoped_course_tiers(
+        session=session,
+        course_keys=record_courses,
         scope=scope,
     )
 
@@ -573,6 +588,7 @@ def to_record_public(
     server: ServerGlobalapi,
     map_obj: Map,
     mode: Mode,
+    map_tier: int,
     points: int,
 ) -> RecordPublic:
     return RecordPublic(
@@ -586,7 +602,7 @@ def to_record_public(
         server_name=server.name or "",
         map_id=record.map_id,
         map_name=map_obj.name,
-        map_tier=map_obj.difficulty,
+        map_tier=map_tier,
         mode_id=record.mode_id,
         mode=mode.name_short,
         stage=record.stage,
@@ -609,6 +625,7 @@ def to_recent_record_public(
     server: ServerGlobalapi,
     map_obj: Map,
     mode: Mode,
+    map_tier: int,
     points: int,
 ) -> RecentRecordPublic:
     return RecentRecordPublic(
@@ -624,7 +641,7 @@ def to_recent_record_public(
         map=RecentRecordMapPublic(
             id=map_obj.id,
             name=map_obj.name,
-            tier=map_obj.difficulty,
+            tier=map_tier,
         ),
         server=RecentRecordServerPublic(
             id=server.id,
@@ -806,6 +823,14 @@ async def read_recent_records(
             .limit(query.limit)
         )
     ).all()
+    tiers_by_course = await _load_scoped_record_tiers(
+        session=session,
+        record_courses=[
+            (record.map_id, record.stage)
+            for record, _player, _server, _map_obj, _mode, _points in rows
+        ],
+        scope=query.scope,
+    )
     return (
         [
             to_recent_record_public(
@@ -814,6 +839,7 @@ async def read_recent_records(
                 server=server,
                 map_obj=map_obj,
                 mode=mode,
+                map_tier=tiers_by_course[(record.map_id, record.stage)],
                 points=points,
             )
             for record, player, server, map_obj, mode, points in rows
@@ -864,12 +890,20 @@ async def get_recent_record_public_by_uuid(
         record_uuids=[record.uuid],
         scope=scope,
     )).get(record.uuid, 0)
+    map_tier = (
+        await _load_scoped_record_tiers(
+            session=session,
+            record_courses=[(record.map_id, record.stage)],
+            scope=scope,
+        )
+    )[(record.map_id, record.stage)]
     return to_recent_record_public(
         record=record,
         player=player,
         server=server,
         map_obj=map_obj,
         mode=mode,
+        map_tier=map_tier,
         points=scoped_points,
     )
 
@@ -1105,6 +1139,7 @@ async def get_pb_records(
                 RecordPb.scope == scope_id,
                 RecordPb.steamid64 == steamid64,
                 RecordPb.is_pro_only.is_(is_pro_only),
+                course.stage == stage,
             )
             .order_by(
                 course.map_id.asc(),
@@ -1206,6 +1241,7 @@ async def get_pb_record_publics(
                 anchor_pb.scope == scope_id,
                 anchor_pb.steamid64 == steamid64,
                 anchor_pb.is_pro_only.is_(is_pro_only),
+                course.stage == stage,
             )
             .order_by(
                 course.map_id.asc(),
@@ -1218,6 +1254,36 @@ async def get_pb_record_publics(
         return []
 
     rows = (await session.exec(statement.offset(offset).limit(limit))).all()
+    tiers_by_course = await _load_scoped_record_tiers(
+        session=session,
+        record_courses=[
+            (record_map_id, record_stage)
+            for (
+                _record_uuid,
+                _record_id,
+                _record_steamid64,
+                _player_name,
+                _player_avatar_hash,
+                _server_id,
+                _server_name,
+                record_map_id,
+                _map_name,
+                _map_tier,
+                _record_mode_id,
+                _mode_name,
+                record_stage,
+                _record_time,
+                _record_teleports,
+                _points,
+                _created_on,
+                _updated_on,
+                _updated_by,
+                _replay_id,
+                _is_valid,
+            ) in rows
+        ],
+        scope=scope,
+    )
     return [
         RecordPublic(
             uuid=record_uuid,
@@ -1230,7 +1296,7 @@ async def get_pb_record_publics(
             server_name=server_name or "",
             map_id=record_map_id,
             map_name=map_name,
-            map_tier=map_tier,
+            map_tier=tiers_by_course[(record_map_id, record_stage)],
             mode_id=record_mode_id,
             mode=mode_name,
             stage=record_stage,

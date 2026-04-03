@@ -20,6 +20,7 @@ async def _create_local_record_filter(
     mode_id: int = 200,
     tickrate: int = 128,
     has_teleports: bool = False,
+    tier: int | None = None,
     updated_by_id: str | None = "0",
 ) -> RecordFilter:
     await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
@@ -32,6 +33,7 @@ async def _create_local_record_filter(
         mode_id=mode_id,
         tickrate=tickrate,
         has_teleports=has_teleports,
+        tier=tier,
         created_on=datetime(2024, 1, 1, tzinfo=UTC),
         updated_on=datetime(2024, 1, 2, tzinfo=UTC),
         updated_by_id=updated_by_id,
@@ -109,6 +111,7 @@ async def test_sync_record_filters_from_globalapi_syncs_multiple_pages(
     wildcard = await db.get(RecordFilter, 981602)
     assert wildcard is not None
     assert wildcard.map_id == -1
+    assert wildcard.tier is None
 
 
 async def test_sync_record_filters_from_globalapi_updates_existing_rows(
@@ -122,6 +125,7 @@ async def test_sync_record_filters_from_globalapi_updates_existing_rows(
         stage=0,
         mode_id=200,
         has_teleports=False,
+        tier=5,
     )
 
     async def _fake_fetch(
@@ -157,6 +161,7 @@ async def test_sync_record_filters_from_globalapi_updates_existing_rows(
     assert synced.stage == 3
     assert synced.mode_id == 201
     assert synced.has_teleports is True
+    assert synced.tier == 5
     assert synced.updated_by_id == "76561198000000001"
 
 

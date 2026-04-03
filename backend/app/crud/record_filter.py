@@ -1,8 +1,10 @@
-from sqlalchemy import case, or_
+from collections.abc import Sequence
+
+from sqlalchemy import case, func, or_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import RecordFilter
+from app.models import Map, RecordFilter, RecordScope, scope_mode_ids, scope_to_id
 
 
 async def read_record_filters_v0(
@@ -64,3 +66,62 @@ async def record_filter_exists_for_course_mode(
         .limit(1)
     )
     return (await session.exec(statement)).first() is not None
+
+
+async def load_scoped_course_tiers(
+    *,
+    session: AsyncSession,
+    course_keys: Sequence[tuple[int, int]],
+    scope: RecordScope,
+) -> dict[tuple[int, int], int]:
+    unique_course_keys = list(dict.fromkeys(course_keys))
+    if not unique_course_keys:
+        return {}
+
+    map_ids = sorted({map_id for map_id, _ in unique_course_keys})
+    stages = sorted({stage for _, stage in unique_course_keys})
+
+    map_rows = (
+        await session.exec(
+            select(Map.id, Map.difficulty).where(col(Map.id).in_(map_ids))
+        )
+    ).all()
+    fallback_difficulty_by_map_id = dict(map_rows)
+
+    scoped_tier_rows = (
+        await session.exec(
+            select(
+                RecordFilter.map_id,
+                RecordFilter.stage,
+                func.min(RecordFilter.tier).label("tier"),
+            )
+            .where(
+                col(RecordFilter.map_id).in_(map_ids),
+                col(RecordFilter.stage).in_(stages),
+                col(RecordFilter.tickrate) == 128,
+                col(RecordFilter.mode_id).in_(
+                    list(scope_mode_ids(scope_to_id(scope)))
+                ),
+                col(RecordFilter.tier).is_not(None),
+            )
+            .group_by(RecordFilter.map_id, RecordFilter.stage)
+        )
+    ).all()
+    scoped_tier_by_course = {
+        (map_id, stage): int(tier)
+        for map_id, stage, tier in scoped_tier_rows
+        if tier is not None
+    }
+
+    resolved_tiers: dict[tuple[int, int], int] = {}
+    for map_id, stage in unique_course_keys:
+        scoped_tier = scoped_tier_by_course.get((map_id, stage))
+        if scoped_tier is not None:
+            resolved_tiers[(map_id, stage)] = scoped_tier
+            continue
+
+        resolved_tiers[(map_id, stage)] = (
+            fallback_difficulty_by_map_id.get(map_id, 0) if stage == 0 else 0
+        )
+
+    return resolved_tiers

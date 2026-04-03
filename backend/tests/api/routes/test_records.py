@@ -9,7 +9,15 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import Map, Player, Record, RecordPb, ServerGlobalapi
+from app.models import (
+    Map,
+    MapCourse,
+    Player,
+    Record,
+    RecordFilter,
+    RecordPb,
+    ServerGlobalapi,
+)
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -85,6 +93,35 @@ async def _create_server_globalapi(
     return server
 
 
+async def _create_record_filter(
+    db: AsyncSession,
+    *,
+    id: int,
+    map_id: int,
+    stage: int,
+    mode_id: int,
+    tier: int | None,
+    tickrate: int = 128,
+    has_teleports: bool = False,
+) -> RecordFilter:
+    await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
+    await db.commit()
+    record_filter = RecordFilter(
+        id=id,
+        map_id=map_id,
+        stage=stage,
+        mode_id=mode_id,
+        tickrate=tickrate,
+        has_teleports=has_teleports,
+        tier=tier,
+        updated_by_id="0",
+    )
+    db.add(record_filter)
+    await db.commit()
+    await db.refresh(record_filter)
+    return record_filter
+
+
 async def _create_record(
     db: AsyncSession,
     *,
@@ -127,7 +164,22 @@ async def _create_record(
     )
     db.add(record)
     await db.commit()
-    await crud.rebuild_record_pbs(session=db)
+    await crud.ensure_map_courses_for_valid_records(session=db)
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_id,
+                MapCourse.stage == stage,
+            )
+        )
+    ).first()
+    assert course is not None and course.id is not None
+    await crud.rebuild_record_pbs_for_course(
+        session=db,
+        course_id=course.id,
+        map_id=map_id,
+        stage=stage,
+    )
     await db.commit()
     await db.refresh(record)
     return record
@@ -153,7 +205,7 @@ async def test_read_records_v1_list_and_detail(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
-    player_id = random_steamid64()
+    player_id = 76561199012345678
     await _seed_record_dependencies(
         db,
         players=[(player_id, "Runner One")],
@@ -308,7 +360,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert first_row["map"] == {
         "id": 980200,
         "name": "kz_record_test",
-        "tier": 6,
+        "tier": 0,
     }
     assert first_row["server"] == {
         "id": 980300,
@@ -354,7 +406,7 @@ async def test_read_recent_records_v1_scope_points_and_pro_filters(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
-    player_id = random_steamid64()
+    player_id = 76561199012345678
     await _seed_record_dependencies(db, players=[(player_id, "Filter Runner")])
 
     pb_pro = await _create_record(
@@ -601,18 +653,29 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         params=[
             ("steamid64", player_id),
             ("scope", "OVR"),
+            ("stage", 0),
         ],
     )
     assert response.status_code == 200
     payload = response.json()
-    assert [(row["map_id"], row["stage"]) for row in payload] == [
-        (980200, 0),
-        (980201, 1),
-    ]
+    assert [(row["map_id"], row["stage"]) for row in payload] == [(980200, 0)]
     assert payload[0]["id"] == 980421
     assert payload[0]["map_tier"] == 4
     assert payload[0]["teleports"] == 0
-    assert payload[1]["uuid"] == str(fastest_map_two.uuid)
+
+    bonus_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params=[
+            ("steamid64", player_id),
+            ("scope", "OVR"),
+            ("stage", 1),
+        ],
+    )
+    assert bonus_response.status_code == 200
+    bonus_payload = bonus_response.json()
+    assert [(row["map_id"], row["stage"]) for row in bonus_payload] == [(980201, 1)]
+    assert bonus_payload[0]["uuid"] == str(fastest_map_two.uuid)
+    assert bonus_payload[0]["map_tier"] == 0
 
     pro_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -620,6 +683,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
             ("steamid64", player_id),
             ("scope", "OVR"),
             ("is_pro_only", True),
+            ("stage", 0),
         ],
     )
     assert [row["map_id"] for row in pro_response.json()] == [980200]
@@ -629,6 +693,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         params=[
             ("steamid64", player_id),
             ("scope", "SKZ"),
+            ("stage", 0),
         ],
     )
     assert [row["id"] for row in skz_response.json()] == [980420]
@@ -737,6 +802,69 @@ async def test_read_pb_records_v1_supports_offset_and_limit(
     assert payload[0]["stage"] == 0
     assert payload[0]["id"] != first.id
     assert payload[0]["id"] != third.id
+
+
+async def test_read_pb_records_v1_returns_scope_aware_course_tier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = 76561199012345678
+    map_id = 1_998_200
+    server_id = 1_998_300
+    await _seed_record_dependencies(
+        db,
+        map_id=map_id,
+        map_name="kz_scope_tier",
+        server_id=server_id,
+        players=[(player_id, "Scoped Runner")],
+    )
+    record = await _create_record(
+        db,
+        id=980429,
+        steamid64=player_id,
+        server_id=server_id,
+        mode_id=201,
+        map_id=map_id,
+        stage=0,
+        time="24.500",
+        teleports=0,
+    )
+    await _create_record_filter(
+        db,
+        id=981700,
+        map_id=map_id,
+        stage=0,
+        mode_id=200,
+        tier=7,
+    )
+    await _create_record_filter(
+        db,
+        id=981701,
+        map_id=map_id,
+        stage=0,
+        mode_id=201,
+        tier=2,
+    )
+
+    ovr_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={"steamid64": str(player_id), "scope": "OVR"},
+    )
+    kzt_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={"steamid64": str(player_id), "scope": "KZT"},
+    )
+    detail_response = await client.get(
+        f"{settings.API_V1_STR}/records/{record.uuid}",
+        params={"scope": "SKZ"},
+    )
+
+    assert ovr_response.status_code == 200
+    assert ovr_response.json()[0]["map_tier"] == 2
+    assert kzt_response.status_code == 200
+    assert kzt_response.json() == []
+    assert detail_response.status_code == 200
+    assert detail_response.json()["map_tier"] == 2
 
 
 async def test_read_pb_records_v1_rejects_invalid_anchor_combinations(

@@ -2,6 +2,7 @@ from .map import (
     get_map_by_id,
     get_map_by_name,
     read_maps,
+    read_maps_v1,
     to_map_compat_public_v0,
     to_map_public,
 )
@@ -52,6 +53,7 @@ from .record import (
     upsert_record,
 )
 from .record_filter import (
+    load_scoped_course_tiers,
     read_record_filters_v0,
     record_filter_exists_for_course_mode,
 )
@@ -118,8 +120,10 @@ __all__ = [
     "get_user_by_steamid64",
     "get_max_record_globalapi_id",
     "read_maps",
+    "read_maps_v1",
     "read_modes",
     "load_scoped_points_by_record_uuid",
+    "load_scoped_course_tiers",
     "normalize_custom_id",
     "read_players",
     "read_players_batch",
