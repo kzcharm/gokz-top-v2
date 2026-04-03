@@ -1,17 +1,32 @@
 import { useQuery } from "@tanstack/react-query"
-import { startTransition, useEffect, useMemo, useRef, useState } from "react"
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
 import {
-  PbRecordsTable,
-} from "@/components/Records/PbRecordsTable"
+  ModeSelector,
+  type ModeSelectorValue,
+} from "@/components/Common/ModeSelector"
+import {
+  TierSelector,
+  type TierSelectorValue,
+} from "@/components/Common/TierSelector"
+import { normalizeRecordMode } from "@/components/Records/mode"
+import { PbRecordsTable } from "@/components/Records/PbRecordsTable"
 import {
   type PbRecordsColumn,
   type PbRecordsSortState,
   sortPbRecords,
 } from "@/components/Records/pb-records-utils"
+import { normalizeTierValue } from "@/components/Servers/tier"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
@@ -35,12 +50,19 @@ function ProfileRecordsTableSkeleton() {
 export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
   const { scope } = useScope()
   const [isProOnly, setIsProOnly] = useState(false)
+  const [mapSearch, setMapSearch] = useState("")
+  const [selectedMode, setSelectedMode] = useState<ModeSelectorValue>("all")
+  const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
+  const [maxPoints, setMaxPoints] = useState("")
+  const [serverSearch, setServerSearch] = useState("")
   const [sort, setSort] = useState<PbRecordsSortState>({
     column: "datetime",
     direction: "desc",
   })
   const [visibleCount, setVisibleCount] = useState(PROFILE_RECORDS_PAGE_SIZE)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const deferredMapSearch = useDeferredValue(mapSearch)
+  const deferredServerSearch = useDeferredValue(serverSearch)
 
   const recordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
@@ -51,8 +73,60 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
   })
 
   const sortedRecords = useMemo(() => {
-    return sortPbRecords(recordsQuery.data ?? [], sort)
-  }, [recordsQuery.data, sort])
+    const normalizedMapSearch = deferredMapSearch.trim().toLocaleLowerCase()
+    const normalizedServerSearch = deferredServerSearch
+      .trim()
+      .toLocaleLowerCase()
+    const parsedMaxPoints = maxPoints.trim() === "" ? null : Number(maxPoints)
+
+    const filteredRecords = (recordsQuery.data ?? []).filter((record) => {
+      if (
+        normalizedMapSearch.length > 0 &&
+        !record.map_name.toLocaleLowerCase().includes(normalizedMapSearch)
+      ) {
+        return false
+      }
+
+      if (
+        normalizedServerSearch.length > 0 &&
+        !record.server_name.toLocaleLowerCase().includes(normalizedServerSearch)
+      ) {
+        return false
+      }
+
+      if (
+        selectedMode !== "all" &&
+        normalizeRecordMode(record.mode) !== selectedMode
+      ) {
+        return false
+      }
+
+      if (selectedTier !== "all") {
+        const normalizedTier = normalizeTierValue(record.map_tier)
+        if (normalizedTier !== Number(selectedTier)) {
+          return false
+        }
+      }
+
+      if (parsedMaxPoints !== null && Number.isFinite(parsedMaxPoints)) {
+        if (record.points > parsedMaxPoints) {
+          return false
+        }
+      }
+
+      return true
+    })
+
+    return sortPbRecords(filteredRecords, sort)
+  }, [
+    deferredMapSearch,
+    deferredServerSearch,
+    maxPoints,
+    recordsQuery.data,
+    selectedMode,
+    selectedTier,
+    sort,
+  ])
 
   const visibleRecords = useMemo(() => {
     return sortedRecords.slice(0, visibleCount)
@@ -106,24 +180,28 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
     })
   }
 
+  const filterEmptyMessage = isProOnly
+    ? "No stage 0 pro records found for this player with the current filters."
+    : "No stage 0 records found for this player with the current filters."
+
+  const hasActiveClientFilters =
+    deferredMapSearch.trim().length > 0 ||
+    deferredServerSearch.trim().length > 0 ||
+    selectedMode !== "all" ||
+    selectedTier !== "all" ||
+    maxPoints.trim().length > 0
+
+  const emptyMessage = hasActiveClientFilters
+    ? filterEmptyMessage
+    : isProOnly
+      ? "No stage 0 pro records found for this player in the selected scope."
+      : "No stage 0 records found for this player in the selected scope."
+
+  const pointInputClassName =
+    "h-8 min-w-0 rounded-md border-border/70 bg-background/80 text-xs font-normal"
+
   return (
     <div className="space-y-4">
-      <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <Label
-            htmlFor="profile-records-pro-only"
-            className="flex items-center gap-3 rounded-full border border-border/70 bg-background/70 px-3 py-2"
-          >
-            <Switch
-              id="profile-records-pro-only"
-              checked={isProOnly}
-              onCheckedChange={setIsProOnly}
-            />
-            <span>Pro only</span>
-          </Label>
-        </CardContent>
-      </Card>
-
       {recordsQuery.isError ? (
         <Alert variant="destructive">
           <AlertDescription>
@@ -148,11 +226,69 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
               "server",
               "datetime",
             ]}
-            emptyMessage={
-              isProOnly
-                ? "No stage 0 pro records found for this player in the selected scope."
-                : "No stage 0 records found for this player in the selected scope."
-            }
+            columnFilters={{
+              map: (
+                <Input
+                  aria-label="Search map name"
+                  value={mapSearch}
+                  onChange={(event) => setMapSearch(event.target.value)}
+                  placeholder="Search map"
+                  className="h-8 w-56 border-border/70 bg-background/80 text-xs font-normal"
+                />
+              ),
+              mode: (
+                <ModeSelector
+                  value={selectedMode}
+                  onValueChange={setSelectedMode}
+                  allLabel="Modes"
+                  triggerClassName="h-8 border-border/70 bg-background/80 text-xs"
+                  ariaLabel="Filter by mode"
+                />
+              ),
+              tier: (
+                <TierSelector
+                  value={selectedTier}
+                  onValueChange={setSelectedTier}
+                  allLabel="Tiers"
+                  triggerClassName="h-8 border-border/70 bg-background/80 text-xs"
+                  ariaLabel="Filter by tier"
+                />
+              ),
+              tps: (
+                <Label
+                  htmlFor="profile-records-pro-only"
+                  className="flex h-8 items-center justify-start gap-2 rounded-md border border-border/70 bg-background/80 px-2 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
+                >
+                  <Switch
+                    id="profile-records-pro-only"
+                    checked={isProOnly}
+                    onCheckedChange={setIsProOnly}
+                    className="data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
+                  />
+                  <span>Pro</span>
+                </Label>
+              ),
+              points: (
+                <Input
+                  aria-label="Maximum points"
+                  value={maxPoints}
+                  onChange={(event) => setMaxPoints(event.target.value)}
+                  placeholder="Max"
+                  inputMode="decimal"
+                  className={`${pointInputClassName} w-[4.25rem]`}
+                />
+              ),
+              server: (
+                <Input
+                  aria-label="Search server"
+                  value={serverSearch}
+                  onChange={(event) => setServerSearch(event.target.value)}
+                  placeholder="Search server"
+                  className="h-8 border-border/70 bg-background/80 text-xs font-normal"
+                />
+              ),
+            }}
+            emptyMessage={emptyMessage}
             dateTimeDisplay="contextual-relative"
             sort={sort}
             onSortChange={handleSortChange}

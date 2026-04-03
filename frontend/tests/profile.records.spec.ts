@@ -68,6 +68,31 @@ const ovrRecords = [
     replay_id: null,
     is_valid: true,
   },
+  {
+    uuid: "019d9999-9999-7999-8999-999999999999",
+    id: 981102,
+    steamid64,
+    player_name: "Seed Runner",
+    player_avatar_hash: null,
+    steam_id: null,
+    server_id: 980302,
+    server_name: "NKZ Practice Hub",
+    map_id: 980202,
+    map_name: "kz_seed_gamma",
+    map_tier: 2,
+    mode_id: 202,
+    mode: "NKZ",
+    stage: 0,
+    tickrate: 128,
+    time: 61.234,
+    teleports: 8,
+    points: 120,
+    created_on: "2026-03-29T12:00:00Z",
+    updated_on: "2026-03-29T12:00:00Z",
+    updated_by: steamid64,
+    replay_id: null,
+    is_valid: true,
+  },
 ]
 
 test("Profile records page renders sidebar, filters, and scope-aware PB rows", async ({
@@ -137,7 +162,49 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
 
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
   await expect(page.getByText("kz_seed_beta")).toBeVisible()
-  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(2)
+  await expect(page.getByText("kz_seed_gamma")).toBeVisible()
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(3)
+
+  await expect(page.getByLabel("Search map name")).toBeVisible()
+  await expect(page.getByLabel("Filter by mode")).toBeVisible()
+  await expect(page.getByLabel("Filter by tier")).toBeVisible()
+  await expect(page.getByLabel("Minimum points")).toBeVisible()
+  await expect(page.getByLabel("Maximum points")).toBeVisible()
+  await expect(page.getByLabel("Search server")).toBeVisible()
+
+  await page.getByLabel("Search map name").fill("gamma")
+  await expect(page.getByText("kz_seed_gamma")).toBeVisible()
+  await expect(page.getByText("kz_seed_alpha")).toHaveCount(0)
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+
+  await page.getByLabel("Search map name").fill("")
+  await page.getByLabel("Filter by mode").click()
+  await page.getByRole("option", { name: "NKZ" }).click()
+  await expect(page.getByText("kz_seed_gamma")).toBeVisible()
+  await expect(page.getByText("kz_seed_alpha")).toHaveCount(0)
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+
+  await page.getByLabel("Filter by mode").click()
+  await page.getByRole("option", { name: "All modes" }).click()
+  await page.getByLabel("Filter by tier").click()
+  await page.getByRole("option", { name: "T6" }).click()
+  await expect(page.getByText("kz_seed_beta")).toBeVisible()
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+
+  await page.getByLabel("Filter by tier").click()
+  await page.getByRole("option", { name: "All tiers" }).click()
+  await page.getByLabel("Minimum points").fill("200")
+  await page.getByLabel("Maximum points").fill("400")
+  await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+
+  await page.getByLabel("Minimum points").fill("")
+  await page.getByLabel("Maximum points").fill("")
+  await page.getByLabel("Search server").fill("practice")
+  await expect(page.getByText("kz_seed_gamma")).toBeVisible()
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+
+  await page.getByLabel("Search server").fill("")
 
   await page.getByRole("switch", { name: "Pro only" }).click()
 

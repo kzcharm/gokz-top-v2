@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp } from "lucide-react"
+import type { ReactNode } from "react"
 
 import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -18,16 +19,14 @@ import type { DateTimeDisplay } from "@/lib/date-time"
 import { truncateText } from "@/lib/utils"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
+import type { PbRecordsColumn, PbRecordsSortState } from "./pb-records-utils"
 import { TeleportsBadge } from "./TeleportsBadge"
-import type {
-  PbRecordsColumn,
-  PbRecordsSortState,
-} from "./pb-records-utils"
 import { formatRecordTime } from "./utils"
 
 interface PbRecordsTableProps {
   records: RecordPublic[]
   columns?: PbRecordsColumn[]
+  columnFilters?: Partial<Record<PbRecordsColumn, ReactNode>>
   emptyMessage?: string
   dateTimeDisplay?: DateTimeDisplay
   sort?: PbRecordsSortState
@@ -84,6 +83,7 @@ export function PbRecordsTable({
     "server",
     "datetime",
   ],
+  columnFilters,
   emptyMessage = "No records found.",
   dateTimeDisplay = "relative",
   sort,
@@ -92,6 +92,9 @@ export function PbRecordsTable({
   const visibleColumns = new Set(columns)
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
   const colSpan = columns.length
+  const hasColumnFilters = columns.some(
+    (column) => columnFilters?.[column] !== undefined,
+  )
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
@@ -201,6 +204,18 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
             </TableRow>
+            {hasColumnFilters ? (
+              <TableRow className="hover:bg-transparent">
+                {columns.map((column) => (
+                  <TableHead
+                    key={`filter-${column}`}
+                    className="h-auto border-t border-border/60 px-3 py-3 align-top"
+                  >
+                    {columnFilters?.[column] ?? null}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ) : null}
           </TableHeader>
           <TableBody>
             {records.length > 0 ? (
