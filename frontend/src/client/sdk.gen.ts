@@ -86,7 +86,6 @@ export class MapsService {
      * @param data.largerThanFilesize
      * @param data.smallerThanFilesize
      * @param data.isValidated
-     * @param data.difficulty
      * @param data.createdSince
      * @param data.updatedSince
      * @returns MapPublic Successful Response
@@ -104,7 +103,6 @@ export class MapsService {
                 larger_than_filesize: data.largerThanFilesize,
                 smaller_than_filesize: data.smallerThanFilesize,
                 is_validated: data.isValidated,
-                difficulty: data.difficulty,
                 created_since: data.createdSince,
                 updated_since: data.updatedSince
             },

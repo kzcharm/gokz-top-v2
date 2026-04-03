@@ -32,9 +32,8 @@ export const MapPublicSchema = {
             type: 'boolean',
             title: 'Validated'
         },
-        difficulty: {
-            type: 'integer',
-            title: 'Difficulty'
+        tiers: {
+            '$ref': '#/components/schemas/MapTiers'
         },
         created_on: {
             type: 'string',
@@ -94,7 +93,7 @@ export const MapPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'name', 'filesize', 'validated', 'difficulty', 'created_on', 'updated_on', 'approved_by_steamid64', 'synced_at', 'workshop_url'],
+    required: ['id', 'name', 'filesize', 'validated', 'tiers', 'created_on', 'updated_on', 'approved_by_steamid64', 'synced_at', 'workshop_url'],
     title: 'MapPublic'
 } as const;
 
@@ -120,6 +119,30 @@ export const MapSyncResultSchema = {
     type: 'object',
     required: ['processed', 'created', 'updated', 'errors'],
     title: 'MapSyncResult'
+} as const;
+
+export const MapTiersSchema = {
+    properties: {
+        OVR: {
+            type: 'integer',
+            title: 'Ovr'
+        },
+        KZT: {
+            type: 'integer',
+            title: 'Kzt'
+        },
+        SKZ: {
+            type: 'integer',
+            title: 'Skz'
+        },
+        VNL: {
+            type: 'integer',
+            title: 'Vnl'
+        }
+    },
+    type: 'object',
+    required: ['OVR', 'KZT', 'SKZ', 'VNL'],
+    title: 'MapTiers'
 } as const;
 
 export const MessageSchema = {

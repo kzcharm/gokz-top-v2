@@ -9,7 +9,7 @@ export type MapPublic = {
     name: string;
     filesize: number;
     validated: boolean;
-    difficulty: number;
+    tiers: MapTiers;
     created_on: string;
     updated_on: string;
     approved_by_steamid64: string;
@@ -25,6 +25,13 @@ export type MapSyncResult = {
     created: number;
     updated: number;
     errors: number;
+};
+
+export type MapTiers = {
+    OVR: number;
+    KZT: number;
+    SKZ: number;
+    VNL: number;
 };
 
 export type Message = {
@@ -356,7 +363,6 @@ export type LoginTestTokenResponse = (UserPublic);
 
 export type MapsReadMapsData = {
     createdSince?: (string | null);
-    difficulty?: (number | null);
     id?: (Array<(number)> | null);
     isValidated?: (boolean | null);
     largerThanFilesize?: (number | null);

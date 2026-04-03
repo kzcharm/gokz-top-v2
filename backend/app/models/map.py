@@ -81,12 +81,19 @@ class MapCompatPublicV0(SQLModel):
         return ""
 
 
+class MapTiers(SQLModel):
+    OVR: int
+    KZT: int
+    SKZ: int
+    VNL: int
+
+
 class MapPublic(SQLModel):
     id: int
     name: str
     filesize: int
     validated: bool
-    difficulty: int
+    tiers: MapTiers
     created_on: datetime
     updated_on: datetime
     approved_by_steamid64: str

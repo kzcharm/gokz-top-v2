@@ -7,10 +7,11 @@ import { TierBadge } from "@/components/Servers/TierBadge"
 import { Card, CardContent } from "@/components/ui/card"
 
 interface MapCardProps {
+  activeTier: number
   map: MapPublic
 }
 
-export function MapCard({ map }: MapCardProps) {
+export function MapCard({ activeTier, map }: MapCardProps) {
   const imageUrl = getMapImageUrl(map.name)
 
   return (
@@ -31,7 +32,7 @@ export function MapCard({ map }: MapCardProps) {
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/85" />
           <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
             <TierBadge
-              tier={map.difficulty}
+              tier={activeTier}
               className="bg-black/55 text-white backdrop-blur-sm"
             />
           </div>

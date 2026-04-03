@@ -8,9 +8,10 @@ import {
   useState,
 } from "react"
 
-import { MapsService, type MapPublic } from "@/client"
+import { type MapPublic, MapsService } from "@/client"
 import { MapCard } from "@/components/Maps/MapCard"
 import { PendingMaps } from "@/components/Maps/PendingMaps"
+import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,15 +38,22 @@ const MAP_SORT_OPTIONS = [
 
 type MapsSortValue = (typeof MAP_SORT_OPTIONS)[number]["value"]
 
-function sortMaps(maps: MapPublic[], sort: MapsSortValue) {
+function getMapTierForScope(map: MapPublic, scope: AppScope) {
+  return map.tiers[scope]
+}
+
+function sortMaps(maps: MapPublic[], sort: MapsSortValue, scope: AppScope) {
   return [...maps].sort((left, right) => {
+    const leftTier = getMapTierForScope(left, scope)
+    const rightTier = getMapTierForScope(right, scope)
+
     switch (sort) {
       case "name-desc":
         return right.name.localeCompare(left.name)
       case "tier-asc":
-        return left.difficulty - right.difficulty || left.name.localeCompare(right.name)
+        return leftTier - rightTier || left.name.localeCompare(right.name)
       case "tier-desc":
-        return right.difficulty - left.difficulty || left.name.localeCompare(right.name)
+        return rightTier - leftTier || left.name.localeCompare(right.name)
       case "updated-desc":
         return (
           Date.parse(right.updated_on) - Date.parse(left.updated_on) ||
@@ -66,7 +74,6 @@ function sortMaps(maps: MapPublic[], sort: MapsSortValue) {
           Date.parse(left.created_on) - Date.parse(right.created_on) ||
           left.name.localeCompare(right.name)
         )
-      case "name-asc":
       default:
         return left.name.localeCompare(right.name)
     }
@@ -78,7 +85,13 @@ function getPageNumbers(currentPage: number, totalPages: number) {
     return Array.from({ length: totalPages }, (_, index) => index + 1)
   }
 
-  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1])
+  const pages = new Set([
+    1,
+    totalPages,
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+  ])
 
   if (currentPage <= 3) {
     pages.add(2)
@@ -96,6 +109,7 @@ function getPageNumbers(currentPage: number, totalPages: number) {
 }
 
 export function MapsCatalog() {
+  const { scope } = useScope()
   const [searchInput, setSearchInput] = useState("")
   const deferredSearch = useDeferredValue(searchInput)
   const [sort, setSort] = useState<MapsSortValue>("name-asc")
@@ -114,7 +128,7 @@ export function MapsCatalog() {
     startTransition(() => {
       setPage(1)
     })
-  }, [deferredSearch, sort])
+  }, [deferredSearch, scope, sort])
 
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
@@ -128,8 +142,8 @@ export function MapsCatalog() {
   }, [deferredSearch, mapsQuery.data])
 
   const sortedMaps = useMemo(
-    () => sortMaps(filteredMaps, sort),
-    [filteredMaps, sort],
+    () => sortMaps(filteredMaps, sort, scope),
+    [filteredMaps, scope, sort],
   )
 
   const totalMaps = mapsQuery.data?.length ?? 0
@@ -201,7 +215,7 @@ export function MapsCatalog() {
 
       <section className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm backdrop-blur-sm sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative block w-full lg:max-w-md">
+          <div className="relative block w-full lg:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchInput}
@@ -215,7 +229,7 @@ export function MapsCatalog() {
               aria-label="Search maps by name"
               className="pl-9"
             />
-          </label>
+          </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Select
@@ -226,10 +240,7 @@ export function MapsCatalog() {
                 })
               }}
             >
-              <SelectTrigger
-                className="w-full sm:w-64"
-                aria-label="Sort maps"
-              >
+              <SelectTrigger className="w-full sm:w-64" aria-label="Sort maps">
                 <SelectValue placeholder="Sort maps" />
               </SelectTrigger>
               <SelectContent>
@@ -255,7 +266,11 @@ export function MapsCatalog() {
         <>
           <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {visibleMaps.map((map) => (
-              <MapCard key={map.id} map={map} />
+              <MapCard
+                key={map.id}
+                activeTier={getMapTierForScope(map, scope)}
+                map={map}
+              />
             ))}
           </section>
 
