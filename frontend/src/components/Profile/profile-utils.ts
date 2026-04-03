@@ -16,16 +16,10 @@ export const profileBadgeToneClasses: Record<string, string> = {
     "border-violet-300/70 bg-violet-100 text-violet-900 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-200",
 }
 
-export function isValidSteamid64(steamid64: string) {
-  return /^\d{17}$/.test(steamid64)
-}
-
-export async function fetchProfilePlayer(steamid64: string) {
-  const response = await PlayersService.readPlayersBatch({
-    requestBody: { steamid64s: [steamid64] },
+export async function fetchProfilePlayer(identifier: string) {
+  return await PlayersService.readPlayer({
+    identifier,
   })
-
-  return response.data[0] ?? null
 }
 
 export function formatNumber(value: number) {

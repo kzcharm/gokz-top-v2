@@ -17,11 +17,13 @@ async def _create_player(
     steamid64: int,
     name: str,
     created_at: datetime | None = None,
+    custom_id: str | None = None,
 ) -> Player:
     now = created_at or datetime.now(UTC)
     player = Player(
         steamid64=steamid64,
         name=name,
+        custom_id=custom_id,
         created_at=now,
         updated_at=now,
     )
@@ -173,6 +175,55 @@ async def test_read_players_batch_preserves_order_with_nullable_entries(
     assert payload["data"][1] is None
     assert payload["data"][2]["steamid64"] == str(player_one.steamid64)
     assert payload["data"][3]["steamid64"] == str(player_two.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_read_player_by_steamid64(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Steam ID Player",
+        custom_id="steam-id-player",
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{player.steamid64}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player.steamid64)
+    assert payload["custom_id"] == "steam-id-player"
+
+
+@pytest.mark.asyncio
+async def test_read_player_by_custom_id(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Custom ID Player",
+        custom_id="custom-profile_42",
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{player.custom_id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player.steamid64)
+    assert payload["custom_id"] == "custom-profile_42"
+
+
+@pytest.mark.asyncio
+async def test_read_player_by_identifier_returns_not_found_for_invalid_custom_id(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(f"{settings.API_V1_STR}/players/123456")
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

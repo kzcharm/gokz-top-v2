@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
 from app.api.deps import SessionDep, get_current_user
+from app.crud import player as player_crud
 from app.models import (
     PlayerPublic,
     PlayersBatchPublic,
@@ -56,6 +57,19 @@ async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> 
         crud.to_player_public(player=player) if player else None for player in players
     ]
     return PlayersBatchPublic(data=data, count=len(data))
+
+
+@router.get("/{identifier}", response_model=PlayerPublic)
+async def read_player(identifier: str, session: SessionDep) -> Any:
+    """
+    Retrieve a player by steamid64 or custom_id.
+    """
+    player = await player_crud.get_player_by_identifier(
+        session=session, identifier=identifier
+    )
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return crud.to_player_public(player=player)
 
 
 @router.put(

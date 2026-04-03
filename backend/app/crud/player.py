@@ -104,6 +104,18 @@ async def get_player_by_steamid64(
     return (await session.exec(statement)).first()
 
 
+async def get_player_by_identifier(
+    *, session: AsyncSession, identifier: str
+) -> Player | None:
+    normalized_custom_id = normalize_custom_id(identifier)
+    statement = select(Player).where(
+        (Player.steamid64 == int(identifier))
+        if identifier.isdigit()
+        else (Player.custom_id == normalized_custom_id)
+    )
+    return (await session.exec(statement)).first()
+
+
 async def read_players(
     *,
     session: AsyncSession,

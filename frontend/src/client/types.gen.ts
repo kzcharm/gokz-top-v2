@@ -412,6 +412,12 @@ export type PlayersReadPlayersBatchData = {
 
 export type PlayersReadPlayersBatchResponse = (PlayersBatchPublic);
 
+export type PlayersReadPlayerData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerResponse = (PlayerPublic);
+
 export type PlayersUpsertPlayerFromSteamData = {
     steamid64: string;
 };
