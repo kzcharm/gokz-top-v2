@@ -44,7 +44,7 @@ class RecordPbBucket:
 
     @property
     def category_name(self) -> str:
-        return "PRO" if self.is_pro_only else "OVR"
+        return "PRO" if self.is_pro_only else "NUB"
 
     @property
     def label(self) -> str:
