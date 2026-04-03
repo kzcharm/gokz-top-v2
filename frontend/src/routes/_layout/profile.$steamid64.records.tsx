@@ -16,5 +16,5 @@ export const Route = createFileRoute("/_layout/profile/$steamid64/records")({
 
 function ProfileRecordsRoute() {
   const { steamid64 } = Route.useParams()
-  return <ProfilePage steamid64={steamid64} activeTab="records" />
+  return <ProfilePage identifier={steamid64} activeTab="records" />
 }

@@ -8,14 +8,14 @@ import {
 
 import {
   DATE_TIME_FORMAT_STORAGE_KEY,
-  HOUR_CYCLE_STORAGE_KEY,
-  formatDateTimeWithPreset,
-  getBrowserLocale,
-  isDateTimePreset,
-  isHourCyclePreference,
   type DateTimeFormatOptions,
   type DateTimePreset,
+  formatDateTimeWithPreset,
+  getBrowserLocale,
+  HOUR_CYCLE_STORAGE_KEY,
   type HourCyclePreference,
+  isDateTimePreset,
+  isHourCyclePreference,
 } from "@/lib/date-time"
 
 type DateTimeFormatProviderProps = {
@@ -55,12 +55,10 @@ export function DateTimeFormatProvider({
   defaultHourCycle = "24h",
   hourCycleStorageKey = HOUR_CYCLE_STORAGE_KEY,
 }: DateTimeFormatProviderProps) {
-  const [preset, setPresetState] = useState<DateTimePreset>(
-    () => {
-      const storedPreset = localStorage.getItem(presetStorageKey)
-      return isDateTimePreset(storedPreset) ? storedPreset : defaultPreset
-    },
-  )
+  const [preset, setPresetState] = useState<DateTimePreset>(() => {
+    const storedPreset = localStorage.getItem(presetStorageKey)
+    return isDateTimePreset(storedPreset) ? storedPreset : defaultPreset
+  })
   const [hourCycle, setHourCycleState] = useState<HourCyclePreference>(() => {
     const storedHourCycle = localStorage.getItem(hourCycleStorageKey)
     return isHourCyclePreference(storedHourCycle)

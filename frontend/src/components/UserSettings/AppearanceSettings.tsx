@@ -62,7 +62,8 @@ export default function AppearanceSettings() {
 
   const selectedTheme = useMemo(
     () =>
-      THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[0],
+      THEME_OPTIONS.find((option) => option.value === theme) ??
+      THEME_OPTIONS[0],
     [theme],
   )
   const selectedHourCycle = useMemo(
@@ -84,7 +85,10 @@ export default function AppearanceSettings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">Color theme</p>
-            <Select value={theme} onValueChange={(value) => setTheme(value as Theme)}>
+            <Select
+              value={theme}
+              onValueChange={(value) => setTheme(value as Theme)}
+            >
               <SelectTrigger
                 className="w-full sm:w-72"
                 data-testid="appearance-theme-select"

@@ -331,9 +331,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
     page.getByRole("columnheader", { name: "Duration" }),
   ).toBeVisible()
   await expect(page.getByRole("cell", { name: "6:52" })).toBeVisible()
-  await expect(
-    page.getByText(/ago/),
-  ).toBeVisible()
+  await expect(page.getByText(/ago/)).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveClass(
     /server-selected_650ms_ease-out/,
   )

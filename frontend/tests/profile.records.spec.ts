@@ -128,8 +128,12 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   await expect(page.getByRole("columnheader", { name: "Time" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Points" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Server" })).toBeVisible()
-  await expect(page.getByRole("columnheader", { name: "Datetime" })).toBeVisible()
-  await expect(page.getByRole("columnheader", { name: "Player" })).toHaveCount(0)
+  await expect(
+    page.getByRole("columnheader", { name: "Datetime" }),
+  ).toBeVisible()
+  await expect(page.getByRole("columnheader", { name: "Player" })).toHaveCount(
+    0,
+  )
 
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
   await expect(page.getByText("kz_seed_beta")).toBeVisible()
@@ -200,6 +204,8 @@ test("Profile records page shows an error state when PB loading fails", async ({
   await page.goto(`${appUrl}/profile/${steamid64}/records`)
 
   await expect(
-    page.getByText("Failed to load profile records. Reload the page and try again."),
+    page.getByText(
+      "Failed to load profile records. Reload the page and try again.",
+    ),
   ).toBeVisible()
 })

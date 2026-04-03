@@ -27,7 +27,9 @@ test.describe("Profile and theme", () => {
     const steamid64 = randomSteamid64()
     await logInUser(page, steamid64)
     await page.goto("/settings")
-    await expect(page.locator("p.font-mono.text-sm")).toHaveText(String(steamid64))
+    await expect(page.locator("p.font-mono.text-sm")).toHaveText(
+      String(steamid64),
+    )
   })
 
   test("Theme selected in appearance settings is preserved across sessions", async ({
@@ -55,9 +57,9 @@ test.describe("Profile and theme", () => {
     await page.goto("/settings")
 
     await page.getByRole("tab", { name: "Appearance" }).click()
-    await expect(page.getByTestId("appearance-datetime-preset-select")).toContainText(
-      "ISO-like",
-    )
+    await expect(
+      page.getByTestId("appearance-datetime-preset-select"),
+    ).toContainText("ISO-like")
     await expect(
       page.getByTestId("appearance-datetime-preview-default"),
     ).toContainText("2026-03-22 14:05")
@@ -89,9 +91,9 @@ test.describe("Profile and theme", () => {
     ).toContainText("2026-03-22 02:05 PM")
     await page.getByTestId("appearance-hour-cycle-option-12h").click()
 
-    await expect(page.getByTestId("appearance-hour-cycle-select")).toContainText(
-      "12-hour",
-    )
+    await expect(
+      page.getByTestId("appearance-hour-cycle-select"),
+    ).toContainText("12-hour")
     await expect(
       page.getByTestId("appearance-datetime-preview-default"),
     ).toContainText("2026-03-22 02:05 PM")
@@ -104,12 +106,12 @@ test.describe("Profile and theme", () => {
 
     await page.reload()
     await page.getByRole("tab", { name: "Appearance" }).click()
-    await expect(page.getByTestId("appearance-datetime-preset-select")).toContainText(
-      "ISO-like",
-    )
-    await expect(page.getByTestId("appearance-hour-cycle-select")).toContainText(
-      "12-hour",
-    )
+    await expect(
+      page.getByTestId("appearance-datetime-preset-select"),
+    ).toContainText("ISO-like")
+    await expect(
+      page.getByTestId("appearance-hour-cycle-select"),
+    ).toContainText("12-hour")
 
     await page.goto("/admin/players")
     await expect(page.getByRole("heading", { name: "Players" })).toBeVisible()
