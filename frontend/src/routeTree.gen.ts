@@ -18,6 +18,8 @@ import { Route as ServersServerAddressRouteImport } from './routes/servers.$serv
 import { Route as MapsMapNameRouteImport } from './routes/maps.$mapName'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutLiveRouteImport } from './routes/_layout/live'
+import { Route as LayoutLeaderboardsRouteImport } from './routes/_layout/leaderboards'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutProfileSteamid64RouteImport } from './routes/_layout/profile.$steamid64'
@@ -70,6 +72,16 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLiveRoute = LayoutLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutLeaderboardsRoute = LayoutLeaderboardsRouteImport.update({
+  id: '/leaderboards',
+  path: '/leaderboards',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
@@ -128,6 +140,8 @@ export interface FileRoutesByFullPath {
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/dashboard': typeof LayoutDashboardRouteWithChildren
+  '/leaderboards': typeof LayoutLeaderboardsRoute
+  '/live': typeof LayoutLiveRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRoute
@@ -146,6 +160,8 @@ export interface FileRoutesByTo {
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/dashboard': typeof LayoutDashboardRouteWithChildren
+  '/leaderboards': typeof LayoutLeaderboardsRoute
+  '/live': typeof LayoutLiveRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRoute
@@ -166,6 +182,8 @@ export interface FileRoutesById {
   '/servers': typeof ServersRouteWithChildren
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
+  '/_layout/leaderboards': typeof LayoutLeaderboardsRoute
+  '/_layout/live': typeof LayoutLiveRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRoute
@@ -188,6 +206,8 @@ export interface FileRouteTypes {
     | '/servers'
     | '/admin'
     | '/dashboard'
+    | '/leaderboards'
+    | '/live'
     | '/settings'
     | '/auth/callback'
     | '/maps/$mapName'
@@ -206,6 +226,8 @@ export interface FileRouteTypes {
     | '/servers'
     | '/admin'
     | '/dashboard'
+    | '/leaderboards'
+    | '/live'
     | '/settings'
     | '/auth/callback'
     | '/maps/$mapName'
@@ -225,6 +247,8 @@ export interface FileRouteTypes {
     | '/servers'
     | '/_layout/admin'
     | '/_layout/dashboard'
+    | '/_layout/leaderboards'
+    | '/_layout/live'
     | '/_layout/settings'
     | '/auth/callback'
     | '/maps/$mapName'
@@ -310,6 +334,20 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof LayoutSettingsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/live': {
+      id: '/_layout/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LayoutLiveRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/leaderboards': {
+      id: '/_layout/leaderboards'
+      path: '/leaderboards'
+      fullPath: '/leaderboards'
+      preLoaderRoute: typeof LayoutLeaderboardsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/dashboard': {
@@ -425,6 +463,8 @@ const LayoutProfileSteamid64RouteWithChildren =
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
+  LayoutLeaderboardsRoute: typeof LayoutLeaderboardsRoute
+  LayoutLiveRoute: typeof LayoutLiveRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutProfileSteamid64Route: typeof LayoutProfileSteamid64RouteWithChildren
@@ -433,6 +473,8 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
   LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
+  LayoutLeaderboardsRoute: LayoutLeaderboardsRoute,
+  LayoutLiveRoute: LayoutLiveRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutProfileSteamid64Route: LayoutProfileSteamid64RouteWithChildren,
