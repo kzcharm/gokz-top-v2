@@ -1,6 +1,6 @@
 export type DateTimePreset = "iso" | "us" | "euro" | "long"
 
-export type DateTimeDisplay = "absolute" | "relative"
+export type DateTimeDisplay = "absolute" | "relative" | "contextual-relative"
 
 export type HourCyclePreference = "24h" | "12h"
 
@@ -25,8 +25,12 @@ export function getBrowserLocale() {
   return navigator.language
 }
 
-export function isDateTimePreset(value: string | null): value is DateTimePreset {
-  return value === "iso" || value === "us" || value === "euro" || value === "long"
+export function isDateTimePreset(
+  value: string | null,
+): value is DateTimePreset {
+  return (
+    value === "iso" || value === "us" || value === "euro" || value === "long"
+  )
 }
 
 export function isHourCyclePreference(
@@ -126,7 +130,11 @@ function toDate(value: string | Date | null | undefined) {
   return date
 }
 
-function getIsoLikeTime(date: Date, includeSeconds: boolean, hourCycle: HourCyclePreference) {
+function getIsoLikeTime(
+  date: Date,
+  includeSeconds: boolean,
+  hourCycle: HourCyclePreference,
+) {
   const minutes = padNumber(date.getMinutes())
   const seconds = padNumber(date.getSeconds())
 
@@ -171,6 +179,22 @@ function getIntlHourOptions(
   } as const
 }
 
+function formatTimeOnly({
+  date,
+  locale,
+  includeSeconds,
+  hourCycle,
+}: {
+  date: Date
+  locale: string
+  includeSeconds: boolean
+  hourCycle: HourCyclePreference
+}) {
+  return new Intl.DateTimeFormat(locale, {
+    ...getIntlHourOptions(includeSeconds, hourCycle),
+  }).format(date)
+}
+
 function formatAbsoluteDateTime({
   date,
   preset,
@@ -201,7 +225,6 @@ function formatAbsoluteDateTime({
         day: "2-digit",
         ...getIntlHourOptions(includeSeconds, hourCycle),
       }).format(date)
-    case "long":
     default:
       return new Intl.DateTimeFormat(locale, {
         year: "numeric",
@@ -220,7 +243,10 @@ function getRelativeUnit(diffInMs: number) {
       absoluteDiff >= relativeUnit.sizeInMs ||
       relativeUnit.unit === "second"
     ) {
-      const value = Math.max(1, Math.floor(absoluteDiff / relativeUnit.sizeInMs))
+      const value = Math.max(
+        1,
+        Math.floor(absoluteDiff / relativeUnit.sizeInMs),
+      )
       return {
         unit: relativeUnit.unit,
         value,
@@ -239,15 +265,16 @@ function formatEnglishRelativeTime(
   unit: SupportedRelativeUnit,
   isPast: boolean,
 ) {
-  const labels: Record<SupportedRelativeUnit, { one: string; other: string }> = {
-    year: { one: "year", other: "years" },
-    month: { one: "month", other: "months" },
-    week: { one: "week", other: "weeks" },
-    day: { one: "day", other: "days" },
-    hour: { one: "hour", other: "hours" },
-    minute: { one: "min", other: "min" },
-    second: { one: "second", other: "seconds" },
-  }
+  const labels: Record<SupportedRelativeUnit, { one: string; other: string }> =
+    {
+      year: { one: "year", other: "years" },
+      month: { one: "month", other: "months" },
+      week: { one: "week", other: "weeks" },
+      day: { one: "day", other: "days" },
+      hour: { one: "hour", other: "hours" },
+      minute: { one: "min", other: "min" },
+      second: { one: "second", other: "seconds" },
+    }
 
   const label = value === 1 ? labels[unit].one : labels[unit].other
   return isPast ? `${value} ${label} ago` : `in ${value} ${label}`
@@ -268,6 +295,73 @@ function formatRelativeDateTime(date: Date, locale: string) {
   })
 
   return formatter.format(isPast ? -value : value, unit)
+}
+
+function isSameLocalDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  )
+}
+
+function formatContextualRelativeDateTime({
+  date,
+  locale,
+  preset,
+  hourCycle,
+}: {
+  date: Date
+  locale: string
+  preset: DateTimePreset
+  hourCycle: HourCyclePreference
+}) {
+  const now = new Date()
+  const diffInMs = now.getTime() - date.getTime()
+
+  if (diffInMs < 0) {
+    return formatRelativeDateTime(date, locale)
+  }
+
+  if (diffInMs < MINUTE_IN_MS) {
+    const seconds = Math.max(1, Math.floor(diffInMs / SECOND_IN_MS))
+    return `${seconds} seconds ago`
+  }
+
+  if (diffInMs < HOUR_IN_MS) {
+    const minutes = Math.floor(diffInMs / MINUTE_IN_MS)
+    return `${minutes} min ago`
+  }
+
+  if (diffInMs < 2 * HOUR_IN_MS) {
+    const minutes = Math.floor((diffInMs - HOUR_IN_MS) / MINUTE_IN_MS)
+    return `1 hour ${minutes} min ago`
+  }
+
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  const formattedTime = formatTimeOnly({
+    date,
+    locale,
+    includeSeconds: false,
+    hourCycle,
+  })
+
+  if (isSameLocalDay(date, now)) {
+    return `Today at ${formattedTime}`
+  }
+
+  if (isSameLocalDay(date, yesterday)) {
+    return `Yesterday at ${formattedTime}`
+  }
+
+  return formatAbsoluteDateTime({
+    date,
+    preset,
+    locale,
+    includeSeconds: false,
+    hourCycle,
+  })
 }
 
 export function formatDateTimeWithPreset(
@@ -293,6 +387,15 @@ export function formatDateTimeWithPreset(
 
   if (display === "relative") {
     return formatRelativeDateTime(date, resolvedLocale)
+  }
+
+  if (display === "contextual-relative") {
+    return formatContextualRelativeDateTime({
+      date,
+      locale: resolvedLocale,
+      preset,
+      hourCycle,
+    })
   }
 
   return formatAbsoluteDateTime({

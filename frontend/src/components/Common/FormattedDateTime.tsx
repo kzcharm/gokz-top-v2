@@ -19,12 +19,15 @@ export function FormattedDateTime({
 }: FormattedDateTimeProps) {
   const { formatDateTime } = useDateTimeFormat()
   const formattedValue = formatDateTime(value, options)
+  const isRelativeDisplay =
+    options.display === "relative" || options.display === "contextual-relative"
   const hoverValue = formatDateTime(value, {
     ...options,
-    display: options.display === "relative" ? "absolute" : "relative",
+    display: isRelativeDisplay ? "absolute" : "relative",
   })
   const tooltipContent =
-    formattedValue !== hoverValue && hoverValue !== (options.fallback ?? "Unknown")
+    formattedValue !== hoverValue &&
+    hoverValue !== (options.fallback ?? "Unknown")
       ? hoverValue
       : undefined
 

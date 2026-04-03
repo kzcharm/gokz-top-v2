@@ -5,6 +5,7 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { TierBadge } from "@/components/Servers/TierBadge"
+import { Button } from "@/components/ui/button"
 import {
   Table,
   TableBody,
@@ -13,9 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import type { DateTimeDisplay } from "@/lib/date-time"
 import { truncateText } from "@/lib/utils"
-
-import { Button } from "@/components/ui/button"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import { TeleportsBadge } from "./TeleportsBadge"
@@ -43,6 +43,7 @@ interface PbRecordsTableProps {
   records: RecordPublic[]
   columns?: PbRecordsColumn[]
   emptyMessage?: string
+  dateTimeDisplay?: DateTimeDisplay
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
 }
@@ -98,6 +99,7 @@ export function PbRecordsTable({
     "datetime",
   ],
   emptyMessage = "No records found.",
+  dateTimeDisplay = "relative",
   sort,
   onSortChange,
 }: PbRecordsTableProps) {
@@ -278,7 +280,7 @@ export function PbRecordsTable({
                     <TableCell className="text-sm text-muted-foreground">
                       <FormattedDateTime
                         value={record.created_on}
-                        display="relative"
+                        display={dateTimeDisplay}
                         fallback="-"
                       />
                     </TableCell>
