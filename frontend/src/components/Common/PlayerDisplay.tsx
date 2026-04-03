@@ -210,7 +210,7 @@ export function PlayerDisplay({
       </div>
       <DropdownMenuContent
         side="right"
-        align="end"
+        align="start"
         sideOffset={10}
         className="min-w-44"
       >
