@@ -10,10 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ServersRouteImport } from './routes/servers'
+import { Route as MapsRouteImport } from './routes/maps'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as ServersServerAddressRouteImport } from './routes/servers.$serverAddress'
+import { Route as MapsMapNameRouteImport } from './routes/maps.$mapName'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
@@ -29,6 +31,11 @@ import { Route as LayoutProfileSteamid64RecordsRouteImport } from './routes/_lay
 const ServersRoute = ServersRouteImport.update({
   id: '/servers',
   path: '/servers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapsRoute = MapsRouteImport.update({
+  id: '/maps',
+  path: '/maps',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -49,6 +56,11 @@ const ServersServerAddressRoute = ServersServerAddressRouteImport.update({
   id: '/$serverAddress',
   path: '/$serverAddress',
   getParentRoute: () => ServersRoute,
+} as any)
+const MapsMapNameRoute = MapsMapNameRouteImport.update({
+  id: '/$mapName',
+  path: '/$mapName',
+  getParentRoute: () => MapsRoute,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
@@ -112,11 +124,13 @@ const LayoutProfileSteamid64RecordsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
   '/login': typeof LoginRoute
+  '/maps': typeof MapsRouteWithChildren
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
@@ -128,11 +142,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/maps': typeof MapsRouteWithChildren
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/': typeof LayoutIndexRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
@@ -146,11 +162,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
   '/login': typeof LoginRoute
+  '/maps': typeof MapsRouteWithChildren
   '/servers': typeof ServersRouteWithChildren
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
   '/_layout/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
@@ -166,11 +184,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/maps'
     | '/servers'
     | '/admin'
     | '/dashboard'
     | '/settings'
     | '/auth/callback'
+    | '/maps/$mapName'
     | '/servers/$serverAddress'
     | '/admin/players'
     | '/admin/users'
@@ -182,11 +202,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/maps'
     | '/servers'
     | '/admin'
     | '/dashboard'
     | '/settings'
     | '/auth/callback'
+    | '/maps/$mapName'
     | '/servers/$serverAddress'
     | '/'
     | '/admin/players'
@@ -199,11 +221,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_layout'
     | '/login'
+    | '/maps'
     | '/servers'
     | '/_layout/admin'
     | '/_layout/dashboard'
     | '/_layout/settings'
     | '/auth/callback'
+    | '/maps/$mapName'
     | '/servers/$serverAddress'
     | '/_layout/'
     | '/_layout/admin/players'
@@ -218,6 +242,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MapsRoute: typeof MapsRouteWithChildren
   ServersRoute: typeof ServersRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
 }
@@ -229,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/servers'
       fullPath: '/servers'
       preLoaderRoute: typeof ServersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/maps': {
+      id: '/maps'
+      path: '/maps'
+      fullPath: '/maps'
+      preLoaderRoute: typeof MapsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -258,6 +290,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/servers/$serverAddress'
       preLoaderRoute: typeof ServersServerAddressRouteImport
       parentRoute: typeof ServersRoute
+    }
+    '/maps/$mapName': {
+      id: '/maps/$mapName'
+      path: '/$mapName'
+      fullPath: '/maps/$mapName'
+      preLoaderRoute: typeof MapsMapNameRouteImport
+      parentRoute: typeof MapsRoute
     }
     '/auth/callback': {
       id: '/auth/callback'
@@ -402,6 +441,16 @@ const LayoutRouteChildren: LayoutRouteChildren = {
 const LayoutRouteWithChildren =
   LayoutRoute._addFileChildren(LayoutRouteChildren)
 
+interface MapsRouteChildren {
+  MapsMapNameRoute: typeof MapsMapNameRoute
+}
+
+const MapsRouteChildren: MapsRouteChildren = {
+  MapsMapNameRoute: MapsMapNameRoute,
+}
+
+const MapsRouteWithChildren = MapsRoute._addFileChildren(MapsRouteChildren)
+
 interface ServersRouteChildren {
   ServersServerAddressRoute: typeof ServersServerAddressRoute
 }
@@ -416,6 +465,7 @@ const ServersRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   LoginRoute: LoginRoute,
+  MapsRoute: MapsRouteWithChildren,
   ServersRoute: ServersRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
 }

@@ -1,5 +1,6 @@
 import {
   Home,
+  Map,
   Server,
   Settings,
   UserCircle2,
@@ -45,6 +46,7 @@ export function AppSidebar() {
       path: `/profile/${profileSteamid64}`,
       activePrefixes: ["/profile"],
     },
+    { type: "link", icon: Map, title: "Maps", path: "/maps" },
     { type: "link", icon: Server, title: "Servers", path: "/servers" },
     { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
   ]
