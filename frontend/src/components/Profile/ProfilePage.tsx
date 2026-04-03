@@ -2,15 +2,22 @@ import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import NotFound from "@/components/Common/NotFound"
+import { useScope } from "@/components/scope-provider"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 
 import { ProfileHomeContent } from "./ProfileHomeContent"
 import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileTabs } from "./ProfileTabs"
-import { fetchProfilePlayer, type ProfileTab } from "./profile-utils"
+import {
+  buildProfileCompletionData,
+  fetchProfilePlayer,
+  getProfilePbRecordsQueryOptions,
+  getProfileValidatedMapsQueryOptions,
+  type ProfileTab,
+} from "./profile-utils"
 
 function ProfileSkeleton() {
   return (
@@ -36,13 +43,32 @@ export function ProfilePage({
   activeTab: ProfileTab
 }) {
   const navigate = useNavigate()
+  const { scope } = useScope()
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],
     queryFn: () => fetchProfilePlayer(identifier),
     retry: false,
   })
+  const mapsQuery = useQuery(getProfileValidatedMapsQueryOptions())
   const canonicalIdentifier =
     playerQuery.data?.custom_id || playerQuery.data?.steamid64 || null
+  const playerSteamid64 = playerQuery.data?.steamid64 ?? null
+  const nubRecordsQuery = useQuery({
+    ...getProfilePbRecordsQueryOptions({
+      steamid64: playerSteamid64,
+      scope,
+      isProOnly: false,
+    }),
+    enabled: playerSteamid64 !== null,
+  })
+  const proRecordsQuery = useQuery({
+    ...getProfilePbRecordsQueryOptions({
+      steamid64: playerSteamid64,
+      scope,
+      isProOnly: true,
+    }),
+    enabled: playerSteamid64 !== null,
+  })
   const usesSidebarLayout = activeTab === "home" || activeTab === "records"
   const activeTabRoute =
     activeTab === "records"
@@ -62,6 +88,20 @@ export function ProfilePage({
       replace: true,
     })
   }, [activeTabRoute, canonicalIdentifier, identifier, navigate])
+
+  const completion = useMemo(() => {
+    return buildProfileCompletionData({
+      maps: mapsQuery.data ?? [],
+      nubRecords: nubRecordsQuery.data ?? [],
+      proRecords: proRecordsQuery.data ?? [],
+      scope,
+    })
+  }, [mapsQuery.data, nubRecordsQuery.data, proRecordsQuery.data, scope])
+
+  const completionLoading =
+    mapsQuery.isLoading || nubRecordsQuery.isLoading || proRecordsQuery.isLoading
+  const completionError =
+    mapsQuery.isError || nubRecordsQuery.isError || proRecordsQuery.isError
 
   if (playerQuery.isLoading) {
     return <ProfileSkeleton />
@@ -93,7 +133,11 @@ export function ProfilePage({
 
           <section className="space-y-6">
             {activeTab === "home" ? (
-              <ProfileHomeContent />
+              <ProfileHomeContent
+                completion={completion}
+                completionLoading={completionLoading}
+                completionError={completionError}
+              />
             ) : (
               <ProfileRecordsTab steamid64={player.steamid64} />
             )}
