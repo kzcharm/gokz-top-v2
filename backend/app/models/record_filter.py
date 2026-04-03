@@ -12,6 +12,7 @@ class RecordFilterBase(SQLModel):
     mode_id: int = Field(foreign_key="mode.id", sa_type=Integer)
     tickrate: int = Field(ge=1, sa_type=Integer)
     has_teleports: bool = Field(default=False, sa_type=Boolean)
+    tier: int | None = Field(default=None, ge=0, le=8, sa_type=Integer)
     created_on: datetime = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]

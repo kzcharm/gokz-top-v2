@@ -31,6 +31,7 @@ async def _to_record_public(
     session: SessionDep,
     record: Record,
     *,
+    map_tier: int,
     points: int,
 ) -> RecordPublic:
     player = await session.get(Player, record.steamid64)
@@ -45,6 +46,7 @@ async def _to_record_public(
         server=server,
         map_obj=map_obj,
         mode=mode,
+        map_tier=map_tier,
         points=points,
     )
 
@@ -60,10 +62,16 @@ async def _to_record_publics(
         record_uuids=[record.uuid for record in records],
         scope=scope,
     )
+    tiers_by_course = await crud.load_scoped_course_tiers(
+        session=session,
+        course_keys=[(record.map_id, record.stage) for record in records],
+        scope=scope,
+    )
     return [
         await _to_record_public(
             session,
             record,
+            map_tier=tiers_by_course[(record.map_id, record.stage)],
             points=points_by_uuid.get(record.uuid, 0),
         )
         for record in records
