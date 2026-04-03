@@ -147,7 +147,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   })
 
   await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
-    const name = decodeURIComponent(route.request().url().split("/name/")[1] ?? "")
+    const name = decodeURIComponent(
+      route.request().url().split("/name/")[1] ?? "",
+    )
     const map = seededMaps.find((entry) => entry.name === name)
 
     if (!map) {
@@ -329,7 +331,5 @@ test("Map detail shows leaderboard error state when PB loading fails", async ({
 
   await page.goto(`/maps/${seededMaps[0].name}`)
 
-  await expect(
-    page.getByText("Unable to load map leaderboard"),
-  ).toBeVisible()
+  await expect(page.getByText("Unable to load map leaderboard")).toBeVisible()
 })

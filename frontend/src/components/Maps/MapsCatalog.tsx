@@ -128,7 +128,7 @@ export function MapsCatalog() {
     startTransition(() => {
       setPage(1)
     })
-  }, [deferredSearch, scope, sort])
+  }, [])
 
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
