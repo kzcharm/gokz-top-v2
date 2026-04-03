@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { startTransition, useEffect, useMemo, useRef, useState } from "react"
 
-import { type RecordPublic, RecordsService } from "@/client"
+import { type RecordPublic } from "@/client"
 import {
   type PbRecordsColumn,
   type PbRecordsSortState,
@@ -13,8 +13,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
+import { getProfilePbRecordsQueryOptions } from "./profile-utils"
 
-const PROFILE_RECORDS_LIMIT = 10_000
 const PROFILE_RECORDS_PAGE_SIZE = 50
 
 function compareStrings(left: string, right: string) {
@@ -91,16 +91,11 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
   const recordsQuery = useQuery({
-    queryKey: ["profile-records", steamid64, scope, isProOnly],
-    queryFn: () =>
-      RecordsService.readPbRecords({
-        steamid64,
-        scope,
-        stage: 0,
-        isProOnly,
-        limit: PROFILE_RECORDS_LIMIT,
-      }),
-    retry: 1,
+    ...getProfilePbRecordsQueryOptions({
+      steamid64,
+      scope,
+      isProOnly,
+    }),
   })
 
   const sortedRecords = useMemo(() => {

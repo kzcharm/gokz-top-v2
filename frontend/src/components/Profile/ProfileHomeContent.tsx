@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react"
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
 import {
@@ -10,6 +12,7 @@ import {
 import {
   formatCompactPercent,
   formatNumber,
+  type ProfileCompletionData,
   profileBadgeToneClasses,
 } from "./profile-utils"
 
@@ -48,6 +51,9 @@ function CompletionCard({
     color: string
   }>
 }) {
+  const progress =
+    total === 0 ? formatCompactPercent(0) : formatCompactPercent(completed / total)
+
   return (
     <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
@@ -57,7 +63,7 @@ function CompletionCard({
               {title}
             </p>
             <p className="mt-3 text-3xl font-semibold tracking-tight">
-              {formatCompactPercent(completed / total)}
+              {progress}
             </p>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -66,7 +72,7 @@ function CompletionCard({
         </div>
         <div className="space-y-1.5">
           {tiers.map((tier) => {
-            const width = `${(tier.complete / tier.total) * 100}%`
+            const width = `${tier.total === 0 ? 0 : (tier.complete / tier.total) * 100}%`
             return (
               <div
                 key={tier.label}
@@ -90,6 +96,34 @@ function CompletionCard({
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function CompletionCardsSkeleton() {
+  return (
+    <div className="grid gap-6 2xl:grid-cols-2">
+      {Array.from({ length: 2 }, (_, index) => (
+        <Card
+          key={index}
+          className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0"
+        >
+          <CardContent className="space-y-5 p-6">
+            <div className="flex items-end justify-between gap-4">
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-9 w-24" />
+              </div>
+              <Skeleton className="h-5 w-20" />
+            </div>
+            <div className="space-y-2">
+              {Array.from({ length: 8 }, (_, tierIndex) => (
+                <Skeleton key={tierIndex} className="h-5 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   )
 }
 
@@ -215,7 +249,15 @@ function PinnedRecordsCard() {
   )
 }
 
-export function ProfileHomeContent() {
+export function ProfileHomeContent({
+  completion,
+  completionLoading,
+  completionError,
+}: {
+  completion: ProfileCompletionData
+  completionLoading: boolean
+  completionError: boolean
+}) {
   const placeholder = profileHomePlaceholder
 
   return (
@@ -232,20 +274,32 @@ export function ProfileHomeContent() {
         />
       </div>
 
-      <div className="grid gap-6 2xl:grid-cols-2">
-        <CompletionCard
-          title="Overall completion"
-          completed={placeholder.completion.overall.completed}
-          total={placeholder.completion.overall.total}
-          tiers={placeholder.completion.overall.tiers}
-        />
-        <CompletionCard
-          title="Pro completion"
-          completed={placeholder.completion.pro.completed}
-          total={placeholder.completion.pro.total}
-          tiers={placeholder.completion.pro.tiers}
-        />
-      </div>
+      {completionError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load completion progress</AlertTitle>
+          <AlertDescription>
+            The profile completion bars could not be loaded. Reload the page and
+            try again.
+          </AlertDescription>
+        </Alert>
+      ) : completionLoading ? (
+        <CompletionCardsSkeleton />
+      ) : (
+        <div className="grid gap-6 2xl:grid-cols-2">
+          <CompletionCard
+            title="NUB completion"
+            completed={completion.nub.completed}
+            total={completion.nub.total}
+            tiers={completion.nub.tiers}
+          />
+          <CompletionCard
+            title="PRO completion"
+            completed={completion.pro.completed}
+            total={completion.pro.total}
+            tiers={completion.pro.tiers}
+          />
+        </div>
+      )}
 
       <ActivityCard />
       <PinnedRecordsCard />
