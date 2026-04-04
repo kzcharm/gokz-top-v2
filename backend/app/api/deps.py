@@ -15,6 +15,7 @@ from app.core.db import async_session_maker
 from app.models import TokenPayload, User
 
 security_scheme = HTTPBearer()
+optional_security_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession]:
@@ -32,6 +33,17 @@ def get_token(
 
 
 TokenDep = Annotated[str, Depends(get_token)]
+
+
+def get_optional_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security_scheme),
+) -> str | None:
+    if credentials is None:
+        return None
+    return credentials.credentials
+
+
+OptionalTokenDep = Annotated[str | None, Depends(get_optional_token)]
 
 
 async def get_current_user(session: SessionDep, token: TokenDep) -> User:
@@ -73,7 +85,17 @@ async def get_current_user(session: SessionDep, token: TokenDep) -> User:
     return user
 
 
+async def get_optional_current_user(
+    session: SessionDep,
+    token: OptionalTokenDep,
+) -> User | None:
+    if token is None:
+        return None
+    return await get_current_user(session=session, token=token)
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
+OptionalCurrentUser = Annotated[User | None, Depends(get_optional_current_user)]
 
 
 def get_current_active_superuser(current_user: CurrentUser) -> User:
