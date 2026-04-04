@@ -70,6 +70,16 @@ def test_calculate_fallback_dist_points_portion_is_monotonic() -> None:
     assert 0.0 < slower < fastest
 
 
+def test_calculate_fallback_dist_points_portion_handles_extreme_outliers() -> None:
+    portion = calculate_fallback_dist_points_portion(
+        time_ms=10_000_000_000,
+        wr_time_ms=1,
+        tier=1,
+    )
+
+    assert portion == pytest.approx(0.0)
+
+
 def test_calculate_bucket_points_clamps_to_public_range() -> None:
     leader_uuid = uuid.uuid4()
     trailing_uuid = uuid.uuid4()

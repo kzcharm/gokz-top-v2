@@ -66,7 +66,16 @@ def calculate_fallback_dist_points_portion(
     scale = 2.1 - 0.25 * min(max(tier, 1), 8)
     time_ratio = time_ms / wr_time_ms
     numerator = 1 + math.exp(scale * -0.5)
-    denominator = 1 + math.exp(scale * (time_ratio - 1.5))
+    exponent = scale * (time_ratio - 1.5)
+
+    # Keep the logistic-style fallback stable for pathological outliers whose
+    # time ratios would otherwise overflow exp() on the denominator side.
+    if exponent >= 0:
+        exp_neg_exponent = math.exp(-exponent) if math.isfinite(exponent) else 0.0
+        portion = numerator * exp_neg_exponent / (1 + exp_neg_exponent)
+        return min(max(portion, 0.0), 1.0)
+
+    denominator = 1 + math.exp(exponent)
     if denominator == 0:
         return 0.0
     return min(max(numerator / denominator, 0.0), 1.0)
