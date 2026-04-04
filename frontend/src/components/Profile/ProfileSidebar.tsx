@@ -1,16 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import type { ReactNode } from "react"
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useState } from "react"
 
-import { ApiError, type PlayerPublic, PlayersService } from "@/client"
+import type { PlayerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import {
+  PlayerContextMenuItems,
+  PlayerFollowContextMenuItem,
+} from "@/components/Common/PlayerDisplay"
 import { Card, CardContent } from "@/components/ui/card"
-import { LoadingButton } from "@/components/ui/loading-button"
-import useAuth, { isLoggedIn } from "@/hooks/useAuth"
-import useCustomToast from "@/hooks/useCustomToast"
-import { getSteamid64FromAccessToken } from "@/lib/auth"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { isLoggedIn } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -24,70 +30,112 @@ import {
   formatNumber,
   formatRatingBadge,
   getAvatarUrl,
-  getFollowButtonLabel,
   getFollowSummaryCount,
   getProfileFollowSummaryQueryOptions,
   profileBadgeToneClasses,
 } from "./profile-utils"
 
 function ProfileIdentityCard({
-  buttonLabel,
-  followDisabled,
-  isFollowing,
-  followLoading,
-  onFollowClick,
+  displayName,
+  onContextMenuOpenChange,
+  openContextMenu,
   player,
-  showFollowButton,
 }: {
-  buttonLabel: string
-  followDisabled: boolean
-  isFollowing: boolean
-  followLoading: boolean
-  onFollowClick: () => void
+  displayName: string
+  onContextMenuOpenChange: (open: boolean) => void
+  openContextMenu: boolean
   player: PlayerPublic
-  showFollowButton: boolean
 }) {
   const avatarUrl = getAvatarUrl(player)
   const summary = profileHomePlaceholder.summary
+  const hasProfileLink = /^\d{17}$/.test(player.steamid64)
+  const steamProfileUrl = hasProfileLink
+    ? `https://steamcommunity.com/profiles/${player.steamid64}`
+    : null
+
+  const handleIdentityContextMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    onContextMenuOpenChange(true)
+  }
+
+  const handleIdentityKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (
+      event.key !== "ContextMenu" &&
+      !(event.shiftKey && event.key === "F10")
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    onContextMenuOpenChange(true)
+  }
 
   return (
-    <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
-      <CardContent className="relative space-y-6 p-6">
-        <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(127,119,221,0.2),transparent_42%),radial-gradient(circle_at_75%_20%,rgba(29,158,117,0.16),transparent_28%)]" />
+    <DropdownMenu
+      modal={false}
+      open={openContextMenu}
+      onOpenChange={onContextMenuOpenChange}
+    >
+      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="relative space-y-6 p-6">
+          <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(127,119,221,0.2),transparent_42%),radial-gradient(circle_at_75%_20%,rgba(29,158,117,0.16),transparent_28%)]" />
 
-        <div className="relative flex flex-col items-center gap-4 text-center">
-          <div className="relative">
-            <div className="absolute -inset-2 rounded-[28px] bg-[radial-gradient(circle,rgba(127,119,221,0.28),transparent_72%)] blur-2xl" />
-            <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-[24px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={`${player.name} avatar`}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-3xl font-semibold text-white">
-                  {getInitials(player.alias || player.name)}
-                </span>
+          <div className="relative flex flex-col items-center gap-4 text-center">
+            <div
+              className={cn(
+                "relative flex flex-col items-center gap-4 rounded-[24px]",
+                "focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-ring",
               )}
-              <span className="absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full border-2 border-card bg-emerald-500" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-center gap-2">
-                <CountryFlag
-                  countryCode={player.country}
-                  className="h-5 w-7 rounded-[4px]"
-                  fallbackClassName="h-5 w-7 rounded-[4px]"
-                  showTooltip={false}
+            >
+              <DropdownMenuTrigger asChild>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 block"
                 />
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  {player.alias || player.name}
-                </h1>
+              </DropdownMenuTrigger>
+              <button
+                type="button"
+                aria-label={`Open profile actions for ${player.alias || player.name}`}
+                className="absolute inset-0 z-10 rounded-[24px] focus-visible:outline-none"
+                data-testid="profile-identity-surface"
+                onContextMenu={handleIdentityContextMenu}
+                onKeyDown={handleIdentityKeyDown}
+              />
+
+              <div className="relative">
+                <div className="absolute -inset-2 rounded-[28px] bg-[radial-gradient(circle,rgba(127,119,221,0.28),transparent_72%)] blur-2xl" />
+                <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-[24px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={`${player.name} avatar`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl font-semibold text-white">
+                      {getInitials(player.alias || player.name)}
+                    </span>
+                  )}
+                  <span className="absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full border-2 border-card bg-emerald-500" />
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">{player.name}</p>
+
+              <div className="space-y-2">
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-center gap-2">
+                    <CountryFlag
+                      countryCode={player.country}
+                      className="h-5 w-7 rounded-[4px]"
+                      fallbackClassName="h-5 w-7 rounded-[4px]"
+                      showTooltip={false}
+                    />
+                    <h1 className="text-3xl font-semibold tracking-tight">
+                      {player.alias || player.name}
+                    </h1>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{player.name}</p>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap justify-center gap-2 pt-2">
@@ -101,24 +149,31 @@ function ProfileIdentityCard({
                 EU #{formatNumber(summary.regionalRank)}
               </span>
             </div>
-
-            {showFollowButton ? (
-              <LoadingButton
-                type="button"
-                variant={isFollowing ? "outline" : "default"}
-                className="min-w-40 rounded-full"
-                data-testid="profile-follow-button"
-                disabled={followDisabled}
-                loading={followLoading}
-                onClick={onFollowClick}
-              >
-                {buttonLabel}
-              </LoadingButton>
-            ) : null}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <DropdownMenuContent
+        align="center"
+        className="min-w-44"
+        data-testid="profile-identity-context-menu"
+        side="bottom"
+        sideOffset={12}
+      >
+        <PlayerContextMenuItems
+          displayName={displayName}
+          hasProfileLink={hasProfileLink}
+          steamProfileUrl={steamProfileUrl}
+          steamid64={player.steamid64}
+        >
+          <PlayerFollowContextMenuItem
+            menuOpen={openContextMenu}
+            steamid64={player.steamid64}
+            testId="profile-follow-menu-item"
+          />
+        </PlayerContextMenuItems>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -272,20 +327,6 @@ function SkillRadar() {
   )
 }
 
-function getApiErrorMessage(error: unknown) {
-  if (error instanceof ApiError) {
-    const detail =
-      typeof error.body === "object" &&
-      error.body !== null &&
-      "detail" in error.body
-        ? error.body.detail
-        : null
-    return typeof detail === "string" ? detail : error.message
-  }
-
-  return error instanceof Error ? error.message : "Request failed"
-}
-
 export function ProfileSidebar({
   identifier,
   player,
@@ -296,60 +337,15 @@ export function ProfileSidebar({
   const summary = profileHomePlaceholder.summary
   const authenticated = isLoggedIn()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { user } = useAuth()
-  const { showErrorToast } = useCustomToast()
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
-  const viewerSteamid64 = authenticated
-    ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
-    : null
+  const [identityContextMenuOpen, setIdentityContextMenuOpen] = useState(false)
   const followSummaryQuery = useQuery(
     getProfileFollowSummaryQueryOptions(identifier),
   )
   const followSummary = followSummaryQuery.data
-  const isOwnProfile =
-    viewerSteamid64 === player.steamid64 ||
-    user?.steamid64 === player.steamid64 ||
-    followSummary?.viewer_is_self === true
-  const isFollowing = followSummary?.viewer_is_following === true
   const followerCount = getFollowSummaryCount(followSummary, "follower_count")
   const followingCount = getFollowSummaryCount(followSummary, "following_count")
-  const followButtonLabel = getFollowButtonLabel({
-    authenticated,
-    isFollowing,
-  })
-  const followMutation = useMutation({
-    mutationFn: async () => {
-      return isFollowing
-        ? await PlayersService.unfollowPlayer({ identifier })
-        : await PlayersService.followPlayer({ identifier })
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["profile-follow-summary", identifier], data)
-      void queryClient.invalidateQueries({
-        queryKey: ["profile-social", "followers", identifier],
-      })
-      void queryClient.invalidateQueries({
-        queryKey: ["profile-social", "following", identifier],
-      })
-    },
-    onError: (error) => {
-      showErrorToast(getApiErrorMessage(error))
-    },
-  })
-
-  const handleFollowClick = () => {
-    if (!authenticated) {
-      void navigate({ to: "/login" })
-      return
-    }
-    if (isOwnProfile || followMutation.isPending) {
-      return
-    }
-
-    followMutation.mutate()
-  }
 
   const handleOpenSocial = (tab: ProfileSocialTab) => {
     if (!authenticated) {
@@ -364,18 +360,10 @@ export function ProfileSidebar({
   return (
     <div className="space-y-6">
       <ProfileIdentityCard
-        buttonLabel={followButtonLabel}
-        followDisabled={
-          authenticated &&
-          (!followSummary ||
-            followSummaryQuery.isLoading ||
-            followMutation.isPending)
-        }
-        isFollowing={isFollowing}
-        followLoading={followMutation.isPending}
-        onFollowClick={handleFollowClick}
+        displayName={player.alias || player.name}
+        onContextMenuOpenChange={setIdentityContextMenuOpen}
+        openContextMenu={identityContextMenuOpen}
         player={player}
-        showFollowButton={!isOwnProfile}
       />
 
       <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">

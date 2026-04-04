@@ -1,0 +1,235 @@
+import { useInfiniteQuery } from "@tanstack/react-query"
+import type { PlayerPublic } from "@/client"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+import {
+  fetchProfileFollowers,
+  fetchProfileFollowing,
+  formatNumber,
+  PROFILE_SOCIAL_PAGE_LIMIT,
+} from "./profile-utils"
+
+export type ProfileSocialTab = "followers" | "following"
+
+type SocialPage = {
+  data: PlayerPublic[]
+  count: number
+}
+
+function SocialList({
+  active,
+  emptyLabel,
+  hasMore,
+  isError,
+  isFetchingNextPage,
+  isLoading,
+  players,
+  onLoadMore,
+}: {
+  active: boolean
+  emptyLabel: string
+  hasMore: boolean
+  isError: boolean
+  isFetchingNextPage: boolean
+  isLoading: boolean
+  players: PlayerPublic[]
+  onLoadMore: () => void
+}) {
+  if (!active) {
+    return null
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3 py-2">
+        {Array.from({ length: 3 }, (_, index) => (
+          <div
+            key={index}
+            className="h-16 animate-pulse rounded-2xl border border-border/60 bg-muted/50"
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 px-4 py-6 text-sm text-muted-foreground">
+        Failed to load this list.
+      </div>
+    )
+  }
+
+  if (players.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+        {emptyLabel}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {players.map((player) => (
+          <div
+            key={player.steamid64}
+            className="rounded-2xl border border-border/70 bg-card/70 p-3"
+            data-testid={`profile-social-row-${player.steamid64}`}
+          >
+            <PlayerDisplay player={player} showSteamid />
+          </div>
+        ))}
+      </div>
+
+      {hasMore ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={onLoadMore}
+          disabled={isFetchingNextPage}
+        >
+          {isFetchingNextPage ? "Loading..." : "Load more"}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+function useSocialList({
+  enabled,
+  identifier,
+  kind,
+}: {
+  enabled: boolean
+  identifier: string
+  kind: ProfileSocialTab
+}) {
+  return useInfiniteQuery({
+    queryKey: ["profile-social", kind, identifier],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      kind === "followers"
+        ? fetchProfileFollowers({ identifier, offset: pageParam })
+        : fetchProfileFollowing({ identifier, offset: pageParam }),
+    getNextPageParam: (lastPage: SocialPage, allPages: SocialPage[]) => {
+      const loadedCount = allPages.reduce(
+        (total, page) => total + page.data.length,
+        0,
+      )
+      return loadedCount < lastPage.count ? loadedCount : undefined
+    },
+    enabled,
+    staleTime: 30_000,
+  })
+}
+
+export function ProfileSocialDialog({
+  followerCount,
+  followingCount,
+  identifier,
+  onOpenChange,
+  open,
+  tab,
+  onTabChange,
+}: {
+  followerCount: number
+  followingCount: number
+  identifier: string
+  onOpenChange: (open: boolean) => void
+  open: boolean
+  tab: ProfileSocialTab
+  onTabChange: (tab: ProfileSocialTab) => void
+}) {
+  const followersQuery = useSocialList({
+    enabled: open && tab === "followers",
+    identifier,
+    kind: "followers",
+  })
+  const followingQuery = useSocialList({
+    enabled: open && tab === "following",
+    identifier,
+    kind: "following",
+  })
+
+  const followerPages = followersQuery.data?.pages ?? []
+  const followingPages = followingQuery.data?.pages ?? []
+  const followers = followerPages.flatMap((page) => page.data)
+  const following = followingPages.flatMap((page) => page.data)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+        data-testid="profile-social-dialog"
+      >
+        <DialogHeader>
+          <DialogTitle>Profile Connections</DialogTitle>
+          <DialogDescription>
+            Browse who follows this player and who they follow.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs
+          value={tab}
+          onValueChange={(value) => onTabChange(value as ProfileSocialTab)}
+          className="gap-4"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="followers">
+              Followers {formatNumber(followerCount)}
+            </TabsTrigger>
+            <TabsTrigger value="following">
+              Following {formatNumber(followingCount)}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="followers" className="space-y-4">
+            <SocialList
+              active={tab === "followers"}
+              emptyLabel="No followers yet."
+              hasMore={followersQuery.hasNextPage ?? false}
+              isError={followersQuery.isError}
+              isFetchingNextPage={followersQuery.isFetchingNextPage}
+              isLoading={followersQuery.isLoading}
+              players={followers}
+              onLoadMore={() => {
+                void followersQuery.fetchNextPage()
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="following" className="space-y-4">
+            <SocialList
+              active={tab === "following"}
+              emptyLabel="This player is not following anyone yet."
+              hasMore={followingQuery.hasNextPage ?? false}
+              isError={followingQuery.isError}
+              isFetchingNextPage={followingQuery.isFetchingNextPage}
+              isLoading={followingQuery.isLoading}
+              players={following}
+              onLoadMore={() => {
+                void followingQuery.fetchNextPage()
+              }}
+            />
+          </TabsContent>
+        </Tabs>
+
+        <p className="text-xs text-muted-foreground">
+          Showing up to {PROFILE_SOCIAL_PAGE_LIMIT} players per page. Click any
+          entry to open that profile.
+        </p>
+      </DialogContent>
+    </Dialog>
+  )
+}
