@@ -391,7 +391,7 @@ export type LeaderboardsReadPlayerLeaderboardData = {
     offset?: number;
     scope?: RecordScope;
     sortBy?: 'rating' | 'rating_easy' | 'rating_hard' | 'points' | 'wrs_nub' | 'wrs_pro' | 'records_900_plus' | 'records_800_plus' | 'unique_map_finishes';
-    sortOrder?: 'asc' | 'desc';
+    sortOrder?: "desc";
 };
 
 export type LeaderboardsReadPlayerLeaderboardResponse = (PlayerLeaderboardsPublic);

@@ -136,4 +136,4 @@ class PlayerLeaderboardListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)
     sort_by: LeaderboardPlayerSortBy = "rating"
-    sort_order: Literal["asc", "desc"] = "desc"
+    sort_order: Literal["desc"] = "desc"

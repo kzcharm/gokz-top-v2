@@ -55,32 +55,27 @@ function LeaderboardsRoute() {
     sorting[0]?.id === "unique_map_finishes"
       ? sorting[0].id
       : "rating"
-  const sortOrder = sorting[0]?.desc ? "desc" : "asc"
 
   const leaderboardQuery = useQuery({
-    queryKey: [
-      "leaderboards",
-      "players",
-      scope,
-      pageIndex,
-      pageSize,
-      sortBy,
-      sortOrder,
-    ],
+    queryKey: ["leaderboards", "players", scope, pageIndex, pageSize, sortBy],
     queryFn: () =>
       LeaderboardsService.readPlayerLeaderboard({
         scope,
         offset: pageIndex * pageSize,
         limit: pageSize,
         sortBy,
-        sortOrder,
+        sortOrder: "desc",
       }),
   })
 
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
     const next = functionalUpdate(updater, sorting)
-    const nextSort =
-      next.length > 0 ? [next[0]] : [{ id: "rating", desc: true }]
+    const nextSort = [
+      {
+        id: next[0]?.id ?? sorting[0]?.id ?? "rating",
+        desc: true,
+      },
+    ]
     setSorting(nextSort)
     setPageIndex(0)
   }
@@ -102,19 +97,7 @@ function LeaderboardsRoute() {
     <div className="space-y-6">
       <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="space-y-3 p-6 sm:p-8">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Leaderboards
-            </h1>
-            <p className="max-w-3xl text-sm text-muted-foreground sm:text-base">
-              Competitive ratings and milestone counts for the active scope. The
-              current scope filter comes from the global scope selector in the
-              app header.
-            </p>
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Active scope: {scope}
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">Leaderboards</h1>
         </CardContent>
       </Card>
 

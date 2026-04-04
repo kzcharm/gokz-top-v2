@@ -341,9 +341,7 @@ async def read_player_leaderboard(
     query: PlayerLeaderboardListQuery,
 ) -> tuple[list[PlayerLeaderboardEntryPublic], int]:
     sort_column = col(getattr(LeaderboardPlayer, query.sort_by))
-    sort_expression = (
-        sort_column.asc() if query.sort_order == "asc" else sort_column.desc()
-    )
+    sort_expression = sort_column.desc()
     rank_subquery = (
         select(
             LeaderboardPlayer,
