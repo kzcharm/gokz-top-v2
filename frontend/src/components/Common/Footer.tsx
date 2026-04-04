@@ -8,8 +8,7 @@ export function Footer() {
       <div className="mx-auto flex w-full max-w-7xl items-center justify-center text-center text-sm text-muted-foreground">
         <div className="inline-flex flex-wrap items-center justify-center gap-2 leading-none">
           <span>
-            {SITE_NAME} {getCopyrightYearRange()} | Questions, feedback, or need
-            support?
+            {SITE_NAME} {getCopyrightYearRange()} |
           </span>
           <a
             href="https://discord.gg/RmkKqq9GBk"
