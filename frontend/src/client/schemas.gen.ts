@@ -327,6 +327,51 @@ export const ModePublicSchema = {
     title: 'ModePublic'
 } as const;
 
+export const PlayerFollowSummaryPublicSchema = {
+    properties: {
+        follower_count: {
+            type: 'integer',
+            title: 'Follower Count',
+            default: 0
+        },
+        following_count: {
+            type: 'integer',
+            title: 'Following Count',
+            default: 0
+        },
+        viewer_is_following: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Viewer Is Following'
+        },
+        viewer_is_self: {
+            type: 'boolean',
+            title: 'Viewer Is Self',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'PlayerFollowSummaryPublic'
+} as const;
+
+export const PlayerProfileViewsPublicSchema = {
+    properties: {
+        profile_views: {
+            type: 'integer',
+            title: 'Profile Views',
+            default: 0
+        }
+    },
+    type: 'object',
+    title: 'PlayerProfileViewsPublic'
+} as const;
+
 export const PlayerPublicSchema = {
     properties: {
         name: {
@@ -421,6 +466,11 @@ export const PlayerPublicSchema = {
         steamid64: {
             type: 'string',
             title: 'Steamid64'
+        },
+        profile_views: {
+            type: 'integer',
+            title: 'Profile Views',
+            default: 0
         }
     },
     type: 'object',

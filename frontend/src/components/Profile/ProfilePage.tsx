@@ -1,10 +1,12 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useRef } from "react"
+import { type PlayerPublic, PlayersService } from "@/client"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import NotFound from "@/components/Common/NotFound"
 import { useScope } from "@/components/scope-provider"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getSteamid64FromAccessToken } from "@/lib/auth"
 
 import { ProfileHomeContent } from "./ProfileHomeContent"
 import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
@@ -43,7 +45,9 @@ export function ProfilePage({
   activeTab: ProfileTab
 }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { scope } = useScope()
+  const recordedProfileViewsRef = useRef<Set<string>>(new Set())
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],
     queryFn: () => fetchProfilePlayer(identifier),
@@ -89,6 +93,56 @@ export function ProfilePage({
     })
   }, [activeTabRoute, canonicalIdentifier, identifier, navigate])
 
+  useEffect(() => {
+    if (
+      !canonicalIdentifier ||
+      identifier !== canonicalIdentifier ||
+      !playerSteamid64
+    ) {
+      return
+    }
+
+    const viewerSteamid64 = getSteamid64FromAccessToken(
+      localStorage.getItem("access_token"),
+    )
+    if (!viewerSteamid64 || viewerSteamid64 === playerSteamid64) {
+      return
+    }
+
+    if (recordedProfileViewsRef.current.has(playerSteamid64)) {
+      return
+    }
+    recordedProfileViewsRef.current.add(playerSteamid64)
+
+    void PlayersService.createPlayerView({
+      identifier: playerSteamid64,
+    })
+      .then((response) => {
+        const applyProfileViews = (current: PlayerPublic | undefined) =>
+          current
+            ? {
+                ...current,
+                profile_views:
+                  response.profile_views ?? current.profile_views ?? 0,
+              }
+            : current
+
+        queryClient.setQueryData<PlayerPublic>(
+          ["profile-player", identifier],
+          applyProfileViews,
+        )
+        if (canonicalIdentifier !== identifier) {
+          queryClient.setQueryData<PlayerPublic>(
+            ["profile-player", canonicalIdentifier],
+            applyProfileViews,
+          )
+        }
+      })
+      .catch(() => {
+        recordedProfileViewsRef.current.delete(playerSteamid64)
+      })
+  }, [canonicalIdentifier, identifier, playerSteamid64, queryClient])
+
   const completion = useMemo(() => {
     return buildProfileCompletionData({
       maps: mapsQuery.data ?? [],
@@ -130,7 +184,7 @@ export function ProfilePage({
       {usesSidebarLayout ? (
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside>
-            <ProfileSidebar player={player} />
+            <ProfileSidebar identifier={canonicalIdentifier} player={player} />
           </aside>
 
           <section className="space-y-6">

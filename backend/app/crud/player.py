@@ -9,6 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.models import Player, PlayerPublic, PlayerUpdate
 from app.models.player import validate_player_custom_id
+from app.crud.player_profile_view import count_player_profile_views
 
 
 def normalize_custom_id(custom_id: str | None) -> str | None:
@@ -227,7 +228,7 @@ async def update_player(
     return db_player
 
 
-def to_player_public(*, player: Player) -> PlayerPublic:
+def to_player_public(*, player: Player, profile_views: int = 0) -> PlayerPublic:
     return PlayerPublic(
         steamid64=str(player.steamid64),
         name=player.name,
@@ -238,4 +239,17 @@ def to_player_public(*, player: Player) -> PlayerPublic:
         created_at=player.created_at,
         last_played_at=player.last_played_at,
         updated_at=player.updated_at,
+        profile_views=profile_views,
     )
+
+
+async def to_player_public_with_profile_views(
+    *,
+    session: AsyncSession,
+    player: Player,
+) -> PlayerPublic:
+    profile_views = await count_player_profile_views(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return to_player_public(player=player, profile_views=profile_views)

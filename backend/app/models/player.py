@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import ConfigDict, field_validator
@@ -63,6 +63,7 @@ class Player(PlayerBase, table=True):
 
 class PlayerPublic(PlayerBase):
     steamid64: str
+    profile_views: int = 0
 
 
 class PlayersPublic(SQLModel):
@@ -84,6 +85,16 @@ class PlayersBatchRead(SQLModel):
 class PlayersBatchPublic(SQLModel):
     data: list[PlayerPublic | None]
     count: int
+
+
+class PlayerProfileViewsPublic(SQLModel):
+    profile_views: int = 0
+
+
+class PlayerProfileViewCreate(SQLModel):
+    viewer_steamid64: str
+    target_steamid64: str
+    view_date: date
 
 
 class PlayerUpdate(SQLModel):
