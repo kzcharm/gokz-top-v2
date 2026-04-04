@@ -64,6 +64,17 @@ export type ModePublic = {
     updated_by_id: string;
 };
 
+export type PlayerFollowSummaryPublic = {
+    follower_count?: number;
+    following_count?: number;
+    viewer_is_following?: (boolean | null);
+    viewer_is_self?: boolean;
+};
+
+export type PlayerProfileViewsPublic = {
+    profile_views?: number;
+};
+
 export type PlayerPublic = {
     name: string;
     alias?: (string | null);
@@ -74,6 +85,7 @@ export type PlayerPublic = {
     last_played_at?: (string | null);
     updated_at?: (string | null);
     steamid64: string;
+    profile_views?: number;
 };
 
 export type PlayersBatchPublic = {
@@ -423,6 +435,46 @@ export type PlayersReadPlayerData = {
 };
 
 export type PlayersReadPlayerResponse = (PlayerPublic);
+
+export type PlayersCreatePlayerViewData = {
+    identifier: string;
+};
+
+export type PlayersCreatePlayerViewResponse = (PlayerProfileViewsPublic);
+
+export type PlayersReadPlayerFollowSummaryData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerFollowSummaryResponse = (PlayerFollowSummaryPublic);
+
+export type PlayersFollowPlayerData = {
+    identifier: string;
+};
+
+export type PlayersFollowPlayerResponse = (PlayerFollowSummaryPublic);
+
+export type PlayersUnfollowPlayerData = {
+    identifier: string;
+};
+
+export type PlayersUnfollowPlayerResponse = (PlayerFollowSummaryPublic);
+
+export type PlayersReadPlayerFollowersData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayersReadPlayerFollowersResponse = (PlayersPublic);
+
+export type PlayersReadPlayerFollowingData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayersReadPlayerFollowingResponse = (PlayersPublic);
 
 export type PlayersUpsertPlayerFromSteamData = {
     steamid64: string;

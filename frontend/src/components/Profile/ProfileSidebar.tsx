@@ -1,22 +1,52 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import type { ReactNode } from "react"
+import { useState } from "react"
 
-import type { PlayerPublic } from "@/client"
+import { ApiError, type PlayerPublic, PlayersService } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Card, CardContent } from "@/components/ui/card"
+import { LoadingButton } from "@/components/ui/loading-button"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import useCustomToast from "@/hooks/useCustomToast"
+import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
+import {
+  ProfileSocialDialog,
+  type ProfileSocialTab,
+} from "./ProfileSocialDialog"
 import { profileHomePlaceholder } from "./profile-home-placeholder"
 import {
   formatHours,
   formatNumber,
   formatRatingBadge,
   getAvatarUrl,
+  getFollowButtonLabel,
+  getFollowSummaryCount,
+  getProfileFollowSummaryQueryOptions,
   profileBadgeToneClasses,
 } from "./profile-utils"
 
-function ProfileIdentityCard({ player }: { player: PlayerPublic }) {
+function ProfileIdentityCard({
+  buttonLabel,
+  followDisabled,
+  isFollowing,
+  followLoading,
+  onFollowClick,
+  player,
+  showFollowButton,
+}: {
+  buttonLabel: string
+  followDisabled: boolean
+  isFollowing: boolean
+  followLoading: boolean
+  onFollowClick: () => void
+  player: PlayerPublic
+  showFollowButton: boolean
+}) {
   const avatarUrl = getAvatarUrl(player)
   const summary = profileHomePlaceholder.summary
 
@@ -71,6 +101,20 @@ function ProfileIdentityCard({ player }: { player: PlayerPublic }) {
                 EU #{formatNumber(summary.regionalRank)}
               </span>
             </div>
+
+            {showFollowButton ? (
+              <LoadingButton
+                type="button"
+                variant={isFollowing ? "outline" : "default"}
+                className="min-w-40 rounded-full"
+                data-testid="profile-follow-button"
+                disabled={followDisabled}
+                loading={followLoading}
+                onClick={onFollowClick}
+              >
+                {buttonLabel}
+              </LoadingButton>
+            ) : null}
           </div>
         </div>
       </CardContent>
@@ -89,12 +133,34 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   )
 }
 
-function SummaryMiniCard({ label, value }: { label: string; value: string }) {
+function SummaryMiniCard({
+  dataTestId,
+  label,
+  onClick,
+  value,
+}: {
+  dataTestId?: string
+  label: string
+  onClick?: () => void
+  value: string
+}) {
+  const Comp = onClick ? "button" : "div"
+
   return (
-    <div className="rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5">
+    <Comp
+      className={cn(
+        "rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5 text-left transition-colors",
+        onClick
+          ? "cursor-pointer hover:bg-background/90 focus-visible:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          : "",
+      )}
+      data-testid={dataTestId}
+      onClick={onClick}
+      type={onClick ? "button" : undefined}
+    >
       <p className="text-lg font-semibold tracking-tight">{value}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
-    </div>
+    </Comp>
   )
 }
 
@@ -206,12 +272,111 @@ function SkillRadar() {
   )
 }
 
-export function ProfileSidebar({ player }: { player: PlayerPublic }) {
+function getApiErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    const detail =
+      typeof error.body === "object" &&
+      error.body !== null &&
+      "detail" in error.body
+        ? error.body.detail
+        : null
+    return typeof detail === "string" ? detail : error.message
+  }
+
+  return error instanceof Error ? error.message : "Request failed"
+}
+
+export function ProfileSidebar({
+  identifier,
+  player,
+}: {
+  identifier: string
+  player: PlayerPublic
+}) {
   const summary = profileHomePlaceholder.summary
+  const authenticated = isLoggedIn()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const { showErrorToast } = useCustomToast()
+  const [socialDialogOpen, setSocialDialogOpen] = useState(false)
+  const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
+  const viewerSteamid64 = authenticated
+    ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
+    : null
+  const followSummaryQuery = useQuery(
+    getProfileFollowSummaryQueryOptions(identifier),
+  )
+  const followSummary = followSummaryQuery.data
+  const isOwnProfile =
+    viewerSteamid64 === player.steamid64 ||
+    user?.steamid64 === player.steamid64 ||
+    followSummary?.viewer_is_self === true
+  const isFollowing = followSummary?.viewer_is_following === true
+  const followerCount = getFollowSummaryCount(followSummary, "follower_count")
+  const followingCount = getFollowSummaryCount(followSummary, "following_count")
+  const followButtonLabel = getFollowButtonLabel({
+    authenticated,
+    isFollowing,
+  })
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      return isFollowing
+        ? await PlayersService.unfollowPlayer({ identifier })
+        : await PlayersService.followPlayer({ identifier })
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["profile-follow-summary", identifier], data)
+      void queryClient.invalidateQueries({
+        queryKey: ["profile-social", "followers", identifier],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ["profile-social", "following", identifier],
+      })
+    },
+    onError: (error) => {
+      showErrorToast(getApiErrorMessage(error))
+    },
+  })
+
+  const handleFollowClick = () => {
+    if (!authenticated) {
+      void navigate({ to: "/login" })
+      return
+    }
+    if (isOwnProfile || followMutation.isPending) {
+      return
+    }
+
+    followMutation.mutate()
+  }
+
+  const handleOpenSocial = (tab: ProfileSocialTab) => {
+    if (!authenticated) {
+      void navigate({ to: "/login" })
+      return
+    }
+
+    setSocialTab(tab)
+    setSocialDialogOpen(true)
+  }
 
   return (
     <div className="space-y-6">
-      <ProfileIdentityCard player={player} />
+      <ProfileIdentityCard
+        buttonLabel={followButtonLabel}
+        followDisabled={
+          authenticated &&
+          (!followSummary ||
+            followSummaryQuery.isLoading ||
+            followMutation.isPending)
+        }
+        isFollowing={isFollowing}
+        followLoading={followMutation.isPending}
+        onFollowClick={handleFollowClick}
+        player={player}
+        showFollowButton={!isOwnProfile}
+      />
 
       <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="space-y-4 p-6">
@@ -245,12 +410,15 @@ export function ProfileSidebar({ player }: { player: PlayerPublic }) {
 
           <div className="grid grid-cols-2 gap-3">
             <SummaryMiniCard
+              dataTestId="profile-profile-views-card"
               label="Profile Views"
-              value={formatNumber(summary.profileViews)}
+              value={formatNumber(player.profile_views ?? 0)}
             />
             <SummaryMiniCard
               label="Followers"
-              value={formatNumber(summary.likes)}
+              dataTestId="profile-followers-card"
+              onClick={() => handleOpenSocial("followers")}
+              value={formatNumber(followerCount)}
             />
           </div>
         </CardContent>
@@ -266,6 +434,16 @@ export function ProfileSidebar({ player }: { player: PlayerPublic }) {
           <SkillRadar />
         </CardContent>
       </Card>
+
+      <ProfileSocialDialog
+        followerCount={followerCount}
+        followingCount={followingCount}
+        identifier={identifier}
+        onOpenChange={setSocialDialogOpen}
+        onTabChange={setSocialTab}
+        open={socialDialogOpen}
+        tab={socialTab}
+      />
     </div>
   )
 }

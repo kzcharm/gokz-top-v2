@@ -15,12 +15,20 @@ from .mode import (
 from .player import (
     Player,
     PlayerBase,
+    PlayerProfileViewCreate,
+    PlayerProfileViewsPublic,
     PlayerPublic,
     PlayersBatchPublic,
     PlayersBatchRead,
     PlayersListQuery,
     PlayersPublic,
     PlayerUpdate,
+)
+from .player_profile_view import PlayerProfileView
+from .player_follow import (
+    PlayerFollow,
+    PlayerFollowListQuery,
+    PlayerFollowSummaryPublic,
 )
 from .record import (
     MapCourse,
@@ -115,12 +123,18 @@ __all__ = [
     "ModePublic",
     "Player",
     "PlayerBase",
+    "PlayerProfileView",
+    "PlayerProfileViewCreate",
+    "PlayerProfileViewsPublic",
     "PlayerPublic",
     "PlayersBatchPublic",
     "PlayersBatchRead",
     "PlayersListQuery",
     "PlayersPublic",
     "PlayerUpdate",
+    "PlayerFollow",
+    "PlayerFollowListQuery",
+    "PlayerFollowSummaryPublic",
     "Record",
     "RecordBase",
     "RecordCompatPublicV0",

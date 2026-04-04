@@ -97,6 +97,7 @@ async def to_user_public(*, session: AsyncSession, user: User) -> UserPublic:
             created_at=player.created_at,
             last_played_at=player.last_played_at,
             updated_at=player.updated_at,
+            profile_views=0,
         )
     return UserPublic(
         steamid64=str(user.steamid64),

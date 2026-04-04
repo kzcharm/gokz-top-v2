@@ -5,10 +5,11 @@ from httpx import AsyncClient
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.core.config import settings
 from app.crud import player as player_crud
-from app.models import Player
-from tests.utils.utils import random_steamid64
+from app.models import Player, PlayerFollow
+from tests.utils.utils import get_user_token_headers, random_steamid64
 
 
 async def _create_player(
@@ -195,6 +196,7 @@ async def test_read_player_by_steamid64(
     payload = response.json()
     assert payload["steamid64"] == str(player.steamid64)
     assert payload["custom_id"] == "steam-id-player"
+    assert payload["profile_views"] == 0
 
 
 @pytest.mark.asyncio
@@ -215,6 +217,33 @@ async def test_read_player_by_custom_id(
     payload = response.json()
     assert payload["steamid64"] == str(player.steamid64)
     assert payload["custom_id"] == "custom-profile_42"
+    assert payload["profile_views"] == 0
+
+
+@pytest.mark.asyncio
+async def test_read_player_includes_profile_views(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Viewed Target",
+    )
+    viewer = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    await crud.create_player_profile_view(
+        session=db,
+        viewer_steamid64=viewer.steamid64,
+        target_steamid64=target.steamid64,
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{target.steamid64}")
+
+    assert response.status_code == 200
+    assert response.json()["profile_views"] == 1
 
 
 @pytest.mark.asyncio
@@ -419,3 +448,383 @@ async def test_upsert_player_from_steam_does_not_overwrite_existing_player_when_
     assert refreshed.custom_id == "existing_custom"
     assert refreshed.avatar_hash == "b" * 40
     assert refreshed.country == "US"
+
+
+@pytest.mark.asyncio
+async def test_read_player_follow_summary_is_public(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Public Summary",
+    )
+    follower_headers = await get_user_token_headers(client, random_steamid64())
+
+    await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+        headers=follower_headers,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow-summary"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["follower_count"] == 1
+    assert payload["following_count"] == 0
+    assert payload["viewer_is_following"] is None
+    assert payload["viewer_is_self"] is False
+
+
+@pytest.mark.asyncio
+async def test_read_player_follow_summary_includes_authenticated_viewer_state(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Viewer State",
+    )
+    viewer_steamid64 = random_steamid64()
+    viewer_headers = await get_user_token_headers(client, viewer_steamid64)
+
+    await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+        headers=viewer_headers,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow-summary",
+        headers=viewer_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["follower_count"] == 1
+    assert payload["viewer_is_following"] is True
+    assert payload["viewer_is_self"] is False
+
+
+@pytest.mark.asyncio
+async def test_follow_and_unfollow_player_require_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Auth Target",
+    )
+
+    follow_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+    )
+    unfollow_response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+    )
+
+    assert follow_response.status_code == 401
+    assert unfollow_response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_follow_player_rejects_self_follow(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    headers = await get_user_token_headers(client, steamid64)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/follow",
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "You cannot follow yourself"
+
+
+@pytest.mark.asyncio
+async def test_follow_lists_require_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="List Auth Target",
+    )
+
+    followers_response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/followers"
+    )
+    following_response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/following"
+    )
+
+    assert followers_response.status_code == 401
+    assert following_response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_follow_and_unfollow_player_return_updated_summary(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Summary Update Target",
+    )
+    viewer_headers = await get_user_token_headers(client, random_steamid64())
+
+    follow_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+        headers=viewer_headers,
+    )
+    unfollow_response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+        headers=viewer_headers,
+    )
+
+    assert follow_response.status_code == 200
+    assert follow_response.json()["follower_count"] == 1
+    assert follow_response.json()["viewer_is_following"] is True
+
+    assert unfollow_response.status_code == 200
+    assert unfollow_response.json()["follower_count"] == 0
+    assert unfollow_response.json()["viewer_is_following"] is False
+
+
+@pytest.mark.asyncio
+async def test_follow_lists_return_players_in_newest_first_order(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    viewer_headers = await get_user_token_headers(client, random_steamid64())
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="List Target",
+    )
+    follower_one = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    follower_two = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    followed_one = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Followed One",
+    )
+    followed_two = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Followed Two",
+    )
+    await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=target.steamid64,
+    )
+    db.add(
+        PlayerFollow(
+            follower_steamid64=follower_one.steamid64,
+            followed_steamid64=target.steamid64,
+            created_at=datetime.now(UTC) - timedelta(minutes=2),
+        )
+    )
+    db.add(
+        PlayerFollow(
+            follower_steamid64=follower_two.steamid64,
+            followed_steamid64=target.steamid64,
+            created_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+    )
+    db.add(
+        PlayerFollow(
+            follower_steamid64=target.steamid64,
+            followed_steamid64=followed_one.steamid64,
+            created_at=datetime.now(UTC) - timedelta(minutes=2),
+        )
+    )
+    db.add(
+        PlayerFollow(
+            follower_steamid64=target.steamid64,
+            followed_steamid64=followed_two.steamid64,
+            created_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+    )
+    await db.commit()
+
+    followers_response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/followers",
+        headers=viewer_headers,
+    )
+    following_response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/following",
+        headers=viewer_headers,
+    )
+
+    assert followers_response.status_code == 200
+    assert followers_response.json()["count"] == 2
+    assert [row["steamid64"] for row in followers_response.json()["data"]] == [
+        str(follower_two.steamid64),
+        str(follower_one.steamid64),
+    ]
+
+    assert following_response.status_code == 200
+    assert following_response.json()["count"] == 2
+    assert [row["steamid64"] for row in following_response.json()["data"]] == [
+        str(followed_two.steamid64),
+        str(followed_one.steamid64),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_follow_routes_return_not_found_for_missing_player(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    missing_identifier = str(random_steamid64())
+
+    summary_response = await client.get(
+        f"{settings.API_V1_STR}/players/{missing_identifier}/follow-summary"
+    )
+    follow_response = await client.post(
+        f"{settings.API_V1_STR}/players/{missing_identifier}/follow",
+        headers=normal_user_token_headers,
+    )
+    followers_response = await client.get(
+        f"{settings.API_V1_STR}/players/{missing_identifier}/followers",
+        headers=normal_user_token_headers,
+    )
+
+    assert summary_response.status_code == 404
+    assert follow_response.status_code == 404
+    assert followers_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_create_player_view_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Auth View Target",
+    )
+
+    response = await client.post(f"{settings.API_V1_STR}/players/{target.steamid64}/views")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_create_player_view_records_once_per_utc_day(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Daily View Target",
+    )
+    viewer_headers = await get_user_token_headers(client, random_steamid64())
+
+    monkeypatch.setattr(
+        "app.crud.player_profile_view.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 4, tzinfo=UTC).date(),
+    )
+
+    first_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/views",
+        headers=viewer_headers,
+    )
+    second_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/views",
+        headers=viewer_headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json()["profile_views"] == 1
+    assert second_response.json()["profile_views"] == 1
+
+
+@pytest.mark.asyncio
+async def test_create_player_view_counts_again_after_utc_rollover(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Rollover Target",
+    )
+    viewer_steamid64 = random_steamid64()
+    viewer_headers = await get_user_token_headers(client, viewer_steamid64)
+
+    monkeypatch.setattr(
+        "app.crud.player_profile_view.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 4, tzinfo=UTC).date(),
+    )
+    first_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/views",
+        headers=viewer_headers,
+    )
+
+    monkeypatch.setattr(
+        "app.crud.player_profile_view.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 5, tzinfo=UTC).date(),
+    )
+    second_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/views",
+        headers=viewer_headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json()["profile_views"] == 1
+    assert second_response.json()["profile_views"] == 2
+
+
+@pytest.mark.asyncio
+async def test_create_player_view_does_not_count_self_views(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    headers = await get_user_token_headers(client, steamid64)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/views",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["profile_views"] == 0
+
+
+@pytest.mark.asyncio
+async def test_create_player_view_returns_not_found_for_missing_player(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{random_steamid64()}/views",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 404
