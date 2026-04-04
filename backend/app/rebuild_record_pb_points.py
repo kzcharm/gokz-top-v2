@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class CoursePointsPlan:
     course_id: int
+    map_id: int
     map_name: str
     stage: int
 
@@ -53,9 +54,13 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help=(
-            "Optional stage filter. If omitted and --map-name is provided, defaults to 0. "
-            "If omitted without --map-name, rebuild all stages."
+            "Optional stage filter. Defaults to 0 when omitted."
         ),
+    )
+    parser.add_argument(
+        "--all-stages",
+        action="store_true",
+        help="Rebuild every stage instead of the default main course only behavior.",
     )
     parser.add_argument(
         "--scope",
@@ -79,12 +84,12 @@ def _resolve_scopes(scope_names: Sequence[str] | None) -> tuple[RecordScope, ...
     return tuple(RecordScope[name] for name in scope_names)
 
 
-def _resolve_stage(*, map_names: Sequence[str] | None, stage: int | None) -> int | None:
+def _resolve_stage(*, stage: int | None, all_stages: bool) -> int | None:
     if stage is not None:
         return stage
-    if map_names:
-        return 0
-    return None
+    if all_stages:
+        return None
+    return 0
 
 
 async def _load_course_plan(
@@ -93,7 +98,7 @@ async def _load_course_plan(
     stage: int | None,
 ) -> list[CoursePointsPlan]:
     statement = (
-        select(MapCourse.id, Map.name, MapCourse.stage)
+        select(MapCourse.id, MapCourse.map_id, Map.name, MapCourse.stage)
         .join(Map, col(Map.id) == col(MapCourse.map_id))
         .order_by(col(Map.name).asc(), col(MapCourse.stage).asc(), col(MapCourse.id).asc())
     )
@@ -108,30 +113,59 @@ async def _load_course_plan(
     return [
         CoursePointsPlan(
             course_id=course_id,
+            map_id=map_id,
             map_name=map_name,
             stage=course_stage,
         )
-        for course_id, map_name, course_stage in rows
+        for course_id, map_id, map_name, course_stage in rows
     ]
+
+
+async def _load_course_scope_tiers(
+    *,
+    courses: Sequence[CoursePointsPlan],
+    scopes: Sequence[RecordScope],
+) -> dict[int, dict[int, int]]:
+    if not courses:
+        return {}
+
+    course_key_by_id = {
+        course.course_id: (course.map_id, course.stage)
+        for course in courses
+    }
+    unique_course_keys = list(course_key_by_id.values())
+    tiers_by_course_id = {
+        course.course_id: {}
+        for course in courses
+    }
+
+    async with async_session_maker() as session:
+        for scope in scopes:
+            scope_tiers = await crud.load_scoped_course_tiers(
+                session=session,
+                course_keys=unique_course_keys,
+                scope=scope,
+            )
+            scope_id = int(RecordScopeId[scope.name])
+            for course_id, course_key in course_key_by_id.items():
+                tiers_by_course_id[course_id][scope_id] = scope_tiers[course_key]
+
+    return tiers_by_course_id
 
 
 async def _rebuild_course_points(
     *,
     course: CoursePointsPlan,
     scopes: Sequence[RecordScope],
+    tiers_by_scope: dict[int, int],
 ) -> int:
-    updated_rows = 0
     async with async_session_maker() as session:
-        for scope in scopes:
-            scope_id = int(RecordScopeId[scope.name])
-            for is_pro_only in (False, True):
-                updated = await crud.rebuild_record_pb_points_bucket(
-                    session=session,
-                    course_id=course.course_id,
-                    scope_id=scope_id,
-                    is_pro_only=is_pro_only,
-                )
-                updated_rows += updated
+        updated_rows = await crud.rebuild_record_pb_points_for_course(
+            session=session,
+            course_id=course.course_id,
+            scope_ids=[int(RecordScopeId[scope.name]) for scope in scopes],
+            tiers_by_scope=tiers_by_scope,
+        )
         await session.commit()
     return updated_rows
 
@@ -139,7 +173,7 @@ async def _rebuild_course_points(
 async def _main_async(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
     scopes = _resolve_scopes(args.scopes)
-    stage = _resolve_stage(map_names=args.map_names, stage=args.stage)
+    stage = _resolve_stage(stage=args.stage, all_stages=args.all_stages)
     courses = await _load_course_plan(map_names=args.map_names, stage=stage)
 
     if args.limit is not None:
@@ -155,6 +189,8 @@ async def _main_async(argv: list[str] | None = None) -> None:
         len(courses),
         len(scopes),
     )
+    logger.info("Preloading scoped course tiers for rebuild plan")
+    tiers_by_course_id = await _load_course_scope_tiers(courses=courses, scopes=scopes)
 
     tqdm = _get_tqdm()
     total_updated = 0
@@ -165,7 +201,11 @@ async def _main_async(argv: list[str] | None = None) -> None:
         unit="course",
     )
     for course in progress:
-        updated_rows = await _rebuild_course_points(course=course, scopes=scopes)
+        updated_rows = await _rebuild_course_points(
+            course=course,
+            scopes=scopes,
+            tiers_by_scope=tiers_by_course_id[course.course_id],
+        )
         total_updated += updated_rows
         progress.set_postfix_str(f"{course.label} updated={updated_rows}")
 

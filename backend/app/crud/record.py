@@ -1,9 +1,10 @@
 import uuid
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import and_, case, func, text, true
+from sqlalchemy import and_, bindparam, case, func, text, true, update
 from sqlalchemy.orm import aliased
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -49,6 +50,22 @@ from .record_filter import load_scoped_course_tiers
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
 RECENT_RECORD_EXACT_COUNT_THRESHOLD = 100_000
 
+_record_pb_table = RecordPb.__table__
+
+_RECORD_PB_POINTS_BULK_UPDATE = (
+    update(_record_pb_table)
+    .where(
+        _record_pb_table.c.scope == bindparam("pk_scope"),
+        _record_pb_table.c.course_id == bindparam("pk_course_id"),
+        _record_pb_table.c.steamid64 == bindparam("pk_steamid64"),
+        _record_pb_table.c.is_pro_only == bindparam("pk_is_pro_only"),
+    )
+    .values(
+        points=bindparam("next_points"),
+        updated_on=bindparam("next_updated_on"),
+    )
+)
+
 
 def _record_tie_breakers() -> tuple:
     return (
@@ -67,6 +84,31 @@ def _resolve_scoped_points(
     if ovr_points is not None:
         return ovr_points
     return 0
+
+
+def _record_pb_points_update_params(
+    *,
+    scope: int,
+    course_id: int,
+    steamid64: int,
+    is_pro_only: bool,
+    points: int,
+    updated_on: datetime,
+) -> dict[str, object]:
+    return {
+        "pk_scope": scope,
+        "pk_course_id": course_id,
+        "pk_steamid64": steamid64,
+        "pk_is_pro_only": is_pro_only,
+        "next_points": points,
+        "next_updated_on": updated_on,
+    }
+
+
+def _expunge_loaded_record_pbs(*, session: AsyncSession) -> None:
+    for instance in list(session.sync_session.identity_map.values()):
+        if isinstance(instance, RecordPb):
+            session.sync_session.expunge(instance)
 
 
 async def _get_or_create_map_course(
@@ -511,10 +553,19 @@ async def rebuild_record_pb_points_bucket(
     course_id: int,
     scope_id: int,
     is_pro_only: bool,
+    tier: int | None = None,
 ) -> int:
     rows = (
         await session.exec(
-            select(RecordPb).where(
+            select(
+                RecordPb.scope,
+                RecordPb.course_id,
+                RecordPb.steamid64,
+                RecordPb.is_pro_only,
+                RecordPb.record_uuid,
+                RecordPb.time_ms,
+                RecordPb.points,
+            ).where(
                 col(RecordPb.scope) == scope_id,
                 col(RecordPb.course_id) == course_id,
                 col(RecordPb.is_pro_only).is_(is_pro_only),
@@ -525,29 +576,157 @@ async def rebuild_record_pb_points_bucket(
     if not rows:
         return 0
 
-    tier = await _load_bucket_course_tier(
-        session=session,
-        course_id=course_id,
-        scope_id=scope_id,
+    resolved_tier = (
+        tier
+        if tier is not None
+        else await _load_bucket_course_tier(
+            session=session,
+            course_id=course_id,
+            scope_id=scope_id,
+        )
     )
     points_by_uuid = calculate_bucket_points(
         entries=[
-            CoursePbEntry(record_uuid=row.record_uuid, time_ms=row.time_ms)
-            for row in rows
+            CoursePbEntry(record_uuid=record_uuid, time_ms=time_ms)
+            for (
+                _row_scope_id,
+                _row_course_id,
+                _steamid64,
+                _row_is_pro_only,
+                record_uuid,
+                time_ms,
+                _current_points,
+            ) in rows
         ],
-        tier=tier,
+        tier=resolved_tier,
         is_pro_only=is_pro_only,
     )
-    updated_rows = 0
+    updated_on = get_datetime_utc()
+    updates = [
+        _record_pb_points_update_params(
+            scope=row_scope_id,
+            course_id=row_course_id,
+            steamid64=steamid64,
+            is_pro_only=row_is_pro_only,
+            points=points_by_uuid[record_uuid],
+            updated_on=updated_on,
+        )
+        for (
+            row_scope_id,
+            row_course_id,
+            steamid64,
+            row_is_pro_only,
+            record_uuid,
+            _time_ms,
+            current_points,
+        ) in rows
+        if current_points != points_by_uuid[record_uuid]
+    ]
+    if updates:
+        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, updates)
+        _expunge_loaded_record_pbs(session=session)
+    return len(updates)
+
+
+async def rebuild_record_pb_points_for_course(
+    *,
+    session: AsyncSession,
+    course_id: int,
+    scope_ids: Sequence[int] | None = None,
+    tiers_by_scope: Mapping[int, int] | None = None,
+) -> int:
+    statement = (
+        select(
+            RecordPb.scope,
+            RecordPb.course_id,
+            RecordPb.steamid64,
+            RecordPb.is_pro_only,
+            RecordPb.record_uuid,
+            RecordPb.time_ms,
+            RecordPb.points,
+        )
+        .where(col(RecordPb.course_id) == course_id)
+        .order_by(
+            col(RecordPb.scope).asc(),
+            col(RecordPb.is_pro_only).asc(),
+            col(RecordPb.time_ms).asc(),
+            col(RecordPb.record_uuid).asc(),
+        )
+    )
+    if scope_ids is not None:
+        statement = statement.where(col(RecordPb.scope).in_(list(scope_ids)))
+
+    rows = (await session.exec(statement)).all()
+    if not rows:
+        return 0
+
+    normalized_tiers = dict(tiers_by_scope or {})
+    grouped_rows: dict[tuple[int, bool], list[tuple[int, int, int, bool, uuid.UUID, int, int]]] = defaultdict(list)
     for row in rows:
-        points = points_by_uuid[row.record_uuid]
-        if row.points == points:
-            continue
-        row.points = points
-        row.updated_on = get_datetime_utc()
-        session.add(row)
-        updated_rows += 1
-    return updated_rows
+        grouped_rows[(row[0], row[3])].append(row)
+
+    missing_scope_ids = sorted(
+        {scope_id for scope_id, _ in grouped_rows if scope_id not in normalized_tiers}
+    )
+    if missing_scope_ids:
+        course = await _get_map_course_by_id(session=session, course_id=course_id)
+        if course is None:
+            raise ValueError(f"Unknown map course {course_id}")
+
+        course_key = (course.map_id, course.stage)
+        for missing_scope_id in missing_scope_ids:
+            normalized_tiers[missing_scope_id] = (
+                await load_scoped_course_tiers(
+                    session=session,
+                    course_keys=[course_key],
+                    scope=_scope_from_id(missing_scope_id),
+                )
+            )[course_key]
+
+    updated_on = get_datetime_utc()
+    updates: list[dict[str, object]] = []
+    for (scope_id, is_pro_only), bucket_rows in grouped_rows.items():
+        points_by_uuid = calculate_bucket_points(
+            entries=[
+                CoursePbEntry(record_uuid=record_uuid, time_ms=time_ms)
+                for (
+                    _row_scope_id,
+                    _row_course_id,
+                    _steamid64,
+                    _row_is_pro_only,
+                    record_uuid,
+                    time_ms,
+                    _current_points,
+                ) in bucket_rows
+            ],
+            tier=normalized_tiers[scope_id],
+            is_pro_only=is_pro_only,
+        )
+        updates.extend(
+            _record_pb_points_update_params(
+                scope=row_scope_id,
+                course_id=row_course_id,
+                steamid64=steamid64,
+                is_pro_only=row_is_pro_only,
+                points=points_by_uuid[record_uuid],
+                updated_on=updated_on,
+            )
+            for (
+                row_scope_id,
+                row_course_id,
+                steamid64,
+                row_is_pro_only,
+                record_uuid,
+                _time_ms,
+                current_points,
+            ) in bucket_rows
+            if current_points != points_by_uuid[record_uuid]
+    )
+
+    if updates:
+        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, updates)
+        _expunge_loaded_record_pbs(session=session)
+    return len(updates)
 
 
 async def recompute_record_pbs_for_keys(

@@ -466,6 +466,90 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     assert refreshed_rows[1].points > 1
 
 
+async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
+    db: AsyncSession,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _create_player(db, steamid64=first_player, name="Course One")
+    await _create_player(db, steamid64=second_player, name="Course Two")
+    await _create_map(db, id=981024, name="kz_course_points", difficulty=4)
+    await _create_server(db, id=981124, name="Course Server")
+
+    await _create_record(
+        db,
+        id=981322,
+        steamid64=first_player,
+        map_id=981024,
+        server_id=981124,
+        mode_id=200,
+        stage=0,
+        time="10.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=981323,
+        steamid64=second_player,
+        map_id=981024,
+        server_id=981124,
+        mode_id=200,
+        stage=0,
+        time="12.000",
+        teleports=1,
+    )
+
+    course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == 981024, MapCourse.stage == 0)
+        )
+    ).one()
+    bucket_rows = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope.in_([0, 1]),
+            )
+        )
+    ).all()
+    for row in bucket_rows:
+        row.points = 1
+        db.add(row)
+    await db.commit()
+
+    updated_rows = await crud.rebuild_record_pb_points_for_course(
+        session=db,
+        course_id=course.id,
+        scope_ids=[0, 1],
+        tiers_by_scope={0: 4, 1: 4},
+    )
+    await db.commit()
+
+    refreshed_rows = (
+        await db.exec(
+            select(RecordPb)
+            .where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope.in_([0, 1]),
+            )
+            .order_by(
+                RecordPb.scope.asc(),
+                RecordPb.is_pro_only.asc(),
+                RecordPb.time_ms.asc(),
+            )
+        )
+    ).all()
+
+    assert updated_rows == 6
+    assert len(refreshed_rows) == 6
+    assert refreshed_rows[0].points == 1000
+    assert refreshed_rows[1].points > 1
+    assert refreshed_rows[2].points == 1000
+    assert refreshed_rows[3].points == 1000
+    assert refreshed_rows[4].points > 1
+    assert refreshed_rows[5].points == 1000
+
+
 async def test_upsert_record_sets_estimated_points_for_new_pb_rows(
     db: AsyncSession,
 ) -> None:
