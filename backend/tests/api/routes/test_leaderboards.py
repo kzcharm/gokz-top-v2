@@ -3,11 +3,19 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import Map, MapCourse, Player, RecordFilter, ServerGlobalapi
+from app.models import (
+    LeaderboardPlayer,
+    Map,
+    MapCourse,
+    Player,
+    RecordFilter,
+    ServerGlobalapi,
+)
 from app.models.record import RecordScopeId
 from tests.utils.utils import random_steamid64
 
@@ -119,6 +127,9 @@ async def _seed_leaderboard_data(
     *,
     rebuild: bool = True,
 ) -> dict[str, int]:
+    await db.exec(delete(LeaderboardPlayer))
+    await db.flush()
+
     server_id = 2_120_000_001
     await _create_server(db, server_id=server_id)
 
@@ -332,6 +343,21 @@ async def test_read_player_leaderboard_scope_and_pagination(
     assert paged_payload["count"] >= 2
     assert len(paged_payload["data"]) == 1
     assert paged_payload["data"][0]["player"]["steamid64"] == str(players["beta"])
+
+
+async def test_read_player_leaderboard_rejects_asc_sort_order(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "sort_order": "asc"},
+    )
+
+    assert response.status_code == 422
+    assert "sort_order" in response.text
 
 
 async def test_upsert_player_leaderboards_rebuilds_player_without_auth(

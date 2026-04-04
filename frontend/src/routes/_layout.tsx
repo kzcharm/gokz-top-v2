@@ -14,7 +14,9 @@ function Layout() {
   return (
     <AppShell
       contentClassName={
-        pathname.startsWith("/dashboard") || pathname.startsWith("/profile")
+        pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/profile") ||
+        pathname.startsWith("/leaderboards")
           ? "max-w-[1600px]"
           : undefined
       }
