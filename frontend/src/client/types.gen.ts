@@ -71,6 +71,25 @@ export type PlayerFollowSummaryPublic = {
     viewer_is_self?: boolean;
 };
 
+export type PlayerLeaderboardEntryPublic = {
+    rank: number;
+    player: PlayerPublic;
+    rating: number;
+    rating_easy: number;
+    rating_hard: number;
+    points: number;
+    wrs_nub: number;
+    wrs_pro: number;
+    records_900_plus: number;
+    records_800_plus: number;
+    unique_map_finishes: number;
+};
+
+export type PlayerLeaderboardsPublic = {
+    data: Array<PlayerLeaderboardEntryPublic>;
+    count: number;
+};
+
 export type PlayerProfileViewsPublic = {
     profile_views?: number;
 };
@@ -366,6 +385,22 @@ export type AdminModesUpdateModeData = {
 };
 
 export type AdminModesUpdateModeResponse = (ModePublic);
+
+export type LeaderboardsReadPlayerLeaderboardData = {
+    limit?: number;
+    offset?: number;
+    scope?: RecordScope;
+    sortBy?: 'rating' | 'rating_easy' | 'rating_hard' | 'points' | 'wrs_nub' | 'wrs_pro' | 'records_900_plus' | 'records_800_plus' | 'unique_map_finishes';
+    sortOrder?: 'asc' | 'desc';
+};
+
+export type LeaderboardsReadPlayerLeaderboardResponse = (PlayerLeaderboardsPublic);
+
+export type LeaderboardsUpsertPlayerLeaderboardsData = {
+    steamid64: string;
+};
+
+export type LeaderboardsUpsertPlayerLeaderboardsResponse = (Message);
 
 export type LoginLoginSteamResponse = (unknown);
 

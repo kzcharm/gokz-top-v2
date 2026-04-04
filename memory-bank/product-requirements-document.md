@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-03-12
+- Last Updated: 2026-04-04
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -42,8 +42,12 @@ Build the long-term platform for the GOKZ ecosystem:
 
 ### 5.1 Competitive Data and Rankings
 - Player ratings, points, and rankings with scope-aware calculations.
+- Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and metric-specific visibility rules.
 - Global and filtered leaderboards (scope, geography, and period when applicable).
 - Rank lookup support for profile and map contexts.
+- Current leaderboard eligibility rule:
+  - rating fields only become non-zero after 20 unique validated main-map finishes in the selected scope
+  - players with other useful aggregates may still exist in leaderboard read models, while the API filters rows to positive values for the active sort metric
 
 Scope model:
 - `KZT` scope = `KZT + NKZ`.

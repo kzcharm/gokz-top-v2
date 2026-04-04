@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin_modes,
+    leaderboards,
     login,
     maps,
     modes,
@@ -21,6 +22,7 @@ api_router = APIRouter()
 api_router.include_router(login.router)
 api_router.include_router(users.router)
 api_router.include_router(players.router)
+api_router.include_router(leaderboards.router)
 api_router.include_router(maps.router)
 api_router.include_router(modes.router)
 api_router.include_router(records.router)

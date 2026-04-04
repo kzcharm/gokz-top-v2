@@ -1,7 +1,10 @@
 from collections.abc import AsyncGenerator, Generator
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from alembic import command
+from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlmodel import Session, delete
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -13,6 +16,11 @@ from app.main import app
 from app.models import PlayerProfileView, User
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_superuser_token_headers, random_steamid64
+
+
+def _upgrade_test_database() -> None:
+    alembic_config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    command.upgrade(alembic_config, "head")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -33,6 +41,7 @@ def ensure_safe_test_database() -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db() -> Generator[None]:
+    _upgrade_test_database()
     with Session(engine) as session:
         init_db(session)
 
@@ -68,8 +77,10 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
     app.dependency_overrides[get_db] = _get_test_db
     previous_collector_setting = settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP
     previous_globalapi_sync_setting = settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP
+    previous_leaderboard_player_setting = settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP
     settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP = False
     settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP = False
+    settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP = False
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://testserver") as c:
@@ -77,6 +88,7 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
     finally:
         settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP = previous_collector_setting
         settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP = previous_globalapi_sync_setting
+        settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP = previous_leaderboard_player_setting
         app.dependency_overrides.pop(get_db, None)
 
 

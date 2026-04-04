@@ -1,0 +1,249 @@
+from datetime import UTC, datetime
+from decimal import Decimal
+
+import pytest
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app import crud
+from app.models import (
+    LeaderboardPlayer,
+    Map,
+    MapCourse,
+    Player,
+    RecordFilter,
+    ServerGlobalapi,
+)
+from app.models.record import RecordScopeId
+from tests.utils.utils import random_steamid64
+
+pytestmark = pytest.mark.asyncio
+
+
+async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None:
+    db.add(Player(steamid64=steamid64, name=name))
+    await db.flush()
+
+
+async def _create_map(
+    db: AsyncSession,
+    *,
+    map_id: int,
+    name: str,
+    difficulty: int,
+) -> int:
+    db.add(
+        Map(
+            id=map_id,
+            name=name,
+            filesize=1,
+            validated=True,
+            difficulty=difficulty,
+            approved_by_steamid64=0,
+        )
+    )
+    await db.flush()
+    course = MapCourse(map_id=map_id, stage=0)
+    db.add(course)
+    await db.flush()
+    assert course.id is not None
+    return course.id
+
+
+async def _create_server(db: AsyncSession, *, server_id: int, name: str) -> None:
+    db.add(
+        ServerGlobalapi(
+            id=server_id,
+            port=27015,
+            ip="203.0.113.60",
+            name=name,
+            owner_steamid64=0,
+            approval_status=1,
+            approved_by_steamid64=0,
+        )
+    )
+    await db.flush()
+
+
+async def _create_record_filter(
+    db: AsyncSession,
+    *,
+    record_filter_id: int,
+    map_id: int,
+    mode_id: int,
+    tier: int,
+) -> None:
+    db.add(
+        RecordFilter(
+            id=record_filter_id,
+            map_id=map_id,
+            stage=0,
+            mode_id=mode_id,
+            tickrate=128,
+            has_teleports=False,
+            tier=tier,
+            updated_by_id="0",
+        )
+    )
+    await db.flush()
+
+
+async def _create_record(
+    db: AsyncSession,
+    *,
+    record_id: int,
+    steamid64: int,
+    server_id: int,
+    map_id: int,
+    mode_id: int,
+    teleports: int,
+    time_seconds: str,
+) -> None:
+    await crud.upsert_record(
+        session=db,
+        record_id=record_id,
+        record_uuid=None,
+        steamid64=steamid64,
+        server_id=server_id,
+        mode_id=mode_id,
+        map_id=map_id,
+        stage=0,
+        time_seconds=Decimal(time_seconds),
+        teleports=teleports,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=steamid64,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.flush()
+
+
+async def _rebuild_player_scope(
+    db: AsyncSession,
+    *,
+    scope_id: int,
+    steamid64: int,
+) -> None:
+    await crud.rebuild_leaderboard_player(
+        session=db,
+        scope_id=scope_id,
+        steamid64=steamid64,
+    )
+    await db.commit()
+
+
+async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_thresholds(
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    server_id = 2_100_000_001
+    await _create_player(db, steamid64=player_id, name="Leaderboard One")
+    await _create_server(db, server_id=server_id, name="Leaderboard Server")
+
+    for index in range(20):
+        map_id = 2_100_100_000 + index
+        tier = 4 if index < 10 else 5
+        course_id = await _create_map(
+            db,
+            map_id=map_id,
+            name=f"kz_lb_{index}",
+            difficulty=tier,
+        )
+        del course_id
+        await _create_record_filter(
+            db,
+            record_filter_id=2_100_200_000 + index,
+            map_id=map_id,
+            mode_id=200,
+            tier=tier,
+        )
+        await _create_record(
+            db,
+            record_id=2_100_300_000 + index,
+            steamid64=player_id,
+            server_id=server_id,
+            map_id=map_id,
+            mode_id=200,
+            teleports=1,
+            time_seconds=f"{10 + index}.000",
+        )
+
+    await _create_record(
+        db,
+        record_id=2_100_400_000,
+        steamid64=player_id,
+        server_id=server_id,
+        map_id=2_100_100_000,
+        mode_id=200,
+        teleports=0,
+        time_seconds="9.000",
+    )
+
+    await _rebuild_player_scope(
+        db,
+        scope_id=int(RecordScopeId.KZT),
+        steamid64=player_id,
+    )
+
+    row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id))
+    assert row is not None
+    assert row.points == 21_000
+    assert row.wrs_nub == 20
+    assert row.wrs_pro == 1
+    assert row.records_900_plus == 21
+    assert row.records_800_plus == 21
+    assert row.unique_map_finishes == 20
+    assert row.rating == crud.calculate_weighted_rating([1000] * 20)
+    assert row.rating_easy == crud.calculate_weighted_rating([1000] * 10)
+    assert row.rating_hard == crud.calculate_weighted_rating([1000] * 10)
+
+
+async def test_rebuild_leaderboard_player_keeps_points_but_zeroes_rating_below_threshold(
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    server_id = 2_110_000_001
+    await _create_player(db, steamid64=player_id, name="Threshold Player")
+    await _create_server(db, server_id=server_id, name="Threshold Server")
+
+    for index in range(19):
+        map_id = 2_110_100_000 + index
+        course_id = await _create_map(
+            db,
+            map_id=map_id,
+            name=f"kz_threshold_{index}",
+            difficulty=4,
+        )
+        del course_id
+        await _create_record_filter(
+            db,
+            record_filter_id=2_110_200_000 + index,
+            map_id=map_id,
+            mode_id=200,
+            tier=4,
+        )
+        await _create_record(
+            db,
+            record_id=2_110_300_000 + index,
+            steamid64=player_id,
+            server_id=server_id,
+            map_id=map_id,
+            mode_id=200,
+            teleports=1,
+            time_seconds=f"{20 + index}.000",
+        )
+
+    await _rebuild_player_scope(
+        db,
+        scope_id=int(RecordScopeId.KZT),
+        steamid64=player_id,
+    )
+
+    row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id))
+    assert row is not None
+    assert row.points == 19_000
+    assert row.unique_map_finishes == 19
+    assert row.rating == 0
+    assert row.rating_easy == 0
+    assert row.rating_hard == 0

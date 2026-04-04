@@ -2,6 +2,12 @@ from sqlmodel import SQLModel
 
 from .auth import Message, Token, TokenPayload
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
+from .leaderboard_player import (
+    LeaderboardPlayer,
+    PlayerLeaderboardEntryPublic,
+    PlayerLeaderboardListQuery,
+    PlayerLeaderboardsPublic,
+)
 from .map import Map, MapBase, MapCompatPublicV0, MapPublic, MapSyncResult, MapTiers
 from .mode import (
     CANONICAL_MODE_SEEDS,
@@ -107,6 +113,7 @@ from .utils import generate_uuid7, get_datetime_utc
 __all__ = [
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
+    "LeaderboardPlayer",
     "Map",
     "MapBase",
     "MapCompatPublicV0",
@@ -136,6 +143,9 @@ __all__ = [
     "PlayerFollow",
     "PlayerFollowListQuery",
     "PlayerFollowSummaryPublic",
+    "PlayerLeaderboardEntryPublic",
+    "PlayerLeaderboardListQuery",
+    "PlayerLeaderboardsPublic",
     "Record",
     "RecordBase",
     "RecordCompatPublicV0",
