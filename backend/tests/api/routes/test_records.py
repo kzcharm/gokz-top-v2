@@ -11,7 +11,6 @@ from app import crud
 from app.core.config import settings
 from app.models import (
     Map,
-    MapCourse,
     Player,
     Record,
     RecordFilter,
@@ -146,14 +145,16 @@ async def _create_record(
         )
         await db.exec(delete(Record).where(Record.id == id))
         await db.commit()
-    record = Record(
-        id=id,
+    record, _created, _updated = await crud.upsert_record(
+        session=db,
+        record_id=id,
+        record_uuid=None,
         steamid64=steamid64,
         server_id=server_id,
         mode_id=mode_id,
         map_id=map_id,
         stage=stage,
-        time=Decimal(time),
+        time_seconds=Decimal(time),
         teleports=teleports,
         points=points,
         created_on=created_on or datetime(2026, 1, 1, tzinfo=UTC),
@@ -161,24 +162,6 @@ async def _create_record(
         updated_by=steamid64,
         replay_id=replay_id,
         is_valid=is_valid,
-    )
-    db.add(record)
-    await db.commit()
-    await crud.ensure_map_courses_for_valid_records(session=db)
-    course = (
-        await db.exec(
-            select(MapCourse).where(
-                MapCourse.map_id == map_id,
-                MapCourse.stage == stage,
-            )
-        )
-    ).first()
-    assert course is not None and course.id is not None
-    await crud.rebuild_record_pbs_for_course(
-        session=db,
-        course_id=course.id,
-        map_id=map_id,
-        stage=stage,
     )
     await db.commit()
     await db.refresh(record)
@@ -240,14 +223,14 @@ async def test_read_records_v1_list_and_detail(
     assert payload["data"][0]["mode"] == "KZT"
     assert payload["data"][0]["tickrate"] == 128
     assert payload["data"][0]["time"] == 35.289
-    assert payload["data"][0]["points"] == 1
+    assert payload["data"][0]["points"] == 1000
     assert payload["data"][0]["replay_id"] == 123
     assert payload["data"][0]["is_valid"] is True
 
     detail_response = await client.get(f"{settings.API_V1_STR}/records/{record.uuid}")
     assert detail_response.status_code == 200
     assert detail_response.json()["uuid"] == str(record.uuid)
-    assert detail_response.json()["points"] == 1
+    assert detail_response.json()["points"] == 1000
 
 
 async def test_read_recent_records_v1_returns_nested_public_feed(
@@ -373,7 +356,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert first_row["stage"] == 2
     assert first_row["teleports"] == 3
     assert first_row["time"] == 25.0
-    assert first_row["points"] == 1
+    assert first_row["points"] == 1000
 
     offset_response = await client.get(
         f"{settings.API_V1_STR}/records/recent",
@@ -473,8 +456,8 @@ async def test_read_recent_records_v1_scope_points_and_pro_filters(
     )
     assert all_recent.status_code == 200
     points_by_id = {row["id"]: row["points"] for row in all_recent.json()["data"][:3]}
-    assert points_by_id[pb_pro.id] == 1
-    assert points_by_id[pb_nub.id] == 1
+    assert points_by_id[pb_pro.id] == 1000
+    assert points_by_id[pb_nub.id] == 1000
     assert points_by_id[non_pb_nub.id] == 0
 
 

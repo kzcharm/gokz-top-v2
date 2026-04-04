@@ -4,7 +4,14 @@ from sqlalchemy import case, func, or_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Map, MapTiers, RecordFilter, RecordScope, scope_mode_ids, scope_to_id
+from app.models import (
+    Map,
+    MapTiers,
+    RecordFilter,
+    RecordScope,
+    scope_mode_ids,
+    scope_to_id,
+)
 
 
 async def read_record_filters_v0(
