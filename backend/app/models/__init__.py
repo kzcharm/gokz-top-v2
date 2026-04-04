@@ -24,12 +24,12 @@ from .player import (
     PlayersPublic,
     PlayerUpdate,
 )
-from .player_profile_view import PlayerProfileView
 from .player_follow import (
     PlayerFollow,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
 )
+from .player_profile_view import PlayerProfileView
 from .record import (
     MapCourse,
     RecentRecordCompatPublicV0,
@@ -100,6 +100,7 @@ from .server_globalapi import (
     ServerGlobalapiCompatPublicV0,
     ServerGlobalapiListQuery,
 )
+from .task import ScheduledTaskResult, ScheduledTaskState
 from .user import User, UserBase, UserCreate, UserPublic, UsersPublic, UserUpdate
 from .utils import generate_uuid7, get_datetime_utc
 
@@ -179,6 +180,8 @@ __all__ = [
     "ServerGlobalapiBase",
     "ServerGlobalapiCompatPublicV0",
     "ServerGlobalapiListQuery",
+    "ScheduledTaskResult",
+    "ScheduledTaskState",
     "ServerListQuery",
     "ServerLiveStatus",
     "ServerLiveStatusBase",

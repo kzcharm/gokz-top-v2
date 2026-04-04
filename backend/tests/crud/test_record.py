@@ -28,7 +28,14 @@ async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None
     await db.commit()
 
 
-async def _create_map(db: AsyncSession, *, id: int, name: str) -> None:
+async def _create_map(
+    db: AsyncSession,
+    *,
+    id: int,
+    name: str,
+    validated: bool = True,
+    difficulty: int = 1,
+) -> None:
     await db.exec(delete(Map).where(Map.id == id))
     await db.commit()
     db.add(
@@ -36,8 +43,8 @@ async def _create_map(db: AsyncSession, *, id: int, name: str) -> None:
             id=id,
             name=name,
             filesize=1,
-            validated=True,
-            difficulty=1,
+            validated=validated,
+            difficulty=difficulty,
             approved_by_steamid64=76561198003275951,
         )
     )
@@ -108,37 +115,23 @@ async def _create_record(
         )
         await db.exec(delete(Record).where(Record.id == id))
         await db.commit()
-    record = Record(
-        id=id,
+    record, _created, _updated = await crud.upsert_record(
+        session=db,
+        record_id=id,
+        record_uuid=None,
         steamid64=steamid64,
         server_id=server_id,
         mode_id=mode_id,
         map_id=map_id,
         stage=stage,
-        time=Decimal(time),
+        time_seconds=Decimal(time),
         teleports=teleports,
+        points=0,
         created_on=datetime(2026, 1, 1, tzinfo=UTC),
         updated_on=datetime(2026, 1, 1, tzinfo=UTC),
         updated_by=steamid64,
+        replay_id=None,
         is_valid=True,
-    )
-    db.add(record)
-    await db.commit()
-    await crud.ensure_map_courses_for_valid_records(session=db)
-    course = (
-        await db.exec(
-            select(MapCourse).where(
-                MapCourse.map_id == map_id,
-                MapCourse.stage == stage,
-            )
-        )
-    ).first()
-    assert course is not None and course.id is not None
-    await crud.rebuild_record_pbs_for_course(
-        session=db,
-        course_id=course.id,
-        map_id=map_id,
-        stage=stage,
     )
     await db.commit()
     await db.refresh(record)
@@ -395,3 +388,218 @@ async def test_get_recent_record_public_by_uuid_uses_bonus_fallback_zero(
 
     assert recent_record is not None
     assert recent_record.map.tier == 0
+
+
+async def test_rebuild_record_pb_points_bucket_updates_real_points(
+    db: AsyncSession,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _create_player(db, steamid64=first_player, name="Bucket One")
+    await _create_player(db, steamid64=second_player, name="Bucket Two")
+    await _create_map(db, id=981020, name="kz_bucket_points", difficulty=4)
+    await _create_server(db, id=981120, name="Bucket Server")
+
+    await _create_record(
+        db,
+        id=981320,
+        steamid64=first_player,
+        map_id=981020,
+        server_id=981120,
+        mode_id=200,
+        stage=0,
+        time="10.000",
+        teleports=1,
+    )
+    await _create_record(
+        db,
+        id=981321,
+        steamid64=second_player,
+        map_id=981020,
+        server_id=981120,
+        mode_id=200,
+        stage=0,
+        time="12.000",
+        teleports=1,
+    )
+
+    course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == 981020, MapCourse.stage == 0)
+        )
+    ).one()
+    bucket_rows = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == 0,
+                RecordPb.is_pro_only.is_(False),
+            )
+        )
+    ).all()
+    for row in bucket_rows:
+        row.points = 1
+        db.add(row)
+    await db.commit()
+
+    updated_rows = await crud.rebuild_record_pb_points_bucket(
+        session=db,
+        course_id=course.id,
+        scope_id=0,
+        is_pro_only=False,
+    )
+    await db.commit()
+
+    refreshed_rows = (
+        await db.exec(
+            select(RecordPb)
+            .where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == 0,
+                RecordPb.is_pro_only.is_(False),
+            )
+            .order_by(RecordPb.time_ms.asc())
+        )
+    ).all()
+    assert updated_rows == 2
+    assert refreshed_rows[0].points == 1000
+    assert refreshed_rows[1].points > 1
+
+
+async def test_upsert_record_sets_estimated_points_for_new_pb_rows(
+    db: AsyncSession,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _create_player(db, steamid64=first_player, name="Estimate One")
+    await _create_player(db, steamid64=second_player, name="Estimate Two")
+    await _create_map(db, id=981021, name="kz_estimate_points", difficulty=4)
+    await _create_server(db, id=981121, name="Estimate Server")
+
+    first_record, _, _ = await crud.upsert_record(
+        session=db,
+        record_id=981330,
+        record_uuid=None,
+        steamid64=first_player,
+        server_id=981121,
+        mode_id=200,
+        map_id=981021,
+        stage=0,
+        time_seconds=Decimal("10.000"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_by=first_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    second_record, _, _ = await crud.upsert_record(
+        session=db,
+        record_id=981331,
+        record_uuid=None,
+        steamid64=second_player,
+        server_id=981121,
+        mode_id=200,
+        map_id=981021,
+        stage=0,
+        time_seconds=Decimal("12.000"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2026, 1, 2, tzinfo=UTC),
+        updated_on=datetime(2026, 1, 2, tzinfo=UTC),
+        updated_by=second_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    points_by_uuid = await crud.load_scoped_points_by_record_uuid(
+        session=db,
+        record_uuids=[first_record.uuid, second_record.uuid],
+        scope=RecordScope.OVR,
+    )
+
+    assert points_by_uuid[first_record.uuid] == 1000
+    assert points_by_uuid[second_record.uuid] > 1
+
+
+async def test_rebuild_record_pbs_for_course_skips_unvalidated_maps(
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _create_player(db, steamid64=player_id, name="Invalid Map Runner")
+    await _create_map(
+        db,
+        id=981022,
+        name="kz_invalid_map",
+        validated=False,
+        difficulty=4,
+    )
+    await _create_server(db, id=981122, name="Invalid Map Server")
+
+    record = Record(
+        id=981340,
+        steamid64=player_id,
+        server_id=981122,
+        mode_id=200,
+        map_id=981022,
+        stage=0,
+        time=Decimal("15.000"),
+        teleports=1,
+        created_on=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_by=player_id,
+        is_valid=True,
+    )
+    db.add(record)
+    await db.commit()
+    await crud.ensure_map_courses_for_valid_records(session=db)
+
+    course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == 981022, MapCourse.stage == 0)
+        )
+    ).one()
+    await crud.rebuild_record_pbs_for_course(
+        session=db,
+        course_id=course.id,
+        map_id=981022,
+        stage=0,
+    )
+    await db.commit()
+
+    assert (
+        await db.exec(select(RecordPb).where(RecordPb.course_id == course.id))
+    ).all() == []
+
+
+async def test_rebuild_record_pbs_for_course_keeps_bonus_points_for_validated_maps(
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _create_player(db, steamid64=player_id, name="Bonus Points Runner")
+    await _create_map(db, id=981023, name="kz_bonus_points", difficulty=5)
+    await _create_server(db, id=981123, name="Bonus Points Server")
+
+    bonus_record = await _create_record(
+        db,
+        id=981350,
+        steamid64=player_id,
+        map_id=981023,
+        server_id=981123,
+        mode_id=200,
+        stage=1,
+        time="25.000",
+        teleports=1,
+    )
+
+    points_by_uuid = await crud.load_scoped_points_by_record_uuid(
+        session=db,
+        record_uuids=[bonus_record.uuid],
+        scope=RecordScope.OVR,
+    )
+
+    assert points_by_uuid[bonus_record.uuid] == 1000

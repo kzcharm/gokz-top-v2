@@ -142,37 +142,39 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         SELECT
                             scope_modes.scope,
                             map_course.id AS course_id,
-                            map_course.map_id,
-                            map_course.stage,
                             FALSE AS is_pro_only,
                             COUNT(DISTINCT record.steamid64)::bigint AS expected_rows
                         FROM record
                         JOIN map_course
                             ON map_course.map_id = record.map_id
                             AND map_course.stage = record.stage
+                        JOIN map
+                            ON map.id = map_course.map_id
                         JOIN scope_modes
                             ON scope_modes.mode_id = record.mode_id
                         WHERE record.is_valid = true
-                        GROUP BY scope_modes.scope, map_course.id, map_course.map_id, map_course.stage
+                            AND map.validated = true
+                        GROUP BY scope_modes.scope, map_course.id
 
                         UNION ALL
 
                         SELECT
                             scope_modes.scope,
                             map_course.id AS course_id,
-                            map_course.map_id,
-                            map_course.stage,
                             TRUE AS is_pro_only,
                             COUNT(DISTINCT record.steamid64)::bigint AS expected_rows
                         FROM record
                         JOIN map_course
                             ON map_course.map_id = record.map_id
                             AND map_course.stage = record.stage
+                        JOIN map
+                            ON map.id = map_course.map_id
                         JOIN scope_modes
                             ON scope_modes.mode_id = record.mode_id
                         WHERE record.is_valid = true
+                            AND map.validated = true
                             AND record.teleports = 0
-                        GROUP BY scope_modes.scope, map_course.id, map_course.map_id, map_course.stage
+                        GROUP BY scope_modes.scope, map_course.id
                     ),
                     existing_counts AS (
                         SELECT
@@ -182,27 +184,38 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                             COUNT(*)::bigint AS existing_rows
                         FROM record_pb
                         GROUP BY record_pb.scope, record_pb.course_id, record_pb.is_pro_only
+                    ),
+                    combined_counts AS (
+                        SELECT
+                            COALESCE(expected_counts.scope, existing_counts.scope) AS scope,
+                            COALESCE(expected_counts.course_id, existing_counts.course_id) AS course_id,
+                            COALESCE(expected_counts.is_pro_only, existing_counts.is_pro_only) AS is_pro_only,
+                            COALESCE(expected_counts.expected_rows, 0)::bigint AS expected_rows,
+                            COALESCE(existing_counts.existing_rows, 0)::bigint AS existing_rows
+                        FROM expected_counts
+                        FULL OUTER JOIN existing_counts
+                            ON existing_counts.scope = expected_counts.scope
+                            AND existing_counts.course_id = expected_counts.course_id
+                            AND existing_counts.is_pro_only = expected_counts.is_pro_only
                     )
                     SELECT
-                        expected_counts.scope,
-                        expected_counts.course_id,
-                        expected_counts.map_id,
-                        expected_counts.stage,
-                        expected_counts.is_pro_only,
-                        expected_counts.expected_rows,
-                        COALESCE(existing_counts.existing_rows, 0)::bigint AS existing_rows
-                    FROM expected_counts
-                    LEFT JOIN existing_counts
-                        ON existing_counts.scope = expected_counts.scope
-                        AND existing_counts.course_id = expected_counts.course_id
-                        AND existing_counts.is_pro_only = expected_counts.is_pro_only
+                        combined_counts.scope,
+                        combined_counts.course_id,
+                        map_course.map_id,
+                        map_course.stage,
+                        combined_counts.is_pro_only,
+                        combined_counts.expected_rows,
+                        combined_counts.existing_rows
+                    FROM combined_counts
+                    JOIN map_course
+                        ON map_course.id = combined_counts.course_id
                     WHERE :force_all
-                        OR COALESCE(existing_counts.existing_rows, 0) <> expected_counts.expected_rows
+                        OR combined_counts.existing_rows <> combined_counts.expected_rows
                     ORDER BY
-                        expected_counts.map_id,
-                        expected_counts.stage,
-                        expected_counts.scope,
-                        expected_counts.is_pro_only
+                        map_course.map_id,
+                        map_course.stage,
+                        combined_counts.scope,
+                        combined_counts.is_pro_only
                     """
                 ),
                 params={"force_all": force_all},
