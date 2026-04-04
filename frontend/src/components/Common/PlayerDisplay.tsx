@@ -1,14 +1,30 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as Flags from "country-flag-icons/react/3x2"
-import { Copy, ExternalLink, IdCard, UserRound } from "lucide-react"
-import type { ComponentType, KeyboardEvent, MouseEvent, SVGProps } from "react"
+import {
+  Copy,
+  ExternalLink,
+  IdCard,
+  UserCheck,
+  UserPlus,
+  UserRound,
+} from "lucide-react"
+import type {
+  ComponentType,
+  KeyboardEvent,
+  MouseEvent,
+  ReactNode,
+  SVGProps,
+} from "react"
 import { useState } from "react"
 
+import { ApiError, PlayersService } from "@/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -16,7 +32,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import useCustomToast from "@/hooks/useCustomToast"
+import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -45,6 +64,170 @@ interface PlayerDisplayProps {
   nameMaxLength?: number
 }
 
+type PlayerContextMenuItemsProps = {
+  children?: ReactNode
+  displayName: string
+  hasProfileLink: boolean
+  steamProfileUrl: string | null
+  steamid64: string
+}
+
+export function PlayerContextMenuItems({
+  children,
+  displayName,
+  hasProfileLink,
+  steamProfileUrl,
+  steamid64,
+}: PlayerContextMenuItemsProps) {
+  const navigate = useNavigate()
+  const [, copyToClipboard] = useCopyToClipboard()
+
+  const handleGotoProfile = () => {
+    if (!hasProfileLink) {
+      return
+    }
+
+    void navigate({ to: "/profile/$steamid64", params: { steamid64 } })
+  }
+
+  const handleOpenSteamProfile = () => {
+    if (!steamProfileUrl) {
+      return
+    }
+
+    window.open(steamProfileUrl, "_blank", "noopener,noreferrer")
+  }
+
+  const handleCopySteamid64 = () => {
+    if (!hasProfileLink) {
+      return
+    }
+
+    void copyToClipboard(steamid64)
+  }
+
+  const handleCopyName = () => {
+    void copyToClipboard(displayName)
+  }
+
+  return (
+    <>
+      <DropdownMenuItem onSelect={handleGotoProfile}>
+        <UserRound />
+        Goto Profile
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={handleOpenSteamProfile}>
+        <ExternalLink />
+        Steam Profile
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={handleCopySteamid64}>
+        <Copy />
+        Copy SteamID64
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={handleCopyName}>
+        <IdCard />
+        Copy Name
+      </DropdownMenuItem>
+      {children}
+    </>
+  )
+}
+
+function getApiErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    const detail =
+      typeof error.body === "object" &&
+      error.body !== null &&
+      "detail" in error.body
+        ? error.body.detail
+        : null
+    return typeof detail === "string" ? detail : error.message
+  }
+
+  return error instanceof Error ? error.message : "Request failed"
+}
+
+export function PlayerFollowContextMenuItem({
+  menuOpen,
+  steamid64,
+  testId = "player-follow-menu-item",
+}: {
+  menuOpen: boolean
+  steamid64: string
+  testId?: string
+}) {
+  const authenticated = isLoggedIn()
+  const viewerSteamid64 = authenticated
+    ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
+    : null
+  const { user } = useAuth()
+  const { showErrorToast } = useCustomToast()
+  const queryClient = useQueryClient()
+  const followSummaryQuery = useQuery({
+    queryKey: ["profile-follow-summary", steamid64],
+    queryFn: () =>
+      PlayersService.readPlayerFollowSummary({
+        identifier: steamid64,
+      }),
+    enabled: authenticated && menuOpen,
+    retry: false,
+    staleTime: 30_000,
+  })
+  const followSummary = followSummaryQuery.data
+  const isOwnPlayer =
+    !authenticated ||
+    viewerSteamid64 === steamid64 ||
+    user?.steamid64 === steamid64 ||
+    followSummary?.viewer_is_self === true
+  const isFollowing = followSummary?.viewer_is_following === true
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      return isFollowing
+        ? await PlayersService.unfollowPlayer({ identifier: steamid64 })
+        : await PlayersService.followPlayer({ identifier: steamid64 })
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["profile-follow-summary", steamid64], data)
+      void queryClient.invalidateQueries({
+        queryKey: ["profile-follow-summary"],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ["profile-social"],
+      })
+    },
+    onError: (error) => {
+      showErrorToast(getApiErrorMessage(error))
+    },
+  })
+
+  if (!authenticated || isOwnPlayer) {
+    return null
+  }
+
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        data-testid={testId}
+        disabled={followSummaryQuery.isLoading || followMutation.isPending}
+        onSelect={() => {
+          if (followSummaryQuery.isLoading || followMutation.isPending) {
+            return
+          }
+          followMutation.mutate()
+        }}
+      >
+        {isFollowing ? <UserCheck /> : <UserPlus />}
+        {followMutation.isPending
+          ? "Updating follow"
+          : isFollowing
+            ? "Unfollow"
+            : "Follow"}
+      </DropdownMenuItem>
+    </>
+  )
+}
+
 export function PlayerDisplay({
   player,
   fallbackSteamid64,
@@ -52,8 +235,6 @@ export function PlayerDisplay({
   className,
   nameMaxLength,
 }: PlayerDisplayProps) {
-  const navigate = useNavigate()
-  const [, copyToClipboard] = useCopyToClipboard()
   const [menuOpen, setMenuOpen] = useState(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
   const hasProfileLink = steamid64Pattern.test(steamid64)
@@ -157,34 +338,6 @@ export function PlayerDisplay({
     }
   }
 
-  const handleGotoProfile = () => {
-    if (!hasProfileLink) {
-      return
-    }
-
-    void navigate({ to: "/profile/$steamid64", params: { steamid64 } })
-  }
-
-  const handleOpenSteamProfile = () => {
-    if (!steamProfileUrl) {
-      return
-    }
-
-    window.open(steamProfileUrl, "_blank", "noopener,noreferrer")
-  }
-
-  const handleCopySteamid64 = () => {
-    if (!hasProfileLink) {
-      return
-    }
-
-    void copyToClipboard(steamid64)
-  }
-
-  const handleCopyName = () => {
-    void copyToClipboard(displayName)
-  }
-
   if (!hasProfileLink) {
     return content
   }
@@ -214,22 +367,17 @@ export function PlayerDisplay({
         sideOffset={10}
         className="min-w-44"
       >
-        <DropdownMenuItem onSelect={handleGotoProfile}>
-          <UserRound />
-          Goto Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleOpenSteamProfile}>
-          <ExternalLink />
-          Steam Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCopySteamid64}>
-          <Copy />
-          Copy SteamID64
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCopyName}>
-          <IdCard />
-          Copy Name
-        </DropdownMenuItem>
+        <PlayerContextMenuItems
+          displayName={displayName}
+          hasProfileLink={hasProfileLink}
+          steamProfileUrl={steamProfileUrl}
+          steamid64={steamid64}
+        >
+          <PlayerFollowContextMenuItem
+            menuOpen={menuOpen}
+            steamid64={steamid64}
+          />
+        </PlayerContextMenuItems>
       </DropdownMenuContent>
     </DropdownMenu>
   )

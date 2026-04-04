@@ -3,7 +3,9 @@ import { queryOptions } from "@tanstack/react-query"
 import {
   type MapPublic,
   MapsService,
+  type PlayerFollowSummaryPublic,
   type PlayerPublic,
+  type PlayersPublic,
   PlayersService,
   type RecordPublic,
 } from "@/client"
@@ -14,6 +16,7 @@ import type { AppScope } from "@/components/scope-provider"
 export type ProfileTab = "home" | "records" | "stats"
 
 export const PROFILE_QUERY_LIMIT = 10_000
+export const PROFILE_SOCIAL_PAGE_LIMIT = 20
 
 const PROFILE_SESSION_QUERY_CONFIG = {
   staleTime: Number.POSITIVE_INFINITY,
@@ -41,6 +44,50 @@ export const profileBadgeToneClasses: Record<string, string> = {
 export async function fetchProfilePlayer(identifier: string) {
   return await PlayersService.readPlayer({
     identifier,
+  })
+}
+
+export function getProfileFollowSummaryQueryOptions(identifier: string) {
+  return queryOptions({
+    queryKey: ["profile-follow-summary", identifier],
+    queryFn: () =>
+      PlayersService.readPlayerFollowSummary({
+        identifier,
+      }),
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+export async function fetchProfileFollowers({
+  identifier,
+  offset,
+  limit = PROFILE_SOCIAL_PAGE_LIMIT,
+}: {
+  identifier: string
+  offset: number
+  limit?: number
+}): Promise<PlayersPublic> {
+  return await PlayersService.readPlayerFollowers({
+    identifier,
+    offset,
+    limit,
+  })
+}
+
+export async function fetchProfileFollowing({
+  identifier,
+  offset,
+  limit = PROFILE_SOCIAL_PAGE_LIMIT,
+}: {
+  identifier: string
+  offset: number
+  limit?: number
+}): Promise<PlayersPublic> {
+  return await PlayersService.readPlayerFollowing({
+    identifier,
+    offset,
+    limit,
   })
 }
 
@@ -160,4 +207,11 @@ export function getAvatarUrl(player: PlayerPublic) {
   }
 
   return `https://avatars.steamstatic.com/${player.avatar_hash}_full.jpg`
+}
+
+export function getFollowSummaryCount(
+  summary: PlayerFollowSummaryPublic | undefined,
+  key: "follower_count" | "following_count",
+) {
+  return summary?.[key] ?? 0
 }
