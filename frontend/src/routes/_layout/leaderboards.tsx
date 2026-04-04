@@ -1,6 +1,19 @@
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import {
+  functionalUpdate,
+  type OnChangeFn,
+  type SortingState,
+} from "@tanstack/react-table"
+import { useMemo, useState } from "react"
 
-import { FeaturePlaceholder } from "@/components/Common/FeaturePlaceholder"
+import { LeaderboardsService } from "@/client"
+import { DataTable } from "@/components/Common/DataTable"
+import ErrorComponent from "@/components/Common/ErrorComponent"
+import { columns } from "@/components/Leaderboards/columns"
+import { useScope } from "@/components/scope-provider"
+import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/leaderboards")({
@@ -14,14 +27,120 @@ export const Route = createFileRoute("/_layout/leaderboards")({
   }),
 })
 
-function LeaderboardsRoute() {
+function LeaderboardsSkeleton() {
   return (
-    <FeaturePlaceholder
-      section="Leaderboards"
-      title="Leaderboards"
-      description="Leaderboard views are not implemented yet. This placeholder keeps the sidebar structure in place until the competitive ranking pages are built."
-      backTo="/servers"
-      backLabel="Go to servers"
-    />
+    <div className="space-y-6">
+      <Skeleton className="h-32 rounded-[28px]" />
+      <Skeleton className="h-[520px] rounded-[28px]" />
+    </div>
+  )
+}
+
+function LeaderboardsRoute() {
+  const { scope } = useScope()
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "rating", desc: true },
+  ])
+
+  const sortBy =
+    sorting[0]?.id === "rating_easy" ||
+    sorting[0]?.id === "rating_hard" ||
+    sorting[0]?.id === "points" ||
+    sorting[0]?.id === "wrs_nub" ||
+    sorting[0]?.id === "wrs_pro" ||
+    sorting[0]?.id === "records_900_plus" ||
+    sorting[0]?.id === "records_800_plus" ||
+    sorting[0]?.id === "unique_map_finishes"
+      ? sorting[0].id
+      : "rating"
+  const sortOrder = sorting[0]?.desc ? "desc" : "asc"
+
+  const leaderboardQuery = useQuery({
+    queryKey: [
+      "leaderboards",
+      "players",
+      scope,
+      pageIndex,
+      pageSize,
+      sortBy,
+      sortOrder,
+    ],
+    queryFn: () =>
+      LeaderboardsService.readPlayerLeaderboard({
+        scope,
+        offset: pageIndex * pageSize,
+        limit: pageSize,
+        sortBy,
+        sortOrder,
+      }),
+  })
+
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = functionalUpdate(updater, sorting)
+    const nextSort =
+      next.length > 0 ? [next[0]] : [{ id: "rating", desc: true }]
+    setSorting(nextSort)
+    setPageIndex(0)
+  }
+
+  const tableData = useMemo(
+    () => leaderboardQuery.data?.data ?? [],
+    [leaderboardQuery.data],
+  )
+
+  if (leaderboardQuery.isLoading) {
+    return <LeaderboardsSkeleton />
+  }
+
+  if (leaderboardQuery.isError) {
+    return <ErrorComponent />
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="space-y-3 p-6 sm:p-8">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Leaderboards
+            </h1>
+            <p className="max-w-3xl text-sm text-muted-foreground sm:text-base">
+              Competitive ratings and milestone counts for the active scope. The
+              current scope filter comes from the global scope selector in the
+              app header.
+            </p>
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Active scope: {scope}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-0">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            serverPagination={{
+              pageIndex,
+              pageSize,
+              totalCount: leaderboardQuery.data?.count ?? 0,
+              onPageChange: setPageIndex,
+              onPageSizeChange: (size) => {
+                setPageSize(size)
+                setPageIndex(0)
+              },
+            }}
+            sorting={{
+              state: sorting,
+              onSortingChange,
+              manualSorting: true,
+            }}
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

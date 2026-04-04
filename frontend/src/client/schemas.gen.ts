@@ -360,6 +360,76 @@ export const PlayerFollowSummaryPublicSchema = {
     title: 'PlayerFollowSummaryPublic'
 } as const;
 
+export const PlayerLeaderboardEntryPublicSchema = {
+    properties: {
+        rank: {
+            type: 'integer',
+            title: 'Rank'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerPublic'
+        },
+        rating: {
+            type: 'integer',
+            title: 'Rating'
+        },
+        rating_easy: {
+            type: 'integer',
+            title: 'Rating Easy'
+        },
+        rating_hard: {
+            type: 'integer',
+            title: 'Rating Hard'
+        },
+        points: {
+            type: 'integer',
+            title: 'Points'
+        },
+        wrs_nub: {
+            type: 'integer',
+            title: 'Wrs Nub'
+        },
+        wrs_pro: {
+            type: 'integer',
+            title: 'Wrs Pro'
+        },
+        records_900_plus: {
+            type: 'integer',
+            title: 'Records 900 Plus'
+        },
+        records_800_plus: {
+            type: 'integer',
+            title: 'Records 800 Plus'
+        },
+        unique_map_finishes: {
+            type: 'integer',
+            title: 'Unique Map Finishes'
+        }
+    },
+    type: 'object',
+    required: ['rank', 'player', 'rating', 'rating_easy', 'rating_hard', 'points', 'wrs_nub', 'wrs_pro', 'records_900_plus', 'records_800_plus', 'unique_map_finishes'],
+    title: 'PlayerLeaderboardEntryPublic'
+} as const;
+
+export const PlayerLeaderboardsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerLeaderboardEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerLeaderboardsPublic'
+} as const;
+
 export const PlayerProfileViewsPublicSchema = {
     properties: {
         profile_views: {

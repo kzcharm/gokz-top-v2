@@ -20,6 +20,10 @@ from app.services.globalapi_sync import (
     run_globalapi_sync_runner_in_app,
     stop_globalapi_sync_runner,
 )
+from app.services.leaderboard_player_task import (
+    run_leaderboard_player_runner_in_app,
+    stop_leaderboard_player_runner,
+)
 from app.services.record_events import (
     listen_for_recent_record_updates,
 )
@@ -55,6 +59,7 @@ async def lifespan(_: FastAPI):
     recent_record_listener_task = asyncio.create_task(listen_for_recent_record_updates())
     collector_task: asyncio.Task[None] | None = None
     globalapi_sync_task: asyncio.Task[None] | None = None
+    leaderboard_player_task: asyncio.Task[None] | None = None
     record_pb_points_task: asyncio.Task[None] | None = None
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
         collector_task = asyncio.create_task(run_server_status_collector_in_app())
@@ -62,6 +67,10 @@ async def lifespan(_: FastAPI):
         globalapi_sync_task = asyncio.create_task(run_globalapi_sync_runner_in_app())
     if settings.RUN_RECORD_PB_POINTS_TASK_RUNNER_IN_APP:
         record_pb_points_task = asyncio.create_task(run_record_pb_points_runner_in_app())
+    if settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP:
+        leaderboard_player_task = asyncio.create_task(
+            run_leaderboard_player_runner_in_app()
+        )
     try:
         yield
     finally:
@@ -70,6 +79,7 @@ async def lifespan(_: FastAPI):
         await stop_collector(collector_task)
         await stop_globalapi_sync_runner(globalapi_sync_task)
         await stop_record_pb_points_runner(record_pb_points_task)
+        await stop_leaderboard_player_runner(leaderboard_player_task)
 
 
 app = FastAPI(
