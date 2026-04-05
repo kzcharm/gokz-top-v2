@@ -1,4 +1,5 @@
 import re
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 import httpx
@@ -37,51 +38,22 @@ def _extract_avatar_hash_from_url(avatar_url: str | None) -> str | None:
     return match.group(1)
 
 
-async def _fetch_player_from_steam_api(
-    steamid64: int,
-) -> dict[str, str | bool | None]:
-    if not settings.STEAM_API_KEY:
-        return {
-            "name": str(steamid64),
-            "custom_id": None,
-            "avatar_hash": None,
-            "country": None,
-            "fetched": False,
-        }
-
-    params = {
-        "key": settings.STEAM_API_KEY,
-        "steamids": str(steamid64),
+def _steam_api_fallback_payload(steamid64: int) -> dict[str, str | bool | None]:
+    return {
+        "name": str(steamid64),
+        "custom_id": None,
+        "avatar_hash": None,
+        "country": None,
+        "fetched": False,
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/",
-                params=params,
-            )
-            response.raise_for_status()
-            payload = response.json()
-    except Exception:
-        return {
-            "name": str(steamid64),
-            "custom_id": None,
-            "avatar_hash": None,
-            "country": None,
-            "fetched": False,
-        }
 
-    players = payload.get("response", {}).get("players", [])
-    if not players:
-        return {
-            "name": str(steamid64),
-            "custom_id": None,
-            "avatar_hash": None,
-            "country": None,
-            "fetched": False,
-        }
+def _normalize_steam_player_payload(
+    *, steamid64: int, player: object
+) -> dict[str, str | bool | None] | None:
+    if not isinstance(player, dict):
+        return None
 
-    player = players[0]
     profile_url = player.get("profileurl")
     avatar_hash = player.get("avatarhash")
     if not avatar_hash:
@@ -96,6 +68,59 @@ async def _fetch_player_from_steam_api(
         else None,
         "fetched": True,
     }
+
+
+async def _fetch_players_from_steam_api(
+    steamid64s: Sequence[int],
+) -> dict[int, dict[str, str | bool | None]]:
+    unique_steamid64s = list(dict.fromkeys(steamid64s))
+    if not unique_steamid64s or not settings.STEAM_API_KEY:
+        return {}
+
+    params = {
+        "key": settings.STEAM_API_KEY,
+        "steamids": ",".join(str(steamid64) for steamid64 in unique_steamid64s),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/",
+                params=params,
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception:
+        return {}
+
+    players = payload.get("response", {}).get("players", [])
+    if not isinstance(players, list):
+        return {}
+
+    steam_data_by_steamid64: dict[int, dict[str, str | bool | None]] = {}
+    for raw_player in players:
+        if not isinstance(raw_player, dict):
+            continue
+        raw_steamid64 = raw_player.get("steamid")
+        try:
+            steamid64 = int(raw_steamid64)
+        except (TypeError, ValueError):
+            continue
+        normalized = _normalize_steam_player_payload(
+            steamid64=steamid64,
+            player=raw_player,
+        )
+        if normalized is not None:
+            steam_data_by_steamid64[steamid64] = normalized
+
+    return steam_data_by_steamid64
+
+
+async def _fetch_player_from_steam_api(
+    steamid64: int,
+) -> dict[str, str | bool | None]:
+    steam_data_by_steamid64 = await _fetch_players_from_steam_api([steamid64])
+    return steam_data_by_steamid64.get(steamid64, _steam_api_fallback_payload(steamid64))
 
 
 async def get_player_by_steamid64(
@@ -214,6 +239,78 @@ async def create_or_update_player_from_steam(
             await session.commit()
             await session.refresh(existing_player)
         return existing_player
+
+
+async def create_or_update_player_from_steam_if_fetched(
+    *, session: AsyncSession, steamid64: int
+) -> tuple[Player | None, bool]:
+    steam_data = await _fetch_player_from_steam_api(steamid64)
+    return await create_or_update_player_from_steam_data_if_fetched(
+        session=session,
+        steamid64=steamid64,
+        steam_data=steam_data,
+    )
+
+
+async def create_or_update_player_from_steam_data_if_fetched(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    steam_data: dict[str, str | bool | None] | None,
+) -> tuple[Player | None, bool]:
+    now = datetime.now(UTC)
+    if not steam_data or steam_data.get("fetched") is not True:
+        return None, False
+
+    player = await get_player_by_steamid64(session=session, steamid64=steamid64)
+    if player:
+        player.name = steam_data["name"] or player.name
+        player.custom_id = (
+            normalize_custom_id(steam_data["custom_id"]) or player.custom_id
+        )
+        player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
+        player.country = steam_data["country"] or player.country
+        player.updated_at = now
+        session.add(player)
+        await session.commit()
+        await session.refresh(player)
+        return player, False
+
+    player = Player(
+        steamid64=steamid64,
+        name=steam_data["name"] or str(steamid64),
+        custom_id=normalize_custom_id(steam_data["custom_id"]),
+        avatar_hash=steam_data["avatar_hash"],
+        country=steam_data["country"],
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(player)
+    try:
+        await session.commit()
+        await session.refresh(player)
+        return player, True
+    except IntegrityError:
+        # Another request inserted this player concurrently.
+        await session.rollback()
+        existing_player = await get_player_by_steamid64(
+            session=session, steamid64=steamid64
+        )
+        if not existing_player:
+            raise
+        existing_player.name = steam_data["name"] or existing_player.name
+        existing_player.custom_id = (
+            normalize_custom_id(steam_data["custom_id"]) or existing_player.custom_id
+        )
+        existing_player.avatar_hash = (
+            steam_data["avatar_hash"] or existing_player.avatar_hash
+        )
+        existing_player.country = steam_data["country"] or existing_player.country
+        existing_player.updated_at = now
+        session.add(existing_player)
+        await session.commit()
+        await session.refresh(existing_player)
+        return existing_player, False
 
 
 async def update_player(
