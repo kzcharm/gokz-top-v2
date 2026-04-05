@@ -87,7 +87,7 @@ export function PlayerContextMenuItems({
       return
     }
 
-    void navigate({ to: "/profile/$steamid64", params: { steamid64 } })
+    void navigate({ to: "/profile/$identifier", params: { identifier: steamid64 } })
   }
 
   const handleOpenSteamProfile = () => {
@@ -352,8 +352,8 @@ export function PlayerDisplay({
           />
         </DropdownMenuTrigger>
         <Link
-          to="/profile/$steamid64"
-          params={{ steamid64 }}
+          to="/profile/$identifier"
+          params={{ identifier: steamid64 }}
           className="-mx-2 -my-1 block rounded-md px-2 py-1 transition-colors hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onContextMenu={handleContextMenu}
           onKeyDown={handleKeyDown}

@@ -1,6 +1,7 @@
 import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 
 import httpx
 from sqlalchemy.exc import IntegrityError
@@ -8,9 +9,25 @@ from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
+from app.crud.player_profile_view import count_player_profile_views
 from app.models import Player, PlayerPublic, PlayerUpdate
 from app.models.player import validate_player_custom_id
-from app.crud.player_profile_view import count_player_profile_views
+
+STEAM_COMMUNITY_HOSTS = {"steamcommunity.com", "www.steamcommunity.com"}
+STEAM_ID_TYPE_INDIVIDUAL = 1
+STEAM_ID_INSTANCE_DESKTOP = 1
+
+
+def _build_individual_steamid64(*, account_id: int, universe: int) -> int | None:
+    if account_id <= 0 or universe <= 0:
+        return None
+
+    return (
+        (universe << 56)
+        | (STEAM_ID_TYPE_INDIVIDUAL << 52)
+        | (STEAM_ID_INSTANCE_DESKTOP << 32)
+        | account_id
+    )
 
 
 def normalize_custom_id(custom_id: str | None) -> str | None:
@@ -46,6 +63,92 @@ def _steam_api_fallback_payload(steamid64: int) -> dict[str, str | bool | None]:
         "country": None,
         "fetched": False,
     }
+
+
+def _parse_steam_profile_url(identifier: str) -> tuple[str, str] | None:
+    parsed = urlsplit(identifier)
+    host = parsed.netloc.split(":", maxsplit=1)[0].lower()
+    if parsed.scheme not in {"http", "https"} or host not in STEAM_COMMUNITY_HOSTS:
+        return None
+
+    path_segments = [segment for segment in parsed.path.split("/") if segment]
+    if len(path_segments) < 2:
+        return None
+
+    profile_type = path_segments[0].lower()
+    profile_value = path_segments[1]
+    if profile_type == "profiles" and profile_value.isdigit():
+        return ("steamid64", profile_value)
+    if profile_type == "id" and profile_value:
+        return ("vanity", profile_value)
+    return None
+
+
+def _parse_direct_steam_identifier_to_steamid64(identifier: str) -> int | None:
+    if identifier.isdigit():
+        numeric_value = int(identifier)
+        if 0 < numeric_value < 2**32:
+            return _build_individual_steamid64(
+                account_id=numeric_value,
+                universe=1,
+            )
+        return numeric_value
+
+    steam2_match = re.fullmatch(r"STEAM_(\d+):([01]):(\d+)", identifier)
+    if steam2_match:
+        universe = int(steam2_match.group(1))
+        if universe == 0:
+            universe = 1
+        account_id = (int(steam2_match.group(3)) << 1) | int(
+            steam2_match.group(2)
+        )
+        return _build_individual_steamid64(
+            account_id=account_id,
+            universe=universe,
+        )
+
+    steam3_match = re.fullmatch(r"\[U:(\d+):(\d+)(?::(\d+))?\]", identifier)
+    if steam3_match:
+        universe = int(steam3_match.group(1))
+        account_id = int(steam3_match.group(2))
+        return _build_individual_steamid64(
+            account_id=account_id,
+            universe=universe,
+        )
+
+    return None
+
+
+async def _resolve_steam_vanity_url_to_steamid64(vanity_url: str) -> int | None:
+    if not settings.STEAM_API_KEY:
+        return None
+
+    params = {
+        "key": settings.STEAM_API_KEY,
+        "vanityurl": vanity_url,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/",
+                params=params,
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception:
+        return None
+
+    response_payload = payload.get("response")
+    if not isinstance(response_payload, dict):
+        return None
+
+    try:
+        if int(response_payload.get("success")) != 1:
+            return None
+        return int(response_payload["steamid"])
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _normalize_steam_player_payload(
@@ -133,12 +236,32 @@ async def get_player_by_steamid64(
 async def get_player_by_identifier(
     *, session: AsyncSession, identifier: str
 ) -> Player | None:
+    steam_profile = _parse_steam_profile_url(identifier)
+    if steam_profile is not None:
+        profile_type, profile_value = steam_profile
+        if profile_type == "steamid64":
+            return await get_player_by_steamid64(
+                session=session,
+                steamid64=int(profile_value),
+            )
+
+        steamid64 = await _resolve_steam_vanity_url_to_steamid64(profile_value)
+        if steamid64 is None:
+            return None
+        return await get_player_by_steamid64(session=session, steamid64=steamid64)
+
+    direct_steamid64 = _parse_direct_steam_identifier_to_steamid64(identifier)
+    if direct_steamid64 is not None:
+        return await get_player_by_steamid64(
+            session=session,
+            steamid64=direct_steamid64,
+        )
+
     normalized_custom_id = normalize_custom_id(identifier)
-    statement = select(Player).where(
-        (Player.steamid64 == int(identifier))
-        if identifier.isdigit()
-        else (Player.custom_id == normalized_custom_id)
-    )
+    if normalized_custom_id is None:
+        return None
+
+    statement = select(Player).where(Player.custom_id == normalized_custom_id)
     return (await session.exec(statement)).first()
 
 

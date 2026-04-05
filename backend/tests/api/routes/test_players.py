@@ -221,6 +221,131 @@ async def test_read_player_by_custom_id(
 
 
 @pytest.mark.asyncio
+async def test_read_player_by_full_steam_profile_url_with_steamid64(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Profile URL Steam ID Player",
+        custom_id="local-custom-id",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/https://steamcommunity.com/profiles/{player.steamid64}"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player.steamid64)
+    assert payload["custom_id"] == "local-custom-id"
+
+
+@pytest.mark.asyncio
+async def test_read_player_by_steam2_identifier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    account_id = random_steamid64() & 0xFFFFFFFF
+    steamid64 = (1 << 56) | (1 << 52) | (1 << 32) | account_id
+    player = await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Steam2 Player",
+        custom_id="steam2-player",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/STEAM_1:{account_id % 2}:{account_id // 2}"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player.steamid64)
+    assert payload["custom_id"] == "steam2-player"
+
+
+@pytest.mark.asyncio
+async def test_read_player_by_account_id_identifier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    account_id = random_steamid64() & 0xFFFFFFFF
+    steamid64 = (1 << 56) | (1 << 52) | (1 << 32) | account_id
+    player = await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Account ID Player",
+        custom_id="account-id-player",
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{account_id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player.steamid64)
+    assert payload["custom_id"] == "account-id-player"
+
+
+@pytest.mark.asyncio
+async def test_read_player_by_full_steam_profile_url_with_vanity_id(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Profile URL Vanity Player",
+        custom_id="local-custom-id",
+    )
+
+    async def _fake_resolve_vanity_url(_vanity_url: str) -> int | None:
+        return player.steamid64
+
+    monkeypatch.setattr(
+        player_crud,
+        "_resolve_steam_vanity_url_to_steamid64",
+        _fake_resolve_vanity_url,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/https://steamcommunity.com/id/Legend"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player.steamid64)
+    assert payload["custom_id"] == "local-custom-id"
+
+
+@pytest.mark.asyncio
+async def test_read_player_follow_summary_accepts_full_steam_profile_url(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Profile URL Follow Summary Target",
+    )
+    follower_headers = await get_user_token_headers(client, random_steamid64())
+
+    await client.post(
+        f"{settings.API_V1_STR}/players/https://steamcommunity.com/profiles/{target.steamid64}/follow",
+        headers=follower_headers,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/https://steamcommunity.com/profiles/{target.steamid64}/follow-summary"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["follower_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_read_player_includes_profile_views(
     client: AsyncClient,
     db: AsyncSession,
@@ -251,6 +376,23 @@ async def test_read_player_by_identifier_returns_not_found_for_invalid_custom_id
     client: AsyncClient,
 ) -> None:
     response = await client.get(f"{settings.API_V1_STR}/players/123456")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_read_player_by_identifier_does_not_match_null_custom_id_for_invalid_value(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Null Custom ID Player",
+        custom_id=None,
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/invalid.profile")
 
     assert response.status_code == 404
 

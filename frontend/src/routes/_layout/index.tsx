@@ -9,8 +9,8 @@ export const Route = createFileRoute("/_layout/")({
     const steamid64 = getSteamid64FromAccessToken(accessToken)
 
     throw redirect({
-      to: "/profile/$steamid64",
-      params: { steamid64: steamid64 ?? fallbackSteamid64 },
+      to: "/profile/$identifier",
+      params: { identifier: steamid64 ?? fallbackSteamid64 },
     })
   },
   component: IndexRedirect,
