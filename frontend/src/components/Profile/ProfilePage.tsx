@@ -76,10 +76,10 @@ export function ProfilePage({
   const usesSidebarLayout = activeTab === "home" || activeTab === "records"
   const activeTabRoute =
     activeTab === "records"
-      ? "/profile/$steamid64/records"
+      ? "/profile/$identifier/records"
       : activeTab === "stats"
-        ? "/profile/$steamid64/stats"
-        : "/profile/$steamid64"
+        ? "/profile/$identifier/stats"
+        : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {
@@ -88,7 +88,7 @@ export function ProfilePage({
 
     void navigate({
       to: activeTabRoute,
-      params: { steamid64: canonicalIdentifier },
+      params: { identifier: canonicalIdentifier },
       replace: true,
     })
   }, [activeTabRoute, canonicalIdentifier, identifier, navigate])

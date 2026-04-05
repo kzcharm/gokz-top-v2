@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { ProfilePage } from "@/components/Profile/ProfilePage"
 import { getPageTitle } from "@/lib/site"
 
-export const Route = createFileRoute("/_layout/profile/$steamid64/records")({
+export const Route = createFileRoute("/_layout/profile/$identifier/records")({
   component: ProfileRecordsRoute,
   head: () => ({
     meta: [
@@ -15,6 +15,6 @@ export const Route = createFileRoute("/_layout/profile/$steamid64/records")({
 })
 
 function ProfileRecordsRoute() {
-  const { steamid64 } = Route.useParams()
-  return <ProfilePage identifier={steamid64} activeTab="records" />
+  const { identifier } = Route.useParams()
+  return <ProfilePage identifier={identifier} activeTab="records" />
 }

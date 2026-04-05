@@ -72,16 +72,7 @@ async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> 
     return PlayersBatchPublic(data=data, count=len(data))
 
 
-@router.get("/{identifier}", response_model=PlayerPublic)
-async def read_player(identifier: str, session: SessionDep) -> Any:
-    """
-    Retrieve a player by steamid64 or custom_id.
-    """
-    player = await _get_player_or_404(session=session, identifier=identifier)
-    return await crud.to_player_public_with_profile_views(session=session, player=player)
-
-
-@router.post("/{identifier}/views", response_model=PlayerProfileViewsPublic)
+@router.post("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)
 async def create_player_view(
     identifier: str,
     session: SessionDep,
@@ -103,7 +94,9 @@ async def create_player_view(
     return PlayerProfileViewsPublic(profile_views=profile_views)
 
 
-@router.get("/{identifier}/follow-summary", response_model=PlayerFollowSummaryPublic)
+@router.get(
+    "/{identifier:path}/follow-summary", response_model=PlayerFollowSummaryPublic
+)
 async def read_player_follow_summary(
     identifier: str,
     session: SessionDep,
@@ -120,7 +113,7 @@ async def read_player_follow_summary(
     )
 
 
-@router.post("/{identifier}/follow", response_model=PlayerFollowSummaryPublic)
+@router.post("/{identifier:path}/follow", response_model=PlayerFollowSummaryPublic)
 async def follow_player(
     identifier: str,
     session: SessionDep,
@@ -145,7 +138,7 @@ async def follow_player(
     )
 
 
-@router.delete("/{identifier}/follow", response_model=PlayerFollowSummaryPublic)
+@router.delete("/{identifier:path}/follow", response_model=PlayerFollowSummaryPublic)
 async def unfollow_player(
     identifier: str,
     session: SessionDep,
@@ -171,7 +164,7 @@ async def unfollow_player(
 
 
 @router.get(
-    "/{identifier}/followers",
+    "/{identifier:path}/followers",
     dependencies=[Depends(get_current_user)],
     response_model=PlayersPublic,
 )
@@ -197,7 +190,7 @@ async def read_player_followers(
 
 
 @router.get(
-    "/{identifier}/following",
+    "/{identifier:path}/following",
     dependencies=[Depends(get_current_user)],
     response_model=PlayersPublic,
 )
@@ -220,6 +213,15 @@ async def read_player_following(
         data=[crud.to_player_public(player=followed) for followed in following],
         count=count,
     )
+
+
+@router.get("/{identifier:path}", response_model=PlayerPublic)
+async def read_player(identifier: str, session: SessionDep) -> Any:
+    """
+    Retrieve a player by app custom_id, steamid64, or full Steam profile URL.
+    """
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    return await crud.to_player_public_with_profile_views(session=session, player=player)
 
 
 @router.put(

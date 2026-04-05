@@ -8,13 +8,13 @@ const tabDefinitions: Array<{
   key: ProfileTab
   label: string
   to:
-    | "/profile/$steamid64"
-    | "/profile/$steamid64/records"
-    | "/profile/$steamid64/stats"
+    | "/profile/$identifier"
+    | "/profile/$identifier/records"
+    | "/profile/$identifier/stats"
 }> = [
-  { key: "home", label: "Home", to: "/profile/$steamid64" },
-  { key: "records", label: "Records", to: "/profile/$steamid64/records" },
-  { key: "stats", label: "Stats", to: "/profile/$steamid64/stats" },
+  { key: "home", label: "Home", to: "/profile/$identifier" },
+  { key: "records", label: "Records", to: "/profile/$identifier/records" },
+  { key: "stats", label: "Stats", to: "/profile/$identifier/stats" },
 ]
 
 export function ProfileTabs({
@@ -29,7 +29,7 @@ export function ProfileTabs({
       <TabsList className="w-fit border border-border bg-background/60">
         {tabDefinitions.map((tab) => (
           <TabsTrigger key={tab.key} value={tab.key} asChild>
-            <Link to={tab.to} params={{ steamid64: identifier }}>
+            <Link to={tab.to} params={{ identifier }}>
               {tab.label}
             </Link>
           </TabsTrigger>
