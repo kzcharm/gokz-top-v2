@@ -9,6 +9,7 @@ import {
   PlayersService,
   type RecordPublic,
 } from "@/client"
+import { OpenAPI } from "@/client/core/OpenAPI"
 import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { getTierColor, normalizeTierValue } from "@/components/Servers/tier"
 import type { AppScope } from "@/components/scope-provider"
@@ -119,9 +120,22 @@ type ProfileCompletionCard = {
   tiers: ProfileCompletionTier[]
 }
 
+export type ProfileTrophyCounts = {
+  gold: number
+  silver: number
+  bronze: number
+}
+
 export type ProfileCompletionData = {
   nub: ProfileCompletionCard
   pro: ProfileCompletionCard
+}
+
+export type ProfileSummaryData = {
+  totalPoints: number
+  rankLabel: string
+  globalStanding: number | null
+  rating: number | null
 }
 
 function buildCompletionCard({
@@ -183,6 +197,90 @@ export function buildProfileCompletionData({
     nub: buildCompletionCard({ maps, records: nubRecords, scope }),
     pro: buildCompletionCard({ maps, records: proRecords, scope }),
   }
+}
+
+export function buildProfileTrophyCounts(records: RecordPublic[]): ProfileTrophyCounts {
+  let gold = 0
+  let silver = 0
+  let bronze = 0
+
+  for (const record of records) {
+    if (record.points === 1000) {
+      gold += 1
+    }
+    if (record.points >= 900) {
+      silver += 1
+    }
+    if (record.points >= 800) {
+      bronze += 1
+    }
+  }
+
+  return {
+    gold,
+    silver,
+    bronze,
+  }
+}
+
+export function buildProfileTotalPoints({
+  nubRecords,
+  proRecords,
+}: {
+  nubRecords: RecordPublic[]
+  proRecords: RecordPublic[]
+}) {
+  let totalPoints = 0
+
+  for (const record of nubRecords) {
+    totalPoints += record.points
+  }
+
+  for (const record of proRecords) {
+    totalPoints += record.points
+  }
+
+  return totalPoints
+}
+
+export function getProfilePointsStandingQueryOptions({
+  identifier,
+  scope,
+}: {
+  identifier: string | null
+  scope: AppScope
+}) {
+  return queryOptions({
+    queryKey: ["profile-points-standing", identifier, scope],
+    queryFn: async () => {
+      if (!identifier) {
+        return null
+      }
+
+      const encodedIdentifier = encodeURIComponent(identifier)
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/leaderboards/players/${encodedIdentifier}?scope=${scope}`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch player leaderboard rank")
+      }
+
+      const data = (await response.json()) as {
+        rank?: number | null
+        rating?: number | null
+      }
+      return {
+        rank: data.rank ?? null,
+        rating: data.rating ?? null,
+      }
+    },
+    enabled: identifier !== null,
+    ...PROFILE_SESSION_QUERY_CONFIG,
+  })
 }
 
 export function formatNumber(value: number) {

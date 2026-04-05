@@ -12,6 +12,11 @@ import {
 } from "@/components/Common/PlayerDisplay"
 import { Card, CardContent } from "@/components/ui/card"
 import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
@@ -28,37 +33,43 @@ import { profileHomePlaceholder } from "./profile-home-placeholder"
 import {
   formatHours,
   formatNumber,
-  formatRatingBadge,
   getAvatarUrl,
   getFollowSummaryCount,
   getProfileFollowSummaryQueryOptions,
+  type ProfileSummaryData,
   profileBadgeToneClasses,
 } from "./profile-utils"
 
 function ProfileIdentityCard({
   displayName,
+  profileSummary,
+  profileSummaryLoading,
   onContextMenuOpenChange,
   openContextMenu,
   player,
 }: {
   displayName: string
+  profileSummary: ProfileSummaryData
+  profileSummaryLoading: boolean
   onContextMenuOpenChange: (open: boolean) => void
   openContextMenu: boolean
   player: PlayerPublic
 }) {
   const avatarUrl = getAvatarUrl(player)
-  const summary = profileHomePlaceholder.summary
+  const placeholderSummary = profileHomePlaceholder.summary
+  const alias = player.alias?.trim() ?? ""
+  const hasDistinctAlias = alias.length > 0 && alias !== player.name
   const hasProfileLink = /^\d{17}$/.test(player.steamid64)
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${player.steamid64}`
     : null
 
-  const handleIdentityContextMenu = (event: MouseEvent<HTMLButtonElement>) => {
+  const handleIdentityContextMenu = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     onContextMenuOpenChange(true)
   }
 
-  const handleIdentityKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+  const handleIdentityKeyDown = (event: KeyboardEvent<HTMLAnchorElement>) => {
     if (
       event.key !== "ContextMenu" &&
       !(event.shiftKey && event.key === "F10")
@@ -81,43 +92,51 @@ function ProfileIdentityCard({
           <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(127,119,221,0.2),transparent_42%),radial-gradient(circle_at_75%_20%,rgba(29,158,117,0.16),transparent_28%)]" />
 
           <div className="relative flex flex-col items-center gap-4 text-center">
-            <div
-              className={cn(
-                "relative flex flex-col items-center gap-4 rounded-[24px]",
-                "focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-ring",
-              )}
-            >
-              <DropdownMenuTrigger asChild>
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 block"
-                />
-              </DropdownMenuTrigger>
-              <button
-                type="button"
-                aria-label={`Open profile actions for ${player.alias || player.name}`}
-                className="absolute inset-0 z-10 rounded-[24px] focus-visible:outline-none"
-                data-testid="profile-identity-surface"
-                onContextMenu={handleIdentityContextMenu}
-                onKeyDown={handleIdentityKeyDown}
-              />
-
+            <div className={cn("relative flex flex-col items-center gap-4 rounded-[24px]")}>
               <div className="relative">
                 <div className="absolute -inset-2 rounded-[28px] bg-[radial-gradient(circle,rgba(127,119,221,0.28),transparent_72%)] blur-2xl" />
-                <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-[24px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={`${player.name} avatar`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-3xl font-semibold text-white">
-                      {getInitials(player.alias || player.name)}
-                    </span>
-                  )}
-                  <span className="absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full border-2 border-card bg-emerald-500" />
-                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="relative flex h-32 w-32 cursor-zoom-in items-center justify-center overflow-hidden rounded-[28px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15 transition-transform hover:scale-[1.02] focus-visible:outline-none"
+                      aria-label={`Zoom avatar for ${player.name}`}
+                    >
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={`${player.name} avatar`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-3xl font-semibold text-white">
+                          {getInitials(player.alias || player.name)}
+                        </span>
+                      )}
+                      <span className="absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full border-2 border-card bg-emerald-500" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent
+                    className="max-w-[min(92vw,40rem)] border-border/70 bg-card/98 p-3 sm:p-4"
+                    showCloseButton={false}
+                  >
+                    <div className="overflow-hidden rounded-[24px]">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={`${player.name} avatar enlarged`}
+                          className="max-h-[80vh] w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex aspect-square w-full items-center justify-center bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85">
+                          <span className="text-6xl font-semibold text-white">
+                            {getInitials(player.alias || player.name)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <div className="space-y-2">
@@ -129,24 +148,57 @@ function ProfileIdentityCard({
                       fallbackClassName="h-5 w-7 rounded-[4px]"
                       showTooltip={false}
                     />
-                    <h1 className="text-3xl font-semibold tracking-tight">
-                      {player.alias || player.name}
-                    </h1>
+                    {steamProfileUrl ? (
+                      <div className="relative">
+                        <DropdownMenuTrigger asChild>
+                          <span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-0 block"
+                          />
+                        </DropdownMenuTrigger>
+                        <a
+                          href={steamProfileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Open Steam profile for ${player.name}`}
+                          data-testid="profile-identity-surface"
+                          className="rounded-[8px] text-3xl font-semibold tracking-tight transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
+                          onContextMenu={handleIdentityContextMenu}
+                          onKeyDown={handleIdentityKeyDown}
+                        >
+                          {player.name}
+                        </a>
+                      </div>
+                    ) : (
+                      <h1 className="text-3xl font-semibold tracking-tight">
+                        {player.name}
+                      </h1>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground">{player.name}</p>
+                  {hasDistinctAlias ? (
+                    <p className="text-sm text-muted-foreground">{alias}</p>
+                  ) : null}
                 </div>
               </div>
             </div>
 
             <div className="flex flex-wrap justify-center gap-2 pt-2">
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                Rating {formatRatingBadge(summary.rating)}
+                Rating{" "}
+                {profileSummaryLoading
+                  ? "..."
+                  : formatNumber(profileSummary.rating ?? 0)}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                Global #{formatNumber(summary.globalRank)}
+                GL{" "}
+                {profileSummaryLoading
+                  ? "..."
+                  : profileSummary.globalStanding === null
+                    ? "Unranked"
+                    : `#${formatNumber(profileSummary.globalStanding)}`}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                EU #{formatNumber(summary.regionalRank)}
+                EU #{formatNumber(placeholderSummary.regionalRank)}
               </span>
             </div>
           </div>
@@ -330,11 +382,15 @@ function SkillRadar() {
 export function ProfileSidebar({
   identifier,
   player,
+  summary,
+  summaryLoading,
 }: {
   identifier: string
   player: PlayerPublic
+  summary: ProfileSummaryData
+  summaryLoading: boolean
 }) {
-  const summary = profileHomePlaceholder.summary
+  const placeholderSummary = profileHomePlaceholder.summary
   const authenticated = isLoggedIn()
   const navigate = useNavigate()
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
@@ -361,6 +417,8 @@ export function ProfileSidebar({
     <div className="space-y-6">
       <ProfileIdentityCard
         displayName={player.alias || player.name}
+        profileSummary={summary}
+        profileSummaryLoading={summaryLoading}
         onContextMenuOpenChange={setIdentityContextMenuOpen}
         openContextMenu={identityContextMenuOpen}
         player={player}
@@ -392,7 +450,7 @@ export function ProfileSidebar({
             />
             <DetailRow
               label="Playtime"
-              value={formatHours(summary.playtimeHours)}
+              value={formatHours(placeholderSummary.playtimeHours)}
             />
           </div>
 
