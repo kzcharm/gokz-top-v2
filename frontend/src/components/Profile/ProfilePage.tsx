@@ -11,12 +11,16 @@ import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { ProfileHomeContent } from "./ProfileHomeContent"
 import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
+import { getPointsRankLabel } from "./profile-ranks"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileTabs } from "./ProfileTabs"
 import {
   buildProfileCompletionData,
+  buildProfileTrophyCounts,
+  buildProfileTotalPoints,
   fetchProfilePlayer,
   getProfilePbRecordsQueryOptions,
+  getProfilePointsStandingQueryOptions,
   getProfileValidatedMapsQueryOptions,
   type ProfileTab,
 } from "./profile-utils"
@@ -72,6 +76,13 @@ export function ProfilePage({
       isProOnly: true,
     }),
     enabled: playerSteamid64 !== null,
+  })
+  const pointsStandingQuery = useQuery({
+    ...getProfilePointsStandingQueryOptions({
+      identifier: canonicalIdentifier,
+      scope,
+    }),
+    enabled: canonicalIdentifier !== null,
   })
   const usesSidebarLayout = activeTab === "home" || activeTab === "records"
   const activeTabRoute =
@@ -151,11 +162,34 @@ export function ProfilePage({
       scope,
     })
   }, [mapsQuery.data, nubRecordsQuery.data, proRecordsQuery.data, scope])
+  const summary = useMemo(() => {
+    const totalPoints = buildProfileTotalPoints({
+      nubRecords: nubRecordsQuery.data ?? [],
+      proRecords: proRecordsQuery.data ?? [],
+    })
+
+    return {
+      totalPoints,
+      rankLabel: getPointsRankLabel(totalPoints, scope),
+      globalStanding: pointsStandingQuery.data?.rank ?? null,
+      rating: pointsStandingQuery.data?.rating ?? null,
+    }
+  }, [nubRecordsQuery.data, pointsStandingQuery.data, proRecordsQuery.data, scope])
+  const completionTrophies = useMemo(() => {
+    return {
+      nub: buildProfileTrophyCounts(nubRecordsQuery.data ?? []),
+      pro: buildProfileTrophyCounts(proRecordsQuery.data ?? []),
+    }
+  }, [nubRecordsQuery.data, proRecordsQuery.data])
 
   const completionLoading =
     mapsQuery.isLoading ||
     nubRecordsQuery.isLoading ||
     proRecordsQuery.isLoading
+  const summaryLoading =
+    nubRecordsQuery.isLoading ||
+    proRecordsQuery.isLoading ||
+    pointsStandingQuery.isLoading
   const completionError =
     mapsQuery.isError || nubRecordsQuery.isError || proRecordsQuery.isError
 
@@ -184,7 +218,12 @@ export function ProfilePage({
       {usesSidebarLayout ? (
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside>
-            <ProfileSidebar identifier={canonicalIdentifier} player={player} />
+            <ProfileSidebar
+              identifier={canonicalIdentifier}
+              player={player}
+              summary={summary}
+              summaryLoading={summaryLoading}
+            />
           </aside>
 
           <section className="space-y-6">
@@ -193,6 +232,9 @@ export function ProfilePage({
                 completion={completion}
                 completionLoading={completionLoading}
                 completionError={completionError}
+                completionTrophies={completionTrophies}
+                summary={summary}
+                summaryLoading={summaryLoading}
               />
             ) : (
               <ProfileRecordsTab steamid64={player.steamid64} />

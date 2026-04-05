@@ -10,9 +10,10 @@ import {
   profileHomePlaceholder,
 } from "./profile-home-placeholder"
 import {
-  formatCompactPercent,
   formatNumber,
   type ProfileCompletionData,
+  type ProfileSummaryData,
+  type ProfileTrophyCounts,
   profileBadgeToneClasses,
 } from "./profile-utils"
 
@@ -24,13 +25,31 @@ const activityTones = [
   "bg-primary",
 ]
 
-function MainSummaryCard({ label, value }: { label: string; value: string }) {
+const TROPHY_ASSETS = {
+  gold: "https://kzgo.eu/trophy4.png",
+  silver: "https://kzgo.eu/trophy_silver2.png",
+  bronze: "https://kzgo.eu/trophy_bronze.png",
+} as const
+
+function MainSummaryCard({
+  label,
+  loading,
+  value,
+}: {
+  label: string
+  loading?: boolean
+  value: string
+}) {
   return (
-    <div className="rounded-[20px] border border-border/70 bg-background/65 p-4">
+    <div className="rounded-[20px] border border-border bg-card p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
+      {loading ? (
+        <Skeleton className="mt-2 h-8 w-28" />
+      ) : (
+        <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
+      )}
     </div>
   )
 }
@@ -40,6 +59,7 @@ function CompletionCard({
   completed,
   total,
   tiers,
+  trophies,
 }: {
   title: string
   completed: number
@@ -50,25 +70,32 @@ function CompletionCard({
     total: number
     color: string
   }>
+  trophies: ProfileTrophyCounts
 }) {
-  const progress =
-    total === 0
-      ? formatCompactPercent(0)
-      : formatCompactPercent(completed / total)
-
   return (
     <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
-        <div className="flex items-end justify-between gap-4">
-          <div>
+        <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-end">
+          <div className="text-center md:col-start-2">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               {title}
             </p>
-            <p className="mt-3 text-3xl font-semibold tracking-tight">
-              {progress}
-            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-4">
+              {(["gold", "silver", "bronze"] as const).map((trophy) => (
+                <div key={trophy} className="flex items-center gap-2">
+                  <img
+                    src={TROPHY_ASSETS[trophy]}
+                    alt={`${trophy} trophy`}
+                    className="h-7 w-7 object-contain"
+                  />
+                  <span className="text-2xl font-semibold tracking-tight">
+                    {formatNumber(trophies[trophy])}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground md:col-start-3 md:justify-self-end">
             {formatNumber(completed)} / {formatNumber(total)}
           </p>
         </div>
@@ -255,24 +282,41 @@ export function ProfileHomeContent({
   completion,
   completionLoading,
   completionError,
+  completionTrophies,
+  summary,
+  summaryLoading,
 }: {
   completion: ProfileCompletionData
   completionLoading: boolean
   completionError: boolean
+  completionTrophies: {
+    nub: ProfileTrophyCounts
+    pro: ProfileTrophyCounts
+  }
+  summary: ProfileSummaryData
+  summaryLoading: boolean
 }) {
-  const placeholder = profileHomePlaceholder
-
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <MainSummaryCard
           label="Total Points"
-          value={formatNumber(placeholder.summary.points)}
+          loading={summaryLoading}
+          value={formatNumber(summary.totalPoints)}
         />
-        <MainSummaryCard label="Rank" value={placeholder.summary.ratingTier} />
+        <MainSummaryCard
+          label="Rank"
+          loading={summaryLoading}
+          value={summary.rankLabel}
+        />
         <MainSummaryCard
           label="Global Standing"
-          value={`#${formatNumber(placeholder.summary.globalRank)}`}
+          loading={summaryLoading}
+          value={
+            summary.globalStanding === null
+              ? "Unranked"
+              : `#${formatNumber(summary.globalStanding)}`
+          }
         />
       </div>
 
@@ -293,12 +337,14 @@ export function ProfileHomeContent({
             completed={completion.nub.completed}
             total={completion.nub.total}
             tiers={completion.nub.tiers}
+            trophies={completionTrophies.nub}
           />
           <CompletionCard
             title="PRO completion"
             completed={completion.pro.completed}
             total={completion.pro.total}
             tiers={completion.pro.tiers}
+            trophies={completionTrophies.pro}
           />
         </div>
       )}
