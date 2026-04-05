@@ -20,6 +20,7 @@ from app.models import (
     Player,
     PlayerLeaderboardEntryPublic,
     PlayerLeaderboardListQuery,
+    PlayerLeaderboardRankPublic,
     Record,
     RecordPb,
     RecordScope,
@@ -71,6 +72,27 @@ def calculate_weighted_rating(points: Iterable[int]) -> int:
 
 def _not_banned_clause() -> ColumnElement[bool]:
     return true()
+
+
+def _build_player_leaderboard_entry_public(
+    *,
+    player: Player,
+    rank: int,
+    leaderboard_row: LeaderboardPlayer,
+) -> PlayerLeaderboardEntryPublic:
+    return PlayerLeaderboardEntryPublic(
+        rank=rank,
+        player=to_player_public(player=player),
+        rating=leaderboard_row.rating,
+        rating_easy=leaderboard_row.rating_easy,
+        rating_hard=leaderboard_row.rating_hard,
+        points=leaderboard_row.points,
+        wrs_nub=leaderboard_row.wrs_nub,
+        wrs_pro=leaderboard_row.wrs_pro,
+        records_900_plus=leaderboard_row.records_900_plus,
+        records_800_plus=leaderboard_row.records_800_plus,
+        unique_map_finishes=leaderboard_row.unique_map_finishes,
+    )
 
 
 async def _load_player_pb_rows(
@@ -391,18 +413,22 @@ async def read_player_leaderboard(
 
     return (
         [
-            PlayerLeaderboardEntryPublic(
+            _build_player_leaderboard_entry_public(
+                player=player,
                 rank=rank,
-                player=to_player_public(player=player),
-                rating=rating,
-                rating_easy=rating_easy,
-                rating_hard=rating_hard,
-                points=points,
-                wrs_nub=wrs_nub,
-                wrs_pro=wrs_pro,
-                records_900_plus=records_900_plus,
-                records_800_plus=records_800_plus,
-                unique_map_finishes=unique_map_finishes,
+                leaderboard_row=LeaderboardPlayer(
+                    scope=scope_to_id(query.scope),
+                    steamid64=player.steamid64,
+                    rating=rating,
+                    rating_easy=rating_easy,
+                    rating_hard=rating_hard,
+                    points=points,
+                    wrs_nub=wrs_nub,
+                    wrs_pro=wrs_pro,
+                    records_900_plus=records_900_plus,
+                    records_800_plus=records_800_plus,
+                    unique_map_finishes=unique_map_finishes,
+                ),
             )
             for (
                 player,
@@ -419,4 +445,99 @@ async def read_player_leaderboard(
             ) in rows
         ],
         count,
+    )
+
+
+async def _read_metric_rank(
+    *,
+    session: AsyncSession,
+    scope: RecordScope,
+    steamid64: int,
+    metric_name: Literal["points", "rating"],
+    metric_value: int,
+) -> int | None:
+    if metric_value <= 0:
+        return None
+
+    metric_column = col(getattr(LeaderboardPlayer, metric_name))
+    higher_count = (
+        await session.exec(
+            select(func.count())
+            .select_from(LeaderboardPlayer)
+            .where(
+                col(LeaderboardPlayer.scope) == scope_to_id(scope),
+                metric_column > metric_value,
+                _not_banned_clause(),
+            )
+        )
+    ).one()
+
+    player_in_scope = (
+        await session.exec(
+            select(func.count())
+            .select_from(LeaderboardPlayer)
+            .where(
+                col(LeaderboardPlayer.scope) == scope_to_id(scope),
+                col(LeaderboardPlayer.steamid64) == steamid64,
+                metric_column > 0,
+                _not_banned_clause(),
+            )
+        )
+    ).one()
+    if player_in_scope == 0:
+        return None
+
+    return int(higher_count) + 1
+
+
+async def read_player_leaderboard_rank(
+    *,
+    session: AsyncSession,
+    player: Player,
+    scope: RecordScope,
+) -> PlayerLeaderboardRankPublic:
+    leaderboard_row = await session.get(
+        LeaderboardPlayer,
+        (scope_to_id(scope), player.steamid64),
+    )
+
+    points_rank: int | None = None
+    rating_rank: int | None = None
+
+    if leaderboard_row is not None:
+        points_rank = await _read_metric_rank(
+            session=session,
+            scope=scope,
+            steamid64=player.steamid64,
+            metric_name="points",
+            metric_value=leaderboard_row.points,
+        )
+        rating_rank = await _read_metric_rank(
+            session=session,
+            scope=scope,
+            steamid64=player.steamid64,
+            metric_name="rating",
+            metric_value=leaderboard_row.rating,
+        )
+
+    return PlayerLeaderboardRankPublic(
+        scope=scope,
+        rank=points_rank,
+        rating_rank=rating_rank,
+        player=to_player_public(player=player),
+        rating=leaderboard_row.rating if leaderboard_row is not None else 0,
+        rating_easy=leaderboard_row.rating_easy if leaderboard_row is not None else 0,
+        rating_hard=leaderboard_row.rating_hard if leaderboard_row is not None else 0,
+        points=leaderboard_row.points if leaderboard_row is not None else 0,
+        wrs_nub=leaderboard_row.wrs_nub if leaderboard_row is not None else 0,
+        wrs_pro=leaderboard_row.wrs_pro if leaderboard_row is not None else 0,
+        records_900_plus=leaderboard_row.records_900_plus
+        if leaderboard_row is not None
+        else 0,
+        records_800_plus=leaderboard_row.records_800_plus
+        if leaderboard_row is not None
+        else 0,
+        unique_map_finishes=leaderboard_row.unique_map_finishes
+        if leaderboard_row is not None
+        else 0,
     )
