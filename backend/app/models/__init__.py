@@ -6,6 +6,7 @@ from .leaderboard_player import (
     LeaderboardPlayer,
     PlayerLeaderboardEntryPublic,
     PlayerLeaderboardListQuery,
+    PlayerLeaderboardRankPublic,
     PlayerLeaderboardsPublic,
 )
 from .map import Map, MapBase, MapCompatPublicV0, MapPublic, MapSyncResult, MapTiers
@@ -145,6 +146,7 @@ __all__ = [
     "PlayerFollowSummaryPublic",
     "PlayerLeaderboardEntryPublic",
     "PlayerLeaderboardListQuery",
+    "PlayerLeaderboardRankPublic",
     "PlayerLeaderboardsPublic",
     "Record",
     "RecordBase",

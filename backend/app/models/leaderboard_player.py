@@ -126,6 +126,22 @@ class PlayerLeaderboardEntryPublic(SQLModel):
     unique_map_finishes: int
 
 
+class PlayerLeaderboardRankPublic(SQLModel):
+    scope: RecordScope
+    rank: int | None = None
+    rating_rank: int | None = None
+    player: PlayerPublic
+    rating: int
+    rating_easy: int
+    rating_hard: int
+    points: int
+    wrs_nub: int
+    wrs_pro: int
+    records_900_plus: int
+    records_800_plus: int
+    unique_map_finishes: int
+
+
 class PlayerLeaderboardsPublic(SQLModel):
     data: list[PlayerLeaderboardEntryPublic]
     count: int

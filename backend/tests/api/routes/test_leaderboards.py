@@ -22,8 +22,14 @@ from tests.utils.utils import random_steamid64
 pytestmark = pytest.mark.asyncio
 
 
-async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None:
-    db.add(Player(steamid64=steamid64, name=name))
+async def _create_player(
+    db: AsyncSession,
+    *,
+    steamid64: int,
+    name: str,
+    custom_id: str | None = None,
+) -> None:
+    db.add(Player(steamid64=steamid64, name=name, custom_id=custom_id))
     await db.flush()
 
 
@@ -137,7 +143,7 @@ async def _seed_leaderboard_data(
     beta = random_steamid64()
     gamma = random_steamid64()
     delta = random_steamid64()
-    await _create_player(db, steamid64=alpha, name="Alpha")
+    await _create_player(db, steamid64=alpha, name="Alpha", custom_id="alpha")
     await _create_player(db, steamid64=beta, name="Beta")
     await _create_player(db, steamid64=gamma, name="Gamma")
     await _create_player(db, steamid64=delta, name="Delta")
@@ -358,6 +364,67 @@ async def test_read_player_leaderboard_rejects_asc_sort_order(
 
     assert response.status_code == 422
     assert "sort_order" in response.text
+
+
+async def test_read_player_leaderboard_rank_returns_points_and_rating_rank(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/alpha",
+        params={"scope": "KZT"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["scope"] == "KZT"
+    assert payload["player"]["steamid64"] == str(players["alpha"])
+    assert payload["rank"] == 1
+    assert payload["rating_rank"] == 1
+    assert payload["points"] > payload["rating"]
+
+
+async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligible(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/{players['delta']}",
+        params={"scope": "KZT"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player"]["steamid64"] == str(players["delta"])
+    assert payload["rank"] == 3
+    assert payload["rating_rank"] is None
+    assert payload["rating"] == 0
+    assert payload["points"] > 0
+
+
+async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missing(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/{players['beta']}",
+        params={"scope": "SKZ"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player"]["steamid64"] == str(players["beta"])
+    assert payload["rank"] is None
+    assert payload["rating_rank"] is None
+    assert payload["points"] == 0
+    assert payload["rating"] == 0
+    assert payload["unique_map_finishes"] == 0
 
 
 async def test_upsert_player_leaderboards_rebuilds_player_without_auth(

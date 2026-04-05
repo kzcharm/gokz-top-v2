@@ -4,9 +4,11 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
 from app.api.deps import SessionDep
+from app.crud import player as player_crud
 from app.models import (
     Message,
     PlayerLeaderboardListQuery,
+    PlayerLeaderboardRankPublic,
     PlayerLeaderboardsPublic,
     RecordScope,
     scope_to_id,
@@ -22,6 +24,16 @@ def _parse_steamid64(steamid64: str) -> int:
         raise HTTPException(status_code=422, detail="Invalid steamid64") from exc
 
 
+async def _get_player_or_404(*, session: SessionDep, identifier: str):
+    player = await player_crud.get_player_by_identifier(
+        session=session,
+        identifier=identifier,
+    )
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return player
+
+
 @router.get("/players", response_model=PlayerLeaderboardsPublic)
 async def read_player_leaderboard(
     session: SessionDep,
@@ -29,6 +41,20 @@ async def read_player_leaderboard(
 ) -> PlayerLeaderboardsPublic:
     data, count = await crud.read_player_leaderboard(session=session, query=query)
     return PlayerLeaderboardsPublic(data=data, count=count)
+
+
+@router.get("/players/{identifier:path}", response_model=PlayerLeaderboardRankPublic)
+async def read_player_leaderboard_rank(
+    identifier: str,
+    session: SessionDep,
+    scope: RecordScope = Query(default=RecordScope.OVR),
+) -> PlayerLeaderboardRankPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    return await crud.read_player_leaderboard_rank(
+        session=session,
+        player=player,
+        scope=scope,
+    )
 
 
 @router.put("/players/{steamid64}", response_model=Message)
