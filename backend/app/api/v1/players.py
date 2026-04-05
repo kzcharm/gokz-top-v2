@@ -231,10 +231,19 @@ async def upsert_player_from_steam(session: SessionDep, steamid64: str) -> Any:
     """
     Create or update player from Steam API.
     """
-    player = await crud.create_or_update_player_from_steam(
+    parsed_steamid64 = _parse_steamid64(steamid64)
+    player, _ = await crud.create_or_update_player_from_steam_if_fetched(
         session=session,
-        steamid64=_parse_steamid64(steamid64),
+        steamid64=parsed_steamid64,
     )
+    if player is None:
+        existing_player = await crud.get_player_by_steamid64(
+            session=session,
+            steamid64=parsed_steamid64,
+        )
+        if existing_player is not None:
+            return crud.to_player_public(player=existing_player)
+        raise HTTPException(status_code=502, detail="Steam profile fetch failed")
     return crud.to_player_public(player=player)
 
 

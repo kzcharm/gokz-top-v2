@@ -330,6 +330,7 @@ async def test_upsert_player_from_steam_authenticated_succeeds(
             "custom_id": "steam-synced",
             "avatar_hash": "a" * 40,
             "country": "DE",
+            "fetched": True,
         }
 
     monkeypatch.setattr(
@@ -372,6 +373,7 @@ async def test_upsert_player_from_steam_normalizes_custom_id_to_lowercase(
             "custom_id": "Steam_Synced-42",
             "avatar_hash": "a" * 40,
             "country": "DE",
+            "fetched": True,
         }
 
     monkeypatch.setattr(
@@ -448,6 +450,42 @@ async def test_upsert_player_from_steam_does_not_overwrite_existing_player_when_
     assert refreshed.custom_id == "existing_custom"
     assert refreshed.avatar_hash == "b" * 40
     assert refreshed.country == "US"
+
+
+@pytest.mark.asyncio
+async def test_upsert_player_from_steam_does_not_insert_player_when_fetch_fails(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    steamid64 = random_steamid64()
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | bool | None]:
+        return {
+            "name": str(_steamid64),
+            "custom_id": None,
+            "avatar_hash": None,
+            "country": None,
+            "fetched": False,
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{steamid64}/steam",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Steam profile fetch failed"
+    assert await db.get(Player, steamid64) is None
 
 
 @pytest.mark.asyncio
