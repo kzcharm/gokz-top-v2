@@ -19,6 +19,7 @@ import type {
 import { useState } from "react"
 
 import { ApiError, PlayersService } from "@/client"
+import noneFlagSrc from "@/assets/flags/none.svg"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -283,12 +284,12 @@ export function PlayerDisplay({
             </TooltipContent>
           </Tooltip>
         ) : (
-          <span
-            className="inline-flex h-4 w-6 items-center justify-center rounded-[2px] border text-[10px] font-semibold text-muted-foreground"
+          <img
+            src={noneFlagSrc}
+            alt="Unknown country"
+            className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
             title="Unknown country"
-          >
-            --
-          </span>
+          />
         )}
 
         <Avatar

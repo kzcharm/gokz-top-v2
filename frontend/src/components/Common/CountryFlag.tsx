@@ -1,6 +1,7 @@
 import * as Flags from "country-flag-icons/react/3x2"
 import type { ComponentType, SVGProps } from "react"
 
+import noneFlagSrc from "@/assets/flags/none.svg"
 import {
   Tooltip,
   TooltipContent,
@@ -52,15 +53,15 @@ export function CountryFlag({
 
   if (!FlagComponent) {
     return (
-      <span
+      <img
+        src={noneFlagSrc}
+        alt="Unknown country"
         className={cn(
-          "inline-flex h-4 w-6 items-center justify-center rounded-[2px] border text-[10px] font-semibold text-muted-foreground",
+          "h-4 w-6 shrink-0 rounded-[2px] border border-border/80",
           fallbackClassName,
         )}
         title="Unknown country"
-      >
-        --
-      </span>
+      />
     )
   }
 
