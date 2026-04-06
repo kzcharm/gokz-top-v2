@@ -19,14 +19,17 @@ export function MapCard({ activeTier, map }: MapCardProps) {
     .slice(0, 6)
 
   return (
-    <Link
-      to="/maps/$mapName"
-      params={{ mapName: map.name }}
-      className="group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    <Card
+      className="group h-full gap-0 overflow-hidden border-border/70 py-0 transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
       data-testid={`map-card-${map.name}`}
     >
-      <Card className="h-full gap-0 overflow-hidden border-border/70 py-0 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg">
-        <div className="relative aspect-video overflow-hidden bg-muted">
+      <div className="relative aspect-video overflow-hidden bg-muted">
+        <Link
+          to="/maps/$mapName"
+          params={{ mapName: map.name }}
+          aria-label={`Open ${map.name}`}
+          className="block h-full w-full rounded-t-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
           {imageUrl ? (
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
@@ -34,78 +37,79 @@ export function MapCard({ activeTier, map }: MapCardProps) {
             />
           ) : null}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/85" />
-          <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
+        </Link>
+
+        <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
+          <h2 className="z-10 min-w-0 select-text break-all text-lg font-semibold text-white drop-shadow-sm">
+            {map.name}
+          </h2>
+          <div className="pointer-events-none z-10 shrink-0">
             <TierBadge
               tier={activeTier}
               className="bg-black/55 text-white backdrop-blur-sm"
             />
           </div>
-          <div className="absolute inset-x-4 bottom-4">
-            <h2 className="truncate text-lg font-semibold text-white drop-shadow-sm">
-              {map.name}
-            </h2>
-          </div>
         </div>
+      </div>
 
-        <CardContent className="space-y-4 px-5 py-5">
-          <section className="space-y-3" aria-label="Skill breakdown">
-            <div
-              className="flex h-2.5 overflow-hidden rounded-full bg-muted"
-              aria-hidden="true"
-            >
-              {skillPortions.map((portion) => (
-                <div
-                  key={portion.label}
-                  className="h-full"
-                  style={{
-                    backgroundColor: portion.color,
-                    width: `${portion.percentage}%`,
-                  }}
-                />
-              ))}
-            </div>
+      <CardContent className="space-y-4 px-5 py-5">
+        <section className="space-y-3" aria-label="Skill breakdown">
+          <div
+            className="flex h-2.5 overflow-hidden rounded-full bg-muted"
+            aria-hidden="true"
+          >
+            {skillPortions.map((portion) => (
+              <div
+                key={portion.label}
+                className="h-full"
+                style={{
+                  backgroundColor: portion.color,
+                  width: `${portion.percentage}%`,
+                }}
+              />
+            ))}
+          </div>
 
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {skillPortions.map((portion) => (
-                <li
-                  key={portion.label}
-                  className="flex items-center justify-between gap-2 text-xs"
-                >
-                  <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: portion.color }}
-                    />
-                    <span className="truncate">{portion.label}</span>
-                  </span>
-                  <span className="font-medium tabular-nums text-foreground">
-                    {portion.percentage}%
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {skillPortions.map((portion) => (
+              <li
+                key={portion.label}
+                className="flex items-center justify-between gap-2 text-xs"
+              >
+                <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: portion.color }}
+                  />
+                  <span className="truncate">{portion.label}</span>
+                </span>
+                <span className="font-medium tabular-nums text-foreground">
+                  {portion.percentage}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-          <dl className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Created
-              </dt>
-              <dd className="text-sm font-medium text-foreground">
-                <FormattedDateTime value={map.created_on} fallback="-" />
-              </dd>
-            </div>
-            <div className="space-y-1">
-              <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Updated
-              </dt>
-              <dd className="text-sm font-medium text-foreground">
-                <FormattedDateTime value={map.updated_on} fallback="-" />
-              </dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-    </Link>
+        <dl className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Created
+            </dt>
+            <dd className="text-sm font-medium text-foreground">
+              <FormattedDateTime value={map.created_on} fallback="-" />
+            </dd>
+          </div>
+          <div className="space-y-1">
+            <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Updated
+            </dt>
+            <dd className="text-sm font-medium text-foreground">
+              <FormattedDateTime value={map.updated_on} fallback="-" />
+            </dd>
+          </div>
+        </dl>
+      </CardContent>
+    </Card>
   )
 }
