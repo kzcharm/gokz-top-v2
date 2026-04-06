@@ -1,21 +1,38 @@
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 import httpx
+from sqlalchemy import case, false, func, literal, or_
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import col, func, select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.crud.player_profile_view import count_player_profile_views
-from app.models import Player, PlayerPublic, PlayerUpdate
+from app.models import (
+    LeaderboardPlayer,
+    Player,
+    PlayerPublic,
+    PlayerUpdate,
+    RecordScope,
+)
 from app.models.player import validate_player_custom_id
+from app.models.record import scope_to_id
 
 STEAM_COMMUNITY_HOSTS = {"steamcommunity.com", "www.steamcommunity.com"}
 STEAM_ID_TYPE_INDIVIDUAL = 1
 STEAM_ID_INSTANCE_DESKTOP = 1
+PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR = "<%"
+
+
+@dataclass(slots=True)
+class PlayerSearchInput:
+    search_text: str
+    search_text_lower: str
+    exact_steamid64: int | None = None
 
 
 def _build_individual_steamid64(*, account_id: int, universe: int) -> int | None:
@@ -233,6 +250,110 @@ async def get_player_by_steamid64(
     return (await session.exec(statement)).first()
 
 
+async def _get_player_by_custom_id(
+    *, session: AsyncSession, custom_id: str
+) -> Player | None:
+    statement = select(Player).where(Player.custom_id == custom_id)
+    return (await session.exec(statement)).first()
+
+
+async def _get_assignable_custom_id(
+    *,
+    session: AsyncSession,
+    player_steamid64: int,
+    custom_id: str | None,
+) -> str | None:
+    normalized_custom_id = normalize_custom_id(custom_id)
+    if normalized_custom_id is None:
+        return None
+
+    existing_player = await _get_player_by_custom_id(
+        session=session,
+        custom_id=normalized_custom_id,
+    )
+    if existing_player is None or existing_player.steamid64 == player_steamid64:
+        return normalized_custom_id
+    return None
+
+
+def _apply_steam_player_update(
+    *,
+    player: Player,
+    steam_data: dict[str, str | bool | None],
+    now: datetime,
+    custom_id: str | None,
+) -> None:
+    player.name = steam_data["name"] or player.name
+    if custom_id is not None:
+        player.custom_id = custom_id
+    player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
+    player.country = steam_data["country"] or player.country
+    player.updated_at = now
+
+
+async def _commit_player_update_with_custom_id_fallback(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    steam_data: dict[str, str | bool | None],
+    now: datetime,
+    custom_id: str | None,
+) -> Player:
+    player = await get_player_by_steamid64(session=session, steamid64=steamid64)
+    if player is None:
+        raise RuntimeError("Player missing during Steam update retry")
+
+    _apply_steam_player_update(
+        player=player,
+        steam_data=steam_data,
+        now=now,
+        custom_id=custom_id,
+    )
+    session.add(player)
+    await session.commit()
+    await session.refresh(player)
+    return player
+
+
+async def _build_player_search_input(
+    *,
+    session: AsyncSession,
+    query: str,
+) -> PlayerSearchInput:
+    search_text = query.strip()
+    exact_steamid64: int | None = None
+
+    steam_profile = _parse_steam_profile_url(search_text)
+    if steam_profile is not None:
+        profile_type, profile_value = steam_profile
+        if profile_type == "steamid64":
+            exact_steamid64 = int(profile_value)
+            search_text = profile_value
+        else:
+            exact_steamid64 = await _resolve_steam_vanity_url_to_steamid64(profile_value)
+            search_text = profile_value
+    else:
+        direct_steamid64 = _parse_direct_steam_identifier_to_steamid64(search_text)
+        if direct_steamid64 is not None:
+            exact_steamid64 = direct_steamid64
+
+    normalized_custom_id = normalize_custom_id(search_text)
+    if normalized_custom_id is not None:
+        search_text = normalized_custom_id
+        custom_id_player = await _get_player_by_custom_id(
+            session=session,
+            custom_id=normalized_custom_id,
+        )
+        if custom_id_player is not None:
+            exact_steamid64 = custom_id_player.steamid64
+
+    return PlayerSearchInput(
+        search_text=search_text,
+        search_text_lower=search_text.lower(),
+        exact_steamid64=exact_steamid64,
+    )
+
+
 async def get_player_by_identifier(
     *, session: AsyncSession, identifier: str
 ) -> Player | None:
@@ -261,8 +382,10 @@ async def get_player_by_identifier(
     if normalized_custom_id is None:
         return None
 
-    statement = select(Player).where(Player.custom_id == normalized_custom_id)
-    return (await session.exec(statement)).first()
+    return await _get_player_by_custom_id(
+        session=session,
+        custom_id=normalized_custom_id,
+    )
 
 
 async def read_players(
@@ -284,6 +407,98 @@ async def read_players(
     statement = (
         select(Player)
         .order_by(sort_direction.nullslast(), col(Player.steamid64).desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    players = list((await session.exec(statement)).all())
+    return players, count
+
+
+async def search_players(
+    *,
+    session: AsyncSession,
+    q: str,
+    offset: int = 0,
+    limit: int = 20,
+) -> tuple[list[Player], int]:
+    search_input = await _build_player_search_input(session=session, query=q)
+    search_term = search_input.search_text
+    search_term_lower = search_input.search_text_lower
+    prefix_pattern = f"{search_term_lower}%"
+    ovr_scope = scope_to_id(RecordScope.OVR)
+
+    lower_name = func.lower(col(Player.name))
+    lower_alias = func.lower(func.coalesce(col(Player.alias), ""))
+    lower_custom_id = func.lower(func.coalesce(col(Player.custom_id), ""))
+    search_literal = literal(search_term_lower)
+    tsquery = func.websearch_to_tsquery("simple", search_term)
+    has_tsquery = func.numnode(tsquery) > 0
+
+    exact_identifier_match = (
+        col(Player.steamid64) == search_input.exact_steamid64
+        if search_input.exact_steamid64 is not None
+        else false()
+    )
+    prefix_match = or_(
+        lower_custom_id.like(prefix_pattern),
+        lower_alias.like(prefix_pattern),
+        lower_name.like(prefix_pattern),
+    )
+    trigram_match = or_(
+        search_literal.op(PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR)(lower_custom_id),
+        search_literal.op(PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR)(lower_alias),
+        search_literal.op(PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR)(lower_name),
+    )
+    full_text_match = has_tsquery & col(Player.search_vector).bool_op("@@")(tsquery)
+
+    rank_tier = case(
+        (exact_identifier_match, 0),
+        (lower_custom_id == search_term_lower, 1),
+        (lower_alias == search_term_lower, 2),
+        (lower_name == search_term_lower, 3),
+        (lower_custom_id.like(prefix_pattern), 4),
+        (lower_alias.like(prefix_pattern), 5),
+        (lower_name.like(prefix_pattern), 6),
+        else_=7,
+    )
+    full_text_rank = case(
+        (has_tsquery, func.ts_rank_cd(col(Player.search_vector), tsquery, 32)),
+        else_=0.0,
+    )
+    trigram_rank = func.greatest(
+        func.word_similarity(search_term_lower, lower_custom_id),
+        func.word_similarity(search_term_lower, lower_alias),
+        func.word_similarity(search_term_lower, lower_name),
+    )
+    rating_rank = func.coalesce(col(LeaderboardPlayer.rating), 0)
+
+    base_statement = (
+        select(Player)
+        .outerjoin(
+            LeaderboardPlayer,
+            (col(LeaderboardPlayer.steamid64) == col(Player.steamid64))
+            & (col(LeaderboardPlayer.scope) == ovr_scope),
+        )
+        .where(
+            or_(
+                exact_identifier_match,
+                prefix_match,
+                full_text_match,
+                trigram_match,
+            )
+        )
+    )
+    count_statement = select(func.count()).select_from(base_statement.subquery())
+    count = (await session.exec(count_statement)).one()
+
+    statement = (
+        base_statement.order_by(
+            rank_tier.asc(),
+            full_text_rank.desc(),
+            trigram_rank.desc(),
+            rating_rank.desc(),
+            col(Player.steamid64).desc(),
+        )
         .offset(offset)
         .limit(limit)
     )
@@ -313,22 +528,41 @@ async def create_or_update_player_from_steam(
     player = await get_player_by_steamid64(session=session, steamid64=steamid64)
     if player:
         if fetched_from_steam:
-            player.name = steam_data["name"] or player.name
-            player.custom_id = (
-                normalize_custom_id(steam_data["custom_id"]) or player.custom_id
+            custom_id = await _get_assignable_custom_id(
+                session=session,
+                player_steamid64=steamid64,
+                custom_id=steam_data["custom_id"],
             )
-            player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
-            player.country = steam_data["country"] or player.country
-            player.updated_at = now
+            _apply_steam_player_update(
+                player=player,
+                steam_data=steam_data,
+                now=now,
+                custom_id=custom_id,
+            )
             session.add(player)
-            await session.commit()
-            await session.refresh(player)
+            try:
+                await session.commit()
+                await session.refresh(player)
+            except IntegrityError:
+                await session.rollback()
+                player = await _commit_player_update_with_custom_id_fallback(
+                    session=session,
+                    steamid64=steamid64,
+                    steam_data=steam_data,
+                    now=now,
+                    custom_id=None,
+                )
         return player
 
+    custom_id = await _get_assignable_custom_id(
+        session=session,
+        player_steamid64=steamid64,
+        custom_id=steam_data["custom_id"],
+    )
     player = Player(
         steamid64=steamid64,
         name=steam_data["name"] or str(steamid64),
-        custom_id=normalize_custom_id(steam_data["custom_id"]),
+        custom_id=custom_id,
         avatar_hash=steam_data["avatar_hash"],
         country=steam_data["country"],
         created_at=now,
@@ -345,23 +579,45 @@ async def create_or_update_player_from_steam(
         existing_player = await get_player_by_steamid64(
             session=session, steamid64=steamid64
         )
-        if not existing_player:
-            raise
-        if fetched_from_steam:
-            existing_player.name = steam_data["name"] or existing_player.name
-            existing_player.custom_id = (
-                normalize_custom_id(steam_data["custom_id"])
-                or existing_player.custom_id
-            )
-            existing_player.avatar_hash = (
-                steam_data["avatar_hash"] or existing_player.avatar_hash
-            )
-            existing_player.country = steam_data["country"] or existing_player.country
-            existing_player.updated_at = now
-            session.add(existing_player)
+        if existing_player is not None:
+            if fetched_from_steam:
+                custom_id = await _get_assignable_custom_id(
+                    session=session,
+                    player_steamid64=steamid64,
+                    custom_id=steam_data["custom_id"],
+                )
+                return await _commit_player_update_with_custom_id_fallback(
+                    session=session,
+                    steamid64=steamid64,
+                    steam_data=steam_data,
+                    now=now,
+                    custom_id=custom_id,
+                )
+            return existing_player
+
+        player = Player(
+            steamid64=steamid64,
+            name=steam_data["name"] or str(steamid64),
+            custom_id=None,
+            avatar_hash=steam_data["avatar_hash"],
+            country=steam_data["country"],
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(player)
+        try:
             await session.commit()
-            await session.refresh(existing_player)
-        return existing_player
+            await session.refresh(player)
+            return player
+        except IntegrityError:
+            await session.rollback()
+            existing_player = await get_player_by_steamid64(
+                session=session,
+                steamid64=steamid64,
+            )
+            if existing_player is not None:
+                return existing_player
+            raise
 
 
 async def create_or_update_player_from_steam_if_fetched(
@@ -387,22 +643,41 @@ async def create_or_update_player_from_steam_data_if_fetched(
 
     player = await get_player_by_steamid64(session=session, steamid64=steamid64)
     if player:
-        player.name = steam_data["name"] or player.name
-        player.custom_id = (
-            normalize_custom_id(steam_data["custom_id"]) or player.custom_id
+        custom_id = await _get_assignable_custom_id(
+            session=session,
+            player_steamid64=steamid64,
+            custom_id=steam_data["custom_id"],
         )
-        player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
-        player.country = steam_data["country"] or player.country
-        player.updated_at = now
+        _apply_steam_player_update(
+            player=player,
+            steam_data=steam_data,
+            now=now,
+            custom_id=custom_id,
+        )
         session.add(player)
-        await session.commit()
-        await session.refresh(player)
+        try:
+            await session.commit()
+            await session.refresh(player)
+        except IntegrityError:
+            await session.rollback()
+            player = await _commit_player_update_with_custom_id_fallback(
+                session=session,
+                steamid64=steamid64,
+                steam_data=steam_data,
+                now=now,
+                custom_id=None,
+            )
         return player, False
 
+    custom_id = await _get_assignable_custom_id(
+        session=session,
+        player_steamid64=steamid64,
+        custom_id=steam_data["custom_id"],
+    )
     player = Player(
         steamid64=steamid64,
         name=steam_data["name"] or str(steamid64),
-        custom_id=normalize_custom_id(steam_data["custom_id"]),
+        custom_id=custom_id,
         avatar_hash=steam_data["avatar_hash"],
         country=steam_data["country"],
         created_at=now,
@@ -419,21 +694,44 @@ async def create_or_update_player_from_steam_data_if_fetched(
         existing_player = await get_player_by_steamid64(
             session=session, steamid64=steamid64
         )
-        if not existing_player:
+        if existing_player is not None:
+            custom_id = await _get_assignable_custom_id(
+                session=session,
+                player_steamid64=steamid64,
+                custom_id=steam_data["custom_id"],
+            )
+            existing_player = await _commit_player_update_with_custom_id_fallback(
+                session=session,
+                steamid64=steamid64,
+                steam_data=steam_data,
+                now=now,
+                custom_id=custom_id,
+            )
+            return existing_player, False
+
+        player = Player(
+            steamid64=steamid64,
+            name=steam_data["name"] or str(steamid64),
+            custom_id=None,
+            avatar_hash=steam_data["avatar_hash"],
+            country=steam_data["country"],
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(player)
+        try:
+            await session.commit()
+            await session.refresh(player)
+            return player, True
+        except IntegrityError:
+            await session.rollback()
+            existing_player = await get_player_by_steamid64(
+                session=session,
+                steamid64=steamid64,
+            )
+            if existing_player is not None:
+                return existing_player, False
             raise
-        existing_player.name = steam_data["name"] or existing_player.name
-        existing_player.custom_id = (
-            normalize_custom_id(steam_data["custom_id"]) or existing_player.custom_id
-        )
-        existing_player.avatar_hash = (
-            steam_data["avatar_hash"] or existing_player.avatar_hash
-        )
-        existing_player.country = steam_data["country"] or existing_player.country
-        existing_player.updated_at = now
-        session.add(existing_player)
-        await session.commit()
-        await session.refresh(existing_player)
-        return existing_player, False
 
 
 async def update_player(

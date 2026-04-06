@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.crud import player as player_crud
-from app.models import Player, PlayerFollow
+from app.models import LeaderboardPlayer, Player, PlayerFollow, RecordScope, scope_to_id
 from tests.utils.utils import get_user_token_headers, random_steamid64
 
 
@@ -32,6 +32,17 @@ async def _create_player(
     await db.commit()
     await db.refresh(player)
     return player
+
+
+async def _set_ovr_rating(*, db: AsyncSession, steamid64: int, rating: int) -> None:
+    db.add(
+        LeaderboardPlayer(
+            scope=scope_to_id(RecordScope.OVR),
+            steamid64=steamid64,
+            rating=rating,
+        )
+    )
+    await db.commit()
 
 
 @pytest.mark.asyncio
@@ -136,6 +147,142 @@ async def test_read_players_public_supports_sort_by_last_played_at(
     assert descending_ids.index(str(first.steamid64)) < descending_ids.index(
         str(second.steamid64)
     )
+
+
+@pytest.mark.asyncio
+async def test_search_players_uses_dedicated_route(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Search Route Player",
+        custom_id="search-route-player",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": "search-route-player"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] >= 1
+    assert payload["data"][0]["steamid64"] == str(player.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_search_players_exact_identifier_beats_higher_rated_fuzzy_match(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    exact_player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Exact Search Player",
+        custom_id="exact-search-player",
+    )
+    fuzzy_player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Exact Search Player Fan",
+    )
+    await _set_ovr_rating(db=db, steamid64=exact_player.steamid64, rating=100)
+    await _set_ovr_rating(db=db, steamid64=fuzzy_player.steamid64, rating=5000)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": exact_player.custom_id},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["steamid64"] == str(exact_player.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_search_players_uses_rating_to_break_same_relevance_tier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    query_term = "runnertier"
+    lower_rated = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name=f"{query_term} alpha",
+    )
+    higher_rated = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name=f"{query_term} beta",
+    )
+    await _set_ovr_rating(db=db, steamid64=lower_rated.steamid64, rating=50)
+    await _set_ovr_rating(db=db, steamid64=higher_rated.steamid64, rating=900)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": query_term},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["steamid64"] == str(higher_rated.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_search_players_supports_steam2_identifier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    account_id = random_steamid64() & 0xFFFFFFFF
+    steamid64 = (1 << 56) | (1 << 52) | (1 << 32) | account_id
+    player = await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Steam2 Search Player",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": f"STEAM_1:{account_id % 2}:{account_id // 2}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["steamid64"] == str(player.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_search_players_falls_back_to_vanity_slug_when_resolution_fails(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vanity_slug = "LegendSlugUnique"
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name=vanity_slug,
+    )
+
+    async def _fake_resolve_vanity_url(_vanity_url: str) -> int | None:
+        return None
+
+    monkeypatch.setattr(
+        player_crud,
+        "_resolve_steam_vanity_url_to_steamid64",
+        _fake_resolve_vanity_url,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": f"https://steamcommunity.com/id/{vanity_slug}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["steamid64"] == str(player.steamid64)
 
 
 @pytest.mark.asyncio
@@ -536,6 +683,112 @@ async def test_upsert_player_from_steam_normalizes_custom_id_to_lowercase(
     refreshed = await db.get(Player, steamid64)
     assert refreshed is not None
     assert refreshed.custom_id == "steam_synced-42"
+
+
+@pytest.mark.asyncio
+async def test_upsert_player_from_steam_ignores_colliding_custom_id_for_new_player(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    existing = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Existing Collision Owner",
+        custom_id="steam-synced",
+    )
+    steamid64 = random_steamid64()
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | None]:
+        return {
+            "name": "Steam Synced",
+            "custom_id": "steam-synced",
+            "avatar_hash": "a" * 40,
+            "country": "DE",
+            "fetched": True,
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{steamid64}/steam",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(steamid64)
+    assert payload["custom_id"] is None
+
+    refreshed_existing = await db.get(Player, existing.steamid64)
+    refreshed_new = await db.get(Player, steamid64)
+    assert refreshed_existing is not None
+    assert refreshed_existing.custom_id == "steam-synced"
+    assert refreshed_new is not None
+    assert refreshed_new.custom_id is None
+
+
+@pytest.mark.asyncio
+async def test_upsert_player_from_steam_keeps_existing_custom_id_on_collision(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    collision_owner = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Collision Owner",
+        custom_id="taken-custom-id",
+    )
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Target Player",
+        custom_id="current-custom-id",
+    )
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | None]:
+        return {
+            "name": "Updated Target Name",
+            "custom_id": "taken-custom-id",
+            "avatar_hash": "a" * 40,
+            "country": "DE",
+            "fetched": True,
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/steam",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["custom_id"] == "current-custom-id"
+    assert payload["name"] == "Updated Target Name"
+
+    refreshed_target = await db.get(Player, target.steamid64)
+    refreshed_owner = await db.get(Player, collision_owner.steamid64)
+    assert refreshed_target is not None
+    assert refreshed_target.custom_id == "current-custom-id"
+    assert refreshed_target.name == "Updated Target Name"
+    assert refreshed_owner is not None
+    assert refreshed_owner.custom_id == "taken-custom-id"
 
 
 @pytest.mark.asyncio

@@ -3,7 +3,8 @@ from datetime import date, datetime
 from typing import Literal
 
 from pydantic import ConfigDict, field_validator
-from sqlalchemy import BigInteger, DateTime
+from sqlalchemy import BigInteger, Column, Computed, DateTime, Index, text
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
 
 from .utils import get_datetime_utc
@@ -58,7 +59,51 @@ class PlayerBase(SQLModel):
 
 
 class Player(PlayerBase, table=True):
+    __table_args__ = (
+        Index(
+            "ix_player_search_vector",
+            "search_vector",
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_player_name_trgm",
+            text("lower(name) gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_player_alias_trgm",
+            text("lower(coalesce(alias, '')) gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_player_custom_id_trgm",
+            text("lower(coalesce(custom_id, '')) gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+        Index(
+            "ux_player_custom_id_not_null",
+            "custom_id",
+            unique=True,
+            postgresql_where=text("custom_id IS NOT NULL"),
+        ),
+    )
+
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)
+    search_vector: str | None = Field(
+        default=None,
+        sa_column=Column(
+            TSVECTOR,
+            Computed(
+                """
+                setweight(to_tsvector('simple', coalesce(custom_id, '')), 'A') ||
+                setweight(to_tsvector('simple', coalesce(alias, '')), 'A') ||
+                setweight(to_tsvector('simple', coalesce(name, '')), 'B')
+                """,
+                persisted=True,
+            ),
+            nullable=False,
+        ),
+    )
 
 
 class PlayerPublic(PlayerBase):
@@ -76,6 +121,20 @@ class PlayersListQuery(SQLModel):
     limit: int = Field(default=20, ge=1, le=100)
     sort_by: Literal["created_at", "last_played_at"] = "created_at"
     sort_order: Literal["asc", "desc"] = "desc"
+
+
+class PlayerSearchQuery(SQLModel):
+    q: str = Field(min_length=1)
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=50)
+
+    @field_validator("q", mode="after")
+    @classmethod
+    def _validate_query(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("q must not be blank")
+        return normalized
 
 
 class PlayersBatchRead(SQLModel):
