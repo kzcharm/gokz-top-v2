@@ -199,7 +199,9 @@ export function buildProfileCompletionData({
   }
 }
 
-export function buildProfileTrophyCounts(records: RecordPublic[]): ProfileTrophyCounts {
+export function buildProfileTrophyCounts(
+  records: RecordPublic[],
+): ProfileTrophyCounts {
   let gold = 0
   let silver = 0
   let bronze = 0
@@ -287,6 +289,13 @@ export function getProfilePointsStandingQueryOptions({
 
 export function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value)
+}
+
+export function formatRating(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
 }
 
 export function formatHours(hours: number) {
