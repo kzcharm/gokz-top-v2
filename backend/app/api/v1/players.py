@@ -12,6 +12,7 @@ from app.models import (
     PlayerPublic,
     PlayersBatchPublic,
     PlayersBatchRead,
+    PlayerSearchQuery,
     PlayersListQuery,
     PlayersPublic,
     PlayerUpdate,
@@ -51,6 +52,26 @@ async def read_players(
         limit=query.limit,
         sort_by=query.sort_by,
         sort_order=query.sort_order,
+    )
+    return PlayersPublic(
+        data=[crud.to_player_public(player=player) for player in players],
+        count=count,
+    )
+
+
+@router.get("/search", response_model=PlayersPublic)
+async def search_players(
+    session: SessionDep,
+    query: Annotated[PlayerSearchQuery, Query()],
+) -> PlayersPublic:
+    """
+    Search players by identifier, name, alias, and rating-weighted relevance.
+    """
+    players, count = await crud.search_players(
+        session=session,
+        q=query.q,
+        offset=query.offset,
+        limit=query.limit,
     )
     return PlayersPublic(
         data=[crud.to_player_public(player=player) for player in players],
