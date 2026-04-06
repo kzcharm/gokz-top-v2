@@ -171,7 +171,10 @@ export function ProfilePage({
     return {
       totalPoints,
       rankLabel: getPointsRankLabel(totalPoints, scope),
-      globalStanding: pointsStandingQuery.data?.rank ?? null,
+      globalStanding:
+        pointsStandingQuery.data?.ratingRank ??
+        pointsStandingQuery.data?.rank ??
+        null,
       rating: pointsStandingQuery.data?.rating ?? null,
     }
   }, [nubRecordsQuery.data, pointsStandingQuery.data, proRecordsQuery.data, scope])

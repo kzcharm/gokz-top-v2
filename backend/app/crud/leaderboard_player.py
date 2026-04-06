@@ -501,18 +501,10 @@ async def read_player_leaderboard_rank(
         (scope_to_id(scope), player.steamid64),
     )
 
-    points_rank: int | None = None
-    rating_rank: int | None = None
+    rank: int | None = None
 
     if leaderboard_row is not None:
-        points_rank = await _read_metric_rank(
-            session=session,
-            scope=scope,
-            steamid64=player.steamid64,
-            metric_name="points",
-            metric_value=leaderboard_row.points,
-        )
-        rating_rank = await _read_metric_rank(
+        rank = await _read_metric_rank(
             session=session,
             scope=scope,
             steamid64=player.steamid64,
@@ -522,8 +514,7 @@ async def read_player_leaderboard_rank(
 
     return PlayerLeaderboardRankPublic(
         scope=scope,
-        rank=points_rank,
-        rating_rank=rating_rank,
+        rank=rank,
         player=to_player_public(player=player),
         rating=leaderboard_row.rating if leaderboard_row is not None else 0,
         rating_easy=leaderboard_row.rating_easy if leaderboard_row is not None else 0,

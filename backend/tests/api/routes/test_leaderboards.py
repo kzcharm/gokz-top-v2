@@ -366,7 +366,7 @@ async def test_read_player_leaderboard_rejects_asc_sort_order(
     assert "sort_order" in response.text
 
 
-async def test_read_player_leaderboard_rank_returns_points_and_rating_rank(
+async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -382,7 +382,7 @@ async def test_read_player_leaderboard_rank_returns_points_and_rating_rank(
     assert payload["scope"] == "KZT"
     assert payload["player"]["steamid64"] == str(players["alpha"])
     assert payload["rank"] == 1
-    assert payload["rating_rank"] == 1
+    assert "rating_rank" not in payload
     assert payload["points"] > payload["rating"]
 
 
@@ -400,8 +400,8 @@ async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligi
     assert response.status_code == 200
     payload = response.json()
     assert payload["player"]["steamid64"] == str(players["delta"])
-    assert payload["rank"] == 3
-    assert payload["rating_rank"] is None
+    assert payload["rank"] is None
+    assert "rating_rank" not in payload
     assert payload["rating"] == 0
     assert payload["points"] > 0
 
@@ -421,7 +421,7 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missin
     payload = response.json()
     assert payload["player"]["steamid64"] == str(players["beta"])
     assert payload["rank"] is None
-    assert payload["rating_rank"] is None
+    assert "rating_rank" not in payload
     assert payload["points"] == 0
     assert payload["rating"] == 0
     assert payload["unique_map_finishes"] == 0
