@@ -271,10 +271,12 @@ export function getProfilePointsStandingQueryOptions({
 
       const data = (await response.json()) as {
         rank?: number | null
+        rating_rank?: number | null
         rating?: number | null
       }
       return {
         rank: data.rank ?? null,
+        ratingRank: data.rating_rank ?? null,
         rating: data.rating ?? null,
       }
     },

@@ -129,7 +129,6 @@ class PlayerLeaderboardEntryPublic(SQLModel):
 class PlayerLeaderboardRankPublic(SQLModel):
     scope: RecordScope
     rank: int | None = None
-    rating_rank: int | None = None
     player: PlayerPublic
     rating: int
     rating_easy: int
