@@ -62,6 +62,7 @@ interface PlayerDisplayProps {
   showSteamid?: boolean
   className?: string
   nameMaxLength?: number
+  disableProfileLink?: boolean
 }
 
 type PlayerContextMenuItemsProps = {
@@ -234,10 +235,11 @@ export function PlayerDisplay({
   showSteamid = false,
   className,
   nameMaxLength,
+  disableProfileLink = false,
 }: PlayerDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
-  const hasProfileLink = steamid64Pattern.test(steamid64)
+  const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = player?.alias || player?.name || steamid64
   const truncatedDisplayName = truncateText(displayName, nameMaxLength)
   const avatarSrc = player?.avatar_hash
