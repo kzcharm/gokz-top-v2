@@ -15,6 +15,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react"
+import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +37,8 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  getRowClassName?: (row: TData) => string | undefined
+  getRowProps?: (row: TData) => ComponentProps<typeof TableRow> | undefined
   serverPagination?: {
     pageIndex: number
     pageSize: number
@@ -53,6 +56,8 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
+  getRowClassName,
+  getRowProps,
   serverPagination,
   sorting,
 }: DataTableProps<TData, TValue>) {
@@ -134,15 +139,27 @@ export function DataTable<TData, TValue>({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            table.getRowModel().rows.map((row) => {
+              const rowProps = getRowProps?.(row.original)
+              return (
+                <TableRow
+                  key={row.id}
+                  {...rowProps}
+                  className={
+                    rowProps?.className ?? getRowClassName?.(row.original)
+                  }
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              )
+            })
           ) : (
             <TableRow className="hover:bg-transparent">
               <TableCell
