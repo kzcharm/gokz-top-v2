@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 import type { MapPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { getMapImageUrl } from "@/components/Common/MapDisplay"
+import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -13,6 +14,9 @@ interface MapCardProps {
 
 export function MapCard({ activeTier, map }: MapCardProps) {
   const imageUrl = getMapImageUrl(map.name)
+  const skillPortions = getMapSkillPortions(map.name)
+    .filter((portion) => portion.percentage > 0)
+    .slice(0, 6)
 
   return (
     <Link
@@ -44,6 +48,44 @@ export function MapCard({ activeTier, map }: MapCardProps) {
         </div>
 
         <CardContent className="space-y-4 px-5 py-5">
+          <section className="space-y-3" aria-label="Skill breakdown">
+            <div
+              className="flex h-2.5 overflow-hidden rounded-full bg-muted"
+              aria-hidden="true"
+            >
+              {skillPortions.map((portion) => (
+                <div
+                  key={portion.label}
+                  className="h-full"
+                  style={{
+                    backgroundColor: portion.color,
+                    width: `${portion.percentage}%`,
+                  }}
+                />
+              ))}
+            </div>
+
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
+              {skillPortions.map((portion) => (
+                <li
+                  key={portion.label}
+                  className="flex items-center justify-between gap-2 text-xs"
+                >
+                  <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: portion.color }}
+                    />
+                    <span className="truncate">{portion.label}</span>
+                  </span>
+                  <span className="font-medium tabular-nums text-foreground">
+                    {portion.percentage}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <dl className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">

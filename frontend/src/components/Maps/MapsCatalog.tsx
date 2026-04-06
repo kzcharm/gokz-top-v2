@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, ArrowRight, Search } from "lucide-react"
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Search } from "lucide-react"
 import {
   startTransition,
   useDeferredValue,
@@ -11,72 +11,107 @@ import {
 import { type MapPublic, MapsService } from "@/client"
 import { MapCard } from "@/components/Maps/MapCard"
 import { PendingMaps } from "@/components/Maps/PendingMaps"
+import {
+  getMapSkillPercentage,
+  MAP_SORTABLE_SKILLS,
+  type MapSkillKey,
+} from "@/components/Maps/map-utils"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 24
 
 const MAP_SORT_OPTIONS = [
-  { label: "Name A-Z", value: "name-asc" },
-  { label: "Name Z-A", value: "name-desc" },
-  { label: "Tier low-high", value: "tier-asc" },
-  { label: "Tier high-low", value: "tier-desc" },
-  { label: "Updated newest-first", value: "updated-desc" },
-  { label: "Updated oldest-first", value: "updated-asc" },
-  { label: "Created newest-first", value: "created-desc" },
-  { label: "Created oldest-first", value: "created-asc" },
+  { label: "Name", value: "name" },
+  { label: "Tier", value: "tier" },
+  { label: "Created", value: "created" },
+  { label: "Updated", value: "updated" },
+  { label: "Skill", value: "skill" },
 ] as const
 
-type MapsSortValue = (typeof MAP_SORT_OPTIONS)[number]["value"]
+type MapsSortField = (typeof MAP_SORT_OPTIONS)[number]["value"]
+type MapsSortDirection = "asc" | "desc"
+type SortableSkillKey = Exclude<MapSkillKey, "unknown">
+
+function SortableMapOption({
+  active,
+  direction,
+  label,
+  onClick,
+}: {
+  active: boolean
+  direction?: MapsSortDirection
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className={cn(
+        "-ml-3 h-8 px-3 text-left text-sm",
+        active ? "text-foreground" : "text-muted-foreground",
+      )}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      {active ? (
+        direction === "asc" ? (
+          <ArrowUp className="ml-2 size-4" />
+        ) : (
+          <ArrowDown className="ml-2 size-4" />
+        )
+      ) : null}
+    </Button>
+  )
+}
 
 function getMapTierForScope(map: MapPublic, scope: AppScope) {
   return map.tiers[scope]
 }
 
-function sortMaps(maps: MapPublic[], sort: MapsSortValue, scope: AppScope) {
+function sortMaps(
+  maps: MapPublic[],
+  sortField: MapsSortField,
+  sortDirection: MapsSortDirection,
+  scope: AppScope,
+  selectedSkill: SortableSkillKey,
+) {
   return [...maps].sort((left, right) => {
     const leftTier = getMapTierForScope(left, scope)
     const rightTier = getMapTierForScope(right, scope)
 
-    switch (sort) {
-      case "name-desc":
-        return right.name.localeCompare(left.name)
-      case "tier-asc":
-        return leftTier - rightTier || left.name.localeCompare(right.name)
-      case "tier-desc":
-        return rightTier - leftTier || left.name.localeCompare(right.name)
-      case "updated-desc":
-        return (
-          Date.parse(right.updated_on) - Date.parse(left.updated_on) ||
-          left.name.localeCompare(right.name)
-        )
-      case "updated-asc":
-        return (
-          Date.parse(left.updated_on) - Date.parse(right.updated_on) ||
-          left.name.localeCompare(right.name)
-        )
-      case "created-desc":
-        return (
-          Date.parse(right.created_on) - Date.parse(left.created_on) ||
-          left.name.localeCompare(right.name)
-        )
-      case "created-asc":
-        return (
-          Date.parse(left.created_on) - Date.parse(right.created_on) ||
-          left.name.localeCompare(right.name)
-        )
+    let comparison = 0
+
+    switch (sortField) {
+      case "tier":
+        comparison = leftTier - rightTier
+        break
+      case "updated":
+        comparison = Date.parse(left.updated_on) - Date.parse(right.updated_on)
+        break
+      case "created":
+        comparison = Date.parse(left.created_on) - Date.parse(right.created_on)
+        break
+      case "skill":
+        comparison =
+          getMapSkillPercentage(left.name, selectedSkill) -
+          getMapSkillPercentage(right.name, selectedSkill)
+        break
       default:
-        return left.name.localeCompare(right.name)
+        comparison = left.name.localeCompare(right.name)
+        break
     }
+
+    if (comparison === 0) {
+      comparison = left.name.localeCompare(right.name)
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison
   })
 }
 
@@ -112,7 +147,9 @@ export function MapsCatalog() {
   const { scope } = useScope()
   const [searchInput, setSearchInput] = useState("")
   const deferredSearch = useDeferredValue(searchInput)
-  const [sort, setSort] = useState<MapsSortValue>("name-asc")
+  const [sortField, setSortField] = useState<MapsSortField>("name")
+  const [sortDirection, setSortDirection] = useState<MapsSortDirection>("asc")
+  const [selectedSkill, setSelectedSkill] = useState<SortableSkillKey>("ladder")
   const [page, setPage] = useState(1)
 
   const mapsQuery = useQuery({
@@ -142,8 +179,8 @@ export function MapsCatalog() {
   }, [deferredSearch, mapsQuery.data])
 
   const sortedMaps = useMemo(
-    () => sortMaps(filteredMaps, sort, scope),
-    [filteredMaps, scope, sort],
+    () => sortMaps(filteredMaps, sortField, sortDirection, scope, selectedSkill),
+    [filteredMaps, scope, selectedSkill, sortDirection, sortField],
   )
 
   const totalMaps = mapsQuery.data?.length ?? 0
@@ -193,6 +230,36 @@ export function MapsCatalog() {
     )
   }
 
+  function handleSortChange(nextSortField: MapsSortField) {
+    startTransition(() => {
+      setPage(1)
+      if (nextSortField === "skill") {
+        setSortField("skill")
+        setSortDirection("desc")
+        return
+      }
+
+      if (nextSortField === sortField) {
+        setSortDirection((currentDirection) =>
+          currentDirection === "asc" ? "desc" : "asc",
+        )
+        return
+      }
+
+      setSortField(nextSortField)
+      setSortDirection("asc")
+    })
+  }
+
+  function handleSkillSortSelection(nextSkill: SortableSkillKey) {
+    startTransition(() => {
+      setPage(1)
+      setSelectedSkill(nextSkill)
+      setSortField("skill")
+      setSortDirection("desc")
+    })
+  }
+
   return (
     <div className="space-y-8">
       <section className="space-y-3">
@@ -214,7 +281,7 @@ export function MapsCatalog() {
       </section>
 
       <section className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm backdrop-blur-sm sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4">
           <div className="relative block w-full lg:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -231,27 +298,63 @@ export function MapsCatalog() {
             />
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Select
-              value={sort}
-              onValueChange={(value) => {
-                startTransition(() => {
-                  setSort(value as MapsSortValue)
-                })
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-64" aria-label="Sort maps">
-                <SelectValue placeholder="Sort maps" />
-              </SelectTrigger>
-              <SelectContent>
-                {MAP_SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-2" aria-label="Sort maps">
+            {MAP_SORT_OPTIONS.map((option) => {
+              const isActive = option.value === sortField
+              const activeDirection =
+                option.value === "skill"
+                  ? "desc"
+                  : isActive
+                    ? sortDirection
+                    : undefined
+
+              return (
+                <SortableMapOption
+                  key={option.value}
+                  active={isActive}
+                  direction={isActive ? activeDirection : undefined}
+                  label={option.label}
+                  onClick={() => {
+                    handleSortChange(option.value)
+                  }}
+                />
+              )
+            })}
           </div>
+
+          {sortField === "skill" ? (
+            <div
+              className="flex flex-wrap items-center gap-x-1 gap-y-2"
+              aria-label="Sort maps by skill"
+            >
+              {MAP_SORTABLE_SKILLS.map((skill) => {
+                const isActive = skill.key === selectedSkill
+
+                return (
+                  <Button
+                    key={skill.key}
+                    type="button"
+                    variant="ghost"
+                    className={cn(
+                      "-ml-3 h-8 px-3 text-left text-sm",
+                      isActive ? "text-foreground" : "text-muted-foreground",
+                    )}
+                    aria-pressed={isActive}
+                    onClick={() => {
+                      handleSkillSortSelection(skill.key)
+                    }}
+                  >
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: skill.color }}
+                    />
+                    <span>{skill.label}</span>
+                    {isActive ? <ArrowDown className="ml-2 size-4" /> : null}
+                  </Button>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
       </section>
 
