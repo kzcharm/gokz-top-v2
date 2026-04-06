@@ -16,10 +16,25 @@ from app.models import (
     RecordFilter,
     ServerGlobalapi,
 )
+from app.models.leaderboard_player import scale_public_rating
 from app.models.record import RecordScopeId
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
+
+
+def _public_rating(value: int) -> float | None:
+    return scale_public_rating(value)
+
+
+async def _get_kzt_leaderboard_row(
+    db: AsyncSession,
+    *,
+    steamid64: int,
+) -> LeaderboardPlayer:
+    row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), steamid64))
+    assert row is not None
+    return row
 
 
 async def _create_player(
@@ -289,6 +304,8 @@ async def test_read_player_leaderboard_default_sort_and_rank(
     db: AsyncSession,
 ) -> None:
     players = await _seed_leaderboard_data(db)
+    alpha_row = await _get_kzt_leaderboard_row(db, steamid64=players["alpha"])
+    beta_row = await _get_kzt_leaderboard_row(db, steamid64=players["beta"])
 
     response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players",
@@ -299,8 +316,10 @@ async def test_read_player_leaderboard_default_sort_and_rank(
     payload = response.json()
     assert payload["data"][0]["player"]["steamid64"] == str(players["alpha"])
     assert payload["data"][0]["rank"] == 1
+    assert payload["data"][0]["rating"] == pytest.approx(_public_rating(alpha_row.rating))
     assert payload["data"][1]["player"]["steamid64"] == str(players["beta"])
     assert payload["data"][1]["rank"] == 2
+    assert payload["data"][1]["rating"] == pytest.approx(_public_rating(beta_row.rating))
     assert str(players["delta"]) not in {
         entry["player"]["steamid64"] for entry in payload["data"]
     }
@@ -319,9 +338,14 @@ async def test_read_player_leaderboard_points_sort_includes_below_threshold_play
 
     assert response.status_code == 200
     payload = response.json()
-    assert str(players["delta"]) in {
-        entry["player"]["steamid64"] for entry in payload["data"]
-    }
+    delta_entry = next(
+        entry
+        for entry in payload["data"]
+        if entry["player"]["steamid64"] == str(players["delta"])
+    )
+    assert delta_entry["rating"] is None
+    assert delta_entry["rating_easy"] is None
+    assert delta_entry["rating_hard"] is None
 
 
 async def test_read_player_leaderboard_scope_and_pagination(
@@ -371,6 +395,7 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     db: AsyncSession,
 ) -> None:
     players = await _seed_leaderboard_data(db)
+    alpha_row = await _get_kzt_leaderboard_row(db, steamid64=players["alpha"])
 
     response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players/alpha",
@@ -384,6 +409,9 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert payload["rank"] == 1
     assert "rating_rank" not in payload
     assert payload["points"] > payload["rating"]
+    assert payload["rating"] == pytest.approx(_public_rating(alpha_row.rating))
+    assert payload["rating_easy"] == pytest.approx(_public_rating(alpha_row.rating_easy))
+    assert payload["rating_hard"] == pytest.approx(_public_rating(alpha_row.rating_hard))
 
 
 async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligible(
@@ -402,7 +430,9 @@ async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligi
     assert payload["player"]["steamid64"] == str(players["delta"])
     assert payload["rank"] is None
     assert "rating_rank" not in payload
-    assert payload["rating"] == 0
+    assert payload["rating"] is None
+    assert payload["rating_easy"] is None
+    assert payload["rating_hard"] is None
     assert payload["points"] > 0
 
 
@@ -423,7 +453,9 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missin
     assert payload["rank"] is None
     assert "rating_rank" not in payload
     assert payload["points"] == 0
-    assert payload["rating"] == 0
+    assert payload["rating"] is None
+    assert payload["rating_easy"] is None
+    assert payload["rating_hard"] is None
     assert payload["unique_map_finishes"] == 0
 
 

@@ -74,9 +74,24 @@ export type PlayerFollowSummaryPublic = {
 export type PlayerLeaderboardEntryPublic = {
     rank: number;
     player: PlayerPublic;
-    rating: number;
-    rating_easy: number;
-    rating_hard: number;
+    rating: (number | null);
+    rating_easy: (number | null);
+    rating_hard: (number | null);
+    points: number;
+    wrs_nub: number;
+    wrs_pro: number;
+    records_900_plus: number;
+    records_800_plus: number;
+    unique_map_finishes: number;
+};
+
+export type PlayerLeaderboardRankPublic = {
+    scope: RecordScope;
+    rank?: (number | null);
+    player: PlayerPublic;
+    rating: (number | null);
+    rating_easy: (number | null);
+    rating_hard: (number | null);
     points: number;
     wrs_nub: number;
     wrs_pro: number;
@@ -396,6 +411,13 @@ export type LeaderboardsReadPlayerLeaderboardData = {
 
 export type LeaderboardsReadPlayerLeaderboardResponse = (PlayerLeaderboardsPublic);
 
+export type LeaderboardsReadPlayerLeaderboardRankData = {
+    identifier: string;
+    scope?: RecordScope;
+};
+
+export type LeaderboardsReadPlayerLeaderboardRankResponse = (PlayerLeaderboardRankPublic);
+
 export type LeaderboardsUpsertPlayerLeaderboardsData = {
     steamid64: string;
 };
@@ -465,11 +487,13 @@ export type PlayersReadPlayersBatchData = {
 
 export type PlayersReadPlayersBatchResponse = (PlayersBatchPublic);
 
-export type PlayersReadPlayerData = {
-    identifier: string;
+export type PlayersSearchPlayersData = {
+    limit?: number;
+    offset?: number;
+    q: string;
 };
 
-export type PlayersReadPlayerResponse = (PlayerPublic);
+export type PlayersSearchPlayersResponse = (PlayersPublic);
 
 export type PlayersCreatePlayerViewData = {
     identifier: string;
@@ -510,6 +534,12 @@ export type PlayersReadPlayerFollowingData = {
 };
 
 export type PlayersReadPlayerFollowingResponse = (PlayersPublic);
+
+export type PlayersReadPlayerData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerResponse = (PlayerPublic);
 
 export type PlayersUpsertPlayerFromSteamData = {
     steamid64: string;

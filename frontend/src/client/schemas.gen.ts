@@ -370,15 +370,36 @@ export const PlayerLeaderboardEntryPublicSchema = {
             '$ref': '#/components/schemas/PlayerPublic'
         },
         rating: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Rating'
         },
         rating_easy: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Rating Easy'
         },
         rating_hard: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Rating Hard'
         },
         points: {
@@ -409,6 +430,88 @@ export const PlayerLeaderboardEntryPublicSchema = {
     type: 'object',
     required: ['rank', 'player', 'rating', 'rating_easy', 'rating_hard', 'points', 'wrs_nub', 'wrs_pro', 'records_900_plus', 'records_800_plus', 'unique_map_finishes'],
     title: 'PlayerLeaderboardEntryPublic'
+} as const;
+
+export const PlayerLeaderboardRankPublicSchema = {
+    properties: {
+        scope: {
+            '$ref': '#/components/schemas/RecordScope'
+        },
+        rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rank'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerPublic'
+        },
+        rating: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rating'
+        },
+        rating_easy: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rating Easy'
+        },
+        rating_hard: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rating Hard'
+        },
+        points: {
+            type: 'integer',
+            title: 'Points'
+        },
+        wrs_nub: {
+            type: 'integer',
+            title: 'Wrs Nub'
+        },
+        wrs_pro: {
+            type: 'integer',
+            title: 'Wrs Pro'
+        },
+        records_900_plus: {
+            type: 'integer',
+            title: 'Records 900 Plus'
+        },
+        records_800_plus: {
+            type: 'integer',
+            title: 'Records 800 Plus'
+        },
+        unique_map_finishes: {
+            type: 'integer',
+            title: 'Unique Map Finishes'
+        }
+    },
+    type: 'object',
+    required: ['scope', 'player', 'rating', 'rating_easy', 'rating_hard', 'points', 'wrs_nub', 'wrs_pro', 'records_900_plus', 'records_800_plus', 'unique_map_finishes'],
+    title: 'PlayerLeaderboardRankPublic'
 } as const;
 
 export const PlayerLeaderboardsPublicSchema = {

@@ -3,10 +3,32 @@ import { ArrowDown } from "lucide-react"
 
 import type { PlayerLeaderboardEntryPublic } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { formatRating } from "@/components/Profile/profile-utils"
 import { Button } from "@/components/ui/button"
 
 function formatMetric(value: number) {
   return new Intl.NumberFormat("en-US").format(value)
+}
+
+function formatLeaderboardMetric(
+  accessorKey: keyof PlayerLeaderboardEntryPublic,
+  value: number | null,
+) {
+  if (
+    accessorKey === "rating" ||
+    accessorKey === "rating_easy" ||
+    accessorKey === "rating_hard"
+  ) {
+    if (value === null) {
+      return "Unranked"
+    }
+    return formatRating(value)
+  }
+
+  if (value === null) {
+    return "0"
+  }
+  return formatMetric(value)
 }
 
 function SortableHeader({
@@ -24,8 +46,7 @@ function SortableHeader({
   const sorting = column.getIsSorted()
   const containerClassName =
     align === "right" ? "flex w-full justify-end" : "flex w-full justify-center"
-  const buttonClassName =
-    align === "right" ? "h-8 px-3" : "h-8 px-3"
+  const buttonClassName = align === "right" ? "h-8 px-3" : "h-8 px-3"
 
   return (
     <div className={containerClassName}>
@@ -70,7 +91,7 @@ function metricColumn(
         }
       >
         <span className="font-medium tabular-nums">
-          {formatMetric(row.original[accessorKey])}
+          {formatLeaderboardMetric(accessorKey, row.original[accessorKey])}
         </span>
       </div>
     ),

@@ -11,11 +11,7 @@ import {
   PlayerFollowContextMenuItem,
 } from "@/components/Common/PlayerDisplay"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +29,7 @@ import { profileHomePlaceholder } from "./profile-home-placeholder"
 import {
   formatHours,
   formatNumber,
+  formatRating,
   getAvatarUrl,
   getFollowSummaryCount,
   getProfileFollowSummaryQueryOptions,
@@ -92,7 +89,11 @@ function ProfileIdentityCard({
           <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(127,119,221,0.2),transparent_42%),radial-gradient(circle_at_75%_20%,rgba(29,158,117,0.16),transparent_28%)]" />
 
           <div className="relative flex flex-col items-center gap-4 text-center">
-            <div className={cn("relative flex flex-col items-center gap-4 rounded-[24px]")}>
+            <div
+              className={cn(
+                "relative flex flex-col items-center gap-4 rounded-[24px]",
+              )}
+            >
               <div className="relative">
                 <div className="absolute -inset-2 rounded-[28px] bg-[radial-gradient(circle,rgba(127,119,221,0.28),transparent_72%)] blur-2xl" />
                 <Dialog>
@@ -187,7 +188,9 @@ function ProfileIdentityCard({
                 Rating{" "}
                 {profileSummaryLoading
                   ? "..."
-                  : formatNumber(profileSummary.rating ?? 0)}
+                  : profileSummary.rating === null
+                    ? "Unranked"
+                    : formatRating(profileSummary.rating)}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
                 GL{" "}
