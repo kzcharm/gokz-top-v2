@@ -8,3 +8,4 @@ node_modules/
 /.geoip/
 .idea/
 .DS_Store
+.obisidian/
