@@ -90,6 +90,161 @@ test.describe("Leaderboards page", () => {
     expect(requestedScopes).toContain("KZT")
   })
 
+  test("searching and selecting a player jumps to their leaderboard page", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+
+    await page.route("**/v1/players/search*", async (route) => {
+      const url = new URL(route.request().url())
+      const query = url.searchParams.get("q") || ""
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: query.toLowerCase() === "beta" || query.toLowerCase() === "gamma" ? 1 : 0,
+          data: (() => {
+            if (query.toLowerCase() === "beta") {
+              return [
+                {
+                  steamid64: "76561198000000002",
+                  name: "Beta",
+                  alias: null,
+                  custom_id: "beta",
+                  avatar_hash: null,
+                  country: null,
+                  created_at: null,
+                  last_played_at: null,
+                  updated_at: null,
+                  profile_views: 0,
+                },
+              ]
+            }
+
+            if (query.toLowerCase() === "gamma") {
+              return [
+                {
+                  steamid64: "76561198000000003",
+                  name: "Gamma",
+                  alias: null,
+                  custom_id: "gamma",
+                  avatar_hash: null,
+                  country: null,
+                  created_at: null,
+                  last_played_at: null,
+                  updated_at: null,
+                  profile_views: 0,
+                },
+              ]
+            }
+
+            return []
+          })(),
+        }),
+      })
+    })
+
+    await page.route("**/v1/leaderboards/players/beta*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          rank: 41,
+          rating: 900,
+        }),
+      })
+    })
+
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      const url = new URL(route.request().url())
+      const offset = Number(url.searchParams.get("offset") || "0")
+      const limit = Number(url.searchParams.get("limit") || "20")
+
+      const data =
+        offset === 40
+          ? [
+              {
+                rank: 41,
+                player: {
+                  steamid64: "76561198000000002",
+                  name: "Beta",
+                  alias: null,
+                  custom_id: "beta",
+                  avatar_hash: null,
+                  country: null,
+                  created_at: null,
+                  last_played_at: null,
+                  updated_at: null,
+                  profile_views: 0,
+                },
+                rating: 900,
+                rating_easy: 450,
+                rating_hard: 450,
+                points: 1800,
+                wrs_nub: 0,
+                wrs_pro: 0,
+                records_900_plus: 1,
+                records_800_plus: 2,
+                unique_map_finishes: 20,
+              },
+            ]
+          : Array.from({ length: limit }, (_, index) => ({
+              rank: offset + index + 1,
+              player: {
+                steamid64: `76561198000000${(offset + index + 1).toString().padStart(3, "0")}`,
+                name: `Player ${offset + index + 1}`,
+                alias: null,
+                custom_id: null,
+                avatar_hash: null,
+                country: null,
+                created_at: null,
+                last_played_at: null,
+                updated_at: null,
+                profile_views: 0,
+              },
+              rating: 1000 - (offset + index),
+              rating_easy: 500,
+              rating_hard: 500,
+              points: 2000,
+              wrs_nub: 0,
+              wrs_pro: 0,
+              records_900_plus: 0,
+              records_800_plus: 0,
+              unique_map_finishes: 20,
+            }))
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 45,
+          data,
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards")
+    await expect(
+      page.locator('tr[data-player-steamid64="76561198000000001"]'),
+    ).toBeVisible()
+
+    await page.getByRole("textbox", { name: "Search players" }).fill("Beta")
+    await page
+      .locator("button", { has: page.getByText("Beta", { exact: true }) })
+      .first()
+      .click()
+
+    await expect(
+      page.getByRole("row", { name: /41.*Beta/ }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("row", { name: /41.*Beta/ }),
+    ).toHaveClass(/leaderboard-self-spotlight/)
+
+    await page.getByRole("textbox", { name: "Search players" }).fill("Gamma")
+    await expect(page.getByText("Gamma", { exact: true })).toBeVisible()
+  })
+
   test("find me jumps to the signed-in player's leaderboard page", async ({
     page,
   }) => {
