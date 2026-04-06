@@ -292,7 +292,7 @@ export function MapsCatalog() {
                   setSearchInput(nextValue)
                 })
               }}
-              placeholder="Search maps by name"
+              placeholder="Search maps..."
               aria-label="Search maps by name"
               className="pl-9"
             />

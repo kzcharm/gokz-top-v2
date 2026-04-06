@@ -242,8 +242,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   })
   await page.reload()
   await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+  await expect(page.locator('[data-testid="map-card-kz_alpha"] h2')).toHaveCSS(
+    "user-select",
+    "text",
+  )
 
-  await page.getByTestId("map-card-kz_alpha").click()
+  await page
+    .getByTestId("map-card-kz_alpha")
+    .getByRole("link", { name: "Open kz_alpha" })
+    .click()
 
   await expect(page).toHaveURL(/\/maps\/kz_alpha$/)
   await expect(page.getByRole("heading", { name: "kz_alpha" })).toBeVisible()
