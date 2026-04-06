@@ -14,18 +14,25 @@ export function Logo({
   className,
   asLink = true,
 }: LogoProps) {
+  const logoSrc =
+    variant === "responsive" ? "/logo-mark-square.png" : "/apple-touch-icon.png"
+  const markClassName =
+    variant === "responsive"
+      ? "size-8 rounded-lg shadow-[0_1px_2px_rgb(0_0_0_/_0.08)]"
+      : "size-8 rounded-xl shadow-sm"
+
   const logoMark = (
     <img
-      src="/apple-touch-icon.png"
+      src={logoSrc}
       alt={SITE_NAME}
-      className={cn("size-8 rounded-xl shadow-sm", className)}
+      className={cn(markClassName, className)}
     />
   )
 
   const fullLogo = (
     <span className="flex items-center gap-3">
       {logoMark}
-      <span className="text-foreground text-sm font-semibold tracking-wide whitespace-nowrap">
+      <span className="text-primary text-xl font-bold tracking-wide whitespace-nowrap">
         {SITE_NAME}
       </span>
     </span>
@@ -36,10 +43,10 @@ export function Logo({
       <>
         <span className="group-data-[collapsible=icon]:hidden">{fullLogo}</span>
         <img
-          src="/apple-touch-icon.png"
+          src="/logo-mark-square.png"
           alt={SITE_NAME}
           className={cn(
-            "size-8 rounded-xl shadow-sm hidden group-data-[collapsible=icon]:block",
+            "size-8 rounded-lg shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] hidden group-data-[collapsible=icon]:block",
             className,
           )}
         />
