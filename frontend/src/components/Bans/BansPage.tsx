@@ -2,18 +2,13 @@ import { useQuery } from "@tanstack/react-query"
 import { Search, ShieldAlert, X } from "lucide-react"
 import { useDeferredValue, useEffect, useRef, useState } from "react"
 
-import { type PlayerPublic } from "@/client"
+import type { PlayerPublic } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { DataTable } from "@/components/Common/DataTable"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
@@ -56,7 +51,9 @@ export function BansPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [expandedBanId, setExpandedBanId] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState("")
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerPublic | null>(null)
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerPublic | null>(
+    null,
+  )
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const searchBlurTimeoutRef = useRef<number | null>(null)
   const deferredSearchInput = useDeferredValue(searchInput)
@@ -94,7 +91,7 @@ export function BansPage() {
 
   useEffect(() => {
     setExpandedBanId(null)
-  }, [pageIndex, pageSize, bansQuery.dataUpdatedAt])
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -129,9 +126,7 @@ export function BansPage() {
   const totalCount = bansQuery.data?.count ?? 0
   const searchResults = playerSearchQueryResult.data ?? []
   const showSearchResults =
-    isSearchFocused &&
-    selectedPlayer === null &&
-    playerSearchQuery.length > 0
+    isSearchFocused && selectedPlayer === null && playerSearchQuery.length > 0
 
   const handleSelectPlayer = (player: PlayerPublic) => {
     setSelectedPlayer(player)

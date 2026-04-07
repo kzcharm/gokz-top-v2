@@ -47,13 +47,10 @@ const formSchema = z.object({
   country: z
     .string()
     .max(2, "Country must be a 2-letter code")
-    .refine(
-      (value) => {
-        const normalized = value.trim()
-        return normalized.length === 0 || normalized.length === 2
-      },
-      "Country must be a 2-letter ISO code",
-    ),
+    .refine((value) => {
+      const normalized = value.trim()
+      return normalized.length === 0 || normalized.length === 2
+    }, "Country must be a 2-letter ISO code"),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -65,7 +62,10 @@ type EditablePlayer = {
   steamid64: string
 }
 
-function buildDefaultValues(player: EditablePlayer): { alias: string; country: string } {
+function buildDefaultValues(player: EditablePlayer): {
+  alias: string
+  country: string
+} {
   return {
     alias: player.alias ?? "",
     country: player.country ?? "",
@@ -132,7 +132,9 @@ export default function EditPlayer({ player }: { player: EditablePlayer }) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["players"] })
       void queryClient.invalidateQueries({ queryKey: ["profile-player"] })
-      void queryClient.invalidateQueries({ queryKey: ["leaderboards", "players"] })
+      void queryClient.invalidateQueries({
+        queryKey: ["leaderboards", "players"],
+      })
     },
   })
 
@@ -210,7 +212,8 @@ export default function EditPlayer({ player }: { player: EditablePlayer }) {
                             type="button"
                             className={cn(
                               "border-input focus-visible:border-ring focus-visible:ring-ring/50 flex h-11 w-full items-center justify-between rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]",
-                              countryMenuOpen && "border-ring ring-ring/50 ring-[3px]",
+                              countryMenuOpen &&
+                                "border-ring ring-ring/50 ring-[3px]",
                             )}
                           >
                             <span className="flex min-w-0 items-center gap-2">
@@ -266,7 +269,8 @@ export default function EditPlayer({ player }: { player: EditablePlayer }) {
                               <span>Clear country</span>
                             </button>
                             {filteredCountries.map((option) => {
-                              const selected = field.value === option.countryCode
+                              const selected =
+                                field.value === option.countryCode
                               return (
                                 <button
                                   key={option.countryCode}

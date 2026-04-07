@@ -50,8 +50,6 @@ function getLegacyThresholds(scope: AppScope) {
       return LEGACY_RANK_THRESHOLDS.VNL
     case "SKZ":
       return LEGACY_RANK_THRESHOLDS.SKZ
-    case "OVR":
-    case "KZT":
     default:
       return LEGACY_RANK_THRESHOLDS.KZT
   }

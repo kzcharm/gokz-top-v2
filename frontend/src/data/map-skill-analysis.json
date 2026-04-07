@@ -6,15 +6,7 @@
     "min_run_time_seconds": 10.0,
     "max_run_time_seconds": 3600.0
   },
-  "skills": [
-    "ladder",
-    "bhop",
-    "slide",
-    "climb",
-    "strafe",
-    "route",
-    "unknown"
-  ],
+  "skills": ["ladder", "bhop", "slide", "climb", "strafe", "route", "unknown"],
   "maps": [
     {
       "map_name": "bkz_apricity_v3",

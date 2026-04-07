@@ -276,7 +276,7 @@ export function PlayerDisplay({
 
   useEffect(() => {
     setAvatarLoadFailed(false)
-  }, [steamAvatarSrc])
+  }, [])
 
   const content = (
     <div

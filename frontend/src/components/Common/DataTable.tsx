@@ -17,8 +17,8 @@ import {
   Loader2,
 } from "lucide-react"
 import {
-  Fragment,
   type ComponentProps,
+  Fragment,
   type ReactNode,
   useEffect,
   useState,
@@ -302,9 +302,7 @@ export function DataTable<TData, TValue>({
                 </span>
               )}
               <span>of</span>
-              <span className="font-medium text-foreground">
-                {pageCount}
-              </span>
+              <span className="font-medium text-foreground">{pageCount}</span>
             </div>
 
             <div className="flex items-center gap-x-1">

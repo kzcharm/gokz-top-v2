@@ -2,13 +2,13 @@ import type { ColumnDef } from "@tanstack/react-table"
 
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { Badge } from "@/components/ui/badge"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { cn } from "@/lib/utils"
 
 type BanPlayer = {
@@ -44,8 +44,7 @@ function formatBanTypeLabel(banType: string) {
 
 function ExpiryBadge({ expiresOn }: { expiresOn: string | null }) {
   const { formatDateTime } = useDateTimeFormat()
-  const solidBadgeClassName =
-    "border-transparent text-white dark:text-white"
+  const solidBadgeClassName = "border-transparent text-white dark:text-white"
 
   if (!expiresOn) {
     return (
