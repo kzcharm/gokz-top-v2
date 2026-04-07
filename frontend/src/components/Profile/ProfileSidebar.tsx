@@ -53,13 +53,17 @@ function ProfileIdentityCard({
   player: PlayerPublic
 }) {
   const avatarUrl = getAvatarUrl(player)
-  const placeholderSummary = profileHomePlaceholder.summary
   const alias = player.alias?.trim() ?? ""
   const hasDistinctAlias = alias.length > 0 && alias !== player.name
   const hasProfileLink = /^\d{17}$/.test(player.steamid64)
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${player.steamid64}`
     : null
+  const regionalStandingPrefix = profileSummary.region ?? "Region"
+  const regionalStandingLabel =
+    profileSummary.regionalStanding === null
+      ? "Unranked"
+      : `${regionalStandingPrefix} #${formatNumber(profileSummary.regionalStanding)}`
 
   const handleIdentityContextMenu = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -201,7 +205,7 @@ function ProfileIdentityCard({
                     : `#${formatNumber(profileSummary.globalStanding)}`}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                EU #{formatNumber(placeholderSummary.regionalRank)}
+                {profileSummaryLoading ? "Regional ..." : regionalStandingLabel}
               </span>
             </div>
           </div>
@@ -394,8 +398,8 @@ export function ProfileSidebar({
   summary: ProfileSummaryData
   summaryLoading: boolean
 }) {
-  const placeholderSummary = profileHomePlaceholder.summary
   const authenticated = isLoggedIn()
+  const placeholderSummary = profileHomePlaceholder.summary
   const navigate = useNavigate()
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")

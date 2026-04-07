@@ -278,6 +278,7 @@ class PlayerLeaderboardRankPublic(SQLModel):
     scope: RecordScope
     rank: int | None = None
     rank_regional: int | None = None
+    region: str | None = None
     player: PlayerPublic
     rating: float | None
     rating_easy: float | None
