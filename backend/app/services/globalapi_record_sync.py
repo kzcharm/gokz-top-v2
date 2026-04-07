@@ -290,7 +290,7 @@ async def _ensure_player(
             player.custom_id = normalized_custom_id
     if steam_data.get("avatar_hash"):
         player.avatar_hash = steam_data["avatar_hash"]
-    if steam_data.get("country"):
+    if steam_data.get("country") and not player.is_country_locked:
         player.country = steam_data["country"]
     if player.created_at is None or created_on < player.created_at:
         player.created_at = created_on

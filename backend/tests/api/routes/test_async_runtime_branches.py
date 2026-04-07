@@ -196,6 +196,11 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
         session=db,
         steamid64=str(existing.steamid64),
         player_in=PlayerUpdate(alias="Alias", country="DE"),
+        current_user=User(
+            steamid64=random_steamid64(),
+            is_active=True,
+            is_superuser=True,
+        ),
     )
     assert updated.alias == "Alias"
     assert updated.country == "DE"
@@ -205,6 +210,11 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
             session=db,
             steamid64=str(random_steamid64()),
             player_in=PlayerUpdate(alias="Missing"),
+            current_user=User(
+                steamid64=random_steamid64(),
+                is_active=True,
+                is_superuser=True,
+            ),
         )
 
     with pytest.raises(HTTPException, match="Invalid steamid64"):
@@ -212,12 +222,17 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
             session=db,
             steamid64="not-a-number",
             player_in=PlayerUpdate(alias="Invalid"),
+            current_user=User(
+                steamid64=random_steamid64(),
+                is_active=True,
+                is_superuser=True,
+            ),
         )
 
     mocked_upsert = Player(steamid64=random_steamid64(), name="Upserted Player")
     with patch(
-        "app.api.v1.players.crud.create_or_update_player_from_steam",
-        new=AsyncMock(return_value=mocked_upsert),
+        "app.api.v1.players.crud.create_or_update_player_from_steam_if_fetched",
+        new=AsyncMock(return_value=(mocked_upsert, False)),
     ):
         upserted = await players_routes.upsert_player_from_steam(
             session=db,

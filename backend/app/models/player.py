@@ -31,6 +31,22 @@ def validate_player_custom_id(custom_id: str | None) -> str | None:
     return normalized
 
 
+def normalize_player_alias(alias: str | None) -> str | None:
+    if alias is None:
+        return None
+
+    normalized = alias.strip()
+    return normalized or None
+
+
+def normalize_player_country(country: str | None) -> str | None:
+    if country is None:
+        return None
+
+    normalized = country.strip().upper()
+    return normalized or None
+
+
 class PlayerBase(SQLModel):
     model_config = ConfigDict(validate_assignment=True)
 
@@ -56,6 +72,16 @@ class PlayerBase(SQLModel):
     @classmethod
     def _validate_custom_id(cls, value: str | None) -> str | None:
         return validate_player_custom_id(value)
+
+    @field_validator("alias", mode="after")
+    @classmethod
+    def _normalize_alias(cls, value: str | None) -> str | None:
+        return normalize_player_alias(value)
+
+    @field_validator("country", mode="after")
+    @classmethod
+    def _normalize_country(cls, value: str | None) -> str | None:
+        return normalize_player_country(value)
 
 
 class Player(PlayerBase, table=True):
@@ -89,6 +115,7 @@ class Player(PlayerBase, table=True):
     )
 
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)
+    is_country_locked: bool = Field(default=False, nullable=False)
     search_vector: str | None = Field(
         default=None,
         sa_column=Column(
@@ -159,3 +186,13 @@ class PlayerProfileViewCreate(SQLModel):
 class PlayerUpdate(SQLModel):
     alias: str | None = Field(default=None, max_length=25)
     country: str | None = Field(default=None, max_length=2)
+
+    @field_validator("alias", mode="after")
+    @classmethod
+    def _normalize_alias(cls, value: str | None) -> str | None:
+        return normalize_player_alias(value)
+
+    @field_validator("country", mode="after")
+    @classmethod
+    def _normalize_country(cls, value: str | None) -> str | None:
+        return normalize_player_country(value)

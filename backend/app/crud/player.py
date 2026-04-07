@@ -287,7 +287,8 @@ def _apply_steam_player_update(
     if custom_id is not None:
         player.custom_id = custom_id
     player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
-    player.country = steam_data["country"] or player.country
+    if not player.is_country_locked:
+        player.country = steam_data["country"] or player.country
     player.updated_at = now
 
 
@@ -738,6 +739,8 @@ async def update_player(
     *, session: AsyncSession, db_player: Player, player_in: PlayerUpdate
 ) -> Player:
     player_data = player_in.model_dump(exclude_unset=True)
+    if "country" in player_data and player_data["country"] is not None:
+        player_data["is_country_locked"] = True
     db_player.sqlmodel_update(player_data)
     db_player.updated_at = datetime.now(UTC)
     session.add(db_player)

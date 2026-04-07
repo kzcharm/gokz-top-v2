@@ -3,7 +3,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import CurrentUser, OptionalCurrentUser, SessionDep, get_current_user
+from app.api.deps import (
+    CurrentUser,
+    OptionalCurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+    get_current_user,
+)
 from app.crud import player as player_crud
 from app.models import (
     PlayerFollowListQuery,
@@ -16,9 +22,11 @@ from app.models import (
     PlayersListQuery,
     PlayersPublic,
     PlayerUpdate,
+    User,
 )
 
 router = APIRouter(prefix="/players", tags=["players"])
+CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
 
 
 def _parse_steamid64(steamid64: str) -> int:
@@ -272,7 +280,7 @@ async def upsert_player_from_steam(session: SessionDep, steamid64: str) -> Any:
 
 @router.put(
     "/{steamid64}",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(get_current_active_superuser)],
     response_model=PlayerPublic,
 )
 async def update_player(
@@ -280,10 +288,12 @@ async def update_player(
     session: SessionDep,
     steamid64: str,
     player_in: PlayerUpdate,
+    current_user: CurrentSuperuser,
 ) -> Any:
     """
     Update player profile data.
     """
+    del current_user
     db_player = await crud.get_player_by_steamid64(
         session=session,
         steamid64=_parse_steamid64(steamid64),
