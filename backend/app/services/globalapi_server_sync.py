@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -179,34 +180,38 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
         )
 
     server_ids = list(rows_by_id.keys())
-    existing_ids = set(
-        (
+    existing_servers = {
+        server.id: server
+        for server in (
             await session.exec(
-                select(ServerGlobalapi.id).where(ServerGlobalapi.id.in_(server_ids))
+                select(ServerGlobalapi).where(ServerGlobalapi.id.in_(server_ids))
             )
         ).all()
-    )
-    created = sum(1 for server_id in server_ids if server_id not in existing_ids)
-    updated = len(server_ids) - created
+    }
+    created = sum(1 for server_id in server_ids if server_id not in existing_servers)
 
     server_table = ServerGlobalapi.__table__
-    rows_to_upsert = list(rows_by_id.values())
-    insert_statement = pg_insert(server_table).values(rows_to_upsert)
-    upsert_statement = insert_statement.on_conflict_do_update(
-        index_elements=[server_table.c.id],
-        set_={
-            "port": insert_statement.excluded.port,
-            "ip": insert_statement.excluded.ip,
-            "name": insert_statement.excluded.name,
-            "owner_steamid64": insert_statement.excluded.owner_steamid64,
-            "approval_status": insert_statement.excluded.approval_status,
-            "approved_by_steamid64": insert_statement.excluded.approved_by_steamid64,
-            "created_on": insert_statement.excluded.created_on,
-            "updated_on": insert_statement.excluded.updated_on,
-            "synced_at": insert_statement.excluded.synced_at,
-        },
-    )
-    await session.exec(upsert_statement)
+    rows_to_insert = [
+        row for server_id, row in rows_by_id.items() if server_id not in existing_servers
+    ]
+    rows_to_update = [
+        (server_id, int(row["approval_status"]))
+        for server_id, row in rows_by_id.items()
+        if (existing_server := existing_servers.get(server_id)) is not None
+        and existing_server.approval_status != int(row["approval_status"])
+    ]
+    updated = len(rows_to_update)
+
+    if rows_to_insert:
+        insert_statement = pg_insert(server_table).values(rows_to_insert)
+        await session.exec(insert_statement.on_conflict_do_nothing(index_elements=[server_table.c.id]))
+
+    for server_id, approval_status in rows_to_update:
+        await session.exec(
+            update(ServerGlobalapi)
+            .where(ServerGlobalapi.id == server_id)
+            .values(approval_status=approval_status)
+        )
     await session.commit()
     session.expire_all()
 
