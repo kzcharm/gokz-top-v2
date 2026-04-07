@@ -16,9 +16,10 @@ import {
   ChevronsRight,
   Loader2,
 } from "lucide-react"
-import type { ComponentProps } from "react"
+import { type ComponentProps, type ReactNode, useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -40,6 +41,9 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   isLoading?: boolean
   emptyText?: string
+  showFooter?: boolean
+  footerSummary?: ReactNode
+  pageInputEnabled?: boolean
   getRowClassName?: (row: TData) => string | undefined
   getRowProps?: (row: TData) => ComponentProps<typeof TableRow> | undefined
   serverPagination?: {
@@ -61,6 +65,9 @@ export function DataTable<TData, TValue>({
   data,
   isLoading = false,
   emptyText = "No results found.",
+  showFooter = true,
+  footerSummary,
+  pageInputEnabled = false,
   getRowClassName,
   getRowProps,
   serverPagination,
@@ -117,9 +124,28 @@ export function DataTable<TData, TValue>({
     ? serverPagination.totalCount
     : data.length
   const pageIndex = table.getState().pagination.pageIndex
-  const pageSize = table.getState().pagination.pageSize
-  const startRow = totalCount === 0 ? 0 : pageIndex * pageSize + 1
-  const endRow = Math.min((pageIndex + 1) * pageSize, totalCount)
+  const pageCount = table.getPageCount()
+  const [pageInputValue, setPageInputValue] = useState(`${pageIndex + 1}`)
+
+  useEffect(() => {
+    setPageInputValue(`${pageIndex + 1}`)
+  }, [pageIndex])
+
+  const commitPageInputValue = () => {
+    if (!pageInputEnabled) {
+      return
+    }
+
+    const parsedPage = Number(pageInputValue)
+    if (!Number.isFinite(parsedPage)) {
+      setPageInputValue(`${pageIndex + 1}`)
+      return
+    }
+
+    const nextPage = Math.min(Math.max(Math.trunc(parsedPage), 1), pageCount)
+    table.setPageIndex(nextPage - 1)
+    setPageInputValue(`${nextPage}`)
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -184,13 +210,19 @@ export function DataTable<TData, TValue>({
         </TableBody>
       </Table>
 
-      {table.getPageCount() > 1 && (
+      {showFooter && (serverPagination || pageCount > 1) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-t bg-muted/20">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="text-sm text-muted-foreground">
-              Showing {startRow} to {endRow} of{" "}
-              <span className="font-medium text-foreground">{totalCount}</span>{" "}
-              entries
+              {footerSummary ?? (
+                <>
+                  Total{" "}
+                  <span className="font-medium text-foreground">
+                    {totalCount}
+                  </span>{" "}
+                  entries
+                </>
+              )}
             </div>
             <div className="flex items-center gap-x-2">
               <p className="text-sm text-muted-foreground">Rows per page</p>
@@ -220,12 +252,34 @@ export function DataTable<TData, TValue>({
           <div className="flex items-center gap-x-6">
             <div className="flex items-center gap-x-1 text-sm text-muted-foreground">
               <span>Page</span>
-              <span className="font-medium text-foreground">
-                {table.getState().pagination.pageIndex + 1}
-              </span>
+              {pageInputEnabled ? (
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={pageCount}
+                  value={pageInputValue}
+                  onChange={(event) => {
+                    setPageInputValue(event.target.value)
+                  }}
+                  onBlur={commitPageInputValue}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      commitPageInputValue()
+                    }
+                  }}
+                  className="h-8 w-20 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  aria-label="Current page"
+                />
+              ) : (
+                <span className="font-medium text-foreground">
+                  {pageIndex + 1}
+                </span>
+              )}
               <span>of</span>
               <span className="font-medium text-foreground">
-                {table.getPageCount()}
+                {pageCount}
               </span>
             </div>
 
