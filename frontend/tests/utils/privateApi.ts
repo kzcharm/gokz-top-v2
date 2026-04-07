@@ -1,4 +1,4 @@
-import { apiUrl } from "../config"
+import { apiUrl, testAuthHelpersEnabled } from "../config"
 import { randomSteamid64 } from "./random"
 
 export const issueSessionToken = async ({
@@ -12,6 +12,11 @@ export const issueSessionToken = async ({
   isSuperuser?: boolean
   name?: string
 }) => {
+  if (!testAuthHelpersEnabled) {
+    throw new Error(
+      "ENABLE_TEST_AUTH_HELPERS=true is required for auth-backed Playwright helpers.",
+    )
+  }
   const response = await request.post(`${apiUrl}/v1/private/auth/session`, {
     data: {
       steamid64,

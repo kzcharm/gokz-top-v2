@@ -178,3 +178,23 @@ async def test_use_access_token(
     assert result["steamid64"] == str(settings.SUPER_USER_STEAMID64)
     assert result["is_superuser"] is True
     assert result["player"] is not None
+
+
+@pytest.mark.asyncio
+async def test_private_auth_session_route_not_registered_when_helpers_disabled() -> None:
+    import importlib
+
+    from app.api import main as api_main_module
+
+    previous_setting = settings.ENABLE_TEST_AUTH_HELPERS
+    settings.ENABLE_TEST_AUTH_HELPERS = False
+    try:
+        reloaded = importlib.reload(api_main_module)
+        paths = {
+            getattr(route, "path", None)
+            for route in reloaded.api_router.routes
+        }
+        assert "/private/auth/session" not in paths
+    finally:
+        settings.ENABLE_TEST_AUTH_HELPERS = previous_setting
+        importlib.reload(api_main_module)

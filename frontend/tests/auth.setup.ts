@@ -1,9 +1,14 @@
 import { test as setup } from "@playwright/test"
-import { apiUrl, superUserSteamid64 } from "./config.ts"
+import { apiUrl, superUserSteamid64, testAuthHelpersEnabled } from "./config.ts"
 
 const authFile = "playwright/.auth/user.json"
 
 setup("authenticate", async ({ page, request }) => {
+  if (!testAuthHelpersEnabled) {
+    throw new Error(
+      "Playwright test auth helpers are disabled. Set ENABLE_TEST_AUTH_HELPERS=true and point the backend at a disposable test database before running auth-backed E2E tests.",
+    )
+  }
   const response = await request.post(`${apiUrl}/v1/private/auth/session`, {
     data: {
       steamid64: superUserSteamid64,
