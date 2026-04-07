@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from app import crud
@@ -11,6 +11,12 @@ from app.core.config import settings
 from app.models import Token
 
 router = APIRouter(tags=["private"], prefix="/private")
+
+
+def ensure_test_auth_helpers_enabled() -> None:
+    if settings.ENABLE_TEST_AUTH_HELPERS:
+        return
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 class PrivateAuthSessionCreate(BaseModel):
@@ -39,6 +45,7 @@ async def create_auth_session(
     Create or update a user by Steam ID and return a JWT token.
     Development/testing helper endpoint (local env only).
     """
+    ensure_test_auth_helpers_enabled()
     steamid64 = int(body.steamid64)
     user = await crud.get_or_create_user_from_steam(
         session=session,

@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlmodel import Session, delete
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+os.environ["ENABLE_TEST_AUTH_HELPERS"] = "true"
 
 from app.api.deps import get_db
 from app.core.config import settings

@@ -1,7 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import urlencode
-from uuid import uuid4
 
 import jwt
 import pytest
@@ -28,6 +27,7 @@ from app.models import (
     PlayersListQuery,
     PlayerUpdate,
     User,
+    UsersListQuery,
     UserUpdate,
 )
 from tests.utils.utils import random_steamid64
@@ -77,7 +77,10 @@ async def test_users_routes_direct_branches(db: AsyncSession) -> None:
     normal_user = await _create_user(db)
     other_user = await _create_user(db)
 
-    users = await users_routes.read_users(session=db)
+    users = await users_routes.read_users(
+        session=db,
+        query=UsersListQuery(),
+    )
     assert users.count >= 1
     assert users.data
 
@@ -326,16 +329,8 @@ async def test_deps_direct_branches(db: AsyncSession) -> None:
         str(random_steamid64()),
         expires_delta=timedelta(minutes=5),
     )
-    recreated = await deps.get_current_user(session=db, token=missing_user_token)
-    assert recreated.steamid64 == int(jwt.decode(missing_user_token, options={"verify_signature": False})["sub"])
-
-    with patch.object(settings, "ENVIRONMENT", "production"):
-        missing_user_token = security.create_access_token(
-            str(random_steamid64()),
-            expires_delta=timedelta(minutes=5),
-        )
-        with pytest.raises(HTTPException, match="User not found"):
-            await deps.get_current_user(session=db, token=missing_user_token)
+    with pytest.raises(HTTPException, match="User not found"):
+        await deps.get_current_user(session=db, token=missing_user_token)
 
     inactive_user = await _create_user(db, active=False)
     inactive_token = security.create_access_token(
@@ -414,6 +409,21 @@ async def test_login_route_direct_branches(db: AsyncSession) -> None:
         assert redirect.headers["location"].startswith(
             f"{settings.FRONTEND_HOST.rstrip('/')}/auth/callback#access_token="
         )
+
+
+@pytest.mark.asyncio
+async def test_private_route_requires_test_auth_helpers_enabled(
+    db: AsyncSession,
+) -> None:
+    body = PrivateAuthSessionCreate(
+        steamid64=random_steamid64(),
+        is_superuser=False,
+        is_active=True,
+        name="Route Test Name",
+    )
+    with patch.object(settings, "ENABLE_TEST_AUTH_HELPERS", False):
+        with pytest.raises(HTTPException, match="Not found"):
+            await private_routes.create_auth_session(body=body, session=db)
 
 
 @pytest.mark.asyncio

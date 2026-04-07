@@ -36,5 +36,5 @@ api_router.include_router(admin_modes.router)
 api_router.include_router(utils.router)
 
 
-if settings.ENVIRONMENT == "local":
+if settings.ENABLE_TEST_AUTH_HELPERS:
     api_router.include_router(private.router)
