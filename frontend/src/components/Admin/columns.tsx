@@ -1,13 +1,43 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import { ArrowDown, ArrowUp } from "lucide-react"
 
 import type { UserPublic } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import { UserActionsMenu } from "./UserActionsMenu"
 
 export type UserTableData = UserPublic & {
   isCurrentUser: boolean
+}
+
+function SortableDateHeader({
+  title,
+  column,
+}: {
+  title: string
+  column: {
+    getIsSorted: () => false | "asc" | "desc"
+    toggleSorting: (desc?: boolean) => void
+  }
+}) {
+  const sorting = column.getIsSorted()
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className="-ml-3 h-8 px-3"
+      onClick={() => column.toggleSorting(sorting === "asc")}
+    >
+      {title}
+      {sorting === "asc" ? (
+        <ArrowUp className="ml-2 size-4" />
+      ) : sorting === "desc" ? (
+        <ArrowDown className="ml-2 size-4" />
+      ) : null}
+    </Button>
+  )
 }
 
 export const columns: ColumnDef<UserTableData>[] = [
@@ -29,15 +59,6 @@ export const columns: ColumnDef<UserTableData>[] = [
     ),
   },
   {
-    accessorKey: "steamid64",
-    header: "Steam ID64",
-    cell: ({ row }) => (
-      <span className="text-muted-foreground font-mono">
-        {row.original.steamid64}
-      </span>
-    ),
-  },
-  {
     accessorKey: "is_superuser",
     header: "Role",
     cell: ({ row }) => (
@@ -47,20 +68,29 @@ export const columns: ColumnDef<UserTableData>[] = [
     ),
   },
   {
-    accessorKey: "is_active",
-    header: "Status",
+    accessorKey: "created_at",
+    header: ({ column }) => (
+      <SortableDateHeader title="Created" column={column} />
+    ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            "size-2 rounded-full",
-            row.original.is_active ? "bg-green-500" : "bg-gray-400",
-          )}
-        />
-        <span className={row.original.is_active ? "" : "text-muted-foreground"}>
-          {row.original.is_active ? "Active" : "Inactive"}
-        </span>
-      </div>
+      <FormattedDateTime
+        className="text-muted-foreground"
+        value={row.original.created_at}
+        fallback="N/A"
+      />
+    ),
+  },
+  {
+    accessorKey: "last_visited_at",
+    header: ({ column }) => (
+      <SortableDateHeader title="Last Visited" column={column} />
+    ),
+    cell: ({ row }) => (
+      <FormattedDateTime
+        className="text-muted-foreground"
+        value={row.original.last_visited_at}
+        fallback="N/A"
+      />
     ),
   },
   {

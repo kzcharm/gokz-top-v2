@@ -700,6 +700,8 @@ export type ServersDeleteServerResponse = (Message);
 export type UsersReadUsersData = {
     limit?: number;
     skip?: number;
+    sortBy?: 'created_at' | 'last_visited_at';
+    sortOrder?: 'asc' | 'desc';
 };
 
 export type UsersReadUsersResponse = (UsersPublic);

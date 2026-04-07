@@ -1,11 +1,17 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import {
+  functionalUpdate,
+  type OnChangeFn,
+  type SortingState,
+} from "@tanstack/react-table"
+import { useDeferredValue, useMemo, useState } from "react"
 
-import { type UserPublic, UsersService } from "@/client"
+import { PlayersService, type UserPublic, UsersService } from "@/client"
 import { columns, type UserTableData } from "@/components/Admin/columns"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingUsers from "@/components/Pending/PendingUsers"
+import { Input } from "@/components/ui/input"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
 
@@ -17,15 +23,12 @@ export const Route = createFileRoute("/_layout/admin/users")({
         to: "/login",
       })
     }
-    let user
-    try {
-      user = await UsersService.readUserMe()
-    } catch {
+    const user = await UsersService.readUserMe().catch(() => {
       localStorage.removeItem("access_token")
       throw redirect({
         to: "/login",
       })
-    }
+    })
     if (!user.is_superuser) {
       throw redirect({
         to: "/",
@@ -45,15 +48,83 @@ function AdminUsers() {
   const { user: currentUser } = useAuth()
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+  const [searchInput, setSearchInput] = useState("")
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "last_visited_at", desc: true },
+  ])
+  const deferredSearchInput = useDeferredValue(searchInput)
+  const normalizedSearch = deferredSearchInput.trim()
+
+  const sortBy =
+    sorting[0]?.id === "last_visited_at" ? "last_visited_at" : "created_at"
+  const sortOrder = sorting[0]?.desc ? "desc" : "asc"
+  const isSearchMode = normalizedSearch.length > 0
 
   const { data, isLoading } = useQuery({
     queryFn: () =>
       UsersService.readUsers({
         skip: pageIndex * pageSize,
         limit: pageSize,
+        sortBy,
+        sortOrder,
       }),
-    queryKey: ["users", pageIndex, pageSize],
+    queryKey: ["users", pageIndex, pageSize, sortBy, sortOrder],
+    enabled: !isSearchMode,
   })
+
+  const { data: searchUsers, isLoading: isSearchLoading } = useQuery({
+    queryFn: async () => {
+      const playerResults = await PlayersService.searchPlayers({
+        q: normalizedSearch,
+        offset: 0,
+        limit: 50,
+      })
+
+      const users = await Promise.all(
+        playerResults.data.map(async (player) => {
+          try {
+            return await UsersService.readUserById({
+              userId: player.steamid64,
+            })
+          } catch {
+            return null
+          }
+        }),
+      )
+
+      return users.filter((user): user is UserPublic => user !== null)
+    },
+    queryKey: ["user-search", normalizedSearch],
+    enabled: isSearchMode,
+  })
+
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = functionalUpdate(updater, sorting)
+    const nextSort =
+      next.length > 0 ? [next[0]] : [{ id: "last_visited_at", desc: true }]
+    setSorting(nextSort)
+    setPageIndex(0)
+  }
+
+  const searchTableData = useMemo<UserTableData[]>(() => {
+    if (!searchUsers) {
+      return []
+    }
+
+    const sortedUsers = [...searchUsers].sort((left, right) =>
+      compareUsers({
+        left,
+        right,
+        sortBy,
+        sortOrder,
+      }),
+    )
+
+    return sortedUsers.map((user) => ({
+      ...user,
+      isCurrentUser: currentUser?.steamid64 === user.steamid64,
+    }))
+  }, [currentUser?.steamid64, searchUsers, sortBy, sortOrder])
 
   const tableData = useMemo<UserTableData[]>(
     () =>
@@ -64,30 +135,101 @@ function AdminUsers() {
     [data?.data, currentUser?.steamid64],
   )
 
+  const visibleTableData = isSearchMode
+    ? searchTableData.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
+    : tableData
+  const totalCount = isSearchMode ? searchTableData.length : (data?.count ?? 0)
+  const isTableLoading = isSearchMode ? isSearchLoading : isLoading
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-        <p className="text-muted-foreground">Website users for this project</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Users{" "}
+            <span className="text-base font-medium text-muted-foreground">
+              (Total {totalCount.toLocaleString()})
+            </span>
+          </h1>
+        </div>
+        <Input
+          aria-label="Search users"
+          className="w-full sm:w-80"
+          placeholder="Search players..."
+          value={searchInput}
+          onChange={(event) => {
+            setSearchInput(event.target.value)
+            setPageIndex(0)
+          }}
+        />
       </div>
-      {isLoading ? (
+      {isTableLoading ? (
         <PendingUsers />
       ) : (
         <DataTable
           columns={columns}
-          data={tableData}
+          data={visibleTableData}
+          emptyText={
+            isSearchMode ? "No users matched your search." : "No results found."
+          }
+          footerSummary={<span />}
           serverPagination={{
             pageIndex,
             pageSize,
-            totalCount: data?.count ?? 0,
+            totalCount,
             onPageChange: setPageIndex,
             onPageSizeChange: (size) => {
               setPageSize(size)
               setPageIndex(0)
             },
           }}
+          sorting={{
+            state: sorting,
+            onSortingChange,
+            manualSorting: true,
+          }}
         />
       )}
     </div>
   )
+}
+
+function compareUsers({
+  left,
+  right,
+  sortBy,
+  sortOrder,
+}: {
+  left: UserPublic
+  right: UserPublic
+  sortBy: "created_at" | "last_visited_at"
+  sortOrder: "asc" | "desc"
+}) {
+  const leftValue = toComparableTime(left[sortBy])
+  const rightValue = toComparableTime(right[sortBy])
+
+  if (leftValue === null && rightValue === null) {
+    return Number(right.steamid64) - Number(left.steamid64)
+  }
+  if (leftValue === null) {
+    return 1
+  }
+  if (rightValue === null) {
+    return -1
+  }
+  if (leftValue !== rightValue) {
+    return sortOrder === "asc" ? leftValue - rightValue : rightValue - leftValue
+  }
+
+  return Number(right.steamid64) - Number(left.steamid64)
+}
+
+function toComparableTime(value: string | Date | null | undefined) {
+  if (!value) {
+    return null
+  }
+
+  const date = value instanceof Date ? value : new Date(value)
+  const timestamp = date.getTime()
+  return Number.isNaN(timestamp) ? null : timestamp
 }

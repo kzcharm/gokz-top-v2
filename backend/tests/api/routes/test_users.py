@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from httpx import AsyncClient
 from sqlmodel import select
@@ -5,9 +7,37 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import User
+from app.models import Player, User
 from tests.utils.user import create_random_user, user_authentication_headers
 from tests.utils.utils import random_steamid64
+
+
+async def _create_user(
+    *,
+    db: AsyncSession,
+    steamid64: int,
+    name: str,
+    created_at: datetime,
+    last_visited_at: datetime | None = None,
+) -> User:
+    player = Player(
+        steamid64=steamid64,
+        name=name,
+        created_at=created_at,
+        updated_at=created_at,
+    )
+    user = User(
+        steamid64=steamid64,
+        created_at=created_at,
+        last_visited_at=last_visited_at,
+        is_active=True,
+        is_superuser=False,
+    )
+    db.add(player)
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 @pytest.mark.asyncio
@@ -66,6 +96,86 @@ async def test_retrieve_users_as_superuser(
     assert len(payload["data"]) >= 1
     for user in payload["data"]:
         assert "steamid64" in user
+
+
+@pytest.mark.asyncio
+async def test_retrieve_users_supports_sort_by_created_at(
+    client: AsyncClient,
+    superuser_token_headers: dict[str, str],
+    db: AsyncSession,
+) -> None:
+    base_time = datetime.now(UTC) + timedelta(days=7)
+    newest = await _create_user(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Newest User",
+        created_at=base_time + timedelta(minutes=2),
+    )
+    oldest = await _create_user(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Oldest User",
+        created_at=base_time + timedelta(minutes=1),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/users/",
+        headers=superuser_token_headers,
+        params={
+            "skip": 0,
+            "limit": 100,
+            "sort_by": "created_at",
+            "sort_order": "asc",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    returned_ids = [entry["steamid64"] for entry in payload["data"]]
+    assert returned_ids.index(str(oldest.steamid64)) < returned_ids.index(
+        str(newest.steamid64)
+    )
+
+
+@pytest.mark.asyncio
+async def test_retrieve_users_supports_sort_by_last_visited_at(
+    client: AsyncClient,
+    superuser_token_headers: dict[str, str],
+    db: AsyncSession,
+) -> None:
+    base_time = datetime.now(UTC) + timedelta(days=8)
+    never_visited = await _create_user(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Never Visited",
+        created_at=base_time,
+        last_visited_at=None,
+    )
+    recently_visited = await _create_user(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Recently Visited",
+        created_at=base_time + timedelta(minutes=1),
+        last_visited_at=base_time + timedelta(hours=1),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/users/",
+        headers=superuser_token_headers,
+        params={
+            "skip": 0,
+            "limit": 100,
+            "sort_by": "last_visited_at",
+            "sort_order": "desc",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    returned_ids = [entry["steamid64"] for entry in payload["data"]]
+    assert returned_ids.index(str(recently_visited.steamid64)) < returned_ids.index(
+        str(never_visited.steamid64)
+    )
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import BigInteger, DateTime
 from sqlmodel import Field, Relationship, SQLModel
@@ -50,3 +51,10 @@ class UserPublic(UserBase):
 class UsersPublic(SQLModel):
     data: list[UserPublic]
     count: int
+
+
+class UsersListQuery(SQLModel):
+    skip: int = Field(default=0, ge=0)
+    limit: int = Field(default=100, ge=1, le=100)
+    sort_by: Literal["created_at", "last_visited_at"] = "created_at"
+    sort_order: Literal["asc", "desc"] = "desc"

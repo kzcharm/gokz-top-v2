@@ -41,15 +41,6 @@ export const columns: ColumnDef<PlayerPublic>[] = [
     cell: ({ row }) => <PlayerDisplay player={row.original} />,
   },
   {
-    accessorKey: "custom_id",
-    header: "Custom ID",
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {row.original.custom_id || "N/A"}
-      </span>
-    ),
-  },
-  {
     accessorKey: "created_at",
     header: ({ column }) => (
       <SortableDateHeader title="Created At" column={column} />
