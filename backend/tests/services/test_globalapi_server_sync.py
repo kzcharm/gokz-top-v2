@@ -20,13 +20,16 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     existing_id = 941000
+    unchanged_id = 941004
     new_id = 941001
     duplicate_id = 941002
     stale_id = 941003
 
     await db.exec(
         delete(ServerGlobalapi).where(
-            ServerGlobalapi.id.in_([existing_id, new_id, duplicate_id, stale_id])
+            ServerGlobalapi.id.in_(
+                [existing_id, unchanged_id, new_id, duplicate_id, stale_id]
+            )
         )
     )
     await db.commit()
@@ -58,8 +61,21 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
         updated_on=datetime(2020, 1, 1, tzinfo=UTC),
         synced_at=datetime(2020, 1, 1, tzinfo=UTC),
     )
+    unchanged_server = ServerGlobalapi(
+        id=unchanged_id,
+        port=27021,
+        ip="198.51.100.21",
+        name="Approval Unchanged",
+        owner_steamid64=76561198000001004,
+        approval_status=1,
+        approved_by_steamid64=0,
+        created_on=datetime(2020, 1, 2, tzinfo=UTC),
+        updated_on=datetime(2020, 1, 2, tzinfo=UTC),
+        synced_at=datetime(2020, 1, 2, tzinfo=UTC),
+    )
     db.add(existing_server)
     db.add(stale_server)
+    db.add(unchanged_server)
     await db.commit()
 
     async def _mock_fetch(*, approval_status: int, client: object | None = None) -> list[dict[str, object]]:
@@ -101,6 +117,16 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
                 "updated_on": "2024-06-03T12:00:00",
             },
             {
+                "id": unchanged_id,
+                "port": 27022,
+                "ip": "198.51.100.22",
+                "name": "Changed Upstream But Ignore",
+                "owner_steamid64": "76561198000001999",
+                "approved_by_steamid64": "76561198000009996",
+                "created_on": "2024-06-06T12:00:00",
+                "updated_on": "2024-06-07T12:00:00",
+            },
+            {
                 "id": duplicate_id,
                 "port": 27020,
                 "ip": "198.51.100.20",
@@ -119,7 +145,7 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
 
     result = await sync_servers_from_globalapi(session=db)
 
-    assert result.processed == 5
+    assert result.processed == 6
     assert result.created == 2
     assert result.updated == 1
     assert result.errors == 1
@@ -133,14 +159,16 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
                 ServerGlobalapi.name,
                 ServerGlobalapi.created_on,
                 ServerGlobalapi.updated_on,
+                ServerGlobalapi.synced_at,
             ).where(ServerGlobalapi.id == existing_id)
         )
     ).one()
     assert refreshed_existing[0] == group_id
     assert refreshed_existing[1] == 1
-    assert refreshed_existing[2] == "Existing Approved"
-    assert refreshed_existing[3] == _normalize_datetime("0001-01-01T00:00:00")
-    assert refreshed_existing[4] == _normalize_datetime("2024-06-01T12:00:00")
+    assert refreshed_existing[2] == "Existing Replica"
+    assert refreshed_existing[3] == datetime(2020, 1, 1, tzinfo=UTC)
+    assert refreshed_existing[4] == datetime(2020, 1, 1, tzinfo=UTC)
+    assert refreshed_existing[5] == datetime(2020, 1, 1, tzinfo=UTC)
 
     refreshed_new = (
         await db.exec(
@@ -166,6 +194,27 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
         )
     ).one()
     assert refreshed_stale == "Historical Replica"
+
+    refreshed_unchanged = (
+        await db.exec(
+            select(
+                ServerGlobalapi.approval_status,
+                ServerGlobalapi.port,
+                ServerGlobalapi.ip,
+                ServerGlobalapi.name,
+                ServerGlobalapi.owner_steamid64,
+                ServerGlobalapi.synced_at,
+            ).where(ServerGlobalapi.id == unchanged_id)
+        )
+    ).one()
+    assert refreshed_unchanged == (
+        1,
+        27021,
+        "198.51.100.21",
+        "Approval Unchanged",
+        76561198000001004,
+        datetime(2020, 1, 2, tzinfo=UTC),
+    )
 
 
 async def test_normalize_server_datetime_fallback() -> None:
