@@ -1,29 +1,41 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useRef } from "react"
 import { type PlayerPublic, PlayersService } from "@/client"
 import ErrorComponent from "@/components/Common/ErrorComponent"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
 import { useScope } from "@/components/scope-provider"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
+import { cn } from "@/lib/utils"
 
 import { ProfileHomeContent } from "./ProfileHomeContent"
 import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
-import { getPointsRankLabel } from "./profile-ranks"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileTabs } from "./ProfileTabs"
+import { getPointsRankLabel } from "./profile-ranks"
 import {
   buildProfileCompletionData,
-  buildProfileTrophyCounts,
   buildProfileTotalPoints,
+  buildProfileTrophyCounts,
   fetchProfilePlayer,
+  getProfileActiveBanQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePointsStandingQueryOptions,
   getProfileValidatedMapsQueryOptions,
   type ProfileTab,
 } from "./profile-utils"
+
+function formatBanType(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
 
 function ProfileSkeleton() {
   return (
@@ -61,6 +73,9 @@ export function ProfilePage({
   const canonicalIdentifier =
     playerQuery.data?.custom_id || playerQuery.data?.steamid64 || null
   const playerSteamid64 = playerQuery.data?.steamid64 ?? null
+  const activeBanCountQuery = useQuery(
+    getProfileActiveBanQueryOptions(playerSteamid64),
+  )
   const nubRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
       steamid64: playerSteamid64,
@@ -177,7 +192,12 @@ export function ProfilePage({
         null,
       rating: pointsStandingQuery.data?.rating ?? null,
     }
-  }, [nubRecordsQuery.data, pointsStandingQuery.data, proRecordsQuery.data, scope])
+  }, [
+    nubRecordsQuery.data,
+    pointsStandingQuery.data,
+    proRecordsQuery.data,
+    scope,
+  ])
   const completionTrophies = useMemo(() => {
     return {
       nub: buildProfileTrophyCounts(nubRecordsQuery.data ?? []),
@@ -214,9 +234,66 @@ export function ProfilePage({
     return <ProfileSkeleton />
   }
 
+  const activeBans = activeBanCountQuery.data?.data ?? []
+  const activeBanCount = activeBanCountQuery.data?.count ?? 0
+  const hasPermanentBan = activeBans.some((ban) => ban.expires_on == null)
+  const showBanWarning = activeBanCount > 0
+
   return (
     <div className="space-y-8">
       <ProfileTabs activeTab={activeTab} identifier={canonicalIdentifier} />
+
+      {showBanWarning ? (
+        <Alert
+          variant={hasPermanentBan ? "destructive" : "default"}
+          className={cn(
+            "gap-y-3",
+            hasPermanentBan
+              ? "border-destructive/40 bg-destructive/10 text-destructive"
+              : "border-amber-300/70 bg-amber-50 text-amber-950 [&>svg]:text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100 dark:[&>svg]:text-amber-300",
+          )}
+        >
+          <TriangleAlertIcon />
+          <AlertTitle>This player has been banned</AlertTitle>
+          <AlertDescription
+            className={cn(
+              "gap-3",
+              hasPermanentBan
+                ? "text-destructive/90"
+                : "text-amber-800 dark:text-amber-200",
+            )}
+          >
+            <div className="grid gap-3">
+              {activeBans.map((ban) => (
+                <div
+                  key={ban.id}
+                  className={cn(
+                    "rounded-xl border px-4 py-3",
+                    hasPermanentBan
+                      ? "border-destructive/30 bg-background/70"
+                      : "border-amber-300/50 bg-background/70 dark:border-amber-500/20",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium">
+                    <span>{formatBanType(ban.ban_type)}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <FormattedDateTime
+                      value={ban.created_on}
+                      display="absolute"
+                      fallback="Unknown date"
+                    />
+                    <span className="text-muted-foreground">•</span>
+                    <span>{ban.expires_on == null ? "Permanent" : "Temporary"}</span>
+                  </div>
+                  <p className="mt-2 text-sm">
+                    {ban.notes?.trim() ? ban.notes : "No notes provided."}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {usesSidebarLayout ? (
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">

@@ -322,6 +322,7 @@ class RecordListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=10000)
     scope: RecordScope = RecordScope.OVR
+    exclude_cheaters: bool = True
     id: list[int] | None = None
     steamid64: int | None = Field(default=None, sa_type=BigInteger)
     server_id: int | None = None

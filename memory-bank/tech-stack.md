@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-04-04
+- Last Updated: 2026-04-07
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -13,11 +13,13 @@
 - Data strategy:
   - PostgreSQL as primary persistent store
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
+  - Mirrored GlobalAPI ban rows are stored locally in PostgreSQL with a PostgreSQL enum-backed `ban_type` and append/update-only sync semantics
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by scheduled tasks plus repair/backfill CLIs
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
   - `GET /v1/leaderboards/players` reads from `leaderboard_player` and applies query-time positive-metric filtering for the active sort
+  - Active mirrored bans are enforced as query-time exclusions for selected leaderboard and record reads via `EXISTS`/`NOT EXISTS` predicates instead of direct joins
 - Live server status subsystem:
   - Public reads come from cached `/v1/servers` and `/v1/servers/{id}` responses only; browsers never trigger upstream A2S or Steam server-list queries
   - Plugin heartbeats ingest through `PUT /v1/servers/status` with a server-group API key and resolve servers by `(ip, port)`
@@ -90,6 +92,7 @@
 ## External Integrations
 - Steam OpenID and Steam Web API integration paths exist in backend flows.
 - GlobalAPI endpoints are consumed for synchronization/compatibility behavior.
+- GlobalAPI ban sync uses large backfill pages for catch-up, then incremental `updated_since` polling with a steady-state page size of `10`.
 
 ## Implementation Constraints
 - Do not hand-edit generated frontend files:

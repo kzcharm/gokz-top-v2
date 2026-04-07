@@ -48,6 +48,55 @@ export async function fetchProfilePlayer(identifier: string) {
   })
 }
 
+export type ProfileBan = {
+  id: number
+  ban_type: string
+  created_on: string
+  expires_on?: string | null
+  notes?: string | null
+}
+
+export type ProfileBansResult = {
+  count: number
+  data: ProfileBan[]
+}
+
+export function getProfileActiveBanQueryOptions(steamid64: string | null) {
+  return queryOptions({
+    queryKey: ["profile-active-bans", steamid64],
+    queryFn: async () => {
+      if (!steamid64) {
+        return {
+          count: 0,
+          data: [],
+        } satisfies ProfileBansResult
+      }
+
+      const params = new URLSearchParams({
+        steamid64,
+        is_expired: "false",
+        offset: "0",
+        limit: "50",
+      })
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/bans?${params.toString()}`,
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load profile bans")
+      }
+
+      const payload = (await response.json()) as ProfileBansResult
+      return {
+        count: payload.count ?? 0,
+        data: payload.data ?? [],
+      } satisfies ProfileBansResult
+    },
+    enabled: steamid64 !== null,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
 export function getProfileFollowSummaryQueryOptions(identifier: string) {
   return queryOptions({
     queryKey: ["profile-follow-summary", identifier],
