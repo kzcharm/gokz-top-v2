@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Loader2,
 } from "lucide-react"
 import type { ComponentProps } from "react"
 
@@ -37,6 +38,8 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  isLoading?: boolean
+  emptyText?: string
   getRowClassName?: (row: TData) => string | undefined
   getRowProps?: (row: TData) => ComponentProps<typeof TableRow> | undefined
   serverPagination?: {
@@ -56,6 +59,8 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
+  isLoading = false,
+  emptyText = "No results found.",
   getRowClassName,
   getRowProps,
   serverPagination,
@@ -166,7 +171,13 @@ export function DataTable<TData, TValue>({
                 colSpan={columns.length}
                 className="h-32 text-center text-muted-foreground"
               >
-                No results found.
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  emptyText
+                )}
               </TableCell>
             </TableRow>
           )}
