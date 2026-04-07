@@ -22,10 +22,10 @@ import { DataTable } from "@/components/Common/DataTable"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { columns } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
-import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -80,9 +80,8 @@ function LeaderboardsRoute() {
       : 20
   })
   const [searchInput, setSearchInput] = useState("")
-  const [activeTab, setActiveTab] = useState<
-    (typeof LEADERBOARD_TAB_OPTIONS)[number]["value"]
-  >("rating")
+  const [activeTab, setActiveTab] =
+    useState<(typeof LEADERBOARD_TAB_OPTIONS)[number]["value"]>("rating")
   const [isLocatingPlayer, setIsLocatingPlayer] = useState(false)
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [pendingSpotlightSteamid64, setPendingSpotlightSteamid64] = useState<
@@ -361,7 +360,7 @@ function LeaderboardsRoute() {
         <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex w-full flex-col gap-3 lg:max-w-[18rem]">
+              <div className="flex w-full flex-col gap-3 lg:max-w-[20rem]">
                 <div className="relative w-full">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
