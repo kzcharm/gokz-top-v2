@@ -20,7 +20,7 @@ function formatLeaderboardMetric(
     accessorKey === "rating_hard"
   ) {
     if (value === null) {
-      return "Unranked"
+      return "0.00"
     }
     return formatRating(value)
   }
