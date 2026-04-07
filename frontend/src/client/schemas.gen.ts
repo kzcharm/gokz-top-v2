@@ -590,6 +590,17 @@ export const PlayerLeaderboardRankPublicSchema = {
             ],
             title: 'Rank'
         },
+        rank_regional: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rank Regional'
+        },
         player: {
             '$ref': '#/components/schemas/PlayerPublic'
         },
@@ -1234,6 +1245,53 @@ export const RecordsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'RecordsPublic'
+} as const;
+
+export const RegionCodeSchema = {
+    type: 'string',
+    enum: ['AF', 'AS', 'CIS', 'CN', 'EU', 'ME', 'NA', 'OC', 'SA'],
+    title: 'RegionCode'
+} as const;
+
+export const RegionPublicSchema = {
+    properties: {
+        code: {
+            '$ref': '#/components/schemas/RegionCode'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        country_codes: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Country Codes'
+        }
+    },
+    type: 'object',
+    required: ['code', 'name', 'country_codes'],
+    title: 'RegionPublic'
+} as const;
+
+export const RegionsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RegionPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RegionsPublic'
 } as const;
 
 export const ServerCreateSchema = {

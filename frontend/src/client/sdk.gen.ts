@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PrivateCreateAuthSessionData, PrivateCreateAuthSessionResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, BansReadBansData, BansReadBansResponse, BansReadBanData, BansReadBanResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminModesService {
     /**
@@ -31,10 +31,76 @@ export class AdminModesService {
     }
 }
 
+export class BansService {
+    /**
+     * Read Bans
+     * @param data The data for the request.
+     * @param data.offset
+     * @param data.limit
+     * @param data.banTypes
+     * @param data.banTypesList
+     * @param data.isExpired
+     * @param data.ip
+     * @param data.steamid64
+     * @param data.notesContains
+     * @param data.statsContains
+     * @param data.serverId
+     * @param data.createdSince
+     * @param data.updatedSince
+     * @returns BansPublic Successful Response
+     * @throws ApiError
+     */
+    public static readBans(data: BansReadBansData = {}): CancelablePromise<BansReadBansResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/bans',
+            query: {
+                offset: data.offset,
+                limit: data.limit,
+                ban_types: data.banTypes,
+                ban_types_list: data.banTypesList,
+                is_expired: data.isExpired,
+                ip: data.ip,
+                steamid64: data.steamid64,
+                notes_contains: data.notesContains,
+                stats_contains: data.statsContains,
+                server_id: data.serverId,
+                created_since: data.createdSince,
+                updated_since: data.updatedSince
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Ban
+     * @param data The data for the request.
+     * @param data.id
+     * @returns BanPublic Successful Response
+     * @throws ApiError
+     */
+    public static readBan(data: BansReadBanData): CancelablePromise<BansReadBanResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/bans/{id}',
+            path: {
+                id: data.id
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class LeaderboardsService {
     /**
      * Read Player Leaderboard
      * @param data The data for the request.
+     * @param data.country
+     * @param data.region
      * @param data.scope
      * @param data.offset
      * @param data.limit
@@ -48,6 +114,8 @@ export class LeaderboardsService {
             method: 'GET',
             url: '/v1/leaderboards/players',
             query: {
+                country: data.country,
+                region: data.region,
                 scope: data.scope,
                 offset: data.offset,
                 limit: data.limit,
@@ -65,6 +133,8 @@ export class LeaderboardsService {
      * @param data The data for the request.
      * @param data.identifier
      * @param data.scope
+     * @param data.country
+     * @param data.region
      * @returns PlayerLeaderboardRankPublic Successful Response
      * @throws ApiError
      */
@@ -76,7 +146,9 @@ export class LeaderboardsService {
                 identifier: data.identifier
             },
             query: {
-                scope: data.scope
+                scope: data.scope,
+                country: data.country,
+                region: data.region
             },
             errors: {
                 422: 'Validation Error'
@@ -574,36 +646,16 @@ export class PlayersService {
     }
 }
 
-export class PrivateService {
-    /**
-     * Create Auth Session
-     * Create or update a user by Steam ID and return a JWT token.
-     * Development/testing helper endpoint (local env only).
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns Token Successful Response
-     * @throws ApiError
-     */
-    public static createAuthSession(data: PrivateCreateAuthSessionData): CancelablePromise<PrivateCreateAuthSessionResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/private/auth/session',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-}
-
 export class RecordsService {
     /**
      * Read Records
      * @param data The data for the request.
+     * @param data.country
+     * @param data.region
      * @param data.offset
      * @param data.limit
      * @param data.scope
+     * @param data.excludeCheaters
      * @param data.id
      * @param data.steamid64
      * @param data.serverId
@@ -623,9 +675,12 @@ export class RecordsService {
             method: 'GET',
             url: '/v1/records/',
             query: {
+                country: data.country,
+                region: data.region,
                 offset: data.offset,
                 limit: data.limit,
                 scope: data.scope,
+                exclude_cheaters: data.excludeCheaters,
                 id: data.id,
                 steamid64: data.steamid64,
                 server_id: data.serverId,
@@ -677,11 +732,14 @@ export class RecordsService {
      * @param data The data for the request.
      * @param data.scope
      * @param data.isProOnly
+     * @param data.excludeCheaters
      * @param data.offset
      * @param data.limit
      * @param data.mapId
      * @param data.stage
      * @param data.steamid64
+     * @param data.country
+     * @param data.region
      * @returns RecordPublic Successful Response
      * @throws ApiError
      */
@@ -692,11 +750,14 @@ export class RecordsService {
             query: {
                 scope: data.scope,
                 is_pro_only: data.isProOnly,
+                exclude_cheaters: data.excludeCheaters,
                 offset: data.offset,
                 limit: data.limit,
                 map_id: data.mapId,
                 stage: data.stage,
-                steamid64: data.steamid64
+                steamid64: data.steamid64,
+                country: data.country,
+                region: data.region
             },
             errors: {
                 422: 'Validation Error'
@@ -748,6 +809,20 @@ export class RecordsService {
             errors: {
                 422: 'Validation Error'
             }
+        });
+    }
+}
+
+export class RegionsService {
+    /**
+     * Read Regions
+     * @returns RegionsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readRegions(): CancelablePromise<RegionsReadRegionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/regions/'
         });
     }
 }

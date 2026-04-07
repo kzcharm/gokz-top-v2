@@ -1,4 +1,19 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
+
+async function stubRegions(page: Page) {
+  await page.route("**/v1/regions/", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 2,
+        data: [
+          { code: "EU", name: "Europe", country_codes: ["DE", "FR"] },
+          { code: "AS", name: "Asia", country_codes: ["JP"] },
+        ],
+      }),
+    })
+  })
+}
 
 test.describe("Leaderboards page", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
@@ -7,6 +22,7 @@ test.describe("Leaderboards page", () => {
     await page.addInitScript(() => {
       localStorage.clear()
     })
+    await stubRegions(page)
     await page.route("**/v1/leaderboards/players*", async (route) => {
       await route.fulfill({
         contentType: "application/json",
@@ -19,9 +35,7 @@ test.describe("Leaderboards page", () => {
 
     await page.goto("/leaderboards")
 
-    await expect(
-      page.getByRole("heading", { name: "Leaderboards" }),
-    ).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Rating" })).toBeVisible()
     await expect(
       page.getByRole("button", { name: "Find Me", exact: true }),
     ).toBeDisabled()
@@ -37,6 +51,7 @@ test.describe("Leaderboards page", () => {
     await page.addInitScript(() => {
       localStorage.clear()
     })
+    await stubRegions(page)
     await page.route("**/v1/leaderboards/players*", async (route) => {
       const url = new URL(route.request().url())
       const scope = url.searchParams.get("scope") || "OVR"
@@ -96,6 +111,7 @@ test.describe("Leaderboards page", () => {
     await page.addInitScript(() => {
       localStorage.clear()
     })
+    await stubRegions(page)
 
     await page.route("**/v1/players/search*", async (route) => {
       const url = new URL(route.request().url())
@@ -253,6 +269,7 @@ test.describe("Leaderboards page", () => {
       localStorage.clear()
       localStorage.setItem("access_token", "header.payload.signature")
     })
+    await stubRegions(page)
 
     await page.route("**/v1/users/me", async (route) => {
       await route.fulfill({
@@ -279,6 +296,9 @@ test.describe("Leaderboards page", () => {
     await page.route(
       "**/v1/leaderboards/players/76561198000000042*",
       async (route) => {
+        const url = new URL(route.request().url())
+        expect(url.searchParams.get("country")).toBeNull()
+        expect(url.searchParams.get("region")).toBeNull()
         await route.fulfill({
           contentType: "application/json",
           body: JSON.stringify({
@@ -372,5 +392,124 @@ test.describe("Leaderboards page", () => {
     await expect(
       page.getByRole("row", { name: /41.*Find Me Player/ }),
     ).toHaveClass(/leaderboard-self-spotlight/)
+  })
+
+  test("country and region filters are mutually exclusive and affect requests", async ({
+    page,
+  }) => {
+    const leaderboardRequests: Array<{
+      country: string | null
+      region: string | null
+    }> = []
+    const rankRequests: Array<{
+      country: string | null
+      region: string | null
+    }> = []
+
+    await page.addInitScript(() => {
+      localStorage.clear()
+      localStorage.setItem("access_token", "header.payload.signature")
+    })
+    await stubRegions(page)
+
+    await page.route("**/v1/users/me", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          steamid64: "76561198000000042",
+          is_superuser: false,
+          player: {
+            steamid64: "76561198000000042",
+            name: "Find Me Player",
+            alias: null,
+            custom_id: null,
+            avatar_hash: null,
+            country: "DE",
+            created_at: null,
+            last_played_at: null,
+            updated_at: null,
+            profile_views: 0,
+          },
+        }),
+      })
+    })
+
+    await page.route(
+      "**/v1/leaderboards/players/76561198000000042*",
+      async (route) => {
+        const url = new URL(route.request().url())
+        rankRequests.push({
+          country: url.searchParams.get("country"),
+          region: url.searchParams.get("region"),
+        })
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            rank: 1,
+            rank_regional: 1,
+            rating: 1100,
+          }),
+        })
+      },
+    )
+
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      const url = new URL(route.request().url())
+      leaderboardRequests.push({
+        country: url.searchParams.get("country"),
+        region: url.searchParams.get("region"),
+      })
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              player: {
+                steamid64: "76561198000000042",
+                name: "Find Me Player",
+                alias: null,
+                custom_id: null,
+                avatar_hash: null,
+                country: "DE",
+                created_at: null,
+                last_played_at: null,
+                updated_at: null,
+                profile_views: 0,
+              },
+              rating: 1100,
+              rating_easy: 550,
+              rating_hard: 550,
+              points: 2000,
+              wrs_nub: 0,
+              wrs_pro: 0,
+              records_900_plus: 0,
+              records_800_plus: 0,
+              unique_map_finishes: 25,
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards")
+
+    await page.getByRole("button", { name: "All countries" }).click()
+    await page.getByRole("button", { name: "Germany" }).click()
+    await expect
+      .poll(() => leaderboardRequests.at(-1))
+      .toEqual({ country: "DE", region: null })
+
+    await page.getByRole("combobox").filter({ hasText: "All regions" }).click()
+    await page.getByRole("option", { name: /^EU$/ }).click()
+    await expect
+      .poll(() => leaderboardRequests.at(-1))
+      .toEqual({ country: null, region: "EU" })
+
+    await page.getByRole("button", { name: "Find Me", exact: true }).click()
+    await expect
+      .poll(() => rankRequests.at(-1))
+      .toEqual({ country: null, region: "EU" })
   })
 })

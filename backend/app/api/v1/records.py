@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
 from app.api.deps import SessionDep, get_current_active_superuser
+from app.core.regions import is_valid_region_code
 from app.crud.record import get_pb_record_publics
 from app.models import (
     Map,
@@ -25,6 +26,16 @@ from app.models import (
 router = APIRouter(prefix="/records", tags=["records"])
 
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+
+
+def _validate_geography_filters(*, country: str | None, region: str | None) -> None:
+    if country is not None and region is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="country and region filters are mutually exclusive. Please provide only one.",
+        )
+    if region is not None and not is_valid_region_code(region):
+        raise HTTPException(status_code=422, detail="Invalid region")
 
 
 async def _to_record_public(
@@ -110,12 +121,17 @@ async def read_pb_records(
     map_id: Annotated[int | None, Query()] = None,
     stage: Annotated[int, Query(ge=0)] = 0,
     steamid64: Annotated[str | None, Query(pattern=r"^\d{17}$")] = None,
+    country: Annotated[str | None, Query(max_length=2)] = None,
+    region: Annotated[str | None, Query(max_length=3)] = None,
 ) -> Any:
     if (map_id is None) == (steamid64 is None):
         raise HTTPException(
             status_code=422,
             detail="Exactly one of map_id or steamid64 must be provided",
         )
+    normalized_country = country.strip().upper() if country is not None and country.strip() else None
+    normalized_region = region.strip().upper() if region is not None and region.strip() else None
+    _validate_geography_filters(country=normalized_country, region=normalized_region)
 
     return await get_pb_record_publics(
         session,
@@ -124,6 +140,8 @@ async def read_pb_records(
         steamid64=int(steamid64) if steamid64 is not None else None,
         scope=scope,
         is_pro_only=is_pro_only,
+        country=normalized_country,
+        region=normalized_region,
         exclude_cheaters=exclude_cheaters,
         offset=offset,
         limit=limit,

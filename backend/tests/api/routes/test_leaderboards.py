@@ -45,8 +45,16 @@ async def _create_player(
     steamid64: int,
     name: str,
     custom_id: str | None = None,
+    country: str | None = None,
 ) -> None:
-    db.add(Player(steamid64=steamid64, name=name, custom_id=custom_id))
+    db.add(
+        Player(
+            steamid64=steamid64,
+            name=name,
+            custom_id=custom_id,
+            country=country,
+        )
+    )
     await db.flush()
 
 
@@ -185,10 +193,12 @@ async def _seed_leaderboard_data(
     beta = random_steamid64()
     gamma = random_steamid64()
     delta = random_steamid64()
-    await _create_player(db, steamid64=alpha, name="Alpha", custom_id="alpha")
-    await _create_player(db, steamid64=beta, name="Beta")
-    await _create_player(db, steamid64=gamma, name="Gamma")
-    await _create_player(db, steamid64=delta, name="Delta")
+    await _create_player(
+        db, steamid64=alpha, name="Alpha", custom_id="alpha", country="DE"
+    )
+    await _create_player(db, steamid64=beta, name="Beta", country="FR")
+    await _create_player(db, steamid64=gamma, name="Gamma", country="JP")
+    await _create_player(db, steamid64=delta, name="Delta", country="IS")
 
     for index in range(20):
         map_id = 2_120_100_000 + index
@@ -402,6 +412,75 @@ async def test_read_player_leaderboard_scope_and_pagination(
     assert paged_payload["data"][0]["player"]["steamid64"] == str(players["beta"])
 
 
+async def test_read_player_leaderboard_filters_by_country(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "country": "DE"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
+        str(players["alpha"])
+    ]
+
+
+async def test_read_player_leaderboard_filters_by_region(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "region": "EU"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
+        str(players["alpha"]),
+        str(players["beta"]),
+    ]
+
+
+async def test_read_player_leaderboard_rejects_country_and_region_together(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "country": "DE", "region": "EU"},
+    )
+
+    assert response.status_code == 422
+    assert "mutually exclusive" in response.text
+
+
+async def test_read_player_leaderboard_rejects_invalid_region(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "region": "ZZ"},
+    )
+
+    assert response.status_code == 422
+    assert "Invalid region" in response.text
+
+
 async def test_read_player_leaderboard_rejects_asc_sort_order(
     client: AsyncClient,
     db: AsyncSession,
@@ -434,6 +513,7 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert payload["scope"] == "KZT"
     assert payload["player"]["steamid64"] == str(players["alpha"])
     assert payload["rank"] == 1
+    assert payload["rank_regional"] == 1
     assert "rating_rank" not in payload
     assert payload["points"] > payload["rating"]
     assert payload["rating"] == pytest.approx(_public_rating(alpha_row.rating))
@@ -456,6 +536,7 @@ async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligi
     payload = response.json()
     assert payload["player"]["steamid64"] == str(players["delta"])
     assert payload["rank"] is None
+    assert payload["rank_regional"] is None
     assert "rating_rank" not in payload
     assert payload["rating"] is None
     assert payload["rating_easy"] is None
@@ -478,6 +559,7 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missin
     payload = response.json()
     assert payload["player"]["steamid64"] == str(players["beta"])
     assert payload["rank"] is None
+    assert payload["rank_regional"] is None
     assert "rating_rank" not in payload
     assert payload["points"] == 0
     assert payload["rating"] is None
@@ -515,6 +597,7 @@ async def test_read_player_leaderboard_excludes_actively_banned_players(
     )
     assert rank_response.status_code == 200
     assert rank_response.json()["rank"] is None
+    assert rank_response.json()["rank_regional"] is None
 
 
 async def test_read_player_leaderboard_keeps_expired_bans_out_of_exclusion(
@@ -537,6 +620,71 @@ async def test_read_player_leaderboard_keeps_expired_bans_out_of_exclusion(
     assert response.status_code == 200
     steamids = [entry["player"]["steamid64"] for entry in response.json()["data"]]
     assert str(players["alpha"]) in steamids
+
+
+async def test_read_player_leaderboard_rank_filters_by_country(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/alpha",
+        params={"scope": "KZT", "country": "DE"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["rank"] == 1
+    assert payload["rank_regional"] == 1
+    assert payload["player"]["steamid64"] == str(players["alpha"])
+
+
+async def test_read_player_leaderboard_rank_filters_by_region(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/{players['beta']}",
+        params={"scope": "KZT", "region": "EU"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["rank"] == 2
+    assert payload["rank_regional"] == 2
+    assert payload["player"]["steamid64"] == str(players["beta"])
+
+
+async def test_read_player_leaderboard_rank_returns_none_when_filtered_out(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/alpha",
+        params={"scope": "KZT", "country": "FR"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["rank"] is None
+    assert payload["rank_regional"] == 1
+
+
+async def test_read_regions_returns_region_metadata(client: AsyncClient) -> None:
+    response = await client.get(f"{settings.API_V1_STR}/regions/")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 9
+    assert any(
+        region["code"] == "EU" and "DE" in region["country_codes"]
+        for region in payload["data"]
+    )
 
 
 async def test_upsert_player_leaderboards_rebuilds_player_without_auth(

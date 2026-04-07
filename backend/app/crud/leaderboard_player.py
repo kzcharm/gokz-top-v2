@@ -11,6 +11,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.regions import get_region_code_for_country, get_region_country_codes
 from app.crud.player import to_player_public
 from app.crud.record_filter import load_scoped_course_tiers
 from app.models import (
@@ -74,6 +75,16 @@ def calculate_weighted_rating(points: Iterable[int]) -> int:
 
 def _not_banned_clause() -> ColumnElement[bool]:
     return not_active_ban_exists_clause(steamid64_column=col(LeaderboardPlayer.steamid64))
+
+
+def _country_codes_for_geography(
+    *,
+    country: str | None,
+    region: str | None,
+) -> tuple[str, ...] | None:
+    if country is not None:
+        return (country,)
+    return get_region_country_codes(region)
 
 
 def _build_player_leaderboard_entry_public(
@@ -366,30 +377,46 @@ async def read_player_leaderboard(
 ) -> tuple[list[PlayerLeaderboardEntryPublic], int]:
     sort_column = col(getattr(LeaderboardPlayer, query.sort_by))
     sort_expression = sort_column.desc()
-    rank_subquery = (
+    filtered_statement = (
         select(
-            LeaderboardPlayer,
-            func.rank()
-            .over(order_by=sort_expression)
-            .label("rank"),
+            col(LeaderboardPlayer.scope).label("scope"),
+            col(LeaderboardPlayer.steamid64).label("steamid64"),
+            col(LeaderboardPlayer.rating).label("rating"),
+            col(LeaderboardPlayer.rating_easy).label("rating_easy"),
+            col(LeaderboardPlayer.rating_hard).label("rating_hard"),
+            col(LeaderboardPlayer.points).label("points"),
+            col(LeaderboardPlayer.wrs_nub).label("wrs_nub"),
+            col(LeaderboardPlayer.wrs_pro).label("wrs_pro"),
+            col(LeaderboardPlayer.records_900_plus).label("records_900_plus"),
+            col(LeaderboardPlayer.records_800_plus).label("records_800_plus"),
+            col(LeaderboardPlayer.unique_map_finishes).label("unique_map_finishes"),
         )
+        .select_from(LeaderboardPlayer)
         .where(
             col(LeaderboardPlayer.scope) == scope_to_id(query.scope),
             sort_column > 0,
             _not_banned_clause(),
         )
-        .subquery()
+    )
+    geography_country_codes = _country_codes_for_geography(
+        country=query.country,
+        region=query.region,
+    )
+    if geography_country_codes is not None:
+        filtered_statement = filtered_statement.join(
+            Player,
+            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
+        ).where(col(Player.country).in_(list(geography_country_codes)))
+
+    rank_subquery = (
+        filtered_statement.add_columns(
+            func.rank().over(order_by=sort_expression).label("rank"),
+        ).subquery()
     )
 
     count = (
         await session.exec(
-            select(func.count())
-            .select_from(LeaderboardPlayer)
-            .where(
-                col(LeaderboardPlayer.scope) == scope_to_id(query.scope),
-                sort_column > 0,
-                _not_banned_clause(),
-            )
+            select(func.count()).select_from(filtered_statement.subquery())
         )
     ).one()
 
@@ -457,35 +484,45 @@ async def _read_metric_rank(
     steamid64: int,
     metric_name: Literal["points", "rating"],
     metric_value: int,
+    country: str | None = None,
+    region: str | None = None,
 ) -> int | None:
     if metric_value <= 0:
         return None
 
     metric_column = col(getattr(LeaderboardPlayer, metric_name))
-    higher_count = (
-        await session.exec(
-            select(func.count())
-            .select_from(LeaderboardPlayer)
-            .where(
-                col(LeaderboardPlayer.scope) == scope_to_id(scope),
-                metric_column > metric_value,
-                _not_banned_clause(),
-            )
+    geography_country_codes = _country_codes_for_geography(country=country, region=region)
+    higher_count_statement = (
+        select(func.count())
+        .select_from(LeaderboardPlayer)
+        .where(
+            col(LeaderboardPlayer.scope) == scope_to_id(scope),
+            metric_column > metric_value,
+            _not_banned_clause(),
         )
-    ).one()
+    )
+    player_in_scope_statement = (
+        select(func.count())
+        .select_from(LeaderboardPlayer)
+        .where(
+            col(LeaderboardPlayer.scope) == scope_to_id(scope),
+            col(LeaderboardPlayer.steamid64) == steamid64,
+            metric_column > 0,
+            _not_banned_clause(),
+        )
+    )
+    if geography_country_codes is not None:
+        higher_count_statement = higher_count_statement.join(
+            Player,
+            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
+        ).where(col(Player.country).in_(list(geography_country_codes)))
+        player_in_scope_statement = player_in_scope_statement.join(
+            Player,
+            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
+        ).where(col(Player.country).in_(list(geography_country_codes)))
 
-    player_in_scope = (
-        await session.exec(
-            select(func.count())
-            .select_from(LeaderboardPlayer)
-            .where(
-                col(LeaderboardPlayer.scope) == scope_to_id(scope),
-                col(LeaderboardPlayer.steamid64) == steamid64,
-                metric_column > 0,
-                _not_banned_clause(),
-            )
-        )
-    ).one()
+    higher_count = (await session.exec(higher_count_statement)).one()
+    player_in_scope = (await session.exec(player_in_scope_statement)).one()
     if player_in_scope == 0:
         return None
 
@@ -497,6 +534,8 @@ async def read_player_leaderboard_rank(
     session: AsyncSession,
     player: Player,
     scope: RecordScope,
+    country: str | None = None,
+    region: str | None = None,
 ) -> PlayerLeaderboardRankPublic:
     leaderboard_row = await session.get(
         LeaderboardPlayer,
@@ -512,11 +551,25 @@ async def read_player_leaderboard_rank(
             steamid64=player.steamid64,
             metric_name="rating",
             metric_value=leaderboard_row.rating,
+            country=country,
+            region=region,
+        )
+    home_region = get_region_code_for_country(player.country)
+    rank_regional: int | None = None
+    if leaderboard_row is not None and home_region is not None:
+        rank_regional = await _read_metric_rank(
+            session=session,
+            scope=scope,
+            steamid64=player.steamid64,
+            metric_name="rating",
+            metric_value=leaderboard_row.rating,
+            region=home_region,
         )
 
     return PlayerLeaderboardRankPublic(
         scope=scope,
         rank=rank,
+        rank_regional=rank_regional,
         player=to_player_public(player=player),
         rating=leaderboard_row.rating if leaderboard_row is not None else 0,
         rating_easy=leaderboard_row.rating_easy if leaderboard_row is not None else 0,

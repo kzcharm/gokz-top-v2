@@ -47,6 +47,7 @@ from .player_follow import (
     PlayerFollowSummaryPublic,
 )
 from .player_profile_view import PlayerProfileView
+from .region import RegionCode, RegionPublic, RegionsPublic
 from .record import (
     MapCourse,
     RecentRecordCompatPublicV0,
@@ -194,6 +195,9 @@ __all__ = [
     "RecordScopeId",
     "RecordsPublic",
     "RecentRecordCompatPublicV0",
+    "RegionCode",
+    "RegionPublic",
+    "RegionsPublic",
     "RecordFilter",
     "RecordFilterBase",
     "RecordFilterCompatPublicV0",

@@ -112,6 +112,7 @@ class Player(PlayerBase, table=True):
             unique=True,
             postgresql_where=text("custom_id IS NOT NULL"),
         ),
+        Index("ix_player_country_steamid64", "country", "steamid64"),
     )
 
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)

@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
 from app.api.deps import SessionDep
+from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.models import (
     Message,
@@ -24,6 +25,16 @@ def _parse_steamid64(steamid64: str) -> int:
         raise HTTPException(status_code=422, detail="Invalid steamid64") from exc
 
 
+def _validate_geography_filters(*, country: str | None, region: str | None) -> None:
+    if country is not None and region is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="country and region filters are mutually exclusive. Please provide only one.",
+        )
+    if region is not None and not is_valid_region_code(region):
+        raise HTTPException(status_code=422, detail="Invalid region")
+
+
 async def _get_player_or_404(*, session: SessionDep, identifier: str):
     player = await player_crud.get_player_by_identifier(
         session=session,
@@ -39,6 +50,7 @@ async def read_player_leaderboard(
     session: SessionDep,
     query: Annotated[PlayerLeaderboardListQuery, Query()],
 ) -> PlayerLeaderboardsPublic:
+    _validate_geography_filters(country=query.country, region=query.region)
     data, count = await crud.read_player_leaderboard(session=session, query=query)
     return PlayerLeaderboardsPublic(data=data, count=count)
 
@@ -48,12 +60,17 @@ async def read_player_leaderboard_rank(
     identifier: str,
     session: SessionDep,
     scope: RecordScope = Query(default=RecordScope.OVR),
+    country: Annotated[str | None, Query(max_length=2)] = None,
+    region: Annotated[str | None, Query(max_length=3)] = None,
 ) -> PlayerLeaderboardRankPublic:
+    _validate_geography_filters(country=country, region=region)
     player = await _get_player_or_404(session=session, identifier=identifier)
     return await crud.read_player_leaderboard_rank(
         session=session,
         player=player,
         scope=scope,
+        country=country.strip().upper() if country is not None and country.strip() else None,
+        region=region.strip().upper() if region is not None and region.strip() else None,
     )
 
 

@@ -18,8 +18,10 @@ import { toast } from "sonner"
 
 import { LeaderboardsService, type PlayerPublic } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
+import { CountryPicker } from "@/components/Common/CountryPicker"
 import { DataTable } from "@/components/Common/DataTable"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { RegionBadge } from "@/components/Common/RegionFlag"
 import { columns } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
 import { Button } from "@/components/ui/button"
@@ -35,6 +37,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
+import { getRegionsQueryOptions } from "@/lib/regions"
 import { getPageTitle } from "@/lib/site"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
@@ -97,6 +100,8 @@ function LeaderboardsRoute() {
   const pageInputTimeoutRef = useRef<number | null>(null)
   const playerSearchQuery = deferredSearchInput.trim()
   const [pageInputValue, setPageInputValue] = useState("1")
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
 
   const sortBy =
     sorting[0]?.id === "rating_easy" ||
@@ -111,7 +116,16 @@ function LeaderboardsRoute() {
       : "rating"
 
   const leaderboardQuery = useQuery({
-    queryKey: ["leaderboards", "players", scope, pageIndex, pageSize, sortBy],
+    queryKey: [
+      "leaderboards",
+      "players",
+      scope,
+      pageIndex,
+      pageSize,
+      sortBy,
+      selectedCountry,
+      selectedRegion,
+    ],
     queryFn: () =>
       LeaderboardsService.readPlayerLeaderboard({
         scope,
@@ -119,8 +133,11 @@ function LeaderboardsRoute() {
         limit: pageSize,
         sortBy,
         sortOrder: "desc",
+        country: selectedCountry ?? undefined,
+        region: selectedRegion ?? undefined,
       }),
   })
+  const regionsQuery = useQuery(getRegionsQueryOptions())
   const playerSearchQueryResult = useQuery({
     queryKey: ["players", "search", playerSearchQuery],
     enabled: playerSearchQuery.length > 0,
@@ -259,8 +276,15 @@ function LeaderboardsRoute() {
     setIsLocatingPlayer(true)
     try {
       const token = localStorage.getItem("access_token")
+      const params = new URLSearchParams({ scope })
+      if (selectedCountry) {
+        params.set("country", selectedCountry)
+      }
+      if (selectedRegion) {
+        params.set("region", selectedRegion)
+      }
       const response = await fetch(
-        `${OpenAPI.BASE}/v1/leaderboards/players/${encodeURIComponent(identifier)}?scope=${scope}`,
+        `${OpenAPI.BASE}/v1/leaderboards/players/${encodeURIComponent(identifier)}?${params.toString()}`,
         {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         },
@@ -324,6 +348,8 @@ function LeaderboardsRoute() {
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
   const totalPlayers = leaderboardQuery.data?.count ?? 0
   const pageCount = Math.max(1, Math.ceil(totalPlayers / pageSize))
+  const selectedRegionOption =
+    regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
 
   const commitPageInputValue = (rawValue: string) => {
     const nextValue = Number(rawValue)
@@ -359,8 +385,8 @@ function LeaderboardsRoute() {
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex w-full flex-col gap-3 lg:max-w-[20rem]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex w-full flex-col gap-3 lg:max-w-[22rem]">
                 <div className="relative w-full">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -433,16 +459,67 @@ function LeaderboardsRoute() {
                 </div>
               </div>
 
-              <LoadingButton
-                type="button"
-                variant="outline"
-                loading={isLocatingPlayer}
-                disabled={!currentUser?.steamid64}
-                onClick={() => void handleFindMe()}
-              >
-                <LocateFixed />
-                Find Me
-              </LoadingButton>
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                <Select
+                  value={selectedRegion ?? "all"}
+                  onValueChange={(value) => {
+                    const nextRegion = value === "all" ? null : value
+                    setSelectedRegion(nextRegion)
+                    if (nextRegion !== null) {
+                      setSelectedCountry(null)
+                    }
+                    setPageIndex(0)
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-[144px]">
+                    {selectedRegionOption ? (
+                      <RegionBadge
+                        regionCode={selectedRegionOption.code}
+                        regionName={selectedRegionOption.name}
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">region</span>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">region</SelectItem>
+                    {(regionsQuery.data ?? []).map((region) => (
+                      <SelectItem key={region.code} value={region.code}>
+                        <RegionBadge
+                          regionCode={region.code}
+                          regionName={region.name}
+                        />
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="w-full sm:w-[176px]">
+                  <CountryPicker
+                    value={selectedCountry}
+                    onChange={(value) => {
+                      setSelectedCountry(value)
+                      if (value !== null) {
+                        setSelectedRegion(null)
+                      }
+                      setPageIndex(0)
+                    }}
+                    placeholder="country"
+                    clearLabel="country"
+                  />
+                </div>
+
+                <LoadingButton
+                  type="button"
+                  variant="outline"
+                  loading={isLocatingPlayer}
+                  disabled={!currentUser?.steamid64}
+                  onClick={() => void handleFindMe()}
+                >
+                  <LocateFixed />
+                  Find Me
+                </LoadingButton>
+              </div>
             </div>
 
             <div className="flex flex-col gap-4 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
