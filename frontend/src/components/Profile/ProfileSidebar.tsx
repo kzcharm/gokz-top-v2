@@ -218,6 +218,7 @@ function ProfileIdentityCard({
         <PlayerContextMenuItems
           displayName={displayName}
           hasProfileLink={hasProfileLink}
+          player={player}
           steamProfileUrl={steamProfileUrl}
           steamid64={player.steamid64}
         >

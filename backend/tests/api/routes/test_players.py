@@ -575,7 +575,7 @@ async def test_upsert_player_from_steam_requires_authentication(
 async def test_update_player_authenticated_persists_changes(
     client: AsyncClient,
     db: AsyncSession,
-    normal_user_token_headers: dict[str, str],
+    superuser_token_headers: dict[str, str],
 ) -> None:
     player = await _create_player(
         db=db,
@@ -585,7 +585,7 @@ async def test_update_player_authenticated_persists_changes(
 
     response = await client.put(
         f"{settings.API_V1_STR}/players/{player.steamid64}",
-        headers=normal_user_token_headers,
+        headers=superuser_token_headers,
         json={"alias": "Updated Alias", "country": "DE"},
     )
 
@@ -600,6 +600,82 @@ async def test_update_player_authenticated_persists_changes(
     assert refreshed is not None
     assert refreshed.alias == "Updated Alias"
     assert refreshed.country == "DE"
+    assert refreshed.is_country_locked is True
+
+
+@pytest.mark.asyncio
+async def test_update_player_rejects_non_superuser(
+    client: AsyncClient,
+    db: AsyncSession,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Forbidden Update",
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{player.steamid64}",
+        headers=normal_user_token_headers,
+        json={"alias": "Updated Alias", "country": "DE"},
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_update_player_locks_country_after_manual_set(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Lock Target",
+    )
+    steamid64 = player.steamid64
+
+    update_response = await client.put(
+        f"{settings.API_V1_STR}/players/{player.steamid64}",
+        headers=superuser_token_headers,
+        json={"country": "DE"},
+    )
+    assert update_response.status_code == 200
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | bool | None]:
+        return {
+            "fetched": True,
+            "name": "Lock Target",
+            "custom_id": None,
+            "avatar_hash": None,
+            "country": "US",
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    steam_response = await client.put(
+        f"{settings.API_V1_STR}/players/{steamid64}/steam",
+        headers=superuser_token_headers,
+    )
+
+    assert steam_response.status_code == 200
+    payload = steam_response.json()
+    assert payload["country"] == "DE"
+
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.country == "DE"
+    assert refreshed.is_country_locked is True
 
 
 @pytest.mark.asyncio

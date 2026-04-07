@@ -20,6 +20,7 @@ import { useState } from "react"
 
 import { ApiError, PlayersService } from "@/client"
 import noneFlagSrc from "@/assets/flags/none.svg"
+import EditPlayer from "@/components/AdminPlayers/EditPlayer"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -70,6 +71,12 @@ type PlayerContextMenuItemsProps = {
   children?: ReactNode
   displayName: string
   hasProfileLink: boolean
+  player?: {
+    alias?: string | null
+    country?: string | null
+    name: string
+    steamid64: string
+  }
   steamProfileUrl: string | null
   steamid64: string
 }
@@ -78,6 +85,7 @@ export function PlayerContextMenuItems({
   children,
   displayName,
   hasProfileLink,
+  player,
   steamProfileUrl,
   steamid64,
 }: PlayerContextMenuItemsProps) {
@@ -130,6 +138,7 @@ export function PlayerContextMenuItems({
         <IdCard />
         Copy Name
       </DropdownMenuItem>
+      {player ? <EditPlayer player={player} /> : null}
       {children}
     </>
   )
@@ -373,6 +382,7 @@ export function PlayerDisplay({
         <PlayerContextMenuItems
           displayName={displayName}
           hasProfileLink={hasProfileLink}
+          player={player ?? undefined}
           steamProfileUrl={steamProfileUrl}
           steamid64={steamid64}
         >

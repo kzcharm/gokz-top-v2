@@ -19,6 +19,29 @@ const flagComponents = Flags as Record<
   ComponentType<SVGProps<SVGSVGElement>>
 >
 
+function resolveCountryName(countryCode: string | null) {
+  if (!countryCode) {
+    return null
+  }
+
+  if (!countryNameFormatter) {
+    return countryCode
+  }
+
+  try {
+    return countryNameFormatter.of(countryCode) || countryCode
+  } catch {
+    return countryCode
+  }
+}
+
+export const countryOptions = Object.keys(flagComponents)
+  .map((countryCode) => ({
+    countryCode,
+    name: resolveCountryName(countryCode) || countryCode,
+  }))
+  .sort((left, right) => left.name.localeCompare(right.name))
+
 interface CountryFlagProps {
   countryCode?: string | null
   className?: string
@@ -32,11 +55,7 @@ export function getCountryName(countryCode?: string | null) {
   }
 
   const normalizedCountryCode = countryCode.toUpperCase()
-  if (!countryNameFormatter) {
-    return normalizedCountryCode
-  }
-
-  return countryNameFormatter.of(normalizedCountryCode) || normalizedCountryCode
+  return resolveCountryName(normalizedCountryCode) || normalizedCountryCode
 }
 
 export function CountryFlag({
