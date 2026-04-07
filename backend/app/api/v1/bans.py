@@ -16,7 +16,7 @@ async def read_bans(
 ) -> Any:
     bans, count = await crud.read_bans(session=session, query=query)
     return BansPublic(
-        data=[crud.to_ban_public(ban=ban) for ban in bans],
+        data=[crud.to_ban_public(ban=ban, player=player) for ban, player in bans],
         count=count,
     )
 
@@ -26,7 +26,8 @@ async def read_ban(
     session: SessionDep,
     id: int,
 ) -> BanPublic:
-    ban = await crud.get_ban_by_id(session=session, ban_id=id)
-    if ban is None:
+    ban_with_player = await crud.get_ban_by_id(session=session, ban_id=id)
+    if ban_with_player is None:
         raise HTTPException(status_code=404, detail="Ban not found")
-    return crud.to_ban_public(ban=ban)
+    ban, player = ban_with_player
+    return crud.to_ban_public(ban=ban, player=player)

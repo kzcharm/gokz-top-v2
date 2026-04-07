@@ -16,7 +16,8 @@ function Layout() {
       contentClassName={
         pathname.startsWith("/dashboard") ||
         pathname.startsWith("/profile") ||
-        pathname.startsWith("/leaderboards")
+        pathname.startsWith("/leaderboards") ||
+        pathname.startsWith("/bans")
           ? "max-w-[1600px]"
           : undefined
       }

@@ -16,10 +16,10 @@ import type {
   ReactNode,
   SVGProps,
 } from "react"
-import { useState } from "react"
-
-import { ApiError, PlayersService } from "@/client"
+import { useEffect, useState } from "react"
 import noneFlagSrc from "@/assets/flags/none.svg"
+import playerAvatarPlaceholderSrc from "@/assets/player-avatar-placeholder.jpg"
+import { ApiError, PlayersService } from "@/client"
 import EditPlayer from "@/components/AdminPlayers/EditPlayer"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -97,7 +97,10 @@ export function PlayerContextMenuItems({
       return
     }
 
-    void navigate({ to: "/profile/$identifier", params: { identifier: steamid64 } })
+    void navigate({
+      to: "/profile/$identifier",
+      params: { identifier: steamid64 },
+    })
   }
 
   const handleOpenSteamProfile = () => {
@@ -248,13 +251,18 @@ export function PlayerDisplay({
   disableProfileLink = false,
 }: PlayerDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = player?.alias || player?.name || steamid64
   const truncatedDisplayName = truncateText(displayName, nameMaxLength)
-  const avatarSrc = player?.avatar_hash
+  const steamAvatarSrc = player?.avatar_hash
     ? `https://avatars.steamstatic.com/${player.avatar_hash}_full.jpg`
-    : undefined
+    : null
+  const avatarSrc =
+    avatarLoadFailed || !steamAvatarSrc
+      ? playerAvatarPlaceholderSrc
+      : steamAvatarSrc
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${steamid64}`
     : null
@@ -265,6 +273,10 @@ export function PlayerDisplay({
     countryCode && countryNameFormatter
       ? countryNameFormatter.of(countryCode) || countryCode
       : countryCode
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+  }, [steamAvatarSrc])
 
   const content = (
     <div
@@ -308,7 +320,13 @@ export function PlayerDisplay({
               "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
           )}
         >
-          <AvatarImage src={avatarSrc} alt={`${displayName} avatar`} />
+          <AvatarImage
+            src={avatarSrc}
+            alt={`${displayName} avatar`}
+            onError={() => {
+              setAvatarLoadFailed(true)
+            }}
+          />
           <AvatarFallback className="rounded-md bg-zinc-600 text-white">
             {getInitials(displayName)}
           </AvatarFallback>

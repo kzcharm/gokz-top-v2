@@ -5,6 +5,7 @@ from sqlalchemy import BigInteger, DateTime, Index, Text
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlmodel import Column, Field, SQLModel
 
+from .player import PlayerPublic
 from .utils import get_datetime_utc
 
 
@@ -93,7 +94,7 @@ class BanCompatPublicV0(SQLModel):
 
 
 class BanPublic(BanCompatPublicV0):
-    pass
+    player: PlayerPublic | None = None
 
 
 class BansPublic(SQLModel):

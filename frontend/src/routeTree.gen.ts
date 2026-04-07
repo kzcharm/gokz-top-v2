@@ -21,6 +21,7 @@ import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutLiveRouteImport } from './routes/_layout/live'
 import { Route as LayoutLeaderboardsRouteImport } from './routes/_layout/leaderboards'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
+import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutProfileIdentifierRouteImport } from './routes/_layout/profile.$identifier'
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
@@ -89,6 +90,11 @@ const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutBansRoute = LayoutBansRouteImport.update({
+  id: '/bans',
+  path: '/bans',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/maps': typeof MapsRouteWithChildren
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
+  '/bans': typeof LayoutBansRoute
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRoute
   '/live': typeof LayoutLiveRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/maps': typeof MapsRouteWithChildren
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
+  '/bans': typeof LayoutBansRoute
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRoute
   '/live': typeof LayoutLiveRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   '/maps': typeof MapsRouteWithChildren
   '/servers': typeof ServersRouteWithChildren
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
+  '/_layout/bans': typeof LayoutBansRoute
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
   '/_layout/leaderboards': typeof LayoutLeaderboardsRoute
   '/_layout/live': typeof LayoutLiveRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/maps'
     | '/servers'
     | '/admin'
+    | '/bans'
     | '/dashboard'
     | '/leaderboards'
     | '/live'
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/maps'
     | '/servers'
     | '/admin'
+    | '/bans'
     | '/dashboard'
     | '/leaderboards'
     | '/live'
@@ -246,6 +257,7 @@ export interface FileRouteTypes {
     | '/maps'
     | '/servers'
     | '/_layout/admin'
+    | '/_layout/bans'
     | '/_layout/dashboard'
     | '/_layout/leaderboards'
     | '/_layout/live'
@@ -357,6 +369,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutDashboardRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/bans': {
+      id: '/_layout/bans'
+      path: '/bans'
+      fullPath: '/bans'
+      preLoaderRoute: typeof LayoutBansRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/admin': {
       id: '/_layout/admin'
       path: '/admin'
@@ -462,6 +481,7 @@ const LayoutProfileIdentifierRouteWithChildren =
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
+  LayoutBansRoute: typeof LayoutBansRoute
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
   LayoutLeaderboardsRoute: typeof LayoutLeaderboardsRoute
   LayoutLiveRoute: typeof LayoutLiveRoute
@@ -472,6 +492,7 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
+  LayoutBansRoute: LayoutBansRoute,
   LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
   LayoutLeaderboardsRoute: LayoutLeaderboardsRoute,
   LayoutLiveRoute: LayoutLiveRoute,

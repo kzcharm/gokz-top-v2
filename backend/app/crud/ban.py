@@ -6,7 +6,15 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Ban, BanCompatPublicV0, BanListQuery, BanPublic, BanType
+from app.crud.player import to_player_public
+from app.models import (
+    Ban,
+    BanCompatPublicV0,
+    BanListQuery,
+    BanPublic,
+    BanType,
+    Player,
+)
 from app.models.utils import get_datetime_utc
 
 
@@ -74,16 +82,21 @@ def to_ban_compat_public_v0(*, ban: Ban) -> BanCompatPublicV0:
     )
 
 
-def to_ban_public(*, ban: Ban) -> BanPublic:
+def to_ban_public(*, ban: Ban, player: Player | None = None) -> BanPublic:
     compat = to_ban_compat_public_v0(ban=ban)
-    return BanPublic.model_validate(compat.model_dump())
+    return BanPublic.model_validate(
+        {
+            **compat.model_dump(),
+            "player": to_player_public(player=player) if player is not None else None,
+        }
+    )
 
 
 async def read_bans(
     *,
     session: AsyncSession,
     query: BanListQuery,
-) -> tuple[list[Ban], int]:
+) -> tuple[list[tuple[Ban, Player | None]], int]:
     filters: list[ColumnElement[bool]] = []
     ban_type_values = _parse_ban_type_values(
         ban_types=query.ban_types,
@@ -124,7 +137,11 @@ async def read_bans(
         filters.append(col(Ban.updated_on) >= query.updated_since)
 
     count_statement = select(func.count()).select_from(Ban)
-    statement = select(Ban)
+    statement = (
+        select(Ban, Player)
+        .select_from(Ban)
+        .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
+    )
     for condition in filters:
         count_statement = count_statement.where(condition)
         statement = statement.where(condition)
@@ -146,5 +163,11 @@ async def get_ban_by_id(
     *,
     session: AsyncSession,
     ban_id: int,
-) -> Ban | None:
-    return await session.get(Ban, ban_id)
+) -> tuple[Ban, Player | None] | None:
+    statement = (
+        select(Ban, Player)
+        .select_from(Ban)
+        .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
+        .where(col(Ban.id) == ban_id)
+    )
+    return (await session.exec(statement)).first()
