@@ -12,17 +12,16 @@ import { toast } from "sonner"
 import { LeaderboardsService, type PlayerPublic } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { DataTable } from "@/components/Common/DataTable"
-import ErrorComponent from "@/components/Common/ErrorComponent"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { columns } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
-import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
 import { cn } from "@/lib/utils"
+import { extractErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/leaderboards")({
   component: LeaderboardsRoute,
@@ -34,15 +33,6 @@ export const Route = createFileRoute("/_layout/leaderboards")({
     ],
   }),
 })
-
-function LeaderboardsSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Skeleton className="h-32 rounded-[28px]" />
-      <Skeleton className="h-[520px] rounded-[28px]" />
-    </div>
-  )
-}
 
 function LeaderboardsRoute() {
   const { scope } = useScope()
@@ -135,6 +125,21 @@ function LeaderboardsRoute() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!leaderboardQuery.isError || !leaderboardQuery.error) {
+      return
+    }
+
+    toast.error("Unable to load leaderboard", {
+      description: extractErrorMessage(leaderboardQuery.error),
+      id: `leaderboards-load-error-${leaderboardQuery.errorUpdatedAt}`,
+    })
+  }, [
+    leaderboardQuery.error,
+    leaderboardQuery.errorUpdatedAt,
+    leaderboardQuery.isError,
+  ])
 
   useEffect(() => {
     if (!pendingSpotlightSteamid64) {
@@ -260,14 +265,6 @@ function LeaderboardsRoute() {
   const searchResults = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
 
-  if (leaderboardQuery.isLoading) {
-    return <LeaderboardsSkeleton />
-  }
-
-  if (leaderboardQuery.isError) {
-    return <ErrorComponent />
-  }
-
   return (
     <div className="space-y-6">
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
@@ -367,6 +364,7 @@ function LeaderboardsRoute() {
           <DataTable
             columns={columns}
             data={tableData}
+            isLoading={leaderboardQuery.isLoading}
             getRowProps={(row) => ({
               "data-player-steamid64": row.player.steamid64,
               className:
