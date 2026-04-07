@@ -97,7 +97,6 @@ function LeaderboardsRoute() {
   const spotlightTimeoutRef = useRef<number | null>(null)
   const spotlightStartTimeoutRef = useRef<number | null>(null)
   const searchBlurTimeoutRef = useRef<number | null>(null)
-  const pageInputTimeoutRef = useRef<number | null>(null)
   const playerSearchQuery = deferredSearchInput.trim()
   const [pageInputValue, setPageInputValue] = useState("1")
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
@@ -184,9 +183,6 @@ function LeaderboardsRoute() {
       if (searchBlurTimeoutRef.current !== null) {
         window.clearTimeout(searchBlurTimeoutRef.current)
       }
-      if (pageInputTimeoutRef.current !== null) {
-        window.clearTimeout(pageInputTimeoutRef.current)
-      }
     }
   }, [])
 
@@ -196,10 +192,6 @@ function LeaderboardsRoute() {
       `${pageSize}`,
     )
   }, [pageSize])
-
-  useEffect(() => {
-    setPageInputValue(`${pageIndex + 1}`)
-  }, [pageIndex])
 
   useEffect(() => {
     if (!leaderboardQuery.isError || !leaderboardQuery.error) {
@@ -351,8 +343,12 @@ function LeaderboardsRoute() {
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
 
-  const commitPageInputValue = (rawValue: string) => {
-    const nextValue = Number(rawValue)
+  useEffect(() => {
+    setPageInputValue(`${Math.min(pageIndex + 1, pageCount)}`)
+  }, [pageCount, pageIndex])
+
+  const commitPageInputValue = () => {
+    const nextValue = Number(pageInputValue)
     if (!Number.isFinite(nextValue)) {
       setPageInputValue(`${pageIndex + 1}`)
       return
@@ -558,43 +554,6 @@ function LeaderboardsRoute() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                <div className="flex items-center gap-x-2">
-                  <span>Page</span>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={pageCount}
-                    value={pageInputValue}
-                    onChange={(event) => {
-                      const nextValue = event.target.value
-                      setPageInputValue(nextValue)
-
-                      if (pageInputTimeoutRef.current !== null) {
-                        window.clearTimeout(pageInputTimeoutRef.current)
-                      }
-
-                      pageInputTimeoutRef.current = window.setTimeout(() => {
-                        commitPageInputValue(nextValue)
-                        pageInputTimeoutRef.current = null
-                      }, 500)
-                    }}
-                    onBlur={() => {
-                      if (pageInputTimeoutRef.current !== null) {
-                        window.clearTimeout(pageInputTimeoutRef.current)
-                        pageInputTimeoutRef.current = null
-                      }
-                      commitPageInputValue(pageInputValue)
-                    }}
-                    className="h-8 w-14 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    aria-label="Current page"
-                  />
-                  <span>of</span>
-                  <span className="font-medium text-foreground">
-                    {pageCount}
-                  </span>
-                </div>
-
                 <div className="flex items-center gap-x-1">
                   <Button
                     variant="outline"
@@ -618,6 +577,25 @@ function LeaderboardsRoute() {
                     <span className="sr-only">Go to previous page</span>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={pageCount}
+                    value={pageInputValue}
+                    onChange={(event) => {
+                      setPageInputValue(event.target.value)
+                    }}
+                    onBlur={commitPageInputValue}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault()
+                        commitPageInputValue()
+                      }
+                    }}
+                    className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    aria-label={`Current page, ${pageCount} total pages`}
+                  />
                   <Button
                     variant="outline"
                     size="sm"
