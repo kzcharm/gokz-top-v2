@@ -283,7 +283,9 @@ export function ProfilePage({
                       fallback="Unknown date"
                     />
                     <span className="text-muted-foreground">•</span>
-                    <span>{ban.expires_on == null ? "Permanent" : "Temporary"}</span>
+                    <span>
+                      {ban.expires_on == null ? "Permanent" : "Temporary"}
+                    </span>
                   </div>
                   <p className="mt-2 text-sm">
                     {ban.notes?.trim() ? ban.notes : "No notes provided."}

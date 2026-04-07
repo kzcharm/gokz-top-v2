@@ -39,7 +39,7 @@ export function TierSelector({
   const selectedLabel =
     value === "all"
       ? allLabel
-      : TIER_OPTIONS.find((option) => option.value === value)?.label ?? value
+      : (TIER_OPTIONS.find((option) => option.value === value)?.label ?? value)
 
   return (
     <Select

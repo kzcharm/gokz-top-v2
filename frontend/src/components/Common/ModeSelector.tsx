@@ -31,8 +31,8 @@ export function ModeSelector({
   const selectedLabel =
     value === "all"
       ? allLabel
-      : RECORD_MODE_OPTIONS.find((option) => option.value === value)?.label ??
-        value
+      : (RECORD_MODE_OPTIONS.find((option) => option.value === value)?.label ??
+        value)
 
   return (
     <Select

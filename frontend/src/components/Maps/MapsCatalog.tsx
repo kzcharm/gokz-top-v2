@@ -10,12 +10,12 @@ import {
 
 import { type MapPublic, MapsService } from "@/client"
 import { MapCard } from "@/components/Maps/MapCard"
-import { PendingMaps } from "@/components/Maps/PendingMaps"
 import {
   getMapSkillPercentage,
   MAP_SORTABLE_SKILLS,
   type MapSkillKey,
 } from "@/components/Maps/map-utils"
+import { PendingMaps } from "@/components/Maps/PendingMaps"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -179,7 +179,8 @@ export function MapsCatalog() {
   }, [deferredSearch, mapsQuery.data])
 
   const sortedMaps = useMemo(
-    () => sortMaps(filteredMaps, sortField, sortDirection, scope, selectedSkill),
+    () =>
+      sortMaps(filteredMaps, sortField, sortDirection, scope, selectedSkill),
     [filteredMaps, scope, selectedSkill, sortDirection, sortField],
   )
 
@@ -298,7 +299,10 @@ export function MapsCatalog() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-2" aria-label="Sort maps">
+          <div
+            className="flex flex-wrap items-center gap-x-1 gap-y-2"
+            aria-label="Sort maps"
+          >
             {MAP_SORT_OPTIONS.map((option) => {
               const isActive = option.value === sortField
               const activeDirection =
