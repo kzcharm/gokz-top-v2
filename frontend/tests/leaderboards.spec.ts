@@ -104,7 +104,10 @@ test.describe("Leaderboards page", () => {
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
-          count: query.toLowerCase() === "beta" || query.toLowerCase() === "gamma" ? 1 : 0,
+          count:
+            query.toLowerCase() === "beta" || query.toLowerCase() === "gamma"
+              ? 1
+              : 0,
           data: (() => {
             if (query.toLowerCase() === "beta") {
               return [
@@ -234,12 +237,10 @@ test.describe("Leaderboards page", () => {
       .first()
       .click()
 
-    await expect(
-      page.getByRole("row", { name: /41.*Beta/ }),
-    ).toBeVisible()
-    await expect(
-      page.getByRole("row", { name: /41.*Beta/ }),
-    ).toHaveClass(/leaderboard-self-spotlight/)
+    await expect(page.getByRole("row", { name: /41.*Beta/ })).toBeVisible()
+    await expect(page.getByRole("row", { name: /41.*Beta/ })).toHaveClass(
+      /leaderboard-self-spotlight/,
+    )
 
     await page.getByRole("textbox", { name: "Search players" }).fill("Gamma")
     await expect(page.getByText("Gamma", { exact: true })).toBeVisible()
