@@ -9,18 +9,18 @@ test("Navigating to /login redirects to backend steam endpoint", async ({
   page,
 }) => {
   await page.goto("/login")
-  await expect(page).toHaveURL(/\/v1\/login\/steam/)
+  await expect(page).toHaveURL(/steamcommunity\.com\/openid\/loginform/)
 })
 
 test("Successful log out", async ({ page }) => {
   await logInUser(page, randomSteamid64())
   await logOutUser(page)
-  await expect(page).toHaveURL(/\/v1\/login\/steam/)
+  await expect(page).toHaveURL(/steamcommunity\.com\/openid\/loginform/)
 })
 
 test("Logged-out user cannot access protected routes", async ({ page }) => {
   await page.goto("/settings")
-  await expect(page).toHaveURL(/\/v1\/login\/steam/)
+  await expect(page).toHaveURL(/steamcommunity\.com\/openid\/loginform/)
 })
 
 test("Auth callback stores token from hash and redirects", async ({
@@ -34,7 +34,7 @@ test("Auth callback stores token from hash and redirects", async ({
   })
 
   await page.goto(`/auth/callback#access_token=${accessToken}`)
-  await expect(page).toHaveURL(new RegExp(`/profile/${steamid64}$`))
+  await expect(page).toHaveURL(/\/servers$/)
   const tokenFromStorage = await page.evaluate(() =>
     localStorage.getItem("access_token"),
   )
@@ -47,5 +47,5 @@ test("Redirects to /login when token is wrong", async ({ page }) => {
     localStorage.setItem("access_token", "invalid_token")
   })
   await page.goto("/settings")
-  await expect(page).toHaveURL(/\/v1\/login\/steam/)
+  await expect(page).toHaveURL(/steamcommunity\.com\/openid\/loginform/)
 })

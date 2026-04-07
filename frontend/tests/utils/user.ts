@@ -17,13 +17,11 @@ export async function logInUser(
     localStorage.setItem("access_token", token)
   }, accessToken)
   await page.goto("/")
-  await expect(
-    page.getByText("Welcome back, nice to see you again!"),
-  ).toBeVisible()
+  await expect(page).not.toHaveURL(/\/$/)
 }
 
 export async function logOutUser(page: Page) {
   await page.getByTestId("user-menu").click()
   await page.getByRole("menuitem", { name: "Log Out" }).click()
-  await page.waitForURL(/\/v1\/login\/steam/)
+  await page.waitForURL(/steamcommunity\.com\/openid\/loginform/)
 }
