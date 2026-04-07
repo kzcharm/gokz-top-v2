@@ -118,7 +118,15 @@ from .server_globalapi import (
     ServerGlobalapiListQuery,
 )
 from .task import ScheduledTaskResult, ScheduledTaskState
-from .user import User, UserBase, UserCreate, UserPublic, UsersPublic, UserUpdate
+from .user import (
+    User,
+    UserBase,
+    UserCreate,
+    UserPublic,
+    UsersListQuery,
+    UsersPublic,
+    UserUpdate,
+)
 from .utils import generate_uuid7, get_datetime_utc
 
 __all__ = [
@@ -229,6 +237,7 @@ __all__ = [
     "User",
     "UserBase",
     "UserCreate",
+    "UsersListQuery",
     "UserPublic",
     "UsersPublic",
     "UserUpdate",

@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import col, func, select
 
 from app import crud
@@ -8,6 +8,7 @@ from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.models import (
     Message,
     User,
+    UsersListQuery,
     UserPublic,
     UsersPublic,
     UserUpdate,
@@ -29,15 +30,28 @@ def _parse_steamid64(user_id: str) -> int:
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UsersPublic,
 )
-async def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+async def read_users(
+    session: SessionDep,
+    query: Annotated[UsersListQuery, Query()],
+) -> Any:
     """
     Retrieve users.
     """
     count_statement = select(func.count()).select_from(User)
     count = (await session.exec(count_statement)).one()
 
+    sort_column = col(User.created_at)
+    if query.sort_by == "last_visited_at":
+        sort_column = col(User.last_visited_at)
+
+    sort_direction = (
+        sort_column.asc() if query.sort_order == "asc" else sort_column.desc()
+    )
     statement = (
-        select(User).order_by(col(User.created_at).desc()).offset(skip).limit(limit)
+        select(User)
+        .order_by(sort_direction.nullslast(), col(User.steamid64).desc())
+        .offset(query.skip)
+        .limit(query.limit)
     )
     users = (await session.exec(statement)).all()
 
