@@ -184,6 +184,8 @@ export type ProfileSummaryData = {
   totalPoints: number
   rankLabel: string
   globalStanding: number | null
+  regionalStanding: number | null
+  region: string | null
   rating: number | null
 }
 
@@ -322,12 +324,14 @@ export function getProfilePointsStandingQueryOptions({
 
       const data = (await response.json()) as {
         rank?: number | null
-        rating_rank?: number | null
+        rank_regional?: number | null
+        region?: string | null
         rating?: number | null
       }
       return {
         rank: data.rank ?? null,
-        ratingRank: data.rating_rank ?? null,
+        regionalRank: data.rank_regional ?? null,
+        region: data.region ?? null,
         rating: data.rating ?? null,
       }
     },

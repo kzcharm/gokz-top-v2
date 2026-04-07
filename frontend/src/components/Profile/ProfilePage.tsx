@@ -186,10 +186,9 @@ export function ProfilePage({
     return {
       totalPoints,
       rankLabel: getPointsRankLabel(totalPoints, scope),
-      globalStanding:
-        pointsStandingQuery.data?.ratingRank ??
-        pointsStandingQuery.data?.rank ??
-        null,
+      globalStanding: pointsStandingQuery.data?.rank ?? null,
+      regionalStanding: pointsStandingQuery.data?.regionalRank ?? null,
+      region: pointsStandingQuery.data?.region ?? null,
       rating: pointsStandingQuery.data?.rating ?? null,
     }
   }, [

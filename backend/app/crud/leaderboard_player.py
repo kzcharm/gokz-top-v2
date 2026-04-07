@@ -570,6 +570,7 @@ async def read_player_leaderboard_rank(
         scope=scope,
         rank=rank,
         rank_regional=rank_regional,
+        region=home_region,
         player=to_player_public(player=player),
         rating=leaderboard_row.rating if leaderboard_row is not None else 0,
         rating_easy=leaderboard_row.rating_easy if leaderboard_row is not None else 0,

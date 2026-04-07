@@ -514,6 +514,7 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert payload["player"]["steamid64"] == str(players["alpha"])
     assert payload["rank"] == 1
     assert payload["rank_regional"] == 1
+    assert payload["region"] == "EU"
     assert "rating_rank" not in payload
     assert payload["points"] > payload["rating"]
     assert payload["rating"] == pytest.approx(_public_rating(alpha_row.rating))
@@ -537,6 +538,7 @@ async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligi
     assert payload["player"]["steamid64"] == str(players["delta"])
     assert payload["rank"] is None
     assert payload["rank_regional"] is None
+    assert payload["region"] == "EU"
     assert "rating_rank" not in payload
     assert payload["rating"] is None
     assert payload["rating_easy"] is None
@@ -560,6 +562,7 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missin
     assert payload["player"]["steamid64"] == str(players["beta"])
     assert payload["rank"] is None
     assert payload["rank_regional"] is None
+    assert payload["region"] == "EU"
     assert "rating_rank" not in payload
     assert payload["points"] == 0
     assert payload["rating"] is None
@@ -637,6 +640,7 @@ async def test_read_player_leaderboard_rank_filters_by_country(
     payload = response.json()
     assert payload["rank"] == 1
     assert payload["rank_regional"] == 1
+    assert payload["region"] == "EU"
     assert payload["player"]["steamid64"] == str(players["alpha"])
 
 
@@ -655,6 +659,7 @@ async def test_read_player_leaderboard_rank_filters_by_region(
     payload = response.json()
     assert payload["rank"] == 2
     assert payload["rank_regional"] == 2
+    assert payload["region"] == "EU"
     assert payload["player"]["steamid64"] == str(players["beta"])
 
 
@@ -673,6 +678,34 @@ async def test_read_player_leaderboard_rank_returns_none_when_filtered_out(
     payload = response.json()
     assert payload["rank"] is None
     assert payload["rank_regional"] == 1
+    assert payload["region"] == "EU"
+
+
+async def test_read_player_leaderboard_rank_returns_null_region_when_player_country_missing(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_steamid64 = random_steamid64()
+    await _create_player(
+        db,
+        steamid64=player_steamid64,
+        name="No Region",
+        custom_id="no-region",
+        country=None,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/no-region",
+        params={"scope": "OVR"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player"]["steamid64"] == str(player_steamid64)
+    assert payload["region"] is None
+    assert payload["rank"] is None
+    assert payload["rank_regional"] is None
 
 
 async def test_read_regions_returns_region_metadata(client: AsyncClient) -> None:
