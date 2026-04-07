@@ -9,6 +9,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.models import (
+    Ban,
+    BanType,
     LeaderboardPlayer,
     Map,
     MapCourse,
@@ -139,6 +141,31 @@ async def _create_record(
         updated_by=steamid64,
         replay_id=None,
         is_valid=True,
+    )
+    await db.flush()
+
+
+async def _create_ban(
+    db: AsyncSession,
+    *,
+    ban_id: int,
+    steamid64: int,
+    expires_on: datetime | None,
+) -> None:
+    db.add(
+        Ban(
+            id=ban_id,
+            ban_type=BanType.BHOP_HACK,
+            expires_on=expires_on,
+            steamid64=steamid64,
+            player_name=f"Player {steamid64}",
+            notes="cheater",
+            stats="stats",
+            server_id=1,
+            updated_by_id="1",
+            created_on=datetime(2099, 1, 2, tzinfo=UTC),
+            updated_on=datetime(2099, 1, 2, tzinfo=UTC),
+        )
     )
     await db.flush()
 
@@ -457,6 +484,59 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missin
     assert payload["rating_easy"] is None
     assert payload["rating_hard"] is None
     assert payload["unique_map_finishes"] == 0
+
+
+async def test_read_player_leaderboard_excludes_actively_banned_players(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _create_ban(
+        db,
+        ban_id=2_120_900_001,
+        steamid64=players["alpha"],
+        expires_on=None,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT"},
+    )
+
+    assert response.status_code == 200
+    steamids = [entry["player"]["steamid64"] for entry in response.json()["data"]]
+    assert str(players["alpha"]) not in steamids
+    assert str(players["beta"]) in steamids
+
+    rank_response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/alpha",
+        params={"scope": "KZT"},
+    )
+    assert rank_response.status_code == 200
+    assert rank_response.json()["rank"] is None
+
+
+async def test_read_player_leaderboard_keeps_expired_bans_out_of_exclusion(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _create_ban(
+        db,
+        ban_id=2_120_900_002,
+        steamid64=players["alpha"],
+        expires_on=datetime(2000, 1, 1, tzinfo=UTC),
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT"},
+    )
+    assert response.status_code == 200
+    steamids = [entry["player"]["steamid64"] for entry in response.json()["data"]]
+    assert str(players["alpha"]) in steamids
 
 
 async def test_upsert_player_leaderboards_rebuilds_player_without_auth(

@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 
 import { type RecordPublic, RecordsService } from "@/client"
+import { OpenAPI } from "@/client/core/OpenAPI"
 import type { AppScope } from "@/components/scope-provider"
 
 export const PB_RECORDS_QUERY_LIMIT = 10_000
@@ -102,13 +103,25 @@ export function getProfilePbRecordsQueryOptions({
         return []
       }
 
-      return await RecordsService.readPbRecords({
+      const params = new URLSearchParams({
         steamid64,
         scope,
-        stage: 0,
-        isProOnly,
-        limit: PB_RECORDS_QUERY_LIMIT,
+        stage: "0",
+        is_pro_only: String(isProOnly),
+        exclude_cheaters: "false",
+        limit: String(PB_RECORDS_QUERY_LIMIT),
       })
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/records/pb?${params.toString()}`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+        },
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load profile PB records")
+      }
+
+      return (await response.json()) as RecordPublic[]
     },
     ...PB_RECORDS_QUERY_CONFIG,
   })

@@ -10,6 +10,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.models import (
+    Ban,
+    BanType,
     Map,
     Player,
     Record,
@@ -168,6 +170,34 @@ async def _create_record(
     return record
 
 
+async def _create_ban(
+    db: AsyncSession,
+    *,
+    id: int,
+    steamid64: int,
+    expires_on: datetime | None,
+) -> Ban:
+    await db.exec(delete(Ban).where(Ban.id == id))
+    await db.commit()
+    ban = Ban(
+        id=id,
+        ban_type=BanType.BHOP_HACK,
+        expires_on=expires_on,
+        steamid64=steamid64,
+        player_name=f"Player {steamid64}",
+        notes="cheater",
+        stats="stats",
+        server_id=980300,
+        updated_by_id="980300",
+        created_on=datetime(2026, 1, 2, tzinfo=UTC),
+        updated_on=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    db.add(ban)
+    await db.commit()
+    await db.refresh(ban)
+    return ban
+
+
 async def _seed_record_dependencies(
     db: AsyncSession,
     *,
@@ -182,6 +212,12 @@ async def _seed_record_dependencies(
     await _create_server_globalapi(db, id=server_id, name=server_name)
     for steamid64, name in players or []:
         await _create_player(db, steamid64=steamid64, name=name)
+
+
+async def _clear_records(db: AsyncSession) -> None:
+    await db.exec(delete(RecordPb))
+    await db.exec(delete(Record))
+    await db.commit()
 
 
 async def test_read_records_v1_list_and_detail(
@@ -237,8 +273,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
-    await db.exec(delete(Record))
-    await db.commit()
+    await _clear_records(db)
 
     first_player_id = random_steamid64()
     second_player_id = random_steamid64()
@@ -1073,3 +1108,184 @@ async def test_record_foreign_keys_and_nullable_globalapi_id_uniqueness(
     with pytest.raises(IntegrityError):
         await db.commit()
     await db.rollback()
+
+
+async def test_read_records_v1_and_pb_exclude_cheaters_by_default(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    clean_player = random_steamid64()
+    banned_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (clean_player, "Clean"),
+            (banned_player, "Banned"),
+        ],
+    )
+    await _create_record(
+        db,
+        id=981000,
+        steamid64=clean_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+        created_on=datetime(2026, 3, 1, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    await _create_record(
+        db,
+        id=981001,
+        steamid64=banned_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="10.000",
+        teleports=0,
+        created_on=datetime(2026, 3, 2, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 2, tzinfo=UTC),
+    )
+    await _create_ban(db, id=981100, steamid64=banned_player, expires_on=None)
+
+    listed = await client.get(
+        f"{settings.API_V1_STR}/records/",
+        params={"map_id": 980200},
+    )
+    assert listed.status_code == 200
+    assert [row["id"] for row in listed.json()["data"]] == [981000]
+
+    listed_all = await client.get(
+        f"{settings.API_V1_STR}/records/",
+        params={"map_id": 980200, "exclude_cheaters": "false"},
+    )
+    assert listed_all.status_code == 200
+    assert [row["id"] for row in listed_all.json()["data"]] == [981001, 981000]
+
+    pb = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={"map_id": 980200, "scope": "OVR", "exclude_cheaters": "true"},
+    )
+    assert pb.status_code == 200
+    assert [row["id"] for row in pb.json()] == [981000]
+
+    pb_all = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={"map_id": 980200, "scope": "OVR", "exclude_cheaters": "false"},
+    )
+    assert pb_all.status_code == 200
+    assert [row["id"] for row in pb_all.json()] == [981001, 981000]
+
+
+async def test_read_records_recent_still_includes_banned_players(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_records(db)
+    banned_player = random_steamid64()
+    await _seed_record_dependencies(db, players=[(banned_player, "Recent Banned")])
+    record = await _create_record(
+        db,
+        id=981010,
+        steamid64=banned_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="15.000",
+        teleports=0,
+        created_on=datetime(2030, 3, 3, tzinfo=UTC),
+        updated_on=datetime(2030, 3, 3, tzinfo=UTC),
+    )
+    await _create_ban(db, id=981110, steamid64=banned_player, expires_on=None)
+
+    response = await client.get(f"{settings.API_V1_STR}/records/recent")
+    assert response.status_code == 200
+    assert record.id in [row["id"] for row in response.json()["data"]]
+
+
+async def test_read_record_v0_top_and_world_records_exclude_cheaters_by_default(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    banned_player = random_steamid64()
+    clean_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (banned_player, "Banned"),
+            (clean_player, "Clean"),
+        ],
+    )
+    now = datetime(2026, 3, 5, tzinfo=UTC)
+    await _create_record(
+        db,
+        id=981020,
+        steamid64=banned_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="12.000",
+        teleports=0,
+        created_on=now,
+        updated_on=now,
+    )
+    await _create_record(
+        db,
+        id=981021,
+        steamid64=clean_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="18.000",
+        teleports=0,
+        created_on=now + timedelta(minutes=1),
+        updated_on=now + timedelta(minutes=1),
+    )
+    await _create_ban(db, id=981120, steamid64=banned_player, expires_on=None)
+
+    top = await client.get(
+        "/v0/records/top",
+        params={"map_id": 980200, "stage": 0, "modes_list": "kz_timer", "has_teleports": False},
+    )
+    assert top.status_code == 200
+    assert [row["id"] for row in top.json()] == [981021]
+
+    top_all = await client.get(
+        "/v0/records/top",
+        params={
+            "map_id": 980200,
+            "stage": 0,
+            "modes_list": "kz_timer",
+            "has_teleports": False,
+            "exclude_cheaters": "false",
+        },
+    )
+    assert top_all.status_code == 200
+    assert [row["id"] for row in top_all.json()] == [981020, 981021]
+
+    world_records = await client.get(
+        "/v0/records/top/world_records",
+        params={"map_ids": 980200, "mode_ids": 200},
+    )
+    assert world_records.status_code == 200
+    assert world_records.json() == [
+        {
+            "steamid64": clean_player,
+            "player_name": "Clean",
+            "steam_id": None,
+            "world_records": 1,
+        }
+    ]
+
+    world_records_all = await client.get(
+        "/v0/records/top/world_records",
+        params={"map_ids": 980200, "mode_ids": 200, "exclude_cheaters": "false"},
+    )
+    assert world_records_all.status_code == 200
+    assert world_records_all.json()[0]["steamid64"] == banned_player

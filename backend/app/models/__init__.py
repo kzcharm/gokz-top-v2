@@ -1,6 +1,15 @@
 from sqlmodel import SQLModel
 
 from .auth import Message, Token, TokenPayload
+from .ban import (
+    Ban,
+    BanBase,
+    BanCompatPublicV0,
+    BanListQuery,
+    BanPublic,
+    BansPublic,
+    BanType,
+)
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .leaderboard_player import (
     LeaderboardPlayer,
@@ -113,6 +122,13 @@ from .user import User, UserBase, UserCreate, UserPublic, UsersPublic, UserUpdat
 from .utils import generate_uuid7, get_datetime_utc
 
 __all__ = [
+    "Ban",
+    "BanBase",
+    "BanCompatPublicV0",
+    "BanListQuery",
+    "BanPublic",
+    "BansPublic",
+    "BanType",
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
     "LeaderboardPlayer",

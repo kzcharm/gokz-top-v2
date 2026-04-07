@@ -45,6 +45,7 @@ from app.services.course_points import (
     calculate_estimated_pb_points,
 )
 
+from .ban import not_active_ban_exists_clause
 from .record_filter import load_scoped_course_tiers
 
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
@@ -1094,6 +1095,10 @@ async def read_records(
         filters.append(col(Record.created_on) >= query.created_since)
     if query.updated_since is not None:
         filters.append(col(Record.updated_on) >= query.updated_since)
+    if query.exclude_cheaters:
+        filters.append(
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+        )
 
     count_statement = select(func.count()).select_from(Record)
     statement = select(Record)
@@ -1404,12 +1409,17 @@ async def _get_pb_records_v0(
     mode_ids: Sequence[int],
     teleports_type: TeleportsType,
     server_ids: Sequence[int] | None,
+    exclude_cheaters: bool,
 ) -> list[Record]:
     statement = select(Record).where(col(Record.is_valid).is_(True))
     if mode_ids:
         statement = statement.where(col(Record.mode_id).in_(list(mode_ids)))
     if server_ids:
         statement = statement.where(col(Record.server_id).in_(list(server_ids)))
+    if exclude_cheaters:
+        statement = statement.where(
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+        )
 
     if map_id is not None:
         statement = statement.where(
@@ -1472,6 +1482,7 @@ async def get_pb_records(
     steamid64: int | None,
     scope: RecordScope,
     is_pro_only: bool,
+    exclude_cheaters: bool = True,
     offset: int = 0,
     limit: int = 100,
 ) -> list[Record]:
@@ -1498,6 +1509,10 @@ async def get_pb_records(
             .offset(offset)
             .limit(limit)
         )
+        if exclude_cheaters:
+            statement = statement.where(
+                not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+            )
         return list((await session.exec(statement)).all())
 
     if steamid64 is not None:
@@ -1521,6 +1536,10 @@ async def get_pb_records(
             .offset(offset)
             .limit(limit)
         )
+        if exclude_cheaters:
+            statement = statement.where(
+                not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+            )
         return list((await session.exec(statement)).all())
 
     return []
@@ -1534,6 +1553,7 @@ async def get_pb_record_publics(
     steamid64: int | None,
     scope: RecordScope,
     is_pro_only: bool,
+    exclude_cheaters: bool = True,
     offset: int = 0,
     limit: int = 100,
 ) -> list[RecordPublic]:
@@ -1589,6 +1609,10 @@ async def get_pb_record_publics(
             ),
         )
     )
+    if exclude_cheaters:
+        statement = statement.where(
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+        )
 
     if map_id is not None:
         course = await _get_map_course_by_map_stage(
@@ -1755,6 +1779,7 @@ async def get_top_records_v0(
     stage: int,
     has_teleports: bool | None,
     player_name: str | None,
+    exclude_cheaters: bool,
     offset: int,
     limit: int,
 ) -> list[Record]:
@@ -1794,6 +1819,12 @@ async def get_top_records_v0(
                 statement = statement.where(col(Record.server_id) == server_id)
             if mode_ids:
                 statement = statement.where(col(Record.mode_id).in_(list(mode_ids)))
+            if exclude_cheaters:
+                statement = statement.where(
+                    not_active_ban_exists_clause(
+                        steamid64_column=col(Record.steamid64)
+                    )
+                )
             statement = _apply_teleports_type(statement, teleports_type)
             statement = statement.where(col(Record.stage) == stage)
             statement = statement.order_by(
@@ -1812,6 +1843,7 @@ async def get_top_records_v0(
             mode_ids=mode_ids,
             teleports_type=teleports_type,
             server_ids=[server_id] if server_id is not None else None,
+            exclude_cheaters=exclude_cheaters,
         )
         return records[offset : offset + limit]
 
@@ -1826,6 +1858,7 @@ async def get_world_record_counts_v0(
     stages: Sequence[int] | None,
     mode_ids: Sequence[int] | None,
     has_teleports: bool | None,
+    exclude_cheaters: bool,
     offset: int,
     limit: int,
 ) -> list[WorldRecordCountCompatPublicV0]:
@@ -1841,6 +1874,10 @@ async def get_world_record_counts_v0(
         statement = statement.where(col(Record.stage).in_(list(stages)))
     if mode_ids:
         statement = statement.where(col(Record.mode_id).in_(list(mode_ids)))
+    if exclude_cheaters:
+        statement = statement.where(
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+        )
     if has_teleports is True:
         statement = statement.where(col(Record.teleports) > 0)
         distinct_columns = [col(Record.map_id), col(Record.stage), col(Record.mode_id)]

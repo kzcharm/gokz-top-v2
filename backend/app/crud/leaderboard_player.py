@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, localcontext
 from typing import Any, Literal
 
-from sqlalchemy import func, or_, true
+from sqlalchemy import func, or_
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -29,6 +29,8 @@ from app.models import (
     scope_to_id,
 )
 from app.models.utils import get_datetime_utc
+
+from .ban import not_active_ban_exists_clause
 
 ELIGIBLE_UNIQUE_MAP_FINISHES = 20
 DEFAULT_LOOKBACK = timedelta(hours=24)
@@ -71,7 +73,7 @@ def calculate_weighted_rating(points: Iterable[int]) -> int:
 
 
 def _not_banned_clause() -> ColumnElement[bool]:
-    return true()
+    return not_active_ban_exists_clause(steamid64_column=col(LeaderboardPlayer.steamid64))
 
 
 def _build_player_leaderboard_entry_public(

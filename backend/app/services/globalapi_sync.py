@@ -12,6 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import GlobalApiSyncResult, GlobalApiSyncState, get_datetime_utc
+from app.services.globalapi_ban_sync import sync_bans_from_globalapi
 from app.services.globalapi_record_filter_sync import sync_record_filters_from_globalapi
 from app.services.globalapi_record_sync import sync_records_from_globalapi
 from app.services.globalapi_server_sync import sync_servers_from_globalapi
@@ -33,6 +34,11 @@ GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
         task_name="servers",
         stale_after_seconds=settings.GLOBALAPI_SERVERS_SYNC_STALE_AFTER_SECONDS,
         run=sync_servers_from_globalapi,
+    ),
+    GlobalApiSyncTask(
+        task_name="bans",
+        stale_after_seconds=settings.GLOBALAPI_BANS_SYNC_STALE_AFTER_SECONDS,
+        run=sync_bans_from_globalapi,
     ),
     GlobalApiSyncTask(
         task_name="record_filters",

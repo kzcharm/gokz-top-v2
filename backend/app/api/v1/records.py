@@ -104,6 +104,7 @@ async def read_pb_records(
     session: SessionDep,
     scope: RecordScope = RecordScope.OVR,
     is_pro_only: bool = False,
+    exclude_cheaters: bool = True,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=10000)] = 100,
     map_id: Annotated[int | None, Query()] = None,
@@ -123,6 +124,7 @@ async def read_pb_records(
         steamid64=int(steamid64) if steamid64 is not None else None,
         scope=scope,
         is_pro_only=is_pro_only,
+        exclude_cheaters=exclude_cheaters,
         offset=offset,
         limit=limit,
     )

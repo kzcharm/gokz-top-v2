@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-04-04
+- Last Updated: 2026-04-07
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -61,6 +61,7 @@ Scope model:
 - Map top views with scope-aware rank and points context.
 - World-record and recent-record experiences.
 - Scope-dependent points for rank-oriented queries.
+- Selected leaderboard and record list surfaces exclude players with any active mirrored ban by default, while recent feeds and record detail views remain unchanged.
 
 ### 5.3 Maps and Reviews
 - Map catalog and detail pages with filters and metadata.
@@ -96,6 +97,7 @@ Scope model:
 - Mirror authoritative entities from GlobalAPI where required (for example maps/records/filters/bans).
 - Preserve compatibility-critical identifiers and field semantics.
 - Track sync status/lag for reliability and troubleshooting.
+- GlobalAPI bans are mirrored as append/update-only rows keyed by upstream `id`; if upstream ever introduces true ban deletions/unbans, the sync policy must be revisited.
 
 ### 6.2 Extend Rules
 - Keep mirrored source data separate from v2-derived data.
@@ -106,6 +108,7 @@ Scope model:
 - `/v0` is the compatibility contract and must remain stable.
 - Compatibility tests guard response shape and behavioral parity.
 - New product-native behavior should prefer `/v1` instead of changing `/v0` semantics.
+- Bans now have both `/v0/bans` compatibility reads and `/v1/bans` public `{data, count}` reads for future user-facing bans pages.
 
 ## 7) Engineering Requirements
 - Async-first API, DB, and outbound integrations for request paths.

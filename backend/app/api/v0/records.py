@@ -105,6 +105,7 @@ async def read_top_records(
     modes_list: Annotated[list[str] | None, Query()] = None,
     has_teleports: Annotated[bool | None, Query()] = None,
     player_name: Annotated[str | None, Query()] = None,
+    exclude_cheaters: Annotated[bool, Query()] = True,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=10000)] = 100,
     tickrate: Annotated[int | None, Query()] = None,
@@ -126,6 +127,7 @@ async def read_top_records(
         stage=stage,
         has_teleports=has_teleports,
         player_name=player_name,
+        exclude_cheaters=exclude_cheaters,
         offset=offset,
         limit=limit,
     )
@@ -144,6 +146,7 @@ async def read_world_record_counts(
     mode_ids: Annotated[list[int] | None, Query()] = None,
     tickrates: Annotated[list[int] | None, Query()] = None,
     has_teleports: Annotated[bool | None, Query()] = None,
+    exclude_cheaters: Annotated[bool, Query()] = True,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=10000)] = 100,
 ) -> Any:
@@ -156,6 +159,7 @@ async def read_world_record_counts(
         stages=stages,
         mode_ids=mode_ids,
         has_teleports=has_teleports,
+        exclude_cheaters=exclude_cheaters,
         offset=offset,
         limit=limit,
     )
