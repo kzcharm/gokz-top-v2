@@ -6,6 +6,7 @@ export type HourCyclePreference = "24h" | "12h"
 
 export type DateTimeFormatOptions = {
   includeSeconds?: boolean
+  dateOnly?: boolean
   display?: DateTimeDisplay
   fallback?: string
   locale?: string
@@ -157,13 +158,17 @@ function getIsoLikeTime(
 function formatIsoLike(
   date: Date,
   includeSeconds: boolean,
+  dateOnly: boolean,
   hourCycle: HourCyclePreference,
 ) {
   const year = date.getFullYear()
   const month = padNumber(date.getMonth() + 1)
   const day = padNumber(date.getDate())
-  const time = getIsoLikeTime(date, includeSeconds, hourCycle)
+  if (dateOnly) {
+    return `${year}-${month}-${day}`
+  }
 
+  const time = getIsoLikeTime(date, includeSeconds, hourCycle)
   return `${year}-${month}-${day} ${time}`
 }
 
@@ -200,37 +205,39 @@ function formatAbsoluteDateTime({
   preset,
   locale,
   includeSeconds,
+  dateOnly,
   hourCycle,
 }: {
   date: Date
   preset: DateTimePreset
   locale: string
   includeSeconds: boolean
+  dateOnly: boolean
   hourCycle: HourCyclePreference
 }) {
   switch (preset) {
     case "iso":
-      return formatIsoLike(date, includeSeconds, hourCycle)
+      return formatIsoLike(date, includeSeconds, dateOnly, hourCycle)
     case "us":
       return new Intl.DateTimeFormat("en-US", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
-        ...getIntlHourOptions(includeSeconds, hourCycle),
+        ...(dateOnly ? {} : getIntlHourOptions(includeSeconds, hourCycle)),
       }).format(date)
     case "euro":
       return new Intl.DateTimeFormat("en-GB", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
-        ...getIntlHourOptions(includeSeconds, hourCycle),
+        ...(dateOnly ? {} : getIntlHourOptions(includeSeconds, hourCycle)),
       }).format(date)
     default:
       return new Intl.DateTimeFormat(locale, {
         year: "numeric",
         month: "long",
         day: "numeric",
-        ...getIntlHourOptions(includeSeconds, hourCycle),
+        ...(dateOnly ? {} : getIntlHourOptions(includeSeconds, hourCycle)),
       }).format(date)
   }
 }
@@ -360,6 +367,7 @@ function formatContextualRelativeDateTime({
     preset,
     locale,
     includeSeconds: false,
+    dateOnly: false,
     hourCycle,
   })
 }
@@ -370,6 +378,7 @@ export function formatDateTimeWithPreset(
     preset,
     hourCycle = "24h",
     includeSeconds = false,
+    dateOnly = false,
     display = "absolute",
     fallback = "Unknown",
     locale,
@@ -403,6 +412,7 @@ export function formatDateTimeWithPreset(
     preset,
     locale: resolvedLocale,
     includeSeconds,
+    dateOnly,
     hourCycle,
   })
 }

@@ -4,6 +4,7 @@ import {
   Map,
   Server,
   Settings,
+  ShieldAlert,
   Trophy,
   UserCircle2,
   User as UserIcon,
@@ -22,6 +23,7 @@ import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const privateItems: Item[] = [
+  { type: "link", icon: ShieldAlert, title: "Bans", path: "/bans" },
   { type: "link", icon: Settings, title: "Settings", path: "/settings" },
 ]
 

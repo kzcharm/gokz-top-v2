@@ -6,7 +6,7 @@ from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Ban, BanType
+from app.models import Ban, BanType, Player
 
 pytestmark = pytest.mark.asyncio
 
@@ -48,7 +48,32 @@ async def _create_ban(
 
 async def _clear_bans(db: AsyncSession) -> None:
     await db.exec(delete(Ban))
+    await db.exec(delete(Player))
     await db.commit()
+
+
+async def _create_player(
+    db: AsyncSession,
+    *,
+    steamid64: int,
+    name: str,
+    alias: str | None = None,
+    avatar_hash: str | None = None,
+    country: str | None = None,
+) -> Player:
+    await db.exec(delete(Player).where(Player.steamid64 == steamid64))
+    await db.commit()
+    player = Player(
+        steamid64=steamid64,
+        name=name,
+        alias=alias,
+        avatar_hash=avatar_hash,
+        country=country,
+    )
+    db.add(player)
+    await db.commit()
+    await db.refresh(player)
+    return player
 
 
 async def test_read_bans_v0_and_v1_list_filters_and_shapes(
@@ -82,6 +107,14 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
         stats="pattern B",
         server_id=2,
         updated_on=datetime(2026, 4, 3, tzinfo=UTC),
+    )
+    await _create_player(
+        db,
+        steamid64=76561198000000002,
+        name="Temporary",
+        alias="TempAlias",
+        avatar_hash="avatarhash123",
+        country="DE",
     )
     await _create_ban(
         db,
@@ -119,6 +152,8 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert [row["id"] for row in payload["data"]] == [1003, 1002]
     assert payload["data"][0]["ban_type"] == "other"
     assert payload["data"][1]["steamid64"] == "76561198000000002"
+    assert payload["data"][1]["player"]["alias"] == "TempAlias"
+    assert payload["data"][1]["player"]["avatar_hash"] == "avatarhash123"
 
 
 async def test_read_ban_v1_detail_and_missing(
@@ -137,12 +172,20 @@ async def test_read_ban_v1_detail_and_missing(
         stats="detail stats",
         server_id=99,
     )
+    await _create_player(
+        db,
+        steamid64=76561198000000101,
+        name="Detail",
+        alias="DetailAlias",
+        avatar_hash="detailhash",
+    )
 
     response = await client.get(f"{settings.API_V1_STR}/bans/{ban.id}")
     assert response.status_code == 200
     assert response.json()["id"] == 1101
     assert response.json()["ban_type"] == "strafe_macro"
     assert response.json()["player_name"] == "Detail"
+    assert response.json()["player"]["alias"] == "DetailAlias"
 
     missing = await client.get(f"{settings.API_V1_STR}/bans/999999")
     assert missing.status_code == 404

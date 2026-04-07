@@ -16,7 +16,13 @@ import {
   ChevronsRight,
   Loader2,
 } from "lucide-react"
-import { type ComponentProps, type ReactNode, useEffect, useState } from "react"
+import {
+  Fragment,
+  type ComponentProps,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,6 +52,9 @@ interface DataTableProps<TData, TValue> {
   pageInputEnabled?: boolean
   getRowClassName?: (row: TData) => string | undefined
   getRowProps?: (row: TData) => ComponentProps<typeof TableRow> | undefined
+  getRowId?: (row: TData) => string
+  expandedRowId?: string | null
+  renderExpandedContent?: (row: TData) => ReactNode
   serverPagination?: {
     pageIndex: number
     pageSize: number
@@ -70,6 +79,9 @@ export function DataTable<TData, TValue>({
   pageInputEnabled = false,
   getRowClassName,
   getRowProps,
+  getRowId,
+  expandedRowId,
+  renderExpandedContent,
   serverPagination,
   sorting,
 }: DataTableProps<TData, TValue>) {
@@ -172,23 +184,35 @@ export function DataTable<TData, TValue>({
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => {
               const rowProps = getRowProps?.(row.original)
+              const resolvedRowId = getRowId?.(row.original) ?? row.id
+              const isExpanded =
+                renderExpandedContent !== undefined &&
+                expandedRowId === resolvedRowId
               return (
-                <TableRow
-                  key={row.id}
-                  {...rowProps}
-                  className={
-                    rowProps?.className ?? getRowClassName?.(row.original)
-                  }
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                <Fragment key={row.id}>
+                  <TableRow
+                    {...rowProps}
+                    className={
+                      rowProps?.className ?? getRowClassName?.(row.original)
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {isExpanded ? (
+                    <TableRow className="bg-muted/15 hover:bg-muted/15">
+                      <TableCell colSpan={columns.length} className="px-4 py-4">
+                        {renderExpandedContent(row.original)}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               )
             })
           ) : (
