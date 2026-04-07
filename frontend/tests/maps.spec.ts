@@ -1,6 +1,22 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
 
 test.use({ storageState: { cookies: [], origins: [] } })
+
+async function stubRegions(page: Page) {
+  await page.route("**/v1/regions/", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 2,
+        data: [
+          { code: "EU", name: "Europe", country_codes: ["DE", "FR"] },
+          { code: "AS", name: "Asia", country_codes: ["JP"] },
+        ],
+      }),
+    })
+  })
+}
 
 function createMap(index: number) {
   const paddedIndex = `${index}`.padStart(2, "0")
@@ -131,11 +147,14 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     mapId: string | null
     scope: string | null
     stage: string | null
+    country: string | null
+    region: string | null
   }> = []
 
   await page.addInitScript(() => {
     localStorage.setItem("gokz-datetime-format", "iso")
   })
+  await stubRegions(page)
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     mapsRequestUrl = route.request().url()
@@ -180,6 +199,8 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
       limit: url.searchParams.get("limit"),
       stage: url.searchParams.get("stage"),
       mapId,
+      country: url.searchParams.get("country"),
+      region: url.searchParams.get("region"),
     })
 
     const payload =
@@ -199,7 +220,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page.goto("/maps")
 
   await expect(page).toHaveURL(/\/maps$/)
-  await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.getByText("30 maps loaded")).toBeVisible()
   await expect(page.getByText("Page 1 of 2")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
@@ -216,32 +237,27 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByTestId("map-card-kz_alpha")).toHaveCount(0)
 
   await page.getByRole("textbox", { name: "Search maps by name" }).fill("")
-  await page.getByRole("combobox", { name: "Sort maps" }).click()
-  await page.getByRole("option", { name: "Updated newest-first" }).click()
+  await page.getByRole("button", { name: "Updated" }).click()
 
   const firstCard = page.locator('[data-testid^="map-card-"]').first()
-  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_omega")
+  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_alpha")
 
   await page.getByRole("button", { name: "Go to page 2" }).click()
   await expect(page.getByText("Page 2 of 2")).toBeVisible()
-  await expect(page.getByTestId("map-card-kz_omega")).toHaveCount(0)
-  await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
 
   await page.getByRole("button", { name: "Go to page 1" }).click()
 
-  await page.getByRole("combobox", { name: "Sort maps" }).click()
-  await page.getByRole("option", { name: "Tier high-low" }).click()
-  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_07")
+  await page.getByRole("button", { name: "Tier" }).click()
+  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_08")
 
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
-  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_alpha")
 
   await page.evaluate(() => {
     localStorage.setItem("gokz-app-scope", "OVR")
   })
   await page.reload()
-  await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.locator('[data-testid="map-card-kz_alpha"] h2')).toHaveCSS(
     "user-select",
     "text",
@@ -268,6 +284,30 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByText("Alpha Runner")).toBeVisible()
   await expect(page.getByText("TP Runner")).toHaveCount(0)
 
+  await page.getByRole("button", { name: "All countries" }).click()
+  await page.getByRole("button", { name: "Germany" }).click()
+  await expect
+    .poll(() => pbRequests.at(-1))
+    .toMatchObject({
+      mapId: `${seededMaps[0].id}`,
+      scope: "OVR",
+      isProOnly: "true",
+      country: "DE",
+      region: null,
+    })
+
+  await page.getByRole("combobox").filter({ hasText: "All regions" }).click()
+  await page.getByRole("option", { name: /^EU$/ }).click()
+  await expect
+    .poll(() => pbRequests.at(-1))
+    .toMatchObject({
+      mapId: `${seededMaps[0].id}`,
+      scope: "OVR",
+      isProOnly: "true",
+      country: null,
+      region: "EU",
+    })
+
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
   await expect(
@@ -284,6 +324,8 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
         limit: "100",
         stage: "0",
         mapId: `${seededMaps[0].id}`,
+        country: null,
+        region: null,
       },
       {
         scope: "OVR",
@@ -291,6 +333,26 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
         limit: "100",
         stage: "0",
         mapId: `${seededMaps[0].id}`,
+        country: null,
+        region: null,
+      },
+      {
+        scope: "OVR",
+        isProOnly: "true",
+        limit: "100",
+        stage: "0",
+        mapId: `${seededMaps[0].id}`,
+        country: "DE",
+        region: null,
+      },
+      {
+        scope: "OVR",
+        isProOnly: "true",
+        limit: "100",
+        stage: "0",
+        mapId: `${seededMaps[0].id}`,
+        country: null,
+        region: "EU",
       },
       {
         scope: "SKZ",
@@ -298,12 +360,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
         limit: "100",
         stage: "0",
         mapId: `${seededMaps[0].id}`,
+        country: null,
+        region: "EU",
       },
     ]),
   )
 })
 
 test("Map detail shows not found for an unknown map", async ({ page }) => {
+  await stubRegions(page)
   await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 404,
@@ -320,6 +385,7 @@ test("Map detail shows not found for an unknown map", async ({ page }) => {
 test("Map detail shows leaderboard error state when PB loading fails", async ({
   page,
 }) => {
+  await stubRegions(page)
   await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,

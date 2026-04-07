@@ -131,13 +131,17 @@ export function getMapPbRecordsQueryOptions({
   mapId,
   scope,
   isProOnly,
+  country,
+  region,
 }: {
   mapId: number | null
   scope: AppScope
   isProOnly: boolean
+  country: string | null
+  region: string | null
 }) {
   return queryOptions({
-    queryKey: ["map-records", mapId, scope, isProOnly],
+    queryKey: ["map-records", mapId, scope, isProOnly, country, region],
     queryFn: async () => {
       if (mapId === null) {
         return []
@@ -148,6 +152,8 @@ export function getMapPbRecordsQueryOptions({
         scope,
         stage: 0,
         isProOnly,
+        country: country ?? undefined,
+        region: region ?? undefined,
         limit: MAP_TOP_QUERY_LIMIT,
       })
     },

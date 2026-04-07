@@ -11,6 +11,7 @@ from app.api.v1 import (
     private,
     record_ws,
     records,
+    regions,
     server_groups,
     server_ws,
     servers,
@@ -28,6 +29,7 @@ api_router.include_router(leaderboards.router)
 api_router.include_router(maps.router)
 api_router.include_router(modes.router)
 api_router.include_router(records.router)
+api_router.include_router(regions.router)
 api_router.include_router(record_ws.router)
 api_router.include_router(server_groups.router)
 api_router.include_router(servers.router)

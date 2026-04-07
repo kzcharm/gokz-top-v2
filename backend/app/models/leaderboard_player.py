@@ -9,6 +9,7 @@ from sqlmodel import Field, SQLModel
 
 from .player import PlayerPublic
 from .record import RecordScope
+from .region import GeographyFilterMixin
 from .utils import get_datetime_utc
 
 LeaderboardPlayerSortBy = Literal[
@@ -276,6 +277,7 @@ class PlayerLeaderboardEntryPublic(SQLModel):
 class PlayerLeaderboardRankPublic(SQLModel):
     scope: RecordScope
     rank: int | None = None
+    rank_regional: int | None = None
     player: PlayerPublic
     rating: float | None
     rating_easy: float | None
@@ -297,7 +299,7 @@ class PlayerLeaderboardsPublic(SQLModel):
     count: int
 
 
-class PlayerLeaderboardListQuery(SQLModel):
+class PlayerLeaderboardListQuery(GeographyFilterMixin):
     scope: RecordScope = RecordScope.OVR
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)

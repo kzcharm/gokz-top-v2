@@ -3,10 +3,12 @@ import type { ReactNode } from "react"
 import { useState } from "react"
 
 import type { MapPublic } from "@/client"
+import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { getMapImageUrl } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
+import { RegionBadge } from "@/components/Common/RegionFlag"
 import { getMapPbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { useScope } from "@/components/scope-provider"
@@ -14,8 +16,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
+import { getRegionsQueryOptions } from "@/lib/regions"
 
 import { MapTopTable } from "./MapTopTable"
 import { fetchMapByName } from "./map-utils"
@@ -144,6 +153,8 @@ function MapHero({ map, tier }: { map: MapPublic; tier: number }) {
 export function MapDetailPage({ mapName }: { mapName: string }) {
   const { scope } = useScope()
   const [isProOnly, setIsProOnly] = useState(false)
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
 
   const mapQuery = useQuery({
     queryKey: ["map", mapName],
@@ -156,9 +167,12 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
       mapId: mapQuery.data?.id ?? null,
       scope,
       isProOnly,
+      country: selectedCountry,
+      region: selectedRegion,
     }),
     enabled: mapQuery.data !== undefined,
   })
+  const regionsQuery = useQuery(getRegionsQueryOptions())
 
   if (mapQuery.isLoading) {
     return <MapDetailSkeleton />
@@ -180,28 +194,81 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
 
   const map = mapQuery.data
   const activeTier = map.tiers[scope]
+  const selectedRegionOption =
+    regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
 
   return (
     <div className="space-y-6">
       <MapHero map={map} tier={activeTier} />
 
       <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-4 p-6">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold tracking-tight">Map top</h2>
           </div>
 
-          <Label
-            htmlFor="map-records-pro-only"
-            className="flex items-center gap-3 rounded-full border border-border/70 bg-background/70 px-3 py-2"
-          >
-            <Switch
-              id="map-records-pro-only"
-              checked={isProOnly}
-              onCheckedChange={setIsProOnly}
-            />
-            <span>Pro only</span>
-          </Label>
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="w-full sm:w-[176px]">
+                <CountryPicker
+                  value={selectedCountry}
+                  onChange={(value) => {
+                    setSelectedCountry(value)
+                    if (value !== null) {
+                      setSelectedRegion(null)
+                    }
+                  }}
+                  placeholder="country"
+                  clearLabel="country"
+                />
+              </div>
+
+              <Select
+                value={selectedRegion ?? "all"}
+                onValueChange={(value) => {
+                  const nextRegion = value === "all" ? null : value
+                  setSelectedRegion(nextRegion)
+                  if (nextRegion !== null) {
+                    setSelectedCountry(null)
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-[144px]">
+                  {selectedRegionOption ? (
+                    <RegionBadge
+                      regionCode={selectedRegionOption.code}
+                      regionName={selectedRegionOption.name}
+                    />
+                  ) : (
+                    <span className="text-muted-foreground">region</span>
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">region</SelectItem>
+                  {(regionsQuery.data ?? []).map((region) => (
+                    <SelectItem key={region.code} value={region.code}>
+                      <RegionBadge
+                        regionCode={region.code}
+                        regionName={region.name}
+                      />
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Label
+              htmlFor="map-records-pro-only"
+              className="flex items-center gap-3 rounded-full border border-border/70 bg-background/70 px-3 py-2"
+            >
+              <Switch
+                id="map-records-pro-only"
+                checked={isProOnly}
+                onCheckedChange={setIsProOnly}
+              />
+              <span>Pro only</span>
+            </Label>
+          </div>
         </CardContent>
       </Card>
 

@@ -717,6 +717,111 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     assert [row["id"] for row in skz_response.json()] == [980420]
 
 
+async def test_read_pb_records_v1_filters_by_country_and_region(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_one = random_steamid64()
+    player_two = random_steamid64()
+    player_three = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (player_one, "Runner DE"),
+            (player_two, "Runner FR"),
+            (player_three, "Runner JP"),
+        ],
+    )
+    await _create_player(db, steamid64=player_one, name="Runner DE", country="DE")
+    await _create_player(db, steamid64=player_two, name="Runner FR", country="FR")
+    await _create_player(db, steamid64=player_three, name="Runner JP", country="JP")
+    await _create_record(
+        db,
+        id=980432,
+        steamid64=player_one,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=980433,
+        steamid64=player_two,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="21.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=980434,
+        steamid64=player_three,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="22.000",
+        teleports=0,
+    )
+
+    country_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "map_id": 980200,
+            "scope": "OVR",
+            "stage": 0,
+            "country": "DE",
+        },
+    )
+    assert country_response.status_code == 200
+    assert [row["steamid64"] for row in country_response.json()] == [str(player_one)]
+
+    region_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "map_id": 980200,
+            "scope": "OVR",
+            "stage": 0,
+            "region": "EU",
+        },
+    )
+    assert region_response.status_code == 200
+    assert [row["steamid64"] for row in region_response.json()] == [
+        str(player_one),
+        str(player_two),
+    ]
+
+
+async def test_read_pb_records_v1_rejects_invalid_region_and_country_region_combo(
+    client: AsyncClient,
+) -> None:
+    invalid_region = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "map_id": 1,
+            "scope": "OVR",
+            "region": "ZZ",
+        },
+    )
+    assert invalid_region.status_code == 422
+
+    both = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "map_id": 1,
+            "scope": "OVR",
+            "country": "DE",
+            "region": "EU",
+        },
+    )
+    assert both.status_code == 422
+
+
 async def test_read_pb_records_v1_supports_offset_and_limit(
     client: AsyncClient,
     db: AsyncSession,

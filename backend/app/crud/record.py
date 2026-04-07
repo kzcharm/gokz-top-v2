@@ -9,6 +9,7 @@ from sqlalchemy.orm import aliased
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.regions import get_region_country_codes
 from app.models import (
     Map,
     MapCourse,
@@ -1553,6 +1554,8 @@ async def get_pb_record_publics(
     steamid64: int | None,
     scope: RecordScope,
     is_pro_only: bool,
+    country: str | None = None,
+    region: str | None = None,
     exclude_cheaters: bool = True,
     offset: int = 0,
     limit: int = 100,
@@ -1609,6 +1612,11 @@ async def get_pb_record_publics(
             ),
         )
     )
+    geography_country_codes = (
+        (country,) if country is not None else get_region_country_codes(region)
+    )
+    if geography_country_codes is not None:
+        statement = statement.where(col(Player.country).in_(list(geography_country_codes)))
     if exclude_cheaters:
         statement = statement.where(
             not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
