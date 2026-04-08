@@ -73,7 +73,7 @@ export function ServerDetailSheet({
                 <span>{getServerHostname(server)}</span>
                 <Badge className={cn(getOccupancyVariant(server))}>
                   {getServerPlayerCount(server)}/
-                  {server.status?.max_players ?? 0}
+                  {server.live_status?.max_players ?? 0}
                 </Badge>
                 <Badge
                   className={cn(
@@ -88,7 +88,6 @@ export function ServerDetailSheet({
                   <span
                     className="inline-flex items-center text-muted-foreground"
                     title="Refreshing server status"
-                    aria-label="Refreshing server status"
                   >
                     <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                   </span>
@@ -130,7 +129,7 @@ export function ServerDetailSheet({
                 <DetailCard label="Endpoint" value={getServerAddress(server)} />
                 <DetailCard
                   label="Last update"
-                  value={formatDateTime(server.status?.updated_at, {
+                  value={formatDateTime(server.live_status?.updated_at, {
                     fallback: "Unknown",
                     display: "relative",
                   })}

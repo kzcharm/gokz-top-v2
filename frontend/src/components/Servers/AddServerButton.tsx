@@ -86,7 +86,7 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
         requestBody: {
           ip,
           port,
-          enabled: true,
+          status: "enabled",
         },
       })
     },

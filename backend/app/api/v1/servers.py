@@ -14,6 +14,7 @@ from app.models import (
     ServerHistoryQuery,
     ServerListQuery,
     ServerPublic,
+    ServerStatus,
     ServersPublic,
     ServerStatusPut,
     ServerUpdate,
@@ -59,8 +60,8 @@ async def put_server_status(
     )
     if server is None:
         raise HTTPException(status_code=404, detail="Server not found")
-    if not server.enabled:
-        raise HTTPException(status_code=403, detail="Server is disabled")
+    if server.status != ServerStatus.ENABLED:
+        raise HTTPException(status_code=403, detail="Server is not enabled")
     if server.group_id != group.id:
         raise HTTPException(
             status_code=403,
@@ -152,13 +153,13 @@ async def create_server(
     server_in: ServerCreate,
     current_user: CurrentUser,
 ) -> Any:
-    del current_user
     try:
         queried = await query_server_a2s_info(ip=server_in.ip, port=server_in.port)
         validate_server_addition_info(queried)
         server = await crud.create_server(
             session=session,
             server_in=server_in,
+            steamid64=current_user.steamid64,
             queried_hostname=queried.hostname,
             queried_map=queried.map_name,
             queried_player_count=queried.player_count,
@@ -172,6 +173,8 @@ async def create_server(
         if str(exc) == "Server already exists":
             detail = "Server already exists"
             raise HTTPException(status_code=409, detail=detail) from exc
+        if str(exc) == "Server is disabled":
+            raise HTTPException(status_code=403, detail="Server is disabled") from exc
         raise HTTPException(status_code=404, detail=detail) from exc
     return crud.to_server_public(server=server)
 

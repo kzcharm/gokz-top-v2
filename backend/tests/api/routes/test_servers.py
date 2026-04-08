@@ -14,6 +14,7 @@ from app.models import (
     ServerGroup,
     ServerGroupStatus,
     ServerHeartbeatRaw,
+    ServerStatus,
     ServerStatusPut,
 )
 from app.services.geoip import GeoIPLocation
@@ -91,7 +92,7 @@ async def test_create_server_requires_successful_a2s_query(
         json={
             "ip": random_server_ip(),
             "port": random_server_port(),
-            "enabled": True,
+            "status": "enabled",
             "country": "DE",
             "city": "Berlin",
         },
@@ -99,9 +100,11 @@ async def test_create_server_requires_successful_a2s_query(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["configured_hostname"].startswith("Queried ")
-    assert payload["status"]["current_hostname"] == payload["configured_hostname"]
-    assert payload["status"]["map"] == "kz_alpha"
+    assert payload["status"] == "enabled"
+    assert payload["source"]["type"] == "manual"
+    assert payload["source"]["steamid64"].isdigit()
+    assert payload["live_status"]["hostname"].startswith("Queried ")
+    assert payload["live_status"]["map"] == "kz_alpha"
     assert payload["country"] == "DE"
     assert payload["city"] == "Berlin"
 
@@ -139,7 +142,7 @@ async def test_create_server_fills_blank_location_from_geoip(
         json={
             "ip": random_server_ip(),
             "port": random_server_port(),
-            "enabled": True,
+            "status": "enabled",
         },
     )
 
@@ -147,6 +150,89 @@ async def test_create_server_fills_blank_location_from_geoip(
     payload = response.json()
     assert payload["country"] == "US"
     assert payload["city"] == "Chicago"
+
+
+async def test_create_server_reenables_existing_invalid_server(
+    client: AsyncClient,
+    db: AsyncSession,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db, hostname="Old Host", map_name="kz_old")
+    server.status = ServerStatus.INVALID
+    db.add(server)
+    await db.commit()
+
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        assert ip == server.ip
+        assert port == server.port
+        return A2SInfoResult(
+            hostname="Recovered Host",
+            map_name="kz_recovered",
+            player_count=4,
+            max_players=24,
+            players=[],
+            observed_at=datetime.now(UTC),
+            game_directory="csgo",
+            app_id=730,
+        )
+
+    monkeypatch.setattr(
+        servers_route, "query_server_a2s_info", _fake_query_server_a2s_info
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/servers/",
+        headers=normal_user_token_headers,
+        json={"ip": server.ip, "port": server.port},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == str(server.id)
+    assert payload["status"] == "enabled"
+    assert payload["source"]["type"] == "manual"
+    assert payload["live_status"]["hostname"] == "Recovered Host"
+    assert payload["live_status"]["map"] == "kz_recovered"
+
+
+async def test_create_server_rejects_existing_disabled_server(
+    client: AsyncClient,
+    db: AsyncSession,
+    normal_user_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db, hostname="Disabled Host")
+    server.status = ServerStatus.DISABLED
+    db.add(server)
+    await db.commit()
+
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        assert ip == server.ip
+        assert port == server.port
+        return A2SInfoResult(
+            hostname="Recovered Host",
+            map_name="kz_recovered",
+            player_count=4,
+            max_players=24,
+            players=[],
+            observed_at=datetime.now(UTC),
+            game_directory="csgo",
+            app_id=730,
+        )
+
+    monkeypatch.setattr(
+        servers_route, "query_server_a2s_info", _fake_query_server_a2s_info
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/servers/",
+        headers=normal_user_token_headers,
+        json={"ip": server.ip, "port": server.port},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Server is disabled"
 
 
 async def test_trigger_server_discovery_requires_superuser(
@@ -337,7 +423,7 @@ async def test_create_server_allows_zero_app_id_when_game_field_matches_csgo(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["configured_hostname"].startswith("Queried ")
+    assert payload["live_status"]["hostname"].startswith("Queried ")
 
 
 async def test_create_server_rejects_non_kz_map(
@@ -409,8 +495,8 @@ async def test_update_server_requeries_when_endpoint_changes(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"]["current_hostname"] == "Updated Host"
-    assert payload["status"]["map"] == "kz_new"
+    assert payload["live_status"]["hostname"] == "Updated Host"
+    assert payload["live_status"]["map"] == "kz_new"
 
 
 async def test_update_server_fills_missing_location_from_geoip(
@@ -429,7 +515,7 @@ async def test_update_server_fills_missing_location_from_geoip(
     response = await client.patch(
         f"{settings.API_V1_STR}/servers/{server.id}",
         headers=superuser_token_headers,
-        json={"enabled": True},
+        json={"status": "enabled"},
     )
 
     assert response.status_code == 200
@@ -454,7 +540,7 @@ async def test_update_server_preserves_existing_location_values(
     response = await client.patch(
         f"{settings.API_V1_STR}/servers/{server.id}",
         headers=superuser_token_headers,
-        json={"enabled": False},
+        json={"status": "disabled"},
     )
 
     assert response.status_code == 200
@@ -519,13 +605,13 @@ async def test_put_server_status_updates_live_status_from_plugin(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"]["current_hostname"] == "Plugin Host"
-    assert payload["status"]["map"] == "kz_plugin"
-    assert payload["status"]["player_count"] == 9
-    assert payload["status"]["players"][0]["name"] == "Player One"
+    assert payload["live_status"]["hostname"] == "Plugin Host"
+    assert payload["live_status"]["map"] == "kz_plugin"
+    assert payload["live_status"]["player_count"] == 9
+    assert payload["live_status"]["players"][0]["name"] == "Player One"
     assert (
         datetime.fromisoformat(
-            payload["status"]["last_plugin_seen_at"].replace("Z", "+00:00")
+            payload["live_status"]["last_plugin_seen_at"].replace("Z", "+00:00")
         )
         == observed_at
     )
@@ -566,7 +652,7 @@ async def test_read_servers_hides_invalidated_server_groups(
     db: AsyncSession,
 ) -> None:
     group, _ = await create_server_group(db, status=ServerGroupStatus.INVALIDATED)
-    server = await create_server(db, group_id=group.id, enabled=False)
+    server = await create_server(db, group_id=group.id, status=ServerStatus.DISABLED)
 
     response = await client.get(f"{settings.API_V1_STR}/servers/")
 
@@ -608,17 +694,18 @@ async def test_offline_mark_preserves_identity_and_zeroes_player_state(
 
     response = await client.get(
         f"{settings.API_V1_STR}/servers/",
-        params={"online": False},
+        params={"online": False, "limit": 200},
     )
 
     assert response.status_code == 200
     payload = response.json()
     matching = next(item for item in payload["data"] if item["id"] == str(server.id))
-    assert matching["status"]["current_hostname"] == "Identity Host"
-    assert matching["status"]["map"] == "kz_offline"
-    assert matching["status"]["player_count"] == 0
-    assert matching["status"]["players"] == []
-    assert matching["status"]["is_online"] is False
+    assert matching["status"] == "invalid"
+    assert matching["live_status"]["hostname"] == "Identity Host"
+    assert matching["live_status"]["map"] == "kz_offline"
+    assert matching["live_status"]["player_count"] == 0
+    assert matching["live_status"]["players"] == []
+    assert matching["live_status"]["is_online"] is False
 
 
 async def test_read_servers_returns_map_tier_for_known_map(
@@ -635,7 +722,9 @@ async def test_read_servers_returns_map_tier_for_known_map(
 
     assert response.status_code == 200
     payload = response.json()
-    matching = next(item for item in payload["data"] if item["status"]["map"] == "kz_tiered")
+    matching = next(
+        item for item in payload["data"] if item["live_status"]["map"] == "kz_tiered"
+    )
     assert matching["map_tier"] == 6
 
 
@@ -649,7 +738,7 @@ async def test_read_server_returns_null_map_tier_for_unknown_map(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"]["map"] == "kz_missing_tier"
+    assert payload["live_status"]["map"] == "kz_missing_tier"
     assert payload["map_tier"] is None
 
 

@@ -170,7 +170,6 @@ export function ServerTable({
                           <span
                             className="inline-flex items-center text-muted-foreground"
                             title="Refreshing server status"
-                            aria-label="Refreshing server status"
                           >
                             <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                           </span>
@@ -200,8 +199,8 @@ export function ServerTable({
                   </TableCell>
                   <TableCell>
                     <Badge className={cn(getOccupancyVariant(server))}>
-                      {server.status?.player_count ?? 0}/
-                      {server.status?.max_players ?? 0}
+                      {server.live_status?.player_count ?? 0}/
+                      {server.live_status?.max_players ?? 0}
                     </Badge>
                   </TableCell>
                   <TableCell>

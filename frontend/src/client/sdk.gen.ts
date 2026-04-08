@@ -981,7 +981,7 @@ export class ServersService {
      * @param data.groupId
      * @param data.country
      * @param data.city
-     * @param data.source
+     * @param data.sourceType
      * @returns ServersPublic Successful Response
      * @throws ApiError
      */
@@ -996,7 +996,7 @@ export class ServersService {
                 group_id: data.groupId,
                 country: data.country,
                 city: data.city,
-                source: data.source
+                source_type: data.sourceType
             },
             errors: {
                 422: 'Validation Error'

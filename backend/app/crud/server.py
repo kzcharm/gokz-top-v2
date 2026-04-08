@@ -28,6 +28,7 @@ from app.models import (
     ServerLiveStatus,
     ServerLiveStatusPublic,
     ServerPublic,
+    ServerStatus,
     ServerSource,
     ServerStatusPut,
     ServerUpdate,
@@ -72,7 +73,7 @@ def _build_server_live_status_public(
     if status is None:
         return None
     return ServerLiveStatusPublic(
-        current_hostname=status.current_hostname,
+        hostname=status.hostname,
         map=status.map,
         player_count=status.player_count,
         max_players=status.max_players,
@@ -99,8 +100,7 @@ def to_server_public(*, server: Server) -> ServerPublic:
         group=group,
         ip=server.ip,
         port=server.port,
-        enabled=server.enabled,
-        configured_hostname=server.configured_hostname,
+        status=server.status,
         country=server.country,
         city=server.city,
         source=server.source,
@@ -108,7 +108,7 @@ def to_server_public(*, server: Server) -> ServerPublic:
         map_tier=server.__dict__.get("map_tier"),
         created_at=server.created_at,
         updated_at=server.updated_at,
-        status=(
+        live_status=(
             _build_server_live_status_public(loaded_status)
             if isinstance(loaded_status, ServerLiveStatus)
             else None
@@ -130,9 +130,20 @@ def _should_auto_validate_server_group(
     return (
         group is not None
         and group.status == ServerGroupStatus.PENDING
-        and server.enabled
+        and server.status == ServerStatus.ENABLED
         and server.group_id == group.id
     )
+
+
+def build_manual_server_source(*, steamid64: int | str) -> dict[str, str]:
+    return {
+        "type": ServerSource.MANUAL.value,
+        "steamid64": str(steamid64),
+    }
+
+
+def build_steam_master_server_source() -> dict[str, str]:
+    return {"type": ServerSource.STEAM_MASTER.value}
 
 
 async def notify_server_status_updated(
@@ -242,9 +253,9 @@ async def update_server_group(
         statement = select(Server).where(Server.group_id == group.id)
         servers = list((await session.exec(statement)).all())
         for server in servers:
-            if not server.enabled:
+            if server.status == ServerStatus.DISABLED:
                 continue
-            server.enabled = False
+            server.status = ServerStatus.DISABLED
             server.updated_at = now
             session.add(server)
     try:
@@ -335,8 +346,10 @@ async def read_servers(
         statement = statement.where(col(Server.country) == query.country.upper())
     if query.city:
         statement = statement.where(col(Server.city) == query.city)
-    if query.source is not None:
-        statement = statement.where(col(Server.source) == query.source)
+    if query.source_type is not None:
+        statement = statement.where(
+            Server.source["type"].astext == query.source_type.value
+        )
     servers = list((await session.exec(statement)).all())
     await _hydrate_servers(session=session, servers=servers)
     servers = [
@@ -361,8 +374,7 @@ async def read_servers(
     servers.sort(
         key=lambda server: (
             0 if server.live_status and server.live_status.is_online else 1,
-            (server.live_status.current_hostname if server.live_status else None)
-            or server.configured_hostname
+            (server.live_status.hostname if server.live_status else None)
             or "",
             server.ip,
             server.port,
@@ -389,6 +401,7 @@ async def create_server(
     *,
     session: AsyncSession,
     server_in: ServerCreate,
+    steamid64: int,
     queried_hostname: str,
     queried_map: str,
     queried_player_count: int,
@@ -396,6 +409,53 @@ async def create_server(
     queried_players: list[dict[str, Any]],
 ) -> Server:
     await _validate_group_id(session=session, group_id=server_in.group_id)
+
+    existing_server = await get_server_by_endpoint(
+        session=session,
+        ip=server_in.ip,
+        port=server_in.port,
+        hydrate=False,
+    )
+    if existing_server is not None:
+        if existing_server.status == ServerStatus.DISABLED:
+            raise ValueError("Server is disabled")
+        if existing_server.status == ServerStatus.ENABLED:
+            raise ValueError("Server already exists")
+
+        now = get_datetime_utc()
+        resolved_country, resolved_city = _resolve_server_location(
+            ip=server_in.ip,
+            country=server_in.country,
+            city=server_in.city,
+        )
+        existing_server.group_id = server_in.group_id
+        existing_server.status = server_in.status
+        existing_server.country = resolved_country
+        existing_server.city = resolved_city
+        existing_server.source = build_manual_server_source(steamid64=steamid64)
+        existing_server.updated_at = now
+        session.add(existing_server)
+
+        await _record_server_status(
+            session=session,
+            server=existing_server,
+            source=ServerHeartbeatSource.A2S,
+            observed_at=now,
+            hostname=queried_hostname,
+            map_name=queried_map,
+            player_count=queried_player_count,
+            max_players=queried_max_players,
+            players=queried_players,
+            is_online=True,
+        )
+        existing_server.status = ServerStatus.ENABLED
+        await notify_server_status_updated(session=session, server_id=existing_server.id)
+        await session.commit()
+        await session.refresh(existing_server)
+        return (
+            await get_server_by_id(session=session, server_id=existing_server.id)
+            or existing_server
+        )
 
     now = get_datetime_utc()
     resolved_country, resolved_city = _resolve_server_location(
@@ -407,11 +467,10 @@ async def create_server(
         group_id=server_in.group_id,
         ip=server_in.ip,
         port=server_in.port,
-        enabled=server_in.enabled,
-        configured_hostname=queried_hostname,
+        status=server_in.status,
         country=resolved_country,
         city=resolved_city,
-        source=ServerSource.MANUAL,
+        source=build_manual_server_source(steamid64=steamid64),
         created_at=now,
         updated_at=now,
     )
@@ -500,11 +559,10 @@ async def upsert_discovered_server(
         server = Server(
             ip=ip,
             port=port,
-            enabled=True,
-            configured_hostname=hostname,
+            status=ServerStatus.ENABLED,
             country=resolved_country,
             city=resolved_city,
-            source=ServerSource.STEAM_MASTER,
+            source=build_steam_master_server_source(),
             last_discovered_at=now,
             created_at=now,
             updated_at=now,
@@ -512,10 +570,10 @@ async def upsert_discovered_server(
         session.add(server)
         await session.flush()
     else:
-        if server.configured_hostname is None:
-            server.configured_hostname = hostname
-        if server.source == ServerSource.STEAM_MASTER:
-            server.enabled = True
+        if server.status != ServerStatus.DISABLED:
+            server.status = ServerStatus.ENABLED
+        if server.source.get("type") == ServerSource.STEAM_MASTER.value:
+            server.source = build_steam_master_server_source()
         server.country, server.city = _resolve_server_location(
             ip=ip,
             country=server.country,
@@ -596,6 +654,14 @@ async def record_a2s_success(
         players=players,
         is_online=True,
     )
+    if server.status != ServerStatus.DISABLED:
+        server.status = (
+            ServerStatus.ENABLED
+            if server_status_is_valid(map_name=map_name)
+            else ServerStatus.INVALID
+        )
+        server.updated_at = observed_at
+        session.add(server)
     await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server
@@ -615,10 +681,13 @@ async def record_a2s_failure(
         server.live_status = status
 
     status.last_a2s_seen_at = observed_at
-    status.current_hostname = status.current_hostname or server.configured_hostname
     session.add(status)
 
     if not status.is_online:
+        if server.status != ServerStatus.DISABLED:
+            server.status = ServerStatus.INVALID
+            server.updated_at = observed_at
+            session.add(server)
         await session.commit()
         return await get_server_by_id(session=session, server_id=server.id) or server
     if not mark_offline:
@@ -631,12 +700,16 @@ async def record_a2s_failure(
     status.is_online = False
     status.updated_at = observed_at
     session.add(status)
+    if server.status != ServerStatus.DISABLED:
+        server.status = ServerStatus.INVALID
+        server.updated_at = observed_at
+        session.add(server)
 
     heartbeat = ServerHeartbeatRaw(
         server_id=server.id,
         source=ServerHeartbeatSource.OFFLINE_MARK,
         observed_at=observed_at,
-        hostname=status.current_hostname,
+        hostname=status.hostname,
         map=status.map,
         player_count=0,
         max_players=status.max_players,
@@ -662,18 +735,21 @@ async def record_offline_mark(
         server.live_status = status
 
     status.last_a2s_seen_at = observed_at
-    status.current_hostname = status.current_hostname or server.configured_hostname
     status.player_count = 0
     status.players = []
     status.is_online = False
     status.updated_at = observed_at
     session.add(status)
+    if server.status != ServerStatus.DISABLED:
+        server.status = ServerStatus.INVALID
+        server.updated_at = observed_at
+        session.add(server)
 
     heartbeat = ServerHeartbeatRaw(
         server_id=server.id,
         source=ServerHeartbeatSource.OFFLINE_MARK,
         observed_at=observed_at,
-        hostname=status.current_hostname,
+        hostname=status.hostname,
         map=status.map,
         player_count=0,
         max_players=status.max_players,
@@ -696,7 +772,7 @@ async def read_servers_due_for_a2s_poll(
     plugin_cutoff_dt = now - timedelta(seconds=plugin_stale_after_seconds)
     a2s_cutoff_dt = now - timedelta(seconds=a2s_poll_after_seconds)
 
-    statement = select(Server).where(col(Server.enabled).is_(True))
+    statement = select(Server).where(col(Server.status) == ServerStatus.ENABLED)
     servers = list((await session.exec(statement)).all())
     await _hydrate_servers(session=session, servers=servers)
 
@@ -774,10 +850,11 @@ async def _record_server_status(
     is_online: bool,
 ) -> None:
     status = await _get_server_live_status(session=session, server=server)
+    map_is_supported = server_status_is_valid(map_name=map_name)
     if status is None:
         status = ServerLiveStatus(
             server_id=server.id,
-            current_hostname=hostname,
+            hostname=hostname,
             map=map_name,
             player_count=player_count,
             max_players=max_players,
@@ -789,7 +866,7 @@ async def _record_server_status(
     status.updated_at = observed_at
 
     if source == ServerHeartbeatSource.PLUGIN:
-        status.current_hostname = hostname
+        status.hostname = hostname
         status.map = map_name
         status.player_count = player_count
         status.max_players = max_players
@@ -804,13 +881,20 @@ async def _record_server_status(
         )
         status.last_a2s_seen_at = observed_at
         if not plugin_is_fresh:
-            status.current_hostname = hostname
+            status.hostname = hostname
             status.map = map_name
             status.player_count = player_count
             status.max_players = max_players
             status.players = players
             status.is_online = is_online
             status.last_successful_seen_at = observed_at
+
+    if server.status != ServerStatus.DISABLED:
+        server.status = (
+            ServerStatus.ENABLED if is_online and map_is_supported else ServerStatus.INVALID
+        )
+        server.updated_at = observed_at
+        session.add(server)
 
     session.add(status)
     heartbeat = ServerHeartbeatRaw(
@@ -825,6 +909,13 @@ async def _record_server_status(
         is_online=is_online,
     )
     session.add(heartbeat)
+
+
+def server_status_is_valid(*, map_name: str) -> bool:
+    normalized_map_name = map_name.strip().casefold()
+    return normalized_map_name.startswith(
+        ("kz_", "bkz_", "vnl_", "skz_", "xc_", "kzpro_")
+    )
 
 
 async def _get_server_live_status(
