@@ -106,6 +106,7 @@ async def test_create_server_requires_successful_a2s_query(
     assert payload["live_status"]["hostname"].startswith("Queried ")
     assert payload["live_status"]["map"] == "kz_alpha"
     assert payload["country"] == "DE"
+    assert payload["region"] == "EU"
     assert payload["city"] == "Berlin"
 
 
@@ -149,7 +150,27 @@ async def test_create_server_fills_blank_location_from_geoip(
     assert response.status_code == 200
     payload = response.json()
     assert payload["country"] == "US"
+    assert payload["region"] == "NA"
     assert payload["city"] == "Chicago"
+
+
+async def test_read_servers_returns_derived_region_and_filters_by_region(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    eu_server = await create_server(db, country="DE", city="Berlin")
+    await create_server(db, country="US", city="Chicago")
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers/",
+        params={"region": "EU", "limit": 200},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["id"] == str(eu_server.id)
+    assert payload["data"][0]["region"] == "EU"
 
 
 async def test_create_server_reenables_existing_invalid_server(

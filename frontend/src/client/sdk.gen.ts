@@ -980,6 +980,7 @@ export class ServersService {
      * @param data.online
      * @param data.groupId
      * @param data.country
+     * @param data.region
      * @param data.city
      * @param data.sourceType
      * @returns ServersPublic Successful Response
@@ -995,6 +996,7 @@ export class ServersService {
                 online: data.online,
                 group_id: data.groupId,
                 country: data.country,
+                region: data.region,
                 city: data.city,
                 source_type: data.sourceType
             },

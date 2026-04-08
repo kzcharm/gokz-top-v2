@@ -268,6 +268,7 @@ class ServerLiveStatusPublic(ServerLiveStatusBase):
 class ServerPublic(ServerBase):
     id: uuid.UUID
     group_id: uuid.UUID | None = None
+    region: str | None = None
     source: dict[str, Any]
     last_discovered_at: datetime | None = None
     map_tier: int | None = None
@@ -307,6 +308,7 @@ class ServerListQuery(SQLModel):
     online: bool | None = None
     group_id: uuid.UUID | None = None
     country: str | None = Field(default=None, max_length=2)
+    region: str | None = Field(default=None, max_length=3)
     city: str | None = Field(default=None, max_length=255)
     source_type: ServerSource | None = None
 
