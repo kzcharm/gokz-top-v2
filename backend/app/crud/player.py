@@ -16,6 +16,7 @@ from app.models import (
     LeaderboardPlayer,
     Player,
     PlayerPublic,
+    PlayerRefPublic,
     PlayerUpdate,
     RecordScope,
     User,
@@ -792,6 +793,17 @@ def to_player_public(
         updated_at=player.updated_at,
         is_website_user=is_website_user,
         profile_views=profile_views,
+    )
+
+
+def get_player_display_name(*, player: Player) -> str:
+    return player.alias or player.name
+
+
+def to_player_ref_public(*, player: Player) -> PlayerRefPublic:
+    return PlayerRefPublic(
+        steamid64=str(player.steamid64),
+        display_name=get_player_display_name(player=player),
     )
 
 

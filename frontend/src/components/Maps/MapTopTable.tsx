@@ -66,11 +66,7 @@ export function MapTopTable({
                   </TableCell>
                   <TableCell>
                     <PlayerDisplay
-                      player={{
-                        steamid64: record.steamid64,
-                        name: record.player_name,
-                        avatar_hash: record.player_avatar_hash,
-                      }}
+                      player={record.player}
                       className="max-w-[15rem]"
                       nameMaxLength={24}
                     />

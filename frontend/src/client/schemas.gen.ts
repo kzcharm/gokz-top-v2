@@ -104,7 +104,7 @@ export const BanPublicSchema = {
         player: {
             anyOf: [
                 {
-                    '$ref': '#/components/schemas/PlayerPublic'
+                    '$ref': '#/components/schemas/PlayerRefPublic'
                 },
                 {
                     type: 'null'
@@ -509,7 +509,7 @@ export const PlayerLeaderboardEntryPublicSchema = {
             title: 'Rank'
         },
         player: {
-            '$ref': '#/components/schemas/PlayerPublic'
+            '$ref': '#/components/schemas/PlayerRefPublic'
         },
         rating: {
             anyOf: [
@@ -601,8 +601,19 @@ export const PlayerLeaderboardRankPublicSchema = {
             ],
             title: 'Rank Regional'
         },
+        region: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Region'
+        },
         player: {
-            '$ref': '#/components/schemas/PlayerPublic'
+            '$ref': '#/components/schemas/PlayerRefPublic'
         },
         rating: {
             anyOf: [
@@ -793,6 +804,11 @@ export const PlayerPublicSchema = {
             type: 'string',
             title: 'Steamid64'
         },
+        is_website_user: {
+            type: 'boolean',
+            title: 'Is Website User',
+            default: false
+        },
         profile_views: {
             type: 'integer',
             title: 'Profile Views',
@@ -802,6 +818,22 @@ export const PlayerPublicSchema = {
     type: 'object',
     required: ['name', 'steamid64'],
     title: 'PlayerPublic'
+} as const;
+
+export const PlayerRefPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        display_name: {
+            type: 'string',
+            title: 'Display Name'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'display_name'],
+    title: 'PlayerRefPublic'
 } as const;
 
 export const PlayerUpdateSchema = {
@@ -931,55 +963,6 @@ export const RecentRecordModePublicSchema = {
     title: 'RecentRecordModePublic'
 } as const;
 
-export const RecentRecordPlayerPublicSchema = {
-    properties: {
-        steamid64: {
-            type: 'string',
-            title: 'Steamid64'
-        },
-        name: {
-            type: 'string',
-            title: 'Name'
-        },
-        alias: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Alias'
-        },
-        avatar_hash: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Avatar Hash'
-        },
-        country: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Country'
-        }
-    },
-    type: 'object',
-    required: ['steamid64', 'name'],
-    title: 'RecentRecordPlayerPublic'
-} as const;
-
 export const RecentRecordPublicSchema = {
     properties: {
         uuid: {
@@ -999,7 +982,7 @@ export const RecentRecordPublicSchema = {
             title: 'Id'
         },
         player: {
-            '$ref': '#/components/schemas/RecentRecordPlayerPublic'
+            '$ref': '#/components/schemas/PlayerRefPublic'
         },
         map: {
             '$ref': '#/components/schemas/RecentRecordMapPublic'
@@ -1108,24 +1091,8 @@ export const RecordPublicSchema = {
             ],
             title: 'Id'
         },
-        steamid64: {
-            type: 'string',
-            title: 'Steamid64'
-        },
-        player_name: {
-            type: 'string',
-            title: 'Player Name'
-        },
-        player_avatar_hash: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Player Avatar Hash'
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
         },
         steam_id: {
             anyOf: [
@@ -1218,7 +1185,7 @@ export const RecordPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'steamid64', 'player_name', 'server_id', 'server_name', 'map_id', 'map_name', 'map_tier', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_valid'],
+    required: ['uuid', 'player', 'server_id', 'server_name', 'map_id', 'map_name', 'map_tier', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_valid'],
     title: 'RecordPublic'
 } as const;
 
@@ -2037,7 +2004,7 @@ export const UserPublicSchema = {
         player: {
             anyOf: [
                 {
-                    '$ref': '#/components/schemas/PlayerPublic'
+                    '$ref': '#/components/schemas/PlayerRefPublic'
                 },
                 {
                     type: 'null'

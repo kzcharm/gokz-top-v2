@@ -42,7 +42,7 @@ function SortableDateHeader({
 
 export const columns: ColumnDef<UserTableData>[] = [
   {
-    accessorKey: "player.name",
+    accessorKey: "player.display_name",
     header: "Player",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">

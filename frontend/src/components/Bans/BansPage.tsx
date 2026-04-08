@@ -2,14 +2,17 @@ import { useQuery } from "@tanstack/react-query"
 import { Search, ShieldAlert, X } from "lucide-react"
 import { useDeferredValue, useEffect, useRef, useState } from "react"
 
-import type { PlayerPublic } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { DataTable } from "@/components/Common/DataTable"
-import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import {
+  getPlayerDisplayName,
+  PlayerDisplay,
+} from "@/components/Common/PlayerDisplay"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
@@ -51,7 +54,7 @@ export function BansPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [expandedBanId, setExpandedBanId] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState("")
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerPublic | null>(
+  const [selectedPlayer, setSelectedPlayer] = useState<GraphqlPlayer | null>(
     null,
   )
   const [isSearchFocused, setIsSearchFocused] = useState(false)
@@ -60,21 +63,10 @@ export function BansPage() {
   const playerSearchQuery = deferredSearchInput.trim()
 
   const playerSearchQueryResult = useQuery({
-    queryKey: ["players", "search", playerSearchQuery],
+    queryKey: ["graphql", "players", "search", playerSearchQuery],
     enabled: playerSearchQuery.length > 0,
-    queryFn: async () => {
-      const response = await fetch(
-        `${OpenAPI.BASE}/v1/players/search?q=${encodeURIComponent(playerSearchQuery)}&limit=8`,
-      )
-      if (!response.ok) {
-        throw new Error("Failed to search players")
-      }
-
-      const data = (await response.json()) as {
-        data?: PlayerPublic[]
-      }
-      return data.data ?? []
-    },
+    queryFn: async () =>
+      (await searchPlayersGraphql(playerSearchQuery, 8)).data,
     staleTime: 30_000,
   })
 
@@ -124,13 +116,13 @@ export function BansPage() {
 
   const bans = bansQuery.data?.data ?? []
   const totalCount = bansQuery.data?.count ?? 0
-  const searchResults = playerSearchQueryResult.data ?? []
+  const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults =
     isSearchFocused && selectedPlayer === null && playerSearchQuery.length > 0
 
-  const handleSelectPlayer = (player: PlayerPublic) => {
+  const handleSelectPlayer = (player: GraphqlPlayer) => {
     setSelectedPlayer(player)
-    setSearchInput(player.alias || player.name)
+    setSearchInput(getPlayerDisplayName(player))
     setIsSearchFocused(false)
     setPageIndex(0)
   }

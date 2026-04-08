@@ -1,9 +1,21 @@
+import { useQuery } from "@tanstack/react-query"
+
+import { PlayersService } from "@/client"
 import useAuth from "@/hooks/useAuth"
 
 const UserInformation = () => {
   const { user: currentUser } = useAuth()
+  const playerQuery = useQuery({
+    queryKey: ["user-settings-player", currentUser?.steamid64],
+    enabled: Boolean(currentUser?.steamid64),
+    queryFn: () =>
+      PlayersService.readPlayer({ identifier: String(currentUser?.steamid64) }),
+    staleTime: 60_000,
+  })
 
   if (!currentUser) return null
+
+  const player = playerQuery.data
 
   return (
     <div className="max-w-md">
@@ -11,7 +23,9 @@ const UserInformation = () => {
       <div className="space-y-4 rounded-lg border p-4">
         <div>
           <p className="text-sm text-muted-foreground">Display name</p>
-          <p className="font-medium">{currentUser.player?.name || "Unknown"}</p>
+          <p className="font-medium">
+            {player?.alias || player?.name || currentUser.player?.display_name || "Unknown"}
+          </p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Steam ID64</p>
@@ -19,11 +33,11 @@ const UserInformation = () => {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Country</p>
-          <p>{currentUser.player?.country || "N/A"}</p>
+          <p>{player?.country || "N/A"}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Custom ID</p>
-          <p>{currentUser.player?.custom_id || "N/A"}</p>
+          <p>{player?.custom_id || "N/A"}</p>
         </div>
       </div>
     </div>

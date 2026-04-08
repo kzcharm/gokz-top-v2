@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query"
 
 import { type RecordPublic, RecordsService } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
+import { getPlayerDisplayName } from "@/components/Common/PlayerDisplay"
 import type { AppScope } from "@/components/scope-provider"
 
 export const PB_RECORDS_QUERY_LIMIT = 10_000
@@ -44,7 +45,7 @@ function compareStrings(left: string, right: string) {
 function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
   switch (column) {
     case "player":
-      return record.player_name
+      return getPlayerDisplayName(record.player)
     case "map":
       return record.map_name
     case "mode":

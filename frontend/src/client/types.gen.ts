@@ -13,7 +13,7 @@ export type BanPublic = {
     updated_by_id?: (string | null);
     created_on: string;
     updated_on: string;
-    player?: (PlayerPublic | null);
+    player?: (PlayerRefPublic | null);
 };
 
 export type BansPublic = {
@@ -96,7 +96,7 @@ export type PlayerFollowSummaryPublic = {
 
 export type PlayerLeaderboardEntryPublic = {
     rank: number;
-    player: PlayerPublic;
+    player: PlayerRefPublic;
     rating: (number | null);
     rating_easy: (number | null);
     rating_hard: (number | null);
@@ -112,7 +112,8 @@ export type PlayerLeaderboardRankPublic = {
     scope: RecordScope;
     rank?: (number | null);
     rank_regional?: (number | null);
-    player: PlayerPublic;
+    region?: (string | null);
+    player: PlayerRefPublic;
     rating: (number | null);
     rating_easy: (number | null);
     rating_hard: (number | null);
@@ -143,7 +144,13 @@ export type PlayerPublic = {
     last_played_at?: (string | null);
     updated_at?: (string | null);
     steamid64: string;
+    is_website_user?: boolean;
     profile_views?: number;
+};
+
+export type PlayerRefPublic = {
+    steamid64: string;
+    display_name: string;
 };
 
 export type PlayersBatchPublic = {
@@ -176,18 +183,10 @@ export type RecentRecordModePublic = {
     name: string;
 };
 
-export type RecentRecordPlayerPublic = {
-    steamid64: string;
-    name: string;
-    alias?: (string | null);
-    avatar_hash?: (string | null);
-    country?: (string | null);
-};
-
 export type RecentRecordPublic = {
     uuid: string;
     id?: (number | null);
-    player: RecentRecordPlayerPublic;
+    player: PlayerRefPublic;
     map: RecentRecordMapPublic;
     server: RecentRecordServerPublic;
     mode: RecentRecordModePublic;
@@ -216,9 +215,7 @@ export type RecordPatch = {
 export type RecordPublic = {
     uuid: string;
     id?: (number | null);
-    steamid64: string;
-    player_name: string;
-    player_avatar_hash?: (string | null);
+    player: PlayerRefPublic;
     steam_id?: (string | null);
     server_id: number;
     server_name: string;
@@ -396,7 +393,7 @@ export type UserPublic = {
     steamid64: string;
     created_at?: (string | null);
     last_visited_at?: (string | null);
-    player?: (PlayerPublic | null);
+    player?: (PlayerRefPublic | null);
 };
 
 export type UsersPublic = {
@@ -448,6 +445,10 @@ export type BansReadBanData = {
 };
 
 export type BansReadBanResponse = (BanPublic);
+
+export type HandleHttpGetResponse = (unknown);
+
+export type HandleHttpPostResponse = (unknown);
 
 export type LeaderboardsReadPlayerLeaderboardData = {
     country?: (string | null);
@@ -607,7 +608,6 @@ export type PlayersUpdatePlayerData = {
 export type PlayersUpdatePlayerResponse = (PlayerPublic);
 
 export type RecordsReadRecordsData = {
-    country?: (string | null);
     createdSince?: (string | null);
     excludeCheaters?: boolean;
     id?: (Array<(number)> | null);
@@ -616,7 +616,6 @@ export type RecordsReadRecordsData = {
     mapId?: (number | null);
     modeId?: (number | null);
     offset?: number;
-    region?: (string | null);
     replayId?: (number | null);
     scope?: RecordScope;
     serverId?: (number | null);
