@@ -52,7 +52,7 @@ async def build_server_snapshot_event() -> ServerSnapshotEvent:
     async with async_session_maker() as session:
         servers, _ = await crud.read_servers(
             session=session,
-            query=ServerListQuery(offset=0, limit=200),
+            query=ServerListQuery(offset=0, limit=1000),
         )
     return ServerSnapshotEvent(
         type="server.snapshot",

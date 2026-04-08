@@ -304,7 +304,7 @@ class ServerGroupApiKeyPublic(SQLModel):
 
 class ServerListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=20, ge=1, le=200)
+    limit: int = Field(default=20, ge=1, le=1000)
     online: bool | None = None
     group_id: uuid.UUID | None = None
     country: str | None = Field(default=None, max_length=2)

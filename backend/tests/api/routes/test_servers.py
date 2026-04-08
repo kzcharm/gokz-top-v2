@@ -173,6 +173,31 @@ async def test_read_servers_returns_derived_region_and_filters_by_region(
     assert payload["data"][0]["region"] == "EU"
 
 
+async def test_read_servers_accepts_limit_1000(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await create_server(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers/",
+        params={"limit": 1000},
+    )
+
+    assert response.status_code == 200
+
+
+async def test_read_servers_rejects_limit_above_1000(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers/",
+        params={"limit": 1001},
+    )
+
+    assert response.status_code == 422
+
+
 async def test_create_server_reenables_existing_invalid_server(
     client: AsyncClient,
     db: AsyncSession,
