@@ -161,6 +161,7 @@ type ProfileCompletionTier = {
   complete: number
   total: number
   color: string
+  averagePoints: number
 }
 
 type ProfileCompletionCard = {
@@ -203,8 +204,10 @@ function buildCompletionCard({
     complete: 0,
     total: 0,
     color: getTierColor(index + 1) ?? "#6B7280",
+    averagePoints: 0,
   }))
   const tierByMapId = new Map<number, number>()
+  const tierPointsTotals = Array.from({ length: 8 }, () => 0)
 
   for (const map of maps) {
     const tier = normalizeTierValue(map.tiers[scope])
@@ -225,6 +228,20 @@ function buildCompletionCard({
 
     tiers[tier - 1].complete += 1
   }
+
+  for (const record of records) {
+    const tier = tierByMapId.get(record.map_id)
+    if (!tier) {
+      continue
+    }
+
+    tierPointsTotals[tier - 1] += record.points
+  }
+
+  tiers.forEach((tier, index) => {
+    tier.averagePoints =
+      tier.complete === 0 ? 0 : Math.round(tierPointsTotals[index] / tier.complete)
+  })
 
   return {
     completed: tiers.reduce((sum, tier) => sum + tier.complete, 0),
