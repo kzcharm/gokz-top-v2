@@ -29,6 +29,21 @@ import {
 
 export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
   const sortedPlayers = sortPlayersByProgress(players)
+  const showTimerColumn = sortedPlayers.some(
+    (player) => getPlayerNumberValue(player, "timer_time") !== null,
+  )
+  const showProgressColumn = sortedPlayers.some(
+    (player) => getPlayerProgressPercent(player) !== null,
+  )
+  const showStatusColumn = sortedPlayers.some(
+    (player) => getPlayerStringValue(player, "status") !== null,
+  )
+  const visibleColumnCount =
+    2 +
+    (showTimerColumn ? 1 : 0) +
+    1 +
+    (showProgressColumn ? 1 : 0) +
+    (showStatusColumn ? 1 : 0)
 
   return (
     <div className="space-y-4">
@@ -38,17 +53,17 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
             <TableRow>
               <TableHead className="w-10" />
               <TableHead>Player</TableHead>
-              <TableHead>Timer</TableHead>
+              {showTimerColumn ? <TableHead>Timer</TableHead> : null}
               <TableHead>Duration</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead>Status</TableHead>
+              {showProgressColumn ? <TableHead>Progress</TableHead> : null}
+              {showStatusColumn ? <TableHead>Status</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedPlayers.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={visibleColumnCount}
                   className="h-24 text-center text-muted-foreground"
                 >
                   No live players on this server.
@@ -99,35 +114,31 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {formatTimerTime(timerTime)}
-                      {isPaused ? (
-                        <Pause className="ml-1 inline h-3 w-3 align-middle text-muted-foreground" />
-                      ) : null}
-                    </TableCell>
+                    {showTimerColumn ? (
+                      <TableCell>
+                        {formatTimerTime(timerTime)}
+                        {isPaused ? (
+                          <Pause className="ml-1 inline h-3 w-3 align-middle text-muted-foreground" />
+                        ) : null}
+                      </TableCell>
+                    ) : null}
                     <TableCell>{formatTimerTime(durationSeconds)}</TableCell>
-                    <TableCell>
-                      {progress !== null ? (
-                        <div className="flex min-w-[9rem] items-center gap-2">
-                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {progress.toFixed(1)}%
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={cn(badgeClassName)}>
-                        {getPlayerStatusLabel(player)}
-                      </Badge>
-                    </TableCell>
+                    {showProgressColumn ? (
+                      <TableCell>
+                        {progress !== null ? (
+                          <span className="text-sm">{progress.toFixed(1)}%</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    ) : null}
+                    {showStatusColumn ? (
+                      <TableCell>
+                        <Badge className={cn(badgeClassName)}>
+                          {getPlayerStatusLabel(player)}
+                        </Badge>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 )
               })

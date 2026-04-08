@@ -172,6 +172,7 @@ export const ServerCard = memo(function ServerCard({
               {sortedPlayers.map((player, index) => {
                 const name =
                   getPlayerStringValue(player, "name") || `Player ${index + 1}`
+                const steamid64 = getPlayerStringValue(player, "steamid64")
                 const mode = getPlayerStringValue(player, "mode")
                 const progress = getPlayerProgressPercent(player)
                 const isPaused = getPlayerBooleanValue(player, "is_paused")
@@ -196,12 +197,14 @@ export const ServerCard = memo(function ServerCard({
                         style={{ width: `${progress}%` }}
                       />
                     ) : null}
-                    <Avatar className="relative z-10 h-4 w-4">
-                      <AvatarImage src={avatarUrl || undefined} alt={name} />
-                      <AvatarFallback className="bg-zinc-600 text-[9px] text-white">
-                        {getInitials(name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    {steamid64 ? (
+                      <Avatar className="relative z-10 h-4 w-4">
+                        <AvatarImage src={avatarUrl || undefined} alt={name} />
+                        <AvatarFallback className="bg-zinc-600 text-[9px] text-white">
+                          {getInitials(name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : null}
                     <span className="relative z-10 min-w-0 truncate">
                       {mode ? (
                         <span className="mr-1 text-gray-500">[{mode}]</span>

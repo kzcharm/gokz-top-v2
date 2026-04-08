@@ -20,7 +20,7 @@ import {
 } from "react"
 
 import { type ServerPublic, ServersService } from "@/client"
-import { CountryFlag } from "@/components/Common/CountryFlag"
+import { RegionBadge } from "@/components/Common/RegionFlag"
 import { AddServerButton } from "@/components/Servers/AddServerButton"
 import { PendingServers } from "@/components/Servers/PendingServers"
 import { ServerCard } from "@/components/Servers/ServerCard"
@@ -39,6 +39,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import useCustomToast from "@/hooks/useCustomToast"
+import { getRegionsQueryOptions } from "@/lib/regions"
 import { cn } from "@/lib/utils"
 
 import type {
@@ -52,7 +53,7 @@ import {
   countOnlinePlayers,
   countOnlineServers,
   createServersSearchParams,
-  getCountryCounts,
+  getRegionCounts,
   getSelectedServerAddress,
   getServerAddress,
   matchesServerSearch,
@@ -130,6 +131,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     refetchOnWindowFocus: false,
     retry: 1,
   })
+  const regionsQuery = useQuery(getRegionsQueryOptions())
 
   useEffect(() => {
     startTransition(() => {
@@ -257,23 +259,23 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
       }
 
       if (
-        search.country !== "all" &&
-        server.country?.toUpperCase() !== search.country
+        search.region !== "all" &&
+        server.region?.toUpperCase() !== search.region
       ) {
         return false
       }
 
       return matchesServerSearch(server, deferredSearchInput)
     })
-  }, [deferredSearchInput, search.country, search.status, servers])
+  }, [deferredSearchInput, search.region, search.status, servers])
 
   const sortedServers = useMemo(
     () => sortServers(filteredServers, search.sort, search.dir),
     [filteredServers, search.dir, search.sort],
   )
 
-  const countryOptions = useMemo(
-    () => getCountryCounts(servers, search.status),
+  const regionOptions = useMemo(
+    () => getRegionCounts(servers, search.status),
     [search.status, servers],
   )
   const onlinePlayerCount = useMemo(
@@ -514,13 +516,13 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
           </div>
         </div>
 
-        {countryOptions.length > 0 ? (
+        {regionOptions.length > 0 ? (
           <div className="rounded-md border px-6 py-4">
             <div className="flex flex-wrap items-center gap-2">
               <Button
-                variant={search.country === "all" ? "default" : "outline"}
+                variant={search.region === "all" ? "default" : "outline"}
                 size="sm"
-                onClick={() => handleSearchPatch({ country: "all" })}
+                onClick={() => handleSearchPatch({ region: "all" })}
               >
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   <span>All</span>
@@ -533,25 +535,27 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                   </span>
                 </div>
               </Button>
-              {countryOptions.map(([countryCode, count]) => (
-                <Button
-                  key={countryCode}
-                  variant={
-                    search.country === countryCode ? "default" : "outline"
-                  }
-                  size="sm"
-                  onClick={() => handleSearchPatch({ country: countryCode })}
-                >
-                  <div className="flex items-center gap-2 whitespace-nowrap">
-                    <CountryFlag
-                      countryCode={countryCode}
-                      showTooltip={false}
-                    />
-                    <span>{countryCode}</span>
-                    <span className="text-xs opacity-80">({count})</span>
-                  </div>
-                </Button>
-              ))}
+              {regionOptions.map(([regionCode, count]) => {
+                const region =
+                  regionsQuery.data?.find((option) => option.code === regionCode) ??
+                  null
+                return (
+                  <Button
+                    key={regionCode}
+                    variant={search.region === regionCode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleSearchPatch({ region: regionCode })}
+                  >
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <RegionBadge
+                        regionCode={regionCode}
+                        regionName={region?.name}
+                      />
+                      <span className="text-xs opacity-80">({count})</span>
+                    </div>
+                  </Button>
+                )
+              })}
             </div>
           </div>
         ) : null}

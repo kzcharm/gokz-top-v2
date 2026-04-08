@@ -2,7 +2,6 @@ import { Copy, LoaderCircle, Play } from "lucide-react"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
-import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { ServerPlayerList } from "@/components/Servers/ServerPlayerList"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +19,6 @@ import {
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
-  getServerLocation,
   getServerMapImageUrl,
   getServerMapName,
   getServerPlayerCount,
@@ -38,17 +36,6 @@ interface ServerDetailSheetProps {
   onSteamConnect: (server: ServerPublic) => void
 }
 
-function DetailCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border bg-muted/20 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 break-words text-sm font-medium">{value}</p>
-    </div>
-  )
-}
-
 export function ServerDetailSheet({
   open,
   serverAddress,
@@ -57,10 +44,16 @@ export function ServerDetailSheet({
   onCopyAddress,
   onSteamConnect,
 }: ServerDetailSheetProps) {
-  const { formatDateTime } = useDateTimeFormat()
   const mapName = server ? getServerMapName(server) : null
   const mapImageUrl = getServerMapImageUrl(mapName)
   const isRefreshing = server ? isServerStatusRefreshing(server) : false
+  const subtitleParts = server
+    ? [
+        getServerAddress(server),
+        server.group?.name || null,
+        server.city || null,
+      ].filter(Boolean)
+    : []
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,8 +87,7 @@ export function ServerDetailSheet({
                 ) : null}
               </DialogTitle>
               <DialogDescription>
-                {server.group?.name ? `${server.group.name} • ` : ""}
-                {getServerAddress(server)}
+                {subtitleParts.join(" | ")}
               </DialogDescription>
             </DialogHeader>
 
@@ -125,25 +117,6 @@ export function ServerDetailSheet({
                 </div>
               ) : null}
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailCard label="Endpoint" value={getServerAddress(server)} />
-                <DetailCard
-                  label="Last update"
-                  value={formatDateTime(server.live_status?.updated_at, {
-                    fallback: "Unknown",
-                    display: "relative",
-                  })}
-                />
-                <DetailCard
-                  label="Group"
-                  value={server.group?.name || "Unassigned"}
-                />
-                <DetailCard
-                  label="Location"
-                  value={getServerLocation(server) || "Unknown"}
-                />
-              </div>
-
               <div className="flex flex-wrap justify-center gap-2">
                 <Button
                   type="button"
@@ -151,7 +124,7 @@ export function ServerDetailSheet({
                   onClick={() => onCopyAddress(server)}
                 >
                   <Copy className="mr-2 h-4 w-4" />
-                  Copy connect command
+                  Copy IP
                 </Button>
                 <Button
                   type="button"
@@ -159,7 +132,7 @@ export function ServerDetailSheet({
                   disabled={!isServerOnline(server)}
                 >
                   <Play className="mr-2 h-4 w-4" />
-                  Connect via Steam
+                  Connect
                 </Button>
               </div>
 

@@ -10,6 +10,7 @@ const seedServers = {
       id: "019d1111-1111-7111-8111-111111111111",
       ip: "10.0.0.1",
       port: 27015,
+      region: "NA",
       enabled: true,
       configured_hostname: "Alpha Seed",
       country: "US",
@@ -44,6 +45,7 @@ const snapshotServers = {
       id: "019d2222-2222-7222-8222-222222222222",
       ip: "10.0.0.2",
       port: 27016,
+      region: "EU",
       enabled: true,
       configured_hostname: "Bravo Offline",
       country: "DE",
@@ -74,6 +76,7 @@ const snapshotServers = {
       id: "019d3333-3333-7333-8333-333333333333",
       ip: "10.0.0.3",
       port: 27017,
+      region: "EU",
       enabled: true,
       configured_hostname: "Gamma Live",
       country: "DE",
@@ -120,6 +123,7 @@ const updatedGammaServer = {
     id: "019d3333-3333-7333-8333-333333333333",
     ip: "10.0.0.3",
     port: 27017,
+    region: "EU",
     enabled: true,
     configured_hostname: "Gamma Live Updated",
     country: "DE",
@@ -159,6 +163,7 @@ const addedServer = {
   id: "019d4444-4444-7444-8444-444444444444",
   ip: "10.0.0.4",
   port: 27018,
+  region: "EU",
   enabled: true,
   configured_hostname: "Delta Added",
   country: "FR",
@@ -262,6 +267,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /All/ })).toBeVisible()
 
   await page.waitForFunction(() => {
     return (
@@ -291,7 +297,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await page.getByRole("button", { name: "Online" }).click()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toBeVisible()
 
-  await page.getByRole("button", { name: /DE/ }).click()
+  await page.getByRole("button", { name: /Europe/ }).click()
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
@@ -314,8 +320,8 @@ test("Public servers page supports live updates, filters, and route-bound detail
     .poll(() => new URL(page.url()).searchParams.get("status"))
     .toBe("all")
   await expect
-    .poll(() => new URL(page.url()).searchParams.get("country"))
-    .toBe("DE")
+    .poll(() => new URL(page.url()).searchParams.get("region"))
+    .toBe("EU")
   await expect
     .poll(() => new URL(page.url()).searchParams.get("view"))
     .toBeNull()

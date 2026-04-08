@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.regions import get_region_code_for_country, get_region_country_codes
 from app.models import (
     Map,
     Server,
@@ -103,6 +104,7 @@ def to_server_public(*, server: Server) -> ServerPublic:
         status=server.status,
         country=server.country,
         city=server.city,
+        region=get_region_code_for_country(server.country),
         source=server.source,
         last_discovered_at=server.last_discovered_at,
         map_tier=server.__dict__.get("map_tier"),
@@ -344,6 +346,12 @@ async def read_servers(
         statement = statement.where(col(Server.group_id) == query.group_id)
     if query.country:
         statement = statement.where(col(Server.country) == query.country.upper())
+    if query.region:
+        region_country_codes = get_region_country_codes(query.region)
+        if region_country_codes is not None:
+            statement = statement.where(col(Server.country).in_(list(region_country_codes)))
+        else:
+            return [], 0
     if query.city:
         statement = statement.where(col(Server.city) == query.city)
     if query.source_type is not None:

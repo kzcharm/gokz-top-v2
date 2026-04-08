@@ -1,5 +1,6 @@
 import { OpenAPI, type ServerPublic } from "@/client"
 import { getCountryName } from "@/components/Common/CountryFlag"
+import { getRegionName } from "@/components/Common/RegionFlag"
 
 import { normalizeTierValue } from "./tier"
 
@@ -12,7 +13,7 @@ export type ServerPlayer = Record<string, unknown>
 export interface ServersSearchState {
   q: string
   status: ServerStatusFilter
-  country: string
+  region: string
   view: ServerViewMode
   sort: ServerSortKey
   dir: ServerSortDirection
@@ -31,7 +32,7 @@ export type ServerRealtimeEvent =
 export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
   q: "",
   status: "online",
-  country: "all",
+  region: "all",
   view: "grid",
   sort: "players",
   dir: "desc",
@@ -67,10 +68,8 @@ function isServerSortDirection(value: unknown): value is ServerSortDirection {
 export function normalizeServersSearch(
   search: Record<string, unknown>,
 ): ServersSearchState {
-  const rawCountry =
-    typeof search.country === "string"
-      ? search.country.trim().toUpperCase()
-      : ""
+  const rawRegion =
+    typeof search.region === "string" ? search.region.trim().toUpperCase() : ""
   const rawStatus =
     typeof search.status === "string" ? search.status.trim().toLowerCase() : ""
 
@@ -82,10 +81,10 @@ export function normalizeServersSearch(
         : isServerStatusFilter(rawStatus)
           ? rawStatus
           : DEFAULT_SERVERS_SEARCH.status,
-    country:
-      rawCountry && rawCountry !== "ALL"
-        ? rawCountry
-        : DEFAULT_SERVERS_SEARCH.country,
+    region:
+      rawRegion && rawRegion !== "ALL"
+        ? rawRegion
+        : DEFAULT_SERVERS_SEARCH.region,
     view: isServerViewMode(search.view)
       ? search.view
       : DEFAULT_SERVERS_SEARCH.view,
@@ -109,7 +108,7 @@ export function createServersSearchParams(
   const entries = [
     ["q", normalizedSearch.q, DEFAULT_SERVERS_SEARCH.q],
     ["status", normalizedSearch.status, DEFAULT_SERVERS_SEARCH.status],
-    ["country", normalizedSearch.country, DEFAULT_SERVERS_SEARCH.country],
+    ["region", normalizedSearch.region, DEFAULT_SERVERS_SEARCH.region],
     ["view", normalizedSearch.view, DEFAULT_SERVERS_SEARCH.view],
     ["sort", normalizedSearch.sort, DEFAULT_SERVERS_SEARCH.sort],
     ["dir", normalizedSearch.dir, DEFAULT_SERVERS_SEARCH.dir],
@@ -222,6 +221,8 @@ export function matchesServerSearch(server: ServerPublic, rawQuery: string) {
     server.city,
     server.country,
     getCountryName(server.country),
+    server.region,
+    getRegionName(server.region),
     server.group?.name,
   ]
 
@@ -281,7 +282,7 @@ export function countOnlinePlayers(servers: ServerPublic[]) {
   }, 0)
 }
 
-export function getCountryCounts(
+export function getRegionCounts(
   servers: ServerPublic[],
   statusFilter: ServerStatusFilter,
 ) {
@@ -292,12 +293,12 @@ export function getCountryCounts(
       continue
     }
 
-    const country = server.country?.toUpperCase()
-    if (!country) {
+    const region = server.region?.toUpperCase()
+    if (!region) {
       continue
     }
 
-    counts.set(country, (counts.get(country) || 0) + 1)
+    counts.set(region, (counts.get(region) || 0) + 1)
   }
 
   return Array.from(counts.entries()).sort((left, right) =>

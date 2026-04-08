@@ -350,6 +350,7 @@ export type ServerPublic = {
     city?: (string | null);
     id: string;
     group_id?: (string | null);
+    region?: (string | null);
     source: {
         [key: string]: unknown;
     };
@@ -714,6 +715,7 @@ export type ServersReadServersData = {
     limit?: number;
     offset?: number;
     online?: (boolean | null);
+    region?: (string | null);
     sourceType?: (ServerSource | null);
 };
 

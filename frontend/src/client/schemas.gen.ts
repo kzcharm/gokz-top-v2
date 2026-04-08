@@ -1734,6 +1734,17 @@ export const ServerPublicSchema = {
             ],
             title: 'Group Id'
         },
+        region: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Region'
+        },
         source: {
             additionalProperties: true,
             type: 'object',
