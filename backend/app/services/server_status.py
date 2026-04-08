@@ -18,7 +18,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
-from app.models import ServerGroupStatus, ServerStatusPut
+from app.models import ServerGroupStatus, ServerStatus, ServerStatusPut
 
 SERVER_PLUGIN_FRESH_SECONDS = 5
 SERVER_A2S_POLL_SECONDS = 10
@@ -702,8 +702,8 @@ async def put_server_status_from_plugin(
         )
         if server is None:
             raise ServerQueryError("Server not found")
-        if not server.enabled:
-            raise ServerQueryError("Server is disabled")
+        if server.status != ServerStatus.ENABLED:
+            raise ServerQueryError("Server is not enabled")
         if server.group_id != group.id:
             raise ServerQueryError("Server does not belong to this group")
 

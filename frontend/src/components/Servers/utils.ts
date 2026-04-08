@@ -129,23 +129,21 @@ export function getServerAddress(server: ServerPublic) {
 }
 
 export function getServerHostname(server: ServerPublic) {
-  return (
-    server.status?.current_hostname?.trim() ||
-    server.configured_hostname?.trim() ||
-    getServerAddress(server)
-  )
+  return server.live_status?.hostname?.trim() || getServerAddress(server)
 }
 
 export function getServerMapName(server: ServerPublic) {
-  return server.status?.map?.trim() || null
+  return server.live_status?.map?.trim() || null
 }
 
 export function getServerPlayers(server: ServerPublic) {
-  return Array.isArray(server.status?.players) ? server.status.players : []
+  return Array.isArray(server.live_status?.players)
+    ? server.live_status.players
+    : []
 }
 
 export function isServerOnline(server: ServerPublic) {
-  return server.status?.is_online ?? false
+  return server.live_status?.is_online ?? false
 }
 
 export function matchesServerStatusFilter(
@@ -158,11 +156,11 @@ export function matchesServerStatusFilter(
 }
 
 export function getServerPlayerCount(server: ServerPublic) {
-  return server.status?.player_count ?? 0
+  return server.live_status?.player_count ?? 0
 }
 
 export function getServerMaxPlayers(server: ServerPublic) {
-  return server.status?.max_players ?? 0
+  return server.live_status?.max_players ?? 0
 }
 
 export function isServerStatusRefreshing(server: ServerPublic) {
@@ -170,8 +168,8 @@ export function isServerStatusRefreshing(server: ServerPublic) {
     return false
   }
 
-  const lastA2SSeenAt = server.status?.last_a2s_seen_at
-  const lastSuccessfulSeenAt = server.status?.last_successful_seen_at
+  const lastA2SSeenAt = server.live_status?.last_a2s_seen_at
+  const lastSuccessfulSeenAt = server.live_status?.last_successful_seen_at
   if (!lastA2SSeenAt || !lastSuccessfulSeenAt) {
     return false
   }
@@ -220,7 +218,6 @@ export function matchesServerSearch(server: ServerPublic, rawQuery: string) {
     server.ip,
     String(server.port),
     getServerHostname(server),
-    server.configured_hostname,
     getServerMapName(server),
     server.city,
     server.country,

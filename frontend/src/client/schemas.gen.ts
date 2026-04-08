@@ -1287,10 +1287,9 @@ export const ServerCreateSchema = {
             minimum: 1,
             title: 'Port'
         },
-        enabled: {
-            type: 'boolean',
-            title: 'Enabled',
-            default: true
+        status: {
+            '$ref': '#/components/schemas/ServerStatus',
+            default: 'enabled'
         },
         country: {
             anyOf: [
@@ -1581,7 +1580,7 @@ export const ServerHistoryPublicSchema = {
 
 export const ServerLiveStatusPublicSchema = {
     properties: {
-        current_hostname: {
+        hostname: {
             anyOf: [
                 {
                     type: 'string',
@@ -1591,7 +1590,7 @@ export const ServerLiveStatusPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Current Hostname'
+            title: 'Hostname'
         },
         map: {
             anyOf: [
@@ -1690,22 +1689,9 @@ export const ServerPublicSchema = {
             minimum: 1,
             title: 'Port'
         },
-        enabled: {
-            type: 'boolean',
-            title: 'Enabled',
-            default: true
-        },
-        configured_hostname: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Configured Hostname'
+        status: {
+            '$ref': '#/components/schemas/ServerStatus',
+            default: 'enabled'
         },
         country: {
             anyOf: [
@@ -1749,7 +1735,9 @@ export const ServerPublicSchema = {
             title: 'Group Id'
         },
         source: {
-            '$ref': '#/components/schemas/ServerSource'
+            additionalProperties: true,
+            type: 'object',
+            title: 'Source'
         },
         last_discovered_at: {
             anyOf: [
@@ -1794,7 +1782,7 @@ export const ServerPublicSchema = {
                 }
             ]
         },
-        status: {
+        live_status: {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/ServerLiveStatusPublic'
@@ -1814,6 +1802,12 @@ export const ServerSourceSchema = {
     type: 'string',
     enum: ['manual', 'steam_master'],
     title: 'ServerSource'
+} as const;
+
+export const ServerStatusSchema = {
+    type: 'string',
+    enum: ['enabled', 'invalid', 'disabled'],
+    title: 'ServerStatus'
 } as const;
 
 export const ServerStatusPutSchema = {
@@ -1911,28 +1905,15 @@ export const ServerUpdateSchema = {
             ],
             title: 'Port'
         },
-        enabled: {
+        status: {
             anyOf: [
                 {
-                    type: 'boolean'
+                    '$ref': '#/components/schemas/ServerStatus'
                 },
                 {
                     type: 'null'
                 }
-            ],
-            title: 'Enabled'
-        },
-        configured_hostname: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 255
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Configured Hostname'
+            ]
         },
         country: {
             anyOf: [

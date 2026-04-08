@@ -47,7 +47,7 @@ export const ServerCard = memo(function ServerCard({
   const mapName = getServerMapName(server)
   const mapImageUrl = useMemo(() => getServerMapImageUrl(mapName), [mapName])
   const playerCount = getServerPlayerCount(server)
-  const maxPlayers = server.status?.max_players ?? 0
+  const maxPlayers = server.live_status?.max_players ?? 0
   const isFull = maxPlayers > 0 && playerCount >= maxPlayers
   const isEmpty = playerCount === 0
   const offline = !isServerOnline(server)
@@ -147,7 +147,6 @@ export const ServerCard = memo(function ServerCard({
               <span
                 className="inline-flex shrink-0 items-center text-muted-foreground"
                 title="Refreshing server status"
-                aria-label="Refreshing server status"
               >
                 <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
               </span>

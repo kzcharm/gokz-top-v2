@@ -9,7 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.crud import server as server_crud
-from app.models import Server, ServerSource, ServerStatusPut
+from app.models import Server, ServerSource, ServerStatus, ServerStatusPut
 from app.services import server_status
 from app.services.geoip import GeoIPLocation
 from app.services.server_status import (
@@ -237,7 +237,7 @@ async def test_run_server_discovery_cycle_only_tracks_supported_kz_prefixes(
     result = await server_status.run_server_discovery_cycle()
 
     statement = select(Server).where(
-        col(Server.source) == ServerSource.STEAM_MASTER,
+        Server.source["type"].astext == ServerSource.STEAM_MASTER.value,
         col(Server.ip).in_(("127.10.0.1", "127.10.0.2")),
     )
     servers = list((await db.exec(statement)).all())
@@ -246,11 +246,8 @@ async def test_run_server_discovery_cycle_only_tracks_supported_kz_prefixes(
     assert result.upserted_count == 2
     assert len(servers) == 2
     assert {server.ip for server in servers} == {"127.10.0.1", "127.10.0.2"}
-    assert all(server.enabled is True for server in servers)
-    assert {server.configured_hostname for server in servers} == {
-        "KZ Server",
-        "BKZ Server",
-    }
+    assert all(server.status == ServerStatus.ENABLED for server in servers)
+    assert {server.source["type"] for server in servers} == {"steam_master"}
     assert all(server.country == "SE" for server in servers)
     assert all(server.city == "Stockholm" for server in servers)
 
@@ -463,7 +460,7 @@ async def test_run_server_a2s_refresh_cycle_updates_stale_players(
     refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
     assert refreshed is not None
     assert refreshed.live_status is not None
-    assert refreshed.live_status.current_hostname == "Refreshed Host"
+    assert refreshed.live_status.hostname == "Refreshed Host"
     assert refreshed.live_status.map == "kz_refresh"
     assert refreshed.live_status.player_count == 2
     assert refreshed.live_status.players == [
@@ -575,11 +572,12 @@ async def test_run_server_a2s_refresh_cycle_marks_server_offline_after_three_fai
 
     refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
     assert refreshed is not None
+    assert refreshed.status == ServerStatus.INVALID
     assert refreshed.live_status is not None
     assert refreshed.live_status.is_online is False
     assert refreshed.live_status.player_count == 0
     assert refreshed.live_status.players == []
-    assert refreshed.live_status.current_hostname == "Test Server"
+    assert refreshed.live_status.hostname == "Test Server"
 
 
 async def test_run_server_a2s_refresh_cycle_skips_server_with_inflight_query(

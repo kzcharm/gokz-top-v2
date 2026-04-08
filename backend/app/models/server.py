@@ -21,6 +21,12 @@ class ServerSource(StrEnum):
     STEAM_MASTER = "steam_master"
 
 
+class ServerStatus(StrEnum):
+    ENABLED = "enabled"
+    INVALID = "invalid"
+    DISABLED = "disabled"
+
+
 class ServerHeartbeatSource(StrEnum):
     PLUGIN = "plugin"
     A2S = "a2s"
@@ -88,8 +94,7 @@ class ServerGroup(ServerGroupBase, table=True):
 class ServerBase(SQLModel):
     ip: str = Field(min_length=1, max_length=64)
     port: int = Field(ge=1, le=65535)
-    enabled: bool = True
-    configured_hostname: str | None = Field(default=None, max_length=255)
+    status: ServerStatus = ServerStatus.ENABLED
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
 
@@ -98,7 +103,7 @@ class ServerCreate(SQLModel):
     group_id: uuid.UUID | None = None
     ip: str = Field(min_length=1, max_length=64)
     port: int = Field(ge=1, le=65535)
-    enabled: bool = True
+    status: ServerStatus = ServerStatus.ENABLED
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
 
@@ -107,8 +112,7 @@ class ServerUpdate(SQLModel):
     group_id: uuid.UUID | None = None
     ip: str | None = Field(default=None, min_length=1, max_length=64)
     port: int | None = Field(default=None, ge=1, le=65535)
-    enabled: bool | None = None
-    configured_hostname: str | None = Field(default=None, max_length=255)
+    status: ServerStatus | None = None
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
 
@@ -117,7 +121,7 @@ class Server(ServerBase, table=True):
     __tablename__ = "server"  # type: ignore[assignment]
     __table_args__ = (
         Index("ix_server_group_id", "group_id"),
-        Index("ix_server_enabled", "enabled"),
+        Index("ix_server_status", "status"),
         Index("uq_server_ip_port", "ip", "port", unique=True),
     )
 
@@ -127,16 +131,20 @@ class Server(ServerBase, table=True):
         foreign_key="server_group.id",
         ondelete="SET NULL",
     )
-    source: ServerSource = Field(
-        default=ServerSource.MANUAL,
+    status: ServerStatus = Field(
+        default=ServerStatus.ENABLED,
         sa_column=Column(
             SQLAlchemyEnum(
-                ServerSource,
-                name="server_source",
+                ServerStatus,
+                name="server_status",
                 values_callable=_enum_values,
             ),
             nullable=False,
         ),
+    )
+    source: dict[str, Any] = Field(
+        default_factory=lambda: {"type": ServerSource.MANUAL.value},
+        sa_column=Column(JSONB, nullable=False),
     )
     last_discovered_at: datetime | None = Field(
         default=None,
@@ -159,7 +167,7 @@ class Server(ServerBase, table=True):
 
 
 class ServerLiveStatusBase(SQLModel):
-    current_hostname: str | None = Field(default=None, max_length=255)
+    hostname: str | None = Field(default=None, max_length=255)
     map: str | None = Field(default=None, max_length=255)
     player_count: int = Field(default=0, ge=0)
     max_players: int = Field(default=0, ge=0)
@@ -260,13 +268,13 @@ class ServerLiveStatusPublic(ServerLiveStatusBase):
 class ServerPublic(ServerBase):
     id: uuid.UUID
     group_id: uuid.UUID | None = None
-    source: ServerSource
+    source: dict[str, Any]
     last_discovered_at: datetime | None = None
     map_tier: int | None = None
     created_at: datetime
     updated_at: datetime
     group: ServerGroupSummary | None = None
-    status: ServerLiveStatusPublic | None = None
+    live_status: ServerLiveStatusPublic | None = None
 
 
 class ServersPublic(SQLModel):
@@ -300,7 +308,7 @@ class ServerListQuery(SQLModel):
     group_id: uuid.UUID | None = None
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
-    source: ServerSource | None = None
+    source_type: ServerSource | None = None
 
 
 class ServerHistoryQuery(SQLModel):
@@ -392,6 +400,7 @@ __all__ = [
     "ServerPublic",
     "ServerSnapshotEvent",
     "ServersPublic",
+    "ServerStatus",
     "ServerSource",
     "ServerStatusPut",
     "ServerUpdate",

@@ -260,7 +260,7 @@ export type ServerCreate = {
     group_id?: (string | null);
     ip: string;
     port: number;
-    enabled?: boolean;
+    status?: ServerStatus;
     country?: (string | null);
     city?: (string | null);
 };
@@ -328,7 +328,7 @@ export type ServerHistoryPublic = {
 };
 
 export type ServerLiveStatusPublic = {
-    current_hostname?: (string | null);
+    hostname?: (string | null);
     map?: (string | null);
     player_count?: number;
     max_players?: number;
@@ -345,19 +345,20 @@ export type ServerLiveStatusPublic = {
 export type ServerPublic = {
     ip: string;
     port: number;
-    enabled?: boolean;
-    configured_hostname?: (string | null);
+    status?: ServerStatus;
     country?: (string | null);
     city?: (string | null);
     id: string;
     group_id?: (string | null);
-    source: ServerSource;
+    source: {
+        [key: string]: unknown;
+    };
     last_discovered_at?: (string | null);
     map_tier?: (number | null);
     created_at: string;
     updated_at: string;
     group?: (ServerGroupSummary | null);
-    status?: (ServerLiveStatusPublic | null);
+    live_status?: (ServerLiveStatusPublic | null);
 };
 
 export type ServerSource = 'manual' | 'steam_master';
@@ -366,6 +367,8 @@ export type ServersPublic = {
     data: Array<ServerPublic>;
     count: number;
 };
+
+export type ServerStatus = 'enabled' | 'invalid' | 'disabled';
 
 export type ServerStatusPut = {
     ip: string;
@@ -384,8 +387,7 @@ export type ServerUpdate = {
     group_id?: (string | null);
     ip?: (string | null);
     port?: (number | null);
-    enabled?: (boolean | null);
-    configured_hostname?: (string | null);
+    status?: (ServerStatus | null);
     country?: (string | null);
     city?: (string | null);
 };
@@ -712,7 +714,7 @@ export type ServersReadServersData = {
     limit?: number;
     offset?: number;
     online?: (boolean | null);
-    source?: (ServerSource | null);
+    sourceType?: (ServerSource | null);
 };
 
 export type ServersReadServersResponse = (ServersPublic);
