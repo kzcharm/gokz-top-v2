@@ -31,6 +31,13 @@ const TROPHY_ASSETS = {
   bronze: "https://kzgo.eu/trophy_bronze.png",
 } as const
 
+function PaddedAverageNumber({ value }: { value: number }) {
+  const formattedValue = formatNumber(value)
+  const paddedValue = formattedValue.padStart(3, "0")
+
+  return <span className="font-mono tabular-nums">{paddedValue}</span>
+}
+
 function MainSummaryCard({
   label,
   loading,
@@ -69,18 +76,19 @@ function CompletionCard({
     complete: number
     total: number
     color: string
+    averagePoints: number
   }>
   trophies: ProfileTrophyCounts
 }) {
   return (
     <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
-        <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-end">
-          <div className="text-center md:col-start-2">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               {title}
             </p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-4">
+            <div className="mt-3 flex flex-wrap items-center gap-4">
               {(["gold", "silver", "bronze"] as const).map((trophy) => (
                 <div key={trophy} className="flex items-center gap-2">
                   <img
@@ -95,7 +103,7 @@ function CompletionCard({
               ))}
             </div>
           </div>
-          <p className="text-sm text-muted-foreground md:col-start-3 md:justify-self-end">
+          <p className="text-sm text-muted-foreground md:justify-self-end">
             {formatNumber(completed)} / {formatNumber(total)}
           </p>
         </div>
@@ -105,10 +113,12 @@ function CompletionCard({
             return (
               <div
                 key={tier.label}
-                className="grid grid-cols-[38px_minmax(0,1fr)_68px] items-center gap-3"
+                className="grid grid-cols-[80px_minmax(0,1fr)_58px] items-center gap-3"
               >
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {tier.label}
+                <span className="text-right text-xs font-semibold text-muted-foreground">
+                  {tier.label} (avg{" "}
+                  <PaddedAverageNumber value={tier.averagePoints} />
+                  )
                 </span>
                 <div className="h-5 overflow-hidden rounded-full bg-muted">
                   <div
@@ -116,7 +126,7 @@ function CompletionCard({
                     style={{ width, backgroundColor: tier.color }}
                   />
                 </div>
-                <span className="text-right font-mono text-xs text-muted-foreground">
+                <span className="text-left font-mono text-xs tabular-nums text-muted-foreground">
                   {tier.complete}/{tier.total}
                 </span>
               </div>
