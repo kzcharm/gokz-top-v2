@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import DateTime, Index, PrimaryKeyConstraint
+from sqlalchemy import BigInteger, DateTime, Index, PrimaryKeyConstraint
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Column, Field, Relationship, SQLModel
@@ -27,6 +27,12 @@ class ServerHeartbeatSource(StrEnum):
     OFFLINE_MARK = "offline_mark"
 
 
+class ServerGroupStatus(StrEnum):
+    PENDING = "pending"
+    VALIDATED = "validated"
+    INVALIDATED = "invalidated"
+
+
 class ServerGroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
 
@@ -37,18 +43,33 @@ class ServerGroupCreate(ServerGroupBase):
 
 class ServerGroupUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    status: ServerGroupStatus | None = None
 
 
 class ServerGroup(ServerGroupBase, table=True):
     __tablename__ = "server_group"  # type: ignore[assignment]
-    __table_args__ = (Index("uq_server_group_name", "name", unique=True),)
+    __table_args__ = (
+        Index("uq_server_group_name", "name", unique=True),
+        Index("uq_server_group_api_key", "api_key", unique=True),
+    )
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
-    api_key_hash: str = Field(max_length=255)
-    api_key_prefix: str = Field(max_length=12)
-    api_key_created_at: datetime = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+    api_key: str = Field(max_length=36)
+    owner_steamid64: int | None = Field(
+        default=None,
+        foreign_key="user.steamid64",
+        sa_type=BigInteger,
+    )
+    status: ServerGroupStatus = Field(
+        default=ServerGroupStatus.PENDING,
+        sa_column=Column(
+            SQLAlchemyEnum(
+                ServerGroupStatus,
+                name="server_group_status",
+                values_callable=_enum_values,
+            ),
+            nullable=False,
+        ),
     )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
@@ -255,8 +276,8 @@ class ServersPublic(SQLModel):
 
 class ServerGroupPublic(ServerGroupBase):
     id: uuid.UUID
-    api_key_prefix: str
-    api_key_created_at: datetime
+    owner_steamid64: str | None = None
+    status: ServerGroupStatus
     server_count: int = 0
     created_at: datetime
     updated_at: datetime

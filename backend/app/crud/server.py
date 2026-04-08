@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import secrets
 import uuid
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
@@ -12,13 +11,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.security import get_password_hash, verify_password
 from app.models import (
     Map,
     Server,
     ServerCreate,
     ServerGroup,
     ServerGroupCreate,
+    ServerGroupStatus,
     ServerGroupSummary,
     ServerGroupUpdate,
     ServerHeartbeatRaw,
@@ -37,7 +36,6 @@ from app.models import (
 from app.services.geoip import lookup_geoip_city
 
 SERVER_STATUS_NOTIFY_CHANNEL = "server_status_updates"
-SERVER_GROUP_KEY_PREFIX_LENGTH = 12
 
 
 def _normalize_server_location_value(value: str | None) -> str | None:
@@ -118,10 +116,23 @@ def to_server_public(*, server: Server) -> ServerPublic:
     )
 
 
-def generate_server_group_api_key() -> tuple[str, str, str]:
-    api_key = secrets.token_urlsafe(32)
-    api_key_prefix = api_key[:SERVER_GROUP_KEY_PREFIX_LENGTH]
-    return api_key, api_key_prefix, get_password_hash(api_key)
+def generate_server_group_api_key() -> str:
+    return str(uuid.uuid4())
+
+
+def _should_auto_validate_server_group(
+    *,
+    group: ServerGroup | None,
+    server: Server,
+) -> bool:
+    # The current autopilot rule validates on the first accepted plugin heartbeat
+    # from an enabled server that belongs to the pending group.
+    return (
+        group is not None
+        and group.status == ServerGroupStatus.PENDING
+        and server.enabled
+        and server.group_id == group.id
+    )
 
 
 async def notify_server_status_updated(
@@ -148,21 +159,20 @@ async def get_server_group_by_api_key(
     session: AsyncSession,
     api_key: str,
 ) -> ServerGroup | None:
-    api_key_prefix = api_key[:SERVER_GROUP_KEY_PREFIX_LENGTH]
-    statement = select(ServerGroup).where(ServerGroup.api_key_prefix == api_key_prefix)
-    groups = list((await session.exec(statement)).all())
-    for group in groups:
-        is_valid, updated_hash = verify_password(api_key, group.api_key_hash)
-        if not is_valid:
-            continue
-        if updated_hash:
-            group.api_key_hash = updated_hash
-            group.updated_at = get_datetime_utc()
-            session.add(group)
-            await session.commit()
-            await session.refresh(group)
-        return group
-    return None
+    statement = select(ServerGroup).where(ServerGroup.api_key == api_key)
+    return (await session.exec(statement)).first()
+
+
+async def owner_has_invalidated_server_group(
+    *,
+    session: AsyncSession,
+    owner_steamid64: int,
+) -> bool:
+    statement = select(ServerGroup.id).where(
+        ServerGroup.owner_steamid64 == owner_steamid64,
+        ServerGroup.status == ServerGroupStatus.INVALIDATED,
+    )
+    return (await session.exec(statement)).first() is not None
 
 
 async def read_server_groups(
@@ -185,14 +195,21 @@ async def create_server_group(
     *,
     session: AsyncSession,
     group_in: ServerGroupCreate,
+    owner_steamid64: int,
 ) -> tuple[ServerGroup, str]:
-    api_key, api_key_prefix, api_key_hash = generate_server_group_api_key()
+    if await owner_has_invalidated_server_group(
+        session=session,
+        owner_steamid64=owner_steamid64,
+    ):
+        raise ValueError("Server group owner is permanently blocked")
+
+    api_key = generate_server_group_api_key()
     now = get_datetime_utc()
     group = ServerGroup(
         name=group_in.name,
-        api_key_hash=api_key_hash,
-        api_key_prefix=api_key_prefix,
-        api_key_created_at=now,
+        api_key=api_key,
+        owner_steamid64=owner_steamid64,
+        status=ServerGroupStatus.PENDING,
         created_at=now,
         updated_at=now,
     )
@@ -213,9 +230,23 @@ async def update_server_group(
     group_in: ServerGroupUpdate,
 ) -> ServerGroup:
     group_data = group_in.model_dump(exclude_unset=True)
+    previous_status = group.status
     group.sqlmodel_update(group_data)
-    group.updated_at = get_datetime_utc()
+    now = get_datetime_utc()
+    group.updated_at = now
     session.add(group)
+    if (
+        previous_status != ServerGroupStatus.INVALIDATED
+        and group.status == ServerGroupStatus.INVALIDATED
+    ):
+        statement = select(Server).where(Server.group_id == group.id)
+        servers = list((await session.exec(statement)).all())
+        for server in servers:
+            if not server.enabled:
+                continue
+            server.enabled = False
+            server.updated_at = now
+            session.add(server)
     try:
         await session.commit()
     except IntegrityError as exc:
@@ -242,11 +273,9 @@ async def rotate_server_group_api_key(
     session: AsyncSession,
     group: ServerGroup,
 ) -> tuple[ServerGroup, str]:
-    api_key, api_key_prefix, api_key_hash = generate_server_group_api_key()
+    api_key = generate_server_group_api_key()
     now = get_datetime_utc()
-    group.api_key_hash = api_key_hash
-    group.api_key_prefix = api_key_prefix
-    group.api_key_created_at = now
+    group.api_key = api_key
     group.updated_at = now
     session.add(group)
     try:
@@ -259,13 +288,22 @@ async def rotate_server_group_api_key(
 
 
 async def get_server_by_id(
-    *, session: AsyncSession, server_id: uuid.UUID
+    *,
+    session: AsyncSession,
+    server_id: uuid.UUID,
+    include_invalidated_group: bool = False,
 ) -> Server | None:
     statement = select(Server).where(col(Server.id) == server_id)
     server = (await session.exec(statement)).first()
     if server is None:
         return None
     await _hydrate_servers(session=session, servers=[server])
+    if (
+        not include_invalidated_group
+        and server.group is not None
+        and server.group.status == ServerGroupStatus.INVALIDATED
+    ):
+        return None
     return server
 
 
@@ -301,6 +339,14 @@ async def read_servers(
         statement = statement.where(col(Server.source) == query.source)
     servers = list((await session.exec(statement)).all())
     await _hydrate_servers(session=session, servers=servers)
+    servers = [
+        server
+        for server in servers
+        if not (
+            server.group is not None
+            and server.group.status == ServerGroupStatus.INVALIDATED
+        )
+    ]
 
     if query.online is not None:
         servers = [
@@ -502,6 +548,7 @@ async def upsert_discovered_server(
 async def record_plugin_heartbeat(
     *,
     session: AsyncSession,
+    group: ServerGroup | None = None,
     server: Server,
     payload: ServerStatusPut,
 ) -> Server:
@@ -517,6 +564,10 @@ async def record_plugin_heartbeat(
         players=payload.players,
         is_online=True,
     )
+    if _should_auto_validate_server_group(group=group, server=server):
+        group.status = ServerGroupStatus.VALIDATED
+        group.updated_at = payload.observed_at
+        session.add(group)
     await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server

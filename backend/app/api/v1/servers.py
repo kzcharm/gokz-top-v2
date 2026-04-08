@@ -9,6 +9,7 @@ from app.models import (
     Message,
     ServerCreate,
     ServerDiscoveryRunPublic,
+    ServerGroupStatus,
     ServerHistoryPublic,
     ServerHistoryQuery,
     ServerListQuery,
@@ -48,6 +49,8 @@ async def put_server_status(
     )
     if group is None:
         raise HTTPException(status_code=401, detail="Invalid server group API key")
+    if group.status == ServerGroupStatus.INVALIDATED:
+        raise HTTPException(status_code=403, detail="Server group is invalidated")
 
     server = await crud.get_server_by_endpoint(
         session=session,
@@ -66,6 +69,7 @@ async def put_server_status(
 
     server = await crud.record_plugin_heartbeat(
         session=session,
+        group=group,
         server=server,
         payload=payload,
     )
@@ -185,7 +189,11 @@ async def update_server(
     current_user: CurrentSuperuser,
 ) -> Any:
     del current_user
-    server = await crud.get_server_by_id(session=session, server_id=server_id)
+    server = await crud.get_server_by_id(
+        session=session,
+        server_id=server_id,
+        include_invalidated_group=True,
+    )
     if server is None:
         raise HTTPException(status_code=404, detail="Server not found")
 

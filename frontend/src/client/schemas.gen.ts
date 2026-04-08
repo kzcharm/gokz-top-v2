@@ -1394,14 +1394,19 @@ export const ServerGroupPublicSchema = {
             format: 'uuid',
             title: 'Id'
         },
-        api_key_prefix: {
-            type: 'string',
-            title: 'Api Key Prefix'
+        owner_steamid64: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Owner Steamid64'
         },
-        api_key_created_at: {
-            type: 'string',
-            format: 'date-time',
-            title: 'Api Key Created At'
+        status: {
+            '$ref': '#/components/schemas/ServerGroupStatus'
         },
         server_count: {
             type: 'integer',
@@ -1420,8 +1425,14 @@ export const ServerGroupPublicSchema = {
         }
     },
     type: 'object',
-    required: ['name', 'id', 'api_key_prefix', 'api_key_created_at', 'created_at', 'updated_at'],
+    required: ['name', 'id', 'status', 'created_at', 'updated_at'],
     title: 'ServerGroupPublic'
+} as const;
+
+export const ServerGroupStatusSchema = {
+    type: 'string',
+    enum: ['pending', 'validated', 'invalidated'],
+    title: 'ServerGroupStatus'
 } as const;
 
 export const ServerGroupSummarySchema = {
@@ -1455,6 +1466,16 @@ export const ServerGroupUpdateSchema = {
                 }
             ],
             title: 'Name'
+        },
+        status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGroupStatus'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',

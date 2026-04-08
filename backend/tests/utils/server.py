@@ -4,7 +4,15 @@ import uuid
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.models import Server, ServerCreate, ServerGroup, ServerGroupCreate
+from app.models import (
+    Server,
+    ServerCreate,
+    ServerGroup,
+    ServerGroupCreate,
+    ServerGroupStatus,
+    ServerGroupUpdate,
+)
+from tests.utils.user import create_random_user
 from tests.utils.utils import random_lower_string
 
 
@@ -20,11 +28,23 @@ async def create_server_group(
     db: AsyncSession,
     *,
     name: str | None = None,
+    owner_steamid64: int | None = None,
+    status: ServerGroupStatus | None = None,
 ) -> tuple[ServerGroup, str]:
-    return await crud.create_server_group(
+    if owner_steamid64 is None:
+        owner_steamid64 = (await create_random_user(db)).steamid64
+    group, api_key = await crud.create_server_group(
         session=db,
         group_in=ServerGroupCreate(name=name or f"group-{random_lower_string()[:8]}"),
+        owner_steamid64=owner_steamid64,
     )
+    if status is not None and status != group.status:
+        group = await crud.update_server_group(
+            session=db,
+            group=group,
+            group_in=ServerGroupUpdate(status=status),
+        )
+    return group, api_key
 
 
 async def create_server(

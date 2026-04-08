@@ -9,7 +9,13 @@ from app import crud
 from app.api.v1 import servers as servers_route
 from app.core.config import settings
 from app.crud import server as server_crud
-from app.models import Map, ServerHeartbeatRaw, ServerStatusPut
+from app.models import (
+    Map,
+    ServerGroup,
+    ServerGroupStatus,
+    ServerHeartbeatRaw,
+    ServerStatusPut,
+)
 from app.services.geoip import GeoIPLocation
 from app.services.server_status import (
     A2SInfoResult,
@@ -523,6 +529,50 @@ async def test_put_server_status_updates_live_status_from_plugin(
         )
         == observed_at
     )
+
+    refreshed_group = await db.get(ServerGroup, group.id)
+    assert refreshed_group is not None
+    assert refreshed_group.status == ServerGroupStatus.VALIDATED
+
+
+async def test_put_server_status_rejects_invalidated_group(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db, status=ServerGroupStatus.INVALIDATED)
+    server = await create_server(db, group_id=group.id)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": datetime.now(UTC).isoformat(),
+            "hostname": "Plugin Host",
+            "map": "kz_plugin",
+            "player_count": 9,
+            "max_players": 24,
+            "players": [{"steamid64": "76561198000000001", "name": "Player One"}],
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Server group is invalidated"
+
+
+async def test_read_servers_hides_invalidated_server_groups(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, _ = await create_server_group(db, status=ServerGroupStatus.INVALIDATED)
+    server = await create_server(db, group_id=group.id, enabled=False)
+
+    response = await client.get(f"{settings.API_V1_STR}/servers/")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert all(item["id"] != str(server.id) for item in payload["data"])
 
 
 async def test_offline_mark_preserves_identity_and_zeroes_player_state(
