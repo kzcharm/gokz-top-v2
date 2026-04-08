@@ -28,6 +28,118 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+confirm_action() {
+  local prompt="$1"
+  local response=""
+
+  while true; do
+    read -r -p "$prompt [y/N] " response
+    case "$response" in
+      [yY]|[yY][eE][sS])
+        return 0
+        ;;
+      ""|[nN]|[nN][oO])
+        return 1
+        ;;
+      *)
+        echo "Please answer y or n."
+        ;;
+    esac
+  done
+}
+
+describe_pid_command() {
+  local pid="$1"
+  ps -p "$pid" -o command= 2>/dev/null | sed 's/^[[:space:]]*//' || true
+}
+
+kill_port_processes_with_confirmation() {
+  local port="$1"
+  local address_label="$2"
+  local pids=()
+  local pid=""
+
+  if ! command -v lsof >/dev/null 2>&1; then
+    echo "Warning: lsof is unavailable, cannot inspect port $port usage."
+    return 0
+  fi
+
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] && pids+=("$pid")
+  done < <(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u)
+
+  if [[ "${#pids[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  echo "Address already in use for $address_label."
+  for pid in "${pids[@]}"; do
+    local command=""
+    command="$(describe_pid_command "$pid")"
+    if [[ -n "$command" ]]; then
+      echo "  PID $pid: $command"
+    else
+      echo "  PID $pid"
+    fi
+  done
+
+  if ! confirm_action "Kill the process(es) listening on $address_label?"; then
+    echo "Aborting because $address_label is already in use."
+    exit 1
+  fi
+
+  for pid in "${pids[@]}"; do
+    if kill "$pid" 2>/dev/null; then
+      echo "Sent SIGTERM to PID $pid."
+    fi
+  done
+
+  for _ in {1..10}; do
+    local remaining=0
+    for pid in "${pids[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        remaining=1
+        break
+      fi
+    done
+    [[ "$remaining" -eq 0 ]] && return 0
+    sleep 1
+  done
+
+  local stubborn_pids=()
+  for pid in "${pids[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      stubborn_pids+=("$pid")
+    fi
+  done
+
+  if [[ "${#stubborn_pids[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  echo "Process(es) still listening on $address_label after SIGTERM."
+  for pid in "${stubborn_pids[@]}"; do
+    local command=""
+    command="$(describe_pid_command "$pid")"
+    if [[ -n "$command" ]]; then
+      echo "  PID $pid: $command"
+    else
+      echo "  PID $pid"
+    fi
+  done
+
+  if ! confirm_action "Force kill the remaining process(es) on $address_label?"; then
+    echo "Aborting because $address_label is still in use."
+    exit 1
+  fi
+
+  for pid in "${stubborn_pids[@]}"; do
+    if kill -9 "$pid" 2>/dev/null; then
+      echo "Sent SIGKILL to PID $pid."
+    fi
+  done
+}
+
 add_project_candidate() {
   local candidate="$1"
   [[ -z "$candidate" ]] && return 0
@@ -106,6 +218,10 @@ while IFS= read -r CONTAINER_ID; do
   fi
 
   CONTAINER_NAME="$(docker inspect --format '{{.Name}}' "$CONTAINER_ID" | sed 's#^/##')"
+  if ! confirm_action "Port 5432 is already used by container $CONTAINER_NAME. Stop it?"; then
+    echo "Aborting because port 5432 is already in use."
+    exit 1
+  fi
   echo "Stopping container on port 5432: $CONTAINER_NAME"
   docker stop --time 20 "$CONTAINER_ID" >/dev/null
 done < <(docker ps -q --filter "publish=5432")
@@ -117,6 +233,10 @@ if [[ -n "$LOCAL_DB_CONTAINER_ID" ]]; then
     START_DB=false
     echo "Local db already running."
   fi
+fi
+
+if [[ "$START_DB" == "true" ]]; then
+  kill_port_processes_with_confirmation "5432" "127.0.0.1:5432"
 fi
 
 SERVICES=(db)
@@ -171,4 +291,5 @@ fi
 
 cd backend
 export LOG_LEVEL="$LOG_LEVEL_OVERRIDE"
+kill_port_processes_with_confirmation "8000" "127.0.0.1:8000"
 uv run fastapi dev app/main.py
