@@ -14,9 +14,11 @@ from app.services.course_points import (
 
 def test_calculate_min_points_uses_spec_table() -> None:
     assert calculate_min_points(tier=1, is_pro_only=False) == 1
-    assert calculate_min_points(tier=1, is_pro_only=True) == 10
-    assert calculate_min_points(tier=8, is_pro_only=False) == 950
-    assert calculate_min_points(tier=8, is_pro_only=True) == 955
+    assert calculate_min_points(tier=1, is_pro_only=True) == 1
+    assert calculate_min_points(tier=4, is_pro_only=False) == 400
+    assert calculate_min_points(tier=4, is_pro_only=True) == 400
+    assert calculate_min_points(tier=8, is_pro_only=False) == 970
+    assert calculate_min_points(tier=8, is_pro_only=True) == 970
 
 
 @pytest.mark.parametrize(

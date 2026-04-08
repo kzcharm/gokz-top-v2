@@ -3,15 +3,15 @@ import uuid
 from dataclasses import dataclass
 from typing import Final
 
-MIN_POINTS_BY_TIER: Final[dict[int, tuple[int, int]]] = {
-    1: (1, 10),
-    2: (50, 145),
-    3: (200, 280),
-    4: (350, 415),
-    5: (500, 550),
-    6: (650, 685),
-    7: (800, 820),
-    8: (950, 955),
+MIN_POINTS_BY_TIER: Final[dict[int, int]] = {
+    1: 1,
+    2: 50,
+    3: 200,
+    4: 400,
+    5: 600,
+    6: 800,
+    7: 900,
+    8: 970,
 }
 
 TOP_FIVE_BONUSES: Final[dict[int, float]] = {
@@ -32,9 +32,9 @@ class CoursePbEntry:
 
 
 def calculate_min_points(*, tier: int, is_pro_only: bool) -> int:
+    del is_pro_only
     normalized_tier = min(max(tier, 1), 8)
-    nub_points, pro_points = MIN_POINTS_BY_TIER[normalized_tier]
-    return pro_points if is_pro_only else nub_points
+    return MIN_POINTS_BY_TIER[normalized_tier]
 
 
 def calculate_rank_points_portion(*, rank: int) -> float:
