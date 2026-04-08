@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-04-07
+- Last Updated: 2026-04-08
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -10,6 +10,7 @@
 - API surfaces:
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
+  - `/v1/graphql` for player-focused GraphQL read queries
 - Data strategy:
   - PostgreSQL as primary persistent store
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
@@ -30,6 +31,7 @@
 ## Backend Runtime and Libraries
 - Python `>=3.14,<4.0`
 - FastAPI (`fastapi[standard]`)
+- strawberry-graphql
 - Pydantic v2
 - SQLModel
 - Alembic
@@ -65,6 +67,7 @@
   - zod
 - HTTP and utilities:
   - axios
+  - graphql-request
   - clsx
   - class-variance-authority
   - tailwind-merge

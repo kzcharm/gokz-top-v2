@@ -5,6 +5,7 @@ description = ""
 requires-python = ">=3.14,<4.0"
 dependencies = [
     "fastapi[standard]<1.0.0,>=0.114.2",
+    "strawberry-graphql[fastapi]>=0.278.0,<1.0.0",
     "python-multipart<1.0.0,>=0.0.7",
     "tenacity<9.0.0,>=8.2.3",
     "pydantic>2.0",

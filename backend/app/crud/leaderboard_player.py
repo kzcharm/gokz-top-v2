@@ -12,7 +12,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.regions import get_region_code_for_country, get_region_country_codes
-from app.crud.player import to_player_public
+from app.crud.player import to_player_ref_public
 from app.crud.record_filter import load_scoped_course_tiers
 from app.models import (
     LeaderboardPlayer,
@@ -95,7 +95,7 @@ def _build_player_leaderboard_entry_public(
 ) -> PlayerLeaderboardEntryPublic:
     return PlayerLeaderboardEntryPublic(
         rank=rank,
-        player=to_player_public(player=player),
+        player=to_player_ref_public(player=player),
         rating=leaderboard_row.rating,
         rating_easy=leaderboard_row.rating_easy,
         rating_hard=leaderboard_row.rating_hard,
@@ -571,7 +571,7 @@ async def read_player_leaderboard_rank(
         rank=rank,
         rank_regional=rank_regional,
         region=home_region,
-        player=to_player_public(player=player),
+        player=to_player_ref_public(player=player),
         rating=leaderboard_row.rating if leaderboard_row is not None else 0,
         rating_easy=leaderboard_row.rating_easy if leaderboard_row is not None else 0,
         rating_hard=leaderboard_row.rating_hard if leaderboard_row is not None else 0,

@@ -10,7 +10,7 @@ from app.models import User, UserCreate, UserPublic, UserUpdate
 from .player import (
     create_or_update_player_from_steam,
     get_player_by_steamid64,
-    to_player_public,
+    to_player_ref_public,
 )
 
 
@@ -87,7 +87,7 @@ async def to_user_public(*, session: AsyncSession, user: User) -> UserPublic:
     player = await get_player_by_steamid64(session=session, steamid64=user.steamid64)
     player_public = None
     if player:
-        player_public = to_player_public(player=player, is_website_user=True)
+        player_public = to_player_ref_public(player=player)
     return UserPublic(
         steamid64=str(user.steamid64),
         is_active=user.is_active,

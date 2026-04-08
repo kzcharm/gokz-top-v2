@@ -2,9 +2,16 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { ArrowDown } from "lucide-react"
 
 import type { PlayerLeaderboardEntryPublic } from "@/client"
-import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import {
+  PlayerDisplay,
+  type PlayerDisplayPlayer,
+} from "@/components/Common/PlayerDisplay"
 import { formatRating } from "@/components/Profile/profile-utils"
 import { Button } from "@/components/ui/button"
+
+export type LeaderboardTableRow = PlayerLeaderboardEntryPublic & {
+  playerData: PlayerDisplayPlayer
+}
 
 function formatMetric(value: number) {
   return new Intl.NumberFormat("en-US").format(value)
@@ -76,7 +83,7 @@ function metricColumn(
     | "unique_map_finishes",
   title: string,
   align: "center" | "right" = "center",
-): ColumnDef<PlayerLeaderboardEntryPublic> {
+): ColumnDef<LeaderboardTableRow> {
   return {
     accessorKey,
     header: ({ column }) => (
@@ -98,7 +105,7 @@ function metricColumn(
   }
 }
 
-export const columns: ColumnDef<PlayerLeaderboardEntryPublic>[] = [
+export const columns: ColumnDef<LeaderboardTableRow>[] = [
   {
     accessorKey: "rank",
     header: () => <div className="flex w-full justify-center">#</div>,
@@ -111,7 +118,7 @@ export const columns: ColumnDef<PlayerLeaderboardEntryPublic>[] = [
   {
     accessorKey: "player",
     header: "Player",
-    cell: ({ row }) => <PlayerDisplay player={row.original.player} />,
+    cell: ({ row }) => <PlayerDisplay player={row.original.playerData} />,
   },
   metricColumn("rating", "Rating"),
   metricColumn("rating_easy", "Rating.E"),

@@ -252,8 +252,10 @@ async def test_read_records_v1_list_and_detail(
     assert payload["count"] == 1
     assert payload["data"][0]["uuid"] == str(record.uuid)
     assert payload["data"][0]["id"] == 980400
-    assert payload["data"][0]["steamid64"] == str(player_id)
-    assert payload["data"][0]["player_name"] == "Runner One"
+    assert payload["data"][0]["player"] == {
+        "steamid64": str(player_id),
+        "display_name": "Runner One",
+    }
     assert payload["data"][0]["server_name"] == "Record Test Server"
     assert payload["data"][0]["mode_id"] == 200
     assert payload["data"][0]["mode"] == "KZT"
@@ -370,10 +372,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert first_row["id"] == 980451
     assert first_row["player"] == {
         "steamid64": str(second_player_id),
-        "name": "Runner Two",
-        "alias": None,
-        "avatar_hash": None,
-        "country": None,
+        "display_name": "Runner Two",
     }
     assert first_row["map"] == {
         "id": 980200,
@@ -402,10 +401,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert [row["uuid"] for row in offset_payload["data"]] == [str(oldest.uuid)]
     assert offset_payload["data"][0]["player"] == {
         "steamid64": str(first_player_id),
-        "name": "Runner One",
-        "alias": "Alias One",
-        "avatar_hash": "a" * 40,
-        "country": "DE",
+        "display_name": "Alias One",
     }
 
 
@@ -603,7 +599,10 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
     )
     assert response.status_code == 200
     payload = response.json()
-    assert [row["player_name"] for row in payload] == ["Runner Alpha", "Runner Beta"]
+    assert [row["player"]["display_name"] for row in payload] == [
+        "Runner Alpha",
+        "Runner Beta",
+    ]
     assert payload[0]["uuid"] == str(winning.uuid)
     assert payload[0]["mode_id"] == 201
     assert payload[0]["replay_id"] == 9001
@@ -846,7 +845,9 @@ async def test_read_pb_records_v1_filters_by_country_and_region(
         },
     )
     assert country_response.status_code == 200
-    assert [row["steamid64"] for row in country_response.json()] == [str(player_one)]
+    assert [row["player"]["steamid64"] for row in country_response.json()] == [
+        str(player_one)
+    ]
 
     region_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -858,7 +859,7 @@ async def test_read_pb_records_v1_filters_by_country_and_region(
         },
     )
     assert region_response.status_code == 200
-    assert [row["steamid64"] for row in region_response.json()] == [
+    assert [row["player"]["steamid64"] for row in region_response.json()] == [
         str(player_one),
         str(player_two),
     ]

@@ -7,7 +7,7 @@ from sqlalchemy import BigInteger, Column, DateTime, Index, SmallInteger, text
 from pydantic import field_serializer
 from sqlmodel import Field, SQLModel
 
-from .player import PlayerPublic
+from .player import PlayerRefPublic
 from .record import RecordScope
 from .region import GeographyFilterMixin
 from .utils import get_datetime_utc
@@ -258,7 +258,7 @@ class LeaderboardPlayer(LeaderboardPlayerBase, table=True):
 
 class PlayerLeaderboardEntryPublic(SQLModel):
     rank: int
-    player: PlayerPublic
+    player: PlayerRefPublic
     rating: float | None
     rating_easy: float | None
     rating_hard: float | None
@@ -279,7 +279,7 @@ class PlayerLeaderboardRankPublic(SQLModel):
     rank: int | None = None
     rank_regional: int | None = None
     region: str | None = None
-    player: PlayerPublic
+    player: PlayerRefPublic
     rating: float | None
     rating_easy: float | None
     rating_hard: float | None

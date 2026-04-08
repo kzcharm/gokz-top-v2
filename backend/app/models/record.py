@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlmodel import Field, SQLModel
 
+from .player import PlayerRefPublic
 from .server_globalapi import ServerGlobalapiCompatPublicV0
 from .utils import generate_uuid7, get_datetime_utc
 
@@ -345,9 +346,7 @@ class RecordPatch(SQLModel):
 class RecordPublic(SQLModel):
     uuid: uuid.UUID
     id: int | None = None
-    steamid64: str
-    player_name: str
-    player_avatar_hash: str | None = None
+    player: PlayerRefPublic
     steam_id: str | None = None
     server_id: int
     server_name: str
@@ -373,14 +372,6 @@ class RecordsPublic(SQLModel):
     count: int
 
 
-class RecentRecordPlayerPublic(SQLModel):
-    steamid64: str
-    name: str
-    alias: str | None = None
-    avatar_hash: str | None = None
-    country: str | None = None
-
-
 class RecentRecordMapPublic(SQLModel):
     id: int
     name: str
@@ -400,7 +391,7 @@ class RecentRecordModePublic(SQLModel):
 class RecentRecordPublic(SQLModel):
     uuid: uuid.UUID
     id: int | None = None
-    player: RecentRecordPlayerPublic
+    player: PlayerRefPublic
     map: RecentRecordMapPublic
     server: RecentRecordServerPublic
     mode: RecentRecordModePublic

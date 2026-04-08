@@ -6,7 +6,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.crud.player import to_player_public
+from app.crud.player import get_player_display_name, to_player_ref_public
 from app.models import (
     Ban,
     BanCompatPublicV0,
@@ -87,7 +87,12 @@ def to_ban_public(*, ban: Ban, player: Player | None = None) -> BanPublic:
     return BanPublic.model_validate(
         {
             **compat.model_dump(),
-            "player": to_player_public(player=player) if player is not None else None,
+            "player_name": (
+                get_player_display_name(player=player)
+                if player is not None
+                else compat.player_name
+            ),
+            "player": to_player_ref_public(player=player) if player is not None else None,
         }
     )
 

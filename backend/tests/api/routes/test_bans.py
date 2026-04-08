@@ -48,7 +48,6 @@ async def _create_ban(
 
 async def _clear_bans(db: AsyncSession) -> None:
     await db.exec(delete(Ban))
-    await db.exec(delete(Player))
     await db.commit()
 
 
@@ -152,8 +151,10 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert [row["id"] for row in payload["data"]] == [1003, 1002]
     assert payload["data"][0]["ban_type"] == "other"
     assert payload["data"][1]["steamid64"] == "76561198000000002"
-    assert payload["data"][1]["player"]["alias"] == "TempAlias"
-    assert payload["data"][1]["player"]["avatar_hash"] == "avatarhash123"
+    assert payload["data"][1]["player"] == {
+        "steamid64": "76561198000000002",
+        "display_name": "TempAlias",
+    }
 
 
 async def test_read_ban_v1_detail_and_missing(
@@ -184,8 +185,11 @@ async def test_read_ban_v1_detail_and_missing(
     assert response.status_code == 200
     assert response.json()["id"] == 1101
     assert response.json()["ban_type"] == "strafe_macro"
-    assert response.json()["player_name"] == "Detail"
-    assert response.json()["player"]["alias"] == "DetailAlias"
+    assert response.json()["player_name"] == "DetailAlias"
+    assert response.json()["player"] == {
+        "steamid64": "76561198000000101",
+        "display_name": "DetailAlias",
+    }
 
     missing = await client.get(f"{settings.API_V1_STR}/bans/999999")
     assert missing.status_code == 404

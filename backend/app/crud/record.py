@@ -19,7 +19,6 @@ from app.models import (
     RecentRecordListQuery,
     RecentRecordMapPublic,
     RecentRecordModePublic,
-    RecentRecordPlayerPublic,
     RecentRecordPublic,
     RecentRecordServerPublic,
     Record,
@@ -47,6 +46,7 @@ from app.services.course_points import (
 )
 
 from .ban import not_active_ban_exists_clause
+from .player import get_player_display_name, to_player_ref_public
 from .record_filter import load_scoped_course_tiers
 
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
@@ -967,9 +967,7 @@ def to_record_public(
     return RecordPublic(
         uuid=record.uuid,
         id=record.id,
-        steamid64=str(record.steamid64),
-        player_name=player.name,
-        player_avatar_hash=player.avatar_hash,
+        player=to_player_ref_public(player=player),
         steam_id=None,
         server_id=record.server_id,
         server_name=server.name or "",
@@ -1004,13 +1002,7 @@ def to_recent_record_public(
     return RecentRecordPublic(
         uuid=record.uuid,
         id=record.id,
-        player=RecentRecordPlayerPublic(
-            steamid64=str(player.steamid64),
-            name=player.name,
-            alias=player.alias,
-            avatar_hash=player.avatar_hash,
-            country=player.country,
-        ),
+        player=to_player_ref_public(player=player),
         map=RecentRecordMapPublic(
             id=map_obj.id,
             name=map_obj.name,
@@ -1693,9 +1685,10 @@ async def get_pb_record_publics(
         RecordPublic(
             uuid=record_uuid,
             id=record_id,
-            steamid64=str(record_steamid64),
-            player_name=player_name,
-            player_avatar_hash=player_avatar_hash,
+            player={
+                "steamid64": str(record_steamid64),
+                "display_name": player_name,
+            },
             steam_id=None,
             server_id=server_id,
             server_name=server_name or "",

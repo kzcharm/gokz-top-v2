@@ -38,6 +38,7 @@ import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
+import { loadPlayerForDisplay } from "@/lib/player-graphql"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -52,15 +53,23 @@ const flagComponents = Flags as Record<
 >
 const steamid64Pattern = /^\d{17}$/
 
+export type PlayerDisplayPlayer = {
+  steamid64: string
+  displayName?: string | null
+  name?: string | null
+  alias?: string | null
+  customId?: string | null
+  avatarHash?: string | null
+  avatar_hash?: string | null
+  country?: string | null
+  isWebsiteUser?: boolean
+  is_website_user?: boolean
+  lastPlayedAt?: string | null
+  last_played_at?: string | null
+}
+
 interface PlayerDisplayProps {
-  player?: {
-    steamid64: string
-    name: string
-    alias?: string | null
-    avatar_hash?: string | null
-    country?: string | null
-    is_website_user?: boolean
-  } | null
+  player?: PlayerDisplayPlayer | null
   fallbackSteamid64?: string
   showSteamid?: boolean
   className?: string
@@ -82,8 +91,55 @@ type PlayerContextMenuItemsProps = {
   steamid64: string
 }
 
-function hasWebsiteUserAvatarRing(player: PlayerDisplayProps["player"]): boolean {
-  return player?.is_website_user === true
+function hasWebsiteUserAvatarRing(
+  player: PlayerDisplayProps["player"],
+): boolean {
+  return player?.isWebsiteUser === true || player?.is_website_user === true
+}
+
+export function getPlayerDisplayName(
+  player?: PlayerDisplayPlayer | null,
+  fallbackSteamid64?: string,
+): string {
+  const displayName = player?.displayName?.trim()
+  if (displayName) {
+    return displayName
+  }
+
+  const alias = player?.alias?.trim()
+  if (alias) {
+    return alias
+  }
+
+  const name = player?.name?.trim()
+  if (name) {
+    return name
+  }
+
+  return fallbackSteamid64 || "N/A"
+}
+
+function getPlayerAvatarHash(
+  player?: PlayerDisplayPlayer | null,
+): string | null {
+  return player?.avatarHash ?? player?.avatar_hash ?? null
+}
+
+function shouldHydratePlayer(player?: PlayerDisplayPlayer | null): boolean {
+  if (!player) {
+    return true
+  }
+
+  const hasDisplayName =
+    Boolean(player.displayName?.trim()) ||
+    Boolean(player.alias?.trim()) ||
+    Boolean(player.name?.trim())
+  const hasCountry = Boolean(player.country?.trim())
+  const hasAvatarHash = Boolean(getPlayerAvatarHash(player))
+  const hasWebsiteUserState =
+    player.isWebsiteUser !== undefined || player.is_website_user !== undefined
+
+  return !hasDisplayName || !hasCountry || !hasAvatarHash || !hasWebsiteUserState
 }
 
 export function PlayerContextMenuItems({
@@ -257,13 +313,21 @@ export function PlayerDisplay({
 }: PlayerDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
-  const showWebsiteUserRing = hasWebsiteUserAvatarRing(player)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
+  const hydrationQuery = useQuery({
+    queryKey: ["graphql", "player", steamid64],
+    enabled: steamid64Pattern.test(steamid64) && shouldHydratePlayer(player),
+    queryFn: () => loadPlayerForDisplay(steamid64),
+    staleTime: 60_000,
+  })
+  const resolvedPlayer = hydrationQuery.data ?? player
+  const showWebsiteUserRing = hasWebsiteUserAvatarRing(resolvedPlayer)
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
-  const displayName = player?.alias || player?.name || steamid64
+  const displayName = getPlayerDisplayName(resolvedPlayer, steamid64)
   const truncatedDisplayName = truncateText(displayName, nameMaxLength)
-  const steamAvatarSrc = player?.avatar_hash
-    ? `https://avatars.steamstatic.com/${player.avatar_hash}_full.jpg`
+  const avatarHash = getPlayerAvatarHash(resolvedPlayer)
+  const steamAvatarSrc = avatarHash
+    ? `https://avatars.steamstatic.com/${avatarHash}_full.jpg`
     : null
   const avatarSrc =
     avatarLoadFailed || !steamAvatarSrc
@@ -273,7 +337,7 @@ export function PlayerDisplay({
     ? `https://steamcommunity.com/profiles/${steamid64}`
     : null
 
-  const countryCode = player?.country?.toUpperCase() || null
+  const countryCode = resolvedPlayer?.country?.toUpperCase() || null
   const FlagComponent = countryCode ? flagComponents[countryCode] : null
   const countryName =
     countryCode && countryNameFormatter
@@ -282,7 +346,7 @@ export function PlayerDisplay({
 
   useEffect(() => {
     setAvatarLoadFailed(false)
-  }, [])
+  }, [steamAvatarSrc])
 
   const content = (
     <div
@@ -411,7 +475,16 @@ export function PlayerDisplay({
         <PlayerContextMenuItems
           displayName={displayName}
           hasProfileLink={hasProfileLink}
-          player={player ?? undefined}
+          player={
+            resolvedPlayer
+              ? {
+                  alias: resolvedPlayer.alias,
+                  country: resolvedPlayer.country,
+                  name: resolvedPlayer.name ?? displayName,
+                  steamid64,
+                }
+              : undefined
+          }
           steamProfileUrl={steamProfileUrl}
           steamid64={steamid64}
         >

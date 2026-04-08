@@ -352,9 +352,11 @@ async def test_read_player_leaderboard_default_sort_and_rank(
     assert response.status_code == 200
     payload = response.json()
     assert payload["data"][0]["player"]["steamid64"] == str(players["alpha"])
+    assert payload["data"][0]["player"]["display_name"] == "Alpha"
     assert payload["data"][0]["rank"] == 1
     assert payload["data"][0]["rating"] == pytest.approx(_public_rating(alpha_row.rating))
     assert payload["data"][1]["player"]["steamid64"] == str(players["beta"])
+    assert payload["data"][1]["player"]["display_name"] == "Beta"
     assert payload["data"][1]["rank"] == 2
     assert payload["data"][1]["rating"] == pytest.approx(_public_rating(beta_row.rating))
     assert str(players["delta"]) not in {
@@ -512,6 +514,7 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     payload = response.json()
     assert payload["scope"] == "KZT"
     assert payload["player"]["steamid64"] == str(players["alpha"])
+    assert payload["player"]["display_name"] == "Alpha"
     assert payload["rank"] == 1
     assert payload["rank_regional"] == 1
     assert payload["region"] == "EU"

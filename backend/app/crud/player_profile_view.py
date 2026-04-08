@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 
 from sqlalchemy.dialects.postgresql import insert
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import PlayerProfileView
@@ -24,6 +24,29 @@ async def count_player_profile_views(
         PlayerProfileView.target_steamid64 == target_steamid64
     )
     return int((await session.exec(statement)).one())
+
+
+async def count_player_profile_views_batch(
+    *,
+    session: AsyncSession,
+    target_steamid64s: list[int],
+) -> dict[int, int]:
+    if not target_steamid64s:
+        return {}
+
+    statement = (
+        select(
+            col(PlayerProfileView.target_steamid64),
+            func.count().label("profile_views"),
+        )
+        .where(col(PlayerProfileView.target_steamid64).in_(target_steamid64s))
+        .group_by(col(PlayerProfileView.target_steamid64))
+    )
+    rows = (await session.exec(statement)).all()
+    return {
+        int(target_steamid64): int(profile_views)
+        for target_steamid64, profile_views in rows
+    }
 
 
 async def create_player_profile_view(

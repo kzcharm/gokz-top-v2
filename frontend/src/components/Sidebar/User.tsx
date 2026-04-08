@@ -1,6 +1,8 @@
 import { Link as RouterLink } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 import { ChevronsUpDown, LogIn, LogOut } from "lucide-react"
 
+import { PlayersService } from "@/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -53,6 +55,12 @@ function UserInfo({ name, steamid64, avatarHash }: UserInfoProps) {
 export function User({ user }: { user: any }) {
   const { logout } = useAuth()
   const { isMobile, setOpenMobile } = useSidebar()
+  const playerQuery = useQuery({
+    queryKey: ["sidebar-user-player", user?.steamid64],
+    enabled: Boolean(user?.steamid64),
+    queryFn: () => PlayersService.readPlayer({ identifier: user.steamid64 }),
+    staleTime: 60_000,
+  })
 
   const handleMenuClick = () => {
     if (isMobile) {
@@ -83,6 +91,8 @@ export function User({ user }: { user: any }) {
     )
   }
 
+  const player = playerQuery.data
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -94,9 +104,9 @@ export function User({ user }: { user: any }) {
               data-testid="user-menu"
             >
               <UserInfo
-                name={user?.player?.name}
+                name={player?.alias || player?.name || user?.player?.display_name}
                 steamid64={user?.steamid64}
-                avatarHash={user?.player?.avatar_hash}
+                avatarHash={player?.avatar_hash}
               />
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
@@ -109,9 +119,9 @@ export function User({ user }: { user: any }) {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <UserInfo
-                name={user?.player?.name}
+                name={player?.alias || player?.name || user?.player?.display_name}
                 steamid64={user?.steamid64}
-                avatarHash={user?.player?.avatar_hash}
+                avatarHash={player?.avatar_hash}
               />
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

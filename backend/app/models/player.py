@@ -140,6 +140,11 @@ class PlayerPublic(PlayerBase):
     profile_views: int = 0
 
 
+class PlayerRefPublic(SQLModel):
+    steamid64: str
+    display_name: str
+
+
 class PlayersPublic(SQLModel):
     data: list[PlayerPublic]
     count: int

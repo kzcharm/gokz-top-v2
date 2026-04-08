@@ -4,7 +4,7 @@ from typing import Literal
 from sqlalchemy import BigInteger, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
-from .player import Player, PlayerPublic
+from .player import Player, PlayerRefPublic
 from .utils import get_datetime_utc
 
 
@@ -45,7 +45,7 @@ class UserPublic(UserBase):
     steamid64: str
     created_at: datetime | None = None
     last_visited_at: datetime | None = None
-    player: PlayerPublic | None = None
+    player: PlayerRefPublic | None = None
 
 
 class UsersPublic(SQLModel):

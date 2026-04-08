@@ -16,13 +16,20 @@ import {
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { LeaderboardsService, type PlayerPublic } from "@/client"
+import { LeaderboardsService } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import { DataTable } from "@/components/Common/DataTable"
-import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import {
+  getPlayerDisplayName,
+  PlayerDisplay,
+  type PlayerDisplayPlayer,
+} from "@/components/Common/PlayerDisplay"
 import { RegionBadge } from "@/components/Common/RegionFlag"
-import { columns } from "@/components/Leaderboards/columns"
+import {
+  columns,
+  type LeaderboardTableRow,
+} from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -37,6 +44,11 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
+import {
+  fetchPlayersForDisplay,
+  type GraphqlPlayer,
+  searchPlayersGraphql,
+} from "@/lib/player-graphql"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { getPageTitle } from "@/lib/site"
 import { cn } from "@/lib/utils"
@@ -136,23 +148,29 @@ function LeaderboardsRoute() {
         region: selectedRegion ?? undefined,
       }),
   })
+  const leaderboardPlayerSteamid64s = useMemo(
+    () =>
+      leaderboardQuery.data?.data.map((entry) => entry.player.steamid64) ?? [],
+    [leaderboardQuery.data],
+  )
+  const leaderboardPlayersQuery = useQuery({
+    queryKey: [
+      "graphql",
+      "players",
+      "leaderboard",
+      leaderboardPlayerSteamid64s,
+    ],
+    enabled: leaderboardPlayerSteamid64s.length > 0,
+    queryFn: () => fetchPlayersForDisplay(leaderboardPlayerSteamid64s),
+    staleTime: 30_000,
+  })
   const regionsQuery = useQuery(getRegionsQueryOptions())
   const playerSearchQueryResult = useQuery({
-    queryKey: ["players", "search", playerSearchQuery],
+    queryKey: ["graphql", "players", "search", playerSearchQuery],
     enabled: playerSearchQuery.length > 0,
-    queryFn: async () => {
-      const response = await fetch(
-        `${OpenAPI.BASE}/v1/players/search?q=${encodeURIComponent(playerSearchQuery)}&limit=10`,
-      )
-      if (!response.ok) {
-        throw new Error("Failed to search players")
-      }
-
-      const data = (await response.json()) as {
-        data?: PlayerPublic[]
-      }
-      return data.data ?? []
-    },
+    queryFn: async () =>
+      (await searchPlayersGraphql(playerSearchQuery, 10)).data,
+    staleTime: 30_000,
   })
 
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
@@ -167,9 +185,32 @@ function LeaderboardsRoute() {
     setPageIndex(0)
   }
 
-  const tableData = useMemo(
-    () => leaderboardQuery.data?.data ?? [],
-    [leaderboardQuery.data],
+  const leaderboardPlayersBySteamid64 = useMemo(() => {
+    const playersBySteamid64 = new Map<string, PlayerDisplayPlayer>()
+    for (const player of leaderboardPlayersQuery.data ?? []) {
+      if (!player) {
+        continue
+      }
+      playersBySteamid64.set(player.steamid64, player)
+    }
+    return playersBySteamid64
+  }, [leaderboardPlayersQuery.data])
+  const tableData = useMemo<LeaderboardTableRow[]>(
+    () =>
+      (leaderboardQuery.data?.data ?? []).map((entry) => {
+        const hydratedPlayer = leaderboardPlayersBySteamid64.get(
+          entry.player.steamid64,
+        )
+        return {
+          ...entry,
+          playerData: hydratedPlayer ?? {
+            steamid64: entry.player.steamid64,
+            displayName: entry.player.display_name,
+            name: entry.player.display_name,
+          },
+        }
+      }),
+    [leaderboardPlayersBySteamid64, leaderboardQuery.data],
   )
 
   useEffect(() => {
@@ -322,11 +363,11 @@ function LeaderboardsRoute() {
     })
   }
 
-  const handleSelectPlayer = async (player: PlayerPublic) => {
-    setSearchInput(player.name)
+  const handleSelectPlayer = async (player: GraphqlPlayer) => {
+    setSearchInput(getPlayerDisplayName(player))
     setIsSearchFocused(false)
     await locatePlayer({
-      identifier: player.custom_id ?? player.steamid64,
+      identifier: player.customId ?? player.steamid64,
       spotlightSteamid64: player.steamid64,
       onNotRanked: () => {
         toast.error("Player is not ranked yet", {
@@ -336,7 +377,7 @@ function LeaderboardsRoute() {
     })
   }
 
-  const searchResults = playerSearchQueryResult.data ?? []
+  const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
   const totalPlayers = leaderboardQuery.data?.count ?? 0
   const pageCount = Math.max(1, Math.ceil(totalPlayers / pageSize))

@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-04-07
+- Last Updated: 2026-04-08
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -109,6 +109,8 @@ Scope model:
 - Compatibility tests guard response shape and behavioral parity.
 - New product-native behavior should prefer `/v1` instead of changing `/v0` semantics.
 - Bans now have both `/v0/bans` compatibility reads and `/v1/bans` public `{data, count}` reads for future user-facing bans pages.
+- `/v1/graphql` is an additive read-only player query surface for selective frontend hydration; it does not replace `/v0` and does not remove dedicated `/v1/players*` endpoints.
+- Touched `/v1` non-player responses should embed compact player references instead of full player payloads when only identity/display name is required inline.
 
 ## 7) Engineering Requirements
 - Async-first API, DB, and outbound integrations for request paths.
