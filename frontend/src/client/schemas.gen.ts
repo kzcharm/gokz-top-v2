@@ -1583,8 +1583,7 @@ export const ServerLiveStatusPublicSchema = {
         hostname: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 255
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -1595,8 +1594,7 @@ export const ServerLiveStatusPublicSchema = {
         map: {
             anyOf: [
                 {
-                    type: 'string',
-                    maxLength: 255
+                    type: 'string'
                 },
                 {
                     type: 'null'
@@ -1629,6 +1627,22 @@ export const ServerLiveStatusPublicSchema = {
             title: 'Is Online',
             default: false
         },
+        state: {
+            '$ref': '#/components/schemas/ServerLiveStatusStatePublic'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['updated_at'],
+    title: 'ServerLiveStatusPublic'
+} as const;
+
+export const ServerLiveStatusStatePublicSchema = {
+    properties: {
         last_plugin_seen_at: {
             anyOf: [
                 {
@@ -1665,14 +1679,33 @@ export const ServerLiveStatusPublicSchema = {
             ],
             title: 'Last Successful Seen At'
         },
-        updated_at: {
-            type: 'string',
-            format: 'date-time',
-            title: 'Updated At'
+        last_valid_seen_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Valid Seen At'
+        },
+        invalid_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Invalid Count',
+            default: 0
+        },
+        timeout_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Timeout Count',
+            default: 0
         }
     },
     type: 'object',
-    title: 'ServerLiveStatusPublic'
+    title: 'ServerLiveStatusStatePublic'
 } as const;
 
 export const ServerPublicSchema = {

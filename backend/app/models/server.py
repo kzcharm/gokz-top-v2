@@ -176,17 +176,9 @@ class ServerLiveStatusBase(SQLModel):
         sa_column=Column(JSONB, nullable=False),
     )
     is_online: bool = False
-    last_plugin_seen_at: datetime | None = Field(
-        default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
-    )
-    last_a2s_seen_at: datetime | None = Field(
-        default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
-    )
-    last_successful_seen_at: datetime | None = Field(
-        default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+    state: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
@@ -198,8 +190,6 @@ class ServerLiveStatus(ServerLiveStatusBase, table=True):
     __tablename__ = "server_live_status"  # type: ignore[assignment]
     __table_args__ = (
         Index("ix_server_live_status_is_online", "is_online"),
-        Index("ix_server_live_status_last_plugin_seen_at", "last_plugin_seen_at"),
-        Index("ix_server_live_status_last_a2s_seen_at", "last_a2s_seen_at"),
     )
 
     server_id: uuid.UUID = Field(
@@ -261,8 +251,26 @@ class ServerGroupSummary(SQLModel):
     name: str
 
 
-class ServerLiveStatusPublic(ServerLiveStatusBase):
-    pass
+class ServerLiveStatusStatePublic(SQLModel):
+    last_plugin_seen_at: datetime | None = None
+    last_a2s_seen_at: datetime | None = None
+    last_successful_seen_at: datetime | None = None
+    last_valid_seen_at: datetime | None = None
+    invalid_count: int = Field(default=0, ge=0)
+    timeout_count: int = Field(default=0, ge=0)
+
+
+class ServerLiveStatusPublic(SQLModel):
+    hostname: str | None = None
+    map: str | None = None
+    player_count: int = Field(default=0, ge=0)
+    max_players: int = Field(default=0, ge=0)
+    players: list[dict[str, Any]] = Field(default_factory=list)
+    is_online: bool = False
+    state: ServerLiveStatusStatePublic = Field(
+        default_factory=ServerLiveStatusStatePublic
+    )
+    updated_at: datetime
 
 
 class ServerPublic(ServerBase):
@@ -399,6 +407,7 @@ __all__ = [
     "ServerLiveStatus",
     "ServerLiveStatusBase",
     "ServerLiveStatusPublic",
+    "ServerLiveStatusStatePublic",
     "ServerPublic",
     "ServerSnapshotEvent",
     "ServersPublic",

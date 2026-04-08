@@ -336,10 +336,17 @@ export type ServerLiveStatusPublic = {
         [key: string]: unknown;
     }>;
     is_online?: boolean;
+    state?: ServerLiveStatusStatePublic;
+    updated_at: string;
+};
+
+export type ServerLiveStatusStatePublic = {
     last_plugin_seen_at?: (string | null);
     last_a2s_seen_at?: (string | null);
     last_successful_seen_at?: (string | null);
-    updated_at?: string;
+    last_valid_seen_at?: (string | null);
+    invalid_count?: number;
+    timeout_count?: number;
 };
 
 export type ServerPublic = {

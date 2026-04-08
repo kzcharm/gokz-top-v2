@@ -167,8 +167,9 @@ export function isServerStatusRefreshing(server: ServerPublic) {
     return false
   }
 
-  const lastA2SSeenAt = server.live_status?.last_a2s_seen_at
-  const lastSuccessfulSeenAt = server.live_status?.last_successful_seen_at
+  const lastA2SSeenAt = server.live_status?.state?.last_a2s_seen_at
+  const lastSuccessfulSeenAt =
+    server.live_status?.state?.last_successful_seen_at
   if (!lastA2SSeenAt || !lastSuccessfulSeenAt) {
     return false
   }

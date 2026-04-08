@@ -657,7 +657,9 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert payload["live_status"]["players"][0]["name"] == "Player One"
     assert (
         datetime.fromisoformat(
-            payload["live_status"]["last_plugin_seen_at"].replace("Z", "+00:00")
+            payload["live_status"]["state"]["last_plugin_seen_at"].replace(
+                "Z", "+00:00"
+            )
         )
         == observed_at
     )

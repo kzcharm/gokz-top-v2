@@ -28,9 +28,10 @@ from app.models import (
     ServerListQuery,
     ServerLiveStatus,
     ServerLiveStatusPublic,
+    ServerLiveStatusStatePublic,
     ServerPublic,
-    ServerStatus,
     ServerSource,
+    ServerStatus,
     ServerStatusPut,
     ServerUpdate,
     get_datetime_utc,
@@ -38,6 +39,11 @@ from app.models import (
 from app.services.geoip import lookup_geoip_city
 
 SERVER_STATUS_NOTIFY_CHANNEL = "server_status_updates"
+SERVER_A2S_FAILURES_BEFORE_OFFLINE = 3
+SERVER_INVALID_AFTER = timedelta(hours=1)
+SERVER_INVALID_COUNT_THRESHOLD = 10
+SERVER_OFFLINE_INVALID_AFTER = timedelta(hours=24)
+SERVER_TIMEOUT_INVALID_COUNT_THRESHOLD = 100
 
 
 def _normalize_server_location_value(value: str | None) -> str | None:
@@ -73,6 +79,7 @@ def _build_server_live_status_public(
 ) -> ServerLiveStatusPublic | None:
     if status is None:
         return None
+    state = _get_live_status_state(status)
     return ServerLiveStatusPublic(
         hostname=status.hostname,
         map=status.map,
@@ -80,11 +87,51 @@ def _build_server_live_status_public(
         max_players=status.max_players,
         players=status.players,
         is_online=status.is_online,
-        last_plugin_seen_at=status.last_plugin_seen_at,
-        last_a2s_seen_at=status.last_a2s_seen_at,
-        last_successful_seen_at=status.last_successful_seen_at,
+        state=state,
         updated_at=status.updated_at,
     )
+
+
+def _get_live_status_state(status: ServerLiveStatus) -> ServerLiveStatusStatePublic:
+    raw_state = status.state if isinstance(status.state, dict) else {}
+    return ServerLiveStatusStatePublic.model_validate(raw_state)
+
+
+def _set_live_status_state(
+    status: ServerLiveStatus,
+    state: ServerLiveStatusStatePublic,
+) -> None:
+    status.state = state.model_dump(mode="json")
+
+
+def _evaluate_server_status(
+    *,
+    current_status: ServerStatus,
+    live_status: ServerLiveStatus,
+    observed_at: datetime,
+) -> ServerStatus:
+    if current_status == ServerStatus.DISABLED:
+        return current_status
+
+    state = _get_live_status_state(live_status)
+    if live_status.is_online:
+        if server_status_is_valid(map_name=live_status.map or ""):
+            return ServerStatus.ENABLED
+        if (
+            state.last_valid_seen_at is not None
+            and observed_at - state.last_valid_seen_at > SERVER_INVALID_AFTER
+            and state.invalid_count > SERVER_INVALID_COUNT_THRESHOLD
+        ):
+            return ServerStatus.INVALID
+        return ServerStatus.ENABLED
+
+    if (
+        state.last_successful_seen_at is not None
+        and observed_at - state.last_successful_seen_at >= SERVER_OFFLINE_INVALID_AFTER
+        and state.timeout_count >= SERVER_TIMEOUT_INVALID_COUNT_THRESHOLD
+    ):
+        return ServerStatus.INVALID
+    return ServerStatus.ENABLED
 
 
 def to_server_public(*, server: Server) -> ServerPublic:
@@ -662,14 +709,6 @@ async def record_a2s_success(
         players=players,
         is_online=True,
     )
-    if server.status != ServerStatus.DISABLED:
-        server.status = (
-            ServerStatus.ENABLED
-            if server_status_is_valid(map_name=map_name)
-            else ServerStatus.INVALID
-        )
-        server.updated_at = observed_at
-        session.add(server)
     await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server
@@ -680,7 +719,6 @@ async def record_a2s_failure(
     session: AsyncSession,
     server: Server,
     observed_at: datetime,
-    mark_offline: bool,
 ) -> Server:
     status = await _get_server_live_status(session=session, server=server)
     if status is None:
@@ -688,43 +726,56 @@ async def record_a2s_failure(
         session.add(status)
         server.live_status = status
 
-    status.last_a2s_seen_at = observed_at
+    state = _get_live_status_state(status)
+    state.last_a2s_seen_at = observed_at
+    state.timeout_count += 1
+    _set_live_status_state(status, state)
     session.add(status)
+    mark_offline = state.timeout_count >= SERVER_A2S_FAILURES_BEFORE_OFFLINE
 
     if not status.is_online:
-        if server.status != ServerStatus.DISABLED:
-            server.status = ServerStatus.INVALID
-            server.updated_at = observed_at
-            session.add(server)
-        await session.commit()
-        return await get_server_by_id(session=session, server_id=server.id) or server
-    if not mark_offline:
+        next_status = _evaluate_server_status(
+            current_status=server.status,
+            live_status=status,
+            observed_at=observed_at,
+        )
+        if server.status != next_status:
+            server.status = next_status
+        server.updated_at = observed_at
+        session.add(server)
         await notify_server_status_updated(session=session, server_id=server.id)
         await session.commit()
         return await get_server_by_id(session=session, server_id=server.id) or server
 
-    status.player_count = 0
-    status.players = []
-    status.is_online = False
-    status.updated_at = observed_at
-    session.add(status)
+    if mark_offline:
+        status.player_count = 0
+        status.players = []
+        status.is_online = False
+        status.updated_at = observed_at
+        session.add(status)
+
+        heartbeat = ServerHeartbeatRaw(
+            server_id=server.id,
+            source=ServerHeartbeatSource.OFFLINE_MARK,
+            observed_at=observed_at,
+            hostname=status.hostname,
+            map=status.map,
+            player_count=0,
+            max_players=status.max_players,
+            players=[],
+            is_online=False,
+        )
+        session.add(heartbeat)
+
+    next_status = _evaluate_server_status(
+        current_status=server.status,
+        live_status=status,
+        observed_at=observed_at,
+    )
     if server.status != ServerStatus.DISABLED:
-        server.status = ServerStatus.INVALID
+        server.status = next_status
         server.updated_at = observed_at
         session.add(server)
-
-    heartbeat = ServerHeartbeatRaw(
-        server_id=server.id,
-        source=ServerHeartbeatSource.OFFLINE_MARK,
-        observed_at=observed_at,
-        hostname=status.hostname,
-        map=status.map,
-        player_count=0,
-        max_players=status.max_players,
-        players=[],
-        is_online=False,
-    )
-    session.add(heartbeat)
     await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server
@@ -742,14 +793,21 @@ async def record_offline_mark(
         session.add(status)
         server.live_status = status
 
-    status.last_a2s_seen_at = observed_at
+    state = _get_live_status_state(status)
+    state.last_a2s_seen_at = observed_at
+    state.timeout_count += 1
+    _set_live_status_state(status, state)
     status.player_count = 0
     status.players = []
     status.is_online = False
     status.updated_at = observed_at
     session.add(status)
     if server.status != ServerStatus.DISABLED:
-        server.status = ServerStatus.INVALID
+        server.status = _evaluate_server_status(
+            current_status=server.status,
+            live_status=status,
+            observed_at=observed_at,
+        )
         server.updated_at = observed_at
         session.add(server)
 
@@ -787,8 +845,9 @@ async def read_servers_due_for_a2s_poll(
     due_servers: list[Server] = []
     for server in servers:
         status = server.live_status
-        last_plugin_seen_at = status.last_plugin_seen_at if status else None
-        last_a2s_seen_at = status.last_a2s_seen_at if status else None
+        state = _get_live_status_state(status) if status is not None else None
+        last_plugin_seen_at = state.last_plugin_seen_at if state else None
+        last_a2s_seen_at = state.last_a2s_seen_at if state else None
 
         if last_plugin_seen_at is not None and last_plugin_seen_at >= plugin_cutoff_dt:
             continue
@@ -858,7 +917,7 @@ async def _record_server_status(
     is_online: bool,
 ) -> None:
     status = await _get_server_live_status(session=session, server=server)
-    map_is_supported = server_status_is_valid(map_name=map_name)
+    effective_map_name = map_name
     if status is None:
         status = ServerLiveStatus(
             server_id=server.id,
@@ -868,10 +927,12 @@ async def _record_server_status(
             max_players=max_players,
             players=players,
             is_online=is_online,
+            state=ServerLiveStatusStatePublic().model_dump(mode="json"),
             updated_at=observed_at,
         )
         server.live_status = status
     status.updated_at = observed_at
+    state = _get_live_status_state(status)
 
     if source == ServerHeartbeatSource.PLUGIN:
         status.hostname = hostname
@@ -880,14 +941,14 @@ async def _record_server_status(
         status.max_players = max_players
         status.players = players
         status.is_online = True
-        status.last_plugin_seen_at = observed_at
-        status.last_successful_seen_at = observed_at
+        state.last_plugin_seen_at = observed_at
+        state.last_successful_seen_at = observed_at
     else:
         plugin_is_fresh = (
-            status.last_plugin_seen_at is not None
-            and (observed_at - status.last_plugin_seen_at).total_seconds() <= 5
+            state.last_plugin_seen_at is not None
+            and (observed_at - state.last_plugin_seen_at).total_seconds() <= 5
         )
-        status.last_a2s_seen_at = observed_at
+        state.last_a2s_seen_at = observed_at
         if not plugin_is_fresh:
             status.hostname = hostname
             status.map = map_name
@@ -895,11 +956,27 @@ async def _record_server_status(
             status.max_players = max_players
             status.players = players
             status.is_online = is_online
-            status.last_successful_seen_at = observed_at
+            state.last_successful_seen_at = observed_at
+        else:
+            effective_map_name = status.map or map_name
+
+    if status.is_online:
+        state.timeout_count = 0
+        if server_status_is_valid(map_name=effective_map_name):
+            state.last_valid_seen_at = observed_at
+            state.invalid_count = 0
+        else:
+            state.invalid_count += 1
+    else:
+        state.timeout_count += 1
+
+    _set_live_status_state(status, state)
 
     if server.status != ServerStatus.DISABLED:
-        server.status = (
-            ServerStatus.ENABLED if is_online and map_is_supported else ServerStatus.INVALID
+        server.status = _evaluate_server_status(
+            current_status=server.status,
+            live_status=status,
+            observed_at=observed_at,
         )
         server.updated_at = observed_at
         session.add(server)
