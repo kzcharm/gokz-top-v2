@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { Copy } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useState } from "react"
+import { toast } from "sonner"
 
 import type { PlayerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -15,9 +17,12 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -54,7 +59,12 @@ function ProfileIdentityCard({
 }) {
   const avatarUrl = getAvatarUrl(player)
   const alias = player.alias?.trim() ?? ""
-  const hasDistinctAlias = alias.length > 0 && alias !== player.name
+  const canonicalName = player.name.trim()
+  const hasDistinctAlias =
+    alias.length > 0 &&
+    alias.toLocaleLowerCase() !== canonicalName.toLocaleLowerCase()
+  const primaryName = hasDistinctAlias ? alias : canonicalName
+  const secondaryName = hasDistinctAlias ? canonicalName : null
   const hasProfileLink = /^\d{17}$/.test(player.steamid64)
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${player.steamid64}`
@@ -165,23 +175,25 @@ function ProfileIdentityCard({
                           href={steamProfileUrl}
                           target="_blank"
                           rel="noreferrer"
-                          aria-label={`Open Steam profile for ${player.name}`}
+                          aria-label={`Open Steam profile for ${primaryName}`}
                           data-testid="profile-identity-surface"
                           className="rounded-[8px] text-3xl font-semibold tracking-tight transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
                           onContextMenu={handleIdentityContextMenu}
                           onKeyDown={handleIdentityKeyDown}
                         >
-                          {player.name}
+                          {primaryName}
                         </a>
                       </div>
                     ) : (
                       <h1 className="text-3xl font-semibold tracking-tight">
-                        {player.name}
+                        {primaryName}
                       </h1>
                     )}
                   </div>
-                  {hasDistinctAlias ? (
-                    <p className="text-sm text-muted-foreground">{alias}</p>
+                  {secondaryName ? (
+                    <p className="text-sm text-muted-foreground">
+                      {secondaryName}
+                    </p>
                   ) : null}
                 </div>
               </div>
@@ -245,6 +257,154 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
       </span>
       <span className="text-right text-sm font-semibold">{value}</span>
     </div>
+  )
+}
+
+const steamUniverse = 1n
+const steamId64Base = 76561197960265728n
+
+function getSteamIdConversions(steamid64: string) {
+  if (!/^\d{17}$/.test(steamid64)) {
+    return null
+  }
+
+  const steamId64Value = BigInt(steamid64)
+  const accountId = steamId64Value - steamId64Base
+
+  if (accountId < 0n) {
+    return null
+  }
+
+  const authServer = accountId % 2n
+  const authId = accountId / 2n
+  const steamId3 = `[U:${steamUniverse}:${accountId.toString()}]`
+  const steamId2 = `STEAM_${steamUniverse}:${authServer.toString()}:${authId.toString()}`
+  const friendCode = accountId.toString()
+
+  return {
+    friendCode,
+    steamId2,
+    steamId3,
+    steamId64: steamid64,
+  }
+}
+
+function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [, copyToClipboard] = useCopyToClipboard()
+  const conversions = getSteamIdConversions(steamid64)
+
+  if (!conversions) {
+    return <span className="text-right text-sm font-semibold">{steamid64}</span>
+  }
+
+  const handleCopy = async (label: string, value: string) => {
+    const didCopy = await copyToClipboard(value)
+
+    if (didCopy) {
+      toast.success(`${label} copied`, {
+        description: value,
+      })
+      return
+    }
+
+    toast.error(`Failed to copy ${label}`, {
+      description: value,
+    })
+  }
+
+  const handleCopySteamId64 = () => {
+    void handleCopy("SteamID64", steamid64)
+  }
+
+  const handleContextMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setMenuOpen(true)
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (
+      event.key !== "ContextMenu" &&
+      !(event.shiftKey && event.key === "F10")
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    setMenuOpen(true)
+  }
+
+  return (
+    <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+      <div className="relative">
+        <DropdownMenuTrigger asChild>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 block"
+          />
+        </DropdownMenuTrigger>
+        <button
+          type="button"
+          className="rounded-[8px] text-right text-sm font-semibold transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
+          data-testid="profile-steamid64-context-trigger"
+          onClick={handleCopySteamId64}
+          onContextMenu={handleContextMenu}
+          onKeyDown={handleKeyDown}
+        >
+          {steamid64}
+        </button>
+      </div>
+      <DropdownMenuContent
+        align="end"
+        className="min-w-72"
+        data-testid="profile-steamid-context-menu"
+        side="bottom"
+        sideOffset={8}
+      >
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            void handleCopy("SteamID2", conversions.steamId2)
+          }}
+        >
+          <Copy />
+          SteamID2
+          <DropdownMenuShortcut>{conversions.steamId2}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            void handleCopy("SteamID3", conversions.steamId3)
+          }}
+        >
+          <Copy />
+          SteamID3
+          <DropdownMenuShortcut>{conversions.steamId3}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            void handleCopy("Friend Code", conversions.friendCode)
+          }}
+        >
+          <Copy />
+          Friend Code
+          <DropdownMenuShortcut>{conversions.friendCode}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            void handleCopy("SteamID64", conversions.steamId64)
+          }}
+        >
+          <Copy />
+          SteamID64
+          <DropdownMenuShortcut>{conversions.steamId64}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -435,7 +595,10 @@ export function ProfileSidebar({
       <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="space-y-4 p-6">
           <div className="space-y-0.5">
-            <DetailRow label="SteamID64" value={player.steamid64} />
+            <DetailRow
+              label="SteamID64"
+              value={<SteamIdContextValue steamid64={player.steamid64} />}
+            />
             <DetailRow
               label="Date Joined"
               value={
