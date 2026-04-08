@@ -25,11 +25,13 @@ function createAccessToken(steamid64: string) {
 
 function buildPlayer({
   alias,
+  isWebsiteUser = false,
   name,
   profileViews = 0,
   steamid64,
 }: {
   alias: string
+  isWebsiteUser?: boolean
   name: string
   profileViews?: number
   steamid64: string
@@ -44,6 +46,7 @@ function buildPlayer({
     last_played_at: "2026-03-31T12:00:00Z",
     updated_at: "2026-03-31T12:00:00Z",
     steamid64,
+    is_website_user: isWebsiteUser,
     profile_views: profileViews,
   }
 }
@@ -234,6 +237,30 @@ test("Logged-out profile shows the shared player context menu without follow", a
   ).toBeVisible()
   await expect(page.getByRole("menuitem", { name: "Copy Name" })).toBeVisible()
   await expect(page.getByTestId("profile-follow-menu-item")).toHaveCount(0)
+})
+
+test("Profile avatar shows a pink ring for website users", async ({ page }) => {
+  await installProfileRoutes({
+    page,
+    player: buildPlayer({
+      steamid64: targetSteamid64,
+      name: "Target Runner",
+      alias: "Target Alias",
+      isWebsiteUser: true,
+    }),
+    summary: {
+      follower_count: 12,
+      following_count: 4,
+      viewer_is_following: null,
+      viewer_is_self: false,
+    },
+  })
+
+  await page.goto(`/profile/${targetSteamid64}`)
+
+  await expect(
+    page.getByTestId(`profile-avatar-ring-${targetSteamid64}`),
+  ).toBeVisible()
 })
 
 test("Logged-in user can follow another player and sees state update", async ({

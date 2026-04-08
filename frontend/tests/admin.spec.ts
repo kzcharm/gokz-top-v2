@@ -106,6 +106,9 @@ test("PlayerDisplay renders alias fallback, avatar, and country tooltip", async 
   await expect(page.getByText(aliasName)).toBeVisible()
   await expect(page.getByText(fallbackName)).toBeVisible()
   await expect(page.getByAltText(`${aliasName} avatar`)).toBeVisible()
+  await expect(
+    page.getByTestId(`player-avatar-ring-${aliasPlayer.steamid64}`),
+  ).toBeVisible()
 
   await page.getByTestId(`country-flag-${aliasPlayer.steamid64}`).hover()
   await expect(page.getByText("Germany")).toBeVisible()

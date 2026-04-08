@@ -5,12 +5,12 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import PlayerPublic, User, UserCreate, UserPublic, UserUpdate
+from app.models import User, UserCreate, UserPublic, UserUpdate
 
 from .player import (
     create_or_update_player_from_steam,
     get_player_by_steamid64,
-    normalize_custom_id,
+    to_player_public,
 )
 
 
@@ -87,18 +87,7 @@ async def to_user_public(*, session: AsyncSession, user: User) -> UserPublic:
     player = await get_player_by_steamid64(session=session, steamid64=user.steamid64)
     player_public = None
     if player:
-        player_public = PlayerPublic(
-            steamid64=str(player.steamid64),
-            name=player.name,
-            alias=player.alias,
-            custom_id=normalize_custom_id(player.custom_id),
-            avatar_hash=player.avatar_hash,
-            country=player.country,
-            created_at=player.created_at,
-            last_played_at=player.last_played_at,
-            updated_at=player.updated_at,
-            profile_views=0,
-        )
+        player_public = to_player_public(player=player, is_website_user=True)
     return UserPublic(
         steamid64=str(user.steamid64),
         is_active=user.is_active,

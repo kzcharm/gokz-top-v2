@@ -136,6 +136,7 @@ class Player(PlayerBase, table=True):
 
 class PlayerPublic(PlayerBase):
     steamid64: str
+    is_website_user: bool = False
     profile_views: int = 0
 
 

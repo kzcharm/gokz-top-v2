@@ -8,7 +8,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.crud import player as player_crud
-from app.models import LeaderboardPlayer, Player, PlayerFollow, RecordScope, scope_to_id
+from app.models import (
+    LeaderboardPlayer,
+    Player,
+    PlayerFollow,
+    RecordScope,
+    User,
+    scope_to_id,
+)
 from tests.utils.utils import get_user_token_headers, random_steamid64
 
 
@@ -89,6 +96,7 @@ async def test_read_players_public_with_offset_and_limit(
     assert len(first_payload["data"]) == 3
     assert len(second_payload["data"]) == 2
     assert second_payload["data"] == first_payload["data"][1:3]
+    assert all("is_website_user" in item for item in first_payload["data"])
 
 
 @pytest.mark.asyncio
@@ -516,6 +524,70 @@ async def test_read_player_includes_profile_views(
 
     assert response.status_code == 200
     assert response.json()["profile_views"] == 1
+
+
+@pytest.mark.asyncio
+async def test_read_player_includes_is_website_user(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    website_user = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Website User Player",
+    )
+    db.add(
+        User(
+            steamid64=website_user.steamid64,
+            is_active=True,
+            is_superuser=False,
+        )
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{website_user.steamid64}"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_website_user"] is True
+
+
+@pytest.mark.asyncio
+async def test_read_players_list_includes_is_website_user(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    website_user = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Website User In List",
+    )
+    plain_player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Plain Player In List",
+    )
+    db.add(
+        User(
+            steamid64=website_user.steamid64,
+            is_active=True,
+            is_superuser=False,
+        )
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/",
+        params={"offset": 0, "limit": 100},
+    )
+
+    assert response.status_code == 200
+    players_by_id = {
+        item["steamid64"]: item for item in response.json()["data"]
+    }
+    assert players_by_id[str(website_user.steamid64)]["is_website_user"] is True
+    assert players_by_id[str(plain_player.steamid64)]["is_website_user"] is False
 
 
 @pytest.mark.asyncio

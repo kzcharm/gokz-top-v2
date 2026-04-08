@@ -62,7 +62,7 @@ async def read_players(
         sort_order=query.sort_order,
     )
     return PlayersPublic(
-        data=[crud.to_player_public(player=player) for player in players],
+        data=await crud.to_player_publics(session=session, players=players),
         count=count,
     )
 
@@ -82,7 +82,7 @@ async def search_players(
         limit=query.limit,
     )
     return PlayersPublic(
-        data=[crud.to_player_public(player=player) for player in players],
+        data=await crud.to_player_publics(session=session, players=players),
         count=count,
     )
 
@@ -94,9 +94,20 @@ async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> 
     """
     steamid64s = [_parse_steamid64(steamid64) for steamid64 in body.steamid64s]
     players = await crud.read_players_batch(session=session, steamid64s=steamid64s)
-
+    website_user_steamid64s = await crud.load_website_user_steamid64s(
+        session=session,
+        steamid64s=[player.steamid64 for player in players if player is not None],
+    )
     data: list[PlayerPublic | None] = [
-        crud.to_player_public(player=player) if player else None for player in players
+        (
+            crud.to_player_public(
+                player=player,
+                is_website_user=player.steamid64 in website_user_steamid64s,
+            )
+            if player
+            else None
+        )
+        for player in players
     ]
     return PlayersBatchPublic(data=data, count=len(data))
 
@@ -213,7 +224,7 @@ async def read_player_followers(
         limit=query.limit,
     )
     return PlayersPublic(
-        data=[crud.to_player_public(player=follower) for follower in followers],
+        data=await crud.to_player_publics(session=session, players=followers),
         count=count,
     )
 
@@ -239,7 +250,7 @@ async def read_player_following(
         limit=query.limit,
     )
     return PlayersPublic(
-        data=[crud.to_player_public(player=followed) for followed in following],
+        data=await crud.to_player_publics(session=session, players=following),
         count=count,
     )
 
