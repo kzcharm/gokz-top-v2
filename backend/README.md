@@ -104,6 +104,10 @@ $ bash ./scripts/test.sh
 ```
 
 The tests run with Pytest, modify and add tests to `./backend/tests/`.
+They must point at a dedicated local test database. Set `POSTGRES_DB` to a name
+such as `app_test` or `test_app` before running them. The test bootstrap now
+refuses to run against the normal development database to avoid deleting local
+data.
 
 If you use GitHub Actions the tests will run automatically.
 
