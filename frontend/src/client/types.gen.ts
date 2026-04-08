@@ -285,8 +285,8 @@ export type ServerGroupCreate = {
 export type ServerGroupPublic = {
     name: string;
     id: string;
-    api_key_prefix: string;
-    api_key_created_at: string;
+    owner_steamid64?: (string | null);
+    status: ServerGroupStatus;
     server_count?: number;
     created_at: string;
     updated_at: string;
@@ -297,6 +297,8 @@ export type ServerGroupsPublic = {
     count: number;
 };
 
+export type ServerGroupStatus = 'pending' | 'validated' | 'invalidated';
+
 export type ServerGroupSummary = {
     id: string;
     name: string;
@@ -304,6 +306,7 @@ export type ServerGroupSummary = {
 
 export type ServerGroupUpdate = {
     name?: (string | null);
+    status?: (ServerGroupStatus | null);
 };
 
 export type ServerHistoryBucketPublic = {

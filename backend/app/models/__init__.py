@@ -48,7 +48,6 @@ from .player_follow import (
     PlayerFollowSummaryPublic,
 )
 from .player_profile_view import PlayerProfileView
-from .region import RegionCode, RegionPublic, RegionsPublic
 from .record import (
     MapCourse,
     RecentRecordCompatPublicV0,
@@ -82,6 +81,7 @@ from .record_filter import (
     RecordFilterBase,
     RecordFilterCompatPublicV0,
 )
+from .region import RegionCode, RegionPublic, RegionsPublic
 from .server import (
     Server,
     ServerBase,
@@ -93,6 +93,7 @@ from .server import (
     ServerGroupCreate,
     ServerGroupPublic,
     ServerGroupsPublic,
+    ServerGroupStatus,
     ServerGroupSummary,
     ServerGroupUpdate,
     ServerHeartbeatRaw,
@@ -209,6 +210,7 @@ __all__ = [
     "ServerGroupBase",
     "ServerGroupCreate",
     "ServerGroupPublic",
+    "ServerGroupStatus",
     "ServerGroupSummary",
     "ServerGroupUpdate",
     "ServerDiscoveryRunPublic",

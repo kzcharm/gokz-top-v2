@@ -37,8 +37,12 @@ async def read_server_groups(session: SessionDep) -> Any:
             ServerGroupPublic(
                 id=group.id,
                 name=group.name,
-                api_key_prefix=group.api_key_prefix,
-                api_key_created_at=group.api_key_created_at,
+                owner_steamid64=(
+                    str(group.owner_steamid64)
+                    if group.owner_steamid64 is not None
+                    else None
+                ),
+                status=group.status,
                 server_count=counts.get(group.id, 0),
                 created_at=group.created_at,
                 updated_at=group.updated_at,
@@ -60,13 +64,18 @@ async def create_server_group(
     group_in: ServerGroupCreate,
     current_user: CurrentSuperuser,
 ) -> Any:
-    del current_user
     try:
         group, api_key = await crud.create_server_group(
             session=session,
             group_in=group_in,
+            owner_steamid64=current_user.steamid64,
         )
     except ValueError as exc:
+        if str(exc) == "Server group owner is permanently blocked":
+            raise HTTPException(
+                status_code=403,
+                detail="Server group owner is permanently blocked",
+            ) from exc
         raise HTTPException(
             status_code=409, detail="Server group already exists"
         ) from exc
@@ -75,8 +84,12 @@ async def create_server_group(
         group=ServerGroupPublic(
             id=group.id,
             name=group.name,
-            api_key_prefix=group.api_key_prefix,
-            api_key_created_at=group.api_key_created_at,
+            owner_steamid64=(
+                str(group.owner_steamid64)
+                if group.owner_steamid64 is not None
+                else None
+            ),
+            status=group.status,
             server_count=0,
             created_at=group.created_at,
             updated_at=group.updated_at,
@@ -116,8 +129,10 @@ async def update_server_group(
     return ServerGroupPublic(
         id=group.id,
         name=group.name,
-        api_key_prefix=group.api_key_prefix,
-        api_key_created_at=group.api_key_created_at,
+        owner_steamid64=(
+            str(group.owner_steamid64) if group.owner_steamid64 is not None else None
+        ),
+        status=group.status,
         server_count=await _get_server_count(session=session, group_id=group.id),
         created_at=group.created_at,
         updated_at=group.updated_at,
@@ -148,8 +163,12 @@ async def rotate_server_group_api_key(
         group=ServerGroupPublic(
             id=group.id,
             name=group.name,
-            api_key_prefix=group.api_key_prefix,
-            api_key_created_at=group.api_key_created_at,
+            owner_steamid64=(
+                str(group.owner_steamid64)
+                if group.owner_steamid64 is not None
+                else None
+            ),
+            status=group.status,
             server_count=await _get_server_count(session=session, group_id=group.id),
             created_at=group.created_at,
             updated_at=group.updated_at,
