@@ -21,6 +21,11 @@ from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_superuser_token_headers, random_steamid64
 
 
+def _is_safe_test_database_name(name: str) -> bool:
+    normalized = name.strip().lower()
+    return normalized.startswith("test_") or normalized.endswith("_test")
+
+
 def _upgrade_test_database() -> None:
     alembic_config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     command.upgrade(alembic_config, "head")
@@ -39,6 +44,12 @@ def ensure_safe_test_database() -> None:
         raise RuntimeError(
             "Refusing to run tests outside local DB environment. "
             f"ENVIRONMENT={settings.ENVIRONMENT!r}, POSTGRES_SERVER={settings.POSTGRES_SERVER!r}"
+        )
+    if not _is_safe_test_database_name(settings.POSTGRES_DB):
+        raise RuntimeError(
+            "Refusing to run tests against a non-test local database. "
+            f"POSTGRES_DB={settings.POSTGRES_DB!r}. "
+            "Use a dedicated database named like 'app_test' or 'test_app'."
         )
 
 
