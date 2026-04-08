@@ -717,6 +717,73 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     assert [row["id"] for row in skz_response.json()] == [980420]
 
 
+async def test_read_pb_records_v1_uses_nub_points_when_is_pro_only_is_false(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    pro_player = random_steamid64()
+    nub_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (pro_player, "Pro Runner"),
+            (nub_player, "Nub Leader"),
+        ],
+    )
+
+    nub_leader = await _create_record(
+        db,
+        id=980424,
+        steamid64=nub_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="19.000",
+        teleports=5,
+    )
+    dual_pb_record = await _create_record(
+        db,
+        id=980425,
+        steamid64=pro_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+    )
+
+    nub_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params=[
+            ("map_id", 980200),
+            ("stage", 0),
+            ("scope", "OVR"),
+            ("is_pro_only", False),
+        ],
+    )
+    assert nub_response.status_code == 200
+    nub_payload = nub_response.json()
+    assert [row["id"] for row in nub_payload] == [nub_leader.id, dual_pb_record.id]
+    assert nub_payload[0]["points"] == 1000
+    assert 1 <= nub_payload[1]["points"] < 1000
+
+    pro_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params=[
+            ("map_id", 980200),
+            ("stage", 0),
+            ("scope", "OVR"),
+            ("is_pro_only", True),
+        ],
+    )
+    assert pro_response.status_code == 200
+    pro_payload = pro_response.json()
+    assert [row["id"] for row in pro_payload] == [dual_pb_record.id]
+    assert pro_payload[0]["points"] == 1000
+
+
 async def test_read_pb_records_v1_filters_by_country_and_region(
     client: AsyncClient,
     db: AsyncSession,

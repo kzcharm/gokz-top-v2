@@ -1564,7 +1564,9 @@ async def get_pb_record_publics(
     anchor_pb = aliased(RecordPb)
     pro_pb = aliased(RecordPb)
     ovr_pb = aliased(RecordPb)
-    scoped_points = func.coalesce(pro_pb.points, ovr_pb.points, 0)
+    scoped_points = (
+        pro_pb.points if is_pro_only else func.coalesce(ovr_pb.points, 0)
+    )
 
     statement = (
         select(
