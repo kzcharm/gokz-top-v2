@@ -42,6 +42,10 @@ import {
   profileBadgeToneClasses,
 } from "./profile-utils"
 
+type ProfilePlayer = PlayerPublic & {
+  is_website_user?: boolean
+}
+
 function ProfileIdentityCard({
   displayName,
   profileSummary,
@@ -55,9 +59,10 @@ function ProfileIdentityCard({
   profileSummaryLoading: boolean
   onContextMenuOpenChange: (open: boolean) => void
   openContextMenu: boolean
-  player: PlayerPublic
+  player: ProfilePlayer
 }) {
   const avatarUrl = getAvatarUrl(player)
+  const showWebsiteUserRing = player.is_website_user === true
   const alias = player.alias?.trim() ?? ""
   const canonicalName = player.name.trim()
   const hasDistinctAlias =
@@ -114,7 +119,16 @@ function ProfileIdentityCard({
                   <DialogTrigger asChild>
                     <button
                       type="button"
-                      className="relative flex h-32 w-32 cursor-zoom-in items-center justify-center overflow-hidden rounded-[28px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15 transition-transform hover:scale-[1.02] focus-visible:outline-none"
+                      data-testid={
+                        showWebsiteUserRing
+                          ? `profile-avatar-ring-${player.steamid64}`
+                          : undefined
+                      }
+                      className={cn(
+                        "relative flex h-32 w-32 cursor-zoom-in items-center justify-center overflow-hidden rounded-[28px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15 transition-transform hover:scale-[1.02] focus-visible:outline-none",
+                        showWebsiteUserRing &&
+                          "ring-4 ring-pink-400/90 ring-offset-4 ring-offset-card",
+                      )}
                       aria-label={`Zoom avatar for ${player.name}`}
                     >
                       {avatarUrl ? (
@@ -554,7 +568,7 @@ export function ProfileSidebar({
   summaryLoading,
 }: {
   identifier: string
-  player: PlayerPublic
+  player: ProfilePlayer
   summary: ProfileSummaryData
   summaryLoading: boolean
 }) {

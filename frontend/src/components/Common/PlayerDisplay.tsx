@@ -59,6 +59,7 @@ interface PlayerDisplayProps {
     alias?: string | null
     avatar_hash?: string | null
     country?: string | null
+    is_website_user?: boolean
   } | null
   fallbackSteamid64?: string
   showSteamid?: boolean
@@ -79,6 +80,10 @@ type PlayerContextMenuItemsProps = {
   }
   steamProfileUrl: string | null
   steamid64: string
+}
+
+function hasWebsiteUserAvatarRing(player: PlayerDisplayProps["player"]): boolean {
+  return player?.is_website_user === true
 }
 
 export function PlayerContextMenuItems({
@@ -252,6 +257,7 @@ export function PlayerDisplay({
 }: PlayerDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const showWebsiteUserRing = hasWebsiteUserAvatarRing(player)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = player?.alias || player?.name || steamid64
@@ -314,8 +320,13 @@ export function PlayerDisplay({
         )}
 
         <Avatar
+          data-testid={
+            showWebsiteUserRing ? `player-avatar-ring-${steamid64}` : undefined
+          }
           className={cn(
             "size-8 rounded-md transition-transform duration-200",
+            showWebsiteUserRing &&
+              "ring-2 ring-pink-400/90 ring-offset-2 ring-offset-background",
             hasProfileLink &&
               "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
           )}

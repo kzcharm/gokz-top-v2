@@ -18,6 +18,7 @@ from app.models import (
     PlayerPublic,
     PlayerUpdate,
     RecordScope,
+    User,
 )
 from app.models.player import validate_player_custom_id
 from app.models.record import scope_to_id
@@ -749,7 +750,36 @@ async def update_player(
     return db_player
 
 
-def to_player_public(*, player: Player, profile_views: int = 0) -> PlayerPublic:
+async def load_website_user_steamid64s(
+    *, session: AsyncSession, steamid64s: Sequence[int]
+) -> set[int]:
+    unique_steamid64s = tuple(dict.fromkeys(steamid64s))
+    if not unique_steamid64s:
+        return set()
+
+    statement = select(User.steamid64).where(col(User.steamid64).in_(unique_steamid64s))
+    return set((await session.exec(statement)).all())
+
+
+async def to_player_publics(
+    *, session: AsyncSession, players: Sequence[Player]
+) -> list[PlayerPublic]:
+    website_user_steamid64s = await load_website_user_steamid64s(
+        session=session,
+        steamid64s=[player.steamid64 for player in players],
+    )
+    return [
+        to_player_public(
+            player=player,
+            is_website_user=player.steamid64 in website_user_steamid64s,
+        )
+        for player in players
+    ]
+
+
+def to_player_public(
+    *, player: Player, profile_views: int = 0, is_website_user: bool = False
+) -> PlayerPublic:
     return PlayerPublic(
         steamid64=str(player.steamid64),
         name=player.name,
@@ -760,6 +790,7 @@ def to_player_public(*, player: Player, profile_views: int = 0) -> PlayerPublic:
         created_at=player.created_at,
         last_played_at=player.last_played_at,
         updated_at=player.updated_at,
+        is_website_user=is_website_user,
         profile_views=profile_views,
     )
 
@@ -773,4 +804,11 @@ async def to_player_public_with_profile_views(
         session=session,
         target_steamid64=player.steamid64,
     )
-    return to_player_public(player=player, profile_views=profile_views)
+    website_user_steamid64s = await load_website_user_steamid64s(
+        session=session, steamid64s=[player.steamid64]
+    )
+    return to_player_public(
+        player=player,
+        profile_views=profile_views,
+        is_website_user=player.steamid64 in website_user_steamid64s,
+    )
