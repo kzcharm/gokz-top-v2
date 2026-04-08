@@ -45,7 +45,6 @@ A2S_PACKET_PREFIX = b"\xff\xff\xff\xff"
 A2S_INFO_REQUEST = A2S_PACKET_PREFIX + b"TSource Engine Query\x00"
 A2S_PLAYER_REQUEST_PREFIX = A2S_PACKET_PREFIX + b"U"
 A2S_CHALLENGE_REQUEST = b"\xff\xff\xff\xff"
-_server_a2s_failures: dict[Any, int] = {}
 _server_a2s_in_flight_until: dict[Any, datetime] = {}
 
 
@@ -529,16 +528,6 @@ def _mark_server_a2s_query_finished(*, server_id: Any) -> None:
     _server_a2s_in_flight_until.pop(server_id, None)
 
 
-def _reset_server_a2s_failures(*, server_id: Any) -> None:
-    _server_a2s_failures.pop(server_id, None)
-
-
-def _increment_server_a2s_failures(*, server_id: Any) -> int:
-    next_failures = _server_a2s_failures.get(server_id, 0) + 1
-    _server_a2s_failures[server_id] = next_failures
-    return next_failures
-
-
 async def run_server_a2s_refresh_cycle() -> None:
     now = datetime.now(UTC)
     async with async_session_maker() as session:
@@ -552,17 +541,6 @@ async def run_server_a2s_refresh_cycle() -> None:
     semaphore = asyncio.Semaphore(20)
     eligible_servers = []
     for server in servers:
-        status = server.live_status
-        if (
-            status is not None
-            and status.last_successful_seen_at is not None
-            and (
-                status.last_a2s_seen_at is None
-                or status.last_successful_seen_at >= status.last_a2s_seen_at
-            )
-        ):
-            _reset_server_a2s_failures(server_id=server.id)
-
         if _is_server_a2s_query_in_flight(server_id=server.id, now=now):
             continue
 
@@ -592,18 +570,14 @@ async def run_server_a2s_refresh_cycle() -> None:
         async with async_session_maker() as session:
             server = await crud.get_server_by_id(session=session, server_id=server_id)
             if server is None:
-                _reset_server_a2s_failures(server_id=server_id)
                 continue
             if info is None:
-                failures = _increment_server_a2s_failures(server_id=server_id)
                 await crud.record_a2s_failure(
                     session=session,
                     server=server,
                     observed_at=datetime.now(UTC),
-                    mark_offline=failures >= SERVER_A2S_FAILURES_BEFORE_OFFLINE,
                 )
                 continue
-            _reset_server_a2s_failures(server_id=server_id)
             await crud.record_a2s_success(
                 session=session,
                 server=server,

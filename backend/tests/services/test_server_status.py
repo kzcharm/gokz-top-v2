@@ -24,10 +24,8 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(autouse=True)
 def reset_server_status_runtime_state() -> Generator[None]:
-    server_status._server_a2s_failures.clear()
     server_status._server_a2s_in_flight_until.clear()
     yield
-    server_status._server_a2s_failures.clear()
     server_status._server_a2s_in_flight_until.clear()
 
 
@@ -159,7 +157,10 @@ async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
         ),
     )
     assert stale_server.live_status is not None
-    stale_server.live_status.last_a2s_seen_at = now - timedelta(seconds=10)
+    stale_server.live_status.state = {
+        **stale_server.live_status.state,
+        "last_a2s_seen_at": (now - timedelta(seconds=10)).isoformat(),
+    }
     db.add(stale_server.live_status)
     await db.commit()
 
@@ -418,7 +419,10 @@ async def test_run_server_a2s_refresh_cycle_updates_stale_players(
 ) -> None:
     server = await create_server(db)
     assert server.live_status is not None
-    server.live_status.last_a2s_seen_at = datetime.now(UTC) - timedelta(seconds=10)
+    server.live_status.state = {
+        **server.live_status.state,
+        "last_a2s_seen_at": (datetime.now(UTC) - timedelta(seconds=10)).isoformat(),
+    }
     server.live_status.players = [{"name": "Old Player"}]
     server.live_status.player_count = 1
     db.add(server.live_status)
@@ -477,8 +481,11 @@ async def test_run_server_a2s_refresh_cycle_keeps_recent_server_online_on_single
     assert server.live_status is not None
 
     previous_success_at = datetime.now(UTC) - timedelta(seconds=10)
-    server.live_status.last_successful_seen_at = previous_success_at
-    server.live_status.last_a2s_seen_at = previous_success_at - timedelta(seconds=10)
+    server.live_status.state = {
+        **server.live_status.state,
+        "last_successful_seen_at": previous_success_at.isoformat(),
+        "last_a2s_seen_at": (previous_success_at - timedelta(seconds=10)).isoformat(),
+    }
     server.live_status.is_online = True
     server.live_status.players = [{"name": "Player One"}]
     db.add(server.live_status)
@@ -512,9 +519,10 @@ async def test_run_server_a2s_refresh_cycle_keeps_recent_server_online_on_single
     assert refreshed.live_status.is_online is True
     assert refreshed.live_status.player_count == 4
     assert refreshed.live_status.players == [{"name": "Player One"}]
-    assert refreshed.live_status.last_successful_seen_at == previous_success_at
-    assert refreshed.live_status.last_a2s_seen_at is not None
-    assert refreshed.live_status.last_a2s_seen_at > previous_success_at
+    state = refreshed.live_status.state
+    assert state["last_successful_seen_at"] == previous_success_at.isoformat()
+    assert state["last_a2s_seen_at"] is not None
+    assert datetime.fromisoformat(state["last_a2s_seen_at"]) > previous_success_at
 
 
 async def test_run_server_a2s_refresh_cycle_marks_server_offline_after_three_failures(
@@ -525,8 +533,11 @@ async def test_run_server_a2s_refresh_cycle_marks_server_offline_after_three_fai
     assert server.live_status is not None
 
     previous_success_at = datetime.now(UTC) - timedelta(seconds=10)
-    server.live_status.last_successful_seen_at = previous_success_at
-    server.live_status.last_a2s_seen_at = previous_success_at - timedelta(seconds=10)
+    server.live_status.state = {
+        **server.live_status.state,
+        "last_successful_seen_at": previous_success_at.isoformat(),
+        "last_a2s_seen_at": (previous_success_at - timedelta(seconds=10)).isoformat(),
+    }
     server.live_status.is_online = True
     server.live_status.players = [{"name": "Player One"}]
     db.add(server.live_status)
@@ -572,12 +583,81 @@ async def test_run_server_a2s_refresh_cycle_marks_server_offline_after_three_fai
 
     refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
     assert refreshed is not None
-    assert refreshed.status == ServerStatus.INVALID
+    assert refreshed.status == ServerStatus.ENABLED
     assert refreshed.live_status is not None
     assert refreshed.live_status.is_online is False
     assert refreshed.live_status.player_count == 0
     assert refreshed.live_status.players == []
     assert refreshed.live_status.hostname == "Test Server"
+    assert refreshed.live_status.state["timeout_count"] == 3
+
+
+async def test_record_a2s_success_invalidates_after_extended_invalid_map_window(
+    db: AsyncSession,
+) -> None:
+    server = await create_server(db, map_name="kz_valid")
+    assert server.live_status is not None
+
+    last_valid_seen_at = datetime.now(UTC) - timedelta(hours=2)
+    server.live_status.state = {
+        **server.live_status.state,
+        "last_valid_seen_at": last_valid_seen_at.isoformat(),
+        "last_successful_seen_at": last_valid_seen_at.isoformat(),
+    }
+    db.add(server.live_status)
+    await db.commit()
+
+    for index in range(11):
+        server = await crud.record_a2s_success(
+            session=db,
+            server=server,
+            observed_at=datetime.now(UTC) + timedelta(seconds=index),
+            hostname="Invalid Host",
+            map_name="de_dust2",
+            player_count=3,
+            max_players=16,
+            players=[],
+        )
+
+    refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
+    assert refreshed is not None
+    assert refreshed.status == ServerStatus.INVALID
+    assert refreshed.live_status is not None
+    assert refreshed.live_status.is_online is True
+    assert refreshed.live_status.state["invalid_count"] == 11
+    assert refreshed.live_status.state["last_valid_seen_at"] == last_valid_seen_at.isoformat()
+
+
+async def test_record_a2s_failure_invalidates_after_24_hours_and_100_timeouts(
+    db: AsyncSession,
+) -> None:
+    server = await create_server(db, player_count=4, max_players=20)
+    assert server.live_status is not None
+
+    last_successful_seen_at = datetime.now(UTC) - timedelta(hours=25)
+    server.live_status.is_online = True
+    server.live_status.players = [{"name": "Player One"}]
+    server.live_status.state = {
+        **server.live_status.state,
+        "last_successful_seen_at": last_successful_seen_at.isoformat(),
+        "last_valid_seen_at": last_successful_seen_at.isoformat(),
+        "timeout_count": 99,
+    }
+    db.add(server.live_status)
+    await db.commit()
+
+    server = await crud.record_a2s_failure(
+        session=db,
+        server=server,
+        observed_at=datetime.now(UTC),
+    )
+
+    refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
+    assert refreshed is not None
+    assert refreshed.status == ServerStatus.INVALID
+    assert refreshed.live_status is not None
+    assert refreshed.live_status.is_online is False
+    assert refreshed.live_status.state["timeout_count"] == 100
 
 
 async def test_run_server_a2s_refresh_cycle_skips_server_with_inflight_query(
@@ -586,7 +666,10 @@ async def test_run_server_a2s_refresh_cycle_skips_server_with_inflight_query(
 ) -> None:
     server = await create_server(db)
     assert server.live_status is not None
-    server.live_status.last_a2s_seen_at = datetime.now(UTC) - timedelta(seconds=10)
+    server.live_status.state = {
+        **server.live_status.state,
+        "last_a2s_seen_at": (datetime.now(UTC) - timedelta(seconds=10)).isoformat(),
+    }
     db.add(server.live_status)
     await db.commit()
 
