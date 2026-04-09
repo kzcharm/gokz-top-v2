@@ -127,6 +127,7 @@ function CommentCell({
 }
 
 export function MapReviewsTable({
+  mapId,
   reviews,
   totalCount,
   isLoading,
@@ -135,6 +136,7 @@ export function MapReviewsTable({
   onPageChange,
   onPageSizeChange,
 }: {
+  mapId: number
   reviews: MapReviewPublic[]
   totalCount: number
   isLoading: boolean
@@ -181,6 +183,12 @@ export function MapReviewsTable({
                 player={row.original.player}
                 className="max-w-[15rem]"
                 nameMaxLength={24}
+                subline={{
+                  type: "wr",
+                  mapId,
+                  scope: "OVR",
+                  recordType: "NUB",
+                }}
               />
             ),
           },

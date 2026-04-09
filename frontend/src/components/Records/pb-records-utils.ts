@@ -1,12 +1,11 @@
 import { queryOptions } from "@tanstack/react-query"
 
-import { type RecordPublic, RecordsService } from "@/client"
+import type { RecordPublic, RecordType } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { getPlayerDisplayName } from "@/components/Common/PlayerDisplay"
 import type { AppScope } from "@/components/scope-provider"
 
 export const PB_RECORDS_QUERY_LIMIT = 10_000
-export const MAP_TOP_QUERY_LIMIT = 100
 
 const PB_RECORDS_QUERY_CONFIG = {
   staleTime: Number.POSITIVE_INFINITY,
@@ -108,7 +107,7 @@ export function getProfilePbRecordsQueryOptions({
         steamid64,
         scope,
         stage: "0",
-        is_pro_only: String(isProOnly),
+        type: isProOnly ? "PRO" : "NUB",
         exclude_cheaters: "false",
         limit: String(PB_RECORDS_QUERY_LIMIT),
       })
@@ -130,33 +129,48 @@ export function getProfilePbRecordsQueryOptions({
 
 export function getMapPbRecordsQueryOptions({
   mapId,
+  mapName,
   scope,
   isProOnly,
-  country,
-  region,
 }: {
   mapId: number | null
+  mapName: string | null
   scope: AppScope
   isProOnly: boolean
-  country: string | null
-  region: string | null
 }) {
   return queryOptions({
-    queryKey: ["map-records", mapId, scope, isProOnly, country, region],
-    queryFn: async () => {
-      if (mapId === null) {
+    queryKey: ["map-records", mapId, mapName, scope, isProOnly],
+    queryFn: async (): Promise<RecordPublic[]> => {
+      if (mapId === null && !mapName) {
         return []
       }
 
-      return await RecordsService.readPbRecords({
-        mapId,
+      const recordType: RecordType = isProOnly ? "PRO" : "NUB"
+      const params = new URLSearchParams({
         scope,
-        stage: 0,
-        isProOnly,
-        country: country ?? undefined,
-        region: region ?? undefined,
-        limit: MAP_TOP_QUERY_LIMIT,
+        stage: "0",
+        type: recordType,
+        exclude_cheaters: "false",
+        limit: String(PB_RECORDS_QUERY_LIMIT),
       })
+
+      if (mapId !== null) {
+        params.set("map_id", String(mapId))
+      } else if (mapName) {
+        params.set("map_name", mapName)
+      }
+
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/records/pb?${params.toString()}`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+        },
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load map PB records")
+      }
+
+      return (await response.json()) as RecordPublic[]
     },
     ...PB_RECORDS_QUERY_CONFIG,
   })

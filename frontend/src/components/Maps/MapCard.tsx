@@ -1,10 +1,12 @@
 import { Link } from "@tanstack/react-router"
 import { Star } from "lucide-react"
 
-import type { MapPublic } from "@/client"
+import type { MapPublic, MapWrPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { getMapImageUrl } from "@/components/Common/MapDisplay"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getMapSkillPortions } from "@/components/Maps/map-utils"
+import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -12,6 +14,8 @@ import { cn } from "@/lib/utils"
 interface MapCardProps {
   activeTier: number
   map: MapPublic
+  wrRecord?: MapWrPublic | null
+  wrLoading?: boolean
 }
 
 function formatReviewAverage(value: number | null | undefined) {
@@ -84,7 +88,12 @@ function ReviewSummaryRow({
   )
 }
 
-export function MapCard({ activeTier, map }: MapCardProps) {
+export function MapCard({
+  activeTier,
+  map,
+  wrRecord = null,
+  wrLoading = false,
+}: MapCardProps) {
   const imageUrl = getMapImageUrl(map.name)
   const reviewSummary = map.review_summary
   const reviewsCount = reviewSummary?.reviews_count ?? 0
@@ -133,6 +142,34 @@ export function MapCard({ activeTier, map }: MapCardProps) {
       </div>
 
       <CardContent className="space-y-4 px-5 py-5">
+        <section
+          className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3"
+          aria-label="World record summary"
+        >
+          {wrRecord ? (
+            <div className="flex items-center gap-3">
+              <span className="shrink-0 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                WR
+              </span>
+              <PlayerDisplay
+                player={wrRecord.player}
+                className="min-w-0 flex-1"
+                nameMaxLength={22}
+                subline={{
+                  type: "text",
+                  value: formatRecordTime(wrRecord.time),
+                }}
+              />
+            </div>
+          ) : wrLoading ? (
+            <div className="text-sm text-muted-foreground">Loading WR...</div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No WR found for this scope.
+            </div>
+          )}
+        </section>
+
         <section
           className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3"
           aria-label="Review summary"
