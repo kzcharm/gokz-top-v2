@@ -311,6 +311,16 @@ export type RecordPublic = {
     is_valid: boolean;
 };
 
+export type RecordRankPublic = {
+    record_uuid: string;
+    rank?: (number | null);
+};
+
+export type RecordRanksPublic = {
+    data: Array<RecordRankPublic>;
+    count: number;
+};
+
 export type RecordScope = 'OVR' | 'KZT' | 'SKZ' | 'VNL';
 
 export type RecordsPublic = {
@@ -567,6 +577,10 @@ export type LeaderboardsUpsertPlayerLeaderboardsData = {
 
 export type LeaderboardsUpsertPlayerLeaderboardsResponse = (Message);
 
+export type LoginLoginSteamData = {
+    redirectTo?: (string | null);
+};
+
 export type LoginLoginSteamResponse = (unknown);
 
 export type LoginSteamCallbackResponse = (unknown);
@@ -769,6 +783,14 @@ export type RecordsReadPbRecordsData = {
 };
 
 export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);
+
+export type RecordsReadRecordRanksData = {
+    scope?: RecordScope;
+    type?: RecordType;
+    uuidList: Array<(string)>;
+};
+
+export type RecordsReadRecordRanksResponse = (RecordRanksPublic);
 
 export type RecordsReadRecordData = {
     recordUuid: string;

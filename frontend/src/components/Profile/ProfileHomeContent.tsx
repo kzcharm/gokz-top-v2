@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react"
 
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { PointsBadge } from "@/components/Records/PointsBadge"
+import { formatCompactCount } from "@/components/Records/TeleportsBadge"
+import { formatRecordTime } from "@/components/Records/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,9 +16,9 @@ import {
 import {
   formatNumber,
   type ProfileCompletionData,
+  type ProfilePinnedRecord,
   type ProfileSummaryData,
   type ProfileTrophyCounts,
-  profileBadgeToneClasses,
 } from "./profile-utils"
 
 const activityTones = [
@@ -238,7 +242,13 @@ function ActivityCard() {
   )
 }
 
-function PinnedRecordsCard() {
+function PinnedRecordsCard({
+  pinnedRecords,
+  loading,
+}: {
+  pinnedRecords: ProfilePinnedRecord[]
+  loading: boolean
+}) {
   return (
     <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
@@ -249,39 +259,55 @@ function PinnedRecordsCard() {
             </p>
           </div>
           <p className="text-sm text-muted-foreground">
-            {profileHomePlaceholder.pinnedRecords.length} of 6
+            {pinnedRecords.length} of 6
           </p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-          {profileHomePlaceholder.pinnedRecords.map((record) => (
-            <div
-              key={`${record.map}-${record.time}`}
-              className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35"
-            >
-              <p className="truncate text-sm font-semibold">{record.map}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {record.mode} · {record.variant} · {record.rank}
-              </p>
-              <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
-                {record.time}
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
-                    profileBadgeToneClasses[record.badgeTone],
-                  )}
-                >
-                  {record.badge}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {record.achievedOn}
-                </span>
+        {loading ? (
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton key={index} className="h-32 rounded-[22px]" />
+            ))}
+          </div>
+        ) : pinnedRecords.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            {pinnedRecords.map(({ record, rank, totalCount }) => (
+              <div
+                key={record.uuid}
+                className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35"
+              >
+                <p className="truncate text-sm font-semibold">
+                  {record.map_name}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {record.mode} ·{" "}
+                  {rank === null
+                    ? "Rank unavailable"
+                    : totalCount === null
+                      ? `#${formatNumber(rank)}`
+                      : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
+                </p>
+                <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
+                  {formatRecordTime(record.time)}
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <PointsBadge points={record.points} />
+                  <span className="text-xs text-muted-foreground">
+                    <FormattedDateTime
+                      value={record.created_on}
+                      display="absolute"
+                      fallback="-"
+                    />
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No pinned records found for this scope.
+          </p>
+        )}
       </CardContent>
     </Card>
   )
@@ -292,6 +318,9 @@ export function ProfileHomeContent({
   completionLoading,
   completionError,
   completionTrophies,
+  pinnedRecords,
+  pinnedRecordsError,
+  pinnedRecordsLoading,
   summary,
   summaryLoading,
 }: {
@@ -302,6 +331,9 @@ export function ProfileHomeContent({
     nub: ProfileTrophyCounts
     pro: ProfileTrophyCounts
   }
+  pinnedRecords: ProfilePinnedRecord[]
+  pinnedRecordsError: boolean
+  pinnedRecordsLoading: boolean
   summary: ProfileSummaryData
   summaryLoading: boolean
 }) {
@@ -359,7 +391,16 @@ export function ProfileHomeContent({
       )}
 
       <ActivityCard />
-      <PinnedRecordsCard />
+      {pinnedRecordsError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load pinned record ranks</AlertTitle>
+          <AlertDescription>Reload the page and try again.</AlertDescription>
+        </Alert>
+      ) : null}
+      <PinnedRecordsCard
+        pinnedRecords={pinnedRecords}
+        loading={pinnedRecordsLoading}
+      />
     </div>
   )
 }

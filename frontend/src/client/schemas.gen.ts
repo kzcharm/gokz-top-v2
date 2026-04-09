@@ -1540,6 +1540,49 @@ export const RecordPublicSchema = {
     title: 'RecordPublic'
 } as const;
 
+export const RecordRankPublicSchema = {
+    properties: {
+        record_uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Record Uuid'
+        },
+        rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rank'
+        }
+    },
+    type: 'object',
+    required: ['record_uuid'],
+    title: 'RecordRankPublic'
+} as const;
+
+export const RecordRanksPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecordRankPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RecordRanksPublic'
+} as const;
+
 export const RecordScopeSchema = {
     type: 'string',
     enum: ['OVR', 'KZT', 'SKZ', 'VNL'],

@@ -410,6 +410,17 @@ class RecordsPublic(SQLModel):
     count: int
 
 
+class RecordRankPublic(SQLModel):
+    record_uuid: uuid.UUID
+    rank: int | None = None
+    total_count: int | None = None
+
+
+class RecordRanksPublic(SQLModel):
+    data: list[RecordRankPublic]
+    count: int
+
+
 class MapWrPublic(SQLModel):
     record_uuid: uuid.UUID
     map_id: int

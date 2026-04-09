@@ -6,21 +6,21 @@ interface TeleportsBadgeProps {
   className?: string
 }
 
-function formatTeleportsLabel(teleports: number) {
-  if (teleports <= 0) {
+export function formatCompactCount(value: number) {
+  if (value <= 0) {
     return "PRO"
   }
 
-  if (teleports <= 9999) {
-    return String(teleports)
+  if (value <= 9999) {
+    return String(value)
   }
 
-  if (teleports < 1_000_000) {
-    return `${Math.floor(teleports / 1_000)}K`
+  if (value < 1_000_000) {
+    return `${Math.floor(value / 1_000)}K`
   }
 
-  if (teleports < 1_000_000_000) {
-    return `${Math.floor(teleports / 1_000_000)}M`
+  if (value < 1_000_000_000) {
+    return `${Math.floor(value / 1_000_000)}M`
   }
 
   return "999M"
@@ -40,7 +40,7 @@ export function TeleportsBadge({ teleports, className }: TeleportsBadgeProps) {
         backgroundColor: hasTeleports ? "#f2c40f" : "#3598db",
       }}
     >
-      {formatTeleportsLabel(teleports)}
+      {formatCompactCount(teleports)}
     </Badge>
   )
 }
