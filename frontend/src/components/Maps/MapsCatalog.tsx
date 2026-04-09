@@ -29,12 +29,27 @@ const MAP_SORT_OPTIONS = [
   { label: "Tier", value: "tier" },
   { label: "Created", value: "created" },
   { label: "Updated", value: "updated" },
+  { label: "Review", value: "review" },
   { label: "Skill", value: "skill" },
 ] as const
 
-type MapsSortField = (typeof MAP_SORT_OPTIONS)[number]["value"]
+const REVIEW_SORT_OPTIONS = [
+  { label: "Overall", value: "overall" },
+  { label: "Gameplay", value: "gameplay" },
+  { label: "Visuals", value: "visuals" },
+  { label: "Review Count", value: "reviewCount" },
+  { label: "Comments Count", value: "commentsCount" },
+] as const
+
+type MapsSortOption = (typeof MAP_SORT_OPTIONS)[number]["value"]
+type ReviewSortField = (typeof REVIEW_SORT_OPTIONS)[number]["value"]
+type MapsSortField = Exclude<MapsSortOption, "review"> | ReviewSortField
 type MapsSortDirection = "asc" | "desc"
 type SortableSkillKey = Exclude<MapSkillKey, "unknown">
+
+function isReviewSortField(value: MapsSortField): value is ReviewSortField {
+  return REVIEW_SORT_OPTIONS.some((option) => option.value === value)
+}
 
 function SortableMapOption({
   active,
@@ -74,6 +89,28 @@ function getMapTierForScope(map: MapPublic, scope: AppScope) {
   return map.tiers[scope]
 }
 
+function compareNullableNumbers(
+  left: number | null | undefined,
+  right: number | null | undefined,
+  direction: MapsSortDirection,
+) {
+  const leftIsNull = left === null || left === undefined
+  const rightIsNull = right === null || right === undefined
+
+  if (leftIsNull && rightIsNull) {
+    return 0
+  }
+  if (leftIsNull) {
+    return 1
+  }
+  if (rightIsNull) {
+    return -1
+  }
+
+  const comparison = left - right
+  return direction === "asc" ? comparison : -comparison
+}
+
 function sortMaps(
   maps: MapPublic[],
   sortField: MapsSortField,
@@ -84,6 +121,8 @@ function sortMaps(
   return [...maps].sort((left, right) => {
     const leftTier = getMapTierForScope(left, scope)
     const rightTier = getMapTierForScope(right, scope)
+    const leftReviewSummary = left.review_summary
+    const rightReviewSummary = right.review_summary
 
     let comparison = 0
 
@@ -97,6 +136,41 @@ function sortMaps(
       case "created":
         comparison = Date.parse(left.created_on) - Date.parse(right.created_on)
         break
+      case "overall":
+        comparison = compareNullableNumbers(
+          leftReviewSummary?.overall_avg,
+          rightReviewSummary?.overall_avg,
+          sortDirection,
+        )
+        break
+      case "gameplay":
+        comparison = compareNullableNumbers(
+          leftReviewSummary?.gameplay_avg,
+          rightReviewSummary?.gameplay_avg,
+          sortDirection,
+        )
+        break
+      case "visuals":
+        comparison = compareNullableNumbers(
+          leftReviewSummary?.visuals_avg,
+          rightReviewSummary?.visuals_avg,
+          sortDirection,
+        )
+        break
+      case "reviewCount":
+        comparison = compareNullableNumbers(
+          leftReviewSummary?.reviews_count,
+          rightReviewSummary?.reviews_count,
+          sortDirection,
+        )
+        break
+      case "commentsCount":
+        comparison = compareNullableNumbers(
+          leftReviewSummary?.comments_count,
+          rightReviewSummary?.comments_count,
+          sortDirection,
+        )
+        break
       case "skill":
         comparison =
           getMapSkillPercentage(left.name, selectedSkill) -
@@ -107,8 +181,53 @@ function sortMaps(
         break
     }
 
+    if (
+      comparison === 0 &&
+      (sortField === "overall" ||
+        sortField === "gameplay" ||
+        sortField === "visuals")
+    ) {
+      comparison = compareNullableNumbers(
+        leftReviewSummary?.reviews_count,
+        rightReviewSummary?.reviews_count,
+        sortDirection,
+      )
+    }
+
+    if (
+      comparison === 0 &&
+      (sortField === "overall" ||
+        sortField === "gameplay" ||
+        sortField === "visuals" ||
+        sortField === "reviewCount")
+    ) {
+      comparison = compareNullableNumbers(
+        leftReviewSummary?.comments_count,
+        rightReviewSummary?.comments_count,
+        sortDirection,
+      )
+    }
+
+    if (comparison === 0 && sortField === "commentsCount") {
+      comparison = compareNullableNumbers(
+        leftReviewSummary?.reviews_count,
+        rightReviewSummary?.reviews_count,
+        sortDirection,
+      )
+    }
+
     if (comparison === 0) {
       comparison = left.name.localeCompare(right.name)
+    }
+
+    if (
+      sortField === "overall" ||
+      sortField === "gameplay" ||
+      sortField === "visuals" ||
+      sortField === "reviewCount" ||
+      sortField === "commentsCount"
+    ) {
+      return comparison
     }
 
     return sortDirection === "asc" ? comparison : -comparison
@@ -150,6 +269,8 @@ export function MapsCatalog() {
   const [sortField, setSortField] = useState<MapsSortField>("name")
   const [sortDirection, setSortDirection] = useState<MapsSortDirection>("asc")
   const [selectedSkill, setSelectedSkill] = useState<SortableSkillKey>("ladder")
+  const [selectedReviewSort, setSelectedReviewSort] =
+    useState<ReviewSortField>("overall")
   const [page, setPage] = useState(1)
 
   const mapsQuery = useQuery({
@@ -231,11 +352,24 @@ export function MapsCatalog() {
     )
   }
 
-  function handleSortChange(nextSortField: MapsSortField) {
+  function handleSortChange(nextSortField: MapsSortOption) {
     startTransition(() => {
       setPage(1)
       if (nextSortField === "skill") {
         setSortField("skill")
+        setSortDirection("desc")
+        return
+      }
+
+      if (nextSortField === "review") {
+        if (isReviewSortField(sortField)) {
+          setSortDirection((currentDirection) =>
+            currentDirection === "asc" ? "desc" : "asc",
+          )
+          return
+        }
+
+        setSortField(selectedReviewSort)
         setSortDirection("desc")
         return
       }
@@ -257,6 +391,23 @@ export function MapsCatalog() {
       setPage(1)
       setSelectedSkill(nextSkill)
       setSortField("skill")
+      setSortDirection("desc")
+    })
+  }
+
+  function handleReviewSortSelection(nextReviewSort: ReviewSortField) {
+    startTransition(() => {
+      setPage(1)
+      setSelectedReviewSort(nextReviewSort)
+
+      if (sortField === nextReviewSort) {
+        setSortDirection((currentDirection) =>
+          currentDirection === "asc" ? "desc" : "asc",
+        )
+        return
+      }
+
+      setSortField(nextReviewSort)
       setSortDirection("desc")
     })
   }
@@ -299,65 +450,89 @@ export function MapsCatalog() {
             />
           </div>
 
-          <div
-            className="flex flex-wrap items-center gap-x-1 gap-y-2"
-            aria-label="Sort maps"
-          >
-            {MAP_SORT_OPTIONS.map((option) => {
-              const isActive = option.value === sortField
-              const activeDirection =
-                option.value === "skill"
-                  ? "desc"
-                  : isActive
-                    ? sortDirection
-                    : undefined
-
-              return (
-                <SortableMapOption
-                  key={option.value}
-                  active={isActive}
-                  direction={isActive ? activeDirection : undefined}
-                  label={option.label}
-                  onClick={() => {
-                    handleSortChange(option.value)
-                  }}
-                />
-              )
-            })}
-          </div>
-
-          {sortField === "skill" ? (
-            <div
-              className="flex flex-wrap items-center gap-x-1 gap-y-2"
-              aria-label="Sort maps by skill"
-            >
-              {MAP_SORTABLE_SKILLS.map((skill) => {
-                const isActive = skill.key === selectedSkill
+          <fieldset className="min-w-0 border-0 p-0">
+            <legend className="sr-only">Sort maps</legend>
+            <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+              {MAP_SORT_OPTIONS.map((option) => {
+                const isReviewOption = option.value === "review"
+                const isActive = isReviewOption
+                  ? isReviewSortField(sortField)
+                  : option.value === sortField
+                const activeDirection =
+                  option.value === "skill"
+                    ? "desc"
+                    : isActive
+                      ? sortDirection
+                      : undefined
 
                 return (
-                  <Button
-                    key={skill.key}
-                    type="button"
-                    variant="ghost"
-                    className={cn(
-                      "-ml-3 h-8 px-3 text-left text-sm",
-                      isActive ? "text-foreground" : "text-muted-foreground",
-                    )}
-                    aria-pressed={isActive}
+                  <SortableMapOption
+                    key={option.value}
+                    active={isActive}
+                    direction={isActive ? activeDirection : undefined}
+                    label={option.label}
                     onClick={() => {
-                      handleSkillSortSelection(skill.key)
+                      handleSortChange(option.value)
                     }}
-                  >
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ backgroundColor: skill.color }}
-                    />
-                    <span>{skill.label}</span>
-                    {isActive ? <ArrowDown className="ml-2 size-4" /> : null}
-                  </Button>
+                  />
                 )
               })}
             </div>
+          </fieldset>
+
+          {isReviewSortField(sortField) ? (
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="sr-only">Sort maps by review</legend>
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+                {REVIEW_SORT_OPTIONS.map((option) => (
+                  <SortableMapOption
+                    key={option.value}
+                    active={sortField === option.value}
+                    direction={
+                      sortField === option.value ? sortDirection : undefined
+                    }
+                    label={option.label}
+                    onClick={() => {
+                      handleReviewSortSelection(option.value)
+                    }}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
+          {sortField === "skill" ? (
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="sr-only">Sort maps by skill</legend>
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+                {MAP_SORTABLE_SKILLS.map((skill) => {
+                  const isActive = skill.key === selectedSkill
+
+                  return (
+                    <Button
+                      key={skill.key}
+                      type="button"
+                      variant="ghost"
+                      className={cn(
+                        "-ml-3 h-8 px-3 text-left text-sm",
+                        isActive ? "text-foreground" : "text-muted-foreground",
+                      )}
+                      aria-pressed={isActive}
+                      onClick={() => {
+                        handleSkillSortSelection(skill.key)
+                      }}
+                    >
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: skill.color }}
+                      />
+                      <span>{skill.label}</span>
+                      {isActive ? <ArrowDown className="ml-2 size-4" /> : null}
+                    </Button>
+                  )
+                })}
+              </div>
+            </fieldset>
           ) : null}
         </div>
       </section>
