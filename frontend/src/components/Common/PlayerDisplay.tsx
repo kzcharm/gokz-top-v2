@@ -19,8 +19,15 @@ import type {
 import { useEffect, useState } from "react"
 import noneFlagSrc from "@/assets/flags/none.svg"
 import playerAvatarPlaceholderSrc from "@/assets/player-avatar-placeholder.jpg"
-import { ApiError, PlayersService } from "@/client"
+import {
+  ApiError,
+  MapsService,
+  PlayersService,
+  type RecordScope,
+  type RecordType,
+} from "@/client"
 import EditPlayer from "@/components/AdminPlayers/EditPlayer"
+import { formatRecordTime } from "@/components/Records/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -68,10 +75,29 @@ export type PlayerDisplayPlayer = {
   last_played_at?: string | null
 }
 
+type PlayerDisplaySubline =
+  | {
+      type: "steamid64"
+    }
+  | {
+      type: "text"
+      value?: string | null
+    }
+  | {
+      type: "wr"
+      mapId?: number | null
+      mapName?: string | null
+      scope?: RecordScope
+      recordType?: RecordType
+      emptyLabel?: string | null
+    }
+
 interface PlayerDisplayProps {
   player?: PlayerDisplayPlayer | null
   fallbackSteamid64?: string
   showSteamid?: boolean
+  showCountryFlag?: boolean
+  subline?: PlayerDisplaySubline | null
   className?: string
   nameMaxLength?: number
   disableProfileLink?: boolean
@@ -139,7 +165,9 @@ function shouldHydratePlayer(player?: PlayerDisplayPlayer | null): boolean {
   const hasWebsiteUserState =
     player.isWebsiteUser !== undefined || player.is_website_user !== undefined
 
-  return !hasDisplayName || !hasCountry || !hasAvatarHash || !hasWebsiteUserState
+  return (
+    !hasDisplayName || !hasCountry || !hasAvatarHash || !hasWebsiteUserState
+  )
 }
 
 export function PlayerContextMenuItems({
@@ -307,6 +335,8 @@ export function PlayerDisplay({
   player,
   fallbackSteamid64,
   showSteamid = false,
+  showCountryFlag = true,
+  subline = null,
   className,
   nameMaxLength,
   disableProfileLink = false,
@@ -325,6 +355,8 @@ export function PlayerDisplay({
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = getPlayerDisplayName(resolvedPlayer, steamid64)
   const truncatedDisplayName = truncateText(displayName, nameMaxLength)
+  const effectiveSubline =
+    subline ?? (showSteamid ? ({ type: "steamid64" } as const) : null)
   const avatarHash = getPlayerAvatarHash(resolvedPlayer)
   const steamAvatarSrc = avatarHash
     ? `https://avatars.steamstatic.com/${avatarHash}_full.jpg`
@@ -343,10 +375,55 @@ export function PlayerDisplay({
     countryCode && countryNameFormatter
       ? countryNameFormatter.of(countryCode) || countryCode
       : countryCode
+  const wrSublineQuery = useQuery({
+    queryKey: [
+      "player-display",
+      "wr-subline",
+      effectiveSubline?.type === "wr"
+        ? (effectiveSubline.scope ?? "OVR")
+        : null,
+      effectiveSubline?.type === "wr"
+        ? (effectiveSubline.recordType ?? "NUB")
+        : null,
+    ],
+    enabled:
+      effectiveSubline?.type === "wr" &&
+      (effectiveSubline.mapId != null ||
+        Boolean(effectiveSubline.mapName?.trim())),
+    queryFn: async () =>
+      await MapsService.readMapWrs({
+        scope: effectiveSubline?.type === "wr" ? effectiveSubline.scope : "OVR",
+        type:
+          effectiveSubline?.type === "wr" ? effectiveSubline.recordType : "NUB",
+      }),
+    staleTime: 60_000,
+  })
 
   useEffect(() => {
     setAvatarLoadFailed(false)
-  }, [steamAvatarSrc])
+  }, [])
+
+  let sublineContent: string | null = null
+  if (effectiveSubline?.type === "steamid64") {
+    sublineContent = steamid64
+  } else if (effectiveSubline?.type === "text") {
+    sublineContent = effectiveSubline.value?.trim() || null
+  } else if (effectiveSubline?.type === "wr") {
+    const matchingWr = wrSublineQuery.data?.find(
+      (record) =>
+        record.player.steamid64 === steamid64 &&
+        effectiveSubline.mapId != null &&
+        record.map_id === effectiveSubline.mapId,
+    )
+
+    if (matchingWr) {
+      sublineContent = `WR: ${formatRecordTime(matchingWr.time)}`
+    } else if (wrSublineQuery.isLoading) {
+      sublineContent = "WR: ..."
+    } else if (effectiveSubline.emptyLabel !== undefined) {
+      sublineContent = effectiveSubline.emptyLabel
+    }
+  }
 
   const content = (
     <div
@@ -358,37 +435,39 @@ export function PlayerDisplay({
       )}
     >
       <div className="flex items-center gap-2">
-        {FlagComponent ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="inline-flex"
-                data-testid={`country-flag-${steamid64}`}
-                role="img"
-                aria-label={countryName || countryCode || "Unknown country"}
-              >
-                <FlagComponent className="h-4 w-6 shrink-0" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent sideOffset={8}>
-              {countryName || countryCode}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <img
-            src={noneFlagSrc}
-            alt="Unknown country"
-            className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
-            title="Unknown country"
-          />
-        )}
+        {showCountryFlag ? (
+          FlagComponent ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex"
+                  data-testid={`country-flag-${steamid64}`}
+                  role="img"
+                  aria-label={countryName || countryCode || "Unknown country"}
+                >
+                  <FlagComponent className="h-4 w-6 shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={8}>
+                {countryName || countryCode}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <img
+              src={noneFlagSrc}
+              alt="Unknown country"
+              className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
+              title="Unknown country"
+            />
+          )
+        ) : null}
 
         <Avatar
           data-testid={
             showWebsiteUserRing ? `player-avatar-ring-${steamid64}` : undefined
           }
           className={cn(
-            "size-8 rounded-md transition-transform duration-200",
+            "size-8 rounded-lg transition-transform duration-200",
             showWebsiteUserRing &&
               "ring-2 ring-pink-400/90 ring-offset-2 ring-offset-background",
             hasProfileLink &&
@@ -402,7 +481,7 @@ export function PlayerDisplay({
               setAvatarLoadFailed(true)
             }}
           />
-          <AvatarFallback className="rounded-md bg-zinc-600 text-white">
+          <AvatarFallback className="rounded-lg bg-zinc-600 text-white">
             {getInitials(displayName)}
           </AvatarFallback>
         </Avatar>
@@ -411,7 +490,7 @@ export function PlayerDisplay({
       <div className="min-w-0">
         <p
           className={cn(
-            "truncate font-medium transition-colors",
+            "w-full truncate text-sm font-medium transition-colors",
             hasProfileLink &&
               "group-hover:text-accent-foreground group-focus-visible:text-accent-foreground",
           )}
@@ -419,11 +498,17 @@ export function PlayerDisplay({
         >
           {truncatedDisplayName}
         </p>
-        {showSteamid && (
-          <p className="truncate font-mono text-xs text-muted-foreground">
-            {steamid64}
+        {sublineContent ? (
+          <p
+            className={cn(
+              "w-full truncate text-xs text-muted-foreground",
+              effectiveSubline?.type === "steamid64" && "font-mono",
+            )}
+            title={sublineContent}
+          >
+            {sublineContent}
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   )

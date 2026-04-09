@@ -8,7 +8,7 @@ import {
   useState,
 } from "react"
 
-import { type MapPublic, MapsService } from "@/client"
+import { type MapPublic, MapsService, type MapWrPublic } from "@/client"
 import {
   TierSelector,
   type TierSelectorValue,
@@ -34,6 +34,7 @@ const MAP_SORT_OPTIONS = [
   { label: "Tier", value: "tier" },
   { label: "Created", value: "created" },
   { label: "Updated", value: "updated" },
+  { label: "WR", value: "wr" },
   { label: "Review", value: "review" },
   { label: "Skill", value: "skill" },
 ] as const
@@ -122,6 +123,7 @@ function sortMaps(
   sortDirection: MapsSortDirection,
   scope: AppScope,
   selectedSkill: SortableSkillKey,
+  wrTimeByMapId: ReadonlyMap<number, number>,
 ) {
   return [...maps].sort((left, right) => {
     const leftTier = getMapTierForScope(left, scope)
@@ -173,6 +175,13 @@ function sortMaps(
         comparison = compareNullableNumbers(
           leftReviewSummary?.comments_count,
           rightReviewSummary?.comments_count,
+          sortDirection,
+        )
+        break
+      case "wr":
+        comparison = compareNullableNumbers(
+          wrTimeByMapId.get(left.id),
+          wrTimeByMapId.get(right.id),
           sortDirection,
         )
         break
@@ -229,6 +238,7 @@ function sortMaps(
       sortField === "overall" ||
       sortField === "gameplay" ||
       sortField === "visuals" ||
+      sortField === "wr" ||
       sortField === "reviewCount" ||
       sortField === "commentsCount"
     ) {
@@ -287,12 +297,41 @@ export function MapsCatalog() {
     refetchOnWindowFocus: false,
     retry: 1,
   })
+  const wrsQuery = useQuery({
+    queryKey: ["maps", "catalog", "wrs", scope, "NUB"],
+    queryFn: () =>
+      MapsService.readMapWrs({
+        scope,
+        type: "NUB",
+      }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
 
   useEffect(() => {
     startTransition(() => {
       setPage(1)
     })
   }, [])
+
+  const wrByMapId = useMemo(() => {
+    const nextMap = new Map<number, MapWrPublic>()
+    for (const record of wrsQuery.data ?? []) {
+      if (!nextMap.has(record.map_id)) {
+        nextMap.set(record.map_id, record)
+      }
+    }
+    return nextMap
+  }, [wrsQuery.data])
+
+  const wrTimeByMapId = useMemo(() => {
+    const nextMap = new Map<number, number>()
+    for (const [mapId, record] of wrByMapId) {
+      nextMap.set(mapId, record.time)
+    }
+    return nextMap
+  }, [wrByMapId])
 
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
@@ -317,8 +356,22 @@ export function MapsCatalog() {
 
   const sortedMaps = useMemo(
     () =>
-      sortMaps(filteredMaps, sortField, sortDirection, scope, selectedSkill),
-    [filteredMaps, scope, selectedSkill, sortDirection, sortField],
+      sortMaps(
+        filteredMaps,
+        sortField,
+        sortDirection,
+        scope,
+        selectedSkill,
+        wrTimeByMapId,
+      ),
+    [
+      filteredMaps,
+      scope,
+      selectedSkill,
+      sortDirection,
+      sortField,
+      wrTimeByMapId,
+    ],
   )
 
   const totalMaps = mapsQuery.data?.length ?? 0
@@ -374,6 +427,19 @@ export function MapsCatalog() {
       if (nextSortField === "skill") {
         setSortField("skill")
         setSortDirection("desc")
+        return
+      }
+
+      if (nextSortField === "wr") {
+        if (sortField === "wr") {
+          setSortDirection((currentDirection) =>
+            currentDirection === "asc" ? "desc" : "asc",
+          )
+          return
+        }
+
+        setSortField("wr")
+        setSortDirection("asc")
         return
       }
 
@@ -581,6 +647,8 @@ export function MapsCatalog() {
                 key={map.id}
                 activeTier={getMapTierForScope(map, scope)}
                 map={map}
+                wrRecord={wrByMapId.get(map.id) ?? null}
+                wrLoading={wrsQuery.isLoading}
               />
             ))}
           </section>

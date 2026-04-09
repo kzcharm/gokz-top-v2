@@ -31,7 +31,8 @@ type ReviewColumnsOptions = {
   onToggleComment: (reviewId: string) => void
 }
 
-const COMMENT_WIDTH_CLASS = "w-[18rem] max-w-[18rem] xl:w-[22rem] xl:max-w-[22rem]"
+const COMMENT_WIDTH_CLASS =
+  "w-[18rem] max-w-[18rem] xl:w-[22rem] xl:max-w-[22rem]"
 
 function ScoreStars({ value }: { value: number | null }) {
   const filledStars = value ?? 0
@@ -168,6 +169,12 @@ export function getReviewColumns({
             displayName: row.original.player.display_name,
           }}
           nameMaxLength={28}
+          subline={{
+            type: "wr",
+            mapId: row.original.map_id,
+            scope: "OVR",
+            recordType: "NUB",
+          }}
         />
       ),
     },

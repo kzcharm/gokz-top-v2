@@ -2,8 +2,6 @@ import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { ModeBadge } from "@/components/Records/ModeBadge"
-import { PointsBadge } from "@/components/Records/PointsBadge"
-import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
 import {
   Table,
@@ -13,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { truncateText } from "@/lib/utils"
 
 export function MapTopTable({
   records,
@@ -37,20 +34,11 @@ export function MapTopTable({
               <TableHead className="min-w-20 normal-case tracking-normal text-foreground/80">
                 Mode
               </TableHead>
-              <TableHead className="min-w-20 normal-case tracking-normal text-foreground/80">
-                TPs
-              </TableHead>
               <TableHead className="min-w-24 text-right normal-case tracking-normal text-foreground/80">
                 Time
               </TableHead>
-              <TableHead className="min-w-24 normal-case tracking-normal text-foreground/80">
-                Points
-              </TableHead>
-              <TableHead className="min-w-44 normal-case tracking-normal text-foreground/80">
-                Server
-              </TableHead>
               <TableHead className="min-w-32 normal-case tracking-normal text-foreground/80">
-                Datetime
+                Updated
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -74,26 +62,12 @@ export function MapTopTable({
                   <TableCell>
                     <ModeBadge mode={record.mode} />
                   </TableCell>
-                  <TableCell>
-                    <TeleportsBadge teleports={record.teleports} />
-                  </TableCell>
                   <TableCell className="text-right font-mono font-medium">
                     {formatRecordTime(record.time)}
                   </TableCell>
-                  <TableCell>
-                    <PointsBadge points={record.points} />
-                  </TableCell>
-                  <TableCell className="text-sm text-foreground/90">
-                    <span
-                      className="block max-w-[14rem] truncate"
-                      title={record.server_name}
-                    >
-                      {truncateText(record.server_name, 32)}
-                    </span>
-                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     <FormattedDateTime
-                      value={record.created_on}
+                      value={record.updated_on}
                       display="contextual-relative"
                       fallback="-"
                     />
@@ -103,7 +77,7 @@ export function MapTopTable({
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={5}
                   className="h-32 text-center text-muted-foreground"
                 >
                   {emptyMessage}
