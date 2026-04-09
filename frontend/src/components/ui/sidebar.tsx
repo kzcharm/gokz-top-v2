@@ -21,7 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { useIsMobile } from "@/hooks/useMobile"
+import { MOBILE_BREAKPOINT, useIsMobile, useMediaQuery } from "@/hooks/useMobile"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -29,6 +29,7 @@ const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+const SIDEBAR_AUTO_COLLAPSE_BREAKPOINT = 1280
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -65,6 +66,9 @@ function SidebarProvider({
   onOpenChange?: (open: boolean) => void
 }) {
   const isMobile = useIsMobile()
+  const isCompactDesktop = useMediaQuery(
+    `(min-width: ${MOBILE_BREAKPOINT}px) and (max-width: ${SIDEBAR_AUTO_COLLAPSE_BREAKPOINT}px)`,
+  )
   const [openMobile, setOpenMobile] = React.useState(false)
 
   const getInitialOpen = () => {
@@ -83,20 +87,66 @@ function SidebarProvider({
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(getInitialOpen)
   const open = openProp ?? _open
-  const setOpen = React.useCallback(
-    (value: boolean | ((value: boolean) => boolean)) => {
+  const applyOpen = React.useCallback(
+    (
+      value: boolean | ((value: boolean) => boolean),
+      { persistCookie }: { persistCookie: boolean },
+    ) => {
       const openState = typeof value === "function" ? value(open) : value
+
       if (setOpenProp) {
         setOpenProp(openState)
       } else {
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      if (persistCookie) {
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      }
     },
-    [setOpenProp, open],
+    [open, setOpenProp],
   )
+  const setOpen = React.useCallback(
+    (value: boolean | ((value: boolean) => boolean)) => {
+      applyOpen(value, { persistCookie: true })
+    },
+    [applyOpen],
+  )
+
+  const compactDesktopStateRef = React.useRef<{
+    openBeforeAutoCollapse: boolean | null
+    wasCompactDesktop: boolean
+  }>({
+    openBeforeAutoCollapse: null,
+    wasCompactDesktop: false,
+  })
+
+  React.useEffect(() => {
+    const compactDesktopState = compactDesktopStateRef.current
+
+    if (isCompactDesktop === compactDesktopState.wasCompactDesktop) {
+      return
+    }
+
+    compactDesktopState.wasCompactDesktop = isCompactDesktop
+
+    if (isCompactDesktop) {
+      compactDesktopState.openBeforeAutoCollapse = open
+
+      if (open) {
+        applyOpen(false, { persistCookie: false })
+      }
+
+      return
+    }
+
+    const openBeforeAutoCollapse = compactDesktopState.openBeforeAutoCollapse
+    compactDesktopState.openBeforeAutoCollapse = null
+
+    if (openBeforeAutoCollapse !== null) {
+      applyOpen(openBeforeAutoCollapse, { persistCookie: false })
+    }
+  }, [applyOpen, isCompactDesktop, open])
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
