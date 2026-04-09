@@ -1938,6 +1938,96 @@ async def get_pb_record_publics(
     ]
 
 
+async def read_record_ranks(
+    *,
+    session: AsyncSession,
+    record_uuids: Sequence[uuid.UUID],
+    scope: RecordScope,
+    record_type: RecordType,
+    country: str | None = None,
+) -> list[tuple[uuid.UUID, int | None, int | None]]:
+    if not record_uuids:
+        return []
+
+    scope_id = scope_to_id(scope)
+    is_pro_only = _is_pro_only_from_record_type(record_type)
+    unique_record_uuids = list(dict.fromkeys(record_uuids))
+    target_statement = (
+        await session.exec(
+            select(
+                Record.uuid.label("record_uuid"),
+                RecordPb.course_id.label("course_id"),
+            )
+            .select_from(Record)
+            .join(RecordPb, col(RecordPb.record_uuid) == col(Record.uuid))
+            .where(
+                col(Record.uuid).in_(unique_record_uuids),
+                col(RecordPb.scope) == scope_id,
+                col(RecordPb.is_pro_only).is_(is_pro_only),
+                not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
+            )
+        )
+    )
+    if country is not None:
+        target_statement = target_statement.join(
+            Player,
+            col(Player.steamid64) == col(Record.steamid64),
+        ).where(col(Player.country) == country)
+
+    target_rows = target_statement.all()
+    target_course_ids = sorted({course_id for _record_uuid, course_id in target_rows})
+    if not target_course_ids:
+        return [(record_uuid, None, None) for record_uuid in record_uuids]
+
+    ranked_statement = (
+        select(
+            RecordPb.record_uuid.label("record_uuid"),
+            RecordPb.course_id.label("course_id"),
+            func.row_number()
+            .over(
+                partition_by=RecordPb.course_id,
+                order_by=(
+                    RecordPb.time_ms.asc(),
+                    col(Record.id).asc().nullslast(),
+                    col(Record.uuid).asc(),
+                ),
+            )
+            .label("rank"),
+            func.count()
+            .over(partition_by=RecordPb.course_id)
+            .label("total_count"),
+        )
+        .select_from(RecordPb)
+        .join(Record, col(Record.uuid) == col(RecordPb.record_uuid))
+        .where(
+            col(RecordPb.scope) == scope_id,
+            col(RecordPb.is_pro_only).is_(is_pro_only),
+            col(RecordPb.course_id).in_(target_course_ids),
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
+        )
+    )
+    if country is not None:
+        ranked_statement = ranked_statement.join(
+            Player,
+            col(Player.steamid64) == col(Record.steamid64),
+        ).where(col(Player.country) == country)
+
+    ranked_rows = (await session.exec(ranked_statement)).all()
+    rank_by_uuid = {
+        record_uuid: (rank, total_count)
+        for record_uuid, _course_id, rank, total_count in ranked_rows
+    }
+
+    return [
+        (
+            record_uuid,
+            rank_by_uuid.get(record_uuid, (None, None))[0],
+            rank_by_uuid.get(record_uuid, (None, None))[1],
+        )
+        for record_uuid in record_uuids
+    ]
+
+
 def _teleports_bucket_expression():
     return case((col(Record.teleports) == 0, 0), else_=1)
 

@@ -1353,6 +1353,276 @@ async def test_read_records_v1_and_pb_exclude_cheaters_by_default(
     assert [row["id"] for row in pb_all.json()] == [981001, 981000]
 
 
+async def test_read_record_ranks_v1_returns_ordered_map_local_ranks(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    third_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (first_player, "First"),
+            (second_player, "Second"),
+            (third_player, "Third"),
+        ],
+    )
+    await _create_map(db, id=980201, name="kz_record_second_map", difficulty=5)
+
+    map_one_first = await _create_record(
+        db,
+        id=981020,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=1,
+    )
+    map_one_second = await _create_record(
+        db,
+        id=981021,
+        steamid64=second_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="21.000",
+        teleports=1,
+    )
+    map_two_first = await _create_record(
+        db,
+        id=981022,
+        steamid64=third_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980201,
+        stage=0,
+        time="19.000",
+        teleports=1,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/rank",
+        params=[
+            ("uuid_list", str(map_one_second.uuid)),
+            ("uuid_list", str(map_two_first.uuid)),
+            ("uuid_list", "0195d2cc-6209-7f5a-8cb6-9f0f6f0f6f0f"),
+            ("scope", "OVR"),
+            ("type", "NUB"),
+        ],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [
+            {
+                "record_uuid": str(map_one_second.uuid),
+                "rank": 2,
+                "total_count": 2,
+            },
+            {
+                "record_uuid": str(map_two_first.uuid),
+                "rank": 1,
+                "total_count": 1,
+            },
+            {
+                "record_uuid": "0195d2cc-6209-7f5a-8cb6-9f0f6f0f6f0f",
+                "rank": None,
+                "total_count": None,
+            },
+        ],
+        "count": 3,
+    }
+    assert map_one_first.uuid != map_one_second.uuid
+
+
+async def test_read_record_ranks_v1_respects_scope_type_and_excludes_cheaters(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    clean_player = random_steamid64()
+    banned_player = random_steamid64()
+    nkz_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (clean_player, "Clean"),
+            (banned_player, "Banned"),
+            (nkz_player, "NKZ"),
+        ],
+    )
+
+    banned_nub = await _create_record(
+        db,
+        id=981030,
+        steamid64=banned_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="18.000",
+        teleports=2,
+    )
+    clean_pro = await _create_record(
+        db,
+        id=981031,
+        steamid64=clean_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="19.000",
+        teleports=0,
+    )
+    nkz_nub = await _create_record(
+        db,
+        id=981032,
+        steamid64=nkz_player,
+        server_id=980300,
+        mode_id=203,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=1,
+    )
+    await _create_ban(db, id=981130, steamid64=banned_player, expires_on=None)
+
+    nub_response = await client.get(
+        f"{settings.API_V1_STR}/records/rank",
+        params=[
+            ("uuid_list", str(clean_pro.uuid)),
+            ("uuid_list", str(banned_nub.uuid)),
+            ("scope", "OVR"),
+            ("type", "NUB"),
+        ],
+    )
+    assert nub_response.status_code == 200
+    assert nub_response.json()["data"] == [
+        {
+            "record_uuid": str(clean_pro.uuid),
+            "rank": 1,
+            "total_count": 2,
+        },
+        {
+            "record_uuid": str(banned_nub.uuid),
+            "rank": None,
+            "total_count": None,
+        },
+    ]
+
+    pro_response = await client.get(
+        f"{settings.API_V1_STR}/records/rank",
+        params=[
+            ("uuid_list", str(clean_pro.uuid)),
+            ("uuid_list", str(nkz_nub.uuid)),
+            ("scope", "OVR"),
+            ("type", "PRO"),
+        ],
+    )
+    assert pro_response.status_code == 200
+    assert pro_response.json()["data"] == [
+        {
+            "record_uuid": str(clean_pro.uuid),
+            "rank": 1,
+            "total_count": 1,
+        },
+        {
+            "record_uuid": str(nkz_nub.uuid),
+            "rank": None,
+            "total_count": None,
+        },
+    ]
+
+    scope_response = await client.get(
+        f"{settings.API_V1_STR}/records/rank",
+        params=[
+            ("uuid_list", str(nkz_nub.uuid)),
+            ("scope", "KZT"),
+            ("type", "NUB"),
+        ],
+    )
+    assert scope_response.status_code == 200
+    assert scope_response.json()["data"] == [
+        {
+            "record_uuid": str(nkz_nub.uuid),
+            "rank": 2,
+            "total_count": 2,
+        },
+    ]
+
+
+async def test_read_record_ranks_v1_supports_country_filter(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    german_player = random_steamid64()
+    french_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (german_player, "German"),
+            (french_player, "French"),
+        ],
+    )
+    await _create_player(
+        db,
+        steamid64=german_player,
+        name="German",
+        country="DE",
+    )
+    await _create_player(
+        db,
+        steamid64=french_player,
+        name="French",
+        country="FR",
+    )
+
+    german_record = await _create_record(
+        db,
+        id=981040,
+        steamid64=german_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="19.000",
+        teleports=1,
+    )
+    await _create_record(
+        db,
+        id=981041,
+        steamid64=french_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="18.000",
+        teleports=1,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/rank",
+        params=[
+            ("uuid_list", str(german_record.uuid)),
+            ("scope", "OVR"),
+            ("type", "NUB"),
+            ("country", "DE"),
+        ],
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"] == [
+        {
+            "record_uuid": str(german_record.uuid),
+            "rank": 1,
+            "total_count": 1,
+        },
+    ]
+
+
 async def test_read_records_recent_still_includes_banned_players(
     client: AsyncClient,
     db: AsyncSession,

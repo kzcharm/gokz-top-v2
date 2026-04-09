@@ -20,12 +20,14 @@ import { ProfileTabs } from "./ProfileTabs"
 import { getPointsRankLabel } from "./profile-ranks"
 import {
   buildProfileCompletionData,
+  buildProfilePinnedRecordCandidates,
   buildProfileTotalPoints,
   buildProfileTrophyCounts,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePointsStandingQueryOptions,
+  getProfileRecordRanksQueryOptions,
   getProfileValidatedMapsQueryOptions,
   type ProfileTab,
 } from "./profile-utils"
@@ -177,6 +179,29 @@ export function ProfilePage({
       scope,
     })
   }, [mapsQuery.data, nubRecordsQuery.data, proRecordsQuery.data, scope])
+  const pinnedRecordCandidates = useMemo(() => {
+    return buildProfilePinnedRecordCandidates(nubRecordsQuery.data ?? [])
+  }, [nubRecordsQuery.data])
+  const pinnedRecordUuids = useMemo(
+    () => pinnedRecordCandidates.map((record) => record.uuid),
+    [pinnedRecordCandidates],
+  )
+  const pinnedRecordRanksQuery = useQuery(
+    getProfileRecordRanksQueryOptions({
+      recordUuids: pinnedRecordUuids,
+      scope,
+    }),
+  )
+  const pinnedRecords = useMemo(() => {
+    const rankByUuid =
+      pinnedRecordRanksQuery.data ??
+      new Map<string, { rank: number | null; totalCount: number | null }>()
+    return pinnedRecordCandidates.map((record) => ({
+      record,
+      rank: rankByUuid.get(record.uuid)?.rank ?? null,
+      totalCount: rankByUuid.get(record.uuid)?.totalCount ?? null,
+    }))
+  }, [pinnedRecordCandidates, pinnedRecordRanksQuery.data])
   const summary = useMemo(() => {
     const totalPoints = buildProfileTotalPoints({
       nubRecords: nubRecordsQuery.data ?? [],
@@ -314,6 +339,11 @@ export function ProfilePage({
                 completionLoading={completionLoading}
                 completionError={completionError}
                 completionTrophies={completionTrophies}
+                pinnedRecords={pinnedRecords}
+                pinnedRecordsError={pinnedRecordRanksQuery.isError}
+                pinnedRecordsLoading={
+                  nubRecordsQuery.isLoading || pinnedRecordRanksQuery.isLoading
+                }
                 summary={summary}
                 summaryLoading={summaryLoading}
               />

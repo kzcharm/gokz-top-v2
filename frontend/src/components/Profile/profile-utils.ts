@@ -8,6 +8,7 @@ import {
   type PlayersPublic,
   PlayersService,
   type RecordPublic,
+  RecordsService,
 } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
@@ -190,6 +191,12 @@ export type ProfileSummaryData = {
   rating: number | null
 }
 
+export type ProfilePinnedRecord = {
+  record: RecordPublic
+  rank: number | null
+  totalCount: number | null
+}
+
 function buildCompletionCard({
   maps,
   records,
@@ -313,6 +320,66 @@ export function buildProfileTotalPoints({
   }
 
   return totalPoints
+}
+
+export function buildProfilePinnedRecordCandidates(records: RecordPublic[]) {
+  return [...records]
+    .filter((record) => record.stage === 0)
+    .sort((left, right) => {
+      if (right.points !== left.points) {
+        return right.points - left.points
+      }
+
+      if (left.time !== right.time) {
+        return left.time - right.time
+      }
+
+      return left.uuid.localeCompare(right.uuid)
+    })
+    .slice(0, 6)
+}
+
+export function getProfileRecordRanksQueryOptions({
+  recordUuids,
+  scope,
+}: {
+  recordUuids: string[]
+  scope: AppScope
+}) {
+  return queryOptions({
+    queryKey: ["profile-record-ranks", scope, ...recordUuids],
+    queryFn: async () => {
+      if (recordUuids.length === 0) {
+        return new Map<
+          string,
+          { rank: number | null; totalCount: number | null }
+        >()
+      }
+      const data = (await RecordsService.readRecordRanks({
+        uuidList: recordUuids,
+        scope,
+        type: "NUB",
+      })) as unknown as {
+        data?: Array<{
+          record_uuid: string
+          rank?: number | null
+          total_count?: number | null
+        }>
+      }
+
+      return new Map(
+        (data.data ?? []).map((entry) => [
+          entry.record_uuid,
+          {
+            rank: entry.rank ?? null,
+            totalCount: entry.total_count ?? null,
+          },
+        ]),
+      )
+    },
+    enabled: recordUuids.length > 0,
+    ...PROFILE_SESSION_QUERY_CONFIG,
+  })
 }
 
 export function getProfilePointsStandingQueryOptions({

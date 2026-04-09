@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, BansReadBansData, BansReadBansResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, BansReadBansData, BansReadBansResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LoginLoginSteamData, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminModesService {
     /**
@@ -211,13 +211,21 @@ export class LoginService {
      * Login Steam
      * Initiate Steam OpenID authentication flow.
      * Redirects user to Steam's login page.
+     * @param data The data for the request.
+     * @param data.redirectTo
      * @returns unknown Successful Response
      * @throws ApiError
      */
-    public static loginSteam(): CancelablePromise<LoginLoginSteamResponse> {
+    public static loginSteam(data: LoginLoginSteamData = {}): CancelablePromise<LoginLoginSteamResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/v1/login/steam'
+            url: '/v1/login/steam',
+            query: {
+                redirect_to: data.redirectTo
+            },
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
     
@@ -864,6 +872,30 @@ export class RecordsService {
                 steamid64: data.steamid64,
                 country: data.country,
                 region: data.region
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Record Ranks
+     * @param data The data for the request.
+     * @param data.uuidList
+     * @param data.scope
+     * @param data.type
+     * @returns RecordRanksPublic Successful Response
+     * @throws ApiError
+     */
+    public static readRecordRanks(data: RecordsReadRecordRanksData): CancelablePromise<RecordsReadRecordRanksResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/records/rank',
+            query: {
+                uuid_list: data.uuidList,
+                scope: data.scope,
+                type: data.type
             },
             errors: {
                 422: 'Validation Error'

@@ -17,6 +17,8 @@ from app.models import (
     RecordListQuery,
     RecordPatch,
     RecordPublic,
+    RecordRankPublic,
+    RecordRanksPublic,
     RecordScope,
     RecordType,
     RecordsPublic,
@@ -146,6 +148,35 @@ async def read_pb_records(
         exclude_cheaters=exclude_cheaters,
         offset=offset,
         limit=limit,
+    )
+
+
+@router.get("/rank", response_model=RecordRanksPublic)
+async def read_record_ranks(
+    session: SessionDep,
+    record_uuids: Annotated[list[uuid.UUID], Query(alias="uuid_list")],
+    scope: RecordScope = RecordScope.OVR,
+    type: RecordType = RecordType.NUB,
+    country: Annotated[str | None, Query(max_length=2)] = None,
+) -> RecordRanksPublic:
+    normalized_country = country.strip().upper() if country is not None and country.strip() else None
+    ranks = await crud.read_record_ranks(
+        session=session,
+        record_uuids=record_uuids,
+        scope=scope,
+        record_type=type,
+        country=normalized_country,
+    )
+    return RecordRanksPublic(
+        data=[
+            RecordRankPublic(
+                record_uuid=record_uuid,
+                rank=rank,
+                total_count=total_count,
+            )
+            for record_uuid, rank, total_count in ranks
+        ],
+        count=len(ranks),
     )
 
 

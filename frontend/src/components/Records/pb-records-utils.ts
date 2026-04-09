@@ -152,7 +152,7 @@ export function getMapPbRecordsQueryOptions({
         mapId,
         scope,
         stage: 0,
-        isProOnly,
+        type: isProOnly ? "PRO" : "NUB",
         country: country ?? undefined,
         region: region ?? undefined,
         limit: MAP_TOP_QUERY_LIMIT,
