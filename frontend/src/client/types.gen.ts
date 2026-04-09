@@ -43,6 +43,58 @@ export type MapPublic = {
     readonly workshop_url: (string | null);
 };
 
+export type MapRefPublic = {
+    id: number;
+    name: string;
+};
+
+export type MapReviewCommentInput = {
+    text?: (string | null);
+};
+
+export type MapReviewCommentPublic = {
+    text: string;
+    language: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type MapReviewContentInput = {
+    overall: number;
+    gameplay?: (number | null);
+    visuals?: (number | null);
+    comment?: (MapReviewCommentInput | null);
+};
+
+export type MapReviewContentPublic = {
+    overall: number;
+    gameplay?: (number | null);
+    visuals?: (number | null);
+    comment?: (MapReviewCommentPublic | null);
+};
+
+export type MapReviewPublic = {
+    steamid64: string;
+    map_id: number;
+    server_group_id?: (string | null);
+    content: MapReviewContentPublic;
+    created_at: string;
+    updated_at: string;
+    player: PlayerRefPublic;
+    map: MapRefPublic;
+};
+
+export type MapReviewsPublic = {
+    data: Array<MapReviewPublic>;
+    count: number;
+};
+
+export type MapReviewUpsert = {
+    map_id: number;
+    steamid64?: (number | null);
+    content: MapReviewContentInput;
+};
+
 export type MapSyncResult = {
     processed: number;
     created: number;
@@ -521,6 +573,25 @@ export type MapsReadMapByIdData = {
 };
 
 export type MapsReadMapByIdResponse = (MapPublic);
+
+export type MapsReadMapReviewsData = {
+    language?: (string | null);
+    limit?: number;
+    mapId?: (number | null);
+    mapName?: (string | null);
+    offset?: number;
+    steamid64?: (number | null);
+    withCommentsOnly?: boolean;
+};
+
+export type MapsReadMapReviewsResponse = (MapReviewsPublic);
+
+export type MapsPutMapReviewData = {
+    requestBody: MapReviewUpsert;
+    xServerGroupKey?: (string | null);
+};
+
+export type MapsPutMapReviewResponse = (MapReviewPublic);
 
 export type MapsTriggerMapSyncResponse = (MapSyncResult);
 

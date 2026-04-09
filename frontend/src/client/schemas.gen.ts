@@ -239,6 +239,253 @@ export const MapPublicSchema = {
     title: 'MapPublic'
 } as const;
 
+export const MapRefPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name'],
+    title: 'MapRefPublic'
+} as const;
+
+export const MapReviewCommentInputSchema = {
+    properties: {
+        text: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 1000
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Text'
+        }
+    },
+    type: 'object',
+    title: 'MapReviewCommentInput'
+} as const;
+
+export const MapReviewCommentPublicSchema = {
+    properties: {
+        text: {
+            type: 'string',
+            title: 'Text'
+        },
+        language: {
+            type: 'string',
+            title: 'Language'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['text', 'language', 'created_at', 'updated_at'],
+    title: 'MapReviewCommentPublic'
+} as const;
+
+export const MapReviewContentInputSchema = {
+    properties: {
+        overall: {
+            type: 'integer',
+            maximum: 5,
+            minimum: 1,
+            title: 'Overall'
+        },
+        gameplay: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 5,
+                    minimum: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Gameplay'
+        },
+        visuals: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 5,
+                    minimum: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Visuals'
+        },
+        comment: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/MapReviewCommentInput'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['overall'],
+    title: 'MapReviewContentInput'
+} as const;
+
+export const MapReviewContentPublicSchema = {
+    properties: {
+        overall: {
+            type: 'integer',
+            title: 'Overall'
+        },
+        gameplay: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Gameplay'
+        },
+        visuals: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Visuals'
+        },
+        comment: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/MapReviewCommentPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['overall'],
+    title: 'MapReviewContentPublic'
+} as const;
+
+export const MapReviewPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        server_group_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Server Group Id'
+        },
+        content: {
+            '$ref': '#/components/schemas/MapReviewContentPublic'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        map: {
+            '$ref': '#/components/schemas/MapRefPublic'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'map_id', 'content', 'created_at', 'updated_at', 'player', 'map'],
+    title: 'MapReviewPublic'
+} as const;
+
+export const MapReviewUpsertSchema = {
+    properties: {
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        steamid64: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steamid64'
+        },
+        content: {
+            '$ref': '#/components/schemas/MapReviewContentInput'
+        }
+    },
+    type: 'object',
+    required: ['map_id', 'content'],
+    title: 'MapReviewUpsert'
+} as const;
+
+export const MapReviewsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/MapReviewPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'MapReviewsPublic'
+} as const;
+
 export const MapSyncResultSchema = {
     properties: {
         processed: {

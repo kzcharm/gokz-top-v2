@@ -18,7 +18,26 @@ from .leaderboard_player import (
     PlayerLeaderboardRankPublic,
     PlayerLeaderboardsPublic,
 )
-from .map import Map, MapBase, MapCompatPublicV0, MapPublic, MapSyncResult, MapTiers
+from .map import (
+    Map,
+    MapBase,
+    MapCompatPublicV0,
+    MapPublic,
+    MapRefPublic,
+    MapSyncResult,
+    MapTiers,
+)
+from .map_review import (
+    MapReview,
+    MapReviewCommentInput,
+    MapReviewCommentPublic,
+    MapReviewContentInput,
+    MapReviewContentPublic,
+    MapReviewListQuery,
+    MapReviewPublic,
+    MapReviewsPublic,
+    MapReviewUpsert,
+)
 from .mode import (
     CANONICAL_MODE_SEEDS,
     CanonicalModeSeed,
@@ -149,6 +168,16 @@ __all__ = [
     "MapCompatPublicV0",
     "MapCourse",
     "MapPublic",
+    "MapRefPublic",
+    "MapReview",
+    "MapReviewCommentInput",
+    "MapReviewCommentPublic",
+    "MapReviewContentInput",
+    "MapReviewContentPublic",
+    "MapReviewListQuery",
+    "MapReviewPublic",
+    "MapReviewsPublic",
+    "MapReviewUpsert",
     "MapSyncResult",
     "MapTiers",
     "CANONICAL_MODE_SEEDS",
