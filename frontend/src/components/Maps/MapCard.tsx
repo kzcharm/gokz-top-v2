@@ -89,9 +89,14 @@ export function MapCard({ activeTier, map }: MapCardProps) {
   const reviewSummary = map.review_summary
   const reviewsCount = reviewSummary?.reviews_count ?? 0
   const commentsCount = reviewSummary?.comments_count ?? 0
-  const skillPortions = getMapSkillPortions(map.name)
-    .filter((portion) => portion.percentage > 0)
-    .slice(0, 6)
+  const allSkillPortions = getMapSkillPortions(map.name)
+  const nonZeroSkillPortions = allSkillPortions.filter(
+    (portion) => portion.percentage > 0,
+  )
+  const skillPortions =
+    nonZeroSkillPortions.length > 0 && nonZeroSkillPortions.length < 4
+      ? allSkillPortions.slice(0, 4)
+      : nonZeroSkillPortions.slice(0, 6)
 
   return (
     <Card
