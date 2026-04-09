@@ -70,6 +70,8 @@ from .player_follow import (
 from .player_profile_view import PlayerProfileView
 from .record import (
     MapCourse,
+    MapWrCache,
+    MapWrPublic,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
     RecentRecordMapPublic,
@@ -88,6 +90,7 @@ from .record import (
     RecordPublic,
     RecordScope,
     RecordScopeId,
+    RecordType,
     RecordsPublic,
     TeleportsType,
     WorldRecordCountCompatPublicV0,
@@ -168,6 +171,8 @@ __all__ = [
     "MapBase",
     "MapCompatPublicV0",
     "MapCourse",
+    "MapWrCache",
+    "MapWrPublic",
     "MapPublic",
     "MapRefPublic",
     "MapReview",
@@ -228,6 +233,7 @@ __all__ = [
     "RecordPublic",
     "RecordScope",
     "RecordScopeId",
+    "RecordType",
     "RecordsPublic",
     "RecentRecordCompatPublicV0",
     "RegionCode",

@@ -6,7 +6,7 @@ import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.models import Map, Player, ScheduledTaskState, ServerGlobalapi
+from app.models import Map, Player, RecordType, ScheduledTaskState, ServerGlobalapi
 from app.services import record_pb_points_task
 from tests.utils.utils import random_steamid64
 
@@ -143,17 +143,17 @@ async def test_rebuild_changed_record_pb_points_dedupes_recent_buckets(
         db.add(state)
     await db.commit()
 
-    calls: list[tuple[int, int, bool]] = []
+    calls: list[tuple[int, int, RecordType]] = []
 
     async def _fake_rebuild_bucket(
         *,
         session: AsyncSession,
         course_id: int,
         scope_id: int,
-        is_pro_only: bool,
+        record_type: RecordType,
     ) -> int:
         del session
-        calls.append((course_id, scope_id, is_pro_only))
+        calls.append((course_id, scope_id, record_type))
         return 1
 
     monkeypatch.setattr(record_pb_points_task, "get_datetime_utc", lambda: now)
@@ -169,7 +169,7 @@ async def test_rebuild_changed_record_pb_points_dedupes_recent_buckets(
     assert result.updated == 4
     assert len(calls) == 4
     assert {call[1] for call in calls} == {0, 1}
-    assert {call[2] for call in calls} == {False, True}
+    assert {call[2] for call in calls} == {RecordType.NUB, RecordType.PRO}
 
 
 async def test_rebuild_changed_record_pb_points_uses_24h_window_on_first_run(
@@ -211,17 +211,17 @@ async def test_rebuild_changed_record_pb_points_uses_24h_window_on_first_run(
         created_on=datetime(2099, 4, 3, 11, 0, tzinfo=UTC),
     )
 
-    calls: list[tuple[int, int, bool]] = []
+    calls: list[tuple[int, int, RecordType]] = []
 
     async def _fake_rebuild_bucket(
         *,
         session: AsyncSession,
         course_id: int,
         scope_id: int,
-        is_pro_only: bool,
+        record_type: RecordType,
     ) -> int:
         del session
-        calls.append((course_id, scope_id, is_pro_only))
+        calls.append((course_id, scope_id, record_type))
         return 1
 
     monkeypatch.setattr(record_pb_points_task, "get_datetime_utc", lambda: now)
@@ -236,4 +236,4 @@ async def test_rebuild_changed_record_pb_points_uses_24h_window_on_first_run(
     assert result.processed == 2
     assert len(calls) == 2
     assert {call[1] for call in calls} == {0, 1}
-    assert {call[2] for call in calls} == {False}
+    assert {call[2] for call in calls} == {RecordType.NUB}

@@ -475,7 +475,7 @@ async def test_read_recent_records_v1_scope_points_and_pro_filters(
         params={
             "scope": "OVR",
             "points_more_or_equal_than": 1,
-            "is_pro_only": True,
+            "type": "PRO",
         },
     )
     assert pro_only.status_code == 200
@@ -594,7 +594,7 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
             ("map_id", 980200),
             ("stage", 0),
             ("scope", "OVR"),
-            ("is_pro_only", True),
+            ("type", "PRO"),
         ],
     )
     assert response.status_code == 200
@@ -699,7 +699,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         params=[
             ("steamid64", player_id),
             ("scope", "OVR"),
-            ("is_pro_only", True),
+            ("type", "PRO"),
             ("stage", 0),
         ],
     )
@@ -716,7 +716,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     assert [row["id"] for row in skz_response.json()] == [980420]
 
 
-async def test_read_pb_records_v1_uses_nub_points_when_is_pro_only_is_false(
+async def test_read_pb_records_v1_uses_nub_points_when_type_is_nub(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -759,7 +759,7 @@ async def test_read_pb_records_v1_uses_nub_points_when_is_pro_only_is_false(
             ("map_id", 980200),
             ("stage", 0),
             ("scope", "OVR"),
-            ("is_pro_only", False),
+            ("type", "NUB"),
         ],
     )
     assert nub_response.status_code == 200
@@ -774,7 +774,7 @@ async def test_read_pb_records_v1_uses_nub_points_when_is_pro_only_is_false(
             ("map_id", 980200),
             ("stage", 0),
             ("scope", "OVR"),
-            ("is_pro_only", True),
+            ("type", "PRO"),
         ],
     )
     assert pro_response.status_code == 200

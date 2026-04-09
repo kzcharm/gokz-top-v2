@@ -599,6 +599,45 @@ export const MapTiersSchema = {
     title: 'MapTiers'
 } as const;
 
+export const MapWrPublicSchema = {
+    properties: {
+        record_uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Record Uuid'
+        },
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        scope: {
+            '$ref': '#/components/schemas/RecordScope'
+        },
+        type: {
+            '$ref': '#/components/schemas/RecordType'
+        },
+        mode_id: {
+            type: 'integer',
+            title: 'Mode Id'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        time: {
+            type: 'number',
+            title: 'Time'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['record_uuid', 'map_id', 'scope', 'type', 'mode_id', 'player', 'time', 'updated_at'],
+    title: 'MapWrPublic'
+} as const;
+
 export const MessageSchema = {
     properties: {
         message: {
@@ -1505,6 +1544,12 @@ export const RecordScopeSchema = {
     type: 'string',
     enum: ['OVR', 'KZT', 'SKZ', 'VNL'],
     title: 'RecordScope'
+} as const;
+
+export const RecordTypeSchema = {
+    type: 'string',
+    enum: ['NUB', 'PRO'],
+    title: 'RecordType'
 } as const;
 
 export const RecordsPublicSchema = {

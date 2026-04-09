@@ -15,6 +15,7 @@ from app.core.db import async_session_maker
 from app.models import (
     Record,
     RecordPb,
+    RecordType,
     ScheduledTaskResult,
     ScheduledTaskState,
     get_datetime_utc,
@@ -126,7 +127,7 @@ async def rebuild_changed_record_pb_points(*, session: AsyncSession) -> Schedule
             session=session,
             course_id=course_id,
             scope_id=scope_id,
-            is_pro_only=is_pro_only,
+            record_type=RecordType.PRO if is_pro_only else RecordType.NUB,
         )
 
     await session.commit()

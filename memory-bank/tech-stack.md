@@ -16,6 +16,7 @@
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
   - Mirrored GlobalAPI ban rows are stored locally in PostgreSQL with a PostgreSQL enum-backed `ban_type` and append/update-only sync semantics
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by scheduled tasks plus repair/backfill CLIs
+  - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes

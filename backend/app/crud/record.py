@@ -13,6 +13,8 @@ from app.core.regions import get_region_country_codes
 from app.models import (
     Map,
     MapCourse,
+    MapWrCache,
+    MapWrPublic,
     Mode,
     Player,
     RecentRecordCompatPublicV0,
@@ -29,6 +31,7 @@ from app.models import (
     RecordPublic,
     RecordScope,
     RecordScopeId,
+    RecordType,
     ServerGlobalapi,
     ServerGlobalapiCompatPublicV0,
     TeleportsType,
@@ -60,7 +63,7 @@ _RECORD_PB_POINTS_BULK_UPDATE = (
         _record_pb_table.c.scope == bindparam("pk_scope"),
         _record_pb_table.c.course_id == bindparam("pk_course_id"),
         _record_pb_table.c.steamid64 == bindparam("pk_steamid64"),
-        _record_pb_table.c.is_pro_only == bindparam("pk_is_pro_only"),
+        _record_pb_table.c.is_pro_only == bindparam("pk_type"),
     )
     .values(
         points=bindparam("next_points"),
@@ -88,12 +91,16 @@ def _resolve_scoped_points(
     return 0
 
 
+def _is_pro_only_from_record_type(record_type: RecordType) -> bool:
+    return record_type is RecordType.PRO
+
+
 def _record_pb_points_update_params(
     *,
     scope: int,
     course_id: int,
     steamid64: int,
-    is_pro_only: bool,
+    record_type: RecordType,
     points: int,
     updated_on: datetime,
 ) -> dict[str, object]:
@@ -101,7 +108,7 @@ def _record_pb_points_update_params(
         "pk_scope": scope,
         "pk_course_id": course_id,
         "pk_steamid64": steamid64,
-        "pk_is_pro_only": is_pro_only,
+        "pk_type": _is_pro_only_from_record_type(record_type),
         "next_points": points,
         "next_updated_on": updated_on,
     }
@@ -217,17 +224,17 @@ def _pb_key_candidates_for_record(
     steamid64: int,
     teleports: int,
     is_valid: bool,
-) -> set[tuple[int, int, int, bool]]:
+) -> set[tuple[int, int, int, RecordType]]:
     if not is_valid:
         return set()
 
     keys = {
-        (scope_id, course_id, steamid64, False)
+        (scope_id, course_id, steamid64, RecordType.NUB)
         for scope_id in scope_ids
     }
     if teleports == 0:
         keys |= {
-            (scope_id, course_id, steamid64, True)
+            (scope_id, course_id, steamid64, RecordType.PRO)
             for scope_id in scope_ids
         }
     return keys
@@ -252,7 +259,7 @@ async def _select_pb_winner(
     scope_id: int,
     course_id: int,
     steamid64: int,
-    is_pro_only: bool,
+    record_type: RecordType,
 ) -> Record | None:
     course = await _get_map_course_by_id(session=session, course_id=course_id)
     if course is None:
@@ -273,7 +280,7 @@ async def _select_pb_winner(
         .order_by(col(Record.time).asc(), *_record_tie_breakers())
         .limit(1)
     )
-    if is_pro_only:
+    if record_type.is_pro:
         statement = statement.where(col(Record.teleports) == 0)
 
     return (await session.exec(statement)).first()
@@ -307,7 +314,7 @@ async def _load_bucket_winner_entries(
     session: AsyncSession,
     course_id: int,
     scope_id: int,
-    is_pro_only: bool,
+    record_type: RecordType,
 ) -> list[tuple[int, CoursePbEntry]]:
     course = await _get_map_course_by_id(session=session, course_id=course_id)
     if course is None:
@@ -328,7 +335,7 @@ async def _load_bucket_winner_entries(
         col(Record.stage) == course.stage,
         col(Record.mode_id).in_(list(scope_mode_ids(scope_id))),
     )
-    if is_pro_only:
+    if record_type.is_pro:
         winner_rows = winner_rows.where(col(Record.teleports) == 0)
 
     winner_rows = winner_rows.distinct(col(Record.steamid64)).order_by(
@@ -369,7 +376,7 @@ async def _load_bucket_record_pb_entries(
     session: AsyncSession,
     course_id: int,
     scope_id: int,
-    is_pro_only: bool,
+    record_type: RecordType,
     exclude_steamid64: int | None = None,
 ) -> list[CoursePbEntry]:
     statement = (
@@ -377,7 +384,7 @@ async def _load_bucket_record_pb_entries(
         .where(
             col(RecordPb.scope) == scope_id,
             col(RecordPb.course_id) == course_id,
-            col(RecordPb.is_pro_only).is_(is_pro_only),
+            col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
         )
         .order_by(col(RecordPb.time_ms).asc(), col(RecordPb.record_uuid).asc())
     )
@@ -396,7 +403,7 @@ async def _estimate_record_pb_points(
     course_id: int,
     scope_id: int,
     steamid64: int,
-    is_pro_only: bool,
+    record_type: RecordType,
     record_uuid: uuid.UUID,
     time_ms: int,
 ) -> int:
@@ -409,7 +416,7 @@ async def _estimate_record_pb_points(
         session=session,
         course_id=course_id,
         scope_id=scope_id,
-        is_pro_only=is_pro_only,
+        record_type=record_type,
         exclude_steamid64=steamid64,
     )
     entries.append(CoursePbEntry(record_uuid=record_uuid, time_ms=time_ms))
@@ -418,7 +425,7 @@ async def _estimate_record_pb_points(
         winner_record_uuid=record_uuid,
         entries=entries,
         tier=tier,
-        is_pro_only=is_pro_only,
+        is_pro_only=record_type.is_pro,
     )
 
 
@@ -427,14 +434,14 @@ async def _sync_record_pb_bucket(
     session: AsyncSession,
     course_id: int,
     scope_id: int,
-    is_pro_only: bool,
+    record_type: RecordType,
 ) -> None:
     existing_rows = (
         await session.exec(
             select(RecordPb).where(
                 col(RecordPb.scope) == scope_id,
                 col(RecordPb.course_id) == course_id,
-                col(RecordPb.is_pro_only).is_(is_pro_only),
+                col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
             )
         )
     ).all()
@@ -447,7 +454,7 @@ async def _sync_record_pb_bucket(
         session=session,
         course_id=course_id,
         scope_id=scope_id,
-        is_pro_only=is_pro_only,
+        record_type=record_type,
     )
     winner_by_steamid64 = dict(winner_entries)
 
@@ -476,7 +483,7 @@ async def _sync_record_pb_bucket(
                 scope=scope_id,
                 course_id=course_id,
                 steamid64=steamid64,
-                is_pro_only=is_pro_only,
+                is_pro_only=_is_pro_only_from_record_type(record_type),
                 record_uuid=winner.record_uuid,
                 time_ms=winner.time_ms,
                 points=1,
@@ -491,18 +498,18 @@ async def _sync_record_pb_key(
     scope_id: int,
     course_id: int,
     steamid64: int,
-    is_pro_only: bool,
+    record_type: RecordType,
 ) -> None:
     existing = await session.get(
         RecordPb,
-        (scope_id, course_id, steamid64, is_pro_only),
+        (scope_id, course_id, steamid64, _is_pro_only_from_record_type(record_type)),
     )
     winner = await _select_pb_winner(
         session=session,
         scope_id=scope_id,
         course_id=course_id,
         steamid64=steamid64,
-        is_pro_only=is_pro_only,
+        record_type=record_type,
     )
 
     if winner is None:
@@ -523,7 +530,7 @@ async def _sync_record_pb_key(
         course_id=course_id,
         scope_id=scope_id,
         steamid64=steamid64,
-        is_pro_only=is_pro_only,
+        record_type=record_type,
         record_uuid=winner.uuid,
         time_ms=time_ms,
     )
@@ -540,7 +547,7 @@ async def _sync_record_pb_key(
             scope=scope_id,
             course_id=course_id,
             steamid64=steamid64,
-            is_pro_only=is_pro_only,
+            is_pro_only=_is_pro_only_from_record_type(record_type),
             record_uuid=winner.uuid,
             time_ms=time_ms,
             points=estimated_points,
@@ -554,7 +561,7 @@ async def rebuild_record_pb_points_bucket(
     session: AsyncSession,
     course_id: int,
     scope_id: int,
-    is_pro_only: bool,
+    record_type: RecordType,
     tier: int | None = None,
 ) -> int:
     rows = (
@@ -570,7 +577,7 @@ async def rebuild_record_pb_points_bucket(
             ).where(
                 col(RecordPb.scope) == scope_id,
                 col(RecordPb.course_id) == course_id,
-                col(RecordPb.is_pro_only).is_(is_pro_only),
+                col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
             )
             .order_by(col(RecordPb.time_ms).asc(), col(RecordPb.record_uuid).asc())
         )
@@ -594,14 +601,14 @@ async def rebuild_record_pb_points_bucket(
                 _row_scope_id,
                 _row_course_id,
                 _steamid64,
-                _row_is_pro_only,
+                _row_record_type,
                 record_uuid,
                 time_ms,
                 _current_points,
             ) in rows
         ],
         tier=resolved_tier,
-        is_pro_only=is_pro_only,
+        is_pro_only=record_type.is_pro,
     )
     updated_on = get_datetime_utc()
     updates = [
@@ -609,7 +616,7 @@ async def rebuild_record_pb_points_bucket(
             scope=row_scope_id,
             course_id=row_course_id,
             steamid64=steamid64,
-            is_pro_only=row_is_pro_only,
+            record_type=RecordType.PRO if row_record_type else RecordType.NUB,
             points=points_by_uuid[record_uuid],
             updated_on=updated_on,
         )
@@ -617,7 +624,7 @@ async def rebuild_record_pb_points_bucket(
             row_scope_id,
             row_course_id,
             steamid64,
-            row_is_pro_only,
+            row_record_type,
             record_uuid,
             _time_ms,
             current_points,
@@ -663,7 +670,10 @@ async def rebuild_record_pb_points_for_course(
         return 0
 
     normalized_tiers = dict(tiers_by_scope or {})
-    grouped_rows: dict[tuple[int, bool], list[tuple[int, int, int, bool, uuid.UUID, int, int]]] = defaultdict(list)
+    grouped_rows: dict[
+        tuple[int, bool],
+        list[tuple[int, int, int, bool, uuid.UUID, int, int]],
+    ] = defaultdict(list)
     for row in rows:
         grouped_rows[(row[0], row[3])].append(row)
 
@@ -695,7 +705,7 @@ async def rebuild_record_pb_points_for_course(
                     _row_scope_id,
                     _row_course_id,
                     _steamid64,
-                    _row_is_pro_only,
+                    _row_record_type,
                     record_uuid,
                     time_ms,
                     _current_points,
@@ -709,7 +719,7 @@ async def rebuild_record_pb_points_for_course(
                 scope=row_scope_id,
                 course_id=row_course_id,
                 steamid64=steamid64,
-                is_pro_only=row_is_pro_only,
+                record_type=RecordType.PRO if row_record_type else RecordType.NUB,
                 points=points_by_uuid[record_uuid],
                 updated_on=updated_on,
             )
@@ -717,7 +727,7 @@ async def rebuild_record_pb_points_for_course(
                 row_scope_id,
                 row_course_id,
                 steamid64,
-                row_is_pro_only,
+                row_record_type,
                 record_uuid,
                 _time_ms,
                 current_points,
@@ -734,15 +744,15 @@ async def rebuild_record_pb_points_for_course(
 async def recompute_record_pbs_for_keys(
     *,
     session: AsyncSession,
-    keys: set[tuple[int, int, int, bool]],
+    keys: set[tuple[int, int, int, RecordType]],
 ) -> None:
-    for scope_id, course_id, steamid64, is_pro_only in keys:
+    for scope_id, course_id, steamid64, record_type in keys:
         await _sync_record_pb_key(
             session=session,
             scope_id=scope_id,
             course_id=course_id,
             steamid64=steamid64,
-            is_pro_only=is_pro_only,
+            record_type=record_type,
         )
 
 
@@ -763,6 +773,7 @@ async def rebuild_record_pbs(*, session: AsyncSession) -> None:
             map_id=course.map_id,
             stage=course.stage,
         )
+    await rebuild_map_wrs(session=session)
 
 
 async def ensure_map_courses_for_valid_records(*, session: AsyncSession) -> None:
@@ -789,19 +800,187 @@ async def rebuild_record_pbs_for_course(
     del map_id, stage
     for scope in RecordScope:
         scope_id = scope_to_id(scope)
-        for is_pro_only in (False, True):
+        for record_type in RecordType:
             await _sync_record_pb_bucket(
                 session=session,
                 course_id=course_id,
                 scope_id=scope_id,
-                is_pro_only=is_pro_only,
+                record_type=record_type,
             )
             await rebuild_record_pb_points_bucket(
                 session=session,
                 course_id=course_id,
                 scope_id=scope_id,
-                is_pro_only=is_pro_only,
+                record_type=record_type,
             )
+
+
+async def _select_map_wr_record(
+    *,
+    session: AsyncSession,
+    map_id: int,
+    scope_id: int,
+    record_type: RecordType,
+) -> uuid.UUID | None:
+    map_obj = await session.get(Map, map_id)
+    if map_obj is None or not map_obj.validated:
+        return None
+
+    statement = (
+        select(RecordPb.record_uuid)
+        .join(MapCourse, MapCourse.id == RecordPb.course_id)
+        .where(
+            col(RecordPb.scope) == scope_id,
+            col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
+            col(MapCourse.map_id) == map_id,
+            col(MapCourse.stage) == 0,
+        )
+        .order_by(col(RecordPb.time_ms).asc(), col(RecordPb.record_uuid).asc())
+        .limit(1)
+    )
+    return (await session.exec(statement)).first()
+
+
+async def rebuild_map_wr(
+    *,
+    session: AsyncSession,
+    map_id: int,
+    scope_id: int,
+    record_type: RecordType,
+) -> None:
+    existing = await session.get(MapWrCache, (map_id, scope_id, record_type))
+    winner = await _select_map_wr_record(
+        session=session,
+        map_id=map_id,
+        scope_id=scope_id,
+        record_type=record_type,
+    )
+    if winner is None:
+        if existing is not None:
+            await session.delete(existing)
+        return
+
+    if existing is None:
+        session.add(
+            MapWrCache(
+                map_id=map_id,
+                scope=scope_id,
+                type=record_type,
+                record_uuid=winner,
+                updated_at=get_datetime_utc(),
+            )
+        )
+        return
+
+    if existing.record_uuid != winner:
+        existing.record_uuid = winner
+        existing.updated_at = get_datetime_utc()
+        session.add(existing)
+
+
+async def rebuild_map_wrs_for_keys(
+    *,
+    session: AsyncSession,
+    keys: set[tuple[int, int, RecordType]],
+) -> None:
+    for map_id, scope_id, record_type in keys:
+        await rebuild_map_wr(
+            session=session,
+            map_id=map_id,
+            scope_id=scope_id,
+            record_type=record_type,
+        )
+
+
+async def rebuild_map_wrs(*, session: AsyncSession) -> None:
+    rows = (
+        await session.exec(
+            select(MapCourse.map_id, RecordPb.scope, RecordPb.is_pro_only)
+            .join(MapCourse, MapCourse.id == RecordPb.course_id)
+            .where(col(MapCourse.stage) == 0)
+        )
+    ).all()
+    keys: set[tuple[int, int, RecordType]] = set()
+    for map_id, scope_id, is_pro_only in rows:
+        keys.add(
+            (
+                map_id,
+                scope_id,
+                RecordType.PRO if is_pro_only else RecordType.NUB,
+            )
+        )
+    keys |= set(
+        (
+            map_id,
+            scope_id,
+            record_type,
+        )
+        for map_id, scope_id, record_type in (
+            await session.exec(
+                select(MapWrCache.map_id, MapWrCache.scope, MapWrCache.type)
+            )
+        ).all()
+    )
+    await rebuild_map_wrs_for_keys(session=session, keys=keys)
+
+
+async def read_map_wrs(
+    *,
+    session: AsyncSession,
+    map_id: int | None,
+    scope: RecordScope,
+    record_type: RecordType | None = None,
+) -> list[MapWrPublic]:
+    scope_id = scope_to_id(scope)
+    statement = (
+        select(
+            MapWrCache.map_id,
+            MapWrCache.scope,
+            MapWrCache.type,
+            MapWrCache.record_uuid,
+            MapWrCache.updated_at,
+            Record.mode_id,
+            Player.steamid64,
+            Player.name,
+            Record.time,
+        )
+        .join(Record, Record.uuid == MapWrCache.record_uuid)
+        .join(Player, Player.steamid64 == Record.steamid64)
+        .where(MapWrCache.scope == scope_id)
+        .order_by(MapWrCache.type.asc())
+    )
+    if map_id is not None:
+        statement = statement.where(MapWrCache.map_id == map_id)
+    if record_type is not None:
+        statement = statement.where(MapWrCache.type == record_type)
+
+    rows = (await session.exec(statement)).all()
+    return [
+        MapWrPublic(
+            record_uuid=record_uuid,
+            map_id=row_map_id,
+            scope=_scope_from_id(row_scope_id),
+            type=row_record_type,
+            mode_id=mode_id,
+            player={
+                "steamid64": str(player_steamid64),
+                "display_name": player_name,
+            },
+            time=float(record_time),
+            updated_at=updated_at,
+        )
+        for (
+            row_map_id,
+            row_scope_id,
+            row_record_type,
+            record_uuid,
+            updated_at,
+            mode_id,
+            player_steamid64,
+            player_name,
+            record_time,
+        ) in rows
+    ]
 
 
 async def _pb_keys_for_record_snapshot(
@@ -813,7 +992,7 @@ async def _pb_keys_for_record_snapshot(
     steamid64: int,
     teleports: int,
     is_valid: bool,
-) -> set[tuple[int, int, int, bool]]:
+) -> set[tuple[int, int, int, RecordType]]:
     course = await _get_or_create_map_course(session=session, map_id=map_id, stage=stage)
     if course.id is None:
         return set()
@@ -832,7 +1011,7 @@ async def _refresh_record_pbs_for_change(
     before: Record | None,
     after: Record | None,
 ) -> None:
-    keys: set[tuple[int, int, int, bool]] = set()
+    keys: set[tuple[int, int, int, RecordType]] = set()
     if before is not None:
         keys |= await _pb_keys_for_record_snapshot(
             session=session,
@@ -853,7 +1032,32 @@ async def _refresh_record_pbs_for_change(
             teleports=after.teleports,
             is_valid=after.is_valid,
         )
+
+    map_wr_keys: set[tuple[int, int, RecordType]] = set()
+    if keys:
+        course_ids = sorted(
+            {course_id for _scope_id, course_id, _steamid64, _type in keys}
+        )
+        courses = (
+            await session.exec(
+                select(MapCourse.id, MapCourse.map_id, MapCourse.stage).where(
+                    col(MapCourse.id).in_(course_ids)
+                )
+            )
+        ).all()
+        courses_by_id = {
+            course_id: (map_id, stage) for course_id, map_id, stage in courses
+        }
+        map_wr_keys = {
+            (map_id, scope_id, record_type)
+            for scope_id, course_id, _steamid64, record_type in keys
+            for map_id, stage in [courses_by_id.get(course_id, (None, None))]
+            if map_id is not None and stage == 0
+        }
+
     await recompute_record_pbs_for_keys(session=session, keys=keys)
+    await rebuild_map_wrs_for_keys(session=session, keys=map_wr_keys)
+
 
 def _parse_pg_stats_boolean_frequency(
     *,
@@ -1474,7 +1678,7 @@ async def get_pb_records(
     stage: int,
     steamid64: int | None,
     scope: RecordScope,
-    is_pro_only: bool,
+    record_type: RecordType,
     exclude_cheaters: bool = True,
     offset: int = 0,
     limit: int = 100,
@@ -1496,7 +1700,7 @@ async def get_pb_records(
             .where(
                 RecordPb.scope == scope_id,
                 RecordPb.course_id == course.id,
-                RecordPb.is_pro_only.is_(is_pro_only),
+                RecordPb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
             )
             .order_by(RecordPb.time_ms.asc(), RecordPb.record_uuid.asc())
             .offset(offset)
@@ -1517,7 +1721,7 @@ async def get_pb_records(
             .where(
                 RecordPb.scope == scope_id,
                 RecordPb.steamid64 == steamid64,
-                RecordPb.is_pro_only.is_(is_pro_only),
+                RecordPb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
                 course.stage == stage,
             )
             .order_by(
@@ -1545,7 +1749,7 @@ async def get_pb_record_publics(
     stage: int,
     steamid64: int | None,
     scope: RecordScope,
-    is_pro_only: bool,
+    record_type: RecordType,
     country: str | None = None,
     region: str | None = None,
     exclude_cheaters: bool = True,
@@ -1557,7 +1761,7 @@ async def get_pb_record_publics(
     pro_pb = aliased(RecordPb)
     ovr_pb = aliased(RecordPb)
     scoped_points = (
-        pro_pb.points if is_pro_only else func.coalesce(ovr_pb.points, 0)
+        pro_pb.points if record_type.is_pro else func.coalesce(ovr_pb.points, 0)
     )
 
     statement = (
@@ -1628,7 +1832,7 @@ async def get_pb_record_publics(
         statement = statement.where(
             anchor_pb.scope == scope_id,
             anchor_pb.course_id == course.id,
-            anchor_pb.is_pro_only.is_(is_pro_only),
+            anchor_pb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
         ).order_by(anchor_pb.time_ms.asc(), anchor_pb.record_uuid.asc())
     elif steamid64 is not None:
         course = aliased(MapCourse)
@@ -1637,7 +1841,7 @@ async def get_pb_record_publics(
             .where(
                 anchor_pb.scope == scope_id,
                 anchor_pb.steamid64 == steamid64,
-                anchor_pb.is_pro_only.is_(is_pro_only),
+                anchor_pb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
                 course.stage == stage,
             )
             .order_by(

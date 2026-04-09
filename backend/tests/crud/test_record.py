@@ -9,11 +9,13 @@ from app import crud
 from app.models import (
     Map,
     MapCourse,
+    MapWrCache,
     Player,
     Record,
     RecordFilter,
     RecordPb,
     RecordScope,
+    RecordType,
     ServerGlobalapi,
 )
 from tests.utils.utils import random_steamid64
@@ -175,7 +177,7 @@ async def test_get_pb_records_tie_break_prefers_lower_globalapi_id(
         stage=0,
         steamid64=None,
         scope=RecordScope.OVR,
-        is_pro_only=False,
+        record_type=RecordType.NUB,
     )
 
     assert [record.id for record in records] == [winner.id]
@@ -253,7 +255,7 @@ async def test_get_pb_records_player_anchor_respects_stage_filter(
         stage=0,
         steamid64=player_id,
         scope=RecordScope.OVR,
-        is_pro_only=True,
+        record_type=RecordType.PRO,
     )
     bonus_records = await crud.get_pb_records(
         db,
@@ -261,7 +263,7 @@ async def test_get_pb_records_player_anchor_respects_stage_filter(
         stage=1,
         steamid64=player_id,
         scope=RecordScope.OVR,
-        is_pro_only=True,
+        record_type=RecordType.PRO,
     )
 
     assert [record.id for record in main_records] == [main_record.id]
@@ -446,7 +448,7 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
         session=db,
         course_id=course.id,
         scope_id=0,
-        is_pro_only=False,
+        record_type=RecordType.NUB,
     )
     await db.commit()
 
@@ -687,3 +689,72 @@ async def test_rebuild_record_pbs_for_course_keeps_bonus_points_for_validated_ma
     )
 
     assert points_by_uuid[bonus_record.uuid] == 1000
+
+
+async def test_rebuild_map_wrs_uses_record_pb_main_course_rows(
+    db: AsyncSession,
+) -> None:
+    nub_player = random_steamid64()
+    pro_player = random_steamid64()
+    await _create_player(db, steamid64=nub_player, name="Nub WR")
+    await _create_player(db, steamid64=pro_player, name="Pro WR")
+    await _create_map(db, id=981024, name="kz_map_wr_pb_source")
+    await _create_server(db, id=981124, name="Map WR Server")
+
+    nub_record = await _create_record(
+        db,
+        id=981360,
+        steamid64=nub_player,
+        map_id=981024,
+        server_id=981124,
+        mode_id=200,
+        stage=0,
+        time="10.000",
+        teleports=1,
+    )
+    pro_record = await _create_record(
+        db,
+        id=981361,
+        steamid64=pro_player,
+        map_id=981024,
+        server_id=981124,
+        mode_id=200,
+        stage=0,
+        time="11.000",
+        teleports=0,
+    )
+
+    await crud.rebuild_map_wrs(session=db)
+    await db.commit()
+
+    cached_rows = (
+        await db.exec(
+            select(MapWrCache)
+            .where(MapWrCache.map_id == 981024, MapWrCache.scope == 0)
+            .order_by(MapWrCache.type.asc())
+        )
+    ).all()
+    assert [(row.type, row.record_uuid) for row in cached_rows] == [
+        (RecordType.NUB, nub_record.uuid),
+        (RecordType.PRO, pro_record.uuid),
+    ]
+
+    main_course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == 981024, MapCourse.stage == 0)
+        )
+    ).one()
+    await db.exec(
+        delete(RecordPb).where(
+            RecordPb.course_id == main_course.id,
+            RecordPb.scope == 0,
+        )
+    )
+    await db.commit()
+
+    await crud.rebuild_map_wrs(session=db)
+    await db.commit()
+
+    assert (
+        await db.exec(select(MapWrCache).where(MapWrCache.map_id == 981024))
+    ).all() == []

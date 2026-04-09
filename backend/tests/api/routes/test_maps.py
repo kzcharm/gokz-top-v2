@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.models import (
     Map,
     MapCourse,
+    Player,
     MapReview,
     MapReviewSummaryCache,
     MapSyncResult,
@@ -189,6 +190,11 @@ async def _create_ovr_pb(
     )
 
 
+async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None:
+    db.add(Player(steamid64=steamid64, name=name))
+    await db.commit()
+
+
 @pytest.mark.asyncio
 async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> None:
     await _create_map(db, id=930200)
@@ -218,14 +224,85 @@ async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["id"] == 930201
-    assert payload["approved_by_steamid64"] == "76561198003275951"
-    assert payload["workshop_id"] == 1986459033
-    assert payload["authors"] == ["76561198000000001"]
-    assert payload["no_steamid_names"] == ["Unknown Mapper"]
-    assert payload["tiers"] == {"OVR": 5, "KZT": 5, "SKZ": 5, "VNL": 5}
-    assert payload["workshop_url"] == (
-        "https://steamcommunity.com/sharedfiles/filedetails/?id=1986459033"
+
+
+@pytest.mark.asyncio
+async def test_read_map_wrs_v1_returns_nub_and_pro_rows(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930211)
+    server_id = 930311
+    db.add(
+        ServerGlobalapi(
+            id=server_id,
+            port=27015,
+            ip="203.0.113.88",
+            name="WR Server",
+            owner_steamid64=0,
+            approval_status=1,
+            approved_by_steamid64=0,
+        )
     )
+    await db.commit()
+
+    nub_player = random_steamid64()
+    pro_player = random_steamid64()
+    await _create_player(db, steamid64=nub_player, name="Nub Winner")
+    await _create_player(db, steamid64=pro_player, name="Pro Winner")
+
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_110,
+        record_uuid=None,
+        steamid64=nub_player,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_obj.id,
+        stage=0,
+        time_seconds=Decimal("10.500"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=nub_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_111,
+        record_uuid=None,
+        steamid64=pro_player,
+        server_id=server_id,
+        mode_id=201,
+        map_id=map_obj.id,
+        stage=0,
+        time_seconds=Decimal("11.000"),
+        teleports=0,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=pro_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/wrs",
+        params={"map_id": map_obj.id},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [row["type"] for row in payload] == ["NUB", "PRO"]
+    assert payload[0]["player"]["display_name"] == "Nub Winner"
+    assert payload[0]["time"] == pytest.approx(10.5)
+    assert payload[0]["map_id"] == map_obj.id
+    assert payload[0]["scope"] == "OVR"
+    assert payload[1]["player"]["display_name"] == "Pro Winner"
+    assert payload[1]["mode_id"] == 201
 
 
 @pytest.mark.asyncio

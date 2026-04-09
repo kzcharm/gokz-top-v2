@@ -241,7 +241,7 @@ def _print_bucket_plan(*, buckets: list[RecordPbBucket]) -> None:
         sys.stdout.write("No record_pb buckets need rebuilding.\n")
         return
 
-    sys.stdout.write("scope\tcourse_id\tmap_id\tstage\tis_pro_only\texpected_rows\texisting_rows\n")
+    sys.stdout.write("scope\tcourse_id\tmap_id\tstage\ttype\texpected_rows\texisting_rows\n")
     for bucket in buckets:
         sys.stdout.write(
             f"{bucket.scope_name}\t"

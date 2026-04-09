@@ -8,7 +8,7 @@ from sqlmodel import col, select
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import Map, MapCourse, RecordScope, RecordScopeId
+from app.models import Map, MapCourse, RecordScope, RecordScopeId, RecordType
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -170,6 +170,27 @@ async def _rebuild_course_points(
     return updated_rows
 
 
+async def _rebuild_map_wr_cache_for_courses(
+    *,
+    courses: Sequence[CoursePointsPlan],
+    scopes: Sequence[RecordScope],
+) -> int:
+    main_courses = [course for course in courses if course.stage == 0]
+    if not main_courses:
+        return 0
+
+    keys = {
+        (course.map_id, int(RecordScopeId[scope.name]), record_type)
+        for course in main_courses
+        for scope in scopes
+        for record_type in RecordType
+    }
+    async with async_session_maker() as session:
+        await crud.rebuild_map_wrs_for_keys(session=session, keys=keys)
+        await session.commit()
+    return len(keys)
+
+
 async def _main_async(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
     scopes = _resolve_scopes(args.scopes)
@@ -225,10 +246,16 @@ async def rebuild_record_pb_points(
         total_updated += updated_rows
         progress.set_postfix_str(f"{course.label} updated={updated_rows}")
 
+    rebuilt_wr_keys = await _rebuild_map_wr_cache_for_courses(
+        courses=courses,
+        scopes=scopes,
+    )
+
     logger.info(
-        "Finished rebuilding record_pb points for %s course(s); updated rows=%s",
+        "Finished rebuilding record_pb points for %s course(s); updated rows=%s wr_keys=%s",
         len(courses),
         total_updated,
+        rebuilt_wr_keys,
     )
     return total_updated
 
