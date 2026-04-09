@@ -142,7 +142,6 @@ function ProfileIdentityCard({
                           {getInitials(player.alias || player.name)}
                         </span>
                       )}
-                      <span className="absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full border-2 border-card bg-emerald-500" />
                     </button>
                   </DialogTrigger>
                   <DialogContent
