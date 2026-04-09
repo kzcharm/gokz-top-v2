@@ -67,6 +67,12 @@ from .player_follow import (
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
 )
+from .player_pinned_record import (
+    PlayerPinnedRecord,
+    PlayerPinnedRecordPublic,
+    PlayerPinnedRecordsPublic,
+    PlayerPinnedRecordUpsert,
+)
 from .player_profile_view import PlayerProfileView
 from .record import (
     MapCourse,
@@ -92,8 +98,8 @@ from .record import (
     RecordRanksPublic,
     RecordScope,
     RecordScopeId,
-    RecordType,
     RecordsPublic,
+    RecordType,
     TeleportsType,
     WorldRecordCountCompatPublicV0,
     scope_mode_ids,
@@ -214,6 +220,10 @@ __all__ = [
     "PlayerFollow",
     "PlayerFollowListQuery",
     "PlayerFollowSummaryPublic",
+    "PlayerPinnedRecord",
+    "PlayerPinnedRecordPublic",
+    "PlayerPinnedRecordsPublic",
+    "PlayerPinnedRecordUpsert",
     "PlayerLeaderboardEntryPublic",
     "PlayerLeaderboardListQuery",
     "PlayerLeaderboardRankPublic",

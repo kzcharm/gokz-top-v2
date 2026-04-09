@@ -1706,6 +1706,8 @@ async def get_pb_records(
             .offset(offset)
             .limit(limit)
         )
+        if steamid64 is not None:
+            statement = statement.where(RecordPb.steamid64 == steamid64)
         if exclude_cheaters:
             statement = statement.where(
                 not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
@@ -1833,7 +1835,10 @@ async def get_pb_record_publics(
             anchor_pb.scope == scope_id,
             anchor_pb.course_id == course.id,
             anchor_pb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
-        ).order_by(anchor_pb.time_ms.asc(), anchor_pb.record_uuid.asc())
+        )
+        if steamid64 is not None:
+            statement = statement.where(anchor_pb.steamid64 == steamid64)
+        statement = statement.order_by(anchor_pb.time_ms.asc(), anchor_pb.record_uuid.asc())
     elif steamid64 is not None:
         course = aliased(MapCourse)
         statement = (

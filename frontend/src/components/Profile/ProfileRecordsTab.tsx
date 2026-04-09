@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { Pin, PinOff } from "lucide-react"
 import {
   startTransition,
   useDeferredValue,
@@ -23,14 +24,19 @@ import {
   type PbRecordsSortState,
   sortPbRecords,
 } from "@/components/Records/pb-records-utils"
+import type { RecordPublic } from "@/client"
 import { normalizeTierValue } from "@/components/Servers/tier"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { getProfilePbRecordsQueryOptions } from "./profile-utils"
+import {
+  getProfilePbRecordsQueryOptions,
+  getProfilePinnedRecordKey,
+} from "./profile-utils"
 
 const PROFILE_RECORDS_PAGE_SIZE = 50
 
@@ -47,7 +53,21 @@ function ProfileRecordsTableSkeleton() {
   )
 }
 
-export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
+export function ProfileRecordsTab({
+  steamid64,
+  canManagePinnedRecords,
+  pinnedRecordKeys,
+  pinnedRecordsMutating,
+  onPinRecord,
+  onUnpinRecord,
+}: {
+  steamid64: string
+  canManagePinnedRecords: boolean
+  pinnedRecordKeys: Set<string>
+  pinnedRecordsMutating: boolean
+  onPinRecord: (mapId: number, type: "NUB" | "PRO") => void
+  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
+}) {
   const { scope } = useScope()
   const [isProOnly, setIsProOnly] = useState(false)
   const [mapSearch, setMapSearch] = useState("")
@@ -199,6 +219,36 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
 
   const pointInputClassName =
     "h-8 min-w-0 rounded-md border-border/70 bg-background/80 text-xs font-normal"
+  const recordType = isProOnly ? "PRO" : "NUB"
+  const getRowContextMenu = (record: RecordPublic) => {
+    if (!canManagePinnedRecords) {
+      return null
+    }
+
+    const isPinned = pinnedRecordKeys.has(
+      getProfilePinnedRecordKey({
+        mapId: record.map_id,
+        type: recordType,
+      }),
+    )
+
+    return (
+      <DropdownMenuItem
+        disabled={pinnedRecordsMutating}
+        onSelect={(event) => {
+          event.preventDefault()
+          if (isPinned) {
+            onUnpinRecord(record.map_id, recordType)
+            return
+          }
+          onPinRecord(record.map_id, recordType)
+        }}
+      >
+        {isPinned ? <PinOff /> : <Pin />}
+        {isPinned ? "Unpin this record" : "Pin this record"}
+      </DropdownMenuItem>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -292,6 +342,7 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
             dateTimeDisplay="contextual-relative"
             sort={sort}
             onSortChange={handleSortChange}
+            getRowContextMenu={getRowContextMenu}
           />
           {visibleCount < sortedRecords.length ? (
             <div

@@ -192,9 +192,23 @@ export type ProfileSummaryData = {
 }
 
 export type ProfilePinnedRecord = {
+  id: string
+  playerSteamid64: string
+  mapId: number
+  scope: AppScope
+  type: "NUB" | "PRO"
   record: RecordPublic
   rank: number | null
   totalCount: number | null
+}
+
+export type ProfilePinnedRecordEntry = {
+  id: string
+  playerSteamid64: string
+  mapId: number
+  scope: AppScope
+  type: "NUB" | "PRO"
+  record: RecordPublic
 }
 
 function buildCompletionCard({
@@ -322,21 +336,135 @@ export function buildProfileTotalPoints({
   return totalPoints
 }
 
-export function buildProfilePinnedRecordCandidates(records: RecordPublic[]) {
-  return [...records]
-    .filter((record) => record.stage === 0)
-    .sort((left, right) => {
-      if (right.points !== left.points) {
-        return right.points - left.points
+export function getProfilePinnedRecordKey({
+  mapId,
+  type,
+}: {
+  mapId: number
+  type: "NUB" | "PRO"
+}) {
+  return `${mapId}:${type}`
+}
+
+export function getProfilePinnedRecordsQueryOptions({
+  identifier,
+  scope,
+}: {
+  identifier: string | null
+  scope: AppScope
+}) {
+  return queryOptions({
+    queryKey: ["profile-pinned-records", identifier, scope],
+    queryFn: async () => {
+      if (!identifier) {
+        return [] as ProfilePinnedRecordEntry[]
       }
 
-      if (left.time !== right.time) {
-        return left.time - right.time
+      const encodedIdentifier = encodeURIComponent(identifier)
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/pinned-records?scope=${scope}`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+        },
+      )
+      if (!response.ok) {
+        throw new Error("Failed to fetch pinned records")
       }
 
-      return left.uuid.localeCompare(right.uuid)
-    })
-    .slice(0, 6)
+      const payload = (await response.json()) as {
+        data?: Array<{
+          id: string
+          player_steamid64: string
+          map_id: number
+          scope: AppScope
+          type: "NUB" | "PRO"
+          record: RecordPublic
+        }>
+      }
+
+      return (payload.data ?? []).map((entry) => ({
+        id: entry.id,
+        playerSteamid64: entry.player_steamid64,
+        mapId: entry.map_id,
+        scope: entry.scope,
+        type: entry.type,
+        record: entry.record,
+      }))
+    },
+    enabled: identifier !== null,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+async function fetchPinnedRecordMutation(
+  url: string,
+  init: RequestInit,
+): Promise<void> {
+  const accessToken = localStorage.getItem("access_token")
+  const response = await fetch(url, {
+    ...init,
+    credentials: OpenAPI.CREDENTIALS,
+    headers: {
+      ...(init.method === "POST" ? { "Content-Type": "application/json" } : {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error("Pinned record mutation failed")
+  }
+}
+
+export async function pinProfileRecord({
+  identifier,
+  mapId,
+  scope,
+  type,
+}: {
+  identifier: string
+  mapId: number
+  scope: AppScope
+  type: "NUB" | "PRO"
+}) {
+  const encodedIdentifier = encodeURIComponent(identifier)
+  await fetchPinnedRecordMutation(
+    `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/pinned-records`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        map_id: mapId,
+        scope,
+        type,
+      }),
+    },
+  )
+}
+
+export async function unpinProfileRecord({
+  identifier,
+  mapId,
+  scope,
+  type,
+}: {
+  identifier: string
+  mapId: number
+  scope: AppScope
+  type: "NUB" | "PRO"
+}) {
+  const encodedIdentifier = encodeURIComponent(identifier)
+  const params = new URLSearchParams({
+    map_id: String(mapId),
+    scope,
+    type,
+  })
+  await fetchPinnedRecordMutation(
+    `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/pinned-records?${params.toString()}`,
+    {
+      method: "DELETE",
+    },
+  )
 }
 
 export function getProfileRecordRanksQueryOptions({

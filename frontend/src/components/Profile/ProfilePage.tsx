@@ -1,7 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useRef } from "react"
+import { toast } from "sonner"
 import { type PlayerPublic, PlayersService } from "@/client"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -9,6 +10,7 @@ import NotFound from "@/components/Common/NotFound"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -20,16 +22,19 @@ import { ProfileTabs } from "./ProfileTabs"
 import { getPointsRankLabel } from "./profile-ranks"
 import {
   buildProfileCompletionData,
-  buildProfilePinnedRecordCandidates,
   buildProfileTotalPoints,
   buildProfileTrophyCounts,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfilePbRecordsQueryOptions,
+  getProfilePinnedRecordsQueryOptions,
+  getProfilePinnedRecordKey,
   getProfilePointsStandingQueryOptions,
   getProfileRecordRanksQueryOptions,
   getProfileValidatedMapsQueryOptions,
+  pinProfileRecord,
   type ProfileTab,
+  unpinProfileRecord,
 } from "./profile-utils"
 
 function formatBanType(value: string) {
@@ -65,6 +70,7 @@ export function ProfilePage({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { scope } = useScope()
+  const { user: currentUser } = useAuth()
   const recordedProfileViewsRef = useRef<Set<string>>(new Set())
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],
@@ -179,11 +185,15 @@ export function ProfilePage({
       scope,
     })
   }, [mapsQuery.data, nubRecordsQuery.data, proRecordsQuery.data, scope])
-  const pinnedRecordCandidates = useMemo(() => {
-    return buildProfilePinnedRecordCandidates(nubRecordsQuery.data ?? [])
-  }, [nubRecordsQuery.data])
+  const pinnedRecordsQuery = useQuery(
+    getProfilePinnedRecordsQueryOptions({
+      identifier: playerSteamid64,
+      scope,
+    }),
+  )
+  const pinnedRecordCandidates = pinnedRecordsQuery.data ?? []
   const pinnedRecordUuids = useMemo(
-    () => pinnedRecordCandidates.map((record) => record.uuid),
+    () => pinnedRecordCandidates.map((entry) => entry.record.uuid),
     [pinnedRecordCandidates],
   )
   const pinnedRecordRanksQuery = useQuery(
@@ -196,12 +206,77 @@ export function ProfilePage({
     const rankByUuid =
       pinnedRecordRanksQuery.data ??
       new Map<string, { rank: number | null; totalCount: number | null }>()
-    return pinnedRecordCandidates.map((record) => ({
-      record,
-      rank: rankByUuid.get(record.uuid)?.rank ?? null,
-      totalCount: rankByUuid.get(record.uuid)?.totalCount ?? null,
+    return pinnedRecordCandidates.map((entry) => ({
+      ...entry,
+      rank: rankByUuid.get(entry.record.uuid)?.rank ?? null,
+      totalCount: rankByUuid.get(entry.record.uuid)?.totalCount ?? null,
     }))
   }, [pinnedRecordCandidates, pinnedRecordRanksQuery.data])
+  const isOwnProfile = currentUser?.steamid64 === playerSteamid64
+  const pinnedRecordKeys = useMemo(() => {
+    return new Set(
+      pinnedRecordCandidates.map((entry) =>
+        getProfilePinnedRecordKey({ mapId: entry.mapId, type: entry.type }),
+      ),
+    )
+  }, [pinnedRecordCandidates])
+  const invalidatePinnedRecords = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ["profile-pinned-records", playerSteamid64],
+    })
+  }
+  const pinRecordMutation = useMutation({
+    mutationFn: async ({
+      mapId,
+      type,
+    }: {
+      mapId: number
+      type: "NUB" | "PRO"
+    }) => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      await pinProfileRecord({
+        identifier: playerSteamid64,
+        mapId,
+        scope,
+        type,
+      })
+    },
+    onSuccess: async () => {
+      await invalidatePinnedRecords()
+      toast.success("Record pinned")
+    },
+    onError: () => {
+      toast.error("Failed to pin record")
+    },
+  })
+  const unpinRecordMutation = useMutation({
+    mutationFn: async ({
+      mapId,
+      type,
+    }: {
+      mapId: number
+      type: "NUB" | "PRO"
+    }) => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      await unpinProfileRecord({
+        identifier: playerSteamid64,
+        mapId,
+        scope,
+        type,
+      })
+    },
+    onSuccess: async () => {
+      await invalidatePinnedRecords()
+      toast.success("Record unpinned")
+    },
+    onError: () => {
+      toast.error("Failed to unpin record")
+    },
+  })
   const summary = useMemo(() => {
     const totalPoints = buildProfileTotalPoints({
       nubRecords: nubRecordsQuery.data ?? [],
@@ -335,20 +410,42 @@ export function ProfilePage({
           <section className="space-y-6">
             {activeTab === "home" ? (
               <ProfileHomeContent
+                canManagePinnedRecords={isOwnProfile}
                 completion={completion}
                 completionLoading={completionLoading}
                 completionError={completionError}
                 completionTrophies={completionTrophies}
                 pinnedRecords={pinnedRecords}
-                pinnedRecordsError={pinnedRecordRanksQuery.isError}
-                pinnedRecordsLoading={
-                  nubRecordsQuery.isLoading || pinnedRecordRanksQuery.isLoading
+                pinnedRecordsError={
+                  pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
                 }
+                pinnedRecordsLoading={
+                  pinnedRecordsQuery.isLoading || pinnedRecordRanksQuery.isLoading
+                }
+                pinnedRecordsMutating={
+                  pinRecordMutation.isPending || unpinRecordMutation.isPending
+                }
+                onUnpinRecord={(mapId, type) => {
+                  unpinRecordMutation.mutate({ mapId, type })
+                }}
                 summary={summary}
                 summaryLoading={summaryLoading}
               />
             ) : (
-              <ProfileRecordsTab steamid64={player.steamid64} />
+              <ProfileRecordsTab
+                steamid64={player.steamid64}
+                canManagePinnedRecords={isOwnProfile}
+                pinnedRecordKeys={pinnedRecordKeys}
+                pinnedRecordsMutating={
+                  pinRecordMutation.isPending || unpinRecordMutation.isPending
+                }
+                onPinRecord={(mapId, type) => {
+                  pinRecordMutation.mutate({ mapId, type })
+                }}
+                onUnpinRecord={(mapId, type) => {
+                  unpinRecordMutation.mutate({ mapId, type })
+                }}
+              />
             )}
           </section>
         </div>

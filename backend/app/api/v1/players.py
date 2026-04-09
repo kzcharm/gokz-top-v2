@@ -14,6 +14,8 @@ from app.crud import player as player_crud
 from app.models import (
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
+    PlayerPinnedRecordsPublic,
+    PlayerPinnedRecordUpsert,
     PlayerProfileViewsPublic,
     PlayerPublic,
     PlayersBatchPublic,
@@ -22,6 +24,8 @@ from app.models import (
     PlayersListQuery,
     PlayersPublic,
     PlayerUpdate,
+    RecordScope,
+    RecordType,
     User,
 )
 
@@ -44,6 +48,16 @@ async def _get_player_or_404(*, session: SessionDep, identifier: str):
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     return player
+
+
+def _ensure_current_user_owns_player(
+    *, current_user: CurrentUser, target_steamid64: int
+) -> None:
+    if current_user.steamid64 != target_steamid64:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot modify another player's pinned records",
+        )
 
 
 @router.get("/", response_model=PlayersPublic)
@@ -132,6 +146,102 @@ async def create_player_view(
         target_steamid64=player.steamid64,
     )
     return PlayerProfileViewsPublic(profile_views=profile_views)
+
+
+@router.get(
+    "/{identifier:path}/pinned-records",
+    response_model=PlayerPinnedRecordsPublic,
+)
+async def read_player_pinned_records(
+    identifier: str,
+    session: SessionDep,
+    scope: RecordScope = RecordScope.OVR,
+) -> PlayerPinnedRecordsPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    pinned_records = await crud.resolve_player_pinned_records_public(
+        session=session,
+        player_steamid64=player.steamid64,
+        scope=scope,
+    )
+    return PlayerPinnedRecordsPublic(data=pinned_records, count=len(pinned_records))
+
+
+@router.post(
+    "/{identifier:path}/pinned-records",
+    response_model=PlayerPinnedRecordsPublic,
+)
+async def create_player_pinned_record(
+    identifier: str,
+    body: PlayerPinnedRecordUpsert,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerPinnedRecordsPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_player(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+
+    records = await crud.get_pb_records(
+        session,
+        map_id=body.map_id,
+        stage=0,
+        steamid64=player.steamid64,
+        scope=body.scope,
+        record_type=body.type,
+    )
+    if len(records) == 0:
+        raise HTTPException(status_code=404, detail="Pinned record target not found")
+
+    await crud.create_player_pinned_record(
+        session=session,
+        player_steamid64=player.steamid64,
+        map_id=body.map_id,
+        scope=body.scope,
+        record_type=body.type,
+    )
+    pinned_records = await crud.resolve_player_pinned_records_public(
+        session=session,
+        player_steamid64=player.steamid64,
+        scope=body.scope,
+    )
+    return PlayerPinnedRecordsPublic(data=pinned_records, count=len(pinned_records))
+
+
+@router.delete(
+    "/{identifier:path}/pinned-records",
+    response_model=PlayerPinnedRecordsPublic,
+)
+async def delete_player_pinned_record(
+    identifier: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+    map_id: int,
+    scope: RecordScope = RecordScope.OVR,
+    type: RecordType = RecordType.NUB,
+) -> PlayerPinnedRecordsPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_player(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+
+    deleted = await crud.delete_player_pinned_record(
+        session=session,
+        player_steamid64=player.steamid64,
+        map_id=map_id,
+        scope=scope,
+        record_type=type,
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Pinned record not found")
+
+    pinned_records = await crud.resolve_player_pinned_records_public(
+        session=session,
+        player_steamid64=player.steamid64,
+        scope=scope,
+    )
+    return PlayerPinnedRecordsPublic(data=pinned_records, count=len(pinned_records))
 
 
 @router.get(

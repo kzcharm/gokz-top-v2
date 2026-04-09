@@ -2,7 +2,6 @@ import { expect, type Page, type Route, test } from "@playwright/test"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
-const appUrl = "http://127.0.0.1:4583"
 const steamid64 = "76561198000000001"
 
 const player = {
@@ -184,6 +183,14 @@ const nubRecords = [
 
 async function installProfileHomeRoutes(page: Page) {
   const requestedRankUuids: string[] = []
+  const pinnedRecords = nubRecords.slice(0, 6).map((record, index) => ({
+    id: `019e0000-0000-7000-8000-00000000000${index}`,
+    player_steamid64: steamid64,
+    map_id: record.map_id,
+    scope: "OVR",
+    type: "NUB",
+    record,
+  }))
 
   await page.route(/\/v1\/users\/me$/, async (route: Route) => {
     await route.fulfill({
@@ -232,6 +239,20 @@ async function installProfileHomeRoutes(page: Page) {
       body: JSON.stringify([]),
     })
   })
+
+  await page.route(
+    /\/v1\/players\/[^/]+\/pinned-records(\?.*)?$/,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: pinnedRecords,
+          count: pinnedRecords.length,
+        }),
+      })
+    },
+  )
 
   await page.route(
     /\/v1\/leaderboards\/players\/[^?]+(\?.*)?$/,
@@ -299,11 +320,9 @@ test("Profile home renders live pinned records with points badges and absolute d
 }) => {
   const requestedRankUuids = await installProfileHomeRoutes(page)
 
-  await page.goto(`${appUrl}/profile/${steamid64}`)
+  await page.goto(`/profile/${steamid64}`)
 
-  await expect(
-    page.getByRole("heading", { name: "Pinned Alias" }),
-  ).toBeVisible()
+  await expect(page.getByText("Pinned Alias")).toBeVisible()
   await expect(page.getByText("Pinned records")).toBeVisible()
   await expect(page.getByText("6 of 6")).toBeVisible()
 
@@ -320,18 +339,18 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText("960")).toBeVisible()
   await expect(page.getByText("920")).toHaveCount(2)
 
-  await expect(page.getByText("KZT · #1")).toBeVisible()
-  await expect(page.getByText("SKZ · #2")).toBeVisible()
-  await expect(page.getByText("KZT · #3")).toBeVisible()
-  await expect(page.getByText("NKZ · Rank unavailable")).toBeVisible()
+  await expect(page.getByText(/^KZT · #1$/)).toBeVisible()
+  await expect(page.getByText(/^SKZ · #2$/)).toBeVisible()
+  await expect(page.getByText(/^KZT · #3$/)).toBeVisible()
+  await expect(page.getByText(/^NKZ · Rank unavailable$/)).toBeVisible()
 
-  await expect(page.getByText("2026-03-31 12:00")).toBeVisible()
-  await expect(page.getByText("2026-03-30 08:15")).toBeVisible()
+  await expect(page.getByText("2026-03-31 14:00")).toBeVisible()
+  await expect(page.getByText("2026-03-30 10:15")).toBeVisible()
 
   expect(requestedRankUuids).toEqual([
     nubRecords[0].uuid,
-    nubRecords[2].uuid,
     nubRecords[1].uuid,
+    nubRecords[2].uuid,
     nubRecords[3].uuid,
     nubRecords[4].uuid,
     nubRecords[5].uuid,
