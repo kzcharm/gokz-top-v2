@@ -249,7 +249,7 @@ export function ProfileRecordsTab({ steamid64 }: { steamid64: string }) {
                 <TierSelector
                   value={selectedTier}
                   onValueChange={setSelectedTier}
-                  allLabel="Tiers"
+                  allLabel="Tier"
                   triggerClassName="h-8 border-border/70 bg-background/80 text-xs"
                   ariaLabel="Filter by tier"
                 />

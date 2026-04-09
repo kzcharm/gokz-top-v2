@@ -9,6 +9,10 @@ import {
 } from "react"
 
 import { type MapPublic, MapsService } from "@/client"
+import {
+  TierSelector,
+  type TierSelectorValue,
+} from "@/components/Common/TierSelector"
 import { MapCard } from "@/components/Maps/MapCard"
 import {
   getMapSkillPercentage,
@@ -16,6 +20,7 @@ import {
   type MapSkillKey,
 } from "@/components/Maps/map-utils"
 import { PendingMaps } from "@/components/Maps/PendingMaps"
+import { normalizeTierValue } from "@/components/Servers/tier"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -271,6 +276,7 @@ export function MapsCatalog() {
   const [selectedSkill, setSelectedSkill] = useState<SortableSkillKey>("ladder")
   const [selectedReviewSort, setSelectedReviewSort] =
     useState<ReviewSortField>("overall")
+  const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
   const [page, setPage] = useState(1)
 
   const mapsQuery = useQuery({
@@ -290,14 +296,24 @@ export function MapsCatalog() {
 
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
-    if (normalizedQuery === "") {
-      return mapsQuery.data ?? []
-    }
+    return (mapsQuery.data ?? []).filter((map) => {
+      if (
+        normalizedQuery !== "" &&
+        !map.name.toLowerCase().includes(normalizedQuery)
+      ) {
+        return false
+      }
 
-    return (mapsQuery.data ?? []).filter((map) =>
-      map.name.toLowerCase().includes(normalizedQuery),
-    )
-  }, [deferredSearch, mapsQuery.data])
+      if (selectedTier !== "all") {
+        const activeTier = normalizeTierValue(getMapTierForScope(map, scope))
+        if (activeTier !== Number(selectedTier)) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [deferredSearch, mapsQuery.data, scope, selectedTier])
 
   const sortedMaps = useMemo(
     () =>
@@ -434,19 +450,32 @@ export function MapsCatalog() {
 
       <section className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm backdrop-blur-sm sm:p-5">
         <div className="flex flex-col gap-4">
-          <div className="relative block w-full lg:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchInput}
-              onChange={(event) => {
-                const nextValue = event.target.value
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative block w-full min-w-0 sm:flex-1 lg:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchInput}
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  startTransition(() => {
+                    setSearchInput(nextValue)
+                  })
+                }}
+                placeholder="Search maps..."
+                aria-label="Search maps by name"
+                className="pl-9"
+              />
+            </div>
+            <TierSelector
+              value={selectedTier}
+              onValueChange={(nextValue) => {
                 startTransition(() => {
-                  setSearchInput(nextValue)
+                  setSelectedTier(nextValue)
+                  setPage(1)
                 })
               }}
-              placeholder="Search maps..."
-              aria-label="Search maps by name"
-              className="pl-9"
+              triggerClassName="w-auto"
+              ariaLabel="Filter maps by tier"
             />
           </div>
 
