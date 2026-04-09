@@ -1,7 +1,5 @@
 import { Check, ChevronDown, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-
-import { CountryFlag, countryOptions, getCountryName } from "./CountryFlag"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +7,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { CountryFlag, countryOptions, getCountryName } from "./CountryFlag"
 
 interface CountryPickerProps {
   value: string | null
@@ -73,7 +72,9 @@ export function CountryPicker({
             {value ? (
               <>
                 <CountryFlag countryCode={value} showTooltip={false} />
-                <span className="truncate">{getCountryName(value) || value}</span>
+                <span className="truncate">
+                  {getCountryName(value) || value}
+                </span>
               </>
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>

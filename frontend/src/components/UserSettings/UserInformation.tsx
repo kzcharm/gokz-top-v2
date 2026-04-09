@@ -24,7 +24,10 @@ const UserInformation = () => {
         <div>
           <p className="text-sm text-muted-foreground">Display name</p>
           <p className="font-medium">
-            {player?.alias || player?.name || currentUser.player?.display_name || "Unknown"}
+            {player?.alias ||
+              player?.name ||
+              currentUser.player?.display_name ||
+              "Unknown"}
           </p>
         </div>
         <div>

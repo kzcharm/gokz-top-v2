@@ -126,7 +126,9 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                     {showProgressColumn ? (
                       <TableCell>
                         {progress !== null ? (
-                          <span className="text-sm">{progress.toFixed(1)}%</span>
+                          <span className="text-sm">
+                            {progress.toFixed(1)}%
+                          </span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}

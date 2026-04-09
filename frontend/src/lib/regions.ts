@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query"
 
-import { RegionsService, type RegionPublic } from "@/client"
+import { type RegionPublic, RegionsService } from "@/client"
 
 export function getRegionsQueryOptions() {
   return queryOptions({

@@ -145,7 +145,11 @@ export function RegionFlag({
   } else {
     content = (
       <RegionFlagFrame className={fallbackClassName}>
-        <RegionFlagImage src={noneFlagSrc} label={label} decorative={decorative} />
+        <RegionFlagImage
+          src={noneFlagSrc}
+          label={label}
+          decorative={decorative}
+        />
       </RegionFlagFrame>
     )
   }

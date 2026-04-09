@@ -86,9 +86,7 @@ export function ServerDetailSheet({
                   </span>
                 ) : null}
               </DialogTitle>
-              <DialogDescription>
-                {subtitleParts.join(" | ")}
-              </DialogDescription>
+              <DialogDescription>{subtitleParts.join(" | ")}</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6">
