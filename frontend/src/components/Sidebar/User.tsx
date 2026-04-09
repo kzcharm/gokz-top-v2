@@ -1,5 +1,5 @@
-import { Link as RouterLink } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
+import { Link as RouterLink } from "@tanstack/react-router"
 import { ChevronsUpDown, LogIn, LogOut } from "lucide-react"
 
 import { PlayersService } from "@/client"
@@ -104,7 +104,9 @@ export function User({ user }: { user: any }) {
               data-testid="user-menu"
             >
               <UserInfo
-                name={player?.alias || player?.name || user?.player?.display_name}
+                name={
+                  player?.alias || player?.name || user?.player?.display_name
+                }
                 steamid64={user?.steamid64}
                 avatarHash={player?.avatar_hash}
               />
@@ -119,7 +121,9 @@ export function User({ user }: { user: any }) {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <UserInfo
-                name={player?.alias || player?.name || user?.player?.display_name}
+                name={
+                  player?.alias || player?.name || user?.player?.display_name
+                }
                 steamid64={user?.steamid64}
                 avatarHash={player?.avatar_hash}
               />

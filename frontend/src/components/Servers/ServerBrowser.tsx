@@ -537,12 +537,15 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
               </Button>
               {regionOptions.map(([regionCode, count]) => {
                 const region =
-                  regionsQuery.data?.find((option) => option.code === regionCode) ??
-                  null
+                  regionsQuery.data?.find(
+                    (option) => option.code === regionCode,
+                  ) ?? null
                 return (
                   <Button
                     key={regionCode}
-                    variant={search.region === regionCode ? "default" : "outline"}
+                    variant={
+                      search.region === regionCode ? "default" : "outline"
+                    }
                     size="sm"
                     onClick={() => handleSearchPatch({ region: regionCode })}
                   >

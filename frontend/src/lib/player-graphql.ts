@@ -158,7 +158,9 @@ export async function fetchPlayersForDisplay(steamid64s: string[]) {
     uncachedSteamid64s.map((steamid64) => queuePlayerBatchLoad(steamid64)),
   )
 
-  return steamid64s.map((steamid64) => cachedDisplayPlayers.get(steamid64) ?? null)
+  return steamid64s.map(
+    (steamid64) => cachedDisplayPlayers.get(steamid64) ?? null,
+  )
 }
 
 export async function loadPlayerForDisplay(steamid64: string) {

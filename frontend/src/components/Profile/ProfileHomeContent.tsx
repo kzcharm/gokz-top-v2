@@ -117,8 +117,7 @@ function CompletionCard({
               >
                 <span className="text-right text-xs font-semibold text-muted-foreground">
                   {tier.label} (avg{" "}
-                  <PaddedAverageNumber value={tier.averagePoints} />
-                  )
+                  <PaddedAverageNumber value={tier.averagePoints} />)
                 </span>
                 <div className="h-5 overflow-hidden rounded-full bg-muted">
                   <div

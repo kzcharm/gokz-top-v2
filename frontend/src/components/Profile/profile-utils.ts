@@ -240,7 +240,9 @@ function buildCompletionCard({
 
   tiers.forEach((tier, index) => {
     tier.averagePoints =
-      tier.complete === 0 ? 0 : Math.round(tierPointsTotals[index] / tier.complete)
+      tier.complete === 0
+        ? 0
+        : Math.round(tierPointsTotals[index] / tier.complete)
   })
 
   return {

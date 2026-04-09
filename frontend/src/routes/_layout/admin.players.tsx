@@ -109,9 +109,7 @@ function AdminPlayers() {
   const visibleTableData = isSearchMode
     ? searchTableData.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
     : tableData
-  const totalCount = isSearchMode
-    ? searchTableData.length
-    : (data?.count ?? 0)
+  const totalCount = isSearchMode ? searchTableData.length : (data?.count ?? 0)
   const isTableLoading = isSearchMode ? isSearchLoading : isLoading
 
   return (
@@ -143,7 +141,9 @@ function AdminPlayers() {
           columns={columns}
           data={visibleTableData}
           emptyText={
-            isSearchMode ? "No players matched your search." : "No results found."
+            isSearchMode
+              ? "No players matched your search."
+              : "No results found."
           }
           footerSummary={<span />}
           serverPagination={{
