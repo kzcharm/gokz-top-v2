@@ -121,6 +121,17 @@ export type MapTiers = {
     VNL: number;
 };
 
+export type MapWrPublic = {
+    record_uuid: string;
+    map_id: number;
+    scope: RecordScope;
+    type: RecordType;
+    mode_id: number;
+    player: PlayerRefPublic;
+    time: number;
+    updated_at: string;
+};
+
 export type Message = {
     message: string;
 };
@@ -306,6 +317,8 @@ export type RecordsPublic = {
     data: Array<RecordPublic>;
     count: number;
 };
+
+export type RecordType = 'NUB' | 'PRO';
 
 export type RegionCode = 'AF' | 'AS' | 'CIS' | 'CN' | 'EU' | 'ME' | 'NA' | 'OC' | 'SA';
 
@@ -580,6 +593,15 @@ export type MapsReadMapByNameData = {
 
 export type MapsReadMapByNameResponse = (MapPublic);
 
+export type MapsReadMapWrsData = {
+    mapId?: (number | null);
+    mapName?: (string | null);
+    scope?: RecordScope;
+    type?: (RecordType | null);
+};
+
+export type MapsReadMapWrsResponse = (Array<MapWrPublic>);
+
 export type MapsReadMapByIdData = {
     id: number;
 };
@@ -736,7 +758,6 @@ export type RecordsReadRecentRecordsResponse = (RecentRecordsPublic);
 export type RecordsReadPbRecordsData = {
     country?: (string | null);
     excludeCheaters?: boolean;
-    isProOnly?: boolean;
     limit?: number;
     mapId?: (number | null);
     offset?: number;
@@ -744,6 +765,7 @@ export type RecordsReadPbRecordsData = {
     scope?: RecordScope;
     stage?: number;
     steamid64?: (string | null);
+    type?: RecordType;
 };
 
 export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);

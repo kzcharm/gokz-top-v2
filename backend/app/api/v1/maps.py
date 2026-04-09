@@ -17,7 +17,10 @@ from app.models import (
     MapReviewPublic,
     MapReviewsPublic,
     MapReviewUpsert,
+    MapWrPublic,
     MapSyncResult,
+    RecordScope,
+    RecordType,
     ServerGroupStatus,
 )
 from app.services.globalapi_maps_sync import (
@@ -76,6 +79,35 @@ async def read_map_by_name(
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
     return (await crud.to_map_publics(session=session, maps=[map_obj]))[0]
+
+
+@router.get("/wrs", response_model=list[MapWrPublic])
+async def read_map_wrs(
+    session: SessionDep,
+    scope: RecordScope = RecordScope.OVR,
+    type: Annotated[RecordType | None, Query()] = None,
+    map_id: Annotated[int | None, Query()] = None,
+    map_name: Annotated[str | None, Query()] = None,
+) -> list[MapWrPublic]:
+    if map_id is not None and map_name is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="map_id and map_name filters are mutually exclusive. Please provide only one.",
+        )
+
+    resolved_map_id = map_id
+    if map_name is not None:
+        map_obj = await crud.get_map_by_name(session=session, map_name=map_name)
+        if map_obj is None:
+            return []
+        resolved_map_id = map_obj.id
+
+    return await crud.read_map_wrs(
+        session=session,
+        map_id=resolved_map_id,
+        scope=scope,
+        record_type=type,
+    )
 
 
 @router.get("/{id:int}", response_model=MapPublic)

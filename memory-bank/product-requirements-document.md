@@ -59,6 +59,7 @@ Scope model:
 ### 5.2 Records and Map Top
 - Record ingestion and retrieval flows.
 - Map top views with scope-aware rank and points context.
+- Main-map world-record reads are served from a PostgreSQL cache/read model derived from main-course PB rows and keyed by scope and NUB/PRO record type.
 - World-record and recent-record experiences.
 - Scope-dependent points for rank-oriented queries.
 - Selected leaderboard and record list surfaces exclude players with any active mirrored ban by default, while recent feeds and record detail views remain unchanged.
