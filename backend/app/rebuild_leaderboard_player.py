@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from app import crud
 from app.core.db import async_session_maker
@@ -9,6 +10,13 @@ from app.models import RecordScope, RecordScopeId
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class LeaderboardRebuildResult:
+    selected: int
+    created: int
+    updated: int
 
 
 def _get_tqdm():
@@ -58,20 +66,36 @@ async def _main_async(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
     scope_ids = _resolve_scope_ids(args.scopes)
     steamid64s: list[int] | None = args.steamid64s if args.steamid64s else None
+    await rebuild_leaderboard_rows(
+        scope_ids=scope_ids,
+        steamid64s=steamid64s,
+        limit=args.limit,
+    )
+
+
+async def rebuild_leaderboard_rows(
+    *,
+    scope_ids: Sequence[int] | None,
+    steamid64s: Sequence[int] | None,
+    limit: int | None,
+    prioritize_existing_rating: bool = False,
+) -> LeaderboardRebuildResult:
+    steamid64_list = list(steamid64s) if steamid64s is not None else None
 
     async with async_session_maker() as session:
         keys = await crud.load_leaderboard_player_keys(
             session=session,
             scope_ids=scope_ids,
-            steamid64s=steamid64s,
+            steamid64s=steamid64_list,
+            prioritize_existing_rating=prioritize_existing_rating,
         )
 
-    if args.limit is not None:
-        keys = keys[: args.limit]
+    if limit is not None:
+        keys = keys[:limit]
 
     if not keys:
         logger.warning("No leaderboard_player rows matched the selected filters.")
-        return
+        return LeaderboardRebuildResult(selected=0, created=0, updated=0)
 
     logger.info("Rebuilding %s leaderboard_player row(s)", len(keys))
     tqdm = _get_tqdm()
@@ -96,6 +120,11 @@ async def _main_async(argv: list[str] | None = None) -> None:
         len(keys),
         total_created,
         total_updated,
+    )
+    return LeaderboardRebuildResult(
+        selected=len(keys),
+        created=total_created,
+        updated=total_updated,
     )
 
 

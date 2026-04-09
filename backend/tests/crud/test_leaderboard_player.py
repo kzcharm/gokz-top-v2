@@ -10,6 +10,7 @@ from app.models import (
     Map,
     MapCourse,
     Player,
+    RecordPb,
     RecordFilter,
     ServerGlobalapi,
 )
@@ -247,3 +248,90 @@ async def test_rebuild_leaderboard_player_keeps_points_but_zeroes_rating_below_t
     assert row.rating == 0
     assert row.rating_easy == 0
     assert row.rating_hard == 0
+
+
+async def test_load_leaderboard_player_keys_prioritizes_existing_rating_before_new_keys(
+    db: AsyncSession,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    newcomer = random_steamid64()
+    server_id = 2_120_000_001
+    scope_id = int(RecordScopeId.KZT)
+
+    await _create_player(db, steamid64=first_player, name="First Existing")
+    await _create_player(db, steamid64=second_player, name="Second Existing")
+    await _create_player(db, steamid64=newcomer, name="Newcomer")
+    await _create_server(db, server_id=server_id, name="Priority Server")
+
+    course_id = await _create_map(
+        db,
+        map_id=2_120_100_000,
+        name="kz_priority",
+        difficulty=4,
+    )
+    await _create_record_filter(
+        db,
+        record_filter_id=2_120_200_000,
+        map_id=2_120_100_000,
+        mode_id=200,
+        tier=4,
+    )
+    record, _created, _updated = await crud.upsert_record(
+        session=db,
+        record_id=2_120_300_000,
+        record_uuid=None,
+        steamid64=newcomer,
+        server_id=server_id,
+        mode_id=200,
+        map_id=2_120_100_000,
+        stage=0,
+        time_seconds=Decimal("15.000"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=newcomer,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.flush()
+
+    db.add(
+        LeaderboardPlayer(
+            scope=scope_id,
+            steamid64=first_player,
+            rating=100,
+        )
+    )
+    db.add(
+        LeaderboardPlayer(
+            scope=scope_id,
+            steamid64=second_player,
+            rating=300,
+        )
+    )
+    db.add(
+        RecordPb(
+            scope=scope_id,
+            course_id=course_id,
+            steamid64=newcomer,
+            is_pro_only=False,
+            record_uuid=record.uuid,
+            time_ms=15_000,
+            points=500,
+        )
+    )
+    await db.commit()
+
+    keys = await crud.load_leaderboard_player_keys(
+        session=db,
+        scope_ids=[scope_id],
+        prioritize_existing_rating=True,
+    )
+
+    assert keys == [
+        (scope_id, second_player),
+        (scope_id, first_player),
+        (scope_id, newcomer),
+    ]

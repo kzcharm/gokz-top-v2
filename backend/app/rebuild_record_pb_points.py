@@ -174,15 +174,31 @@ async def _main_async(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
     scopes = _resolve_scopes(args.scopes)
     stage = _resolve_stage(stage=args.stage, all_stages=args.all_stages)
-    courses = await _load_course_plan(map_names=args.map_names, stage=stage)
+    await rebuild_record_pb_points(
+        scopes=scopes,
+        map_names=args.map_names,
+        stage=stage,
+        limit=args.limit,
+    )
 
-    if args.limit is not None:
-        courses = courses[: args.limit]
+
+async def rebuild_record_pb_points(
+    *,
+    scopes: Sequence[RecordScope],
+    map_names: Sequence[str] | None,
+    stage: int | None,
+    limit: int | None,
+) -> int:
+    map_name_list = list(map_names) if map_names is not None else None
+    courses = await _load_course_plan(map_names=map_name_list, stage=stage)
+
+    if limit is not None:
+        courses = courses[:limit]
 
     if not courses:
-        map_filter = ", ".join(args.map_names) if args.map_names else "*"
+        map_filter = ", ".join(map_name_list) if map_name_list else "*"
         logger.warning("No courses matched filters: map_name=%s stage=%s", map_filter, stage)
-        return
+        return 0
 
     logger.info(
         "Rebuilding exact record_pb points for %s course(s) across %s scope(s)",
@@ -214,6 +230,7 @@ async def _main_async(argv: list[str] | None = None) -> None:
         len(courses),
         total_updated,
     )
+    return total_updated
 
 
 def main(argv: list[str] | None = None) -> None:
