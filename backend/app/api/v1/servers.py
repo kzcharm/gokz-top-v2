@@ -21,6 +21,7 @@ from app.models import (
     User,
 )
 from app.services.server_status import (
+    SERVER_DISCOVERY_ENABLED,
     ServerQueryError,
     query_server_a2s_info,
     run_server_discovery_cycle,
@@ -99,6 +100,11 @@ async def trigger_server_discovery(
     current_user: CurrentSuperuser,
 ) -> ServerDiscoveryRunPublic:
     del current_user
+    if not SERVER_DISCOVERY_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Server discovery is temporarily disabled",
+        )
     try:
         result = await run_server_discovery_cycle()
     except ServerQueryError as exc:

@@ -20,7 +20,6 @@ from app.models import (
 from app.services.geoip import GeoIPLocation
 from app.services.server_status import (
     A2SInfoResult,
-    ServerDiscoveryCycleResult,
     ServerQueryError,
 )
 from tests.utils.server import (
@@ -293,39 +292,17 @@ async def test_trigger_server_discovery_requires_superuser(
     assert response.status_code == 403
 
 
-async def test_trigger_server_discovery_returns_summary(
+async def test_trigger_server_discovery_returns_disabled_when_feature_flag_is_off(
     client: AsyncClient,
     superuser_token_headers: dict[str, str],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    started_at = datetime.now(UTC)
-    completed_at = started_at + timedelta(seconds=3)
-
-    async def _fake_run_server_discovery_cycle() -> ServerDiscoveryCycleResult:
-        return ServerDiscoveryCycleResult(
-            started_at=started_at,
-            completed_at=completed_at,
-            regions_scanned=8,
-            candidate_count=42,
-            upserted_count=5,
-        )
-
-    monkeypatch.setattr(
-        servers_route,
-        "run_server_discovery_cycle",
-        _fake_run_server_discovery_cycle,
-    )
-
     response = await client.post(
         f"{settings.API_V1_STR}/servers/discovery",
         headers=superuser_token_headers,
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["regions_scanned"] == 8
-    assert payload["candidate_count"] == 42
-    assert payload["upserted_count"] == 5
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Server discovery is temporarily disabled"
 
 
 async def test_create_server_rejects_unreachable_server(

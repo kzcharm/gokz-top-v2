@@ -25,6 +25,7 @@ SERVER_A2S_POLL_SECONDS = 10
 SERVER_A2S_FAILURES_BEFORE_OFFLINE = 3
 SERVER_A2S_QUERY_TIMEOUT_SECONDS = 2.0
 SERVER_DISCOVERY_INTERVAL_SECONDS = 3600
+SERVER_DISCOVERY_ENABLED = False
 SERVER_HEARTBEAT_RETENTION_DAYS = 30
 SERVER_HEARTBEAT_FUTURE_PARTITIONS_DAYS = 7
 STEAM_SERVER_LIST_URL = (
@@ -595,8 +596,11 @@ async def run_server_status_collector() -> None:
     while True:
         now = datetime.now(UTC)
         if (
+            SERVER_DISCOVERY_ENABLED
+            and (
             now - last_discovery_at
-        ).total_seconds() >= SERVER_DISCOVERY_INTERVAL_SECONDS:
+            ).total_seconds() >= SERVER_DISCOVERY_INTERVAL_SECONDS
+        ):
             try:
                 await run_server_discovery_cycle()
             except Exception:
