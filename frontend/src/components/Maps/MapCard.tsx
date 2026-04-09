@@ -105,7 +105,7 @@ export function MapCard({
   const skillPortions =
     nonZeroSkillPortions.length > 0 && nonZeroSkillPortions.length < 4
       ? allSkillPortions.slice(0, 4)
-      : nonZeroSkillPortions.slice(0, 6)
+      : nonZeroSkillPortions.slice(0, 4)
 
   return (
     <Card
