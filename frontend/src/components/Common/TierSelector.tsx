@@ -1,5 +1,6 @@
 import { ChevronDownIcon } from "lucide-react"
 
+import { TierBadge } from "@/components/Servers/TierBadge"
 import {
   Select,
   SelectContent,
@@ -28,19 +29,32 @@ interface TierSelectorProps {
   ariaLabel?: string
 }
 
+function TierSelectorValueContent({
+  value,
+  allLabel,
+}: {
+  value: TierSelectorValue
+  allLabel: string
+}) {
+  if (value === "all") {
+    return (
+      <span className="truncate text-[11px] font-medium text-muted-foreground">
+        {allLabel}
+      </span>
+    )
+  }
+
+  return <TierBadge tier={Number(value)} className="px-2 py-0.5 text-[11px]" />
+}
+
 export function TierSelector({
   value,
   onValueChange,
-  allLabel = "All tiers",
+  allLabel = "Tier",
   className,
   triggerClassName,
   ariaLabel = "Filter by tier",
 }: TierSelectorProps) {
-  const selectedLabel =
-    value === "all"
-      ? allLabel
-      : (TIER_OPTIONS.find((option) => option.value === value)?.label ?? value)
-
   return (
     <Select
       value={value}
@@ -51,17 +65,17 @@ export function TierSelector({
       <SelectTrigger
         aria-label={ariaLabel}
         className={cn(
-          "h-8 w-[4.6rem] min-w-[4.6rem] px-1.5 text-[11px]",
+          "h-8 min-w-[4.15rem] gap-1 px-1.5 text-[11px]",
           triggerClassName,
         )}
         showChevron={false}
       >
         <span className="flex w-full items-center justify-between gap-1">
-          <span className="truncate">{selectedLabel}</span>
+          <TierSelectorValueContent value={value} allLabel={allLabel} />
           <ChevronDownIcon
             className={cn(
               "size-3.5 shrink-0 opacity-50",
-              value === "all" ? "visible" : "invisible",
+              value === "all" ? "visible" : "opacity-65",
             )}
           />
         </span>
@@ -70,7 +84,10 @@ export function TierSelector({
         <SelectItem value="all">{allLabel}</SelectItem>
         {TIER_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={option.value}>
-            {option.label}
+            <TierBadge
+              tier={Number(option.value)}
+              className="px-2 py-0.5 text-[11px]"
+            />
           </SelectItem>
         ))}
       </SelectContent>
