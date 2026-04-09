@@ -11,6 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
+from .map_review_summary import MapReviewSummaryPublic
 from .utils import get_datetime_utc
 
 
@@ -106,6 +107,7 @@ class MapPublic(SQLModel):
     synced_at: datetime
     authors: list[str] = Field(default_factory=list)
     no_steamid_names: list[str] = Field(default_factory=list)
+    review_summary: MapReviewSummaryPublic | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

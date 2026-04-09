@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import { Star } from "lucide-react"
 
 import type { MapPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -6,14 +7,88 @@ import { getMapImageUrl } from "@/components/Common/MapDisplay"
 import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Card, CardContent } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 interface MapCardProps {
   activeTier: number
   map: MapPublic
 }
 
+function formatReviewAverage(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "0.0"
+  }
+
+  return value.toFixed(1)
+}
+
+function ScoreStars({ value }: { value: number | null }) {
+  const filledStars = value ?? 0
+
+  return (
+    <div
+      className="flex min-w-[6.25rem] items-center gap-0.5"
+      role="img"
+      aria-label={
+        value === null
+          ? "No rating provided, 0 out of 5 stars"
+          : `${value} out of 5 stars`
+      }
+    >
+      {Array.from({ length: 5 }, (_, index) => (
+        <Star
+          key={index}
+          className={cn(
+            "size-3.5",
+            index < filledStars
+              ? "fill-amber-400 text-amber-400"
+              : "fill-transparent text-muted-foreground/35",
+          )}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ReviewSummaryRow({
+  label,
+  value,
+  count,
+  suffix,
+}: {
+  label: string
+  value: number | null
+  count?: number
+  suffix?: string
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-14 text-xs font-medium text-muted-foreground">
+        {label}
+      </span>
+      <ScoreStars value={value} />
+      <span className="text-sm font-medium tabular-nums text-foreground">
+        {formatReviewAverage(value)}
+      </span>
+      {count !== undefined ? (
+        <span className="text-xs font-medium text-muted-foreground">
+          ({count})
+        </span>
+      ) : null}
+      {suffix ? (
+        <span className="text-xs font-medium text-muted-foreground">
+          {suffix}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 export function MapCard({ activeTier, map }: MapCardProps) {
   const imageUrl = getMapImageUrl(map.name)
+  const reviewSummary = map.review_summary
+  const reviewsCount = reviewSummary?.reviews_count ?? 0
+  const commentsCount = reviewSummary?.comments_count ?? 0
   const skillPortions = getMapSkillPortions(map.name)
     .filter((portion) => portion.percentage > 0)
     .slice(0, 6)
@@ -53,6 +128,29 @@ export function MapCard({ activeTier, map }: MapCardProps) {
       </div>
 
       <CardContent className="space-y-4 px-5 py-5">
+        <section
+          className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3"
+          aria-label="Review summary"
+        >
+          <div className="flex flex-col gap-1 whitespace-normal">
+            <ReviewSummaryRow
+              label="Overall"
+              value={reviewSummary?.overall_avg ?? null}
+              suffix={`(${commentsCount} / ${reviewsCount})`}
+            />
+            <ReviewSummaryRow
+              label="Gameplay"
+              value={reviewSummary?.gameplay_avg ?? null}
+              count={reviewSummary?.gameplay_count ?? 0}
+            />
+            <ReviewSummaryRow
+              label="Visuals"
+              value={reviewSummary?.visuals_avg ?? null}
+              count={reviewSummary?.visuals_count ?? 0}
+            />
+          </div>
+        </section>
+
         <section className="space-y-3" aria-label="Skill breakdown">
           <div
             className="flex h-2.5 overflow-hidden rounded-full bg-muted"

@@ -1,15 +1,24 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from unittest.mock import AsyncMock
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import Map, MapReview, MapSyncResult, RecordFilter
+from app.models import (
+    Map,
+    MapCourse,
+    MapReview,
+    MapReviewSummaryCache,
+    MapSyncResult,
+    RecordFilter,
+    ServerGlobalapi,
+)
 from app.models.utils import get_datetime_utc
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
 from tests.utils.server import create_server_group
@@ -124,6 +133,60 @@ async def _create_review(
     await db.commit()
     await db.refresh(review)
     return review
+
+
+async def _create_ovr_pb(
+    db: AsyncSession,
+    *,
+    steamid64: int,
+    map_id: int,
+    stage: int = 0,
+    server_id: int | None = None,
+) -> None:
+    course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == map_id, MapCourse.stage == stage)
+        )
+    ).first()
+    if course is None:
+        course = MapCourse(map_id=map_id, stage=stage)
+        db.add(course)
+        await db.commit()
+        await db.refresh(course)
+
+    resolved_server_id = server_id or map_id + 1_000_000
+    if await db.get(ServerGlobalapi, resolved_server_id) is None:
+        db.add(
+            ServerGlobalapi(
+                id=resolved_server_id,
+                port=27015,
+                ip=f"203.0.113.{map_id % 200 + 1}",
+                name=f"Test Server {map_id}",
+                owner_steamid64=0,
+                approval_status=1,
+                approved_by_steamid64=0,
+            )
+        )
+        await db.commit()
+
+    await crud.upsert_record(
+        session=db,
+        record_id=map_id + 2_000_000,
+        record_uuid=None,
+        steamid64=steamid64,
+        server_id=resolved_server_id,
+        mode_id=200,
+        map_id=map_id,
+        stage=stage,
+        time_seconds=Decimal("12.345"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=steamid64,
+        replay_id=None,
+        is_valid=True,
+    )
 
 
 @pytest.mark.asyncio
@@ -292,6 +355,7 @@ async def test_put_map_review_with_user_auth_upserts_website_review(
     map_obj = await _create_map(db, id=930203)
     steamid64 = random_steamid64()
     headers = await _auth_user(client, steamid64=steamid64, name="Website Reviewer")
+    await _create_ovr_pb(db, steamid64=steamid64, map_id=map_obj.id)
 
     first_response = await client.put(
         f"{settings.API_V1_STR}/maps/reviews",
@@ -352,6 +416,13 @@ async def test_put_map_review_with_user_auth_upserts_website_review(
     )
     assert stored_review is not None
     assert stored_review.content["overall"] == 5
+    cached_summary = await db.get(MapReviewSummaryCache, map_obj.id)
+    assert cached_summary is not None
+    assert cached_summary.overall_avg == pytest.approx(5.0)
+    assert cached_summary.gameplay_avg == pytest.approx(5.0)
+    assert cached_summary.visuals_avg == pytest.approx(4.0)
+    assert cached_summary.reviews_count == 1
+    assert cached_summary.comments_count == 1
 
 
 @pytest.mark.asyncio
@@ -362,6 +433,7 @@ async def test_put_map_review_with_server_group_key_can_upsert_for_any_player(
     map_obj = await _create_map(db, id=930204)
     player_steamid64 = random_steamid64()
     await _auth_user(client, steamid64=player_steamid64, name="Server Group Player")
+    await _create_ovr_pb(db, steamid64=player_steamid64, map_id=map_obj.id)
     group, api_key = await create_server_group(db)
 
     response = await client.put(
@@ -413,11 +485,13 @@ async def test_put_map_review_rejects_comment_longer_than_1000_chars(
     db: AsyncSession,
 ) -> None:
     map_obj = await _create_map(db, id=930206)
+    steamid64 = random_steamid64()
     headers = await _auth_user(
         client,
-        steamid64=random_steamid64(),
+        steamid64=steamid64,
         name="Length Check",
     )
+    await _create_ovr_pb(db, steamid64=steamid64, map_id=map_obj.id)
 
     response = await client.put(
         f"{settings.API_V1_STR}/maps/reviews",
@@ -432,6 +506,60 @@ async def test_put_map_review_rejects_comment_longer_than_1000_chars(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_rejects_user_without_ovr_pb(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930210)
+    steamid64 = random_steamid64()
+    headers = await _auth_user(client, steamid64=steamid64, name="No PB Reviewer")
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=headers,
+        json={
+            "map_id": map_obj.id,
+            "content": {
+                "overall": 4,
+            },
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Player must have an OVR PB on the map before submitting a review"
+    }
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_rejects_server_group_player_without_ovr_pb(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930211)
+    player_steamid64 = random_steamid64()
+    await _auth_user(client, steamid64=player_steamid64, name="Server Group No PB")
+    _, api_key = await create_server_group(db)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "steamid64": str(player_steamid64),
+            "map_id": map_obj.id,
+            "content": {
+                "overall": 2,
+            },
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Player must have an OVR PB on the map before submitting a review"
+    }
 
 
 @pytest.mark.asyncio
@@ -585,3 +713,126 @@ async def test_read_map_reviews_supports_comment_and_language_filters(
     assert english_payload["count"] == 1
     assert english_payload["data"][0]["steamid64"] == str(player_en)
     assert english_payload["data"][0]["content"]["comment"]["language"] == "en"
+
+
+@pytest.mark.asyncio
+async def test_rebuild_map_review_summary_counts_latest_reviews_only(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930212)
+    player_one = random_steamid64()
+    player_two = random_steamid64()
+    await _auth_user(client, steamid64=player_one, name="Summary One")
+    await _auth_user(client, steamid64=player_two, name="Summary Two")
+    base_time = get_datetime_utc()
+    group, _ = await create_server_group(db)
+
+    await _create_review(
+        db,
+        steamid64=player_one,
+        map_id=map_obj.id,
+        updated_at=base_time,
+        overall=2,
+        comment_text="older review",
+    )
+    await _create_review(
+        db,
+        steamid64=player_one,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=1),
+        overall=4,
+        server_group_id=group.id,
+        comment_text=None,
+    )
+    await _create_review(
+        db,
+        steamid64=player_two,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=2),
+        overall=5,
+        comment_text="latest with comment",
+    )
+
+    summary = await crud.rebuild_map_review_summary(session=db, map_id=map_obj.id)
+
+    assert summary is not None
+    assert summary.reviews_count == 2
+    assert summary.overall_avg == pytest.approx(4.5)
+    assert summary.gameplay_avg is None
+    assert summary.visuals_avg is None
+    assert summary.gameplay_count == 0
+    assert summary.visuals_count == 0
+    assert summary.comments_count == 1
+
+    cached = await db.get(MapReviewSummaryCache, map_obj.id)
+    assert cached is not None
+    assert cached.reviews_count == 2
+
+
+@pytest.mark.asyncio
+async def test_read_map_v1_includes_review_summary(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930213)
+    player_one = random_steamid64()
+    player_two = random_steamid64()
+    await _auth_user(client, steamid64=player_one, name="Map Summary One")
+    await _auth_user(client, steamid64=player_two, name="Map Summary Two")
+    await _create_review(
+        db,
+        steamid64=player_one,
+        map_id=map_obj.id,
+        updated_at=get_datetime_utc(),
+        overall=4,
+        comment_text="Solid map",
+    )
+    await _create_review(
+        db,
+        steamid64=player_two,
+        map_id=map_obj.id,
+        updated_at=get_datetime_utc() + timedelta(minutes=1),
+        overall=5,
+        comment_text=None,
+    )
+    await crud.rebuild_map_review_summary(session=db, map_id=map_obj.id)
+
+    by_id_response = await client.get(f"{settings.API_V1_STR}/maps/{map_obj.id}")
+    assert by_id_response.status_code == 200
+    assert by_id_response.json()["review_summary"] == {
+        "overall_avg": pytest.approx(4.5),
+        "gameplay_avg": None,
+        "visuals_avg": None,
+        "reviews_count": 2,
+        "gameplay_count": 0,
+        "visuals_count": 0,
+        "comments_count": 1,
+        "updated_at": by_id_response.json()["review_summary"]["updated_at"],
+    }
+
+    by_name_response = await client.get(
+        f"{settings.API_V1_STR}/maps/name/{map_obj.name}",
+    )
+    assert by_name_response.status_code == 200
+    assert by_name_response.json()["review_summary"]["reviews_count"] == 2
+
+    list_response = await client.get(
+        f"{settings.API_V1_STR}/maps",
+        params={"id": map_obj.id},
+    )
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["review_summary"]["comments_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_read_map_v1_returns_null_review_summary_without_reviews(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930214)
+
+    response = await client.get(f"{settings.API_V1_STR}/maps/{map_obj.id}")
+
+    assert response.status_code == 200
+    assert response.json()["review_summary"] is None

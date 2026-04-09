@@ -38,6 +38,7 @@ from .map_review import (
     MapReviewsPublic,
     MapReviewUpsert,
 )
+from .map_review_summary import MapReviewSummaryCache, MapReviewSummaryPublic
 from .mode import (
     CANONICAL_MODE_SEEDS,
     CanonicalModeSeed,
@@ -176,6 +177,8 @@ __all__ = [
     "MapReviewContentPublic",
     "MapReviewListQuery",
     "MapReviewPublic",
+    "MapReviewSummaryCache",
+    "MapReviewSummaryPublic",
     "MapReviewsPublic",
     "MapReviewUpsert",
     "MapSyncResult",

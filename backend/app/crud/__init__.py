@@ -27,8 +27,11 @@ from .map import (
 )
 from .map_review import (
     get_map_review_by_context,
+    has_finished_map_for_review,
+    load_map_review_summaries,
     normalize_map_review_content,
     read_latest_map_reviews,
+    rebuild_map_review_summary,
     to_map_review_public,
     upsert_map_review,
 )
@@ -185,6 +188,7 @@ __all__ = [
     "read_maps",
     "read_latest_map_reviews",
     "read_maps_v1",
+    "load_map_review_summaries",
     "read_modes",
     "load_scoped_points_by_record_uuid",
     "load_changed_leaderboard_player_keys",
@@ -217,6 +221,8 @@ __all__ = [
     "to_map_public",
     "to_map_review_public",
     "to_map_publics",
+    "rebuild_map_review_summary",
+    "has_finished_map_for_review",
     "to_mode_compat_public_v0",
     "to_mode_public",
     "to_player_public",

@@ -3,8 +3,15 @@ from datetime import datetime
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Map, MapCompatPublicV0, MapPublic, MapTiers
+from app.models import (
+    Map,
+    MapCompatPublicV0,
+    MapPublic,
+    MapReviewSummaryPublic,
+    MapTiers,
+)
 
+from .map_review import load_map_review_summaries
 from .record_filter import load_map_tiers_by_scope
 
 
@@ -119,7 +126,12 @@ def to_map_compat_public_v0(*, map_obj: Map) -> MapCompatPublicV0:
     )
 
 
-def to_map_public(*, map_obj: Map, tiers: MapTiers) -> MapPublic:
+def to_map_public(
+    *,
+    map_obj: Map,
+    tiers: MapTiers,
+    review_summary: MapReviewSummaryPublic | None,
+) -> MapPublic:
     return MapPublic(
         id=map_obj.id,
         name=map_obj.name,
@@ -133,11 +145,19 @@ def to_map_public(*, map_obj: Map, tiers: MapTiers) -> MapPublic:
         synced_at=map_obj.synced_at,
         authors=map_obj.authors or [],
         no_steamid_names=map_obj.no_steamid_names or [],
+        review_summary=review_summary,
     )
 
 
 async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapPublic]:
+    if not maps:
+        return []
+
     tiers_by_map_id = await load_map_tiers_by_scope(
+        session=session,
+        map_ids=[map_obj.id for map_obj in maps],
+    )
+    review_summaries_by_map_id = await load_map_review_summaries(
         session=session,
         map_ids=[map_obj.id for map_obj in maps],
     )
@@ -153,6 +173,7 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
                     VNL=map_obj.difficulty,
                 ),
             ),
+            review_summary=review_summaries_by_map_id.get(map_obj.id),
         )
         for map_obj in maps
     ]
