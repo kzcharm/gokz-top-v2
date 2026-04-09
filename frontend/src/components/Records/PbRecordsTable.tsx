@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp } from "lucide-react"
-import type { ReactNode } from "react"
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
+import { useRef, useState } from "react"
 
 import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -7,6 +8,11 @@ import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -16,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { DateTimeDisplay } from "@/lib/date-time"
-import { truncateText } from "@/lib/utils"
+import { cn, truncateText } from "@/lib/utils"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import type { PbRecordsColumn, PbRecordsSortState } from "./pb-records-utils"
@@ -31,6 +37,137 @@ interface PbRecordsTableProps {
   dateTimeDisplay?: DateTimeDisplay
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
+  getRowContextMenu?: (record: RecordPublic) => ReactNode
+}
+
+function PbRecordTableRow({
+  dateTimeDisplay,
+  getRowContextMenu,
+  record,
+  visibleColumns,
+}: {
+  dateTimeDisplay: DateTimeDisplay
+  getRowContextMenu?: (record: RecordPublic) => ReactNode
+  record: RecordPublic
+  visibleColumns: Set<PbRecordsColumn>
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const contextMenuRequestedRef = useRef(false)
+  const menuContent = getRowContextMenu?.(record) ?? null
+
+  const row = (
+    <TableRow
+      data-testid={`pb-record-row-${record.uuid}`}
+      className={cn(menuContent && "outline-none")}
+      onContextMenu={
+        menuContent
+          ? (event: MouseEvent<HTMLTableRowElement>) => {
+              event.preventDefault()
+              contextMenuRequestedRef.current = true
+              setMenuOpen(true)
+            }
+          : undefined
+      }
+      onKeyDown={
+        menuContent
+          ? (event: KeyboardEvent<HTMLTableRowElement>) => {
+              if (
+                event.key === "ContextMenu" ||
+                (event.shiftKey && event.key === "F10")
+              ) {
+                event.preventDefault()
+                contextMenuRequestedRef.current = true
+                setMenuOpen(true)
+              }
+            }
+          : undefined
+      }
+      tabIndex={menuContent ? 0 : undefined}
+    >
+      {visibleColumns.has("player") ? (
+        <TableCell>
+          <PlayerDisplay
+            player={record.player}
+            className="max-w-[15rem]"
+            nameMaxLength={24}
+          />
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("map") ? (
+        <TableCell>
+          <MapDisplay mapName={record.map_name} />
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("mode") ? (
+        <TableCell>
+          <ModeBadge mode={record.mode} />
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("tier") ? (
+        <TableCell>
+          <TierBadge tier={record.map_tier} hideWhenUnknown />
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("tps") ? (
+        <TableCell>
+          <TeleportsBadge teleports={record.teleports} />
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("time") ? (
+        <TableCell className="text-right font-mono font-medium">
+          {formatRecordTime(record.time)}
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("points") ? (
+        <TableCell>
+          <PointsBadge points={record.points} />
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("server") ? (
+        <TableCell className="text-sm text-foreground/90">
+          <span className="block max-w-[14rem] truncate" title={record.server_name}>
+            {truncateText(record.server_name, 32)}
+          </span>
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("datetime") ? (
+        <TableCell className="text-sm text-muted-foreground">
+          <FormattedDateTime
+            value={record.created_on}
+            display={dateTimeDisplay}
+            fallback="-"
+          />
+        </TableCell>
+      ) : null}
+    </TableRow>
+  )
+
+  if (menuContent === null) {
+    return row
+  }
+
+  return (
+    <DropdownMenu
+      modal={false}
+      open={menuOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          contextMenuRequestedRef.current = false
+          setMenuOpen(false)
+          return
+        }
+
+        if (contextMenuRequestedRef.current) {
+          setMenuOpen(true)
+        }
+      }}
+    >
+      <DropdownMenuTrigger asChild>{row}</DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" sideOffset={8}>
+        {menuContent}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 function SortableHeader({
@@ -88,6 +225,7 @@ export function PbRecordsTable({
   dateTimeDisplay = "relative",
   sort,
   onSortChange,
+  getRowContextMenu,
 }: PbRecordsTableProps) {
   const visibleColumns = new Set(columns)
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
@@ -220,69 +358,13 @@ export function PbRecordsTable({
           <TableBody>
             {records.length > 0 ? (
               records.map((record) => (
-                <TableRow
+                <PbRecordTableRow
                   key={record.uuid}
-                  data-testid={`pb-record-row-${record.uuid}`}
-                >
-                  {visibleColumns.has("player") ? (
-                    <TableCell>
-                      <PlayerDisplay
-                        player={record.player}
-                        className="max-w-[15rem]"
-                        nameMaxLength={24}
-                      />
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("map") ? (
-                    <TableCell>
-                      <MapDisplay mapName={record.map_name} />
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("mode") ? (
-                    <TableCell>
-                      <ModeBadge mode={record.mode} />
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("tier") ? (
-                    <TableCell>
-                      <TierBadge tier={record.map_tier} hideWhenUnknown />
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("tps") ? (
-                    <TableCell>
-                      <TeleportsBadge teleports={record.teleports} />
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("time") ? (
-                    <TableCell className="text-right font-mono font-medium">
-                      {formatRecordTime(record.time)}
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("points") ? (
-                    <TableCell>
-                      <PointsBadge points={record.points} />
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("server") ? (
-                    <TableCell className="text-sm text-foreground/90">
-                      <span
-                        className="block max-w-[14rem] truncate"
-                        title={record.server_name}
-                      >
-                        {truncateText(record.server_name, 32)}
-                      </span>
-                    </TableCell>
-                  ) : null}
-                  {visibleColumns.has("datetime") ? (
-                    <TableCell className="text-sm text-muted-foreground">
-                      <FormattedDateTime
-                        value={record.created_on}
-                        display={dateTimeDisplay}
-                        fallback="-"
-                      />
-                    </TableCell>
-                  ) : null}
-                </TableRow>
+                  dateTimeDisplay={dateTimeDisplay}
+                  getRowContextMenu={getRowContextMenu}
+                  record={record}
+                  visibleColumns={visibleColumns}
+                />
               ))
             ) : (
               <TableRow>

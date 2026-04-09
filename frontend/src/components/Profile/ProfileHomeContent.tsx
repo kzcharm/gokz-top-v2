@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react"
+import { PinOff } from "lucide-react"
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
+import { useMemo, useRef, useState } from "react"
 
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PointsBadge } from "@/components/Records/PointsBadge"
@@ -6,6 +8,12 @@ import { formatCompactCount } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
@@ -243,11 +251,17 @@ function ActivityCard() {
 }
 
 function PinnedRecordsCard({
+  canManagePinnedRecords,
   pinnedRecords,
   loading,
+  mutating,
+  onUnpinRecord,
 }: {
+  canManagePinnedRecords: boolean
   pinnedRecords: ProfilePinnedRecord[]
   loading: boolean
+  mutating: boolean
+  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
 }) {
   return (
     <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
@@ -271,37 +285,50 @@ function PinnedRecordsCard({
           </div>
         ) : pinnedRecords.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-            {pinnedRecords.map(({ record, rank, totalCount }) => (
-              <div
-                key={record.uuid}
-                className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35"
-              >
-                <p className="truncate text-sm font-semibold">
-                  {record.map_name}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {record.mode} ·{" "}
-                  {rank === null
-                    ? "Rank unavailable"
-                    : totalCount === null
-                      ? `#${formatNumber(rank)}`
-                      : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
-                </p>
-                <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
-                  {formatRecordTime(record.time)}
-                </p>
-                <div className="mt-3 flex items-center gap-2">
-                  <PointsBadge points={record.points} />
-                  <span className="text-xs text-muted-foreground">
-                    <FormattedDateTime
-                      value={record.created_on}
-                      display="absolute"
-                      fallback="-"
-                    />
-                  </span>
+            {pinnedRecords.map(({ mapId, record, rank, totalCount, type }) => {
+              const content = (
+                <div className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35">
+                  <p className="truncate text-sm font-semibold">
+                    {record.map_name}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {record.mode} ·{" "}
+                    {rank === null
+                      ? "Rank unavailable"
+                      : totalCount === null
+                        ? `#${formatNumber(rank)}`
+                        : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
+                  </p>
+                  <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
+                    {formatRecordTime(record.time)}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <PointsBadge points={record.points} />
+                    <span className="text-xs text-muted-foreground">
+                      <FormattedDateTime
+                        value={record.created_on}
+                        display="absolute"
+                        fallback="-"
+                      />
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+
+              if (!canManagePinnedRecords) {
+                return <div key={record.uuid}>{content}</div>
+              }
+
+              return (
+                <ManagedPinnedRecordCard
+                  key={record.uuid}
+                  disabled={mutating}
+                  onUnpin={() => onUnpinRecord(mapId, type)}
+                >
+                  {content}
+                </ManagedPinnedRecordCard>
+              )
+            })}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -313,7 +340,74 @@ function PinnedRecordsCard({
   )
 }
 
+function ManagedPinnedRecordCard({
+  children,
+  disabled,
+  onUnpin,
+}: {
+  children: ReactNode
+  disabled: boolean
+  onUnpin: () => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const contextMenuRequestedRef = useRef(false)
+
+  return (
+    <DropdownMenu
+      modal={false}
+      open={menuOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          contextMenuRequestedRef.current = false
+          setMenuOpen(false)
+          return
+        }
+
+        if (contextMenuRequestedRef.current) {
+          setMenuOpen(true)
+        }
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <div
+          onContextMenu={(event: MouseEvent<HTMLDivElement>) => {
+            event.preventDefault()
+            contextMenuRequestedRef.current = true
+            setMenuOpen(true)
+          }}
+          onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+            if (
+              event.key === "ContextMenu" ||
+              (event.shiftKey && event.key === "F10")
+            ) {
+              event.preventDefault()
+              contextMenuRequestedRef.current = true
+              setMenuOpen(true)
+            }
+          }}
+          tabIndex={0}
+        >
+          {children}
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" sideOffset={8}>
+        <DropdownMenuItem
+          disabled={disabled}
+          onSelect={(event) => {
+            event.preventDefault()
+            onUnpin()
+          }}
+        >
+          <PinOff />
+          Unpin this record
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function ProfileHomeContent({
+  canManagePinnedRecords,
   completion,
   completionLoading,
   completionError,
@@ -321,9 +415,12 @@ export function ProfileHomeContent({
   pinnedRecords,
   pinnedRecordsError,
   pinnedRecordsLoading,
+  pinnedRecordsMutating,
+  onUnpinRecord,
   summary,
   summaryLoading,
 }: {
+  canManagePinnedRecords: boolean
   completion: ProfileCompletionData
   completionLoading: boolean
   completionError: boolean
@@ -334,6 +431,8 @@ export function ProfileHomeContent({
   pinnedRecords: ProfilePinnedRecord[]
   pinnedRecordsError: boolean
   pinnedRecordsLoading: boolean
+  pinnedRecordsMutating: boolean
+  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
   summary: ProfileSummaryData
   summaryLoading: boolean
 }) {
@@ -398,8 +497,11 @@ export function ProfileHomeContent({
         </Alert>
       ) : null}
       <PinnedRecordsCard
+        canManagePinnedRecords={canManagePinnedRecords}
         pinnedRecords={pinnedRecords}
         loading={pinnedRecordsLoading}
+        mutating={pinnedRecordsMutating}
+        onUnpinRecord={onUnpinRecord}
       />
     </div>
   )
