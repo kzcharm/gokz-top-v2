@@ -40,6 +40,7 @@ export type MapPublic = {
     synced_at: string;
     authors?: Array<(string)>;
     no_steamid_names?: Array<(string)>;
+    review_summary?: (MapReviewSummaryPublic | null);
     readonly workshop_url: (string | null);
 };
 
@@ -87,6 +88,17 @@ export type MapReviewPublic = {
 export type MapReviewsPublic = {
     data: Array<MapReviewPublic>;
     count: number;
+};
+
+export type MapReviewSummaryPublic = {
+    overall_avg: number;
+    gameplay_avg?: (number | null);
+    visuals_avg?: (number | null);
+    reviews_count: number;
+    gameplay_count: number;
+    visuals_count: number;
+    comments_count: number;
+    updated_at: string;
 };
 
 export type MapReviewUpsert = {

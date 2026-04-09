@@ -174,6 +174,15 @@ async def put_map_review(
     player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)
     if player is None:
         raise HTTPException(status_code=404, detail="Player not found")
+    if not await crud.has_finished_map_for_review(
+        session=session,
+        steamid64=steamid64,
+        map_id=payload.map_id,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Player must have an OVR PB on the map before submitting a review",
+        )
 
     review, player, map_obj = await crud.upsert_map_review(
         session=session,
@@ -182,6 +191,7 @@ async def put_map_review(
         server_group_id=server_group_id,
         content_in=payload.content,
     )
+    await crud.rebuild_map_review_summary(session=session, map_id=payload.map_id)
     return crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
 
 

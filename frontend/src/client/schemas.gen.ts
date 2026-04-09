@@ -221,6 +221,16 @@ export const MapPublicSchema = {
             type: 'array',
             title: 'No Steamid Names'
         },
+        review_summary: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/MapReviewSummaryPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
         workshop_url: {
             anyOf: [
                 {
@@ -439,6 +449,61 @@ export const MapReviewPublicSchema = {
     type: 'object',
     required: ['steamid64', 'map_id', 'content', 'created_at', 'updated_at', 'player', 'map'],
     title: 'MapReviewPublic'
+} as const;
+
+export const MapReviewSummaryPublicSchema = {
+    properties: {
+        overall_avg: {
+            type: 'number',
+            title: 'Overall Avg'
+        },
+        gameplay_avg: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Gameplay Avg'
+        },
+        visuals_avg: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Visuals Avg'
+        },
+        reviews_count: {
+            type: 'integer',
+            title: 'Reviews Count'
+        },
+        gameplay_count: {
+            type: 'integer',
+            title: 'Gameplay Count'
+        },
+        visuals_count: {
+            type: 'integer',
+            title: 'Visuals Count'
+        },
+        comments_count: {
+            type: 'integer',
+            title: 'Comments Count'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['overall_avg', 'reviews_count', 'gameplay_count', 'visuals_count', 'comments_count', 'updated_at'],
+    title: 'MapReviewSummaryPublic'
 } as const;
 
 export const MapReviewUpsertSchema = {

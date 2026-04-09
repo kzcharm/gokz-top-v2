@@ -2,8 +2,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func
+from psycopg.errors import InvalidSchemaName, UndefinedTable
+from sqlalchemy import Integer, case, cast, delete, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -11,15 +13,26 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.crud.player import to_player_ref_public
 from app.models import (
     Map,
+    MapCourse,
     MapRefPublic,
     MapReview,
     MapReviewContentInput,
     MapReviewContentPublic,
     MapReviewPublic,
+    MapReviewSummaryCache,
+    MapReviewSummaryPublic,
     Player,
+    RecordPb,
+    RecordScope,
     get_datetime_utc,
+    scope_to_id,
 )
 from app.services.language_detection import detect_language_code
+
+
+def _is_missing_map_review_summary_cache_error(exc: ProgrammingError) -> bool:
+    original = exc.orig
+    return isinstance(original, (UndefinedTable, InvalidSchemaName))
 
 
 def _parse_existing_comment(content: dict[str, Any]) -> dict[str, Any] | None:
@@ -100,6 +113,37 @@ def to_map_review_public(
     )
 
 
+def _latest_map_review_ids_query(
+    *,
+    map_id: int | None = None,
+    steamid64: int | None = None,
+):
+    review_table = MapReview.__table__  # type: ignore[attr-defined]
+    ranked_reviews = (
+        select(
+            review_table.c.id.label("review_id"),
+            func.row_number()
+            .over(
+                partition_by=(review_table.c.steamid64, review_table.c.map_id),
+                order_by=(
+                    review_table.c.updated_at.desc(),
+                    review_table.c.created_at.desc(),
+                    review_table.c.id.desc(),
+                ),
+            )
+            .label("rank"),
+        )
+        .select_from(review_table)
+    )
+    if map_id is not None:
+        ranked_reviews = ranked_reviews.where(review_table.c.map_id == map_id)
+    if steamid64 is not None:
+        ranked_reviews = ranked_reviews.where(review_table.c.steamid64 == steamid64)
+
+    ranked_subquery = ranked_reviews.subquery()
+    return select(ranked_subquery.c.review_id).where(ranked_subquery.c.rank == 1)
+
+
 async def get_map_review_by_context(
     *,
     session: AsyncSession,
@@ -113,6 +157,157 @@ async def get_map_review_by_context(
         col(MapReview.server_group_id) == server_group_id,
     )
     return (await session.exec(statement)).first()
+
+
+async def has_finished_map_for_review(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    map_id: int,
+) -> bool:
+    statement = (
+        select(RecordPb.record_uuid)
+        .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
+        .where(
+            col(RecordPb.steamid64) == steamid64,
+            col(RecordPb.scope) == scope_to_id(RecordScope.OVR),
+            col(MapCourse.map_id) == map_id,
+            col(MapCourse.stage) == 0,
+        )
+        .limit(1)
+    )
+    return (await session.exec(statement)).first() is not None
+
+
+def _to_map_review_summary_public(
+    cache_row: MapReviewSummaryCache,
+) -> MapReviewSummaryPublic:
+    return MapReviewSummaryPublic(
+        overall_avg=cache_row.overall_avg,
+        gameplay_avg=cache_row.gameplay_avg,
+        visuals_avg=cache_row.visuals_avg,
+        reviews_count=cache_row.reviews_count,
+        gameplay_count=cache_row.gameplay_count,
+        visuals_count=cache_row.visuals_count,
+        comments_count=cache_row.comments_count,
+        updated_at=cache_row.updated_at,
+    )
+
+
+async def load_map_review_summaries(
+    *,
+    session: AsyncSession,
+    map_ids: list[int],
+) -> dict[int, MapReviewSummaryPublic]:
+    if not map_ids:
+        return {}
+
+    statement = select(MapReviewSummaryCache).where(col(MapReviewSummaryCache.map_id).in_(map_ids))
+    try:
+        rows = list((await session.exec(statement)).all())
+    except ProgrammingError as exc:
+        if _is_missing_map_review_summary_cache_error(exc):
+            return {}
+        raise
+    return {row.map_id: _to_map_review_summary_public(row) for row in rows}
+
+
+async def rebuild_map_review_summary(
+    *,
+    session: AsyncSession,
+    map_id: int,
+) -> MapReviewSummaryPublic | None:
+    latest_ids = _latest_map_review_ids_query(map_id=map_id).subquery()
+    review_table = MapReview.__table__  # type: ignore[attr-defined]
+
+    overall_rating = cast(review_table.c.content["overall"].astext, Integer)
+    gameplay_rating = cast(review_table.c.content["gameplay"].astext, Integer)
+    visuals_rating = cast(review_table.c.content["visuals"].astext, Integer)
+    comment_text = review_table.c.content["comment"]["text"].astext
+
+    summary_statement = (
+        select(
+            func.count().label("reviews_count"),
+            func.avg(overall_rating).label("overall_avg"),
+            func.avg(gameplay_rating).label("gameplay_avg"),
+            func.avg(visuals_rating).label("visuals_avg"),
+            func.count(gameplay_rating).label("gameplay_count"),
+            func.count(visuals_rating).label("visuals_count"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            comment_text.is_not(None) & (comment_text != ""),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("comments_count"),
+        )
+        .select_from(latest_ids)
+        .join(review_table, review_table.c.id == latest_ids.c.review_id)
+    )
+    summary = (await session.exec(summary_statement)).one()
+    reviews_count = int(summary.reviews_count or 0)
+
+    if reviews_count == 0:
+        try:
+            await session.exec(
+                delete(MapReviewSummaryCache).where(col(MapReviewSummaryCache.map_id) == map_id)
+            )
+            await session.commit()
+        except ProgrammingError as exc:
+            if _is_missing_map_review_summary_cache_error(exc):
+                await session.rollback()
+                return None
+            raise
+        return None
+
+    now = get_datetime_utc()
+    cache_table = MapReviewSummaryCache.__table__  # type: ignore[attr-defined]
+    values = {
+        "map_id": map_id,
+        "overall_avg": float(summary.overall_avg),
+        "gameplay_avg": (
+            float(summary.gameplay_avg) if summary.gameplay_avg is not None else None
+        ),
+        "visuals_avg": (
+            float(summary.visuals_avg) if summary.visuals_avg is not None else None
+        ),
+        "reviews_count": reviews_count,
+        "gameplay_count": int(summary.gameplay_count or 0),
+        "visuals_count": int(summary.visuals_count or 0),
+        "comments_count": int(summary.comments_count or 0),
+        "updated_at": now,
+    }
+    insert_statement = pg_insert(cache_table).values(values)
+    upsert_statement = insert_statement.on_conflict_do_update(
+        index_elements=[cache_table.c.map_id],
+        set_={
+            "overall_avg": insert_statement.excluded.overall_avg,
+            "gameplay_avg": insert_statement.excluded.gameplay_avg,
+            "visuals_avg": insert_statement.excluded.visuals_avg,
+            "reviews_count": insert_statement.excluded.reviews_count,
+            "gameplay_count": insert_statement.excluded.gameplay_count,
+            "visuals_count": insert_statement.excluded.visuals_count,
+            "comments_count": insert_statement.excluded.comments_count,
+            "updated_at": insert_statement.excluded.updated_at,
+        },
+    )
+    try:
+        await session.exec(upsert_statement)
+        await session.commit()
+    except ProgrammingError as exc:
+        if _is_missing_map_review_summary_cache_error(exc):
+            await session.rollback()
+            return None
+        raise
+
+    cache_row = await session.get(MapReviewSummaryCache, map_id)
+    assert cache_row is not None
+    return _to_map_review_summary_public(cache_row)
 
 
 async def upsert_map_review(
@@ -187,34 +382,10 @@ async def read_latest_map_reviews(
     language: str | None = None,
 ) -> tuple[list[tuple[MapReview, Player, Map]], int]:
     review_table = MapReview.__table__  # type: ignore[attr-defined]
-    ranked_reviews = (
-        select(
-            review_table.c.id.label("review_id"),
-            func.row_number()
-            .over(
-                partition_by=(review_table.c.steamid64, review_table.c.map_id),
-                order_by=(
-                    review_table.c.updated_at.desc(),
-                    review_table.c.created_at.desc(),
-                    review_table.c.id.desc(),
-                ),
-            )
-            .label("rank"),
-        )
-        .select_from(review_table)
-    )
-    if map_id is not None:
-        ranked_reviews = ranked_reviews.where(review_table.c.map_id == map_id)
-    if steamid64 is not None:
-        ranked_reviews = ranked_reviews.where(review_table.c.steamid64 == steamid64)
-
-    ranked_subquery = ranked_reviews.subquery()
-    latest_ids = (
-        select(ranked_subquery.c.review_id)
-        .where(ranked_subquery.c.rank == 1)
-        .subquery()
-    )
-
+    latest_ids = _latest_map_review_ids_query(
+        map_id=map_id,
+        steamid64=steamid64,
+    ).subquery()
     filters: list[ColumnElement[bool]] = []
     comment_text = review_table.c.content["comment"]["text"].astext
     comment_language = review_table.c.content["comment"]["language"].astext
