@@ -11,6 +11,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.rank_system import get_rank_system_settings
 from app.core.regions import get_region_code_for_country, get_region_country_codes
 from app.crud.player import to_player_ref_public
 from app.crud.record_filter import load_scoped_course_tiers
@@ -26,6 +27,7 @@ from app.models import (
     RecordPb,
     RecordScope,
     RecordScopeId,
+    RecordType,
     scope_mode_ids,
     scope_to_id,
 )
@@ -35,8 +37,6 @@ from .ban import not_active_ban_exists_clause
 
 ELIGIBLE_UNIQUE_MAP_FINISHES = 20
 DEFAULT_LOOKBACK = timedelta(hours=24)
-WEIGHT_DECAY = Decimal("0.975")
-
 
 def _scope_from_id(scope_id: int) -> RecordScope:
     return RecordScope[RecordScopeId(scope_id).name]
@@ -62,6 +62,7 @@ def calculate_weighted_rating(points: Iterable[int]) -> int:
     sorted_points = sorted(points, reverse=True)
     if not sorted_points:
         return 0
+    settings = get_rank_system_settings().rating
 
     with localcontext() as ctx:
         ctx.prec = 28
@@ -69,7 +70,8 @@ def calculate_weighted_rating(points: Iterable[int]) -> int:
         multiplier = Decimal("1")
         for point in sorted_points:
             total += Decimal(point) * multiplier
-            multiplier *= WEIGHT_DECAY
+            multiplier *= settings.decay
+        total *= settings.multiplier
     return _round_rating(total)
 
 
@@ -286,6 +288,7 @@ async def load_leaderboard_player_keys(
     session: AsyncSession,
     scope_ids: Sequence[int] | None = None,
     steamid64s: Sequence[int] | None = None,
+    prioritize_existing_rating: bool = False,
 ) -> list[tuple[int, int]]:
     source_statement = (
         select(RecordPb.scope, RecordPb.steamid64)
@@ -314,7 +317,28 @@ async def load_leaderboard_player_keys(
 
     source_keys = set((await session.exec(source_statement.distinct())).all())
     existing_keys = set((await session.exec(existing_statement.distinct())).all())
-    return sorted(source_keys | existing_keys)
+    if not prioritize_existing_rating:
+        return sorted(source_keys | existing_keys)
+
+    prioritized_existing_statement = select(
+        col(LeaderboardPlayer.scope), col(LeaderboardPlayer.steamid64)
+    )
+    if scope_ids:
+        prioritized_existing_statement = prioritized_existing_statement.where(
+            col(LeaderboardPlayer.scope).in_(list(scope_ids))
+        )
+    if steamid64s:
+        prioritized_existing_statement = prioritized_existing_statement.where(
+            col(LeaderboardPlayer.steamid64).in_(list(steamid64s))
+        )
+    prioritized_existing_statement = prioritized_existing_statement.order_by(
+        col(LeaderboardPlayer.scope).asc(),
+        col(LeaderboardPlayer.rating).desc(),
+        col(LeaderboardPlayer.steamid64).asc(),
+    )
+    existing_keys_in_order = list((await session.exec(prioritized_existing_statement)).all())
+    remaining_source_keys = sorted(source_keys - set(existing_keys_in_order))
+    return [*existing_keys_in_order, *remaining_source_keys]
 
 
 async def rebuild_leaderboard_players(

@@ -166,10 +166,11 @@ If a player has both `Main NUB` and `Main PRO` PB points on the same validated m
 
 ### Player Rating
 
-`Player rating` is a weighted sum of a player's qualifying PB points:
+`Player rating` is a normalized weighted sum of a player's qualifying PB points:
 
 ```text
-Rating = Sum(MapRatingPoints * 0.975^(n-1))
+RawWeightedRating = Sum(MapRatingPoints * Decay^(n-1))
+Rating = RawWeightedRating * RatingMultiplier
 ```
 
 Where:
@@ -177,12 +178,21 @@ Where:
 - `MapRatingPoints` is the per-map value used for rating
 - for each validated map, `MapRatingPoints = max(Main NUB PB points, Main PRO PB points)`
 - `n` is the map's position after sorting all qualifying `MapRatingPoints` in descending order
+- `Decay` is configured in `backend/rank-system.toml`
+- `RatingMultiplier = TargetMaxRawRating * (1 - Decay) / MaxMapRatingPoints`
 - bonus courses are never included
 - unvalidated maps are never included
 
 This weighting makes a player's best results matter most while still rewarding breadth and continued improvement.
 
-With a maximum PB value of `1000`, the theoretical maximum rating is `40000`.
+`backend/rank-system.toml` is the runtime source of truth for the decay, PB-point tuning values, and the target raw-rating cap. The current config uses:
+
+- `Decay = 0.99`
+- `MaxMapRatingPoints = 1000`
+- `TargetMaxRawRating = 40000`
+- `RatingMultiplier = 0.4`
+
+With those values, the normalized theoretical maximum rating remains `40000`.
 
 If a player has no qualifying PB points, both `total points` and `rating` are `0`.
 
