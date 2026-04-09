@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query"
 import type { ReactNode } from "react"
 import { useState } from "react"
 
-import { type MapPublic, MapsService } from "@/client"
+import { MapsService, type MapPublic } from "@/client"
+import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { getMapImageUrl } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
+import { RegionBadge } from "@/components/Common/RegionFlag"
 import { getMapPbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { useScope } from "@/components/scope-provider"
@@ -14,9 +16,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getRegionsQueryOptions } from "@/lib/regions"
 
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapTopTable } from "./MapTopTable"
@@ -146,6 +155,8 @@ function MapHero({ map, tier }: { map: MapPublic; tier: number }) {
 export function MapDetailPage({ mapName }: { mapName: string }) {
   const { scope } = useScope()
   const [isProOnly, setIsProOnly] = useState(false)
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("top")
   const [reviewsPageIndex, setReviewsPageIndex] = useState(0)
   const [reviewsPageSize, setReviewsPageSize] = useState(20)
@@ -159,12 +170,14 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
   const recordsQuery = useQuery({
     ...getMapPbRecordsQueryOptions({
       mapId: mapQuery.data?.id ?? null,
-      mapName: mapQuery.data?.name ?? mapName,
       scope,
       isProOnly,
+      country: selectedCountry,
+      region: selectedRegion,
     }),
     enabled: mapQuery.data !== undefined,
   })
+  const regionsQuery = useQuery(getRegionsQueryOptions())
   const reviewsQuery = useQuery({
     queryKey: [
       "map",
@@ -204,6 +217,8 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
 
   const map = mapQuery.data
   const activeTier = map.tiers[scope]
+  const selectedRegionOption =
+    regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
   return (
     <div className="space-y-6">
       <MapHero map={map} tier={activeTier} />
@@ -219,6 +234,55 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
 
               {activeTab === "top" ? (
                 <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="w-full sm:w-[176px]">
+                      <CountryPicker
+                        value={selectedCountry}
+                        onChange={(value) => {
+                          setSelectedCountry(value)
+                          if (value !== null) {
+                            setSelectedRegion(null)
+                          }
+                        }}
+                        placeholder="country"
+                        clearLabel="country"
+                      />
+                    </div>
+
+                    <Select
+                      value={selectedRegion ?? "all"}
+                      onValueChange={(value) => {
+                        const nextRegion = value === "all" ? null : value
+                        setSelectedRegion(nextRegion)
+                        if (nextRegion !== null) {
+                          setSelectedCountry(null)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[144px]">
+                        {selectedRegionOption ? (
+                          <RegionBadge
+                            regionCode={selectedRegionOption.code}
+                            regionName={selectedRegionOption.name}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground">region</span>
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">region</SelectItem>
+                        {(regionsQuery.data ?? []).map((region) => (
+                          <SelectItem key={region.code} value={region.code}>
+                            <RegionBadge
+                              regionCode={region.code}
+                              regionName={region.name}
+                            />
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Label
                     htmlFor="map-records-pro-only"
                     className="flex items-center gap-3 rounded-full border border-border/70 bg-background/70 px-3 py-2"
