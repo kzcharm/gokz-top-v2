@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import type { ReactNode } from "react"
 import { useState } from "react"
 
-import { MapsService, type MapPublic } from "@/client"
+import { type MapPublic, MapsService } from "@/client"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"

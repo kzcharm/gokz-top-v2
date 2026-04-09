@@ -6,6 +6,7 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { getMapImageUrl } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getMapSkillPortions } from "@/components/Maps/map-utils"
+import { getRecordModeLabelById } from "@/components/Records/mode"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -106,6 +107,11 @@ export function MapCard({
     nonZeroSkillPortions.length > 0 && nonZeroSkillPortions.length < 4
       ? allSkillPortions.slice(0, 4)
       : nonZeroSkillPortions.slice(0, 4)
+  const wrSubline = wrRecord
+    ? [getRecordModeLabelById(wrRecord.mode_id), formatRecordTime(wrRecord.time)]
+        .filter(Boolean)
+        .join(" · ")
+    : null
 
   return (
     <Card
@@ -157,7 +163,7 @@ export function MapCard({
                 nameMaxLength={22}
                 subline={{
                   type: "text",
-                  value: formatRecordTime(wrRecord.time),
+                  value: wrSubline,
                 }}
               />
             </div>
