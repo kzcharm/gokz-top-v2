@@ -24,6 +24,7 @@ import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutProfileIdentifierRouteImport } from './routes/_layout/profile.$identifier'
+import { Route as LayoutDashboardReviewsRouteImport } from './routes/_layout/dashboard.reviews'
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
@@ -105,6 +106,11 @@ const LayoutProfileIdentifierRoute = LayoutProfileIdentifierRouteImport.update({
   path: '/profile/$identifier',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutDashboardReviewsRoute = LayoutDashboardReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => LayoutDashboardRoute,
+} as any)
 const LayoutDashboardRecordsRoute = LayoutDashboardRecordsRouteImport.update({
   id: '/records',
   path: '/records',
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
+  '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
+  '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierIndexRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
+  '/_layout/dashboard/reviews': typeof LayoutDashboardReviewsRoute
   '/_layout/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/_layout/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/admin/players'
     | '/admin/users'
     | '/dashboard/records'
+    | '/dashboard/reviews'
     | '/profile/$identifier'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/admin/players'
     | '/admin/users'
     | '/dashboard/records'
+    | '/dashboard/reviews'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/_layout/admin/players'
     | '/_layout/admin/users'
     | '/_layout/dashboard/records'
+    | '/_layout/dashboard/reviews'
     | '/_layout/profile/$identifier'
     | '/_layout/profile/$identifier/records'
     | '/_layout/profile/$identifier/stats'
@@ -390,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/dashboard/reviews': {
+      id: '/_layout/dashboard/reviews'
+      path: '/reviews'
+      fullPath: '/dashboard/reviews'
+      preLoaderRoute: typeof LayoutDashboardReviewsRouteImport
+      parentRoute: typeof LayoutDashboardRoute
+    }
     '/_layout/dashboard/records': {
       id: '/_layout/dashboard/records'
       path: '/records'
@@ -451,10 +470,12 @@ const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(
 
 interface LayoutDashboardRouteChildren {
   LayoutDashboardRecordsRoute: typeof LayoutDashboardRecordsRoute
+  LayoutDashboardReviewsRoute: typeof LayoutDashboardReviewsRoute
 }
 
 const LayoutDashboardRouteChildren: LayoutDashboardRouteChildren = {
   LayoutDashboardRecordsRoute: LayoutDashboardRecordsRoute,
+  LayoutDashboardReviewsRoute: LayoutDashboardReviewsRoute,
 }
 
 const LayoutDashboardRouteWithChildren = LayoutDashboardRoute._addFileChildren(

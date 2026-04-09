@@ -1,4 +1,5 @@
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -6,9 +7,13 @@ from httpx import AsyncClient
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.core.config import settings
-from app.models import Map, MapSyncResult, RecordFilter
+from app.models import Map, MapReview, MapSyncResult, RecordFilter
+from app.models.utils import get_datetime_utc
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
+from tests.utils.server import create_server_group
+from tests.utils.utils import random_steamid64
 
 
 async def _create_map(db: AsyncSession, *, id: int = 930200) -> Map:
@@ -62,6 +67,63 @@ async def _create_record_filter(
     await db.commit()
     await db.refresh(record_filter)
     return record_filter
+
+
+async def _auth_user(
+    client: AsyncClient,
+    *,
+    steamid64: int,
+    name: str,
+) -> dict[str, str]:
+    response = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": steamid64,
+            "is_superuser": False,
+            "is_active": True,
+            "name": name,
+        },
+    )
+    payload = response.json()
+    return {"Authorization": f"Bearer {payload['access_token']}"}
+
+
+async def _create_review(
+    db: AsyncSession,
+    *,
+    steamid64: int,
+    map_id: int,
+    updated_at: datetime,
+    overall: int,
+    server_group_id: uuid.UUID | None = None,
+    comment_text: str | None = None,
+) -> MapReview:
+    comment = None
+    if comment_text is not None:
+        comment = {
+            "text": comment_text,
+            "language": "en",
+            "created_at": updated_at.isoformat(),
+            "updated_at": updated_at.isoformat(),
+        }
+
+    review = MapReview(
+        steamid64=steamid64,
+        map_id=map_id,
+        server_group_id=server_group_id,
+        content={
+            "overall": overall,
+            "gameplay": None,
+            "visuals": None,
+            "comment": comment,
+        },
+        created_at=updated_at,
+        updated_at=updated_at,
+    )
+    db.add(review)
+    await db.commit()
+    await db.refresh(review)
+    return review
 
 
 @pytest.mark.asyncio
@@ -220,3 +282,306 @@ async def test_sync_maps_v1_returns_502_for_upstream_error(
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Failed to fetch maps from GlobalAPI"}
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_with_user_auth_upserts_website_review(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930203)
+    steamid64 = random_steamid64()
+    headers = await _auth_user(client, steamid64=steamid64, name="Website Reviewer")
+
+    first_response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=headers,
+        json={
+            "map_id": map_obj.id,
+            "content": {
+                "overall": 4,
+                "gameplay": 5,
+                "visuals": 3,
+                "comment": {
+                    "text": "The mechanics are incredible, but the textures feel dated."
+                },
+            },
+        },
+    )
+
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["steamid64"] == str(steamid64)
+    assert first_payload["map_id"] == map_obj.id
+    assert first_payload["server_group_id"] is None
+    assert first_payload["content"]["overall"] == 4
+    assert first_payload["content"]["gameplay"] == 5
+    assert first_payload["content"]["visuals"] == 3
+    assert first_payload["content"]["comment"]["language"] == "en"
+    first_review_created_at = first_payload["created_at"]
+    first_comment_created_at = first_payload["content"]["comment"]["created_at"]
+    first_comment_updated_at = first_payload["content"]["comment"]["updated_at"]
+
+    second_response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=headers,
+        json={
+            "map_id": map_obj.id,
+            "content": {
+                "overall": 5,
+                "gameplay": 5,
+                "visuals": 4,
+                "comment": {
+                    "text": "The mechanics are incredible, but the textures feel dated."
+                },
+            },
+        },
+    )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["created_at"] == first_review_created_at
+    assert second_payload["content"]["comment"]["created_at"] == first_comment_created_at
+    assert second_payload["content"]["comment"]["updated_at"] == first_comment_updated_at
+
+    stored_review = await crud.get_map_review_by_context(
+        session=db,
+        steamid64=steamid64,
+        map_id=map_obj.id,
+        server_group_id=None,
+    )
+    assert stored_review is not None
+    assert stored_review.content["overall"] == 5
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_with_server_group_key_can_upsert_for_any_player(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930204)
+    player_steamid64 = random_steamid64()
+    await _auth_user(client, steamid64=player_steamid64, name="Server Group Player")
+    group, api_key = await create_server_group(db)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "steamid64": str(player_steamid64),
+            "map_id": map_obj.id,
+            "content": {
+                "overall": 2,
+                "comment": {"text": "Nicht schlecht."},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player_steamid64)
+    assert payload["server_group_id"] == str(group.id)
+    assert payload["content"]["comment"]["language"] == "de"
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_requires_steamid64_for_server_group_key(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930205)
+    _, api_key = await create_server_group(db)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "map_id": map_obj.id,
+            "content": {
+                "overall": 3,
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "steamid64 is required"}
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_rejects_comment_longer_than_1000_chars(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930206)
+    headers = await _auth_user(
+        client,
+        steamid64=random_steamid64(),
+        name="Length Check",
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=headers,
+        json={
+            "map_id": map_obj.id,
+            "content": {
+                "overall": 4,
+                "comment": {"text": "x" * 1001},
+            },
+        },
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_read_map_reviews_returns_latest_review_per_player_per_map(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_one = await _create_map(db, id=930207)
+    map_two = await _create_map(db, id=930208)
+    player_one = random_steamid64()
+    player_two = random_steamid64()
+    await _auth_user(client, steamid64=player_one, name="Player One")
+    await _auth_user(client, steamid64=player_two, name="Player Two")
+    group, _ = await create_server_group(db)
+    base_time = get_datetime_utc()
+
+    await _create_review(
+        db,
+        steamid64=player_one,
+        map_id=map_one.id,
+        updated_at=base_time,
+        overall=2,
+        comment_text="older website review",
+    )
+    await _create_review(
+        db,
+        steamid64=player_one,
+        map_id=map_one.id,
+        updated_at=base_time + timedelta(minutes=2),
+        overall=5,
+        server_group_id=group.id,
+        comment_text="newer server group review",
+    )
+    await _create_review(
+        db,
+        steamid64=player_one,
+        map_id=map_two.id,
+        updated_at=base_time + timedelta(minutes=1),
+        overall=4,
+        comment_text="map two review",
+    )
+    await _create_review(
+        db,
+        steamid64=player_two,
+        map_id=map_one.id,
+        updated_at=base_time + timedelta(minutes=3),
+        overall=3,
+        comment_text="player two review",
+    )
+
+    map_response = await client.get(
+        f"{settings.API_V1_STR}/maps/reviews",
+        params={"map_id": map_one.id},
+    )
+
+    assert map_response.status_code == 200
+    map_payload = map_response.json()
+    assert map_payload["count"] == 2
+    assert [item["steamid64"] for item in map_payload["data"]] == [
+        str(player_two),
+        str(player_one),
+    ]
+    assert map_payload["data"][1]["content"]["overall"] == 5
+    assert map_payload["data"][1]["server_group_id"] == str(group.id)
+
+    player_response = await client.get(
+        f"{settings.API_V1_STR}/maps/reviews",
+        params={"steamid64": str(player_one)},
+    )
+
+    assert player_response.status_code == 200
+    player_payload = player_response.json()
+    assert player_payload["count"] == 2
+    assert {item["map_id"] for item in player_payload["data"]} == {
+        map_one.id,
+        map_two.id,
+    }
+
+    exact_response = await client.get(
+        f"{settings.API_V1_STR}/maps/reviews",
+        params={"steamid64": str(player_one), "map_name": map_one.name},
+    )
+
+    assert exact_response.status_code == 200
+    exact_payload = exact_response.json()
+    assert exact_payload["count"] == 1
+    assert exact_payload["data"][0]["content"]["comment"]["text"] == (
+        "newer server group review"
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_map_reviews_supports_comment_and_language_filters(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930209)
+    player_en = random_steamid64()
+    player_ru = random_steamid64()
+    player_plain = random_steamid64()
+    await _auth_user(client, steamid64=player_en, name="English Reviewer")
+    await _auth_user(client, steamid64=player_ru, name="Russian Reviewer")
+    await _auth_user(client, steamid64=player_plain, name="Plain Reviewer")
+    base_time = get_datetime_utc()
+
+    await _create_review(
+        db,
+        steamid64=player_en,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=1),
+        overall=4,
+        comment_text="great movement map",
+    )
+    await _create_review(
+        db,
+        steamid64=player_ru,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=2),
+        overall=5,
+        comment_text="очень хорошая карта",
+    )
+    await _create_review(
+        db,
+        steamid64=player_plain,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=3),
+        overall=3,
+        comment_text=None,
+    )
+
+    comments_only_response = await client.get(
+        f"{settings.API_V1_STR}/maps/reviews",
+        params={"map_id": map_obj.id, "with_comments_only": "true"},
+    )
+
+    assert comments_only_response.status_code == 200
+    comments_only_payload = comments_only_response.json()
+    assert comments_only_payload["count"] == 2
+    assert [item["steamid64"] for item in comments_only_payload["data"]] == [
+        str(player_ru),
+        str(player_en),
+    ]
+
+    english_response = await client.get(
+        f"{settings.API_V1_STR}/maps/reviews",
+        params={"map_id": map_obj.id, "language": "en"},
+    )
+
+    assert english_response.status_code == 200
+    english_payload = english_response.json()
+    assert english_payload["count"] == 1
+    assert english_payload["data"][0]["steamid64"] == str(player_en)
+    assert english_payload["data"][0]["content"]["comment"]["language"] == "en"

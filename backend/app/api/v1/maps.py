@@ -1,12 +1,25 @@
 import logging
+import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
-from app.models import MapPublic, MapSyncResult
+from app.api.deps import (
+    OptionalCurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+)
+from app.models import (
+    MapPublic,
+    MapReviewListQuery,
+    MapReviewPublic,
+    MapReviewsPublic,
+    MapReviewUpsert,
+    MapSyncResult,
+    ServerGroupStatus,
+)
 from app.services.globalapi_maps_sync import (
     GlobalAPIMapsSyncError,
     sync_maps_from_globalapi,
@@ -74,6 +87,102 @@ async def read_map_by_id(
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
     return (await crud.to_map_publics(session=session, maps=[map_obj]))[0]
+
+
+@router.get("/reviews", response_model=MapReviewsPublic)
+async def read_map_reviews(
+    session: SessionDep,
+    query: Annotated[MapReviewListQuery, Query()],
+) -> MapReviewsPublic:
+    map_id = query.map_id
+    if query.map_name is not None:
+        map_obj = await crud.get_map_by_name(session=session, map_name=query.map_name)
+        if map_obj is None:
+            return MapReviewsPublic(data=[], count=0)
+        map_id = map_obj.id
+
+    reviews, count = await crud.read_latest_map_reviews(
+        session=session,
+        offset=query.offset,
+        limit=query.limit,
+        map_id=map_id,
+        steamid64=query.steamid64,
+        with_comments_only=query.with_comments_only,
+        language=query.language,
+    )
+    return MapReviewsPublic(
+        data=[
+            crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
+            for review, player, map_obj in reviews
+        ],
+        count=count,
+    )
+
+
+def _resolve_review_target_steamid64(
+    *,
+    current_user_steamid64: int | None,
+    payload_steamid64: int | None,
+    server_group_id: uuid.UUID | None,
+) -> int:
+    if server_group_id is not None:
+        if payload_steamid64 is None:
+            raise HTTPException(status_code=422, detail="steamid64 is required")
+        return payload_steamid64
+    assert current_user_steamid64 is not None
+    return current_user_steamid64
+
+
+@router.put("/reviews", response_model=MapReviewPublic)
+async def put_map_review(
+    *,
+    session: SessionDep,
+    payload: MapReviewUpsert,
+    current_user: OptionalCurrentUser,
+    x_server_group_key: Annotated[
+        str | None, Header(alias="X-Server-Group-Key")
+    ] = None,
+) -> MapReviewPublic:
+    if current_user is None and not x_server_group_key:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if current_user is not None and x_server_group_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Use either user auth or a server group API key",
+        )
+
+    server_group_id: uuid.UUID | None = None
+    if x_server_group_key:
+        group = await crud.get_server_group_by_api_key(
+            session=session,
+            api_key=x_server_group_key,
+        )
+        if group is None:
+            raise HTTPException(status_code=401, detail="Invalid server group API key")
+        if group.status == ServerGroupStatus.INVALIDATED:
+            raise HTTPException(status_code=403, detail="Server group is invalidated")
+        server_group_id = group.id
+
+    steamid64 = _resolve_review_target_steamid64(
+        current_user_steamid64=current_user.steamid64 if current_user else None,
+        payload_steamid64=payload.steamid64,
+        server_group_id=server_group_id,
+    )
+    map_obj = await crud.get_map_by_id(session=session, id=payload.map_id)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+    player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    review, player, map_obj = await crud.upsert_map_review(
+        session=session,
+        steamid64=steamid64,
+        map_id=payload.map_id,
+        server_group_id=server_group_id,
+        content_in=payload.content,
+    )
+    return crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
 
 
 @router.post(

@@ -25,6 +25,13 @@ from .map import (
     to_map_public,
     to_map_publics,
 )
+from .map_review import (
+    get_map_review_by_context,
+    normalize_map_review_content,
+    read_latest_map_reviews,
+    to_map_review_public,
+    upsert_map_review,
+)
 from .mode import (
     get_mode_by_id,
     get_mode_by_name,
@@ -176,6 +183,7 @@ __all__ = [
     "get_user_by_steamid64",
     "get_max_record_globalapi_id",
     "read_maps",
+    "read_latest_map_reviews",
     "read_maps_v1",
     "read_modes",
     "load_scoped_points_by_record_uuid",
@@ -207,6 +215,7 @@ __all__ = [
     "to_ban_public",
     "to_map_compat_public_v0",
     "to_map_public",
+    "to_map_review_public",
     "to_map_publics",
     "to_mode_compat_public_v0",
     "to_mode_public",
@@ -256,4 +265,7 @@ __all__ = [
     "get_top_records_v0",
     "is_player_following",
     "upsert_discovered_server",
+    "upsert_map_review",
+    "get_map_review_by_context",
+    "normalize_map_review_content",
 ]
