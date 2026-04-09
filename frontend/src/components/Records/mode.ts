@@ -36,3 +36,14 @@ export function getRecordModeOption(mode: string) {
 
   return RECORD_MODE_OPTIONS.find((option) => option.value === normalizedMode)
 }
+
+const RECORD_MODE_LABELS_BY_ID: Record<number, RecordMode> = {
+  200: "KZT",
+  201: "SKZ",
+  202: "VNL",
+  203: "NKZ",
+}
+
+export function getRecordModeLabelById(modeId: number) {
+  return RECORD_MODE_LABELS_BY_ID[modeId] ?? null
+}
