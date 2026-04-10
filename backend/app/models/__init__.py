@@ -13,6 +13,7 @@ from .ban import (
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .leaderboard_player import (
     LeaderboardPlayer,
+    LeaderboardPlayerCount,
     PlayerLeaderboardEntryPublic,
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
@@ -174,6 +175,7 @@ __all__ = [
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
     "LeaderboardPlayer",
+    "LeaderboardPlayerCount",
     "Map",
     "MapBase",
     "MapCompatPublicV0",

@@ -16,7 +16,9 @@ from app.core.regions import get_region_code_for_country, get_region_country_cod
 from app.crud.player import to_player_ref_public
 from app.crud.record_filter import load_scoped_course_tiers
 from app.models import (
+    Ban,
     LeaderboardPlayer,
+    LeaderboardPlayerCount,
     Map,
     MapCourse,
     Player,
@@ -31,12 +33,14 @@ from app.models import (
     scope_mode_ids,
     scope_to_id,
 )
+from app.models.leaderboard_player import LeaderboardPlayerSortBy
 from app.models.utils import get_datetime_utc
 
-from .ban import not_active_ban_exists_clause
+from .ban import not_active_ban_exists_split_clause
 
 ELIGIBLE_UNIQUE_MAP_FINISHES = 20
 DEFAULT_LOOKBACK = timedelta(hours=24)
+
 
 def _scope_from_id(scope_id: int) -> RecordScope:
     return RecordScope[RecordScopeId(scope_id).name]
@@ -76,7 +80,9 @@ def calculate_weighted_rating(points: Iterable[int]) -> int:
 
 
 def _not_banned_clause() -> ColumnElement[bool]:
-    return not_active_ban_exists_clause(steamid64_column=col(LeaderboardPlayer.steamid64))
+    return not_active_ban_exists_split_clause(
+        steamid64_column=col(LeaderboardPlayer.steamid64)
+    )
 
 
 def _country_codes_for_geography(
@@ -87,6 +93,117 @@ def _country_codes_for_geography(
     if country is not None:
         return (country,)
     return get_region_country_codes(region)
+
+
+def _leaderboard_order_expressions(
+    *,
+    sort_by: LeaderboardPlayerSortBy,
+    columns: Any,
+) -> tuple[Any, ...]:
+    primary_expression = getattr(columns, sort_by).desc()
+    if sort_by == "rating":
+        return (
+            primary_expression,
+            getattr(columns, "steamid64").asc(),
+        )
+    return (
+        primary_expression,
+        getattr(columns, "rating").desc(),
+        getattr(columns, "steamid64").asc(),
+    )
+
+
+async def _read_cached_scope_count(
+    *,
+    session: AsyncSession,
+    scope_id: int,
+) -> int | None:
+    cached_count = await session.get(LeaderboardPlayerCount, scope_id)
+    if cached_count is None:
+        return None
+    return cached_count.total
+
+
+async def _count_active_banned_scope_players(
+    *,
+    session: AsyncSession,
+    scope_id: int,
+) -> int:
+    active_banned_players = (
+        select(col(Ban.steamid64).label("steamid64"))
+        .where(
+            or_(
+                col(Ban.expires_on).is_(None),
+                col(Ban.expires_on) >= get_datetime_utc(),
+            )
+        )
+        .distinct()
+        .subquery()
+    )
+    return int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(LeaderboardPlayer)
+                .join(
+                    active_banned_players,
+                    active_banned_players.c.steamid64 == col(LeaderboardPlayer.steamid64),
+                )
+                .where(col(LeaderboardPlayer.scope) == scope_id)
+            )
+        ).one()
+    )
+
+
+async def rebuild_leaderboard_player_count(
+    *,
+    session: AsyncSession,
+    scope_id: int,
+) -> Literal["created", "updated", "noop"]:
+    total = int(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(LeaderboardPlayer)
+                .where(col(LeaderboardPlayer.scope) == scope_id)
+            )
+        ).one()
+    )
+    cached_count = await session.get(LeaderboardPlayerCount, scope_id)
+    if cached_count is None:
+        session.add(
+            LeaderboardPlayerCount(
+                scope=scope_id,
+                total=total,
+                updated_on=get_datetime_utc(),
+            )
+        )
+        return "created"
+    if cached_count.total == total:
+        return "noop"
+    cached_count.total = total
+    cached_count.updated_on = get_datetime_utc()
+    session.add(cached_count)
+    return "updated"
+
+
+async def rebuild_leaderboard_player_counts(
+    *,
+    session: AsyncSession,
+    scope_ids: Sequence[int],
+) -> tuple[int, int]:
+    created = 0
+    updated = 0
+    for scope_id in sorted(set(scope_ids)):
+        action = await rebuild_leaderboard_player_count(
+            session=session,
+            scope_id=scope_id,
+        )
+        if action == "created":
+            created += 1
+        elif action == "updated":
+            updated += 1
+    return created, updated
 
 
 def _build_player_leaderboard_entry_public(
@@ -280,6 +397,10 @@ async def rebuild_leaderboard_players_for_keys(
             created += 1
         elif action in {"updated", "deleted"}:
             updated += 1
+    await rebuild_leaderboard_player_counts(
+        session=session,
+        scope_ids=[scope_id for scope_id, _steamid64 in keys],
+    )
     return created, updated
 
 
@@ -356,6 +477,11 @@ async def rebuild_leaderboard_players(
         session=session,
         keys=keys,
     )
+    if scope_ids:
+        await rebuild_leaderboard_player_counts(
+            session=session,
+            scope_ids=scope_ids,
+        )
     return len(keys), created, updated
 
 
@@ -399,8 +525,10 @@ async def read_player_leaderboard(
     session: AsyncSession,
     query: PlayerLeaderboardListQuery,
 ) -> tuple[list[PlayerLeaderboardEntryPublic], int]:
-    sort_column = col(getattr(LeaderboardPlayer, query.sort_by))
-    sort_expression = sort_column.desc()
+    base_order_expressions = _leaderboard_order_expressions(
+        sort_by=query.sort_by,
+        columns=LeaderboardPlayer,
+    )
     filtered_statement = (
         select(
             col(LeaderboardPlayer.scope).label("scope"),
@@ -418,7 +546,6 @@ async def read_player_leaderboard(
         .select_from(LeaderboardPlayer)
         .where(
             col(LeaderboardPlayer.scope) == scope_to_id(query.scope),
-            sort_column > 0,
             _not_banned_clause(),
         )
     )
@@ -432,43 +559,90 @@ async def read_player_leaderboard(
             col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
         ).where(col(Player.country).in_(list(geography_country_codes)))
 
-    rank_subquery = (
-        filtered_statement.add_columns(
-            func.rank().over(order_by=sort_expression).label("rank"),
-        ).subquery()
-    )
-
-    count = (
-        await session.exec(
-            select(func.count()).select_from(filtered_statement.subquery())
-        )
-    ).one()
-
-    statement: Any = (
-        select(Player, rank_subquery.c.rank)
-        .add_columns(
-            rank_subquery.c.rating,
-            rank_subquery.c.rating_easy,
-            rank_subquery.c.rating_hard,
-            rank_subquery.c.points,
-            rank_subquery.c.wrs_nub,
-            rank_subquery.c.wrs_pro,
-            rank_subquery.c.records_900_plus,
-            rank_subquery.c.records_800_plus,
-            rank_subquery.c.unique_map_finishes,
-        )
-        .join(Player, col(Player.steamid64) == rank_subquery.c.steamid64)
-        .order_by(rank_subquery.c.rank.asc(), rank_subquery.c.steamid64.asc())
+    page_subquery = (
+        filtered_statement.order_by(*base_order_expressions)
         .offset(query.offset)
         .limit(query.limit)
+        .subquery()
     )
-    rows = (await session.exec(statement)).all()
+    page_order_expressions = _leaderboard_order_expressions(
+        sort_by=query.sort_by,
+        columns=page_subquery.c,
+    )
+
+    count = -1
+    if query.include_count:
+        scope_id = scope_to_id(query.scope)
+        if geography_country_codes is None:
+            cached_total = await _read_cached_scope_count(
+                session=session,
+                scope_id=scope_id,
+            )
+            if cached_total is not None:
+                count = max(
+                    cached_total
+                    - await _count_active_banned_scope_players(
+                        session=session,
+                        scope_id=scope_id,
+                    ),
+                    0,
+                )
+            else:
+                count = int(
+                    (
+                        await session.exec(
+                            select(func.count())
+                            .select_from(LeaderboardPlayer)
+                            .where(
+                                col(LeaderboardPlayer.scope) == scope_id,
+                                _not_banned_clause(),
+                            )
+                        )
+                    ).one()
+                )
+        else:
+            count = int(
+                (
+                    await session.exec(
+                        select(func.count())
+                        .select_from(LeaderboardPlayer)
+                        .join(
+                            Player,
+                            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
+                        )
+                        .where(
+                            col(LeaderboardPlayer.scope) == scope_id,
+                            _not_banned_clause(),
+                            col(Player.country).in_(list(geography_country_codes)),
+                        )
+                    )
+                ).one()
+            )
+
+    statement: Any = (
+        select(Player)
+        .select_from(page_subquery)
+        .add_columns(
+            page_subquery.c.rating,
+            page_subquery.c.rating_easy,
+            page_subquery.c.rating_hard,
+            page_subquery.c.points,
+            page_subquery.c.wrs_nub,
+            page_subquery.c.wrs_pro,
+            page_subquery.c.records_900_plus,
+            page_subquery.c.records_800_plus,
+            page_subquery.c.unique_map_finishes,
+        )
+        .join(Player, col(Player.steamid64) == page_subquery.c.steamid64)
+        .order_by(*page_order_expressions)
+    )
+    rows = (await session.execute(statement)).all()
 
     return (
         [
             _build_player_leaderboard_entry_public(
                 player=player,
-                rank=rank,
+                rank=query.offset + index,
                 leaderboard_row=LeaderboardPlayer(
                     scope=scope_to_id(query.scope),
                     steamid64=player.steamid64,
@@ -483,9 +657,8 @@ async def read_player_leaderboard(
                     unique_map_finishes=unique_map_finishes,
                 ),
             )
-            for (
+            for index, (
                 player,
-                rank,
                 rating,
                 rating_easy,
                 rating_hard,
@@ -495,7 +668,7 @@ async def read_player_leaderboard(
                 records_900_plus,
                 records_800_plus,
                 unique_map_finishes,
-            ) in rows
+            ) in enumerate(rows, start=1)
         ],
         count,
     )

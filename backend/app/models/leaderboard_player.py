@@ -191,68 +191,78 @@ class LeaderboardPlayer(LeaderboardPlayerBase, table=True):
     __tablename__ = "leaderboard_player"
     __table_args__ = (
         Index(
-            "ix_lb_player_scope_rating_pos",
+            "ix_lb_player_scope_rating_order",
             "scope",
             text("rating DESC"),
             "steamid64",
-            postgresql_where=text("rating > 0"),
         ),
         Index(
-            "ix_lb_player_scope_rating_easy_pos",
+            "ix_lb_player_scope_rating_easy_order",
             "scope",
             text("rating_easy DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("rating_easy > 0"),
         ),
         Index(
-            "ix_lb_player_scope_rating_hard_pos",
+            "ix_lb_player_scope_rating_hard_order",
             "scope",
             text("rating_hard DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("rating_hard > 0"),
         ),
         Index(
-            "ix_lb_player_scope_points_pos",
+            "ix_lb_player_scope_points_order",
             "scope",
             text("points DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("points > 0"),
         ),
         Index(
-            "ix_lb_player_scope_wrs_nub_pos",
+            "ix_lb_player_scope_wrs_nub_order",
             "scope",
             text("wrs_nub DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("wrs_nub > 0"),
         ),
         Index(
-            "ix_lb_player_scope_wrs_pro_pos",
+            "ix_lb_player_scope_wrs_pro_order",
             "scope",
             text("wrs_pro DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("wrs_pro > 0"),
         ),
         Index(
-            "ix_lb_player_scope_900_pos",
+            "ix_lb_player_scope_900_order",
             "scope",
             text("records_900_plus DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("records_900_plus > 0"),
         ),
         Index(
-            "ix_lb_player_scope_800_pos",
+            "ix_lb_player_scope_800_order",
             "scope",
             text("records_800_plus DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("records_800_plus > 0"),
         ),
         Index(
-            "ix_lb_player_scope_unique_maps_pos",
+            "ix_lb_player_scope_unique_maps_order",
             "scope",
             text("unique_map_finishes DESC"),
+            text("rating DESC"),
             "steamid64",
-            postgresql_where=text("unique_map_finishes > 0"),
         ),
+    )
+
+
+class LeaderboardPlayerCount(SQLModel, table=True):
+    __tablename__ = "leaderboard_player_count"
+
+    scope: int = Field(sa_type=SmallInteger, primary_key=True)
+    total: int = Field(default=0, ge=0)
+    updated_on: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
 
@@ -306,3 +316,4 @@ class PlayerLeaderboardListQuery(GeographyFilterMixin):
     limit: int = Field(default=20, ge=1, le=100)
     sort_by: LeaderboardPlayerSortBy = "rating"
     sort_order: Literal["desc"] = "desc"
+    include_count: bool = True

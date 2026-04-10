@@ -42,6 +42,14 @@ For the backend and frontend, they use the same port that would be used by their
 
 This way, you could turn off a Docker Compose service and start its local development service, and everything would keep working, because it all uses the same ports.
 
+To start both local dev servers together from the repository root, run:
+
+```bash
+./dev
+```
+
+Use `./dev d` to enable backend debug logging. The existing `./devbackend` and `./devfrontend` entry points still work if you only want one side.
+
 For example, you can stop that `frontend` service in the Docker Compose, in another terminal, run:
 
 ```bash
