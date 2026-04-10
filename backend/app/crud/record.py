@@ -598,7 +598,6 @@ async def rebuild_record_pb_points_bucket(
     scope_id: int,
     record_type: RecordType,
     tier: int | None = None,
-    touch_updated_on: bool = True,
 ) -> int:
     rows = (
         await session.exec(
@@ -657,9 +656,7 @@ async def rebuild_record_pb_points_bucket(
                     steamid64=steamid64,
                     record_type=RecordType.PRO if row_record_type else RecordType.NUB,
                     points=points_by_uuid[record_uuid],
-                    updated_on=(
-                        get_datetime_utc() if touch_updated_on else row_updated_on
-                    ),
+                    updated_on=row_updated_on,
                 ),
                 current_points,
                 points_by_uuid[record_uuid],
@@ -689,7 +686,6 @@ async def rebuild_record_pb_points_for_course(
     course_id: int,
     scope_ids: Sequence[int] | None = None,
     tiers_by_scope: Mapping[int, int] | None = None,
-    touch_updated_on: bool = True,
 ) -> int:
     statement = (
         select(
@@ -770,9 +766,7 @@ async def rebuild_record_pb_points_for_course(
                     steamid64=steamid64,
                     record_type=RecordType.PRO if row_record_type else RecordType.NUB,
                     points=points_by_uuid[record_uuid],
-                    updated_on=(
-                        get_datetime_utc() if touch_updated_on else row_updated_on
-                    ),
+                    updated_on=row_updated_on,
                 ),
                 current_points,
                 points_by_uuid[record_uuid],
