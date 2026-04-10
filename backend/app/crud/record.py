@@ -1,6 +1,7 @@
 import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
@@ -67,9 +68,16 @@ _RECORD_PB_POINTS_BULK_UPDATE = (
     )
     .values(
         points=bindparam("next_points"),
-        updated_on=bindparam("next_updated_on"),
+        updated_at=bindparam("next_updated_on"),
     )
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _WinnerPbEntry:
+    record_uuid: uuid.UUID
+    time_ms: int
+    created_at: datetime
 
 
 def _record_tie_breakers() -> tuple:
@@ -121,7 +129,7 @@ def _record_pb_points_update_params(
     steamid64: int,
     record_type: RecordType,
     points: int,
-    updated_on: datetime,
+    updated_at: datetime,
 ) -> dict[str, object]:
     return {
         "pk_scope": scope,
@@ -129,7 +137,7 @@ def _record_pb_points_update_params(
         "pk_steamid64": steamid64,
         "pk_type": _is_pro_only_from_record_type(record_type),
         "next_points": points,
-        "next_updated_on": updated_on,
+        "next_updated_on": updated_at,
     }
 
 
@@ -350,7 +358,7 @@ async def _load_bucket_winner_entries(
     course_id: int,
     scope_id: int,
     record_type: RecordType,
-) -> list[tuple[int, CoursePbEntry]]:
+) -> list[tuple[int, _WinnerPbEntry]]:
     course = await _get_map_course_by_id(session=session, course_id=course_id)
     if course is None:
         return []
@@ -363,6 +371,7 @@ async def _load_bucket_winner_entries(
         Record.steamid64.label("steamid64"),
         Record.uuid.label("record_uuid"),
         Record.time.label("time_seconds"),
+        Record.created_at.label("created_at"),
         Record.id.label("record_id"),
     ).where(
         col(Record.is_valid).is_(True),
@@ -386,6 +395,7 @@ async def _load_bucket_winner_entries(
                 winner_rows_subquery.c.steamid64,
                 winner_rows_subquery.c.record_uuid,
                 winner_rows_subquery.c.time_seconds,
+                winner_rows_subquery.c.created_at,
                 winner_rows_subquery.c.record_id,
             ).order_by(
                 winner_rows_subquery.c.time_seconds.asc(),
@@ -397,12 +407,13 @@ async def _load_bucket_winner_entries(
     return [
         (
             steamid64,
-            CoursePbEntry(
+            _WinnerPbEntry(
                 record_uuid=record_uuid,
                 time_ms=seconds_to_time_ms(time_seconds),
+                created_at=created_at,
             ),
         )
-        for steamid64, record_uuid, time_seconds, _record_id in ordered_winners
+        for steamid64, record_uuid, time_seconds, created_at, _record_id in ordered_winners
     ]
 
 
@@ -507,7 +518,7 @@ async def _sync_record_pb_bucket(
                 continue
             existing.record_uuid = winner.record_uuid
             existing.time_ms = winner.time_ms
-            existing.updated_on = get_datetime_utc()
+            existing.updated_at = get_datetime_utc()
             if existing.points < 1:
                 existing.points = 1
             session.add(existing)
@@ -522,7 +533,7 @@ async def _sync_record_pb_bucket(
                 record_uuid=winner.record_uuid,
                 time_ms=winner.time_ms,
                 points=1,
-                updated_on=get_datetime_utc(),
+                updated_at=winner.created_at,
             )
         )
 
@@ -573,7 +584,7 @@ async def _sync_record_pb_key(
         existing.record_uuid = winner.uuid
         existing.time_ms = time_ms
         existing.points = estimated_points
-        existing.updated_on = get_datetime_utc()
+        existing.updated_at = get_datetime_utc()
         session.add(existing)
         return
 
@@ -586,7 +597,7 @@ async def _sync_record_pb_key(
             record_uuid=winner.uuid,
             time_ms=time_ms,
             points=estimated_points,
-            updated_on=get_datetime_utc(),
+            updated_at=winner.created_at,
         )
     )
 
@@ -609,7 +620,7 @@ async def rebuild_record_pb_points_bucket(
                 RecordPb.record_uuid,
                 RecordPb.time_ms,
                 RecordPb.points,
-                RecordPb.updated_on,
+                RecordPb.updated_at,
             ).where(
                 col(RecordPb.scope) == scope_id,
                 col(RecordPb.course_id) == course_id,
@@ -656,7 +667,7 @@ async def rebuild_record_pb_points_bucket(
                     steamid64=steamid64,
                     record_type=RecordType.PRO if row_record_type else RecordType.NUB,
                     points=points_by_uuid[record_uuid],
-                    updated_on=row_updated_on,
+                    updated_at=row_updated_on,
                 ),
                 current_points,
                 points_by_uuid[record_uuid],
@@ -696,7 +707,7 @@ async def rebuild_record_pb_points_for_course(
             RecordPb.record_uuid,
             RecordPb.time_ms,
             RecordPb.points,
-            RecordPb.updated_on,
+            RecordPb.updated_at,
         )
         .where(col(RecordPb.course_id) == course_id)
         .order_by(
@@ -766,7 +777,7 @@ async def rebuild_record_pb_points_for_course(
                     steamid64=steamid64,
                     record_type=RecordType.PRO if row_record_type else RecordType.NUB,
                     points=points_by_uuid[record_uuid],
-                    updated_on=row_updated_on,
+                    updated_at=row_updated_on,
                 ),
                 current_points,
                 points_by_uuid[record_uuid],
@@ -904,7 +915,7 @@ async def read_map_wrs(
             RecordPb.scope,
             RecordPb.is_pro_only,
             RecordPb.record_uuid,
-            RecordPb.updated_on,
+            RecordPb.updated_at,
             Record.mode_id,
             Player.steamid64,
             Player.name,
@@ -1137,8 +1148,8 @@ def to_record_public(
         time=float(record.time),
         teleports=record.teleports,
         points=points,
-        created_on=record.created_on,
-        updated_on=record.updated_on,
+        created_on=record.created_at,
+        updated_on=record.updated_at,
         updated_by=str(record.updated_by),
         replay_id=record.replay_id,
         is_valid=record.is_valid,
@@ -1176,8 +1187,8 @@ def to_recent_record_public(
         teleports=record.teleports,
         time=float(record.time),
         points=points,
-        created_on=record.created_on,
-        updated_on=record.updated_on,
+        created_on=record.created_at,
+        updated_on=record.updated_at,
     )
 
 
@@ -1206,8 +1217,8 @@ def to_record_compat_public_v0(
         time=float(record.time),
         teleports=record.teleports,
         points=record.points,
-        created_on=record.created_on,
-        updated_on=record.updated_on,
+        created_on=record.created_at,
+        updated_on=record.updated_at,
         updated_by=record.updated_by,
         record_filter_id=0,
         replay_id=record.replay_id,
@@ -1241,9 +1252,9 @@ async def read_records(
     if query.is_valid is not None:
         filters.append(col(Record.is_valid) == query.is_valid)
     if query.created_since is not None:
-        filters.append(col(Record.created_on) >= query.created_since)
+        filters.append(col(Record.created_at) >= query.created_since)
     if query.updated_since is not None:
-        filters.append(col(Record.updated_on) >= query.updated_since)
+        filters.append(col(Record.updated_at) >= query.updated_since)
     if query.exclude_cheaters:
         filters.append(
             not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
@@ -1257,7 +1268,7 @@ async def read_records(
 
     count = (await session.exec(count_statement)).one()
     statement = (
-        statement.order_by(col(Record.created_on).desc(), col(Record.uuid).desc())
+        statement.order_by(col(Record.created_at).desc(), col(Record.uuid).desc())
         .offset(query.offset)
         .limit(query.limit)
     )
@@ -1340,7 +1351,7 @@ async def read_recent_records(
     rows = (
         await session.exec(
             statement.order_by(
-                col(Record.created_on).desc(),
+                col(Record.created_at).desc(),
                 col(Record.id).desc().nullslast(),
                 col(Record.uuid).desc(),
             )
@@ -1480,8 +1491,8 @@ async def upsert_record(
             time=time_seconds,
             teleports=teleports,
             points=points,
-            created_on=created_on,
-            updated_on=updated_on,
+            created_at=created_on,
+            updated_at=updated_on,
             updated_by=updated_by,
             replay_id=replay_id,
             is_valid=is_valid,
@@ -1499,8 +1510,8 @@ async def upsert_record(
     existing_record.time = time_seconds
     existing_record.teleports = teleports
     existing_record.points = points
-    existing_record.created_on = created_on
-    existing_record.updated_on = updated_on
+    existing_record.created_at = created_on
+    existing_record.updated_at = updated_on
     existing_record.updated_by = updated_by
     existing_record.replay_id = replay_id
     existing_record.is_valid = is_valid
@@ -1521,7 +1532,7 @@ async def update_record_validity(
 ) -> Record:
     before_record = Record.model_validate(record.model_dump())
     record.is_valid = patch.is_valid
-    record.updated_on = get_datetime_utc()
+    record.updated_at = get_datetime_utc()
     session.add(record)
     await _refresh_record_pbs_for_change(
         session=session,
@@ -1736,8 +1747,8 @@ async def get_pb_record_publics(
             Record.time,
             Record.teleports,
             scoped_points.label("points"),
-            Record.created_on,
-            Record.updated_on,
+            Record.created_at,
+            Record.updated_at,
             Record.updated_by,
             Record.replay_id,
             Record.is_valid,
@@ -2242,10 +2253,10 @@ async def get_recent_top_records_v0(
     elif has_teleports is False:
         statement = statement.where(col(Record.teleports) == 0)
     if created_since is not None:
-        statement = statement.where(col(Record.created_on) >= created_since)
+        statement = statement.where(col(Record.created_at) >= created_since)
 
     statement = statement.order_by(
-        col(Record.created_on).desc(),
+        col(Record.created_at).desc(),
         col(Record.id).desc().nullslast(),
         col(Record.uuid).desc(),
     )
