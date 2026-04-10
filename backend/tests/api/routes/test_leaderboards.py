@@ -318,12 +318,12 @@ async def _seed_leaderboard_data(
         "unique_map_finishes",
     ],
 )
-async def test_read_player_leaderboard_filters_to_positive_metric_rows(
+async def test_read_player_leaderboard_uses_stable_scope_membership_across_sorts(
     client: AsyncClient,
     db: AsyncSession,
     sort_by: str,
 ) -> None:
-    await _seed_leaderboard_data(db)
+    players = await _seed_leaderboard_data(db)
 
     response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players",
@@ -332,8 +332,12 @@ async def test_read_player_leaderboard_filters_to_positive_metric_rows(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] >= 1
-    assert all(entry[sort_by] > 0 for entry in payload["data"])
+    assert payload["count"] == 3
+    assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
+        str(players["alpha"]),
+        str(players["beta"]),
+        str(players["delta"]),
+    ]
 
 
 async def test_read_player_leaderboard_default_sort_and_rank(
@@ -359,9 +363,8 @@ async def test_read_player_leaderboard_default_sort_and_rank(
     assert payload["data"][1]["player"]["display_name"] == "Beta"
     assert payload["data"][1]["rank"] == 2
     assert payload["data"][1]["rating"] == pytest.approx(_public_rating(beta_row.rating))
-    assert str(players["delta"]) not in {
-        entry["player"]["steamid64"] for entry in payload["data"]
-    }
+    assert payload["data"][2]["player"]["steamid64"] == str(players["delta"])
+    assert payload["data"][2]["rank"] == 3
 
 
 async def test_read_player_leaderboard_points_sort_includes_below_threshold_player(
@@ -409,9 +412,26 @@ async def test_read_player_leaderboard_scope_and_pagination(
     paged_payload = paged_response.json()
     assert skz_payload["count"] == 1
     assert skz_payload["data"][0]["player"]["steamid64"] == str(players["gamma"])
-    assert paged_payload["count"] >= 2
+    assert paged_payload["count"] == 3
     assert len(paged_payload["data"]) == 1
     assert paged_payload["data"][0]["player"]["steamid64"] == str(players["beta"])
+
+
+async def test_read_player_leaderboard_can_skip_count(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "include_count": "false"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == -1
+    assert len(payload["data"]) == 3
 
 
 async def test_read_player_leaderboard_filters_by_country(
@@ -446,10 +466,11 @@ async def test_read_player_leaderboard_filters_by_region(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] == 2
+    assert payload["count"] == 3
     assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
         str(players["alpha"]),
         str(players["beta"]),
+        str(players["delta"]),
     ]
 
 

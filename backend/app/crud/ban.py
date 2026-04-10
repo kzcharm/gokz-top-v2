@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import exists, func, not_, or_
+from sqlalchemy import and_, exists, func, not_, or_
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -63,6 +63,28 @@ def not_active_ban_exists_clause(
     now: datetime | None = None,
 ) -> ColumnElement[bool]:
     return not_(active_ban_exists_clause(steamid64_column=steamid64_column, now=now))
+
+
+def not_active_ban_exists_split_clause(
+    *,
+    steamid64_column: ColumnElement[Any],
+    now: datetime | None = None,
+) -> ColumnElement[bool]:
+    current_time = now or get_datetime_utc()
+    return and_(
+        ~exists(
+            select(Ban.id).where(
+                col(Ban.steamid64) == steamid64_column,
+                col(Ban.expires_on).is_(None),
+            )
+        ),
+        ~exists(
+            select(Ban.id).where(
+                col(Ban.steamid64) == steamid64_column,
+                col(Ban.expires_on) >= current_time,
+            )
+        ),
+    )
 
 
 def to_ban_compat_public_v0(*, ban: Ban) -> BanCompatPublicV0:

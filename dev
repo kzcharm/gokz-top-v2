@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+source "$ROOT_DIR/scripts/dev-common.sh"
+
+LOG_LEVEL_OVERRIDE="${LOG_LEVEL-}"
+if [[ "${1-}" == "d" ]]; then
+  LOG_LEVEL_OVERRIDE="DEBUG"
+  shift
+  echo "Backend debug logging enabled (LOG_LEVEL=DEBUG)."
+fi
+
+if [[ $# -gt 0 ]]; then
+  echo "Usage: ./dev [d]"
+  exit 1
+fi
+
+prepare_backend_dev
+prepare_frontend_dev
+
+backend_pid=""
+frontend_pid=""
+
+shutdown_children() {
+  trap - EXIT INT TERM
+  local pid=""
+
+  for pid in "$frontend_pid" "$backend_pid"; do
+    [[ -z "$pid" ]] && continue
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  done
+
+  for pid in "$frontend_pid" "$backend_pid"; do
+    [[ -z "$pid" ]] && continue
+    wait "$pid" 2>/dev/null || true
+  done
+}
+
+trap shutdown_children EXIT INT TERM
+
+echo "Starting backend and frontend dev servers..."
+(
+  cd "$ROOT_DIR"
+  source "$ROOT_DIR/scripts/dev-common.sh"
+  ROOT_DIR="$ROOT_DIR"
+  run_backend_devserver "$LOG_LEVEL_OVERRIDE"
+) &
+backend_pid="$!"
+(
+  cd "$ROOT_DIR"
+  source "$ROOT_DIR/scripts/dev-common.sh"
+  ROOT_DIR="$ROOT_DIR"
+  run_frontend_devserver
+) &
+frontend_pid="$!"
+
+set +e
+wait -n "$backend_pid" "$frontend_pid"
+exit_code="$?"
+set -e
+
+shutdown_children
+exit "$exit_code"

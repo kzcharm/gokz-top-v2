@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Loader2,
   LocateFixed,
   Search,
 } from "lucide-react"
@@ -18,6 +19,7 @@ import { toast } from "sonner"
 
 import { LeaderboardsService } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
+import type { PlayerLeaderboardsPublic } from "@/client/types.gen"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import { DataTable } from "@/components/Common/DataTable"
 import {
@@ -63,6 +65,59 @@ const LEADERBOARD_TAB_OPTIONS = [
   { value: "servers", label: "Servers" },
   { value: "maps", label: "Maps" },
 ] as const
+
+type LeaderboardFetchParams = {
+  scope: string
+  offset: number
+  limit: number
+  sortBy: string
+  sortOrder: "desc"
+  country?: string
+  region?: string
+  includeCount: boolean
+}
+
+async function fetchLeaderboardPage(
+  params: LeaderboardFetchParams,
+): Promise<PlayerLeaderboardsPublic> {
+  const searchParams = new URLSearchParams({
+    scope: params.scope,
+    offset: `${params.offset}`,
+    limit: `${params.limit}`,
+    sort_by: params.sortBy,
+    sort_order: params.sortOrder,
+    include_count: params.includeCount ? "true" : "false",
+  })
+
+  if (params.country) {
+    searchParams.set("country", params.country)
+  }
+  if (params.region) {
+    searchParams.set("region", params.region)
+  }
+
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/leaderboards/players?${searchParams.toString()}`,
+    { credentials: "include" },
+  )
+
+  if (!response.ok) {
+    let message = `Failed to fetch leaderboard (${response.status})`
+
+    try {
+      const payload = (await response.json()) as { detail?: string }
+      if (payload.detail) {
+        message = payload.detail
+      }
+    } catch {
+      // Keep the fallback message when the error payload is not JSON.
+    }
+
+    throw new Error(message)
+  }
+
+  return (await response.json()) as PlayerLeaderboardsPublic
+}
 
 export const Route = createFileRoute("/_layout/leaderboards")({
   component: LeaderboardsRoute,
@@ -130,6 +185,7 @@ function LeaderboardsRoute() {
     queryKey: [
       "leaderboards",
       "players",
+      "page",
       scope,
       pageIndex,
       pageSize,
@@ -138,20 +194,52 @@ function LeaderboardsRoute() {
       selectedRegion,
     ],
     queryFn: () =>
-      LeaderboardsService.readPlayerLeaderboard({
+      fetchLeaderboardPage({
         scope,
         offset: pageIndex * pageSize,
-        limit: pageSize,
+        limit: pageSize + 1,
+        sortBy,
+        sortOrder: "desc",
+        country: selectedCountry ?? undefined,
+        region: selectedRegion ?? undefined,
+        includeCount: false,
+      }),
+    staleTime: 30_000,
+  })
+  const leaderboardCountQuery = useQuery({
+    queryKey: [
+      "leaderboards",
+      "players",
+      "count",
+      scope,
+      sortBy,
+      selectedCountry,
+      selectedRegion,
+    ],
+    queryFn: () =>
+      LeaderboardsService.readPlayerLeaderboard({
+        scope,
+        offset: 0,
+        limit: 1,
         sortBy,
         sortOrder: "desc",
         country: selectedCountry ?? undefined,
         region: selectedRegion ?? undefined,
       }),
+    staleTime: 30_000,
   })
-  const leaderboardPlayerSteamid64s = useMemo(
-    () =>
-      leaderboardQuery.data?.data.map((entry) => entry.player.steamid64) ?? [],
+  const leaderboardEntries = useMemo(
+    () => leaderboardQuery.data?.data ?? [],
     [leaderboardQuery.data],
+  )
+  const hasNextPage = leaderboardEntries.length > pageSize
+  const visibleLeaderboardEntries = useMemo(
+    () => leaderboardEntries.slice(0, pageSize),
+    [leaderboardEntries, pageSize],
+  )
+  const leaderboardPlayerSteamid64s = useMemo(
+    () => visibleLeaderboardEntries.map((entry) => entry.player.steamid64),
+    [visibleLeaderboardEntries],
   )
   const leaderboardPlayersQuery = useQuery({
     queryKey: [
@@ -197,7 +285,7 @@ function LeaderboardsRoute() {
   }, [leaderboardPlayersQuery.data])
   const tableData = useMemo<LeaderboardTableRow[]>(
     () =>
-      (leaderboardQuery.data?.data ?? []).map((entry) => {
+      visibleLeaderboardEntries.map((entry) => {
         const hydratedPlayer = leaderboardPlayersBySteamid64.get(
           entry.player.steamid64,
         )
@@ -210,7 +298,7 @@ function LeaderboardsRoute() {
           },
         }
       }),
-    [leaderboardPlayersBySteamid64, leaderboardQuery.data],
+    [leaderboardPlayersBySteamid64, visibleLeaderboardEntries],
   )
 
   useEffect(() => {
@@ -379,7 +467,12 @@ function LeaderboardsRoute() {
 
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
-  const totalPlayers = leaderboardQuery.data?.count ?? 0
+  const hasExactCount =
+    typeof leaderboardCountQuery.data?.count === "number" &&
+    leaderboardCountQuery.data.count >= 0
+  const totalPlayers = hasExactCount
+    ? leaderboardCountQuery.data!.count
+    : pageIndex * pageSize + tableData.length + (hasNextPage ? 1 : 0)
   const pageCount = Math.max(1, Math.ceil(totalPlayers / pageSize))
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
@@ -568,6 +661,12 @@ function LeaderboardsRoute() {
                   </span>{" "}
                   Players
                 </span>
+                {!hasExactCount ? (
+                  <span className="inline-flex items-center gap-1 text-xs">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    loading total
+                  </span>
+                ) : null}
                 <div className="flex items-center gap-x-2">
                   <span>Rows per page</span>
                   <Select
@@ -646,7 +745,7 @@ function LeaderboardsRoute() {
                         Math.min(pageCount - 1, current + 1),
                       )
                     }
-                    disabled={pageIndex >= pageCount - 1}
+                    disabled={!hasNextPage && pageIndex >= pageCount - 1}
                   >
                     <span className="sr-only">Go to next page</span>
                     <ChevronRight className="h-4 w-4" />
@@ -656,7 +755,7 @@ function LeaderboardsRoute() {
                     size="sm"
                     className="h-8 w-8 p-0"
                     onClick={() => setPageIndex(pageCount - 1)}
-                    disabled={pageIndex >= pageCount - 1}
+                    disabled={!hasExactCount || pageIndex >= pageCount - 1}
                   >
                     <span className="sr-only">Go to last page</span>
                     <ChevronsRight className="h-4 w-4" />
