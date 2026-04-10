@@ -97,9 +97,9 @@ def _ban_values_from_globalapi(
         "stats": _parse_optional_string(payload.get("stats")),
         "server_id": _parse_int(payload.get("server_id"), default=None),
         "updated_by_id": _parse_optional_string(payload.get("updated_by_id")),
-        "created_on": _normalize_datetime(payload.get("created_on"))
+        "created_at": _normalize_datetime(payload.get("created_on"))
         or _BAN_DATETIME_FALLBACK,
-        "updated_on": _normalize_datetime(payload.get("updated_on"))
+        "updated_at": _normalize_datetime(payload.get("updated_on"))
         or _BAN_DATETIME_FALLBACK,
         "synced_at": synced_at,
     }
@@ -219,8 +219,8 @@ async def sync_bans_from_globalapi(
                         "stats": insert_statement.excluded.stats,
                         "server_id": insert_statement.excluded.server_id,
                         "updated_by_id": insert_statement.excluded.updated_by_id,
-                        "created_on": insert_statement.excluded.created_on,
-                        "updated_on": insert_statement.excluded.updated_on,
+                        "created_at": insert_statement.excluded.created_at,
+                        "updated_at": insert_statement.excluded.updated_at,
                         "synced_at": insert_statement.excluded.synced_at,
                     },
                 )

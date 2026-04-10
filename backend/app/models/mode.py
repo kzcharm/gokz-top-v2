@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime
 from sqlmodel import Field, SQLModel
 
-from .utils import get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,7 @@ CANONICAL_MODE_SEEDS: tuple[CanonicalModeSeed, ...] = (
 )
 
 
-class ModeBase(SQLModel):
+class ModeBase(LegacyDatetimeNamesMixin):
     name: str = Field(max_length=255, sa_column_kwargs={"unique": True})
     name_short: str = Field(max_length=16, sa_column_kwargs={"unique": True})
     id_plugin: int = Field(sa_column_kwargs={"unique": True})
@@ -88,12 +88,14 @@ class ModeBase(SQLModel):
     website: str = Field(max_length=255)
     repo: str = Field(max_length=255)
     contact_steamid64: int = Field(sa_type=BigInteger)
-    created_on: datetime | None = Field(
+    created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
+        validation_alias="created_on",
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    updated_on: datetime | None = Field(
+    updated_at: datetime | None = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     updated_by_id: int = Field(sa_type=BigInteger)

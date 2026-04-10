@@ -12,20 +12,22 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from .map_review_summary import MapReviewSummaryPublic
-from .utils import get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
 
-class MapBase(SQLModel):
+class MapBase(LegacyDatetimeNamesMixin):
     name: str = Field(max_length=255)
     filesize: int = Field(default=0, ge=0)
     validated: bool = Field(default=False)
     difficulty: int = Field(default=0, ge=0, le=8)
-    created_on: datetime = Field(
+    created_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="created_on",
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     approved_by_steamid64: int = Field(default=0, sa_type=BigInteger)
@@ -51,8 +53,8 @@ class Map(MapBase, table=True):
         Index("ix_map_name", "name"),
         Index("ix_map_validated", "validated"),
         Index("ix_map_difficulty", "difficulty"),
-        Index("ix_map_created_on", "created_on"),
-        Index("ix_map_updated_on", "updated_on"),
+        Index("ix_map_created_at", "created_at"),
+        Index("ix_map_updated_at", "updated_at"),
     )
 
     id: int = Field(primary_key=True)

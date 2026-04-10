@@ -41,9 +41,9 @@ def _build_read_maps_statement(
     if difficulty is not None:
         statement = statement.where(Map.difficulty == difficulty)
     if created_since is not None:
-        statement = statement.where(Map.created_on >= created_since)
+        statement = statement.where(Map.created_at >= created_since)
     if updated_since is not None:
-        statement = statement.where(Map.updated_on >= updated_since)
+        statement = statement.where(Map.updated_at >= updated_since)
 
     return statement.order_by(col(Map.validated).desc(), col(Map.name).asc())
 
@@ -119,8 +119,8 @@ def to_map_compat_public_v0(*, map_obj: Map) -> MapCompatPublicV0:
         filesize=map_obj.filesize,
         validated=map_obj.validated,
         difficulty=map_obj.difficulty,
-        created_on=map_obj.created_on,
-        updated_on=map_obj.updated_on,
+        created_on=map_obj.created_at,
+        updated_on=map_obj.updated_at,
         approved_by_steamid64=str(map_obj.approved_by_steamid64),
         workshop_id=map_obj.workshop_id,
     )
@@ -138,8 +138,8 @@ def to_map_public(
         filesize=map_obj.filesize,
         validated=map_obj.validated,
         tiers=tiers,
-        created_on=map_obj.created_on,
-        updated_on=map_obj.updated_on,
+        created_on=map_obj.created_at,
+        updated_on=map_obj.updated_at,
         approved_by_steamid64=str(map_obj.approved_by_steamid64),
         workshop_id=map_obj.workshop_id,
         synced_at=map_obj.synced_at,

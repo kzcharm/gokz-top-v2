@@ -4,22 +4,24 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, Index
 from sqlmodel import Field, Relationship, SQLModel
 
-from .utils import get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
 
-class ServerGlobalapiBase(SQLModel):
+class ServerGlobalapiBase(LegacyDatetimeNamesMixin):
     port: int = Field(default=27015, ge=1, le=65535)
     ip: str | None = Field(default=None, max_length=255)
     name: str | None = Field(default=None, max_length=255)
     owner_steamid64: int = Field(default=0, sa_type=BigInteger)
     approval_status: int = Field(default=0, ge=0, le=1)
     approved_by_steamid64: int = Field(default=0, sa_type=BigInteger)
-    created_on: datetime = Field(
+    created_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="created_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
     synced_at: datetime = Field(

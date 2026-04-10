@@ -10,7 +10,7 @@ from sqlmodel import Field, SQLModel
 from .player import PlayerRefPublic
 from .record import RecordScope
 from .region import GeographyFilterMixin
-from .utils import get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
 LeaderboardPlayerSortBy = Literal[
     "rating",
@@ -165,7 +165,7 @@ def scale_public_rating(value: float | None) -> float | None:
     return redistribute_display_rating(float(old_rating))
 
 
-class LeaderboardPlayerBase(SQLModel):
+class LeaderboardPlayerBase(LegacyDatetimeNamesMixin):
     scope: int = Field(sa_type=SmallInteger, primary_key=True)
     steamid64: int = Field(
         foreign_key="player.steamid64",
@@ -181,8 +181,9 @@ class LeaderboardPlayerBase(SQLModel):
     records_900_plus: int = Field(default=0, ge=0)
     records_800_plus: int = Field(default=0, ge=0)
     unique_map_finishes: int = Field(default=0, ge=0)
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
@@ -255,13 +256,14 @@ class LeaderboardPlayer(LeaderboardPlayerBase, table=True):
     )
 
 
-class LeaderboardPlayerCount(SQLModel, table=True):
+class LeaderboardPlayerCount(LegacyDatetimeNamesMixin, table=True):
     __tablename__ = "leaderboard_player_count"
 
     scope: int = Field(sa_type=SmallInteger, primary_key=True)
     total: int = Field(default=0, ge=0)
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 

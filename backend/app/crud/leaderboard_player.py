@@ -175,14 +175,14 @@ async def rebuild_leaderboard_player_count(
             LeaderboardPlayerCount(
                 scope=scope_id,
                 total=total,
-                updated_on=get_datetime_utc(),
+                updated_at=get_datetime_utc(),
             )
         )
         return "created"
     if cached_count.total == total:
         return "noop"
     cached_count.total = total
-    cached_count.updated_on = get_datetime_utc()
+    cached_count.updated_at = get_datetime_utc()
     session.add(cached_count)
     return "updated"
 
@@ -353,7 +353,7 @@ async def rebuild_leaderboard_player(
             LeaderboardPlayer(
                 scope=scope_id,
                 steamid64=steamid64,
-                updated_on=get_datetime_utc(),
+                updated_at=get_datetime_utc(),
                 **values,
             )
         )
@@ -375,7 +375,7 @@ async def rebuild_leaderboard_player(
 
     for field_name, field_value in values.items():
         setattr(existing, field_name, field_value)
-    existing.updated_on = get_datetime_utc()
+    existing.updated_at = get_datetime_utc()
     session.add(existing)
     return "updated"
 
@@ -494,7 +494,7 @@ async def load_changed_leaderboard_player_keys(
         (
             await session.exec(
                 select(RecordPb.scope, RecordPb.steamid64)
-                .where(col(RecordPb.updated_on) >= window_start)
+                .where(col(RecordPb.updated_at) >= window_start)
                 .distinct()
             )
         ).all()
@@ -505,8 +505,8 @@ async def load_changed_leaderboard_player_keys(
             select(Record.steamid64, Record.mode_id)
             .where(
                 or_(
-                    col(Record.created_on) >= window_start,
-                    col(Record.updated_on) >= window_start,
+                    col(Record.created_at) >= window_start,
+                    col(Record.updated_at) >= window_start,
                 )
             )
             .distinct()

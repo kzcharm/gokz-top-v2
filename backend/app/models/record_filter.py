@@ -3,22 +3,24 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Index, Integer, String
 from sqlmodel import Field, SQLModel
 
-from .utils import get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
 
-class RecordFilterBase(SQLModel):
+class RecordFilterBase(LegacyDatetimeNamesMixin):
     map_id: int = Field(sa_type=Integer)
     stage: int = Field(default=0, ge=0, sa_type=Integer)
     mode_id: int = Field(foreign_key="mode.id", sa_type=Integer)
     tickrate: int = Field(ge=1, sa_type=Integer)
     has_teleports: bool = Field(default=False, sa_type=Boolean)
     tier: int | None = Field(default=None, ge=0, le=8, sa_type=Integer)
-    created_on: datetime = Field(
+    created_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="created_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
     updated_by_id: str | None = Field(

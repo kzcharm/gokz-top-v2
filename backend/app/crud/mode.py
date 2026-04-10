@@ -36,8 +36,8 @@ def _sync_canonical_modes_with_session(session: Session) -> None:
                     website=seed.website,
                     repo=seed.repo,
                     contact_steamid64=seed.contact_steamid64,
-                    created_on=now,
-                    updated_on=now,
+                    created_at=now,
+                    updated_at=now,
                     updated_by_id=seed.updated_by_id,
                 )
             )
@@ -52,7 +52,7 @@ def _sync_canonical_modes_with_session(session: Session) -> None:
             db_mode.name = seed.name
             db_mode.name_short = seed.name_short
             db_mode.id_plugin = seed.id_plugin
-            db_mode.updated_on = now
+            db_mode.updated_at = now
             session.add(db_mode)
             has_changes = True
 
@@ -84,8 +84,8 @@ async def sync_canonical_modes(*, session: AsyncSession) -> None:
                     website=seed.website,
                     repo=seed.repo,
                     contact_steamid64=seed.contact_steamid64,
-                    created_on=now,
-                    updated_on=now,
+                    created_at=now,
+                    updated_at=now,
                     updated_by_id=seed.updated_by_id,
                 )
             )
@@ -100,7 +100,7 @@ async def sync_canonical_modes(*, session: AsyncSession) -> None:
             db_mode.name = seed.name
             db_mode.name_short = seed.name_short
             db_mode.id_plugin = seed.id_plugin
-            db_mode.updated_on = now
+            db_mode.updated_at = now
             session.add(db_mode)
             has_changes = True
 
@@ -134,7 +134,7 @@ async def update_mode_metadata(
         mode_data["contact_steamid64"] = int(mode_data["contact_steamid64"])
 
     db_mode.sqlmodel_update(mode_data)
-    db_mode.updated_on = _get_datetime_utc()
+    db_mode.updated_at = _get_datetime_utc()
     db_mode.updated_by_id = updated_by_id
     session.add(db_mode)
     await session.commit()
@@ -155,8 +155,8 @@ def to_mode_public(*, mode: Mode) -> ModePublic:
         repo=mode.repo,
         contact_steamid64=str(mode.contact_steamid64),
         supported_tickrates=None,
-        created_on=mode.created_on,
-        updated_on=mode.updated_on,
+        created_on=mode.created_at,
+        updated_on=mode.updated_at,
         updated_by_id=str(mode.updated_by_id),
     )
 
@@ -172,7 +172,7 @@ def to_mode_compat_public_v0(*, mode: Mode) -> ModeCompatPublicV0:
         repo=mode.repo,
         contact_steamid64=mode.contact_steamid64,
         supported_tickrates=None,
-        created_on=mode.created_on,
-        updated_on=mode.updated_on,
+        created_on=mode.created_at,
+        updated_on=mode.updated_at,
         updated_by_id=mode.updated_by_id,
     )

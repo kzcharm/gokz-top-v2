@@ -78,8 +78,8 @@ def _server_values_from_globalapi(
         "approved_by_steamid64": _parse_int(
             payload.get("approved_by_steamid64"), default=0
         ),
-        "created_on": _normalize_datetime(payload.get("created_on")),
-        "updated_on": _normalize_datetime(payload.get("updated_on")),
+        "created_at": _normalize_datetime(payload.get("created_on")),
+        "updated_at": _normalize_datetime(payload.get("updated_on")),
         "synced_at": synced_at,
     }
 

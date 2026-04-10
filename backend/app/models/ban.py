@@ -6,7 +6,7 @@ from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlmodel import Column, Field, SQLModel
 
 from .player import PlayerRefPublic
-from .utils import get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
 
 def _enum_values(enum_class: type[StrEnum]) -> list[str]:
@@ -23,7 +23,7 @@ class BanType(StrEnum):
     OTHER = "other"
 
 
-class BanBase(SQLModel):
+class BanBase(LegacyDatetimeNamesMixin):
     ban_type: BanType = Field(
         sa_column=Column(
             SQLAlchemyEnum(
@@ -51,12 +51,14 @@ class BanBase(SQLModel):
     )
     server_id: int | None = None
     updated_by_id: str | None = Field(default=None, max_length=32)
-    created_on: datetime = Field(
+    created_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="created_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
     synced_at: datetime = Field(
@@ -71,8 +73,8 @@ class Ban(BanBase, table=True):
         Index("ix_ban_steamid64_expires_on", "steamid64", "expires_on"),
         Index("ix_ban_ban_type", "ban_type"),
         Index("ix_ban_server_id", "server_id"),
-        Index("ix_ban_created_on", "created_on"),
-        Index("ix_ban_updated_on", "updated_on"),
+        Index("ix_ban_created_at", "created_at"),
+        Index("ix_ban_updated_at", "updated_at"),
     )
 
     id: int = Field(primary_key=True)

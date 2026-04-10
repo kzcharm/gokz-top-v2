@@ -82,13 +82,13 @@ async def test_sync_maps_from_globalapi_upserts_and_normalizes_datetime(
     assert refreshed_200 is not None
     assert refreshed_200.name == f"kz_sync_existing_{existing_id}"
     assert refreshed_200.difficulty == 5
-    assert refreshed_200.created_on == _normalize_datetime("0001-01-01T00:00:00")
+    assert refreshed_200.created_at == _normalize_datetime("0001-01-01T00:00:00")
     assert refreshed_200.workshop_id == 1986459033
 
     refreshed_201 = await db.get(Map, created_id)
     assert refreshed_201 is not None
-    assert refreshed_201.created_on == _normalize_datetime(MAP_DATETIME_FALLBACK)
-    assert refreshed_201.updated_on == _normalize_datetime(MAP_DATETIME_FALLBACK)
+    assert refreshed_201.created_at == _normalize_datetime(MAP_DATETIME_FALLBACK)
+    assert refreshed_201.updated_at == _normalize_datetime(MAP_DATETIME_FALLBACK)
 
 
 @pytest.mark.asyncio

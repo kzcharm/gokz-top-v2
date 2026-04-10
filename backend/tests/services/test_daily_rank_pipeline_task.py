@@ -153,13 +153,13 @@ async def test_load_daily_rank_selection_uses_previous_utc_day_window(
     record_pbs = (await db.exec(select(RecordPb))).all()
     assert len(record_pbs) == 3
     record_pbs_by_steamid64 = {record_pb.steamid64: record_pb for record_pb in record_pbs}
-    record_pbs_by_steamid64[lower_bound_player].updated_on = datetime(
+    record_pbs_by_steamid64[lower_bound_player].updated_at = datetime(
         2099, 4, 3, 0, 0, tzinfo=UTC
     )
-    record_pbs_by_steamid64[middle_player].updated_on = datetime(
+    record_pbs_by_steamid64[middle_player].updated_at = datetime(
         2099, 4, 3, 12, 0, tzinfo=UTC
     )
-    record_pbs_by_steamid64[upper_bound_player].updated_on = datetime(
+    record_pbs_by_steamid64[upper_bound_player].updated_at = datetime(
         2099, 4, 4, 0, 0, tzinfo=UTC
     )
     for record_pb in record_pbs_by_steamid64.values():
