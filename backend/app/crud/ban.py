@@ -99,8 +99,8 @@ def to_ban_compat_public_v0(*, ban: Ban) -> BanCompatPublicV0:
         stats=ban.stats,
         server_id=ban.server_id,
         updated_by_id=ban.updated_by_id,
-        created_on=ban.created_on,
-        updated_on=ban.updated_on,
+        created_on=ban.created_at,
+        updated_on=ban.updated_at,
     )
 
 
@@ -159,9 +159,9 @@ async def read_bans(
     if query.server_id is not None:
         filters.append(col(Ban.server_id) == query.server_id)
     if query.created_since is not None:
-        filters.append(col(Ban.created_on) >= query.created_since)
+        filters.append(col(Ban.created_at) >= query.created_since)
     if query.updated_since is not None:
-        filters.append(col(Ban.updated_on) >= query.updated_since)
+        filters.append(col(Ban.updated_at) >= query.updated_since)
 
     count_statement = select(func.count()).select_from(Ban)
     statement = (

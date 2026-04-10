@@ -1,6 +1,10 @@
 import uuid
 from datetime import UTC, datetime
 from secrets import randbits
+from typing import Any
+
+from pydantic import model_validator
+from sqlmodel import SQLModel
 
 
 def get_datetime_utc() -> datetime:
@@ -28,3 +32,21 @@ def generate_uuid7(*, timestamp: datetime | None = None) -> uuid.UUID:
         | rand_b
     )
     return uuid.UUID(int=value)
+
+
+class LegacyDatetimeNamesMixin(SQLModel):
+    def __init__(self, /, **data: Any) -> None:
+        super().__init__(**self._normalize_legacy_datetime_keys(data))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_datetime_keys(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+        if "created_at" not in normalized and "created_on" in normalized:
+            normalized["created_at"] = normalized.pop("created_on")
+        if "updated_at" not in normalized and "updated_on" in normalized:
+            normalized["updated_at"] = normalized.pop("updated_on")
+        return normalized

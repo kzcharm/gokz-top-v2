@@ -318,8 +318,8 @@ async def _ensure_map(
         filesize=0,
         validated=False,
         difficulty=0,
-        created_on=now,
-        updated_on=now,
+        created_at=now,
+        updated_at=now,
         approved_by_steamid64=0,
         synced_at=now,
     )
@@ -350,8 +350,8 @@ async def _ensure_server(
         owner_steamid64=0,
         approval_status=0,
         approved_by_steamid64=0,
-        created_on=now,
-        updated_on=now,
+        created_at=now,
+        updated_at=now,
         synced_at=now,
     )
     session.add(server)

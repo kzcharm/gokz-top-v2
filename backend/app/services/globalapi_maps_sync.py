@@ -95,8 +95,8 @@ def _map_values_from_globalapi(payload: dict[str, Any]) -> dict[str, Any]:
         "filesize": _parse_int(payload.get("filesize"), default=0),
         "validated": _parse_bool(payload.get("validated", False), default=False),
         "difficulty": _parse_int(payload.get("difficulty"), default=0),
-        "created_on": _normalize_datetime(payload.get("created_on")),
-        "updated_on": _normalize_datetime(payload.get("updated_on")),
+        "created_at": _normalize_datetime(payload.get("created_on")),
+        "updated_at": _normalize_datetime(payload.get("updated_on")),
         "approved_by_steamid64": _parse_int(
             payload.get("approved_by_steamid64"), default=0
         ),
@@ -171,8 +171,8 @@ async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
             "filesize": insert_statement.excluded.filesize,
             "validated": insert_statement.excluded.validated,
             "difficulty": insert_statement.excluded.difficulty,
-            "created_on": insert_statement.excluded.created_on,
-            "updated_on": insert_statement.excluded.updated_on,
+            "created_at": insert_statement.excluded.created_at,
+            "updated_at": insert_statement.excluded.updated_at,
             "approved_by_steamid64": insert_statement.excluded.approved_by_steamid64,
             "workshop_id": insert_statement.excluded.workshop_id,
             "authors": insert_statement.excluded.authors,

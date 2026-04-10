@@ -143,8 +143,8 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
                 RecordPb.steamid64,
             )
             .where(
-                col(RecordPb.updated_on) >= window_start,
-                col(RecordPb.updated_on) < window_end,
+                col(RecordPb.updated_at) >= window_start,
+                col(RecordPb.updated_at) < window_end,
             )
             .order_by(
                 col(RecordPb.course_id).asc(),

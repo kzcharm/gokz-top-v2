@@ -81,8 +81,8 @@ def _record_filter_values_from_globalapi(payload: dict[str, Any]) -> dict[str, A
         "mode_id": mode_id,
         "tickrate": tickrate,
         "has_teleports": _parse_bool(payload.get("has_teleports"), default=False),
-        "created_on": _normalize_datetime(payload.get("created_on")),
-        "updated_on": _normalize_datetime(payload.get("updated_on")),
+        "created_at": _normalize_datetime(payload.get("created_on")),
+        "updated_at": _normalize_datetime(payload.get("updated_on")),
         "updated_by_id": _parse_optional_string(payload.get("updated_by_id")),
     }
 
@@ -200,8 +200,8 @@ async def sync_record_filters_from_globalapi(
                         "mode_id": insert_statement.excluded.mode_id,
                         "tickrate": insert_statement.excluded.tickrate,
                         "has_teleports": insert_statement.excluded.has_teleports,
-                        "created_on": insert_statement.excluded.created_on,
-                        "updated_on": insert_statement.excluded.updated_on,
+                        "created_at": insert_statement.excluded.created_at,
+                        "updated_at": insert_statement.excluded.updated_at,
                         "updated_by_id": insert_statement.excluded.updated_by_id,
                     },
                 )

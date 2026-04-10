@@ -157,8 +157,8 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
                 ServerGlobalapi.group_id,
                 ServerGlobalapi.approval_status,
                 ServerGlobalapi.name,
-                ServerGlobalapi.created_on,
-                ServerGlobalapi.updated_on,
+                ServerGlobalapi.created_at,
+                ServerGlobalapi.updated_at,
                 ServerGlobalapi.synced_at,
             ).where(ServerGlobalapi.id == existing_id)
         )
