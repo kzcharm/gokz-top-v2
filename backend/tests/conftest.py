@@ -91,10 +91,12 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
     app.dependency_overrides[get_db] = _get_test_db
     previous_collector_setting = settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP
     previous_globalapi_sync_setting = settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP
-    previous_leaderboard_player_setting = settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP
+    previous_daily_rank_pipeline_setting = (
+        settings.RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP
+    )
     settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP = False
     settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP = False
-    settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP = False
+    settings.RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP = False
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://testserver") as c:
@@ -102,7 +104,9 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
     finally:
         settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP = previous_collector_setting
         settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP = previous_globalapi_sync_setting
-        settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP = previous_leaderboard_player_setting
+        settings.RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP = (
+            previous_daily_rank_pipeline_setting
+        )
         app.dependency_overrides.pop(get_db, None)
 
 
