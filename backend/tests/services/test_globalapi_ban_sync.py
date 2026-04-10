@@ -288,3 +288,46 @@ async def test_sync_bans_from_globalapi_maps_9999_expiry_to_null(
     stored = await db.get(Ban, 901)
     assert stored is not None
     assert stored.expires_on is None
+
+
+async def test_sync_bans_from_globalapi_rebuilds_leaderboards_for_touched_players(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _clear_ban_sync_state(db)
+    rebuilt_steamid64s: list[int] = []
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        del client, offset, limit, updated_since
+        return [
+            _payload(ban_id=950, steamid64=76561198000000950),
+            _payload(ban_id=951, steamid64=76561198000000951),
+        ]
+
+    async def _fake_rebuild_leaderboards(
+        *,
+        session: AsyncSession,
+        scope_ids: list[int] | None = None,
+        steamid64s: list[int] | None = None,
+    ) -> tuple[int, int, int]:
+        del session, scope_ids
+        rebuilt_steamid64s.extend(steamid64s or [])
+        return 0, 0, 0
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+    monkeypatch.setattr(
+        globalapi_ban_sync.crud,
+        "rebuild_leaderboard_players",
+        _fake_rebuild_leaderboards,
+    )
+
+    result = await globalapi_ban_sync.sync_bans_from_globalapi(session=db)
+
+    assert result.processed == 2
+    assert rebuilt_steamid64s == [76561198000000950, 76561198000000951]

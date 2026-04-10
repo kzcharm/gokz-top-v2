@@ -6,12 +6,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.models import (
+    Ban,
+    BanType,
     LeaderboardPlayer,
     Map,
     MapCourse,
     Player,
-    RecordPb,
     RecordFilter,
+    RecordPb,
     ServerGlobalapi,
 )
 from app.models.record import RecordScopeId
@@ -134,6 +136,31 @@ async def _rebuild_player_scope(
     await db.commit()
 
 
+async def _create_ban(
+    db: AsyncSession,
+    *,
+    ban_id: int,
+    steamid64: int,
+    expires_on: datetime | None,
+) -> None:
+    db.add(
+        Ban(
+            id=ban_id,
+            ban_type=BanType.BHOP_HACK,
+            expires_on=expires_on,
+            steamid64=steamid64,
+            player_name=f"Player {steamid64}",
+            notes="cheater",
+            stats="stats",
+            server_id=1,
+            updated_by_id="1",
+            created_on=datetime(2099, 1, 2, tzinfo=UTC),
+            updated_on=datetime(2099, 1, 2, tzinfo=UTC),
+        )
+    )
+    await db.flush()
+
+
 async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_thresholds(
     db: AsyncSession,
 ) -> None:
@@ -142,7 +169,7 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
     await _create_player(db, steamid64=player_id, name="Leaderboard One")
     await _create_server(db, server_id=server_id, name="Leaderboard Server")
 
-    for index in range(20):
+    for index in range(10):
         map_id = 2_100_100_000 + index
         tier = 4 if index < 10 else 5
         course_id = await _create_map(
@@ -189,18 +216,18 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
 
     row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id))
     assert row is not None
-    assert row.points == 21_000
-    assert row.wrs_nub == 20
+    assert row.points == 11_000
+    assert row.wrs_nub == 10
     assert row.wrs_pro == 1
-    assert row.records_900_plus == 21
-    assert row.records_800_plus == 21
-    assert row.unique_map_finishes == 20
-    assert row.rating == crud.calculate_weighted_rating([1000] * 20)
+    assert row.records_900_plus == 11
+    assert row.records_800_plus == 11
+    assert row.unique_map_finishes == 10
+    assert row.rating == crud.calculate_weighted_rating([1000] * 10)
     assert row.rating_easy == crud.calculate_weighted_rating([1000] * 10)
-    assert row.rating_hard == crud.calculate_weighted_rating([1000] * 10)
+    assert row.rating_hard == 0
 
 
-async def test_rebuild_leaderboard_player_keeps_points_but_zeroes_rating_below_threshold(
+async def test_rebuild_leaderboard_player_deletes_row_below_threshold(
     db: AsyncSession,
 ) -> None:
     player_id = random_steamid64()
@@ -208,7 +235,7 @@ async def test_rebuild_leaderboard_player_keeps_points_but_zeroes_rating_below_t
     await _create_player(db, steamid64=player_id, name="Threshold Player")
     await _create_server(db, server_id=server_id, name="Threshold Server")
 
-    for index in range(19):
+    for index in range(9):
         map_id = 2_110_100_000 + index
         course_id = await _create_map(
             db,
@@ -242,12 +269,63 @@ async def test_rebuild_leaderboard_player_keeps_points_but_zeroes_rating_below_t
     )
 
     row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id))
-    assert row is not None
-    assert row.points == 19_000
-    assert row.unique_map_finishes == 19
-    assert row.rating == 0
-    assert row.rating_easy == 0
-    assert row.rating_hard == 0
+    assert row is None
+
+
+async def test_rebuild_leaderboard_player_deletes_existing_row_for_active_ban(
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    server_id = 2_115_000_001
+    await _create_player(db, steamid64=player_id, name="Banned Player")
+    await _create_server(db, server_id=server_id, name="Banned Server")
+
+    for index in range(10):
+        map_id = 2_115_100_000 + index
+        await _create_map(
+            db,
+            map_id=map_id,
+            name=f"kz_banned_{index}",
+            difficulty=4,
+        )
+        await _create_record_filter(
+            db,
+            record_filter_id=2_115_200_000 + index,
+            map_id=map_id,
+            mode_id=200,
+            tier=4,
+        )
+        await _create_record(
+            db,
+            record_id=2_115_300_000 + index,
+            steamid64=player_id,
+            server_id=server_id,
+            map_id=map_id,
+            mode_id=200,
+            teleports=1,
+            time_seconds=f"{30 + index}.000",
+        )
+
+    await _rebuild_player_scope(
+        db,
+        scope_id=int(RecordScopeId.KZT),
+        steamid64=player_id,
+    )
+    assert await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id)) is not None
+
+    await _create_ban(
+        db,
+        ban_id=2_115_400_000,
+        steamid64=player_id,
+        expires_on=None,
+    )
+    await _rebuild_player_scope(
+        db,
+        scope_id=int(RecordScopeId.KZT),
+        steamid64=player_id,
+    )
+
+    assert await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id)) is None
 
 
 async def test_load_leaderboard_player_keys_prioritizes_existing_rating_before_new_keys(

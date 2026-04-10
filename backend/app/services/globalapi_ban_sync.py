@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.core.config import settings
 from app.models import Ban, BanType, GlobalApiSyncResult, GlobalApiSyncState
 
@@ -161,6 +162,7 @@ async def sync_bans_from_globalapi(
     warnings = 0
     offset = 0
     seen_ids: set[int] = set()
+    touched_steamid64s: set[int] = set()
 
     # GlobalAPI bans are treated as append/update-only for sync purposes.
     # If upstream ever starts deleting or removing bans, revisit this policy
@@ -197,6 +199,9 @@ async def sync_bans_from_globalapi(
 
             if rows_by_id:
                 ban_ids = list(rows_by_id.keys())
+                touched_steamid64s.update(
+                    int(row["steamid64"]) for row in rows_by_id.values()
+                )
                 existing_ids = set(
                     (
                         await session.exec(select(Ban.id).where(Ban.id.in_(ban_ids)))
@@ -232,6 +237,14 @@ async def sync_bans_from_globalapi(
             if len(payloads) < limit:
                 break
             offset += limit
+
+    if touched_steamid64s:
+        await crud.rebuild_leaderboard_players(
+            session=session,
+            steamid64s=sorted(touched_steamid64s),
+        )
+        await session.commit()
+        session.expire_all()
 
     return GlobalApiSyncResult(
         processed=processed,
