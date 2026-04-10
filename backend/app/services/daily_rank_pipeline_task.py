@@ -195,7 +195,6 @@ async def rebuild_daily_rank_points(
             course_id=course_id,
             scope_id=scope_id,
             record_type=record_type,
-            touch_updated_on=False,
         )
     await session.commit()
     return updated_rows

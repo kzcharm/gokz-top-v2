@@ -439,8 +439,10 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
             )
         )
     ).all()
+    original_updated_on = datetime(2026, 2, 1, tzinfo=UTC)
     for row in bucket_rows:
         row.points = 1
+        row.updated_on = original_updated_on
         db.add(row)
     await db.commit()
 
@@ -466,6 +468,8 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     assert updated_rows == 2
     assert refreshed_rows[0].points == 1000
     assert refreshed_rows[1].points > 1
+    assert refreshed_rows[0].updated_on == original_updated_on
+    assert refreshed_rows[1].updated_on == original_updated_on
 
 
 async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
@@ -514,8 +518,10 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
             )
         )
     ).all()
+    original_updated_on = datetime(2026, 2, 2, tzinfo=UTC)
     for row in bucket_rows:
         row.points = 1
+        row.updated_on = original_updated_on
         db.add(row)
     await db.commit()
 
@@ -550,6 +556,79 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
     assert refreshed_rows[3].points == 1000
     assert refreshed_rows[4].points > 1
     assert refreshed_rows[5].points == 1000
+    assert all(row.updated_on == original_updated_on for row in refreshed_rows)
+
+
+async def test_record_pb_updated_on_changes_when_record_uuid_changes(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player_id = random_steamid64()
+    await _create_player(db, steamid64=player_id, name="PB Winner")
+    await _create_map(db, id=981025, name="kz_pb_updated_on", difficulty=4)
+    await _create_server(db, id=981125, name="PB Update Server")
+
+    initial_updated_on = datetime(2026, 3, 1, tzinfo=UTC)
+    monkeypatch.setattr(crud.record, "get_datetime_utc", lambda: initial_updated_on)
+    first_record = await _create_record(
+        db,
+        id=981324,
+        steamid64=player_id,
+        map_id=981025,
+        server_id=981125,
+        mode_id=200,
+        stage=0,
+        time="12.000",
+        teleports=1,
+    )
+
+    course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == 981025, MapCourse.stage == 0)
+        )
+    ).one()
+    initial_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == 0,
+                RecordPb.steamid64 == player_id,
+                RecordPb.is_pro_only.is_(False),
+            )
+        )
+    ).one()
+
+    assert initial_pb.record_uuid == first_record.uuid
+    assert initial_pb.updated_on == initial_updated_on
+
+    next_updated_on = datetime(2026, 3, 2, tzinfo=UTC)
+    monkeypatch.setattr(crud.record, "get_datetime_utc", lambda: next_updated_on)
+    second_record = await _create_record(
+        db,
+        id=981325,
+        steamid64=player_id,
+        map_id=981025,
+        server_id=981125,
+        mode_id=200,
+        stage=0,
+        time="11.000",
+        teleports=1,
+    )
+
+    refreshed_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == 0,
+                RecordPb.steamid64 == player_id,
+                RecordPb.is_pro_only.is_(False),
+            )
+        )
+    ).one()
+
+    assert refreshed_pb.record_uuid == second_record.uuid
+    assert refreshed_pb.record_uuid != first_record.uuid
+    assert refreshed_pb.updated_on == next_updated_on
 
 
 async def test_upsert_record_sets_estimated_points_for_new_pb_rows(
