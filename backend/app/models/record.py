@@ -17,7 +17,7 @@ from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
 from .server_globalapi import ServerGlobalapiCompatPublicV0
-from .utils import generate_uuid7, get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, generate_uuid7, get_datetime_utc
 
 
 class TeleportsType(StrEnum):
@@ -98,7 +98,7 @@ class MapCourse(MapCourseBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
 
 
-class RecordBase(SQLModel):
+class RecordBase(LegacyDatetimeNamesMixin):
     id: int | None = Field(default=None)
     steamid64: int = Field(
         foreign_key="player.steamid64",
@@ -123,12 +123,14 @@ class RecordBase(SQLModel):
     )
     teleports: int = Field(default=0, ge=0)
     points: int = Field(default=0, ge=0, le=1000)
-    created_on: datetime = Field(
+    created_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="created_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
     updated_by: int = Field(
@@ -254,27 +256,27 @@ class Record(RecordBase, table=True):
             "server_id",
         ),
         Index(
-            "ix_records_created_on_order",
-            text("created_on DESC"),
+            "ix_records_created_at_order",
+            text("created_at DESC"),
             text("id DESC NULLS LAST"),
             text("uuid DESC"),
         ),
         Index(
-            "ix_records_is_valid_created_on",
+            "ix_records_is_valid_created_at",
             "is_valid",
-            text("created_on DESC"),
+            text("created_at DESC"),
         ),
         Index(
-            "ix_records_is_valid_updated_on",
+            "ix_records_is_valid_updated_at",
             "is_valid",
-            text("updated_on DESC"),
+            text("updated_at DESC"),
         ),
     )
 
     uuid: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
 
 
-class RecordPbBase(SQLModel):
+class RecordPbBase(LegacyDatetimeNamesMixin):
     scope: int = Field(sa_type=SmallInteger, primary_key=True)
     course_id: int = Field(foreign_key="map_course.id", primary_key=True)
     steamid64: int = Field(
@@ -291,8 +293,9 @@ class RecordPbBase(SQLModel):
         le=1000,
         sa_column_kwargs={"server_default": text("1")},
     )
-    updated_on: datetime = Field(
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
+        validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
 
@@ -324,6 +327,10 @@ class RecordPb(RecordPbBase, table=True):
             "record_uuid",
             "scope",
             "is_pro_only",
+        ),
+        Index(
+            "ix_record_pb_updated_at_desc",
+            text("updated_at DESC"),
         ),
         Index(
             "ux_record_pb_wr_scope_course_type",

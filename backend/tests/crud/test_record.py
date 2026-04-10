@@ -442,7 +442,7 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     original_updated_on = datetime(2026, 2, 1, tzinfo=UTC)
     for row in bucket_rows:
         row.points = 1
-        row.updated_on = original_updated_on
+        row.updated_at = original_updated_on
         db.add(row)
     await db.commit()
 
@@ -468,8 +468,8 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     assert updated_rows == 2
     assert refreshed_rows[0].points == 1000
     assert refreshed_rows[1].points > 1
-    assert refreshed_rows[0].updated_on == original_updated_on
-    assert refreshed_rows[1].updated_on == original_updated_on
+    assert refreshed_rows[0].updated_at == original_updated_on
+    assert refreshed_rows[1].updated_at == original_updated_on
 
 
 async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
@@ -521,7 +521,7 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
     original_updated_on = datetime(2026, 2, 2, tzinfo=UTC)
     for row in bucket_rows:
         row.points = 1
-        row.updated_on = original_updated_on
+        row.updated_at = original_updated_on
         db.add(row)
     await db.commit()
 
@@ -556,10 +556,10 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
     assert refreshed_rows[3].points == 1000
     assert refreshed_rows[4].points > 1
     assert refreshed_rows[5].points == 1000
-    assert all(row.updated_on == original_updated_on for row in refreshed_rows)
+    assert all(row.updated_at == original_updated_on for row in refreshed_rows)
 
 
-async def test_record_pb_updated_on_changes_when_record_uuid_changes(
+async def test_record_pb_updated_at_uses_record_created_at_for_new_rows_and_now_for_winner_changes(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -599,7 +599,7 @@ async def test_record_pb_updated_on_changes_when_record_uuid_changes(
     ).one()
 
     assert initial_pb.record_uuid == first_record.uuid
-    assert initial_pb.updated_on == initial_updated_on
+    assert initial_pb.updated_at == datetime(2026, 1, 1, tzinfo=UTC)
 
     next_updated_on = datetime(2026, 3, 2, tzinfo=UTC)
     monkeypatch.setattr(crud.record, "get_datetime_utc", lambda: next_updated_on)
@@ -628,7 +628,7 @@ async def test_record_pb_updated_on_changes_when_record_uuid_changes(
 
     assert refreshed_pb.record_uuid == second_record.uuid
     assert refreshed_pb.record_uuid != first_record.uuid
-    assert refreshed_pb.updated_on == next_updated_on
+    assert refreshed_pb.updated_at == next_updated_on
 
 
 async def test_upsert_record_sets_estimated_points_for_new_pb_rows(
@@ -854,6 +854,21 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
 
     assert "UNIQUE INDEX ux_record_pb_wr_scope_course_type" in record_pb_index[0]
     assert "WHERE (points = 1000)" in record_pb_index[0]
+    record_pb_updated_at_index = (
+        await db.exec(
+            text(
+                """
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = 'record_pb'
+                  AND indexname = 'ix_record_pb_updated_at_desc'
+                """
+            )
+        )
+    ).one()
+    assert "INDEX ix_record_pb_updated_at_desc" in record_pb_updated_at_index[0]
+    assert "updated_at DESC" in record_pb_updated_at_index[0]
     assert (
         await db.exec(text("SELECT to_regclass('cache.map_wrs')"))
     ).one() == (None,)
