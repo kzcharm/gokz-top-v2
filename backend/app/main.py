@@ -16,23 +16,19 @@ from app.api.main import api_router
 from app.api.v0.main import router as v0_router
 from app.core.config import settings
 from app.core.logging import configure_app_logging
+from app.services.daily_rank_pipeline_task import (
+    run_daily_rank_pipeline_runner_in_app,
+    stop_daily_rank_pipeline_runner,
+)
 from app.services.globalapi_sync import (
     run_globalapi_sync_runner_in_app,
     stop_globalapi_sync_runner,
-)
-from app.services.leaderboard_player_task import (
-    run_leaderboard_player_runner_in_app,
-    stop_leaderboard_player_runner,
 )
 from app.services.record_events import (
     listen_for_recent_record_updates,
 )
 from app.services.record_events import (
     stop_listener as stop_record_listener,
-)
-from app.services.record_pb_points_task import (
-    run_record_pb_points_runner_in_app,
-    stop_record_pb_points_runner,
 )
 from app.services.server_events import listen_for_server_updates, stop_listener
 from app.services.server_status import (
@@ -59,17 +55,14 @@ async def lifespan(_: FastAPI):
     recent_record_listener_task = asyncio.create_task(listen_for_recent_record_updates())
     collector_task: asyncio.Task[None] | None = None
     globalapi_sync_task: asyncio.Task[None] | None = None
-    leaderboard_player_task: asyncio.Task[None] | None = None
-    record_pb_points_task: asyncio.Task[None] | None = None
+    daily_rank_pipeline_task: asyncio.Task[None] | None = None
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
         collector_task = asyncio.create_task(run_server_status_collector_in_app())
     if settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP:
         globalapi_sync_task = asyncio.create_task(run_globalapi_sync_runner_in_app())
-    if settings.RUN_RECORD_PB_POINTS_TASK_RUNNER_IN_APP:
-        record_pb_points_task = asyncio.create_task(run_record_pb_points_runner_in_app())
-    if settings.RUN_LEADERBOARD_PLAYER_TASK_RUNNER_IN_APP:
-        leaderboard_player_task = asyncio.create_task(
-            run_leaderboard_player_runner_in_app()
+    if settings.RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP:
+        daily_rank_pipeline_task = asyncio.create_task(
+            run_daily_rank_pipeline_runner_in_app()
         )
     try:
         yield
@@ -78,8 +71,7 @@ async def lifespan(_: FastAPI):
         await stop_record_listener(recent_record_listener_task)
         await stop_collector(collector_task)
         await stop_globalapi_sync_runner(globalapi_sync_task)
-        await stop_record_pb_points_runner(record_pb_points_task)
-        await stop_leaderboard_player_runner(leaderboard_player_task)
+        await stop_daily_rank_pipeline_runner(daily_rank_pipeline_task)
 
 
 app = FastAPI(

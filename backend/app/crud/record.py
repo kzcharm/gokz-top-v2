@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import and_, bindparam, case, func, text, true, update
+from sqlalchemy import and_, bindparam, case, exists, func, text, true, update
 from sqlalchemy.orm import aliased
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -22,6 +22,7 @@ from app.models import (
     RecentRecordModePublic,
     RecentRecordPublic,
     RecentRecordServerPublic,
+    Ban,
     Record,
     RecordCompatPublicV0,
     RecordListQuery,
@@ -48,7 +49,7 @@ from app.services.course_points import (
 )
 
 from .ban import not_active_ban_exists_clause
-from .player import get_player_display_name, to_player_ref_public
+from .player import to_player_ref_public
 from .record_filter import load_scoped_course_tiers
 
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
@@ -75,6 +76,25 @@ def _record_tie_breakers() -> tuple:
     return (
         col(Record.id).asc().nullslast(),
         col(Record.uuid).asc(),
+    )
+
+
+def _not_active_ban_exists_split_clause(*, steamid64_column):
+    # Split permanent and temporary bans so Postgres can use the ban index
+    # selectively instead of hashing the full active-ban set.
+    return and_(
+        ~exists(
+            select(Ban.id).where(
+                col(Ban.steamid64) == steamid64_column,
+                col(Ban.expires_on).is_(None),
+            )
+        ),
+        ~exists(
+            select(Ban.id).where(
+                col(Ban.steamid64) == steamid64_column,
+                col(Ban.expires_on) >= func.now(),
+            )
+        ),
     )
 
 
@@ -578,6 +598,7 @@ async def rebuild_record_pb_points_bucket(
     scope_id: int,
     record_type: RecordType,
     tier: int | None = None,
+    touch_updated_on: bool = True,
 ) -> int:
     rows = (
         await session.exec(
@@ -589,6 +610,7 @@ async def rebuild_record_pb_points_bucket(
                 RecordPb.record_uuid,
                 RecordPb.time_ms,
                 RecordPb.points,
+                RecordPb.updated_on,
             ).where(
                 col(RecordPb.scope) == scope_id,
                 col(RecordPb.course_id) == course_id,
@@ -620,12 +642,12 @@ async def rebuild_record_pb_points_bucket(
                 record_uuid,
                 time_ms,
                 _current_points,
+                _row_updated_on,
             ) in rows
         ],
         tier=resolved_tier,
         is_pro_only=record_type.is_pro,
     )
-    updated_on = get_datetime_utc()
     updates = _ordered_point_updates(
         [
             (
@@ -635,7 +657,9 @@ async def rebuild_record_pb_points_bucket(
                     steamid64=steamid64,
                     record_type=RecordType.PRO if row_record_type else RecordType.NUB,
                     points=points_by_uuid[record_uuid],
-                    updated_on=updated_on,
+                    updated_on=(
+                        get_datetime_utc() if touch_updated_on else row_updated_on
+                    ),
                 ),
                 current_points,
                 points_by_uuid[record_uuid],
@@ -648,6 +672,7 @@ async def rebuild_record_pb_points_bucket(
                 record_uuid,
                 _time_ms,
                 current_points,
+                row_updated_on,
             ) in rows
             if current_points != points_by_uuid[record_uuid]
         ]
@@ -664,6 +689,7 @@ async def rebuild_record_pb_points_for_course(
     course_id: int,
     scope_ids: Sequence[int] | None = None,
     tiers_by_scope: Mapping[int, int] | None = None,
+    touch_updated_on: bool = True,
 ) -> int:
     statement = (
         select(
@@ -674,6 +700,7 @@ async def rebuild_record_pb_points_for_course(
             RecordPb.record_uuid,
             RecordPb.time_ms,
             RecordPb.points,
+            RecordPb.updated_on,
         )
         .where(col(RecordPb.course_id) == course_id)
         .order_by(
@@ -693,7 +720,7 @@ async def rebuild_record_pb_points_for_course(
     normalized_tiers = dict(tiers_by_scope or {})
     grouped_rows: dict[
         tuple[int, bool],
-        list[tuple[int, int, int, bool, uuid.UUID, int, int]],
+        list[tuple[int, int, int, bool, uuid.UUID, int, int, datetime]],
     ] = defaultdict(list)
     for row in rows:
         grouped_rows[(row[0], row[3])].append(row)
@@ -716,7 +743,6 @@ async def rebuild_record_pb_points_for_course(
                 )
             )[course_key]
 
-    updated_on = get_datetime_utc()
     raw_updates: list[tuple[dict[str, object], int, int]] = []
     for (scope_id, is_pro_only), bucket_rows in grouped_rows.items():
         points_by_uuid = calculate_bucket_points(
@@ -730,6 +756,7 @@ async def rebuild_record_pb_points_for_course(
                     record_uuid,
                     time_ms,
                     _current_points,
+                    _row_updated_on,
                 ) in bucket_rows
             ],
             tier=normalized_tiers[scope_id],
@@ -743,7 +770,9 @@ async def rebuild_record_pb_points_for_course(
                     steamid64=steamid64,
                     record_type=RecordType.PRO if row_record_type else RecordType.NUB,
                     points=points_by_uuid[record_uuid],
-                    updated_on=updated_on,
+                    updated_on=(
+                        get_datetime_utc() if touch_updated_on else row_updated_on
+                    ),
                 ),
                 current_points,
                 points_by_uuid[record_uuid],
@@ -756,6 +785,7 @@ async def rebuild_record_pb_points_for_course(
                 record_uuid,
                 _time_ms,
                 current_points,
+                row_updated_on,
             ) in bucket_rows
             if current_points != points_by_uuid[record_uuid]
         )
@@ -1888,23 +1918,24 @@ async def read_record_ranks(
     target_statement = (
         await session.exec(
             select(
-                Record.uuid.label("record_uuid"),
+                RecordPb.record_uuid.label("record_uuid"),
                 RecordPb.course_id.label("course_id"),
             )
-            .select_from(Record)
-            .join(RecordPb, col(RecordPb.record_uuid) == col(Record.uuid))
+            .select_from(RecordPb)
             .where(
-                col(Record.uuid).in_(unique_record_uuids),
+                col(RecordPb.record_uuid).in_(unique_record_uuids),
                 col(RecordPb.scope) == scope_id,
                 col(RecordPb.is_pro_only).is_(is_pro_only),
-                not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
+                _not_active_ban_exists_split_clause(
+                    steamid64_column=col(RecordPb.steamid64)
+                ),
             )
         )
     )
     if country is not None:
         target_statement = target_statement.join(
             Player,
-            col(Player.steamid64) == col(Record.steamid64),
+            col(Player.steamid64) == col(RecordPb.steamid64),
         ).where(col(Player.country) == country)
 
     target_rows = target_statement.all()
@@ -1921,8 +1952,7 @@ async def read_record_ranks(
                 partition_by=RecordPb.course_id,
                 order_by=(
                     RecordPb.time_ms.asc(),
-                    col(Record.id).asc().nullslast(),
-                    col(Record.uuid).asc(),
+                    RecordPb.record_uuid.asc(),
                 ),
             )
             .label("rank"),
@@ -1931,18 +1961,19 @@ async def read_record_ranks(
             .label("total_count"),
         )
         .select_from(RecordPb)
-        .join(Record, col(Record.uuid) == col(RecordPb.record_uuid))
         .where(
             col(RecordPb.scope) == scope_id,
             col(RecordPb.is_pro_only).is_(is_pro_only),
             col(RecordPb.course_id).in_(target_course_ids),
-            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
+            _not_active_ban_exists_split_clause(
+                steamid64_column=col(RecordPb.steamid64)
+            ),
         )
     )
     if country is not None:
         ranked_statement = ranked_statement.join(
             Player,
-            col(Player.steamid64) == col(Record.steamid64),
+            col(Player.steamid64) == col(RecordPb.steamid64),
         ).where(col(Player.country) == country)
 
     ranked_rows = (await session.exec(ranked_statement)).all()
