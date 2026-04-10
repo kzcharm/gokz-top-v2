@@ -29,7 +29,6 @@ from app.models import (
     RecordPb,
     RecordScope,
     RecordScopeId,
-    RecordType,
     scope_mode_ids,
     scope_to_id,
 )
@@ -38,7 +37,7 @@ from app.models.utils import get_datetime_utc
 
 from .ban import not_active_ban_exists_split_clause
 
-ELIGIBLE_UNIQUE_MAP_FINISHES = 20
+ELIGIBLE_UNIQUE_MAP_FINISHES = 10
 DEFAULT_LOOKBACK = timedelta(hours=24)
 
 
@@ -85,6 +84,28 @@ def _not_banned_clause() -> ColumnElement[bool]:
     )
 
 
+async def _player_has_active_ban(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+) -> bool:
+    return bool(
+        (
+            await session.exec(
+                select(func.count())
+                .select_from(Ban)
+                .where(
+                    col(Ban.steamid64) == steamid64,
+                    or_(
+                        col(Ban.expires_on).is_(None),
+                        col(Ban.expires_on) >= get_datetime_utc(),
+                    ),
+                )
+            )
+        ).one()
+    )
+
+
 def _country_codes_for_geography(
     *,
     country: str | None,
@@ -104,12 +125,12 @@ def _leaderboard_order_expressions(
     if sort_by == "rating":
         return (
             primary_expression,
-            getattr(columns, "steamid64").asc(),
+            columns.steamid64.asc(),
         )
     return (
         primary_expression,
-        getattr(columns, "rating").desc(),
-        getattr(columns, "steamid64").asc(),
+        columns.rating.desc(),
+        columns.steamid64.asc(),
     )
 
 
@@ -323,13 +344,27 @@ async def rebuild_leaderboard_player(
     scope_id: int,
     steamid64: int,
 ) -> Literal["created", "updated", "deleted", "noop"]:
+    existing = await session.get(LeaderboardPlayer, (scope_id, steamid64))
+    if await _player_has_active_ban(session=session, steamid64=steamid64):
+        if existing is None:
+            return "noop"
+        await session.delete(existing)
+        return "deleted"
+
     rows = await _load_player_pb_rows(
         session=session,
         scope_id=scope_id,
         steamid64=steamid64,
     )
-    existing = await session.get(LeaderboardPlayer, (scope_id, steamid64))
     if not rows:
+        if existing is None:
+            return "noop"
+        await session.delete(existing)
+        return "deleted"
+
+    if len({course_id for course_id, _map_id, _is_pro_only, _points in rows}) < (
+        ELIGIBLE_UNIQUE_MAP_FINISHES
+    ):
         if existing is None:
             return "noop"
         await session.delete(existing)

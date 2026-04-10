@@ -236,7 +236,7 @@ async def _seed_leaderboard_data(
             teleports=1,
             time_seconds=f"{20 + index}.000",
         )
-        if index < 19:
+        if index < 9:
             await _create_record(
                 db,
                 record_id=2_120_500_000 + index,
@@ -332,11 +332,10 @@ async def test_read_player_leaderboard_uses_stable_scope_membership_across_sorts
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] == 3
+    assert payload["count"] == 2
     assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
         str(players["alpha"]),
         str(players["beta"]),
-        str(players["delta"]),
     ]
 
 
@@ -363,11 +362,10 @@ async def test_read_player_leaderboard_default_sort_and_rank(
     assert payload["data"][1]["player"]["display_name"] == "Beta"
     assert payload["data"][1]["rank"] == 2
     assert payload["data"][1]["rating"] == pytest.approx(_public_rating(beta_row.rating))
-    assert payload["data"][2]["player"]["steamid64"] == str(players["delta"])
-    assert payload["data"][2]["rank"] == 3
+    assert len(payload["data"]) == 2
 
 
-async def test_read_player_leaderboard_points_sort_includes_below_threshold_player(
+async def test_read_player_leaderboard_points_sort_excludes_below_threshold_player(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -380,14 +378,9 @@ async def test_read_player_leaderboard_points_sort_includes_below_threshold_play
 
     assert response.status_code == 200
     payload = response.json()
-    delta_entry = next(
-        entry
-        for entry in payload["data"]
-        if entry["player"]["steamid64"] == str(players["delta"])
-    )
-    assert delta_entry["rating"] is None
-    assert delta_entry["rating_easy"] is None
-    assert delta_entry["rating_hard"] is None
+    assert str(players["delta"]) not in {
+        entry["player"]["steamid64"] for entry in payload["data"]
+    }
 
 
 async def test_read_player_leaderboard_scope_and_pagination(
@@ -412,7 +405,7 @@ async def test_read_player_leaderboard_scope_and_pagination(
     paged_payload = paged_response.json()
     assert skz_payload["count"] == 1
     assert skz_payload["data"][0]["player"]["steamid64"] == str(players["gamma"])
-    assert paged_payload["count"] == 3
+    assert paged_payload["count"] == 2
     assert len(paged_payload["data"]) == 1
     assert paged_payload["data"][0]["player"]["steamid64"] == str(players["beta"])
 
@@ -431,7 +424,7 @@ async def test_read_player_leaderboard_can_skip_count(
     assert response.status_code == 200
     payload = response.json()
     assert payload["count"] == -1
-    assert len(payload["data"]) == 3
+    assert len(payload["data"]) == 2
 
 
 async def test_read_player_leaderboard_filters_by_country(
@@ -466,11 +459,10 @@ async def test_read_player_leaderboard_filters_by_region(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] == 3
+    assert payload["count"] == 2
     assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
         str(players["alpha"]),
         str(players["beta"]),
-        str(players["delta"]),
     ]
 
 
@@ -546,7 +538,7 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert payload["rating_hard"] == pytest.approx(_public_rating(alpha_row.rating_hard))
 
 
-async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligible(
+async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_ineligible(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -564,10 +556,11 @@ async def test_read_player_leaderboard_rank_returns_unranked_rating_when_ineligi
     assert payload["rank_regional"] is None
     assert payload["region"] == "EU"
     assert "rating_rank" not in payload
+    assert payload["points"] == 0
     assert payload["rating"] is None
     assert payload["rating_easy"] is None
     assert payload["rating_hard"] is None
-    assert payload["points"] > 0
+    assert payload["unique_map_finishes"] == 0
 
 
 async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missing(
@@ -617,6 +610,7 @@ async def test_read_player_leaderboard_excludes_actively_banned_players(
     steamids = [entry["player"]["steamid64"] for entry in response.json()["data"]]
     assert str(players["alpha"]) not in steamids
     assert str(players["beta"]) in steamids
+    assert len(steamids) == 1
 
     rank_response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players/alpha",

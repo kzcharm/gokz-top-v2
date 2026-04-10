@@ -42,13 +42,14 @@ Build the long-term platform for the GOKZ ecosystem:
 
 ### 5.1 Competitive Data and Rankings
 - Player ratings, points, and rankings with scope-aware calculations.
-- Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and stable scope-wide membership semantics aligned with `gokz-top-v1`.
+- Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and eligibility-based membership semantics.
 - Global and filtered leaderboards (scope, geography, and period when applicable).
 - Rank lookup support for profile and map contexts.
 - Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched Steam-backed player profiles.
 - Current leaderboard eligibility rule:
-  - rating fields only become non-zero after 20 unique validated main-map finishes in the selected scope
-  - leaderboard membership is scope-wide and no longer depends on the active sort metric being positive
+  - players only remain in `leaderboard_player` after 10 unique validated main-map finishes in the selected scope
+  - actively banned players are removed from `leaderboard_player`
+  - leaderboard membership therefore consists only of eligible, unbanned rows in the selected scope
   - exact leaderboard counts are shared across sort modes for the same scope/geography slice, with scope-wide no-geo totals served from a cached count read model
 
 Scope model:
