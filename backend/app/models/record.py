@@ -8,7 +8,6 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     DateTime,
-    Enum as SqlEnum,
     Index,
     Numeric,
     SmallInteger,
@@ -326,34 +325,14 @@ class RecordPb(RecordPbBase, table=True):
             "scope",
             "is_pro_only",
         ),
-    )
-
-
-class MapWrCache(SQLModel, table=True):
-    __tablename__ = "map_wrs"
-    __table_args__ = (
-        Index("ix_cache_map_wrs_map_scope", "map_id", "scope"),
-        Index("ix_cache_map_wrs_record_uuid", "record_uuid"),
-        {"schema": "cache"},
-    )
-
-    map_id: int = Field(
-        foreign_key="map.id",
-        primary_key=True,
-        ondelete="CASCADE",
-    )
-    scope: int = Field(sa_type=SmallInteger, primary_key=True)
-    type: RecordType = Field(
-        sa_type=SqlEnum(RecordType, name="record_type"),
-        primary_key=True,
-    )
-    record_uuid: uuid.UUID = Field(
-        foreign_key="record.uuid",
-        nullable=False,
-    )
-    updated_at: datetime = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        Index(
+            "ux_record_pb_wr_scope_course_type",
+            "scope",
+            "course_id",
+            "is_pro_only",
+            unique=True,
+            postgresql_where=text("points = 1000"),
+        ),
     )
 
 

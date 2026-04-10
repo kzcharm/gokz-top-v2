@@ -13,11 +13,13 @@ from app.core.config import settings
 from app.models import (
     Map,
     MapCourse,
-    Player,
     MapReview,
     MapReviewSummaryCache,
     MapSyncResult,
+    Player,
     RecordFilter,
+    RecordScope,
+    RecordType,
     ServerGlobalapi,
 )
 from app.models.utils import get_datetime_utc
@@ -303,6 +305,157 @@ async def test_read_map_wrs_v1_returns_nub_and_pro_rows(
     assert payload[0]["scope"] == "OVR"
     assert payload[1]["player"]["display_name"] == "Pro Winner"
     assert payload[1]["mode_id"] == 201
+
+
+@pytest.mark.asyncio
+async def test_read_map_wrs_v1_supports_map_name_scope_type_and_updates_without_cache(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930212)
+    other_map = await _create_map(db, id=930213)
+    server_id = 930312
+    db.add(
+        ServerGlobalapi(
+            id=server_id,
+            port=27015,
+            ip="203.0.113.89",
+            name="WR Update Server",
+            owner_steamid64=0,
+            approval_status=1,
+            approved_by_steamid64=0,
+        )
+    )
+    await db.commit()
+
+    kzt_player = random_steamid64()
+    better_kzt_player = random_steamid64()
+    skz_player = random_steamid64()
+    await _create_player(db, steamid64=kzt_player, name="KZT Winner")
+    await _create_player(db, steamid64=better_kzt_player, name="Better KZT Winner")
+    await _create_player(db, steamid64=skz_player, name="SKZ Winner")
+
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_120,
+        record_uuid=None,
+        steamid64=kzt_player,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_obj.id,
+        stage=0,
+        time_seconds=Decimal("12.000"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=kzt_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_121,
+        record_uuid=None,
+        steamid64=skz_player,
+        server_id=server_id,
+        mode_id=201,
+        map_id=map_obj.id,
+        stage=0,
+        time_seconds=Decimal("11.500"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=skz_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_122,
+        record_uuid=None,
+        steamid64=kzt_player,
+        server_id=server_id,
+        mode_id=200,
+        map_id=other_map.id,
+        stage=0,
+        time_seconds=Decimal("15.000"),
+        teleports=0,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=kzt_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    by_name_response = await client.get(
+        f"{settings.API_V1_STR}/maps/wrs",
+        params={"map_name": map_obj.name, "scope": RecordScope.KZT.value},
+    )
+    assert by_name_response.status_code == 200
+    by_name_payload = by_name_response.json()
+    assert len(by_name_payload) == 1
+    assert by_name_payload[0]["player"]["display_name"] == "KZT Winner"
+    assert by_name_payload[0]["scope"] == RecordScope.KZT.value
+
+    typed_response = await client.get(
+        f"{settings.API_V1_STR}/maps/wrs",
+        params={
+            "map_name": other_map.name,
+            "scope": RecordScope.KZT.value,
+            "type": RecordType.PRO.value,
+        },
+    )
+    assert typed_response.status_code == 200
+    typed_payload = typed_response.json()
+    assert len(typed_payload) == 1
+    assert typed_payload[0]["type"] == RecordType.PRO.value
+    assert typed_payload[0]["map_id"] == other_map.id
+
+    unknown_name_response = await client.get(
+        f"{settings.API_V1_STR}/maps/wrs",
+        params={"map_name": "kz_missing_map_wr"},
+    )
+    assert unknown_name_response.status_code == 200
+    assert unknown_name_response.json() == []
+
+    invalid_filter_response = await client.get(
+        f"{settings.API_V1_STR}/maps/wrs",
+        params={"map_id": map_obj.id, "map_name": map_obj.name},
+    )
+    assert invalid_filter_response.status_code == 422
+
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_123,
+        record_uuid=None,
+        steamid64=better_kzt_player,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_obj.id,
+        stage=0,
+        time_seconds=Decimal("11.000"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2099, 1, 2, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 2, tzinfo=UTC),
+        updated_by=better_kzt_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    updated_response = await client.get(
+        f"{settings.API_V1_STR}/maps/wrs",
+        params={"map_name": map_obj.name, "scope": RecordScope.KZT.value},
+    )
+    assert updated_response.status_code == 200
+    updated_payload = updated_response.json()
+    assert len(updated_payload) == 1
+    assert updated_payload[0]["player"]["display_name"] == "Better KZT Winner"
 
 
 @pytest.mark.asyncio

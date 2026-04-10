@@ -76,7 +76,6 @@ from .player_pinned_record import (
 from .player_profile_view import PlayerProfileView
 from .record import (
     MapCourse,
-    MapWrCache,
     MapWrPublic,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
@@ -179,7 +178,6 @@ __all__ = [
     "MapBase",
     "MapCompatPublicV0",
     "MapCourse",
-    "MapWrCache",
     "MapWrPublic",
     "MapPublic",
     "MapRefPublic",

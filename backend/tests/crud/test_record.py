@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -9,7 +10,6 @@ from app import crud
 from app.models import (
     Map,
     MapCourse,
-    MapWrCache,
     Player,
     Record,
     RecordFilter,
@@ -691,7 +691,7 @@ async def test_rebuild_record_pbs_for_course_keeps_bonus_points_for_validated_ma
     assert points_by_uuid[bonus_record.uuid] == 1000
 
 
-async def test_rebuild_map_wrs_uses_record_pb_main_course_rows(
+async def test_read_map_wrs_uses_record_pb_main_course_rows(
     db: AsyncSession,
 ) -> None:
     nub_player = random_steamid64()
@@ -724,17 +724,12 @@ async def test_rebuild_map_wrs_uses_record_pb_main_course_rows(
         teleports=0,
     )
 
-    await crud.rebuild_map_wrs(session=db)
-    await db.commit()
-
-    cached_rows = (
-        await db.exec(
-            select(MapWrCache)
-            .where(MapWrCache.map_id == 981024, MapWrCache.scope == 0)
-            .order_by(MapWrCache.type.asc())
-        )
-    ).all()
-    assert [(row.type, row.record_uuid) for row in cached_rows] == [
+    wr_rows = await crud.read_map_wrs(
+        session=db,
+        map_id=981024,
+        scope=RecordScope.OVR,
+    )
+    assert [(row.type, row.record_uuid) for row in wr_rows] == [
         (RecordType.NUB, nub_record.uuid),
         (RecordType.PRO, pro_record.uuid),
     ]
@@ -752,9 +747,34 @@ async def test_rebuild_map_wrs_uses_record_pb_main_course_rows(
     )
     await db.commit()
 
-    await crud.rebuild_map_wrs(session=db)
-    await db.commit()
-
     assert (
-        await db.exec(select(MapWrCache).where(MapWrCache.map_id == 981024))
-    ).all() == []
+        await crud.read_map_wrs(
+            session=db,
+            map_id=981024,
+            scope=RecordScope.OVR,
+        )
+    ) == []
+
+
+async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
+    db: AsyncSession,
+) -> None:
+    record_pb_index = (
+        await db.exec(
+            text(
+                """
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = 'record_pb'
+                  AND indexname = 'ux_record_pb_wr_scope_course_type'
+                """
+            )
+        )
+    ).one()
+
+    assert "UNIQUE INDEX ux_record_pb_wr_scope_course_type" in record_pb_index[0]
+    assert "WHERE (points = 1000)" in record_pb_index[0]
+    assert (
+        await db.exec(text("SELECT to_regclass('cache.map_wrs')"))
+    ).one() == (None,)
