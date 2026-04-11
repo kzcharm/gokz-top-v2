@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Pin, PinOff } from "lucide-react"
+import { ChevronDownIcon, Pin, PinOff } from "lucide-react"
 import {
   startTransition,
   useDeferredValue,
@@ -27,17 +27,46 @@ import {
 import { normalizeTierValue } from "@/components/Servers/tier"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
+import { cn } from "@/lib/utils"
 import {
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
 } from "./profile-utils"
 
 const PROFILE_RECORDS_PAGE_SIZE = 50
+const POINTS_RANGE_MIN = 0
+const POINTS_RANGE_MAX = 1000
+const POINTS_RANGE_PRESETS = [
+  { label: "0 ~ 799", min: 0, max: 799 },
+  { label: "800 ~ 899", min: 800, max: 899 },
+  { label: "900 ~ 1000", min: 900, max: 1000 },
+] as const
+
+function parsePointsBound(value: string, fallback: number) {
+  const trimmedValue = value.trim()
+  if (trimmedValue.length === 0) {
+    return fallback
+  }
+
+  const parsedValue = Number(trimmedValue)
+  if (!Number.isFinite(parsedValue)) {
+    return fallback
+  }
+
+  return Math.max(
+    POINTS_RANGE_MIN,
+    Math.min(POINTS_RANGE_MAX, Math.round(parsedValue)),
+  )
+}
 
 function ProfileRecordsTableSkeleton() {
   return (
@@ -52,8 +81,164 @@ function ProfileRecordsTableSkeleton() {
   )
 }
 
+function PointsRangeFilter({
+  minPoints,
+  maxPoints,
+  onMinPointsChange,
+  onMaxPointsChange,
+}: {
+  minPoints: string
+  maxPoints: string
+  onMinPointsChange: (value: string) => void
+  onMaxPointsChange: (value: string) => void
+}) {
+  const effectiveMinPoints = parsePointsBound(minPoints, POINTS_RANGE_MIN)
+  const effectiveMaxPoints = parsePointsBound(maxPoints, POINTS_RANGE_MAX)
+  const trimmedMinPoints = minPoints.trim()
+  const trimmedMaxPoints = maxPoints.trim()
+  const hasActiveRange =
+    trimmedMinPoints.length > 0 || trimmedMaxPoints.length > 0
+  const rangeLabel = hasActiveRange
+    ? `${effectiveMinPoints} ~ ${effectiveMaxPoints}`
+    : null
+  const updateRange = (nextMin: number, nextMax: number) => {
+    const clampedMin = Math.max(
+      POINTS_RANGE_MIN,
+      Math.min(POINTS_RANGE_MAX, Math.round(nextMin)),
+    )
+    const clampedMax = Math.max(
+      clampedMin,
+      Math.min(POINTS_RANGE_MAX, Math.round(nextMax)),
+    )
+
+    onMinPointsChange(
+      clampedMin === POINTS_RANGE_MIN ? "" : String(clampedMin),
+    )
+    onMaxPointsChange(
+      clampedMax === POINTS_RANGE_MAX ? "" : String(clampedMax),
+    )
+  }
+  const triggerClassName =
+    "flex h-8 min-w-11 items-center justify-center rounded-md border border-border/70 bg-background/80 px-1.5 text-[11px] font-medium shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+  const sliderClassName =
+    "h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Filter by points range"
+          className={cn(
+            triggerClassName,
+            hasActiveRange ? "w-[6.75rem]" : "w-11",
+            hasActiveRange && "border-primary/40 text-foreground",
+          )}
+        >
+          <span className="flex items-center justify-center gap-1">
+            {rangeLabel ? (
+              <span className="truncate text-[10px] font-semibold tabular-nums">
+                {rangeLabel}
+              </span>
+            ) : null}
+            <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-52 space-y-3 p-3"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+        }}
+      >
+        <div
+          className="space-y-3"
+          onKeyDown={(event) => {
+            event.stopPropagation()
+          }}
+        >
+          <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <span>Points</span>
+            <span className="font-mono text-foreground">
+              {effectiveMinPoints} ~ {effectiveMaxPoints}
+            </span>
+          </div>
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <span>Min</span>
+                <span className="font-mono text-foreground">{effectiveMinPoints}</span>
+              </div>
+              <input
+                type="range"
+                min={POINTS_RANGE_MIN}
+                max={effectiveMaxPoints}
+                step={1}
+                value={effectiveMinPoints}
+                onChange={(event) => {
+                  updateRange(Number(event.target.value), effectiveMaxPoints)
+                }}
+                className={sliderClassName}
+                aria-label="Minimum points"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <span>Max</span>
+                <span className="font-mono text-foreground">{effectiveMaxPoints}</span>
+              </div>
+              <input
+                type="range"
+                min={effectiveMinPoints}
+                max={POINTS_RANGE_MAX}
+                step={1}
+                value={effectiveMaxPoints}
+                onChange={(event) => {
+                  updateRange(effectiveMinPoints, Number(event.target.value))
+                }}
+                className={sliderClassName}
+                aria-label="Maximum points"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {POINTS_RANGE_PRESETS.map((preset) => (
+              <Button
+                key={preset.label}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[10px] font-semibold tabular-nums"
+                onClick={() => {
+                  updateRange(preset.min, preset.max)
+                }}
+              >
+                {preset.label}
+              </Button>
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[10px]"
+              onClick={() => {
+                onMinPointsChange("")
+                onMaxPointsChange("")
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function ProfileRecordsTab({
   steamid64,
+  isProOnly,
   canManagePinnedRecords,
   pinnedRecordKeys,
   pinnedRecordsMutating,
@@ -61,6 +246,7 @@ export function ProfileRecordsTab({
   onUnpinRecord,
 }: {
   steamid64: string
+  isProOnly: boolean
   canManagePinnedRecords: boolean
   pinnedRecordKeys: Set<string>
   pinnedRecordsMutating: boolean
@@ -68,10 +254,10 @@ export function ProfileRecordsTab({
   onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
 }) {
   const { scope } = useScope()
-  const [isProOnly, setIsProOnly] = useState(false)
   const [mapSearch, setMapSearch] = useState("")
   const [selectedMode, setSelectedMode] = useState<ModeSelectorValue>("all")
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
+  const [minPoints, setMinPoints] = useState("")
   const [maxPoints, setMaxPoints] = useState("")
   const [serverSearch, setServerSearch] = useState("")
   const [sort, setSort] = useState<PbRecordsSortState>({
@@ -96,6 +282,7 @@ export function ProfileRecordsTab({
     const normalizedServerSearch = deferredServerSearch
       .trim()
       .toLocaleLowerCase()
+    const parsedMinPoints = minPoints.trim() === "" ? null : Number(minPoints)
     const parsedMaxPoints = maxPoints.trim() === "" ? null : Number(maxPoints)
 
     const filteredRecords = (recordsQuery.data ?? []).filter((record) => {
@@ -127,6 +314,12 @@ export function ProfileRecordsTab({
         }
       }
 
+      if (parsedMinPoints !== null && Number.isFinite(parsedMinPoints)) {
+        if (record.points < parsedMinPoints) {
+          return false
+        }
+      }
+
       if (parsedMaxPoints !== null && Number.isFinite(parsedMaxPoints)) {
         if (record.points > parsedMaxPoints) {
           return false
@@ -140,6 +333,7 @@ export function ProfileRecordsTab({
   }, [
     deferredMapSearch,
     deferredServerSearch,
+    minPoints,
     maxPoints,
     recordsQuery.data,
     selectedMode,
@@ -208,6 +402,7 @@ export function ProfileRecordsTab({
     deferredServerSearch.trim().length > 0 ||
     selectedMode !== "all" ||
     selectedTier !== "all" ||
+    minPoints.trim().length > 0 ||
     maxPoints.trim().length > 0
 
   const emptyMessage = hasActiveClientFilters
@@ -215,9 +410,6 @@ export function ProfileRecordsTab({
     : isProOnly
       ? "No stage 0 pro records found for this player in the selected scope."
       : "No stage 0 records found for this player in the selected scope."
-
-  const pointInputClassName =
-    "h-8 min-w-0 rounded-md border-border/70 bg-background/80 text-xs font-normal"
   const recordType = isProOnly ? "PRO" : "NUB"
   const getRowContextMenu = (record: RecordPublic) => {
     if (!canManagePinnedRecords) {
@@ -303,28 +495,12 @@ export function ProfileRecordsTab({
                   ariaLabel="Filter by tier"
                 />
               ),
-              tps: (
-                <Label
-                  htmlFor="profile-records-pro-only"
-                  className="flex h-8 items-center justify-start gap-2 rounded-md border border-border/70 bg-background/80 px-2 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
-                >
-                  <Switch
-                    id="profile-records-pro-only"
-                    checked={isProOnly}
-                    onCheckedChange={setIsProOnly}
-                    className="data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
-                  />
-                  <span>Pro</span>
-                </Label>
-              ),
               points: (
-                <Input
-                  aria-label="Maximum points"
-                  value={maxPoints}
-                  onChange={(event) => setMaxPoints(event.target.value)}
-                  placeholder="Max"
-                  inputMode="decimal"
-                  className={`${pointInputClassName} w-[4.25rem]`}
+                <PointsRangeFilter
+                  minPoints={minPoints}
+                  maxPoints={maxPoints}
+                  onMinPointsChange={setMinPoints}
+                  onMaxPointsChange={setMaxPoints}
                 />
               ),
               server: (
