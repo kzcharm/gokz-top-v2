@@ -161,6 +161,7 @@ async def resolve_player_pinned_records_public(
         records = await get_pb_record_publics(
             session,
             map_id=pinned_record.map_id,
+            map_name=None,
             stage=0,
             steamid64=player_steamid64,
             scope=pinned_record.scope,
