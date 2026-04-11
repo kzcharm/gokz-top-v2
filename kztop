@@ -1,0 +1,15 @@
+#!/bin/zsh
+set -euo pipefail
+
+SCRIPT_DIR="${0:A:h}"
+PYTHON_BIN="$SCRIPT_DIR/.venv/bin/python"
+BACKEND_DIR="$SCRIPT_DIR/backend"
+
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    echo "Missing repo Python environment at $PYTHON_BIN" >&2
+    echo "Run 'uv sync' from the repository root first." >&2
+    exit 1
+fi
+
+cd "$BACKEND_DIR"
+exec "$PYTHON_BIN" -m app.cli "$@"

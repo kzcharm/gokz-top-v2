@@ -25,6 +25,25 @@ Then you can activate the virtual environment with:
 $ source .venv/bin/activate
 ```
 
+Operational rebuild tasks are exposed through the repo-local `kztop` CLI:
+
+```console
+$ ./kztop build rating --scope KZT
+$ ./kztop build rating --full --scope KZT
+$ ./kztop build points --scope KZT --stage 0
+$ ./kztop build pb
+$ ./kztop build profile --steamid64 76561198000000000
+```
+
+The wrapper runs the backend CLI through the repository's own Python environment,
+so it does not need a global install or a shell `PATH` change.
+
+Inside the backend container, run the same commands from the checkout root:
+
+```console
+$ docker compose exec backend /app/kztop build rating --scope KZT
+```
+
 Make sure your editor is using the correct Python virtual environment, with the interpreter at `backend/.venv/bin/python`.
 
 Modify or add SQLModel models for data and SQL tables in `./backend/app/models/`, API endpoints in `./backend/app/api/`, CRUD (Create, Read, Update, Delete) utils in `./backend/app/crud/`.

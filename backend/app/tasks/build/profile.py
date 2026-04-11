@@ -1,8 +1,7 @@
-import argparse
-import asyncio
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import or_
 from sqlmodel import col, select
@@ -11,12 +10,17 @@ from app import crud
 from app.core.db import async_session_maker
 from app.models import LeaderboardPlayer, Player, RecordScope, scope_to_id
 
-logging.basicConfig(level=logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 STEAM_FETCH_BATCH_SIZE = 4
+__all__ = [
+    "RebuildPlayerProfileInterruptedError",
+    "RebuildPlayerProfileResult",
+    "load_target_steamid64s",
+    "rebuild_player_profiles",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,54 +37,14 @@ class RebuildPlayerProfileInterruptedError(Exception):
         self.result = result
 
 
-def _get_tqdm():
+def _get_tqdm() -> Any:
     try:
-        from tqdm import tqdm
+        from tqdm import tqdm  # type: ignore[import-untyped]
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Missing dependency 'tqdm'. Run `cd backend && uv sync` first."
         ) from exc
     return tqdm
-
-
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Rebuild player profile data from the Steam Web API. "
-            "Defaults to players missing avatar hashes."
-        ),
-    )
-    parser.add_argument(
-        "--steamid64",
-        action="append",
-        type=int,
-        dest="steamid64s",
-        help=(
-            "Optional player filter. Repeat to rebuild multiple players. "
-            "When omitted, defaults to players missing avatar hashes."
-        ),
-    )
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Process all existing players instead of only those missing avatar hashes.",
-    )
-    parser.add_argument(
-        "--leaderboard",
-        type=_parse_scope,
-        default=None,
-        help=(
-            "Optional leaderboard scope selector (OVR, KZT, SKZ, VNL). "
-            "Selects players by rating DESC instead of the default missing-avatar filter."
-        ),
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Optional limit on how many selected players to process.",
-    )
-    return parser
 
 
 def _dedupe_steamid64s(steamid64s: Sequence[int]) -> list[int]:
@@ -94,17 +58,6 @@ def _iter_batches[T](items: Sequence[T], *, batch_size: int) -> list[list[T]]:
         list(items[index : index + batch_size])
         for index in range(0, len(items), batch_size)
     ]
-
-
-def _parse_scope(raw_scope: str) -> RecordScope:
-    normalized_scope = raw_scope.strip().upper()
-    try:
-        return RecordScope[normalized_scope]
-    except KeyError as exc:
-        valid_scopes = ", ".join(scope.name for scope in RecordScope)
-        raise argparse.ArgumentTypeError(
-            f"Invalid leaderboard scope {raw_scope!r}. Expected one of: {valid_scopes}"
-        ) from exc
 
 
 async def load_target_steamid64s(
@@ -132,7 +85,7 @@ async def load_target_steamid64s(
         statement = select(Player.steamid64).order_by(col(Player.steamid64).asc())
     if leaderboard_scope is None and only_missing_avatar:
         statement = statement.where(
-            or_(Player.avatar_hash.is_(None), Player.avatar_hash == "")
+            or_(col(Player.avatar_hash).is_(None), col(Player.avatar_hash) == "")
         )
 
     async with async_session_maker() as session:
@@ -208,41 +161,9 @@ async def rebuild_player_profiles(
     finally:
         progress.close()
 
-    result = RebuildPlayerProfileResult(
+    return RebuildPlayerProfileResult(
         selected=len(target_steamid64s),
         created=created,
         updated=updated,
         skipped=skipped,
     )
-    return result
-
-
-async def _main_async(argv: list[str] | None = None) -> None:
-    args = _build_parser().parse_args(argv)
-    try:
-        await rebuild_player_profiles(
-            steamid64s=args.steamid64s,
-            only_missing_avatar=not args.all,
-            leaderboard_scope=args.leaderboard,
-            limit=args.limit,
-        )
-    except RebuildPlayerProfileInterruptedError as exc:
-        result = exc.result
-        processed = result.created + result.updated + result.skipped
-        print(
-            (
-                "\nInterrupted. "
-                f"Processed {processed}/{result.selected} players "
-                f"(created={result.created}, updated={result.updated}, skipped={result.skipped})."
-            ),
-            flush=True,
-        )
-        raise SystemExit(130) from exc
-
-
-def main(argv: list[str] | None = None) -> None:
-    asyncio.run(_main_async(argv))
-
-
-if __name__ == "__main__":
-    main()

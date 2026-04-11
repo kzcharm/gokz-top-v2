@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pytest
 
 from app.models import RecordScope
-from app.rebuild_rank_scope import rebuild_rank_scopes
+from app.tasks.build.rating import rebuild_ratings
 
 pytestmark = pytest.mark.asyncio
 
@@ -15,7 +15,7 @@ class _LeaderboardResult:
     updated: int
 
 
-async def test_rebuild_rank_scopes_runs_points_then_leaderboard_then_sound(
+async def test_rebuild_ratings_full_runs_points_then_leaderboard_then_sound(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[object] = []
@@ -32,19 +32,25 @@ async def test_rebuild_rank_scopes_runs_points_then_leaderboard_then_sound(
         calls.append("sound")
 
     monkeypatch.setattr(
-        "app.rebuild_rank_scope.rebuild_record_pb_points",
+        "app.tasks.build.rating.rebuild_record_pb_points",
         _fake_rebuild_record_pb_points,
     )
     monkeypatch.setattr(
-        "app.rebuild_rank_scope.rebuild_leaderboard_rows",
+        "app.tasks.build.rating.rebuild_leaderboard_rows",
         _fake_rebuild_leaderboard_rows,
     )
     monkeypatch.setattr(
-        "app.rebuild_rank_scope._play_completion_sound",
+        "app.tasks.build.rating._play_completion_sound",
         _fake_play_completion_sound,
     )
 
-    result = await rebuild_rank_scopes(scopes=[RecordScope.KZT, RecordScope.SKZ])
+    result = await rebuild_ratings(
+        scope_ids=[1, 2],
+        scopes=[RecordScope.KZT, RecordScope.SKZ],
+        steamid64s=None,
+        limit=None,
+        full=True,
+    )
 
     assert result.pb_points_updated == 123
     assert result.leaderboard.selected == 10
@@ -83,10 +89,10 @@ def test_play_completion_sound_skips_non_macos(
         nonlocal called
         called = True
 
-    monkeypatch.setattr("app.rebuild_rank_scope.platform.system", lambda: "Linux")
-    monkeypatch.setattr("app.rebuild_rank_scope.subprocess.run", _fake_run)
+    monkeypatch.setattr("app.tasks.build.rating.platform.system", lambda: "Linux")
+    monkeypatch.setattr("app.tasks.build.rating.subprocess.run", _fake_run)
 
-    from app.rebuild_rank_scope import _play_completion_sound
+    from app.tasks.build.rating import _play_completion_sound
 
     _play_completion_sound()
 
@@ -97,7 +103,7 @@ def test_play_completion_sound_logs_failure_without_raising(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr("app.rebuild_rank_scope.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("app.tasks.build.rating.platform.system", lambda: "Darwin")
     caplog.set_level("WARNING")
 
     class _CompletedProcess:
@@ -105,11 +111,11 @@ def test_play_completion_sound_logs_failure_without_raising(
         stderr = "boom"
 
     monkeypatch.setattr(
-        "app.rebuild_rank_scope.subprocess.run",
+        "app.tasks.build.rating.subprocess.run",
         lambda *args, **kwargs: _CompletedProcess(),
     )
 
-    from app.rebuild_rank_scope import _play_completion_sound
+    from app.tasks.build.rating import _play_completion_sound
 
     _play_completion_sound()
 

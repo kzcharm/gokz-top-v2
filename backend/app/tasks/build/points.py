@@ -1,8 +1,7 @@
-import argparse
-import asyncio
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from sqlmodel import col, select
 
@@ -10,7 +9,6 @@ from app import crud
 from app.core.db import async_session_maker
 from app.models import Map, MapCourse, RecordScope, RecordScopeId
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -26,9 +24,9 @@ class CoursePointsPlan:
         return f"map={self.map_name} stage={self.stage} course_id={self.course_id}"
 
 
-def _get_tqdm():
+def _get_tqdm() -> Any:
     try:
-        from tqdm import tqdm
+        from tqdm import tqdm  # type: ignore[import-untyped]
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Missing dependency 'tqdm'. Run `cd backend && uv sync` first."
@@ -36,55 +34,13 @@ def _get_tqdm():
     return tqdm
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Rebuild exact record_pb points for selected courses.",
-    )
-    parser.add_argument(
-        "--map-name",
-        action="append",
-        dest="map_names",
-        help=(
-            "Optional map-name filter. Repeat to rebuild multiple maps. "
-            "If omitted, rebuild all maps."
-        ),
-    )
-    parser.add_argument(
-        "--stage",
-        type=int,
-        default=None,
-        help=(
-            "Optional stage filter. Defaults to 0 when omitted."
-        ),
-    )
-    parser.add_argument(
-        "--all-stages",
-        action="store_true",
-        help="Rebuild every stage instead of the default main course only behavior.",
-    )
-    parser.add_argument(
-        "--scope",
-        action="append",
-        choices=[scope.name for scope in RecordScope],
-        dest="scopes",
-        help="Optional scope filter. Repeat to rebuild multiple scopes. Defaults to all scopes.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Optional limit on how many selected courses to process.",
-    )
-    return parser
-
-
-def _resolve_scopes(scope_names: Sequence[str] | None) -> tuple[RecordScope, ...]:
+def resolve_scopes(scope_names: Sequence[str] | None) -> tuple[RecordScope, ...]:
     if not scope_names:
         return tuple(RecordScope)
     return tuple(RecordScope[name] for name in scope_names)
 
 
-def _resolve_stage(*, stage: int | None, all_stages: bool) -> int | None:
+def resolve_stage(*, stage: int | None, all_stages: bool) -> int | None:
     if stage is not None:
         return stage
     if all_stages:
@@ -110,15 +66,24 @@ async def _load_course_plan(
     async with async_session_maker() as session:
         rows = (await session.exec(statement)).all()
 
-    return [
-        CoursePointsPlan(
-            course_id=course_id,
-            map_id=map_id,
-            map_name=map_name,
-            stage=course_stage,
+    courses: list[CoursePointsPlan] = []
+    for course_id, map_id, map_name, course_stage in rows:
+        if (
+            course_id is None
+            or map_id is None
+            or map_name is None
+            or course_stage is None
+        ):
+            raise RuntimeError("Course rebuild plan returned incomplete row data.")
+        courses.append(
+            CoursePointsPlan(
+                course_id=course_id,
+                map_id=map_id,
+                map_name=map_name,
+                stage=course_stage,
+            )
         )
-        for course_id, map_id, map_name, course_stage in rows
-    ]
+    return courses
 
 
 async def _load_course_scope_tiers(
@@ -134,7 +99,7 @@ async def _load_course_scope_tiers(
         for course in courses
     }
     unique_course_keys = list(course_key_by_id.values())
-    tiers_by_course_id = {
+    tiers_by_course_id: dict[int, dict[int, int]] = {
         course.course_id: {}
         for course in courses
     }
@@ -168,18 +133,6 @@ async def _rebuild_course_points(
         )
         await session.commit()
     return updated_rows
-
-
-async def _main_async(argv: list[str] | None = None) -> None:
-    args = _build_parser().parse_args(argv)
-    scopes = _resolve_scopes(args.scopes)
-    stage = _resolve_stage(stage=args.stage, all_stages=args.all_stages)
-    await rebuild_record_pb_points(
-        scopes=scopes,
-        map_names=args.map_names,
-        stage=stage,
-        limit=args.limit,
-    )
 
 
 async def rebuild_record_pb_points(
@@ -231,11 +184,3 @@ async def rebuild_record_pb_points(
         total_updated,
     )
     return total_updated
-
-
-def main(argv: list[str] | None = None) -> None:
-    asyncio.run(_main_async(argv))
-
-
-if __name__ == "__main__":
-    main()

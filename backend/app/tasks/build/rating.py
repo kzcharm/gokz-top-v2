@@ -1,15 +1,18 @@
-import argparse
-import asyncio
 import logging
+import platform
+import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from app import crud
 from app.core.db import async_session_maker
 from app.models import RecordScope, RecordScopeId
+from app.tasks.build.points import rebuild_record_pb_points
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+_MACOS_FINISHED_SOUND = "/System/Library/Sounds/Glass.aiff"
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,9 +22,16 @@ class LeaderboardRebuildResult:
     updated: int
 
 
-def _get_tqdm():
+@dataclass(frozen=True, slots=True)
+class RatingBuildResult:
+    full: bool
+    pb_points_updated: int
+    leaderboard: LeaderboardRebuildResult
+
+
+def _get_tqdm() -> Any:
     try:
-        from tqdm import tqdm
+        from tqdm import tqdm  # type: ignore[import-untyped]
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Missing dependency 'tqdm'. Run `cd backend && uv sync` first."
@@ -29,48 +39,33 @@ def _get_tqdm():
     return tqdm
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Rebuild leaderboard_player rows for selected scopes and players.",
-    )
-    parser.add_argument(
-        "--scope",
-        action="append",
-        choices=[scope.name for scope in RecordScope],
-        dest="scopes",
-        help="Optional scope filter. Repeat to rebuild multiple scopes. Defaults to all scopes.",
-    )
-    parser.add_argument(
-        "--steamid64",
-        action="append",
-        type=int,
-        dest="steamid64s",
-        help="Optional player filter. Repeat to rebuild multiple players. Defaults to all players.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Optional limit on how many selected rows to process.",
-    )
-    return parser
-
-
-def _resolve_scope_ids(scope_names: Sequence[str] | None) -> list[int] | None:
+def resolve_scope_ids(scope_names: Sequence[str] | None) -> list[int] | None:
     if not scope_names:
         return None
     return [int(RecordScopeId[name]) for name in scope_names]
 
 
-async def _main_async(argv: list[str] | None = None) -> None:
-    args = _build_parser().parse_args(argv)
-    scope_ids = _resolve_scope_ids(args.scopes)
-    steamid64s: list[int] | None = args.steamid64s if args.steamid64s else None
-    await rebuild_leaderboard_rows(
-        scope_ids=scope_ids,
-        steamid64s=steamid64s,
-        limit=args.limit,
-    )
+def _play_completion_sound() -> None:
+    if platform.system() != "Darwin":
+        return
+
+    try:
+        completed = subprocess.run(
+            ["afplay", _MACOS_FINISHED_SOUND],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        logger.warning("Skipping completion sound because `afplay` is unavailable.")
+        return
+
+    if completed.returncode != 0:
+        logger.warning(
+            "Completion sound failed with code=%s stderr=%s",
+            completed.returncode,
+            completed.stderr.strip(),
+        )
 
 
 async def rebuild_leaderboard_rows(
@@ -128,9 +123,35 @@ async def rebuild_leaderboard_rows(
     )
 
 
-def main(argv: list[str] | None = None) -> None:
-    asyncio.run(_main_async(argv))
+async def rebuild_ratings(
+    *,
+    scope_ids: Sequence[int] | None,
+    scopes: Sequence[RecordScope] | None,
+    steamid64s: Sequence[int] | None,
+    limit: int | None,
+    full: bool,
+) -> RatingBuildResult:
+    pb_points_updated = 0
+    if full:
+        if not scopes:
+            raise ValueError("Full rating rebuild requires at least one scope.")
+        pb_points_updated = await rebuild_record_pb_points(
+            scopes=scopes,
+            map_names=None,
+            stage=0,
+            limit=None,
+        )
 
-
-if __name__ == "__main__":
-    main()
+    leaderboard = await rebuild_leaderboard_rows(
+        scope_ids=scope_ids,
+        steamid64s=steamid64s,
+        limit=limit,
+        prioritize_existing_rating=full,
+    )
+    if full:
+        _play_completion_sound()
+    return RatingBuildResult(
+        full=full,
+        pb_points_updated=pb_points_updated,
+        leaderboard=leaderboard,
+    )
