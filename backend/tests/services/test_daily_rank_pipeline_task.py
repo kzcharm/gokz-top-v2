@@ -11,6 +11,7 @@ from app import crud
 from app.models import (
     Map,
     Player,
+    Record,
     RecordPb,
     RecordType,
     ScheduledTaskState,
@@ -150,17 +151,22 @@ async def test_load_daily_rank_selection_uses_previous_utc_day_window(
         created_on=datetime(2099, 4, 4, 0, 0, tzinfo=UTC),
     )
 
+    record_rows = (await db.exec(select(Record))).all()
     record_pbs = (await db.exec(select(RecordPb))).all()
+    assert len(record_rows) == 3
     assert len(record_pbs) == 3
     record_pbs_by_steamid64 = {record_pb.steamid64: record_pb for record_pb in record_pbs}
+    records_by_steamid64 = {record.steamid64: record for record in record_rows}
+
+    # Selection must follow the linked record creation time, not record_pb.updated_at.
     record_pbs_by_steamid64[lower_bound_player].updated_at = datetime(
-        2099, 4, 3, 0, 0, tzinfo=UTC
+        2099, 4, 4, 6, 0, tzinfo=UTC
     )
     record_pbs_by_steamid64[middle_player].updated_at = datetime(
-        2099, 4, 3, 12, 0, tzinfo=UTC
+        2099, 4, 2, 23, 59, tzinfo=UTC
     )
     record_pbs_by_steamid64[upper_bound_player].updated_at = datetime(
-        2099, 4, 4, 0, 0, tzinfo=UTC
+        2099, 4, 3, 18, 0, tzinfo=UTC
     )
     for record_pb in record_pbs_by_steamid64.values():
         db.add(record_pb)
@@ -192,6 +198,86 @@ async def test_load_daily_rank_selection_uses_previous_utc_day_window(
         ]
     )
     assert selection.steamid64s == sorted([lower_bound_player, middle_player])
+    assert records_by_steamid64[lower_bound_player].created_at == datetime(
+        2099, 4, 3, 0, 0, tzinfo=UTC
+    )
+    assert records_by_steamid64[middle_player].created_at == datetime(
+        2099, 4, 3, 12, 0, tzinfo=UTC
+    )
+    assert records_by_steamid64[upper_bound_player].created_at == datetime(
+        2099, 4, 4, 0, 0, tzinfo=UTC
+    )
+
+
+async def test_load_daily_rank_selection_ignores_record_pb_updated_at_window_mismatch(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime(2099, 4, 4, 0, 5, tzinfo=UTC)
+    map_id = 2_000_101
+    server_id = 2_000_102
+    record_id_base = 2_000_103
+
+    await _create_map(db, map_id=map_id, name="kz_daily_window_mismatch")
+    await _create_server(db, server_id=server_id, name="Daily Window Mismatch Server")
+
+    excluded_player = random_steamid64()
+    included_player = random_steamid64()
+    await _create_player(db, steamid64=excluded_player, name="Excluded By Record Time")
+    await _create_player(db, steamid64=included_player, name="Included By Record Time")
+
+    await _upsert_record(
+        db,
+        record_id=record_id_base,
+        steamid64=excluded_player,
+        server_id=server_id,
+        map_id=map_id,
+        stage=0,
+        teleports=1,
+        created_on=datetime(2099, 4, 2, 23, 59, tzinfo=UTC),
+    )
+    await _upsert_record(
+        db,
+        record_id=record_id_base + 1,
+        steamid64=included_player,
+        server_id=server_id,
+        map_id=map_id,
+        stage=1,
+        teleports=0,
+        created_on=datetime(2099, 4, 3, 13, 0, tzinfo=UTC),
+    )
+
+    record_pbs = (await db.exec(select(RecordPb))).all()
+    assert len(record_pbs) == 2
+    record_pbs_by_steamid64 = {record_pb.steamid64: record_pb for record_pb in record_pbs}
+    record_pbs_by_steamid64[excluded_player].updated_at = datetime(
+        2099, 4, 3, 8, 0, tzinfo=UTC
+    )
+    record_pbs_by_steamid64[included_player].updated_at = datetime(
+        2099, 4, 2, 22, 0, tzinfo=UTC
+    )
+    for record_pb in record_pbs_by_steamid64.values():
+        db.add(record_pb)
+    await db.commit()
+
+    monkeypatch.setattr(daily_rank_pipeline_task, "get_datetime_utc", lambda: now)
+
+    selection = await daily_rank_pipeline_task.load_daily_rank_selection(session=db)
+
+    assert selection.window_start == datetime(2099, 4, 3, 0, 0, tzinfo=UTC)
+    assert selection.window_end == datetime(2099, 4, 4, 0, 0, tzinfo=UTC)
+    assert selection.pb_row_count == 1
+    assert selection.point_buckets == [
+        (
+            record_pbs_by_steamid64[included_player].course_id,
+            record_pbs_by_steamid64[included_player].scope,
+            RecordType.PRO,
+        )
+    ]
+    assert selection.leaderboard_keys == [
+        (record_pbs_by_steamid64[included_player].scope, included_player)
+    ]
+    assert selection.steamid64s == [included_player]
 
 
 async def test_run_daily_rank_pipeline_runs_steps_in_sequence(
