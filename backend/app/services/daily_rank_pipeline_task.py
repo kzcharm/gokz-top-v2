@@ -14,6 +14,7 @@ from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import (
+    Record,
     RecordPb,
     RecordType,
     ScheduledTaskResult,
@@ -142,9 +143,10 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
                 RecordPb.is_pro_only,
                 RecordPb.steamid64,
             )
+            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
-                col(RecordPb.updated_at) >= window_start,
-                col(RecordPb.updated_at) < window_end,
+                col(Record.created_at) >= window_start,
+                col(Record.created_at) < window_end,
             )
             .order_by(
                 col(RecordPb.course_id).asc(),
