@@ -26,7 +26,7 @@ export function ProfileTabs({
 }) {
   return (
     <Tabs value={activeTab} className="flex flex-col gap-4">
-      <TabsList className="w-fit border border-border bg-background/60">
+      <TabsList className="w-full justify-start overflow-x-auto border border-border bg-background/60 sm:w-fit">
         {tabDefinitions.map((tab) => (
           <TabsTrigger key={tab.key} value={tab.key} asChild>
             <Link to={tab.to} params={{ identifier }}>
