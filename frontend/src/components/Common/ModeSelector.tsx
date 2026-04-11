@@ -1,5 +1,6 @@
 import { ChevronDownIcon } from "lucide-react"
 
+import { ModeBadge } from "@/components/Records/ModeBadge"
 import { RECORD_MODE_OPTIONS, type RecordMode } from "@/components/Records/mode"
 import {
   Select,
@@ -28,8 +29,9 @@ export function ModeSelector({
   triggerClassName,
   ariaLabel = "Filter by mode",
 }: ModeSelectorProps) {
+  const isAllSelected = value === "all"
   const selectedLabel =
-    value === "all"
+    isAllSelected
       ? allLabel
       : (RECORD_MODE_OPTIONS.find((option) => option.value === value)?.label ??
         value)
@@ -44,20 +46,16 @@ export function ModeSelector({
       <SelectTrigger
         aria-label={ariaLabel}
         className={cn(
-          "h-8 w-[5.1rem] min-w-[5.1rem] px-1.5 text-[11px]",
+          "h-8 w-12 min-w-12 justify-center px-1 text-[11px]",
           triggerClassName,
         )}
         showChevron={false}
       >
-        <span className="flex w-full items-center justify-between gap-1">
-          <span className="truncate">{selectedLabel}</span>
-          <ChevronDownIcon
-            className={cn(
-              "size-3.5 shrink-0 opacity-50",
-              value === "all" ? "visible" : "invisible",
-            )}
-          />
-        </span>
+        {isAllSelected ? (
+          <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+        ) : (
+          <ModeBadge mode={selectedLabel} className="w-full px-0 text-[11px]" />
+        )}
       </SelectTrigger>
       <SelectContent className={className} align="start">
         <SelectItem value="all">{allLabel}</SelectItem>

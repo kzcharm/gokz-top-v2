@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { TriangleAlertIcon } from "lucide-react"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { type PlayerPublic, PlayersService } from "@/client"
 import ErrorComponent from "@/components/Common/ErrorComponent"
@@ -9,12 +9,17 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import useAuth from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
-import { ProfileHomeContent } from "./ProfileHomeContent"
+import {
+  ProfileCompletionSection,
+  ProfileHomeContent,
+} from "./ProfileHomeContent"
 import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
@@ -72,6 +77,7 @@ export function ProfilePage({
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
   const recordedProfileViewsRef = useRef<Set<string>>(new Set())
+  const [isProOnly, setIsProOnly] = useState(false)
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],
     queryFn: () => fetchProfilePlayer(identifier),
@@ -107,7 +113,6 @@ export function ProfilePage({
     }),
     enabled: canonicalIdentifier !== null,
   })
-  const usesSidebarLayout = activeTab === "home" || activeTab === "records"
   const activeTabRoute =
     activeTab === "records"
       ? "/profile/$identifier/records"
@@ -337,11 +342,24 @@ export function ProfilePage({
   const activeBanCount = activeBanCountQuery.data?.count ?? 0
   const hasPermanentBan = activeBans.some((ban) => ban.expires_on == null)
   const showBanWarning = activeBanCount > 0
+  const profileTabsTrailingContent =
+    activeTab === "records" ? (
+      <Label
+        htmlFor="profile-records-pro-only"
+        className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
+      >
+        <Switch
+          id="profile-records-pro-only"
+          checked={isProOnly}
+          onCheckedChange={setIsProOnly}
+          className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
+        />
+        <span>{isProOnly ? "Pro" : "Nub"}</span>
+      </Label>
+    ) : null
 
   return (
     <div className="space-y-8">
-      <ProfileTabs activeTab={activeTab} identifier={canonicalIdentifier} />
-
       {showBanWarning ? (
         <Alert
           variant={hasPermanentBan ? "destructive" : "default"}
@@ -396,64 +414,68 @@ export function ProfilePage({
         </Alert>
       ) : null}
 
-      {usesSidebarLayout ? (
-        <div className="grid min-w-0 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="min-w-0">
-            <ProfileSidebar
-              identifier={canonicalIdentifier}
-              player={player}
-              summary={summary}
-              summaryLoading={summaryLoading}
-            />
-          </aside>
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="min-w-0">
+          <ProfileSidebar
+            identifier={canonicalIdentifier}
+            player={player}
+            summary={summary}
+            summaryLoading={summaryLoading}
+          />
+        </aside>
 
-          <section className="min-w-0 space-y-6">
-            {activeTab === "home" ? (
-              <ProfileHomeContent
-                canManagePinnedRecords={isOwnProfile}
-                completion={completion}
-                completionLoading={completionLoading}
-                completionError={completionError}
-                completionTrophies={completionTrophies}
-                pinnedRecords={pinnedRecords}
-                pinnedRecordsError={
-                  pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
-                }
-                pinnedRecordsLoading={
-                  pinnedRecordsQuery.isLoading ||
-                  pinnedRecordRanksQuery.isLoading
-                }
-                pinnedRecordsMutating={
-                  pinRecordMutation.isPending || unpinRecordMutation.isPending
-                }
-                onUnpinRecord={(mapId, type) => {
-                  unpinRecordMutation.mutate({ mapId, type })
-                }}
-              />
-            ) : (
-              <ProfileRecordsTab
-                steamid64={player.steamid64}
-                canManagePinnedRecords={isOwnProfile}
-                pinnedRecordKeys={pinnedRecordKeys}
-                pinnedRecordsMutating={
-                  pinRecordMutation.isPending || unpinRecordMutation.isPending
-                }
-                onPinRecord={(mapId, type) => {
-                  pinRecordMutation.mutate({ mapId, type })
-                }}
-                onUnpinRecord={(mapId, type) => {
-                  unpinRecordMutation.mutate({ mapId, type })
-                }}
-              />
-            )}
-          </section>
-        </div>
-      ) : (
-        <ProfilePlaceholderPanel
-          player={player}
-          activeTab={activeTab as Exclude<ProfileTab, "home">}
-        />
-      )}
+        <section className="min-w-0 space-y-6">
+          <ProfileCompletionSection
+            completion={completion}
+            completionLoading={completionLoading}
+            completionError={completionError}
+            completionTrophies={completionTrophies}
+          />
+
+          <ProfileTabs
+            activeTab={activeTab}
+            identifier={canonicalIdentifier}
+            trailingContent={profileTabsTrailingContent}
+          />
+
+          {activeTab === "home" ? (
+            <ProfileHomeContent
+              canManagePinnedRecords={isOwnProfile}
+              pinnedRecords={pinnedRecords}
+              pinnedRecordsError={
+                pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
+              }
+              pinnedRecordsLoading={
+                pinnedRecordsQuery.isLoading || pinnedRecordRanksQuery.isLoading
+              }
+              pinnedRecordsMutating={
+                pinRecordMutation.isPending || unpinRecordMutation.isPending
+              }
+              onUnpinRecord={(mapId, type) => {
+                unpinRecordMutation.mutate({ mapId, type })
+              }}
+            />
+          ) : activeTab === "records" ? (
+            <ProfileRecordsTab
+              steamid64={player.steamid64}
+              isProOnly={isProOnly}
+              canManagePinnedRecords={isOwnProfile}
+              pinnedRecordKeys={pinnedRecordKeys}
+              pinnedRecordsMutating={
+                pinRecordMutation.isPending || unpinRecordMutation.isPending
+              }
+              onPinRecord={(mapId, type) => {
+                pinRecordMutation.mutate({ mapId, type })
+              }}
+              onUnpinRecord={(mapId, type) => {
+                unpinRecordMutation.mutate({ mapId, type })
+              }}
+            />
+          ) : (
+            <ProfilePlaceholderPanel player={player} activeTab="stats" />
+          )}
+        </section>
+      </div>
     </div>
   )
 }

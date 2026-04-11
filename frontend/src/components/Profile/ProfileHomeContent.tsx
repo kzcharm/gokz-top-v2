@@ -393,17 +393,45 @@ function ManagedPinnedRecordCard({
 
 export function ProfileHomeContent({
   canManagePinnedRecords,
-  completion,
-  completionLoading,
-  completionError,
-  completionTrophies,
   pinnedRecords,
   pinnedRecordsError,
   pinnedRecordsLoading,
   pinnedRecordsMutating,
   onUnpinRecord,
 }: {
+  pinnedRecords: ProfilePinnedRecord[]
+  pinnedRecordsError: boolean
+  pinnedRecordsLoading: boolean
+  pinnedRecordsMutating: boolean
+  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
   canManagePinnedRecords: boolean
+}) {
+  return (
+    <div className="min-w-0 space-y-6">
+      <ActivityCard />
+      {pinnedRecordsError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load pinned record ranks</AlertTitle>
+          <AlertDescription>Reload the page and try again.</AlertDescription>
+        </Alert>
+      ) : null}
+      <PinnedRecordsCard
+        canManagePinnedRecords={canManagePinnedRecords}
+        pinnedRecords={pinnedRecords}
+        loading={pinnedRecordsLoading}
+        mutating={pinnedRecordsMutating}
+        onUnpinRecord={onUnpinRecord}
+      />
+    </div>
+  )
+}
+
+export function ProfileCompletionSection({
+  completion,
+  completionLoading,
+  completionError,
+  completionTrophies,
+}: {
   completion: ProfileCompletionData
   completionLoading: boolean
   completionError: boolean
@@ -411,11 +439,6 @@ export function ProfileHomeContent({
     nub: ProfileTrophyCounts
     pro: ProfileTrophyCounts
   }
-  pinnedRecords: ProfilePinnedRecord[]
-  pinnedRecordsError: boolean
-  pinnedRecordsLoading: boolean
-  pinnedRecordsMutating: boolean
-  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
 }) {
   const contentRef = useRef<HTMLDivElement | null>(null)
   const [contentWidth, setContentWidth] = useState(0)
@@ -480,21 +503,6 @@ export function ProfileHomeContent({
           />
         </div>
       )}
-
-      <ActivityCard />
-      {pinnedRecordsError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load pinned record ranks</AlertTitle>
-          <AlertDescription>Reload the page and try again.</AlertDescription>
-        </Alert>
-      ) : null}
-      <PinnedRecordsCard
-        canManagePinnedRecords={canManagePinnedRecords}
-        pinnedRecords={pinnedRecords}
-        loading={pinnedRecordsLoading}
-        mutating={pinnedRecordsMutating}
-        onUnpinRecord={onUnpinRecord}
-      />
     </div>
   )
 }

@@ -263,7 +263,7 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
               {visibleColumns.has("mode") ? (
-                <TableHead className={`min-w-20 ${tableHeadClassName}`}>
+                <TableHead className={`min-w-14 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="mode"
                     label="Mode"
@@ -274,7 +274,7 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
               {visibleColumns.has("tier") ? (
-                <TableHead className={`min-w-20 ${tableHeadClassName}`}>
+                <TableHead className={`min-w-14 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="tier"
                     label="Tier"
@@ -285,7 +285,7 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
               {visibleColumns.has("tps") ? (
-                <TableHead className={`min-w-20 ${tableHeadClassName}`}>
+                <TableHead className={`min-w-14 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="tps"
                     label="TPs"
