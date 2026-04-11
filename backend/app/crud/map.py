@@ -45,7 +45,9 @@ def _build_read_maps_statement(
     if updated_since is not None:
         statement = statement.where(Map.updated_at >= updated_since)
 
-    return statement.order_by(col(Map.validated).desc(), col(Map.name).asc())
+    if is_validated is None:
+        return statement.order_by(col(Map.validated).desc(), col(Map.name).asc())
+    return statement.order_by(col(Map.name).asc())
 
 
 async def read_maps(
