@@ -27,13 +27,13 @@ import {
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfilePbRecordsQueryOptions,
-  getProfilePinnedRecordsQueryOptions,
   getProfilePinnedRecordKey,
+  getProfilePinnedRecordsQueryOptions,
   getProfilePointsStandingQueryOptions,
   getProfileRecordRanksQueryOptions,
   getProfileValidatedMapsQueryOptions,
-  pinProfileRecord,
   type ProfileTab,
+  pinProfileRecord,
   unpinProfileRecord,
 } from "./profile-utils"
 
@@ -86,7 +86,7 @@ export function ProfilePage({
   )
   const nubRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
-      steamid64: playerSteamid64,
+      identifier: playerSteamid64,
       scope,
       isProOnly: false,
     }),
@@ -94,7 +94,7 @@ export function ProfilePage({
   })
   const proRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
-      steamid64: playerSteamid64,
+      identifier: playerSteamid64,
       scope,
       isProOnly: true,
     }),
@@ -420,7 +420,8 @@ export function ProfilePage({
                   pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
                 }
                 pinnedRecordsLoading={
-                  pinnedRecordsQuery.isLoading || pinnedRecordRanksQuery.isLoading
+                  pinnedRecordsQuery.isLoading ||
+                  pinnedRecordRanksQuery.isLoading
                 }
                 pinnedRecordsMutating={
                   pinRecordMutation.isPending || unpinRecordMutation.isPending

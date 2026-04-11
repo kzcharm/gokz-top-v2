@@ -197,7 +197,7 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
 
     updated = await players_routes.update_player(
         session=db,
-        steamid64=str(existing.steamid64),
+        identifier=str(existing.steamid64),
         player_in=PlayerUpdate(alias="Alias", country="DE"),
         current_user=User(
             steamid64=random_steamid64(),
@@ -211,7 +211,7 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
     with pytest.raises(HTTPException, match="Player not found"):
         await players_routes.update_player(
             session=db,
-            steamid64=str(random_steamid64()),
+            identifier=str(random_steamid64()),
             player_in=PlayerUpdate(alias="Missing"),
             current_user=User(
                 steamid64=random_steamid64(),
@@ -220,10 +220,10 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
             ),
         )
 
-    with pytest.raises(HTTPException, match="Invalid steamid64"):
+    with pytest.raises(HTTPException, match="Player not found"):
         await players_routes.update_player(
             session=db,
-            steamid64="not-a-number",
+            identifier="not-a-number",
             player_in=PlayerUpdate(alias="Invalid"),
             current_user=User(
                 steamid64=random_steamid64(),
@@ -239,7 +239,7 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
     ):
         upserted = await players_routes.upsert_player_from_steam(
             session=db,
-            steamid64=str(mocked_upsert.steamid64),
+            identifier=str(mocked_upsert.steamid64),
         )
     assert upserted.steamid64 == str(mocked_upsert.steamid64)
 

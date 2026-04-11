@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react"
-
+import type { RecordPublic } from "@/client"
 import {
   ModeSelector,
   type ModeSelectorValue,
@@ -24,7 +24,6 @@ import {
   type PbRecordsSortState,
   sortPbRecords,
 } from "@/components/Records/pb-records-utils"
-import type { RecordPublic } from "@/client"
 import { normalizeTierValue } from "@/components/Servers/tier"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -86,7 +85,7 @@ export function ProfileRecordsTab({
 
   const recordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
-      steamid64,
+      identifier: steamid64,
       scope,
       isProOnly,
     }),

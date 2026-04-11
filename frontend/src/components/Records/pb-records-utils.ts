@@ -89,23 +89,23 @@ export function sortPbRecords(
 }
 
 export function getProfilePbRecordsQueryOptions({
-  steamid64,
+  identifier,
   scope,
   isProOnly,
 }: {
-  steamid64: string | null
+  identifier: string | null
   scope: AppScope
   isProOnly: boolean
 }) {
   return queryOptions({
-    queryKey: ["profile-records", steamid64, scope, isProOnly],
+    queryKey: ["profile-records", identifier, scope, isProOnly],
     queryFn: async () => {
-      if (!steamid64) {
+      if (!identifier) {
         return []
       }
 
       const params = new URLSearchParams({
-        steamid64,
+        identifier,
         scope,
         stage: "0",
         type: isProOnly ? "PRO" : "NUB",

@@ -391,6 +391,34 @@ async def get_player_by_identifier(
     )
 
 
+async def resolve_player_identifier_to_steamid64(
+    *, session: AsyncSession, identifier: str
+) -> int | None:
+    steam_profile = _parse_steam_profile_url(identifier)
+    if steam_profile is not None:
+        profile_type, profile_value = steam_profile
+        if profile_type == "steamid64":
+            return int(profile_value)
+
+        return await _resolve_steam_vanity_url_to_steamid64(profile_value)
+
+    direct_steamid64 = _parse_direct_steam_identifier_to_steamid64(identifier)
+    if direct_steamid64 is not None:
+        return direct_steamid64
+
+    normalized_custom_id = normalize_custom_id(identifier)
+    if normalized_custom_id is None:
+        return None
+
+    player = await _get_player_by_custom_id(
+        session=session,
+        custom_id=normalized_custom_id,
+    )
+    if player is None:
+        return None
+    return player.steamid64
+
+
 async def read_players(
     *,
     session: AsyncSession,
