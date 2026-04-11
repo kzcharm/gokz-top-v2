@@ -1,9 +1,8 @@
-import argparse
-import asyncio
 import logging
 import sys
 import time
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import text
 
@@ -11,7 +10,6 @@ from app import crud
 from app.core.db import async_session_maker
 from app.models import RecordScopeId
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -70,9 +68,17 @@ class RecordPbCoursePlan:
         )
 
 
-def _get_tqdm():
+@dataclass(frozen=True, slots=True)
+class RecordPbBuildResult:
+    course_count: int
+    row_count: int
+    elapsed_seconds: float
+    ensured_map_courses: bool
+
+
+def _get_tqdm() -> Any:
     try:
-        from tqdm import tqdm
+        from tqdm import tqdm  # type: ignore[import-untyped]
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Missing dependency 'tqdm'. Run `cd backend && uv sync` first."
@@ -80,47 +86,16 @@ def _get_tqdm():
     return tqdm
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Rebuild the scope-aware record_pb read model from raw record rows.",
-    )
-    parser.add_argument(
-        "--list-only",
-        action="store_true",
-        help="List the rebuild buckets and exit without mutating record_pb.",
-    )
-    parser.add_argument(
-        "--force-all",
-        action="store_true",
-        help="Rebuild every bucket, not only buckets whose existing row count differs.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Only process the first N buckets from the plan.",
-    )
-    parser.add_argument(
-        "--analyze",
-        action="store_true",
-        help="Run ANALYZE on map_course and record_pb after the rebuild commits.",
-    )
-    parser.add_argument(
-        "--ensure-map-courses",
-        action="store_true",
-        help="Backfill missing map_course rows from record before planning the rebuild.",
-    )
-    return parser
-
-
 async def _count_map_courses() -> int:
     async with async_session_maker() as session:
-        return (await session.exec(text("SELECT COUNT(*) FROM map_course"))).one()[0]
+        result = await session.execute(text("SELECT COUNT(*) FROM map_course"))
+        return int(result.one()[0])
 
 
 async def _count_record_pb_rows() -> int:
     async with async_session_maker() as session:
-        return (await session.exec(text("SELECT COUNT(*) FROM record_pb"))).one()[0]
+        result = await session.execute(text("SELECT COUNT(*) FROM record_pb"))
+        return int(result.one()[0])
 
 
 async def _ensure_map_courses() -> None:
@@ -132,7 +107,7 @@ async def _ensure_map_courses() -> None:
 async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
     async with async_session_maker() as session:
         rows = (
-            await session.exec(
+            await session.execute(
                 text(
                     f"""
                     WITH scope_modes(scope, mode_id) AS (
@@ -218,7 +193,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         combined_counts.is_pro_only
                     """
                 ),
-                params={"force_all": force_all},
+                {"force_all": force_all},
             )
         ).all()
 
@@ -236,22 +211,26 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
     ]
 
 
-def _print_bucket_plan(*, buckets: list[RecordPbBucket]) -> None:
+def format_bucket_plan(*, buckets: list[RecordPbBucket]) -> str:
     if not buckets:
-        sys.stdout.write("No record_pb buckets need rebuilding.\n")
-        return
+        return "No record_pb buckets need rebuilding.\n"
 
-    sys.stdout.write("scope\tcourse_id\tmap_id\tstage\ttype\texpected_rows\texisting_rows\n")
+    lines = ["scope\tcourse_id\tmap_id\tstage\ttype\texpected_rows\texisting_rows"]
     for bucket in buckets:
-        sys.stdout.write(
+        lines.append(
             f"{bucket.scope_name}\t"
             f"{bucket.course_id}\t"
             f"{bucket.map_id}\t"
             f"{bucket.stage}\t"
             f"{str(bucket.is_pro_only).lower()}\t"
             f"{bucket.expected_rows}\t"
-            f"{bucket.existing_rows}\n"
+            f"{bucket.existing_rows}"
         )
+    return "\n".join(lines) + "\n"
+
+
+def print_bucket_plan(*, buckets: list[RecordPbBucket]) -> None:
+    sys.stdout.write(format_bucket_plan(buckets=buckets))
 
 
 async def _rebuild_course(course: RecordPbCoursePlan) -> None:
@@ -296,7 +275,7 @@ def _build_course_plan(*, buckets: list[RecordPbBucket]) -> list[RecordPbCourseP
 async def _load_all_courses_plan() -> list[RecordPbCoursePlan]:
     async with async_session_maker() as session:
         rows = (
-            await session.exec(
+            await session.execute(
                 text(
                     """
                     SELECT DISTINCT
@@ -326,14 +305,23 @@ async def _load_all_courses_plan() -> list[RecordPbCoursePlan]:
     ]
 
 
-async def _main_async(argv: list[str] | None = None) -> None:
-    args = _build_parser().parse_args(argv)
+async def list_record_pb_buckets(*, force_all: bool) -> list[RecordPbBucket]:
+    return await _load_bucket_plan(force_all=force_all)
+
+
+async def rebuild_record_pbs(
+    *,
+    force_all: bool,
+    limit: int | None,
+    analyze: bool,
+    ensure_map_courses: bool,
+) -> RecordPbBuildResult:
     started_at = time.monotonic()
 
     map_course_count = await _count_map_courses()
     record_pb_count = await _count_record_pb_rows()
-    should_ensure_map_courses = args.ensure_map_courses or map_course_count == 0
-    if should_ensure_map_courses:
+    ensured_map_courses = ensure_map_courses or map_course_count == 0
+    if ensured_map_courses:
         if map_course_count == 0:
             logger.info("map_course is empty; backfilling from valid records")
         else:
@@ -345,28 +333,19 @@ async def _main_async(argv: list[str] | None = None) -> None:
             f"{map_course_count:,}",
         )
 
-    if args.list_only:
-        buckets = await _load_bucket_plan(force_all=args.force_all)
-        logger.info("Loaded %s record_pb buckets to process", f"{len(buckets):,}")
-        if buckets:
-            total_expected_rows = sum(bucket.expected_rows for bucket in buckets)
-            logger.info("Expected PB rows across selected buckets: %s", f"{total_expected_rows:,}")
-        _print_bucket_plan(buckets=buckets)
-        return
-
-    if record_pb_count == 0 and not args.force_all:
+    if record_pb_count == 0 and not force_all:
         logger.info("record_pb is empty; using fast course-only rebuild plan")
         courses = await _load_all_courses_plan()
     else:
-        buckets = await _load_bucket_plan(force_all=args.force_all)
+        buckets = await _load_bucket_plan(force_all=force_all)
         logger.info("Loaded %s record_pb buckets to process", f"{len(buckets):,}")
         if buckets:
             total_expected_rows = sum(bucket.expected_rows for bucket in buckets)
             logger.info("Expected PB rows across selected buckets: %s", f"{total_expected_rows:,}")
         courses = _build_course_plan(buckets=buckets)
 
-    if args.limit is not None:
-        courses = courses[: args.limit]
+    if limit is not None:
+        courses = courses[:limit]
 
     logger.info("Loaded %s map courses to process", f"{len(courses):,}")
     tqdm = _get_tqdm()
@@ -381,33 +360,29 @@ async def _main_async(argv: list[str] | None = None) -> None:
         await _rebuild_course(course)
         processed_rows += course.expected_rows
         if course.expected_rows > 0:
-            progress.set_postfix_str(
-                f"{course.label} cumulative={processed_rows:,}"
-            )
+            progress.set_postfix_str(f"{course.label} cumulative={processed_rows:,}")
         else:
             progress.set_postfix_str(
                 f"map={course.map_id} stage={course.stage} course_id={course.course_id}"
             )
 
     async with async_session_maker() as session:
-        after_count = (
-            await session.exec(text("SELECT COUNT(*) FROM record_pb"))
-        ).one()[0]
+        row_count_result = await session.execute(text("SELECT COUNT(*) FROM record_pb"))
+        row_count = int(row_count_result.one()[0])
         logger.info(
             "Finished record_pb rebuild in %.1fs (rows: %s)",
             time.monotonic() - started_at,
-            f"{after_count:,}",
+            f"{row_count:,}",
         )
-        if args.analyze:
+        if analyze:
             logger.info("Running ANALYZE on map_course and record_pb")
-            await session.exec(text("ANALYZE map_course"))
-            await session.exec(text("ANALYZE record_pb"))
+            await session.execute(text("ANALYZE map_course"))
+            await session.execute(text("ANALYZE record_pb"))
             await session.commit()
 
-
-def main(argv: list[str] | None = None) -> None:
-    asyncio.run(_main_async(argv))
-
-
-if __name__ == "__main__":
-    main()
+    return RecordPbBuildResult(
+        course_count=len(courses),
+        row_count=int(row_count),
+        elapsed_seconds=time.monotonic() - started_at,
+        ensured_map_courses=ensured_map_courses,
+    )

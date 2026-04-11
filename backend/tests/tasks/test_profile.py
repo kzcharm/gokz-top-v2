@@ -3,10 +3,12 @@ from typing import Any
 
 import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
+from typer.testing import CliRunner
 
-from app import rebuild_player_profile
+from app import cli
 from app.crud import player as player_crud
 from app.models import LeaderboardPlayer, Player, RecordScope, scope_to_id
+from app.tasks.build import profile
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -19,7 +21,7 @@ class _BoundSessionFactory:
             raise AssertionError("AsyncSession is not bound to a connection")
         self._bind = bind
 
-    def __call__(self) -> "_BoundSessionContext":
+    def __call__(self) -> _BoundSessionContext:
         return _BoundSessionContext(self._bind)
 
 
@@ -124,24 +126,21 @@ async def test_rebuild_player_profiles_can_create_missing_player_for_explicit_st
         }
 
     monkeypatch.setattr(
-        rebuild_player_profile.crud,
-        "_fetch_players_from_steam_api",
+        "app.tasks.build.profile.crud._fetch_players_from_steam_api",
         _fake_fetch_players_from_steam_api,
     )
     monkeypatch.setattr(
-        rebuild_player_profile,
+        profile,
         "async_session_maker",
         _BoundSessionFactory(db),
     )
     monkeypatch.setattr(
-        rebuild_player_profile,
+        profile,
         "_get_tqdm",
         _dummy_tqdm_factory,
     )
 
-    result = await rebuild_player_profile.rebuild_player_profiles(
-        steamid64s=[target_steamid64]
-    )
+    result = await profile.rebuild_player_profiles(steamid64s=[target_steamid64])
 
     assert result.selected == 1
     assert result.created == 1
@@ -193,14 +192,12 @@ async def test_load_target_steamid64s_supports_leaderboard_scope_ordering(
     await db.commit()
 
     monkeypatch.setattr(
-        rebuild_player_profile,
+        profile,
         "async_session_maker",
         _BoundSessionFactory(db),
     )
 
-    selected = await rebuild_player_profile.load_target_steamid64s(
-        leaderboard_scope=RecordScope.OVR
-    )
+    selected = await profile.load_target_steamid64s(leaderboard_scope=RecordScope.OVR)
 
     assert selected[:2] == [first_player, second_player]
     assert third_player not in selected
@@ -241,27 +238,25 @@ async def test_rebuild_player_profiles_fetches_steam_profiles_in_batches_of_four
         return object(), False
 
     monkeypatch.setattr(
-        rebuild_player_profile,
+        profile,
         "async_session_maker",
         _BoundSessionFactory(db),
     )
     monkeypatch.setattr(
-        rebuild_player_profile,
+        profile,
         "_get_tqdm",
         _dummy_tqdm_factory,
     )
     monkeypatch.setattr(
-        rebuild_player_profile.crud,
-        "_fetch_players_from_steam_api",
+        "app.tasks.build.profile.crud._fetch_players_from_steam_api",
         _fake_fetch_players_from_steam_api,
     )
     monkeypatch.setattr(
-        rebuild_player_profile.crud,
-        "create_or_update_player_from_steam_data_if_fetched",
+        "app.tasks.build.profile.crud.create_or_update_player_from_steam_data_if_fetched",
         _fake_upsert,
     )
 
-    result = await rebuild_player_profile.rebuild_player_profiles(steamid64s=steamid64s)
+    result = await profile.rebuild_player_profiles(steamid64s=steamid64s)
 
     assert result.selected == 5
     assert result.created == 0
@@ -269,3 +264,12 @@ async def test_rebuild_player_profiles_fetches_steam_profiles_in_batches_of_four
     assert result.skipped == 0
     assert batch_calls == [steamid64s[:4], steamid64s[4:]]
     assert upsert_calls == steamid64s
+
+
+def test_cli_profile_help() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.app, ["build", "profile", "--help"])
+
+    assert result.exit_code == 0
+    assert "Process all existing players" in result.output
