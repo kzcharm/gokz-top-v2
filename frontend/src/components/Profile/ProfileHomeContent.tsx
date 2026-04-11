@@ -1,6 +1,6 @@
 import { PinOff } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PointsBadge } from "@/components/Records/PointsBadge"
@@ -25,7 +25,6 @@ import {
   formatNumber,
   type ProfileCompletionData,
   type ProfilePinnedRecord,
-  type ProfileSummaryData,
   type ProfileTrophyCounts,
 } from "./profile-utils"
 
@@ -42,35 +41,13 @@ const TROPHY_ASSETS = {
   silver: "https://kzgo.eu/trophy_silver2.png",
   bronze: "https://kzgo.eu/trophy_bronze.png",
 } as const
+const PROFILE_COMPLETION_TWO_COLUMN_MIN_WIDTH = 960
 
 function PaddedAverageNumber({ value }: { value: number }) {
   const formattedValue = formatNumber(value)
   const paddedValue = formattedValue.padStart(3, "0")
 
   return <span className="font-mono tabular-nums">{paddedValue}</span>
-}
-
-function MainSummaryCard({
-  label,
-  loading,
-  value,
-}: {
-  label: string
-  loading?: boolean
-  value: string
-}) {
-  return (
-    <div className="rounded-[20px] border border-border bg-card p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      {loading ? (
-        <Skeleton className="mt-2 h-8 w-28" />
-      ) : (
-        <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
-      )}
-    </div>
-  )
 }
 
 function CompletionCard({
@@ -93,82 +70,90 @@ function CompletionCard({
   trophies: ProfileTrophyCounts
 }) {
   return (
-    <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
-      <CardContent className="space-y-5 p-6">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {title}
+    <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
+      <CardContent className="p-6">
+        <div className="mx-auto w-full max-w-[36rem] space-y-5">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                {title}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                {(["gold", "silver", "bronze"] as const).map((trophy) => (
+                  <div key={trophy} className="flex items-center gap-2">
+                    <img
+                      src={TROPHY_ASSETS[trophy]}
+                      alt={`${trophy} trophy`}
+                      className="h-7 w-7 object-contain"
+                    />
+                    <span className="text-2xl font-semibold tracking-tight">
+                      {formatNumber(trophies[trophy])}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground md:justify-self-end">
+              {formatNumber(completed)} / {formatNumber(total)}
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-4">
-              {(["gold", "silver", "bronze"] as const).map((trophy) => (
-                <div key={trophy} className="flex items-center gap-2">
-                  <img
-                    src={TROPHY_ASSETS[trophy]}
-                    alt={`${trophy} trophy`}
-                    className="h-7 w-7 object-contain"
-                  />
-                  <span className="text-2xl font-semibold tracking-tight">
-                    {formatNumber(trophies[trophy])}
+          </div>
+          <div className="space-y-1.5">
+            {tiers.map((tier) => {
+              const width = `${tier.total === 0 ? 0 : (tier.complete / tier.total) * 100}%`
+              return (
+                <div
+                  key={tier.label}
+                  className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[80px_minmax(0,1fr)_58px] sm:gap-3"
+                >
+                  <span className="text-right text-[11px] font-semibold leading-4 text-muted-foreground sm:text-xs">
+                    {tier.label} (avg{" "}
+                    <PaddedAverageNumber value={tier.averagePoints} />)
+                  </span>
+                  <div className="h-5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width, backgroundColor: tier.color }}
+                    />
+                  </div>
+                  <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground sm:text-left sm:text-xs">
+                    {tier.complete}/{tier.total}
                   </span>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
-          <p className="text-sm text-muted-foreground md:justify-self-end">
-            {formatNumber(completed)} / {formatNumber(total)}
-          </p>
-        </div>
-        <div className="space-y-1.5">
-          {tiers.map((tier) => {
-            const width = `${tier.total === 0 ? 0 : (tier.complete / tier.total) * 100}%`
-            return (
-              <div
-                key={tier.label}
-                className="grid grid-cols-[80px_minmax(0,1fr)_58px] items-center gap-3"
-              >
-                <span className="text-right text-xs font-semibold text-muted-foreground">
-                  {tier.label} (avg{" "}
-                  <PaddedAverageNumber value={tier.averagePoints} />)
-                </span>
-                <div className="h-5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width, backgroundColor: tier.color }}
-                  />
-                </div>
-                <span className="text-left font-mono text-xs tabular-nums text-muted-foreground">
-                  {tier.complete}/{tier.total}
-                </span>
-              </div>
-            )
-          })}
         </div>
       </CardContent>
     </Card>
   )
 }
 
-function CompletionCardsSkeleton() {
+function CompletionCardsSkeleton({
+  twoColumns,
+}: {
+  twoColumns: boolean
+}) {
   return (
-    <div className="grid gap-6 2xl:grid-cols-2">
+    <div className={cn("grid gap-6", twoColumns && "lg:grid-cols-2")}>
       {Array.from({ length: 2 }, (_, index) => (
         <Card
           key={index}
-          className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0"
+          className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0"
         >
-          <CardContent className="space-y-5 p-6">
-            <div className="flex items-end justify-between gap-4">
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-36" />
-                <Skeleton className="h-9 w-24" />
+          <CardContent className="p-6">
+            <div className="mx-auto w-full max-w-[28rem] space-y-5">
+              <div className="flex items-end justify-between gap-4">
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-9 w-24" />
+                </div>
+                <Skeleton className="h-5 w-20" />
               </div>
-              <Skeleton className="h-5 w-20" />
-            </div>
-            <div className="space-y-2">
-              {Array.from({ length: 8 }, (_, tierIndex) => (
-                <Skeleton key={tierIndex} className="h-5 w-full" />
-              ))}
+              <div className="space-y-2">
+                {Array.from({ length: 8 }, (_, tierIndex) => (
+                  <Skeleton key={tierIndex} className="h-5 w-full" />
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -191,7 +176,7 @@ function ActivityCard() {
   }, [levels])
 
   return (
-    <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
+    <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -264,7 +249,7 @@ function PinnedRecordsCard({
   onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
 }) {
   return (
-    <Card className="gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
+    <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -417,8 +402,6 @@ export function ProfileHomeContent({
   pinnedRecordsLoading,
   pinnedRecordsMutating,
   onUnpinRecord,
-  summary,
-  summaryLoading,
 }: {
   canManagePinnedRecords: boolean
   completion: ProfileCompletionData
@@ -433,33 +416,37 @@ export function ProfileHomeContent({
   pinnedRecordsLoading: boolean
   pinnedRecordsMutating: boolean
   onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
-  summary: ProfileSummaryData
-  summaryLoading: boolean
 }) {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <MainSummaryCard
-          label="Total Points"
-          loading={summaryLoading}
-          value={formatNumber(summary.totalPoints)}
-        />
-        <MainSummaryCard
-          label="Rank"
-          loading={summaryLoading}
-          value={summary.rankLabel}
-        />
-        <MainSummaryCard
-          label="Global Standing"
-          loading={summaryLoading}
-          value={
-            summary.globalStanding === null
-              ? "Unranked"
-              : `#${formatNumber(summary.globalStanding)}`
-          }
-        />
-      </div>
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const [contentWidth, setContentWidth] = useState(0)
 
+  useEffect(() => {
+    const element = contentRef.current
+    if (!element) {
+      return
+    }
+
+    const updateWidth = () => {
+      setContentWidth(element.getBoundingClientRect().width)
+    }
+
+    updateWidth()
+
+    const observer = new ResizeObserver(() => {
+      updateWidth()
+    })
+    observer.observe(element)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  const showCompletionCardsInTwoColumns =
+    contentWidth >= PROFILE_COMPLETION_TWO_COLUMN_MIN_WIDTH
+
+  return (
+    <div ref={contentRef} className="min-w-0 space-y-6">
       {completionError ? (
         <Alert variant="destructive">
           <AlertTitle>Unable to load completion progress</AlertTitle>
@@ -469,9 +456,14 @@ export function ProfileHomeContent({
           </AlertDescription>
         </Alert>
       ) : completionLoading ? (
-        <CompletionCardsSkeleton />
+        <CompletionCardsSkeleton twoColumns={showCompletionCardsInTwoColumns} />
       ) : (
-        <div className="grid gap-6 2xl:grid-cols-2">
+        <div
+          className={cn(
+            "grid gap-6",
+            showCompletionCardsInTwoColumns && "lg:grid-cols-2",
+          )}
+        >
           <CompletionCard
             title="NUB completion"
             completed={completion.nub.completed}

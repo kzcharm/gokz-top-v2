@@ -48,7 +48,7 @@ function ProfileSkeleton() {
   return (
     <div className="space-y-8">
       <Skeleton className="h-56 rounded-[28px]" />
-      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Skeleton className="h-[680px] rounded-[28px]" />
         <div className="space-y-6">
           <Skeleton className="h-48 rounded-[28px]" />
@@ -397,8 +397,8 @@ export function ProfilePage({
       ) : null}
 
       {usesSidebarLayout ? (
-        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside>
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="min-w-0">
             <ProfileSidebar
               identifier={canonicalIdentifier}
               player={player}
@@ -407,7 +407,7 @@ export function ProfilePage({
             />
           </aside>
 
-          <section className="space-y-6">
+          <section className="min-w-0 space-y-6">
             {activeTab === "home" ? (
               <ProfileHomeContent
                 canManagePinnedRecords={isOwnProfile}
@@ -429,8 +429,6 @@ export function ProfilePage({
                 onUnpinRecord={(mapId, type) => {
                   unpinRecordMutation.mutate({ mapId, type })
                 }}
-                summary={summary}
-                summaryLoading={summaryLoading}
               />
             ) : (
               <ProfileRecordsTab

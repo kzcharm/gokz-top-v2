@@ -1,14 +1,23 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Copy } from "lucide-react"
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
-import { useState } from "react"
+import { Copy, Search, X } from "lucide-react"
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 import { toast } from "sonner"
 
 import type { PlayerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
+  getPlayerDisplayName,
+  PlayerDisplay,
   PlayerContextMenuItems,
   PlayerFollowContextMenuItem,
 } from "@/components/Common/PlayerDisplay"
@@ -21,8 +30,13 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import {
+  type GraphqlPlayer,
+  searchPlayersGraphql,
+} from "@/lib/player-graphql"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -39,7 +53,6 @@ import {
   getFollowSummaryCount,
   getProfileFollowSummaryQueryOptions,
   type ProfileSummaryData,
-  profileBadgeToneClasses,
 } from "./profile-utils"
 
 type ProfilePlayer = PlayerPublic & {
@@ -103,7 +116,7 @@ function ProfileIdentityCard({
       open={openContextMenu}
       onOpenChange={onContextMenuOpenChange}
     >
-      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+      <Card className="h-full min-w-0 gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="relative space-y-6 p-6">
           <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(127,119,221,0.2),transparent_42%),radial-gradient(circle_at_75%_20%,rgba(29,158,117,0.16),transparent_28%)]" />
 
@@ -214,6 +227,11 @@ function ProfileIdentityCard({
 
             <div className="flex flex-wrap justify-center gap-2 pt-2">
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
+                {profileSummaryLoading
+                  ? "Points ..."
+                  : `${profileSummary.rankLabel} ${formatNumber(profileSummary.totalPoints)}`}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
                 Rating{" "}
                 {profileSummaryLoading
                   ? "..."
@@ -222,7 +240,7 @@ function ProfileIdentityCard({
                     : formatRating(profileSummary.rating)}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                GL{" "}
+                Global{" "}
                 {profileSummaryLoading
                   ? "..."
                   : profileSummary.globalStanding === null
@@ -264,11 +282,13 @@ function ProfileIdentityCard({
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-0.5 text-sm">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+    <div className="flex items-start justify-between gap-3 py-0.5 text-sm">
+      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </span>
-      <span className="text-right text-sm font-semibold">{value}</span>
+      <span className="min-w-0 break-words text-right text-sm font-semibold">
+        {value}
+      </span>
     </div>
   )
 }
@@ -360,7 +380,7 @@ function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
         </DropdownMenuTrigger>
         <button
           type="button"
-          className="rounded-[8px] text-right text-sm font-semibold transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
+          className="break-all rounded-[8px] text-right text-sm font-semibold transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
           data-testid="profile-steamid64-context-trigger"
           onClick={handleCopySteamId64}
           onContextMenu={handleContextMenu}
@@ -523,7 +543,7 @@ function SkillRadar() {
             const pointRadius = (skill.value / 100) * radius
             const x = center + Math.cos(angle) * pointRadius
             const y = center + Math.sin(angle) * pointRadius
-            const labelRadius = radius + 22
+            const labelRadius = radius + 26
             const lx = center + Math.cos(angle) * labelRadius
             const ly = center + Math.sin(angle) * labelRadius
             return (
@@ -534,27 +554,14 @@ function SkillRadar() {
                   y={ly}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  className="fill-muted-foreground text-[11px] font-medium"
+                  className="fill-muted-foreground text-[10px] font-medium"
                 >
-                  {skill.label}
+                  {`${skill.label} ${skill.value}`}
                 </text>
               </g>
             )
           })}
         </svg>
-      </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        {labels.map((skill) => (
-          <span
-            key={skill.label}
-            className={cn(
-              "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
-              profileBadgeToneClasses[skill.tone],
-            )}
-          >
-            {skill.label} {skill.value}
-          </span>
-        ))}
       </div>
     </div>
   )
@@ -577,12 +584,38 @@ export function ProfileSidebar({
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
   const [identityContextMenuOpen, setIdentityContextMenuOpen] = useState(false)
+  const [searchInput, setSearchInput] = useState("")
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const searchBlurTimeoutRef = useRef<number | null>(null)
+  const deferredSearchInput = useDeferredValue(searchInput)
+  const playerSearchQuery = deferredSearchInput.trim()
   const followSummaryQuery = useQuery(
     getProfileFollowSummaryQueryOptions(identifier),
   )
+  const playerSearchQueryResult = useQuery({
+    queryKey: ["graphql", "players", "search", playerSearchQuery],
+    enabled: playerSearchQuery.length > 0,
+    queryFn: async () => (await searchPlayersGraphql(playerSearchQuery, 8)).data,
+    staleTime: 30_000,
+  })
   const followSummary = followSummaryQuery.data
   const followerCount = getFollowSummaryCount(followSummary, "follower_count")
   const followingCount = getFollowSummaryCount(followSummary, "following_count")
+  const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
+  const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
+
+  useEffect(() => {
+    return () => {
+      if (searchBlurTimeoutRef.current !== null) {
+        window.clearTimeout(searchBlurTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    setSearchInput("")
+    setIsSearchFocused(false)
+  }, [identifier])
 
   const handleOpenSocial = (tab: ProfileSocialTab) => {
     if (!authenticated) {
@@ -594,77 +627,176 @@ export function ProfileSidebar({
     setSocialDialogOpen(true)
   }
 
+  const handleSelectPlayer = (nextPlayer: GraphqlPlayer) => {
+    setSearchInput(getPlayerDisplayName(nextPlayer))
+    setIsSearchFocused(false)
+    void navigate({
+      to: "/profile/$identifier",
+      params: {
+        identifier: nextPlayer.customId?.trim() || nextPlayer.steamid64,
+      },
+    })
+  }
+
   return (
-    <div className="space-y-6">
-      <ProfileIdentityCard
-        displayName={player.alias || player.name}
-        profileSummary={summary}
-        profileSummaryLoading={summaryLoading}
-        onContextMenuOpenChange={setIdentityContextMenuOpen}
-        openContextMenu={identityContextMenuOpen}
-        player={player}
-      />
+    <>
+      <div className="grid min-w-0 auto-rows-fr items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1">
+        <ProfileIdentityCard
+          displayName={player.alias || player.name}
+          profileSummary={summary}
+          profileSummaryLoading={summaryLoading}
+          onContextMenuOpenChange={setIdentityContextMenuOpen}
+          openContextMenu={identityContextMenuOpen}
+          player={player}
+        />
 
-      <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="space-y-4 p-6">
-          <div className="space-y-0.5">
-            <DetailRow
-              label="SteamID64"
-              value={<SteamIdContextValue steamid64={player.steamid64} />}
-            />
-            <DetailRow
-              label="Date Joined"
-              value={
-                <FormattedDateTime
-                  value={player.created_at}
-                  display="relative"
-                  fallback="Unknown"
-                />
-              }
-            />
-            <DetailRow
-              label="Last Played"
-              value={
-                <FormattedDateTime
-                  value={player.last_played_at}
-                  display="relative"
-                  fallback="Unknown"
-                />
-              }
-            />
-            <DetailRow
-              label="Playtime"
-              value={formatHours(placeholderSummary.playtimeHours)}
-            />
-          </div>
+        <Card className="h-full min-w-0 gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+          <CardContent className="space-y-4 p-6">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Search players"
+                value={searchInput}
+                onChange={(event) => {
+                  if (searchBlurTimeoutRef.current !== null) {
+                    window.clearTimeout(searchBlurTimeoutRef.current)
+                  }
+                  setSearchInput(event.target.value)
+                  setIsSearchFocused(true)
+                }}
+                onFocus={() => {
+                  if (searchBlurTimeoutRef.current !== null) {
+                    window.clearTimeout(searchBlurTimeoutRef.current)
+                  }
+                  setIsSearchFocused(true)
+                }}
+                onBlur={() => {
+                  searchBlurTimeoutRef.current = window.setTimeout(() => {
+                    setIsSearchFocused(false)
+                  }, 100)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && searchResults.length > 0) {
+                    event.preventDefault()
+                    handleSelectPlayer(searchResults[0])
+                  }
+                  if (event.key === "Escape") {
+                    setIsSearchFocused(false)
+                  }
+                }}
+                placeholder="Search player ..."
+                className="pr-10 pl-9"
+              />
+              {searchInput.length > 0 ? (
+                <button
+                  type="button"
+                  className="absolute top-1/2 right-2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => {
+                    setSearchInput("")
+                    setIsSearchFocused(false)
+                  }}
+                  aria-label="Clear player search"
+                >
+                  <X className="size-4" />
+                </button>
+              ) : null}
+              {showSearchResults ? (
+                <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
+                  {playerSearchQueryResult.isLoading ? (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">
+                      Searching players...
+                    </div>
+                  ) : playerSearchQueryResult.isError ? (
+                    <div className="px-4 py-3 text-sm text-destructive">
+                      Unable to search players right now.
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">
+                      No players found.
+                    </div>
+                  ) : (
+                    <div className="py-1">
+                      {searchResults.map((nextPlayer) => (
+                        <button
+                          key={nextPlayer.steamid64}
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm transition-colors hover:bg-muted/60"
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            handleSelectPlayer(nextPlayer)
+                          }}
+                        >
+                          <PlayerDisplay
+                            player={nextPlayer}
+                            disableProfileLink
+                            className="min-w-0"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <SummaryMiniCard
-              dataTestId="profile-profile-views-card"
-              label="Profile Views"
-              value={formatNumber(player.profile_views ?? 0)}
-            />
-            <SummaryMiniCard
-              label="Followers"
-              dataTestId="profile-followers-card"
-              onClick={() => handleOpenSocial("followers")}
-              value={formatNumber(followerCount)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+            <div className="space-y-0.5">
+              <DetailRow
+                label="SteamID64"
+                value={<SteamIdContextValue steamid64={player.steamid64} />}
+              />
+              <DetailRow
+                label="Date Joined"
+                value={
+                  <FormattedDateTime
+                    value={player.created_at}
+                    display="relative"
+                    fallback="Unknown"
+                  />
+                }
+              />
+              <DetailRow
+                label="Last Played"
+                value={
+                  <FormattedDateTime
+                    value={player.last_played_at}
+                    display="relative"
+                    fallback="Unknown"
+                  />
+                }
+              />
+              <DetailRow
+                label="Playtime"
+                value={formatHours(placeholderSummary.playtimeHours)}
+              />
+            </div>
 
-      <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="space-y-5 p-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Skill radar
-            </p>
-          </div>
-          <SkillRadar />
-        </CardContent>
-      </Card>
+            <div className="grid grid-cols-2 gap-3">
+              <SummaryMiniCard
+                dataTestId="profile-profile-views-card"
+                label="Profile Views"
+                value={formatNumber(player.profile_views ?? 0)}
+              />
+              <SummaryMiniCard
+                label="Followers"
+                dataTestId="profile-followers-card"
+                onClick={() => handleOpenSocial("followers")}
+                value={formatNumber(followerCount)}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
+        <Card className="h-full min-w-0 gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
+          <CardContent className="space-y-5 p-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Skill radar
+              </p>
+            </div>
+            <SkillRadar />
+          </CardContent>
+        </Card>
+      </div>
       <ProfileSocialDialog
         followerCount={followerCount}
         followingCount={followingCount}
@@ -674,6 +806,6 @@ export function ProfileSidebar({
         open={socialDialogOpen}
         tab={socialTab}
       />
-    </div>
+    </>
   )
 }
