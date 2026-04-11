@@ -752,7 +752,7 @@ async def test_upsert_player_leaderboards_rebuilds_player_without_auth(
     assert before_response.json() == {"data": [], "count": 0}
 
     rebuild_response = await client.put(
-        f"{settings.API_V1_STR}/leaderboards/players/{players['alpha']}"
+        f"{settings.API_V1_STR}/leaderboards/players/alpha"
     )
 
     assert rebuild_response.status_code == 200

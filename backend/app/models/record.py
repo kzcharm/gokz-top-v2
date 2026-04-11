@@ -353,6 +353,7 @@ class RecordListQuery(SQLModel):
     server_id: int | None = None
     mode_id: int | None = None
     map_id: int | None = None
+    map_name: str | None = Field(default=None, max_length=255)
     stage: int | None = Field(default=None, ge=0)
     teleports: int | None = Field(default=None, ge=0)
     replay_id: int | None = None

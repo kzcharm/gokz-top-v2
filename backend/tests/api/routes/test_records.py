@@ -668,7 +668,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
-            ("steamid64", player_id),
+            ("identifier", str(player_id)),
             ("scope", "OVR"),
             ("stage", 0),
         ],
@@ -683,7 +683,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     bonus_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
-            ("steamid64", player_id),
+            ("identifier", str(player_id)),
             ("scope", "OVR"),
             ("stage", 1),
         ],
@@ -697,7 +697,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     pro_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
-            ("steamid64", player_id),
+            ("identifier", str(player_id)),
             ("scope", "OVR"),
             ("type", "PRO"),
             ("stage", 0),
@@ -708,7 +708,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     skz_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
-            ("steamid64", player_id),
+            ("identifier", str(player_id)),
             ("scope", "SKZ"),
             ("stage", 0),
         ],
@@ -980,7 +980,7 @@ async def test_read_pb_records_v1_supports_offset_and_limit(
     player_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
-            ("steamid64", player_one),
+            ("identifier", str(player_one)),
             ("scope", "OVR"),
             ("offset", 1),
             ("limit", 1),
@@ -1039,11 +1039,11 @@ async def test_read_pb_records_v1_returns_scope_aware_course_tier(
 
     ovr_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
-        params={"steamid64": str(player_id), "scope": "OVR"},
+        params={"identifier": str(player_id), "scope": "OVR"},
     )
     kzt_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
-        params={"steamid64": str(player_id), "scope": "KZT"},
+        params={"identifier": str(player_id), "scope": "KZT"},
     )
     detail_response = await client.get(
         f"{settings.API_V1_STR}/records/{record.uuid}",
@@ -1061,15 +1061,15 @@ async def test_read_pb_records_v1_returns_scope_aware_course_tier(
 async def test_read_pb_records_v1_rejects_invalid_anchor_combinations(
     client: AsyncClient,
 ) -> None:
-    both = await client.get(
+    conflicting_map_filters = await client.get(
         f"{settings.API_V1_STR}/records/pb",
         params=[
             ("map_id", 1),
-            ("steamid64", random_steamid64()),
+            ("map_name", "kz_conflict"),
             ("scope", "OVR"),
         ],
     )
-    assert both.status_code == 422
+    assert conflicting_map_filters.status_code == 422
 
     neither = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -1351,6 +1351,80 @@ async def test_read_records_v1_and_pb_exclude_cheaters_by_default(
     )
     assert pb_all.status_code == 200
     assert [row["id"] for row in pb_all.json()] == [981001, 981000]
+
+
+async def test_read_records_v1_supports_map_name_filter(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        map_name="kz_records_by_name",
+        players=[(player_id, "Map Name Runner")],
+    )
+    record = await _create_record(
+        db,
+        id=981010,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="12.345",
+        teleports=0,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/",
+        params={"map_name": "kz_records_by_name"},
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()["data"]] == [record.id]
+
+
+async def test_read_pb_records_v1_supports_map_name_and_custom_id_identifier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        map_name="kz_pb_by_name",
+        players=[(player_id, "Identifier Runner")],
+    )
+    await _create_player(
+        db,
+        steamid64=player_id,
+        name="Identifier Runner",
+        custom_id="identifier-runner",
+    )
+    record = await _create_record(
+        db,
+        id=981011,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="11.111",
+        teleports=0,
+    )
+
+    map_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={"map_name": "kz_pb_by_name", "scope": "OVR"},
+    )
+    assert map_response.status_code == 200
+    assert [row["id"] for row in map_response.json()] == [record.id]
+
+    identifier_response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={"identifier": "identifier-runner", "scope": "OVR"},
+    )
+    assert identifier_response.status_code == 200
+    assert [row["id"] for row in identifier_response.json()] == [record.id]
 
 
 async def test_read_record_ranks_v1_returns_ordered_map_local_ranks(

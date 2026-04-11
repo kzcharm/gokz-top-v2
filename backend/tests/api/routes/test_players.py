@@ -676,6 +676,29 @@ async def test_update_player_authenticated_persists_changes(
 
 
 @pytest.mark.asyncio
+async def test_update_player_accepts_custom_id_identifier(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Custom ID Update Target",
+        custom_id="custom-update-target",
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{player.custom_id}",
+        headers=superuser_token_headers,
+        json={"alias": "Updated Via Identifier"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["alias"] == "Updated Via Identifier"
+
+
+@pytest.mark.asyncio
 async def test_update_player_rejects_non_superuser(
     client: AsyncClient,
     db: AsyncSession,
@@ -791,6 +814,48 @@ async def test_upsert_player_from_steam_authenticated_succeeds(
     refreshed = await db.get(Player, steamid64)
     assert refreshed is not None
     assert refreshed.name == "Steam Synced"
+
+
+@pytest.mark.asyncio
+async def test_upsert_player_from_steam_accepts_custom_id_identifier(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Existing Target",
+        custom_id="existing-target",
+    )
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | None]:
+        return {
+            "name": "Steam Synced Via Identifier",
+            "custom_id": "existing-target",
+            "avatar_hash": "a" * 40,
+            "country": "DE",
+            "fetched": True,
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{target.custom_id}/steam",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(target.steamid64)
+    assert payload["name"] == "Steam Synced Via Identifier"
 
 
 @pytest.mark.asyncio

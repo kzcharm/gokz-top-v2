@@ -17,14 +17,6 @@ from app.models import (
 
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
 
-
-def _parse_steamid64(steamid64: str) -> int:
-    try:
-        return int(steamid64)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail="Invalid steamid64") from exc
-
-
 def _validate_geography_filters(*, country: str | None, region: str | None) -> None:
     if country is not None and region is not None:
         raise HTTPException(
@@ -74,23 +66,19 @@ async def read_player_leaderboard_rank(
     )
 
 
-@router.put("/players/{steamid64}", response_model=Message)
+@router.put("/players/{identifier:path}", response_model=Message)
 async def upsert_player_leaderboards(
-    steamid64: str,
+    identifier: str,
     session: SessionDep,
 ) -> Message:
-    player_steamid64 = _parse_steamid64(steamid64)
-    player = await crud.get_player_by_steamid64(
-        session=session,
-        steamid64=player_steamid64,
-    )
+    player = await _get_player_or_404(session=session, identifier=identifier)
     if player is None:
         raise HTTPException(status_code=404, detail="Player not found")
 
     await crud.rebuild_leaderboard_players(
         session=session,
         scope_ids=[scope_to_id(scope) for scope in RecordScope],
-        steamid64s=[player_steamid64],
+        steamid64s=[player.steamid64],
     )
     await session.commit()
     return Message(message="Player leaderboard rows rebuilt successfully")

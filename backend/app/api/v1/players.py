@@ -50,6 +50,18 @@ async def _get_player_or_404(*, session: SessionDep, identifier: str):
     return player
 
 
+async def _resolve_player_identifier_to_steamid64_or_404(
+    *, session: SessionDep, identifier: str
+) -> int:
+    steamid64 = await player_crud.resolve_player_identifier_to_steamid64(
+        session=session,
+        identifier=identifier,
+    )
+    if steamid64 is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return steamid64
+
+
 def _ensure_current_user_owns_player(
     *, current_user: CurrentUser, target_steamid64: int
 ) -> None:
@@ -375,15 +387,18 @@ async def read_player(identifier: str, session: SessionDep) -> Any:
 
 
 @router.put(
-    "/{steamid64}/steam",
+    "/{identifier:path}/steam",
     dependencies=[Depends(get_current_user)],
     response_model=PlayerPublic,
 )
-async def upsert_player_from_steam(session: SessionDep, steamid64: str) -> Any:
+async def upsert_player_from_steam(session: SessionDep, identifier: str) -> Any:
     """
-    Create or update player from Steam API.
+    Create or update player from a Steam-resolvable identifier.
     """
-    parsed_steamid64 = _parse_steamid64(steamid64)
+    parsed_steamid64 = await _resolve_player_identifier_to_steamid64_or_404(
+        session=session,
+        identifier=identifier,
+    )
     player, _ = await crud.create_or_update_player_from_steam_if_fetched(
         session=session,
         steamid64=parsed_steamid64,
@@ -400,14 +415,14 @@ async def upsert_player_from_steam(session: SessionDep, steamid64: str) -> Any:
 
 
 @router.put(
-    "/{steamid64}",
+    "/{identifier:path}",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=PlayerPublic,
 )
 async def update_player(
     *,
     session: SessionDep,
-    steamid64: str,
+    identifier: str,
     player_in: PlayerUpdate,
     current_user: CurrentSuperuser,
 ) -> Any:
@@ -417,7 +432,10 @@ async def update_player(
     del current_user
     db_player = await crud.get_player_by_steamid64(
         session=session,
-        steamid64=_parse_steamid64(steamid64),
+        steamid64=await _resolve_player_identifier_to_steamid64_or_404(
+            session=session,
+            identifier=identifier,
+        ),
     )
     if not db_player:
         raise HTTPException(status_code=404, detail="Player not found")

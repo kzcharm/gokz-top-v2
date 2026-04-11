@@ -50,7 +50,8 @@ from app.services.course_points import (
 )
 
 from .ban import not_active_ban_exists_clause
-from .player import to_player_ref_public
+from .map import get_map_by_name
+from .player import read_players_batch, to_player_ref_public
 from .record_filter import load_scoped_course_tiers
 
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
@@ -917,14 +918,12 @@ async def read_map_wrs(
             RecordPb.record_uuid,
             RecordPb.updated_at,
             Record.mode_id,
-            Player.steamid64,
-            Player.name,
+            Record.steamid64,
             Record.time,
         )
         .join(MapCourse, MapCourse.id == RecordPb.course_id)
         .join(Map, Map.id == MapCourse.map_id)
         .join(Record, Record.uuid == RecordPb.record_uuid)
-        .join(Player, Player.steamid64 == Record.steamid64)
         .where(
             RecordPb.scope == scope_id,
             RecordPb.points == 1000,
@@ -941,6 +940,12 @@ async def read_map_wrs(
         )
 
     rows = (await session.exec(statement)).all()
+    unique_steamid64s = list(dict.fromkeys(row[6] for row in rows))
+    players = await read_players_batch(session=session, steamid64s=unique_steamid64s)
+    players_by_steamid64 = {
+        player.steamid64: player for player in players if player is not None
+    }
+
     return [
         MapWrPublic(
             record_uuid=record_uuid,
@@ -948,10 +953,7 @@ async def read_map_wrs(
             scope=_scope_from_id(row_scope_id),
             type=RecordType.PRO if row_is_pro_only else RecordType.NUB,
             mode_id=mode_id,
-            player={
-                "steamid64": str(player_steamid64),
-                "display_name": player_name,
-            },
+            player=to_player_ref_public(player=players_by_steamid64[player_steamid64]),
             time=float(record_time),
             updated_at=updated_at,
         )
@@ -963,7 +965,6 @@ async def read_map_wrs(
             updated_at,
             mode_id,
             player_steamid64,
-            player_name,
             record_time,
         ) in rows
     ]
@@ -1243,6 +1244,12 @@ async def read_records(
         filters.append(col(Record.mode_id) == query.mode_id)
     if query.map_id is not None:
         filters.append(col(Record.map_id) == query.map_id)
+    elif query.map_name is not None:
+        filters.append(
+            col(Record.map_id).in_(
+                select(Map.id).where(col(Map.name) == query.map_name)
+            )
+        )
     if query.stage is not None:
         filters.append(col(Record.stage) == query.stage)
     if query.teleports is not None:
@@ -1711,6 +1718,7 @@ async def get_pb_record_publics(
     session: AsyncSession,
     *,
     map_id: int | None,
+    map_name: str | None,
     stage: int,
     steamid64: int | None,
     scope: RecordScope,
@@ -1785,10 +1793,17 @@ async def get_pb_record_publics(
             not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
         )
 
-    if map_id is not None:
+    resolved_map_id = map_id
+    if resolved_map_id is None and map_name is not None:
+        map_obj = await get_map_by_name(session=session, map_name=map_name)
+        if map_obj is None:
+            return []
+        resolved_map_id = map_obj.id
+
+    if resolved_map_id is not None:
         course = await _get_map_course_by_map_stage(
             session=session,
-            map_id=map_id,
+            map_id=resolved_map_id,
             stage=stage,
         )
         if course is None or course.id is None:

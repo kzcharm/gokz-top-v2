@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app import crud
 from app.api.deps import SessionDep, get_current_active_superuser
 from app.core.regions import is_valid_region_code
+from app.crud import player as player_crud
 from app.crud.record import get_pb_record_publics
 from app.models import (
     Map,
@@ -29,6 +30,18 @@ from app.models import (
 router = APIRouter(prefix="/records", tags=["records"])
 
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+
+
+async def _resolve_player_identifier_to_steamid64_or_404(
+    *, session: SessionDep, identifier: str
+) -> int:
+    steamid64 = await player_crud.resolve_player_identifier_to_steamid64(
+        session=session,
+        identifier=identifier,
+    )
+    if steamid64 is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return steamid64
 
 
 def _validate_geography_filters(*, country: str | None, region: str | None) -> None:
@@ -97,6 +110,11 @@ async def read_records(
     session: SessionDep,
     query: Annotated[RecordListQuery, Query()],
 ) -> Any:
+    if query.map_id is not None and query.map_name is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="map_id and map_name filters are mutually exclusive. Please provide only one.",
+        )
     records, count = await crud.read_records(session=session, query=query)
     return RecordsPublic(
         data=await _to_record_publics(session, records, scope=query.scope),
@@ -122,15 +140,23 @@ async def read_pb_records(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=10000)] = 100,
     map_id: Annotated[int | None, Query()] = None,
+    map_name: Annotated[str | None, Query()] = None,
     stage: Annotated[int, Query(ge=0)] = 0,
-    steamid64: Annotated[str | None, Query(pattern=r"^\d{17}$")] = None,
+    identifier: Annotated[str | None, Query()] = None,
     country: Annotated[str | None, Query(max_length=2)] = None,
     region: Annotated[str | None, Query(max_length=3)] = None,
 ) -> Any:
-    if (map_id is None) == (steamid64 is None):
+    if map_id is not None and map_name is not None:
         raise HTTPException(
             status_code=422,
-            detail="Exactly one of map_id or steamid64 must be provided",
+            detail="map_id and map_name filters are mutually exclusive. Please provide only one.",
+        )
+    has_map_anchor = map_id is not None or map_name is not None
+    has_player_anchor = identifier is not None
+    if not has_map_anchor and not has_player_anchor:
+        raise HTTPException(
+            status_code=422,
+            detail="At least one of map_id/map_name or identifier must be provided",
         )
     normalized_country = country.strip().upper() if country is not None and country.strip() else None
     normalized_region = region.strip().upper() if region is not None and region.strip() else None
@@ -139,8 +165,16 @@ async def read_pb_records(
     return await get_pb_record_publics(
         session,
         map_id=map_id,
+        map_name=map_name,
         stage=stage,
-        steamid64=int(steamid64) if steamid64 is not None else None,
+        steamid64=(
+            await _resolve_player_identifier_to_steamid64_or_404(
+                session=session,
+                identifier=identifier,
+            )
+            if identifier is not None
+            else None
+        ),
         scope=scope,
         record_type=type,
         country=normalized_country,
