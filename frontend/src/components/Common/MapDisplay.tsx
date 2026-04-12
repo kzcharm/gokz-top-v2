@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { Copy, Map } from "lucide-react"
-import type { KeyboardEvent, MouseEvent } from "react"
+import { Copy, MapIcon } from "lucide-react"
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils"
 interface MapDisplayProps {
   mapName: string | null | undefined
   className?: string
+  contextMenuItems?: ReactNode
 }
 
 export function getMapImageUrl(mapName: string | null | undefined) {
@@ -26,7 +28,11 @@ export function getMapImageUrl(mapName: string | null | undefined) {
   return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${mapName}.webp`
 }
 
-export function MapDisplay({ mapName, className }: MapDisplayProps) {
+export function MapDisplay({
+  mapName,
+  className,
+  contextMenuItems,
+}: MapDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [, copyToClipboard] = useCopyToClipboard()
   const navigate = useNavigate()
@@ -130,9 +136,11 @@ export function MapDisplay({ mapName, className }: MapDisplayProps) {
             handleGoToMapPage()
           }}
         >
-          <Map />
+          <MapIcon />
           Goto Map Page
         </DropdownMenuItem>
+        {contextMenuItems ? <DropdownMenuSeparator /> : null}
+        {contextMenuItems}
       </DropdownMenuContent>
     </DropdownMenu>
   )

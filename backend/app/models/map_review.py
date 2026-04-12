@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 from typing import Any
 
 from pydantic import field_validator
@@ -120,6 +121,9 @@ class MapReviewsPublic(SQLModel):
     count: int
 
 
+MapReviewSource = Literal["latest", "website"]
+
+
 class MapReviewListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=1000)
@@ -128,3 +132,4 @@ class MapReviewListQuery(SQLModel):
     steamid64: int | None = Field(default=None, sa_type=BigInteger)
     with_comments_only: bool = False
     language: str | None = Field(default=None, min_length=1, max_length=16)
+    source: MapReviewSource = "latest"

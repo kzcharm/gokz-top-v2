@@ -26,7 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getRegionsQueryOptions } from "@/lib/regions"
-
+import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapTopTable } from "./MapTopTable"
 import { fetchMapByName } from "./map-utils"
@@ -160,6 +160,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
   const [activeTab, setActiveTab] = useState("top")
   const [reviewsPageIndex, setReviewsPageIndex] = useState(0)
   const [reviewsPageSize, setReviewsPageSize] = useState(20)
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
 
   const mapQuery = useQuery({
     queryKey: ["map", mapName],
@@ -296,9 +297,14 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                   </Label>
                 </div>
               ) : (
-                <div className="text-sm text-muted-foreground">
-                  Latest player reviews with comments for this map.
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setReviewDialogOpen(true)}
+                  data-testid="map-add-review-button"
+                >
+                  Add Review
+                </Button>
               )}
             </div>
           </CardContent>
@@ -360,6 +366,13 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
           />
         </TabsContent>
       </Tabs>
+
+      <MapReviewDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        mapId={map.id}
+        mapName={map.name}
+      />
     </div>
   )
 }

@@ -1048,6 +1048,83 @@ export const PlayerLeaderboardsPublicSchema = {
     title: 'PlayerLeaderboardsPublic'
 } as const;
 
+export const PlayerPinnedRecordPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player_steamid64: {
+            type: 'string',
+            title: 'Player Steamid64'
+        },
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        scope: {
+            '$ref': '#/components/schemas/RecordScope'
+        },
+        type: {
+            '$ref': '#/components/schemas/RecordType'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        record: {
+            '$ref': '#/components/schemas/RecordPublic'
+        }
+    },
+    type: 'object',
+    required: ['id', 'player_steamid64', 'map_id', 'scope', 'type', 'created_at', 'updated_at', 'record'],
+    title: 'PlayerPinnedRecordPublic'
+} as const;
+
+export const PlayerPinnedRecordUpsertSchema = {
+    properties: {
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        scope: {
+            '$ref': '#/components/schemas/RecordScope'
+        },
+        type: {
+            '$ref': '#/components/schemas/RecordType'
+        }
+    },
+    type: 'object',
+    required: ['map_id', 'scope', 'type'],
+    title: 'PlayerPinnedRecordUpsert'
+} as const;
+
+export const PlayerPinnedRecordsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerPinnedRecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerPinnedRecordsPublic'
+} as const;
+
 export const PlayerProfileViewsPublicSchema = {
     properties: {
         profile_views: {
@@ -1557,6 +1634,17 @@ export const RecordRankPublicSchema = {
                 }
             ],
             title: 'Rank'
+        },
+        total_count: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Total Count'
         }
     },
     type: 'object',

@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-04-10
+- Last Updated: 2026-04-12
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -11,6 +11,7 @@
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
+  - `/v1/maps/reviews` now supports website-authored review upserts plus authenticated comment-only deletion across a player's review rows for a map
 - Data strategy:
   - PostgreSQL as primary persistent store
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
@@ -84,6 +85,7 @@
   - react-icons
 - Generated API client:
   - @hey-api/openapi-ts
+  - frontend review authoring flows read both latest-review and website-review variants from the generated `/v1/maps/reviews` contract
 
 ## Frontend Tooling and Tests
 - Bun workspace scripts at repository root

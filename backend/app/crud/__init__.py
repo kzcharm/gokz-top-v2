@@ -26,6 +26,7 @@ from .map import (
     to_map_publics,
 )
 from .map_review import (
+    clear_map_review_comments,
     get_map_review_by_context,
     has_finished_map_for_review,
     load_map_review_summaries,
@@ -165,6 +166,7 @@ __all__ = [
     "_fetch_players_from_steam_api",
     "active_ban_exists_clause",
     "calculate_weighted_rating",
+    "clear_map_review_comments",
     "create_or_update_player_from_steam",
     "create_or_update_player_from_steam_data_if_fetched",
     "create_or_update_player_from_steam_if_fetched",

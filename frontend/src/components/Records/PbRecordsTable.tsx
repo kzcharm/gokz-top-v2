@@ -38,15 +38,18 @@ interface PbRecordsTableProps {
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
   getRowContextMenu?: (record: RecordPublic) => ReactNode
+  getMapContextMenu?: (record: RecordPublic) => ReactNode
 }
 
 function PbRecordTableRow({
   dateTimeDisplay,
+  getMapContextMenu,
   getRowContextMenu,
   record,
   visibleColumns,
 }: {
   dateTimeDisplay: DateTimeDisplay
+  getMapContextMenu?: (record: RecordPublic) => ReactNode
   getRowContextMenu?: (record: RecordPublic) => ReactNode
   record: RecordPublic
   visibleColumns: Set<PbRecordsColumn>
@@ -95,7 +98,10 @@ function PbRecordTableRow({
       ) : null}
       {visibleColumns.has("map") ? (
         <TableCell>
-          <MapDisplay mapName={record.map_name} />
+          <MapDisplay
+            mapName={record.map_name}
+            contextMenuItems={getMapContextMenu?.(record) ?? null}
+          />
         </TableCell>
       ) : null}
       {visibleColumns.has("mode") ? (
@@ -125,7 +131,10 @@ function PbRecordTableRow({
       ) : null}
       {visibleColumns.has("server") ? (
         <TableCell className="text-sm text-foreground/90">
-          <span className="block max-w-[14rem] truncate" title={record.server_name}>
+          <span
+            className="block max-w-[14rem] truncate"
+            title={record.server_name}
+          >
             {truncateText(record.server_name, 32)}
           </span>
         </TableCell>
@@ -226,6 +235,7 @@ export function PbRecordsTable({
   sort,
   onSortChange,
   getRowContextMenu,
+  getMapContextMenu,
 }: PbRecordsTableProps) {
   const visibleColumns = new Set(columns)
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
@@ -361,6 +371,7 @@ export function PbRecordsTable({
                 <PbRecordTableRow
                   key={record.uuid}
                   dateTimeDisplay={dateTimeDisplay}
+                  getMapContextMenu={getMapContextMenu}
                   getRowContextMenu={getRowContextMenu}
                   record={record}
                   visibleColumns={visibleColumns}

@@ -611,6 +611,7 @@ async def test_put_map_review_with_user_auth_upserts_website_review(
     assert first_payload["content"]["overall"] == 4
     assert first_payload["content"]["gameplay"] == 5
     assert first_payload["content"]["visuals"] == 3
+    assert first_payload["created_at"] is not None
     assert first_payload["content"]["comment"]["language"] == "en"
     first_review_created_at = first_payload["created_at"]
     first_comment_created_at = first_payload["content"]["comment"]["created_at"]
@@ -880,6 +881,23 @@ async def test_read_map_reviews_returns_latest_review_per_player_per_map(
         "newer server group review"
     )
 
+    website_only_response = await client.get(
+        f"{settings.API_V1_STR}/maps/reviews",
+        params={
+            "steamid64": str(player_one),
+            "map_id": map_one.id,
+            "source": "website",
+        },
+    )
+
+    assert website_only_response.status_code == 200
+    website_only_payload = website_only_response.json()
+    assert website_only_payload["count"] == 1
+    assert website_only_payload["data"][0]["server_group_id"] is None
+    assert website_only_payload["data"][0]["content"]["comment"]["text"] == (
+        "older website review"
+    )
+
 
 @pytest.mark.asyncio
 async def test_read_map_reviews_supports_comment_and_language_filters(
@@ -998,6 +1016,130 @@ async def test_rebuild_map_review_summary_counts_latest_reviews_only(
     cached = await db.get(MapReviewSummaryCache, map_obj.id)
     assert cached is not None
     assert cached.reviews_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_map_review_comments_clears_all_comments_for_player_map(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930215)
+    steamid64 = random_steamid64()
+    headers = await _auth_user(client, steamid64=steamid64, name="Delete Reviewer")
+    group, _ = await create_server_group(db)
+    base_time = get_datetime_utc()
+
+    website_review = await _create_review(
+        db,
+        steamid64=steamid64,
+        map_id=map_obj.id,
+        updated_at=base_time,
+        overall=4,
+        comment_text="website comment",
+    )
+    server_group_review = await _create_review(
+        db,
+        steamid64=steamid64,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=1),
+        overall=5,
+        server_group_id=group.id,
+        comment_text="server group comment",
+    )
+    other_player = random_steamid64()
+    await _auth_user(client, steamid64=other_player, name="Other Reviewer")
+    await _create_review(
+        db,
+        steamid64=other_player,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=2),
+        overall=3,
+        comment_text="other player comment",
+    )
+    await crud.rebuild_map_review_summary(session=db, map_id=map_obj.id)
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=headers,
+        params={"map_id": map_obj.id},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(steamid64)
+    assert payload["map_id"] == map_obj.id
+    assert payload["content"]["overall"] == 5
+    assert payload["content"]["comment"] is None
+
+    refreshed_website_review = await db.get(MapReview, website_review.id)
+    assert refreshed_website_review is not None
+    assert refreshed_website_review.content["overall"] == 4
+    assert refreshed_website_review.content["comment"] is None
+    assert refreshed_website_review.updated_at >= website_review.updated_at
+
+    refreshed_server_group_review = await db.get(MapReview, server_group_review.id)
+    assert refreshed_server_group_review is not None
+    assert refreshed_server_group_review.content["overall"] == 5
+    assert refreshed_server_group_review.content["comment"] is None
+    assert refreshed_server_group_review.updated_at >= server_group_review.updated_at
+
+    cached_summary = await db.get(MapReviewSummaryCache, map_obj.id)
+    assert cached_summary is not None
+    assert cached_summary.reviews_count == 2
+    assert cached_summary.comments_count == 1
+    assert cached_summary.overall_avg == pytest.approx(4.0)
+
+
+@pytest.mark.asyncio
+async def test_delete_map_review_comments_is_idempotent_without_comments(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930216)
+    steamid64 = random_steamid64()
+    headers = await _auth_user(
+        client,
+        steamid64=steamid64,
+        name="No Comment Reviewer",
+    )
+    await _create_review(
+        db,
+        steamid64=steamid64,
+        map_id=map_obj.id,
+        updated_at=get_datetime_utc(),
+        overall=4,
+        comment_text=None,
+    )
+    await crud.rebuild_map_review_summary(session=db, map_id=map_obj.id)
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=headers,
+        params={"map_id": map_obj.id},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["content"]["overall"] == 4
+    assert response.json()["content"]["comment"] is None
+
+
+@pytest.mark.asyncio
+async def test_delete_map_review_comments_returns_404_without_review(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930217)
+    steamid64 = random_steamid64()
+    headers = await _auth_user(client, steamid64=steamid64, name="Missing Review")
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=headers,
+        params={"map_id": map_obj.id},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Map review not found"}
 
 
 @pytest.mark.asyncio
