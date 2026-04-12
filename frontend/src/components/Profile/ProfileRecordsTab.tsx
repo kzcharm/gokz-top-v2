@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { ChevronDownIcon, Pin, PinOff } from "lucide-react"
+import { ChevronDownIcon, MessageSquarePlus, Pin, PinOff } from "lucide-react"
 import {
   startTransition,
   useDeferredValue,
@@ -37,6 +37,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import {
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
@@ -111,12 +112,8 @@ function PointsRangeFilter({
       Math.min(POINTS_RANGE_MAX, Math.round(nextMax)),
     )
 
-    onMinPointsChange(
-      clampedMin === POINTS_RANGE_MIN ? "" : String(clampedMin),
-    )
-    onMaxPointsChange(
-      clampedMax === POINTS_RANGE_MAX ? "" : String(clampedMax),
-    )
+    onMinPointsChange(clampedMin === POINTS_RANGE_MIN ? "" : String(clampedMin))
+    onMaxPointsChange(clampedMax === POINTS_RANGE_MAX ? "" : String(clampedMax))
   }
   const triggerClassName =
     "flex h-8 min-w-11 items-center justify-center rounded-md border border-border/70 bg-background/80 px-1.5 text-[11px] font-medium shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -151,13 +148,11 @@ function PointsRangeFilter({
         onCloseAutoFocus={(event) => {
           event.preventDefault()
         }}
+        onKeyDown={(event) => {
+          event.stopPropagation()
+        }}
       >
-        <div
-          className="space-y-3"
-          onKeyDown={(event) => {
-            event.stopPropagation()
-          }}
-        >
+        <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             <span>Points</span>
             <span className="font-mono text-foreground">
@@ -168,7 +163,9 @@ function PointsRangeFilter({
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                 <span>Min</span>
-                <span className="font-mono text-foreground">{effectiveMinPoints}</span>
+                <span className="font-mono text-foreground">
+                  {effectiveMinPoints}
+                </span>
               </div>
               <input
                 type="range"
@@ -186,7 +183,9 @@ function PointsRangeFilter({
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                 <span>Max</span>
-                <span className="font-mono text-foreground">{effectiveMaxPoints}</span>
+                <span className="font-mono text-foreground">
+                  {effectiveMaxPoints}
+                </span>
               </div>
               <input
                 type="range"
@@ -264,6 +263,11 @@ export function ProfileRecordsTab({
     column: "datetime",
     direction: "desc",
   })
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [reviewTarget, setReviewTarget] = useState<{
+    mapId: number
+    mapName: string
+  } | null>(null)
   const [visibleCount, setVisibleCount] = useState(PROFILE_RECORDS_PAGE_SIZE)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const deferredMapSearch = useDeferredValue(mapSearch)
@@ -411,6 +415,27 @@ export function ProfileRecordsTab({
       ? "No stage 0 pro records found for this player in the selected scope."
       : "No stage 0 records found for this player in the selected scope."
   const recordType = isProOnly ? "PRO" : "NUB"
+  const getMapContextMenu = (record: RecordPublic) => {
+    if (!canManagePinnedRecords) {
+      return null
+    }
+
+    return (
+      <DropdownMenuItem
+        onSelect={() => {
+          setReviewTarget({
+            mapId: record.map_id,
+            mapName: record.map_name,
+          })
+          setReviewDialogOpen(true)
+        }}
+      >
+        <MessageSquarePlus />
+        Add review
+      </DropdownMenuItem>
+    )
+  }
+
   const getRowContextMenu = (record: RecordPublic) => {
     if (!canManagePinnedRecords) {
       return null
@@ -518,6 +543,7 @@ export function ProfileRecordsTab({
             sort={sort}
             onSortChange={handleSortChange}
             getRowContextMenu={getRowContextMenu}
+            getMapContextMenu={getMapContextMenu}
           />
           {visibleCount < sortedRecords.length ? (
             <div
@@ -529,6 +555,20 @@ export function ProfileRecordsTab({
           ) : null}
         </div>
       )}
+
+      {reviewTarget ? (
+        <MapReviewDialog
+          open={reviewDialogOpen}
+          onOpenChange={(nextOpen) => {
+            setReviewDialogOpen(nextOpen)
+            if (!nextOpen) {
+              setReviewTarget(null)
+            }
+          }}
+          mapId={reviewTarget.mapId}
+          mapName={reviewTarget.mapName}
+        />
+      ) : null}
     </div>
   )
 }

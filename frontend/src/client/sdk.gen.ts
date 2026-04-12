@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, BansReadBansData, BansReadBansResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LoginLoginSteamData, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminModesUpdateModeData, AdminModesUpdateModeResponse, BansReadBansData, BansReadBansResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsDeleteMapReviewCommentsData, MapsDeleteMapReviewCommentsResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerPinnedRecordsData, PlayersReadPlayerPinnedRecordsResponse, PlayersCreatePlayerPinnedRecordData, PlayersCreatePlayerPinnedRecordResponse, PlayersDeletePlayerPinnedRecordData, PlayersDeletePlayerPinnedRecordResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminModesService {
     /**
@@ -135,6 +135,7 @@ export class LeaderboardsService {
      * @param data.limit
      * @param data.sortBy
      * @param data.sortOrder
+     * @param data.includeCount
      * @returns PlayerLeaderboardsPublic Successful Response
      * @throws ApiError
      */
@@ -149,7 +150,8 @@ export class LeaderboardsService {
                 offset: data.offset,
                 limit: data.limit,
                 sort_by: data.sortBy,
-                sort_order: data.sortOrder
+                sort_order: data.sortOrder,
+                include_count: data.includeCount
             },
             errors: {
                 422: 'Validation Error'
@@ -188,16 +190,16 @@ export class LeaderboardsService {
     /**
      * Upsert Player Leaderboards
      * @param data The data for the request.
-     * @param data.steamid64
+     * @param data.identifier
      * @returns Message Successful Response
      * @throws ApiError
      */
     public static upsertPlayerLeaderboards(data: LeaderboardsUpsertPlayerLeaderboardsData): CancelablePromise<LeaderboardsUpsertPlayerLeaderboardsResponse> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/v1/leaderboards/players/{steamid64}',
+            url: '/v1/leaderboards/players/{identifier}',
             path: {
-                steamid64: data.steamid64
+                identifier: data.identifier
             },
             errors: {
                 422: 'Validation Error'
@@ -211,21 +213,13 @@ export class LoginService {
      * Login Steam
      * Initiate Steam OpenID authentication flow.
      * Redirects user to Steam's login page.
-     * @param data The data for the request.
-     * @param data.redirectTo
      * @returns unknown Successful Response
      * @throws ApiError
      */
-    public static loginSteam(data: LoginLoginSteamData = {}): CancelablePromise<LoginLoginSteamResponse> {
+    public static loginSteam(): CancelablePromise<LoginLoginSteamResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/v1/login/steam',
-            query: {
-                redirect_to: data.redirectTo
-            },
-            errors: {
-                422: 'Validation Error'
-            }
+            url: '/v1/login/steam'
         });
     }
     
@@ -371,6 +365,7 @@ export class MapsService {
      * @param data.steamid64
      * @param data.withCommentsOnly
      * @param data.language
+     * @param data.source
      * @returns MapReviewsPublic Successful Response
      * @throws ApiError
      */
@@ -385,7 +380,8 @@ export class MapsService {
                 map_name: data.mapName,
                 steamid64: data.steamid64,
                 with_comments_only: data.withCommentsOnly,
-                language: data.language
+                language: data.language,
+                source: data.source
             },
             errors: {
                 422: 'Validation Error'
@@ -410,6 +406,26 @@ export class MapsService {
             },
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Map Review Comments
+     * @param data The data for the request.
+     * @param data.mapId
+     * @returns MapReviewPublic Successful Response
+     * @throws ApiError
+     */
+    public static deleteMapReviewComments(data: MapsDeleteMapReviewCommentsData): CancelablePromise<MapsDeleteMapReviewCommentsResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/maps/reviews',
+            query: {
+                map_id: data.mapId
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -581,6 +597,81 @@ export class PlayersService {
     }
     
     /**
+     * Read Player Pinned Records
+     * @param data The data for the request.
+     * @param data.identifier
+     * @param data.scope
+     * @returns PlayerPinnedRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayerPinnedRecords(data: PlayersReadPlayerPinnedRecordsData): CancelablePromise<PlayersReadPlayerPinnedRecordsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/players/{identifier}/pinned-records',
+            path: {
+                identifier: data.identifier
+            },
+            query: {
+                scope: data.scope
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Player Pinned Record
+     * @param data The data for the request.
+     * @param data.identifier
+     * @param data.requestBody
+     * @returns PlayerPinnedRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static createPlayerPinnedRecord(data: PlayersCreatePlayerPinnedRecordData): CancelablePromise<PlayersCreatePlayerPinnedRecordResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/players/{identifier}/pinned-records',
+            path: {
+                identifier: data.identifier
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Player Pinned Record
+     * @param data The data for the request.
+     * @param data.identifier
+     * @param data.mapId
+     * @param data.scope
+     * @param data.type
+     * @returns PlayerPinnedRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static deletePlayerPinnedRecord(data: PlayersDeletePlayerPinnedRecordData): CancelablePromise<PlayersDeletePlayerPinnedRecordResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/players/{identifier}/pinned-records',
+            path: {
+                identifier: data.identifier
+            },
+            query: {
+                map_id: data.mapId,
+                scope: data.scope,
+                type: data.type
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Read Player Follow Summary
      * Retrieve follow counts and viewer relationship state for a player.
      * @param data The data for the request.
@@ -719,31 +810,10 @@ export class PlayersService {
     }
     
     /**
-     * Upsert Player From Steam
-     * Create or update player from Steam API.
-     * @param data The data for the request.
-     * @param data.steamid64
-     * @returns PlayerPublic Successful Response
-     * @throws ApiError
-     */
-    public static upsertPlayerFromSteam(data: PlayersUpsertPlayerFromSteamData): CancelablePromise<PlayersUpsertPlayerFromSteamResponse> {
-        return __request(OpenAPI, {
-            method: 'PUT',
-            url: '/v1/players/{steamid64}/steam',
-            path: {
-                steamid64: data.steamid64
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
      * Update Player
      * Update player profile data.
      * @param data The data for the request.
-     * @param data.steamid64
+     * @param data.identifier
      * @param data.requestBody
      * @returns PlayerPublic Successful Response
      * @throws ApiError
@@ -751,12 +821,33 @@ export class PlayersService {
     public static updatePlayer(data: PlayersUpdatePlayerData): CancelablePromise<PlayersUpdatePlayerResponse> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/v1/players/{steamid64}',
+            url: '/v1/players/{identifier}',
             path: {
-                steamid64: data.steamid64
+                identifier: data.identifier
             },
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Upsert Player From Steam
+     * Create or update player from a Steam-resolvable identifier.
+     * @param data The data for the request.
+     * @param data.identifier
+     * @returns PlayerPublic Successful Response
+     * @throws ApiError
+     */
+    public static upsertPlayerFromSteam(data: PlayersUpsertPlayerFromSteamData): CancelablePromise<PlayersUpsertPlayerFromSteamResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/v1/players/{identifier}/steam',
+            path: {
+                identifier: data.identifier
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -777,6 +868,7 @@ export class RecordsService {
      * @param data.serverId
      * @param data.modeId
      * @param data.mapId
+     * @param data.mapName
      * @param data.stage
      * @param data.teleports
      * @param data.replayId
@@ -800,6 +892,7 @@ export class RecordsService {
                 server_id: data.serverId,
                 mode_id: data.modeId,
                 map_id: data.mapId,
+                map_name: data.mapName,
                 stage: data.stage,
                 teleports: data.teleports,
                 replay_id: data.replayId,
@@ -850,8 +943,9 @@ export class RecordsService {
      * @param data.offset
      * @param data.limit
      * @param data.mapId
+     * @param data.mapName
      * @param data.stage
-     * @param data.steamid64
+     * @param data.identifier
      * @param data.country
      * @param data.region
      * @returns RecordPublic Successful Response
@@ -868,8 +962,9 @@ export class RecordsService {
                 offset: data.offset,
                 limit: data.limit,
                 map_id: data.mapId,
+                map_name: data.mapName,
                 stage: data.stage,
-                steamid64: data.steamid64,
+                identifier: data.identifier,
                 country: data.country,
                 region: data.region
             },
@@ -885,6 +980,7 @@ export class RecordsService {
      * @param data.uuidList
      * @param data.scope
      * @param data.type
+     * @param data.country
      * @returns RecordRanksPublic Successful Response
      * @throws ApiError
      */
@@ -895,7 +991,8 @@ export class RecordsService {
             query: {
                 uuid_list: data.uuidList,
                 scope: data.scope,
-                type: data.type
+                type: data.type,
+                country: data.country
             },
             errors: {
                 422: 'Validation Error'

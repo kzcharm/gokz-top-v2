@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-04-10
+- Last Updated: 2026-04-12
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -70,6 +70,9 @@ Scope model:
 ### 5.3 Maps and Reviews
 - Map catalog and detail pages with filters and metadata.
 - Map review/rating flows.
+- Authenticated players can author website reviews only after earning a main-stage OVR PB on the map.
+- Map review authoring must prefill from the player's latest review on that map, while normal website saves continue to target the website review row only.
+- Players can delete all of their review comments for a map without deleting any rating rows; this applies across website and server-group review rows.
 - Tight linkage between map pages and relevant record context.
 
 ### 5.4 Player Profile Experience

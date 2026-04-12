@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from app import crud
 from app.api.deps import (
+    CurrentUser,
     OptionalCurrentUser,
     SessionDep,
     get_current_active_superuser,
@@ -141,6 +142,7 @@ async def read_map_reviews(
         steamid64=query.steamid64,
         with_comments_only=query.with_comments_only,
         language=query.language,
+        source=query.source,
     )
     return MapReviewsPublic(
         data=[
@@ -224,6 +226,30 @@ async def put_map_review(
         content_in=payload.content,
     )
     await crud.rebuild_map_review_summary(session=session, map_id=payload.map_id)
+    return crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
+
+
+@router.delete("/reviews", response_model=MapReviewPublic)
+async def delete_map_review_comments(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    map_id: Annotated[int, Query()],
+) -> MapReviewPublic:
+    map_obj = await crud.get_map_by_id(session=session, id=map_id)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    cleared_review = await crud.clear_map_review_comments(
+        session=session,
+        steamid64=current_user.steamid64,
+        map_id=map_id,
+    )
+    if cleared_review is None:
+        raise HTTPException(status_code=404, detail="Map review not found")
+
+    await crud.rebuild_map_review_summary(session=session, map_id=map_id)
+    review, player, map_obj = cleared_review
     return crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
 
 

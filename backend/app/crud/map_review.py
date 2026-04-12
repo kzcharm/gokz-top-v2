@@ -19,6 +19,7 @@ from app.models import (
     MapReviewContentInput,
     MapReviewContentPublic,
     MapReviewPublic,
+    MapReviewSource,
     MapReviewSummaryCache,
     MapReviewSummaryPublic,
     Player,
@@ -113,10 +114,19 @@ def to_map_review_public(
     )
 
 
+def _map_review_order_by(review_table: Any) -> tuple[Any, Any, Any]:
+    return (
+        review_table.c.updated_at.desc(),
+        review_table.c.created_at.desc(),
+        review_table.c.id.desc(),
+    )
+
+
 def _latest_map_review_ids_query(
     *,
     map_id: int | None = None,
     steamid64: int | None = None,
+    website_only: bool = False,
 ):
     review_table = MapReview.__table__  # type: ignore[attr-defined]
     ranked_reviews = (
@@ -125,11 +135,7 @@ def _latest_map_review_ids_query(
             func.row_number()
             .over(
                 partition_by=(review_table.c.steamid64, review_table.c.map_id),
-                order_by=(
-                    review_table.c.updated_at.desc(),
-                    review_table.c.created_at.desc(),
-                    review_table.c.id.desc(),
-                ),
+                order_by=_map_review_order_by(review_table),
             )
             .label("rank"),
         )
@@ -139,6 +145,8 @@ def _latest_map_review_ids_query(
         ranked_reviews = ranked_reviews.where(review_table.c.map_id == map_id)
     if steamid64 is not None:
         ranked_reviews = ranked_reviews.where(review_table.c.steamid64 == steamid64)
+    if website_only:
+        ranked_reviews = ranked_reviews.where(review_table.c.server_group_id.is_(None))
 
     ranked_subquery = ranked_reviews.subquery()
     return select(ranked_subquery.c.review_id).where(ranked_subquery.c.rank == 1)
@@ -332,15 +340,14 @@ async def upsert_map_review(
 
     review_table = MapReview.__table__  # type: ignore[attr-defined]
     values: dict[str, Any] = {
+        "id": uuid.uuid7(),
         "steamid64": steamid64,
         "map_id": map_id,
         "server_group_id": server_group_id,
         "content": content,
+        "created_at": now,
         "updated_at": now,
     }
-    if existing is None:
-        values["id"] = uuid.uuid7()
-        values["created_at"] = now
 
     insert_statement = pg_insert(review_table).values(values)
     upsert_statement = insert_statement.on_conflict_do_update(
@@ -380,11 +387,13 @@ async def read_latest_map_reviews(
     steamid64: int | None = None,
     with_comments_only: bool = False,
     language: str | None = None,
+    source: MapReviewSource = "latest",
 ) -> tuple[list[tuple[MapReview, Player, Map]], int]:
     review_table = MapReview.__table__  # type: ignore[attr-defined]
     latest_ids = _latest_map_review_ids_query(
         map_id=map_id,
         steamid64=steamid64,
+        website_only=source == "website",
     ).subquery()
     filters: list[ColumnElement[bool]] = []
     comment_text = review_table.c.content["comment"]["text"].astext
@@ -411,11 +420,7 @@ async def read_latest_map_reviews(
         .join(latest_ids, latest_ids.c.review_id == col(MapReview.id))
         .join(Player, col(Player.steamid64) == col(MapReview.steamid64))
         .join(Map, col(Map.id) == col(MapReview.map_id))
-        .order_by(
-            col(MapReview.updated_at).desc(),
-            col(MapReview.created_at).desc(),
-            col(MapReview.id).desc(),
-        )
+        .order_by(*_map_review_order_by(review_table))
         .offset(offset)
         .limit(limit)
     )
@@ -427,3 +432,53 @@ async def read_latest_map_reviews(
     count = (await session.exec(count_statement)).one()
     rows = list((await session.exec(statement)).all())
     return rows, count
+
+
+async def clear_map_review_comments(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    map_id: int,
+) -> tuple[MapReview, Player, Map] | None:
+    statement = (
+        select(MapReview)
+        .where(
+            col(MapReview.steamid64) == steamid64,
+            col(MapReview.map_id) == map_id,
+        )
+        .order_by(
+            col(MapReview.updated_at).desc(),
+            col(MapReview.created_at).desc(),
+            col(MapReview.id).desc(),
+        )
+    )
+    reviews = list((await session.exec(statement)).all())
+    if not reviews:
+        return None
+
+    now = get_datetime_utc()
+    has_changes = False
+    for review in reviews:
+        content = dict(review.content)
+        if content.get("comment") is None:
+            continue
+        review.content = {
+            **content,
+            "comment": None,
+        }
+        review.updated_at = now
+        session.add(review)
+        has_changes = True
+
+    if has_changes:
+        await session.commit()
+
+    latest_reviews, _ = await read_latest_map_reviews(
+        session=session,
+        offset=0,
+        limit=1,
+        map_id=map_id,
+        steamid64=steamid64,
+    )
+    assert latest_reviews
+    return latest_reviews[0]

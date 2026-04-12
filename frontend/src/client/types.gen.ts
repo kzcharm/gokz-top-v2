@@ -205,6 +205,28 @@ export type PlayerLeaderboardsPublic = {
     count: number;
 };
 
+export type PlayerPinnedRecordPublic = {
+    id: string;
+    player_steamid64: string;
+    map_id: number;
+    scope: RecordScope;
+    type: RecordType;
+    created_at: string;
+    updated_at: string;
+    record: RecordPublic;
+};
+
+export type PlayerPinnedRecordsPublic = {
+    data: Array<PlayerPinnedRecordPublic>;
+    count: number;
+};
+
+export type PlayerPinnedRecordUpsert = {
+    map_id: number;
+    scope: RecordScope;
+    type: RecordType;
+};
+
 export type PlayerProfileViewsPublic = {
     profile_views?: number;
 };
@@ -314,6 +336,7 @@ export type RecordPublic = {
 export type RecordRankPublic = {
     record_uuid: string;
     rank?: (number | null);
+    total_count?: (number | null);
 };
 
 export type RecordRanksPublic = {
@@ -552,6 +575,7 @@ export type HandleHttpPostResponse = (unknown);
 
 export type LeaderboardsReadPlayerLeaderboardData = {
     country?: (string | null);
+    includeCount?: boolean;
     limit?: number;
     offset?: number;
     region?: (string | null);
@@ -572,14 +596,10 @@ export type LeaderboardsReadPlayerLeaderboardRankData = {
 export type LeaderboardsReadPlayerLeaderboardRankResponse = (PlayerLeaderboardRankPublic);
 
 export type LeaderboardsUpsertPlayerLeaderboardsData = {
-    steamid64: string;
+    identifier: string;
 };
 
 export type LeaderboardsUpsertPlayerLeaderboardsResponse = (Message);
-
-export type LoginLoginSteamData = {
-    redirectTo?: (string | null);
-};
 
 export type LoginLoginSteamResponse = (unknown);
 
@@ -628,6 +648,7 @@ export type MapsReadMapReviewsData = {
     mapId?: (number | null);
     mapName?: (string | null);
     offset?: number;
+    source?: 'latest' | 'website';
     steamid64?: (number | null);
     withCommentsOnly?: boolean;
 };
@@ -640,6 +661,12 @@ export type MapsPutMapReviewData = {
 };
 
 export type MapsPutMapReviewResponse = (MapReviewPublic);
+
+export type MapsDeleteMapReviewCommentsData = {
+    mapId: number;
+};
+
+export type MapsDeleteMapReviewCommentsResponse = (MapReviewPublic);
 
 export type MapsTriggerMapSyncResponse = (MapSyncResult);
 
@@ -686,6 +713,29 @@ export type PlayersCreatePlayerViewData = {
 
 export type PlayersCreatePlayerViewResponse = (PlayerProfileViewsPublic);
 
+export type PlayersReadPlayerPinnedRecordsData = {
+    identifier: string;
+    scope?: RecordScope;
+};
+
+export type PlayersReadPlayerPinnedRecordsResponse = (PlayerPinnedRecordsPublic);
+
+export type PlayersCreatePlayerPinnedRecordData = {
+    identifier: string;
+    requestBody: PlayerPinnedRecordUpsert;
+};
+
+export type PlayersCreatePlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
+
+export type PlayersDeletePlayerPinnedRecordData = {
+    identifier: string;
+    mapId: number;
+    scope?: RecordScope;
+    type?: RecordType;
+};
+
+export type PlayersDeletePlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
+
 export type PlayersReadPlayerFollowSummaryData = {
     identifier: string;
 };
@@ -726,18 +776,18 @@ export type PlayersReadPlayerData = {
 
 export type PlayersReadPlayerResponse = (PlayerPublic);
 
-export type PlayersUpsertPlayerFromSteamData = {
-    steamid64: string;
-};
-
-export type PlayersUpsertPlayerFromSteamResponse = (PlayerPublic);
-
 export type PlayersUpdatePlayerData = {
+    identifier: string;
     requestBody: PlayerUpdate;
-    steamid64: string;
 };
 
 export type PlayersUpdatePlayerResponse = (PlayerPublic);
+
+export type PlayersUpsertPlayerFromSteamData = {
+    identifier: string;
+};
+
+export type PlayersUpsertPlayerFromSteamResponse = (PlayerPublic);
 
 export type RecordsReadRecordsData = {
     createdSince?: (string | null);
@@ -746,6 +796,7 @@ export type RecordsReadRecordsData = {
     isValid?: (boolean | null);
     limit?: number;
     mapId?: (number | null);
+    mapName?: (string | null);
     modeId?: (number | null);
     offset?: number;
     replayId?: (number | null);
@@ -772,19 +823,21 @@ export type RecordsReadRecentRecordsResponse = (RecentRecordsPublic);
 export type RecordsReadPbRecordsData = {
     country?: (string | null);
     excludeCheaters?: boolean;
+    identifier?: (string | null);
     limit?: number;
     mapId?: (number | null);
+    mapName?: (string | null);
     offset?: number;
     region?: (string | null);
     scope?: RecordScope;
     stage?: number;
-    steamid64?: (string | null);
     type?: RecordType;
 };
 
 export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);
 
 export type RecordsReadRecordRanksData = {
+    country?: (string | null);
     scope?: RecordScope;
     type?: RecordType;
     uuidList: Array<(string)>;

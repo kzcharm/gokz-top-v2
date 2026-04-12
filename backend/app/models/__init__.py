@@ -37,6 +37,7 @@ from .map_review import (
     MapReviewListQuery,
     MapReviewPublic,
     MapReviewsPublic,
+    MapReviewSource,
     MapReviewUpsert,
 )
 from .map_review_summary import MapReviewSummaryCache, MapReviewSummaryPublic
@@ -190,6 +191,7 @@ __all__ = [
     "MapReviewContentPublic",
     "MapReviewListQuery",
     "MapReviewPublic",
+    "MapReviewSource",
     "MapReviewSummaryCache",
     "MapReviewSummaryPublic",
     "MapReviewsPublic",
