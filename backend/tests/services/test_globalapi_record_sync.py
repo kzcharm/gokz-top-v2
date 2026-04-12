@@ -4,6 +4,7 @@ from decimal import Decimal
 from io import StringIO
 from typing import Any
 
+import httpx
 import pytest
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -410,6 +411,75 @@ async def test_fetch_record_with_retry_retries_same_id_after_rate_limit(
     assert result.kind == "null"
     assert calls == [200, 200]
     assert sleeps == [300]
+
+
+async def test_fetch_record_once_classifies_transport_errors_as_transient() -> None:
+    class _FakeClient:
+        async def get(self, url: str) -> object:
+            del url
+            raise httpx.ConnectError("connect failed")
+
+    with pytest.raises(record_sync.GlobalApiRecordSyncTransientError) as exc_info:
+        await record_sync._fetch_record_once(client=_FakeClient(), record_id=200)
+
+    assert "Transient failure while fetching record 200" in str(exc_info.value)
+
+
+async def test_fetch_record_with_retry_retries_same_id_after_transient_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[int] = []
+    sleeps: list[float] = []
+
+    async def _fake_fetch_once(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client
+        calls.append(record_id)
+        if len(calls) == 1:
+            raise record_sync.GlobalApiRecordSyncTransientError("transient")
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(record_sync, "_fetch_record_once", _fake_fetch_once)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _fake_sleep)
+    monkeypatch.setattr(record_sync, "TRANSIENT_ERROR_SLEEP_SECONDS", 7)
+    monkeypatch.setattr(record_sync, "TRANSIENT_ERROR_RETRY_ATTEMPTS", 3)
+
+    result = await record_sync._fetch_record_with_retry(client=object(), record_id=200)
+
+    assert result.kind == "null"
+    assert calls == [200, 200]
+    assert sleeps == [7]
+
+
+async def test_fetch_record_with_retry_raises_after_exhausting_transient_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[int] = []
+    sleeps: list[float] = []
+
+    async def _fake_fetch_once(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client
+        calls.append(record_id)
+        raise record_sync.GlobalApiRecordSyncTransientError("transient")
+
+    async def _fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(record_sync, "_fetch_record_once", _fake_fetch_once)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _fake_sleep)
+    monkeypatch.setattr(record_sync, "TRANSIENT_ERROR_SLEEP_SECONDS", 7)
+    monkeypatch.setattr(record_sync, "TRANSIENT_ERROR_RETRY_ATTEMPTS", 3)
+
+    with pytest.raises(record_sync.GlobalApiRecordSyncError) as exc_info:
+        await record_sync._fetch_record_with_retry(client=object(), record_id=200)
+
+    assert str(exc_info.value) == (
+        "Failed to fetch record 200 from GlobalAPI after 3 transient attempts"
+    )
+    assert calls == [200, 200, 200]
+    assert sleeps == [7, 7]
 
 
 async def test_sync_records_from_globalapi_counts_malformed_points_and_advances_cursor(

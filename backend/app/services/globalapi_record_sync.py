@@ -23,6 +23,8 @@ from app.models import (
 DEFAULT_RECORD_START_ID = 200
 NULL_PROBE_WINDOW = 4
 RATE_LIMIT_SLEEP_SECONDS = 300
+TRANSIENT_ERROR_RETRY_ATTEMPTS = 5
+TRANSIENT_ERROR_SLEEP_SECONDS = 5
 NULL_SLEEP_SECONDS = 1
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,10 @@ class GlobalApiRecordSyncError(RuntimeError):
 
 
 class GlobalApiRecordSyncRateLimitError(GlobalApiRecordSyncError):
+    pass
+
+
+class GlobalApiRecordSyncTransientError(GlobalApiRecordSyncError):
     pass
 
 
@@ -102,6 +108,10 @@ async def _fetch_record_once(
 ) -> RecordFetchResult:
     try:
         response = await client.get(f"{settings.GLOBALAPI_BASE_URL}/records/{record_id}")
+    except httpx.TransportError as exc:
+        raise GlobalApiRecordSyncTransientError(
+            f"Transient failure while fetching record {record_id} from GlobalAPI"
+        ) from exc
     except httpx.HTTPError as exc:
         raise GlobalApiRecordSyncError(
             f"Failed to fetch record {record_id} from GlobalAPI"
@@ -137,6 +147,7 @@ async def _fetch_record_with_retry(
     client: httpx.AsyncClient,
     record_id: int,
 ) -> RecordFetchResult:
+    transient_attempt = 0
     while True:
         try:
             return await _fetch_record_once(client=client, record_id=record_id)
@@ -147,6 +158,21 @@ async def _fetch_record_with_retry(
                 RATE_LIMIT_SLEEP_SECONDS,
             )
             await asyncio.sleep(RATE_LIMIT_SLEEP_SECONDS)
+        except GlobalApiRecordSyncTransientError as exc:
+            transient_attempt += 1
+            if transient_attempt >= TRANSIENT_ERROR_RETRY_ATTEMPTS:
+                raise GlobalApiRecordSyncError(
+                    "Failed to fetch record "
+                    f"{record_id} from GlobalAPI after {transient_attempt} transient attempts"
+                ) from exc
+            logger.warning(
+                "GlobalAPI record sync hit transient transport error for record_id=%s; retrying in %ss (%s/%s)",
+                record_id,
+                TRANSIENT_ERROR_SLEEP_SECONDS,
+                transient_attempt,
+                TRANSIENT_ERROR_RETRY_ATTEMPTS,
+            )
+            await asyncio.sleep(TRANSIENT_ERROR_SLEEP_SECONDS)
 
 
 async def _hydrate_main_stage_points_from_top(
