@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import or_
@@ -8,7 +9,13 @@ from sqlmodel import col, select
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import LeaderboardPlayer, Player, RecordScope, scope_to_id
+from app.models import (
+    LeaderboardPlayer,
+    Player,
+    RecordScope,
+    get_datetime_utc,
+    scope_to_id,
+)
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -65,6 +72,7 @@ async def load_target_steamid64s(
     steamid64s: Sequence[int] | None = None,
     only_missing_avatar: bool = True,
     leaderboard_scope: RecordScope | None = None,
+    stale_before: datetime | None = None,
 ) -> list[int]:
     if steamid64s:
         return _dedupe_steamid64s(steamid64s)
@@ -87,6 +95,10 @@ async def load_target_steamid64s(
         statement = statement.where(
             or_(col(Player.avatar_hash).is_(None), col(Player.avatar_hash) == "")
         )
+    if leaderboard_scope is None and stale_before is not None:
+        statement = statement.where(
+            or_(col(Player.updated_at).is_(None), col(Player.updated_at) <= stale_before)
+        )
 
     async with async_session_maker() as session:
         return list((await session.exec(statement)).all())
@@ -97,12 +109,19 @@ async def rebuild_player_profiles(
     steamid64s: Sequence[int] | None = None,
     only_missing_avatar: bool = True,
     leaderboard_scope: RecordScope | None = None,
+    stale_days: int | None = None,
     limit: int | None = None,
 ) -> RebuildPlayerProfileResult:
+    stale_before = (
+        get_datetime_utc() - timedelta(days=stale_days)
+        if stale_days is not None
+        else None
+    )
     target_steamid64s = await load_target_steamid64s(
         steamid64s=steamid64s,
         only_missing_avatar=only_missing_avatar,
         leaderboard_scope=leaderboard_scope,
+        stale_before=stale_before,
     )
 
     if limit is not None:

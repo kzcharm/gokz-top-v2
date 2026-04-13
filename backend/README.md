@@ -32,7 +32,11 @@ $ ./kztop build rating --scope KZT
 $ ./kztop build rating --full --scope KZT
 $ ./kztop build points --scope KZT --stage 0
 $ ./kztop build pb
-$ ./kztop build profile --steamid64 76561198000000000
+$ ./kztop sync profiles
+$ ./kztop sync profiles --stale-days 30
+$ ./kztop sync profiles --missing-avatar
+$ ./kztop sync profiles --leaderboard KZT
+$ ./kztop sync profiles --steamid64 76561198000000000
 ```
 
 The wrapper runs the backend CLI through the repository's own Python environment,

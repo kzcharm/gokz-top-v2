@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -269,7 +270,55 @@ async def test_rebuild_player_profiles_fetches_steam_profiles_in_batches_of_four
 def test_cli_profile_help() -> None:
     runner = CliRunner()
 
-    result = runner.invoke(cli.app, ["build", "profile", "--help"])
+    result = runner.invoke(cli.app, ["sync", "profiles", "--help"])
 
     assert result.exit_code == 0
-    assert "Process all existing players" in result.output
+    assert "Select only players that do not have an avatar hash yet." in result.output
+
+
+async def test_load_target_steamid64s_supports_stale_days_selection(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fresh_player = random_steamid64()
+    stale_player = random_steamid64()
+    null_updated_player = random_steamid64()
+    now = datetime(2026, 4, 13, tzinfo=UTC)
+
+    db.add(
+        Player(
+            steamid64=fresh_player,
+            name="Fresh",
+            updated_at=now - timedelta(days=10),
+        )
+    )
+    db.add(
+        Player(
+            steamid64=stale_player,
+            name="Stale",
+            updated_at=now - timedelta(days=31),
+        )
+    )
+    db.add(
+        Player(
+            steamid64=null_updated_player,
+            name="Never Synced",
+            updated_at=None,
+        )
+    )
+    await db.commit()
+
+    monkeypatch.setattr(
+        profile,
+        "async_session_maker",
+        _BoundSessionFactory(db),
+    )
+
+    selected = await profile.load_target_steamid64s(
+        only_missing_avatar=False,
+        stale_before=now - timedelta(days=30),
+    )
+
+    assert fresh_player not in selected
+    assert stale_player in selected
+    assert null_updated_player in selected
