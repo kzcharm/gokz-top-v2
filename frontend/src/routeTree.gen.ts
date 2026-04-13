@@ -29,6 +29,7 @@ import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/das
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
 import { Route as LayoutProfileIdentifierIndexRouteImport } from './routes/_layout/profile.$identifier.index'
+import { Route as LayoutProfileIdentifierUnfinishedRouteImport } from './routes/_layout/profile.$identifier.unfinished'
 import { Route as LayoutProfileIdentifierStatsRouteImport } from './routes/_layout/profile.$identifier.stats'
 import { Route as LayoutProfileIdentifierRecordsRouteImport } from './routes/_layout/profile.$identifier.records'
 
@@ -132,6 +133,12 @@ const LayoutProfileIdentifierIndexRoute =
     path: '/',
     getParentRoute: () => LayoutProfileIdentifierRoute,
   } as any)
+const LayoutProfileIdentifierUnfinishedRoute =
+  LayoutProfileIdentifierUnfinishedRouteImport.update({
+    id: '/unfinished',
+    path: '/unfinished',
+    getParentRoute: () => LayoutProfileIdentifierRoute,
+  } as any)
 const LayoutProfileIdentifierStatsRoute =
   LayoutProfileIdentifierStatsRouteImport.update({
     id: '/stats',
@@ -166,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
+  '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
   '/profile/$identifier/': typeof LayoutProfileIdentifierIndexRoute
 }
 export interface FileRoutesByTo {
@@ -188,6 +196,7 @@ export interface FileRoutesByTo {
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
+  '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierIndexRoute
 }
 export interface FileRoutesById {
@@ -213,6 +222,7 @@ export interface FileRoutesById {
   '/_layout/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/_layout/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
+  '/_layout/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
   '/_layout/profile/$identifier/': typeof LayoutProfileIdentifierIndexRoute
 }
 export interface FileRouteTypes {
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/profile/$identifier'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
+    | '/profile/$identifier/unfinished'
     | '/profile/$identifier/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/dashboard/reviews'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
+    | '/profile/$identifier/unfinished'
     | '/profile/$identifier'
   id:
     | '__root__'
@@ -284,6 +296,7 @@ export interface FileRouteTypes {
     | '/_layout/profile/$identifier'
     | '/_layout/profile/$identifier/records'
     | '/_layout/profile/$identifier/stats'
+    | '/_layout/profile/$identifier/unfinished'
     | '/_layout/profile/$identifier/'
   fileRoutesById: FileRoutesById
 }
@@ -437,6 +450,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierIndexRouteImport
       parentRoute: typeof LayoutProfileIdentifierRoute
     }
+    '/_layout/profile/$identifier/unfinished': {
+      id: '/_layout/profile/$identifier/unfinished'
+      path: '/unfinished'
+      fullPath: '/profile/$identifier/unfinished'
+      preLoaderRoute: typeof LayoutProfileIdentifierUnfinishedRouteImport
+      parentRoute: typeof LayoutProfileIdentifierRoute
+    }
     '/_layout/profile/$identifier/stats': {
       id: '/_layout/profile/$identifier/stats'
       path: '/stats'
@@ -485,6 +505,7 @@ const LayoutDashboardRouteWithChildren = LayoutDashboardRoute._addFileChildren(
 interface LayoutProfileIdentifierRouteChildren {
   LayoutProfileIdentifierRecordsRoute: typeof LayoutProfileIdentifierRecordsRoute
   LayoutProfileIdentifierStatsRoute: typeof LayoutProfileIdentifierStatsRoute
+  LayoutProfileIdentifierUnfinishedRoute: typeof LayoutProfileIdentifierUnfinishedRoute
   LayoutProfileIdentifierIndexRoute: typeof LayoutProfileIdentifierIndexRoute
 }
 
@@ -492,6 +513,8 @@ const LayoutProfileIdentifierRouteChildren: LayoutProfileIdentifierRouteChildren
   {
     LayoutProfileIdentifierRecordsRoute: LayoutProfileIdentifierRecordsRoute,
     LayoutProfileIdentifierStatsRoute: LayoutProfileIdentifierStatsRoute,
+    LayoutProfileIdentifierUnfinishedRoute:
+      LayoutProfileIdentifierUnfinishedRoute,
     LayoutProfileIdentifierIndexRoute: LayoutProfileIdentifierIndexRoute,
   }
 

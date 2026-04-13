@@ -24,6 +24,7 @@ import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileTabs } from "./ProfileTabs"
+import { ProfileUnfinishedTab } from "./ProfileUnfinishedTab"
 import { getPointsRankLabel } from "./profile-ranks"
 import {
   buildProfileCompletionData,
@@ -116,9 +117,11 @@ export function ProfilePage({
   const activeTabRoute =
     activeTab === "records"
       ? "/profile/$identifier/records"
-      : activeTab === "stats"
-        ? "/profile/$identifier/stats"
-        : "/profile/$identifier"
+      : activeTab === "unfinished"
+        ? "/profile/$identifier/unfinished"
+        : activeTab === "stats"
+          ? "/profile/$identifier/stats"
+          : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {
@@ -470,6 +473,20 @@ export function ProfilePage({
               onUnpinRecord={(mapId, type) => {
                 unpinRecordMutation.mutate({ mapId, type })
               }}
+            />
+          ) : activeTab === "unfinished" ? (
+            <ProfileUnfinishedTab
+              isProOnly={isProOnly}
+              maps={mapsQuery.data ?? []}
+              mapsLoading={mapsQuery.isLoading}
+              mapsError={mapsQuery.isError}
+              nubRecords={nubRecordsQuery.data ?? []}
+              nubRecordsLoading={nubRecordsQuery.isLoading}
+              nubRecordsError={nubRecordsQuery.isError}
+              onIsProOnlyChange={setIsProOnly}
+              proRecords={proRecordsQuery.data ?? []}
+              proRecordsLoading={proRecordsQuery.isLoading}
+              proRecordsError={proRecordsQuery.isError}
             />
           ) : (
             <ProfilePlaceholderPanel player={player} activeTab="stats" />

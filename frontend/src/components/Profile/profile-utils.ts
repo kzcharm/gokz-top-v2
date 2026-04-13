@@ -3,6 +3,7 @@ import { queryOptions } from "@tanstack/react-query"
 import {
   type MapPublic,
   MapsService,
+  type MapWrPublic,
   type PlayerFollowSummaryPublic,
   type PlayerPublic,
   type PlayersPublic,
@@ -15,7 +16,7 @@ import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records
 import { getTierColor, normalizeTierValue } from "@/components/Servers/tier"
 import type { AppScope } from "@/components/scope-provider"
 
-export type ProfileTab = "home" | "records" | "stats"
+export type ProfileTab = "home" | "records" | "unfinished" | "stats"
 
 export const PROFILE_QUERY_LIMIT = 10_000
 export const PROFILE_SOCIAL_PAGE_LIMIT = 20
@@ -155,6 +156,26 @@ export function getProfileValidatedMapsQueryOptions() {
   })
 }
 
+export function getProfileUnfinishedMapWrsQueryOptions({
+  scope,
+  isProOnly,
+}: {
+  scope: AppScope
+  isProOnly: boolean
+}) {
+  return queryOptions({
+    queryKey: ["profile-unfinished-wrs", scope, isProOnly],
+    queryFn: () =>
+      MapsService.readMapWrs({
+        scope,
+        type: isProOnly ? "PRO" : "NUB",
+      }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
+}
+
 export { getProfilePbRecordsQueryOptions }
 
 type ProfileCompletionTier = {
@@ -209,6 +230,14 @@ export type ProfilePinnedRecordEntry = {
   scope: AppScope
   type: "NUB" | "PRO"
   record: RecordPublic
+}
+
+export type ProfileUnfinishedRow = {
+  mapId: number
+  mapName: string
+  tier: number
+  wrTime: number | null
+  wrRecordUuid: string | null
 }
 
 function buildCompletionCard({
@@ -288,6 +317,46 @@ export function buildProfileCompletionData({
     nub: buildCompletionCard({ maps, records: nubRecords, scope }),
     pro: buildCompletionCard({ maps, records: proRecords, scope }),
   }
+}
+
+export function buildProfileUnfinishedRows({
+  maps,
+  records,
+  wrs,
+  scope,
+}: {
+  maps: MapPublic[]
+  records: RecordPublic[]
+  wrs: MapWrPublic[]
+  scope: AppScope
+}): ProfileUnfinishedRow[] {
+  const completedMapIds = new Set(records.map((record) => record.map_id))
+  const wrByMapId = new Map<number, MapWrPublic>()
+
+  for (const wr of wrs) {
+    if (!wrByMapId.has(wr.map_id)) {
+      wrByMapId.set(wr.map_id, wr)
+    }
+  }
+
+  const rows: ProfileUnfinishedRow[] = []
+  for (const map of maps) {
+    const tier = normalizeTierValue(map.tiers[scope])
+    if (tier === null || tier === 0 || completedMapIds.has(map.id)) {
+      continue
+    }
+
+    const wr = wrByMapId.get(map.id)
+    rows.push({
+      mapId: map.id,
+      mapName: map.name,
+      tier,
+      wrTime: wr?.time ?? null,
+      wrRecordUuid: wr?.record_uuid ?? null,
+    })
+  }
+
+  return rows
 }
 
 export function buildProfileTrophyCounts(
