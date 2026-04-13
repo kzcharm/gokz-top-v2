@@ -42,7 +42,7 @@ def _get_tqdm() -> Any:
 def resolve_scope_ids(scope_names: Sequence[str] | None) -> list[int] | None:
     if not scope_names:
         return None
-    return [int(RecordScopeId[name]) for name in scope_names]
+    return [int(RecordScopeId[name.strip().upper()]) for name in scope_names]
 
 
 def _play_completion_sound() -> None:
