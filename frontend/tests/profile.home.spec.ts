@@ -17,17 +17,20 @@ const player = {
   profile_views: 7,
 }
 
-const dailyActivityStat = {
+const playerStats = {
   steamid64,
-  type: "daily_activity",
-  updated_at: "2026-04-03T12:00:00Z",
-  content: {
+  daily_activity: {
+    updated_at: "2026-04-03T12:00:00Z",
     days: [
       { date: "2025-12-31", count: 2 },
       { date: "2026-01-01", count: 1 },
       { date: "2026-03-30", count: 2 },
       { date: "2026-03-31", count: 4 },
     ],
+  },
+  playtime: {
+    updated_at: "2026-04-03T12:00:00Z",
+    total_seconds: 37800,
   },
 }
 
@@ -198,9 +201,9 @@ const nubRecords = [
 async function installProfileHomeRoutes(
   page: Page,
   {
-    activity = dailyActivityStat,
+    stats = playerStats,
   }: {
-    activity?: typeof dailyActivityStat
+    stats?: typeof playerStats
   } = {},
 ) {
   const requestedRankUuids: string[] = []
@@ -276,12 +279,12 @@ async function installProfileHomeRoutes(
   )
 
   await page.route(
-    /\/v1\/players\/[^/]+\/stats\/daily_activity$/,
+    /\/v1\/players\/[^/]+\/stats(\?.*)?$/,
     async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(activity),
+        body: JSON.stringify(stats),
       })
     },
   )
@@ -360,6 +363,7 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText(/^Fri$/)).toBeVisible()
   await expect(page.getByText(/^Jan$/)).toBeVisible()
   await expect(page.getByText(/^Mar$/)).toBeVisible()
+  await expect(page.getByText("10.5 hrs")).toBeVisible()
   await expect(page.getByTestId("profile-activity-year-2026")).toBeVisible()
   await expect(page.getByTestId("profile-activity-year-2025")).toBeVisible()
   await expect(page.getByTestId("profile-activity-year-2026")).toHaveClass(
@@ -419,12 +423,15 @@ test("Profile home activity card shows empty-year message for players without ac
 }) => {
   const currentYear = String(new Date().getUTCFullYear())
   await installProfileHomeRoutes(page, {
-    activity: {
+    stats: {
       steamid64,
-      type: "daily_activity",
-      updated_at: "2026-04-03T12:00:00Z",
-      content: {
+      daily_activity: {
+        updated_at: "2026-04-03T12:00:00Z",
         days: [],
+      },
+      playtime: {
+        updated_at: "2026-04-03T12:00:00Z",
+        total_seconds: 0,
       },
     },
   })

@@ -36,8 +36,8 @@ from .map_review import (
     MapReviewContentPublic,
     MapReviewListQuery,
     MapReviewPublic,
-    MapReviewsPublic,
     MapReviewSource,
+    MapReviewsPublic,
     MapReviewUpsert,
 )
 from .map_review_summary import MapReviewSummaryCache, MapReviewSummaryPublic
@@ -64,13 +64,6 @@ from .player import (
     PlayersPublic,
     PlayerUpdate,
 )
-from .player_stats import (
-    PlayerDailyActivityContentPublic,
-    PlayerDailyActivityDayPublic,
-    PlayerDailyActivityStatPublic,
-    PlayerStatCache,
-    PlayerStatType,
-)
 from .player_follow import (
     PlayerFollow,
     PlayerFollowListQuery,
@@ -83,6 +76,20 @@ from .player_pinned_record import (
     PlayerPinnedRecordUpsert,
 )
 from .player_profile_view import PlayerProfileView
+from .player_stats import (
+    PlayerDailyActivityContentPublic,
+    PlayerDailyActivityDayPublic,
+    PlayerDailyActivityPublic,
+    PlayerDailyActivityStatPublic,
+    PlayerPlaytimeCacheContent,
+    PlayerPlaytimeContentPublic,
+    PlayerPlaytimeCursor,
+    PlayerPlaytimePublic,
+    PlayerPlaytimeStatPublic,
+    PlayerStatCache,
+    PlayerStatsPublic,
+    PlayerStatType,
+)
 from .record import (
     MapCourse,
     MapWrPublic,
@@ -226,11 +233,18 @@ __all__ = [
     "PlayersListQuery",
     "PlayersPublic",
     "PlayerUpdate",
+    "PlayerDailyActivityPublic",
     "PlayerDailyActivityContentPublic",
     "PlayerDailyActivityDayPublic",
     "PlayerDailyActivityStatPublic",
+    "PlayerPlaytimeCacheContent",
+    "PlayerPlaytimeContentPublic",
+    "PlayerPlaytimeCursor",
+    "PlayerPlaytimePublic",
+    "PlayerPlaytimeStatPublic",
     "PlayerStatCache",
     "PlayerStatType",
+    "PlayerStatsPublic",
     "PlayerFollow",
     "PlayerFollowListQuery",
     "PlayerFollowSummaryPublic",

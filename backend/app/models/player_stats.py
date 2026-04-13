@@ -16,6 +16,7 @@ def _enum_values(enum_class: type[StrEnum]) -> list[str]:
 
 class PlayerStatType(StrEnum):
     DAILY_ACTIVITY = "daily_activity"
+    PLAYTIME = "playtime"
 
 
 class PlayerStatCache(SQLModel, table=True):
@@ -63,3 +64,39 @@ class PlayerDailyActivityStatPublic(SQLModel):
     type: PlayerStatType
     updated_at: datetime
     content: PlayerDailyActivityContentPublic
+
+
+class PlayerPlaytimeCursor(SQLModel):
+    latest_day: date | None = None
+    total_before_latest_day: float = Field(default=0, ge=0)
+
+
+class PlayerPlaytimeContentPublic(SQLModel):
+    total_seconds: float = Field(default=0, ge=0)
+
+
+class PlayerPlaytimeCacheContent(PlayerPlaytimeContentPublic):
+    cursor: PlayerPlaytimeCursor | None = None
+
+
+class PlayerPlaytimeStatPublic(SQLModel):
+    steamid64: str
+    type: PlayerStatType
+    updated_at: datetime
+    content: PlayerPlaytimeContentPublic
+
+
+class PlayerDailyActivityPublic(SQLModel):
+    updated_at: datetime
+    days: list[PlayerDailyActivityDayPublic] = Field(default_factory=list)
+
+
+class PlayerPlaytimePublic(SQLModel):
+    updated_at: datetime
+    total_seconds: float = Field(default=0, ge=0)
+
+
+class PlayerStatsPublic(SQLModel):
+    steamid64: str
+    daily_activity: PlayerDailyActivityPublic | None = None
+    playtime: PlayerPlaytimePublic | None = None

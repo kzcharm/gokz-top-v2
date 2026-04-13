@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
@@ -43,9 +44,9 @@ import {
 } from "./ProfileSocialDialog"
 import { profileHomePlaceholder } from "./profile-home-placeholder"
 import {
-  formatHours,
   formatNumber,
   formatRating,
+  formatSecondsAsHours,
   getAvatarUrl,
   getFollowSummaryCount,
   getProfileFollowSummaryQueryOptions,
@@ -566,17 +567,22 @@ function SkillRadar() {
 
 export function ProfileSidebar({
   identifier,
+  playtimeError,
+  playtimeLoading,
+  playtimeSeconds,
   player,
   summary,
   summaryLoading,
 }: {
   identifier: string
+  playtimeError: boolean
+  playtimeLoading: boolean
+  playtimeSeconds: number | null
   player: ProfilePlayer
   summary: ProfileSummaryData
   summaryLoading: boolean
 }) {
   const authenticated = isLoggedIn()
-  const placeholderSummary = profileHomePlaceholder.summary
   const navigate = useNavigate()
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
@@ -764,7 +770,15 @@ export function ProfileSidebar({
               />
               <DetailRow
                 label="Playtime"
-                value={formatHours(placeholderSummary.playtimeHours)}
+                value={
+                  playtimeLoading ? (
+                    <Skeleton className="h-4 w-16" />
+                  ) : playtimeError ? (
+                    "Unavailable"
+                  ) : (
+                    formatSecondsAsHours(playtimeSeconds ?? 0)
+                  )
+                }
               />
             </div>
 

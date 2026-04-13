@@ -69,6 +69,7 @@ async def _create_record(
     map_id: int,
     server_id: int,
     created_on: datetime,
+    time_seconds: str,
 ) -> None:
     record_uuid_subquery = select(Record.uuid).where(Record.id == id)
     await db.exec(delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery)))
@@ -83,7 +84,7 @@ async def _create_record(
         mode_id=200,
         map_id=map_id,
         stage=0,
-        time_seconds=Decimal("20.000"),
+        time_seconds=Decimal(time_seconds),
         teleports=1,
         points=0,
         created_on=created_on,
@@ -118,6 +119,7 @@ async def test_rebuild_player_daily_activity_stat_upserts_existing_cache_row(
         map_id=981200,
         server_id=982200,
         created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="20.000",
     )
 
     first_stat = await crud.rebuild_player_daily_activity_stat(
@@ -133,6 +135,7 @@ async def test_rebuild_player_daily_activity_stat_upserts_existing_cache_row(
         map_id=981200,
         server_id=982200,
         created_on=datetime(2026, 4, 2, 23, 0, tzinfo=UTC),
+        time_seconds="20.000",
     )
 
     second_stat = await crud.rebuild_player_daily_activity_stat(
@@ -164,3 +167,121 @@ async def test_rebuild_player_daily_activity_stat_upserts_existing_cache_row(
     assert cache_row is not None
     assert cache_row.updated_at == second_now
     assert cache_row.content == {"days": [{"date": "2026-04-02", "count": 2}]}
+
+
+@pytest.mark.asyncio
+async def test_rebuild_player_playtime_stat_upserts_existing_cache_row(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    first_now = datetime(2026, 4, 2, 12, 0, tzinfo=UTC)
+    second_now = datetime(2026, 4, 3, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Playtime Runner")
+    await _create_map(db, id=981210, name="kz_playtime")
+    await _create_server(db, id=982210, name="Playtime Server")
+    await _create_record(
+        db,
+        id=983210,
+        steamid64=steamid64,
+        map_id=981210,
+        server_id=982210,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="12.500",
+    )
+
+    first_stat = await crud.rebuild_player_playtime_stat(
+        session=db,
+        steamid64=steamid64,
+        now=first_now,
+    )
+
+    await _create_record(
+        db,
+        id=983211,
+        steamid64=steamid64,
+        map_id=981210,
+        server_id=982210,
+        created_on=datetime(2026, 4, 2, 23, 0, tzinfo=UTC),
+        time_seconds="7.500",
+    )
+    await _create_record(
+        db,
+        id=983212,
+        steamid64=steamid64,
+        map_id=981210,
+        server_id=982210,
+        created_on=datetime(2026, 4, 3, 9, 0, tzinfo=UTC),
+        time_seconds="5.000",
+    )
+
+    second_stat = await crud.rebuild_player_playtime_stat(
+        session=db,
+        steamid64=steamid64,
+        now=second_now,
+    )
+
+    assert first_stat.content.total_seconds == 12.5
+    assert second_stat.content.total_seconds == 25.0
+
+    cache_rows = (
+        await db.exec(
+            select(func.count())
+            .select_from(PlayerStatCache)
+            .where(
+                PlayerStatCache.steamid64 == steamid64,
+                PlayerStatCache.type == PlayerStatType.PLAYTIME,
+            )
+        )
+    ).one()
+    assert cache_rows == 1
+
+    cache_row = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    assert cache_row is not None
+    assert cache_row.updated_at == second_now
+    assert cache_row.content == {
+        "total_seconds": 25.0,
+        "cursor": {
+            "latest_day": "2026-04-03",
+            "total_before_latest_day": 20.0,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_or_rebuild_player_stats_returns_requested_fields(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 2, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Combined Runner")
+    await _create_map(db, id=981220, name="kz_combined")
+    await _create_server(db, id=982220, name="Combined Server")
+    await _create_record(
+        db,
+        id=983220,
+        steamid64=steamid64,
+        map_id=981220,
+        server_id=982220,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="9.500",
+    )
+
+    stats = await crud.get_or_rebuild_player_stats(
+        session=db,
+        steamid64=steamid64,
+        now=now,
+    )
+    filtered_stats = await crud.get_or_rebuild_player_stats(
+        session=db,
+        steamid64=steamid64,
+        stat_type=PlayerStatType.PLAYTIME,
+        now=now,
+    )
+
+    assert stats.daily_activity is not None
+    assert stats.daily_activity.days[0].count == 1
+    assert stats.playtime is not None
+    assert stats.playtime.total_seconds == 9.5
+    assert filtered_stats.daily_activity is None
+    assert filtered_stats.playtime is not None
+    assert filtered_stats.playtime.total_seconds == 9.5

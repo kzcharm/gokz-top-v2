@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-04-13
+- Last Updated: 2026-04-14
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -18,7 +18,7 @@
   - Mirrored GlobalAPI ban rows are stored locally in PostgreSQL with a PostgreSQL enum-backed `ban_type` and append/update-only sync semantics
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by a single midnight-UTC rank pipeline plus repair/backfill CLIs
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
-  - Player profile daily activity stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, aggregated from raw `record.created_at`, and refreshed lazily on read after midnight-UTC expiry
+  - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity plus total playtime aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
