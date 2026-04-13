@@ -5,6 +5,7 @@ import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.crud.leaderboard_player import _build_leaderboard_values
 from app.models import (
     Ban,
     BanType,
@@ -219,12 +220,29 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
     assert row.points == 11_000
     assert row.wrs_nub == 10
     assert row.wrs_pro == 1
-    assert row.records_900_plus == 11
-    assert row.records_800_plus == 11
+    assert row.records_900_plus == 10
+    assert row.records_800_plus == 10
     assert row.unique_map_finishes == 10
     assert row.rating == crud.calculate_weighted_rating([1000] * 10)
     assert row.rating_easy == crud.calculate_weighted_rating([1000] * 10)
     assert row.rating_hard == 0
+
+
+async def test_build_leaderboard_values_counts_high_point_records_once_per_map() -> None:
+    values = _build_leaderboard_values(
+        rows=[
+            (101, 1001, False, 870),
+            (101, 1001, True, 930),
+            (102, 1002, False, 920),
+            (102, 1002, True, 810),
+            (103, 1003, False, 790),
+        ],
+        tiers_by_course_id={101: 4, 102: 4, 103: 5},
+    )
+
+    assert values["records_900_plus"] == 2
+    assert values["records_800_plus"] == 2
+    assert values["unique_map_finishes"] == 3
 
 
 async def test_rebuild_leaderboard_player_deletes_row_below_threshold(
