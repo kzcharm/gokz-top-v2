@@ -20,6 +20,14 @@ class _RatingResult:
     leaderboard: _LeaderboardResult
 
 
+@dataclass(frozen=True, slots=True)
+class _ProfileResult:
+    selected: int
+    created: int
+    updated: int
+    skipped: int
+
+
 def test_cli_root_help() -> None:
     runner = CliRunner()
 
@@ -27,6 +35,7 @@ def test_cli_root_help() -> None:
 
     assert result.exit_code == 0
     assert "build" in result.output
+    assert "sync" in result.output
     assert "GOKZ.TOP backend operator CLI" in result.output
 
 
@@ -38,7 +47,63 @@ def test_cli_build_help() -> None:
     assert result.exit_code == 0
     assert "rating" in result.output
     assert "points" in result.output
-    assert "profile" in result.output
+    assert "profile" not in result.output
+
+
+def test_cli_sync_help() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.app, ["sync", "--help"])
+
+    assert result.exit_code == 0
+    assert "profiles" in result.output
+
+
+def test_cli_sync_profiles_help() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.app, ["sync", "profiles", "--help"])
+
+    assert result.exit_code == 0
+    assert "--missing-avatar" in result.output
+    assert "--stale-days" in result.output
+    assert "--leaderboard" in result.output
+
+
+def test_cli_sync_profiles_defaults_to_all_players(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    async def _fake_rebuild_player_profiles(**kwargs: object) -> _ProfileResult:
+        captured.update(kwargs)
+        return _ProfileResult(selected=3, created=0, updated=3, skipped=0)
+
+    monkeypatch.setattr(
+        "app.cli.profile_task.rebuild_player_profiles",
+        _fake_rebuild_player_profiles,
+    )
+
+    result = runner.invoke(cli.app, ["sync", "profiles"])
+
+    assert result.exit_code == 0
+    assert captured["only_missing_avatar"] is False
+    assert captured["leaderboard_scope"] is None
+    assert captured["stale_days"] is None
+    assert "Profile Sync Complete" in result.output
+
+
+def test_cli_sync_profiles_rejects_multiple_selection_filters() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli.app,
+        ["sync", "profiles", "--missing-avatar", "--stale-days", "30"],
+    )
+
+    assert result.exit_code != 0
+    assert "Use only one of --missing-avatar, --stale-days, or --leaderboard." in result.output
 
 
 def test_cli_rating_help() -> None:
@@ -72,6 +137,28 @@ def test_cli_rating_full_dispatches_full_rebuild(
     assert result.exit_code == 0
     assert captured["full"] is True
     assert "PB points updated" in result.output
+
+
+def test_cli_rating_accepts_lowercase_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    async def _fake_rebuild_ratings(**kwargs: object) -> _RatingResult:
+        captured.update(kwargs)
+        return _RatingResult(
+            full=False,
+            pb_points_updated=0,
+            leaderboard=_LeaderboardResult(selected=0, created=0, updated=0),
+        )
+
+    monkeypatch.setattr("app.cli.rating_task.rebuild_ratings", _fake_rebuild_ratings)
+
+    result = runner.invoke(cli.app, ["build", "rating", "--scope", "ovr"])
+
+    assert result.exit_code == 0
+    assert captured["scope_ids"] == [0]
 
 
 def test_cli_pb_and_pbs_share_the_same_impl(

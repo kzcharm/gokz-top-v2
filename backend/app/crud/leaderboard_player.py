@@ -450,6 +450,14 @@ async def load_leaderboard_player_keys(
         .where(
             col(MapCourse.stage) == 0,
             col(Map.validated).is_(True),
+            not_active_ban_exists_split_clause(
+                steamid64_column=col(RecordPb.steamid64)
+            ),
+        )
+        .group_by(col(RecordPb.scope), col(RecordPb.steamid64))
+        .having(
+            func.count(func.distinct(col(RecordPb.course_id)))
+            >= ELIGIBLE_UNIQUE_MAP_FINISHES
         )
     )
     existing_statement = select(
