@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { ArrowDown } from "lucide-react"
 
 import type { PlayerLeaderboardEntryPublic } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
   PlayerDisplay,
   type PlayerDisplayPlayer,
@@ -129,4 +130,19 @@ export const columns: ColumnDef<LeaderboardTableRow>[] = [
   metricColumn("records_900_plus", "900+"),
   metricColumn("records_800_plus", "800+"),
   metricColumn("unique_map_finishes", "Maps"),
+  {
+    id: "last_played",
+    header: () => <div className="flex w-full justify-center">Last Played</div>,
+    enableSorting: false,
+    cell: ({ row }) => (
+      <div className="flex w-full justify-center">
+        <FormattedDateTime
+          className="text-muted-foreground"
+          value={row.original.playerData.lastPlayedAt}
+          display="relative"
+          fallback="N/A"
+        />
+      </div>
+    ),
+  },
 ]
