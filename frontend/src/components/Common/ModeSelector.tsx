@@ -30,11 +30,10 @@ export function ModeSelector({
   ariaLabel = "Filter by mode",
 }: ModeSelectorProps) {
   const isAllSelected = value === "all"
-  const selectedLabel =
-    isAllSelected
-      ? allLabel
-      : (RECORD_MODE_OPTIONS.find((option) => option.value === value)?.label ??
-        value)
+  const selectedLabel = isAllSelected
+    ? allLabel
+    : (RECORD_MODE_OPTIONS.find((option) => option.value === value)?.label ??
+      value)
 
   return (
     <Select

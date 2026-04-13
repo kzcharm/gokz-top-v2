@@ -29,11 +29,7 @@ interface TierSelectorProps {
   ariaLabel?: string
 }
 
-function TierSelectorValueContent({
-  value,
-}: {
-  value: TierSelectorValue
-}) {
+function TierSelectorValueContent({ value }: { value: TierSelectorValue }) {
   if (value === "all") {
     return null
   }

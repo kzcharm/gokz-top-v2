@@ -128,11 +128,7 @@ function CompletionCard({
   )
 }
 
-function CompletionCardsSkeleton({
-  twoColumns,
-}: {
-  twoColumns: boolean
-}) {
+function CompletionCardsSkeleton({ twoColumns }: { twoColumns: boolean }) {
   return (
     <div className={cn("grid gap-6", twoColumns && "lg:grid-cols-2")}>
       {Array.from({ length: 2 }, (_, index) => (
@@ -370,7 +366,6 @@ function ManagedPinnedRecordCard({
               setMenuOpen(true)
             }
           }}
-          tabIndex={0}
         >
           {children}
         </div>

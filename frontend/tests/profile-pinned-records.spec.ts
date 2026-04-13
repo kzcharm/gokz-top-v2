@@ -186,7 +186,10 @@ async function installPinnedRecordRoutes(page: Page) {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ data: pinnedRecords, count: pinnedRecords.length }),
+          body: JSON.stringify({
+            data: pinnedRecords,
+            count: pinnedRecords.length,
+          }),
         })
         return
       }
@@ -225,7 +228,10 @@ async function installPinnedRecordRoutes(page: Page) {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ data: pinnedRecords, count: pinnedRecords.length }),
+          body: JSON.stringify({
+            data: pinnedRecords,
+            count: pinnedRecords.length,
+          }),
         })
         return
       }
@@ -246,7 +252,10 @@ async function installPinnedRecordRoutes(page: Page) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ data: pinnedRecords, count: pinnedRecords.length }),
+        body: JSON.stringify({
+          data: pinnedRecords,
+          count: pinnedRecords.length,
+        }),
       })
     },
   )
@@ -262,7 +271,9 @@ test("Own profile can pin and unpin records from the records tab and home card",
   await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
     button: "right",
   })
-  await expect(page.getByRole("menuitem", { name: "Pin this record" })).toBeVisible()
+  await expect(
+    page.getByRole("menuitem", { name: "Pin this record" }),
+  ).toBeVisible()
   await page.getByRole("menuitem", { name: "Pin this record" }).click()
   await expect(page.getByText("Record pinned")).toBeVisible()
 
@@ -271,14 +282,20 @@ test("Own profile can pin and unpin records from the records tab and home card",
   await expect(page.getByText("kz_alpha")).toBeVisible()
 
   await page.getByText("kz_alpha").click({ button: "right" })
-  await expect(page.getByRole("menuitem", { name: "Unpin this record" })).toBeVisible()
+  await expect(
+    page.getByRole("menuitem", { name: "Unpin this record" }),
+  ).toBeVisible()
   await page.getByRole("menuitem", { name: "Unpin this record" }).click()
   await expect(page.getByText("Record unpinned")).toBeVisible()
-  await expect(page.getByText("No pinned records found for this scope.")).toBeVisible()
+  await expect(
+    page.getByText("No pinned records found for this scope."),
+  ).toBeVisible()
 
   await page.goto(`/profile/${steamid64}/records`)
   await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
     button: "right",
   })
-  await expect(page.getByRole("menuitem", { name: "Pin this record" })).toBeVisible()
+  await expect(
+    page.getByRole("menuitem", { name: "Pin this record" }),
+  ).toBeVisible()
 })

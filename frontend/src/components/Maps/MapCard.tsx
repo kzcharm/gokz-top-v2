@@ -108,7 +108,10 @@ export function MapCard({
       ? allSkillPortions.slice(0, 4)
       : nonZeroSkillPortions.slice(0, 4)
   const wrSubline = wrRecord
-    ? [getRecordModeLabelById(wrRecord.mode_id), formatRecordTime(wrRecord.time)]
+    ? [
+        getRecordModeLabelById(wrRecord.mode_id),
+        formatRecordTime(wrRecord.time),
+      ]
         .filter(Boolean)
         .join(" · ")
     : null
