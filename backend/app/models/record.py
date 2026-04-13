@@ -256,6 +256,11 @@ class Record(RecordBase, table=True):
             "server_id",
         ),
         Index(
+            "ix_records_steamid64_created_at",
+            "steamid64",
+            "created_at",
+        ),
+        Index(
             "ix_records_created_at_order",
             text("created_at DESC"),
             text("id DESC NULLS LAST"),
