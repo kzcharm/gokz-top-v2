@@ -286,8 +286,6 @@ def _build_leaderboard_values(
     total_points = 0
     wrs_nub = 0
     wrs_pro = 0
-    records_900_plus = 0
-    records_800_plus = 0
 
     for course_id, _map_id, is_pro_only, points in rows:
         total_points += points
@@ -297,10 +295,6 @@ def _build_leaderboard_values(
                 wrs_pro += 1
         elif points == 1000:
             wrs_nub += 1
-        if points >= 900:
-            records_900_plus += 1
-        if points >= 800:
-            records_800_plus += 1
 
     unique_map_finishes = len(points_by_course_id)
 
@@ -315,6 +309,9 @@ def _build_leaderboard_values(
             easy_points.append(best_points)
         elif tier >= 5:
             hard_points.append(best_points)
+
+    records_900_plus = sum(1 for best_points in map_best_points if best_points >= 900)
+    records_800_plus = sum(1 for best_points in map_best_points if best_points >= 800)
 
     if unique_map_finishes >= ELIGIBLE_UNIQUE_MAP_FINISHES:
         rating = calculate_weighted_rating(map_best_points)
