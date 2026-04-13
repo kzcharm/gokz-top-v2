@@ -160,20 +160,14 @@ export type ModePublic = {
     updated_by_id: string;
 };
 
-export type PlayerDailyActivityContentPublic = {
-    days?: Array<PlayerDailyActivityDayPublic>;
-};
-
 export type PlayerDailyActivityDayPublic = {
     date: string;
     count: number;
 };
 
-export type PlayerDailyActivityStatPublic = {
-    steamid64: string;
-    type: PlayerStatType;
+export type PlayerDailyActivityPublic = {
     updated_at: string;
-    content: PlayerDailyActivityContentPublic;
+    days?: Array<PlayerDailyActivityDayPublic>;
 };
 
 export type PlayerFollowSummaryPublic = {
@@ -241,6 +235,11 @@ export type PlayerPinnedRecordUpsert = {
     type: RecordType;
 };
 
+export type PlayerPlaytimePublic = {
+    updated_at: string;
+    total_seconds?: number;
+};
+
 export type PlayerProfileViewsPublic = {
     profile_views?: number;
 };
@@ -278,7 +277,13 @@ export type PlayersPublic = {
     count: number;
 };
 
-export type PlayerStatType = 'daily_activity';
+export type PlayerStatsPublic = {
+    steamid64: string;
+    daily_activity?: (PlayerDailyActivityPublic | null);
+    playtime?: (PlayerPlaytimePublic | null);
+};
+
+export type PlayerStatType = 'daily_activity' | 'playtime';
 
 export type PlayerUpdate = {
     alias?: (string | null);
@@ -752,11 +757,12 @@ export type PlayersDeletePlayerPinnedRecordData = {
 
 export type PlayersDeletePlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
 
-export type PlayersReadPlayerDailyActivityStatData = {
+export type PlayersReadPlayerStatsData = {
     identifier: string;
+    type?: (PlayerStatType | null);
 };
 
-export type PlayersReadPlayerDailyActivityStatResponse = (PlayerDailyActivityStatPublic);
+export type PlayersReadPlayerStatsResponse = (PlayerStatsPublic);
 
 export type PlayersReadPlayerFollowSummaryData = {
     identifier: string;

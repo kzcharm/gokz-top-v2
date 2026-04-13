@@ -4,9 +4,10 @@ import {
   type MapPublic,
   MapsService,
   type MapWrPublic,
-  type PlayerDailyActivityStatPublic,
   type PlayerFollowSummaryPublic,
   type PlayerPublic,
+  type PlayerStatsPublic,
+  type PlayerStatType,
   type PlayersPublic,
   PlayersService,
   type RecordPublic,
@@ -112,18 +113,20 @@ export function getProfileFollowSummaryQueryOptions(identifier: string) {
   })
 }
 
-export function getProfileDailyActivityStatQueryOptions(
+export function getProfileStatsQueryOptions(
   identifier: string | null,
+  type: PlayerStatType | null = null,
 ) {
   return queryOptions({
-    queryKey: ["profile-daily-activity", identifier],
-    queryFn: async (): Promise<PlayerDailyActivityStatPublic | null> => {
+    queryKey: ["profile-stats", identifier, type],
+    queryFn: async (): Promise<PlayerStatsPublic | null> => {
       if (!identifier) {
         return null
       }
 
-      return await PlayersService.readPlayerDailyActivityStat({
+      return await PlayersService.readPlayerStats({
         identifier,
+        type,
       })
     },
     enabled: identifier !== null,
@@ -657,6 +660,10 @@ export function formatRating(value: number) {
 
 export function formatHours(hours: number) {
   return `${formatNumber(hours)} hrs`
+}
+
+export function formatSecondsAsHours(totalSeconds: number) {
+  return `${(totalSeconds / 3600).toFixed(1)} hrs`
 }
 
 export function formatCompactPercent(value: number) {

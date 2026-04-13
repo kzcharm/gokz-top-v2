@@ -1,7 +1,7 @@
 import { PinOff } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import type { PlayerDailyActivityStatPublic } from "@/client"
+import type { PlayerDailyActivityPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
@@ -306,9 +306,9 @@ function ActivityCard({
 }: {
   activityError: boolean
   activityLoading: boolean
-  activityStat: PlayerDailyActivityStatPublic | null
+  activityStat: PlayerDailyActivityPublic | null
 }) {
-  const allDays = activityStat?.content.days ?? []
+  const allDays = activityStat?.days ?? []
   const availableYears = useMemo(() => {
     const years = Array.from(
       new Set(allDays.map((day) => day.date.slice(0, 4))),
@@ -652,7 +652,7 @@ export function ProfileHomeContent({
 }: {
   activityError: boolean
   activityLoading: boolean
-  activityStat: PlayerDailyActivityStatPublic | null
+  activityStat: PlayerDailyActivityPublic | null
   pinnedRecords: ProfilePinnedRecord[]
   pinnedRecordsError: boolean
   pinnedRecordsLoading: boolean

@@ -103,21 +103,24 @@ async def _seed_player_history(db: AsyncSession, *, steamid64: int) -> None:
     await _create_server(db, id=982100, name="Activity Server")
 
 
-def _stat_url(steamid64: int) -> str:
-    return f"{settings.API_V1_STR}/players/{steamid64}/stats/daily_activity"
+def _stats_url(steamid64: int, stat_type: str | None = None) -> str:
+    base_url = f"{settings.API_V1_STR}/players/{steamid64}/stats"
+    if stat_type is None:
+        return base_url
+    return f"{base_url}?type={stat_type}"
 
 
 @pytest.mark.asyncio
-async def test_read_player_daily_activity_stat_returns_not_found_for_missing_player(
+async def test_read_player_stats_returns_not_found_for_missing_player(
     client: AsyncClient,
 ) -> None:
-    response = await client.get(_stat_url(random_steamid64()))
+    response = await client.get(_stats_url(random_steamid64()))
 
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_read_player_daily_activity_stat_builds_cache_on_first_read(
+async def test_read_player_stats_builds_cache_on_first_read(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -132,6 +135,7 @@ async def test_read_player_daily_activity_stat_builds_cache_on_first_read(
         map_id=981100,
         server_id=982100,
         created_on=datetime(2026, 4, 1, 1, 0, tzinfo=UTC),
+        time_seconds="12.500",
     )
     await _create_record(
         db,
@@ -140,6 +144,7 @@ async def test_read_player_daily_activity_stat_builds_cache_on_first_read(
         map_id=981100,
         server_id=982100,
         created_on=datetime(2026, 4, 1, 18, 0, tzinfo=UTC),
+        time_seconds="7.500",
     )
     await _create_record(
         db,
@@ -148,38 +153,72 @@ async def test_read_player_daily_activity_stat_builds_cache_on_first_read(
         map_id=981100,
         server_id=982100,
         created_on=datetime(2026, 4, 2, 0, 30, tzinfo=UTC),
+        time_seconds="10.000",
     )
 
     monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: now)
 
-    response = await client.get(_stat_url(steamid64))
+    response = await client.get(_stats_url(steamid64))
 
     assert response.status_code == 200
     assert response.json() == {
         "steamid64": str(steamid64),
-        "type": "daily_activity",
-        "updated_at": now.isoformat(),
-        "content": {
+        "daily_activity": {
+            "updated_at": now.isoformat(),
             "days": [
                 {"date": "2026-04-01", "count": 2},
                 {"date": "2026-04-02", "count": 1},
-            ]
+            ],
+        },
+        "playtime": {
+            "updated_at": now.isoformat(),
+            "total_seconds": 30.0,
         },
     }
 
-    cache_row = await db.get(PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY))
-    assert cache_row is not None
-    assert cache_row.content == {
-        "days": [
-            {"date": "2026-04-01", "count": 2},
-            {"date": "2026-04-02", "count": 1},
-        ]
-    }
-    assert cache_row.updated_at == now
+    daily_activity_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
+    )
+    playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    assert daily_activity_cache is not None
+    assert playtime_cache is not None
 
 
 @pytest.mark.asyncio
-async def test_read_player_daily_activity_stat_uses_same_day_cache_without_refresh(
+async def test_read_player_stats_supports_type_filter(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 2, 12, 0, tzinfo=UTC)
+    await _seed_player_history(db, steamid64=steamid64)
+    await _create_record(
+        db,
+        id=983105,
+        steamid64=steamid64,
+        map_id=981100,
+        server_id=982100,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="15.250",
+    )
+
+    monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: now)
+
+    response = await client.get(_stats_url(steamid64, "playtime"))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "steamid64": str(steamid64),
+        "playtime": {
+            "updated_at": now.isoformat(),
+            "total_seconds": 15.25,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_player_stats_uses_same_day_cache_without_refresh(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -195,10 +234,11 @@ async def test_read_player_daily_activity_stat_uses_same_day_cache_without_refre
         map_id=981100,
         server_id=982100,
         created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="4.000",
     )
 
     monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: first_now)
-    first_response = await client.get(_stat_url(steamid64))
+    first_response = await client.get(_stats_url(steamid64))
 
     await _create_record(
         db,
@@ -207,23 +247,28 @@ async def test_read_player_daily_activity_stat_uses_same_day_cache_without_refre
         map_id=981100,
         server_id=982100,
         created_on=datetime(2026, 4, 2, 17, 0, tzinfo=UTC),
+        time_seconds="6.000",
     )
 
     monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: second_now)
-    second_response = await client.get(_stat_url(steamid64))
+    second_response = await client.get(_stats_url(steamid64))
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
     assert second_response.json() == first_response.json()
-    assert second_response.json()["content"]["days"] == [{"date": "2026-04-02", "count": 1}]
 
-    cache_row = await db.get(PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY))
-    assert cache_row is not None
-    assert cache_row.updated_at == first_now
+    daily_activity_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
+    )
+    playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    assert daily_activity_cache is not None
+    assert playtime_cache is not None
+    assert daily_activity_cache.updated_at == first_now
+    assert playtime_cache.updated_at == first_now
 
 
 @pytest.mark.asyncio
-async def test_read_player_daily_activity_stat_refreshes_stale_cache_from_latest_cached_day(
+async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -239,6 +284,7 @@ async def test_read_player_daily_activity_stat_refreshes_stale_cache_from_latest
         map_id=981100,
         server_id=982100,
         created_on=datetime(2026, 4, 1, 9, 0, tzinfo=UTC),
+        time_seconds="5.000",
     )
     await _create_record(
         db,
@@ -247,10 +293,11 @@ async def test_read_player_daily_activity_stat_refreshes_stale_cache_from_latest
         map_id=981100,
         server_id=982100,
         created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="7.000",
     )
 
     monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: first_now)
-    first_response = await client.get(_stat_url(steamid64))
+    first_response = await client.get(_stats_url(steamid64))
     assert first_response.status_code == 200
 
     await _create_record(
@@ -259,7 +306,8 @@ async def test_read_player_daily_activity_stat_refreshes_stale_cache_from_latest
         steamid64=steamid64,
         map_id=981100,
         server_id=982100,
-        created_on=datetime(2026, 4, 2, 23, 0, tzinfo=UTC),
+        created_on=datetime(2026, 4, 2, 23, 30, tzinfo=UTC),
+        time_seconds="11.000",
     )
     await _create_record(
         db,
@@ -267,53 +315,69 @@ async def test_read_player_daily_activity_stat_refreshes_stale_cache_from_latest
         steamid64=steamid64,
         map_id=981100,
         server_id=982100,
-        created_on=datetime(2026, 4, 3, 0, 1, tzinfo=UTC),
+        created_on=datetime(2026, 4, 3, 4, 0, tzinfo=UTC),
+        time_seconds="13.000",
     )
 
     monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: refresh_now)
-    response = await client.get(_stat_url(steamid64))
+    response = await client.get(_stats_url(steamid64))
 
     assert response.status_code == 200
     assert response.json() == {
         "steamid64": str(steamid64),
-        "type": "daily_activity",
-        "updated_at": refresh_now.isoformat(),
-        "content": {
+        "daily_activity": {
+            "updated_at": refresh_now.isoformat(),
             "days": [
                 {"date": "2026-04-01", "count": 1},
                 {"date": "2026-04-02", "count": 2},
                 {"date": "2026-04-03", "count": 1},
-            ]
+            ],
+        },
+        "playtime": {
+            "updated_at": refresh_now.isoformat(),
+            "total_seconds": 36.0,
         },
     }
 
-    cache_row = await db.get(PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY))
-    assert cache_row is not None
-    assert cache_row.updated_at == refresh_now
+    daily_activity_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
+    )
+    playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    assert daily_activity_cache is not None
+    assert playtime_cache is not None
+    assert daily_activity_cache.updated_at == refresh_now
+    assert playtime_cache.updated_at == refresh_now
 
 
 @pytest.mark.asyncio
-async def test_read_player_daily_activity_stat_returns_empty_days_and_writes_cache(
+async def test_read_player_stats_returns_empty_payload_and_writes_cache(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     steamid64 = random_steamid64()
-    now = datetime(2026, 4, 4, 12, 0, tzinfo=UTC)
+    now = datetime(2026, 4, 2, 12, 0, tzinfo=UTC)
     await _seed_player_history(db, steamid64=steamid64)
 
     monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: now)
-    response = await client.get(_stat_url(steamid64))
+    response = await client.get(_stats_url(steamid64))
 
     assert response.status_code == 200
     assert response.json() == {
         "steamid64": str(steamid64),
-        "type": "daily_activity",
-        "updated_at": now.isoformat(),
-        "content": {"days": []},
+        "daily_activity": {
+            "updated_at": now.isoformat(),
+            "days": [],
+        },
+        "playtime": {
+            "updated_at": now.isoformat(),
+            "total_seconds": 0.0,
+        },
     }
 
-    cache_row = await db.get(PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY))
-    assert cache_row is not None
-    assert cache_row.content == {"days": []}
-    assert cache_row.updated_at == now
+    daily_activity_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
+    )
+    playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    assert daily_activity_cache is not None
+    assert playtime_cache is not None

@@ -55,11 +55,11 @@ from .player import (
     create_or_update_player_from_steam_data_if_fetched,
     create_or_update_player_from_steam_if_fetched,
     get_player_by_steamid64,
-    resolve_player_identifier_to_steamid64,
     load_website_user_steamid64s,
     normalize_custom_id,
     read_players,
     read_players_batch,
+    resolve_player_identifier_to_steamid64,
     search_players,
     to_player_public,
     to_player_public_with_profile_views,
@@ -87,8 +87,11 @@ from .player_profile_view import (
 )
 from .player_stats import (
     get_or_rebuild_player_daily_activity_stat,
+    get_or_rebuild_player_playtime_stat,
+    get_or_rebuild_player_stats,
     get_utc_midnight,
     rebuild_player_daily_activity_stat,
+    rebuild_player_playtime_stat,
 )
 from .record import (
     RECENT_RECORD_NOTIFY_CHANNEL,
@@ -197,6 +200,8 @@ __all__ = [
     "get_player_pinned_record",
     "count_player_profile_views",
     "get_or_rebuild_player_daily_activity_stat",
+    "get_or_rebuild_player_playtime_stat",
+    "get_or_rebuild_player_stats",
     "get_utc_today",
     "get_utc_midnight",
     "get_recent_top_records_v0",
@@ -266,6 +271,7 @@ __all__ = [
     "rebuild_record_pb_points_bucket",
     "rebuild_record_pb_points_for_course",
     "rebuild_player_daily_activity_stat",
+    "rebuild_player_playtime_stat",
     "rebuild_leaderboard_player",
     "rebuild_leaderboard_players",
     "rebuild_leaderboard_players_for_keys",

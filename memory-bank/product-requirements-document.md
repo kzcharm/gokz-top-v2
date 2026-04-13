@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-04-13
+- Last Updated: 2026-04-14
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -78,7 +78,7 @@ Scope model:
 ### 5.4 Player Profile Experience
 - Rich profile overview (identity, ranking highlights, competitive summary).
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).
-- Profile home now includes a UTC-based daily activity view sourced from lazily refreshed PostgreSQL cache rows keyed per player/stat type.
+- Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity and total playtime available on the profile.
 - Shareable, fast-loading profile UI with clear information hierarchy.
 
 ### 5.5 Servers and Live Status

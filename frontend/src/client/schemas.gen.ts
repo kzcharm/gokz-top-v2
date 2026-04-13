@@ -833,20 +833,6 @@ export const ModePublicSchema = {
     title: 'ModePublic'
 } as const;
 
-export const PlayerDailyActivityContentPublicSchema = {
-    properties: {
-        days: {
-            items: {
-                '$ref': '#/components/schemas/PlayerDailyActivityDayPublic'
-            },
-            type: 'array',
-            title: 'Days'
-        }
-    },
-    type: 'object',
-    title: 'PlayerDailyActivityContentPublic'
-} as const;
-
 export const PlayerDailyActivityDayPublicSchema = {
     properties: {
         date: {
@@ -865,27 +851,24 @@ export const PlayerDailyActivityDayPublicSchema = {
     title: 'PlayerDailyActivityDayPublic'
 } as const;
 
-export const PlayerDailyActivityStatPublicSchema = {
+export const PlayerDailyActivityPublicSchema = {
     properties: {
-        steamid64: {
-            type: 'string',
-            title: 'Steamid64'
-        },
-        type: {
-            '$ref': '#/components/schemas/PlayerStatType'
-        },
         updated_at: {
             type: 'string',
             format: 'date-time',
             title: 'Updated At'
         },
-        content: {
-            '$ref': '#/components/schemas/PlayerDailyActivityContentPublic'
+        days: {
+            items: {
+                '$ref': '#/components/schemas/PlayerDailyActivityDayPublic'
+            },
+            type: 'array',
+            title: 'Days'
         }
     },
     type: 'object',
-    required: ['steamid64', 'type', 'updated_at', 'content'],
-    title: 'PlayerDailyActivityStatPublic'
+    required: ['updated_at'],
+    title: 'PlayerDailyActivityPublic'
 } as const;
 
 export const PlayerFollowSummaryPublicSchema = {
@@ -1193,6 +1176,25 @@ export const PlayerPinnedRecordsPublicSchema = {
     title: 'PlayerPinnedRecordsPublic'
 } as const;
 
+export const PlayerPlaytimePublicSchema = {
+    properties: {
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        total_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Seconds',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['updated_at'],
+    title: 'PlayerPlaytimePublic'
+} as const;
+
 export const PlayerProfileViewsPublicSchema = {
     properties: {
         profile_views: {
@@ -1334,8 +1336,40 @@ export const PlayerRefPublicSchema = {
 
 export const PlayerStatTypeSchema = {
     type: 'string',
-    enum: ['daily_activity'],
+    enum: ['daily_activity', 'playtime'],
     title: 'PlayerStatType'
+} as const;
+
+export const PlayerStatsPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        daily_activity: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerDailyActivityPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        playtime: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerPlaytimePublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['steamid64'],
+    title: 'PlayerStatsPublic'
 } as const;
 
 export const PlayerUpdateSchema = {

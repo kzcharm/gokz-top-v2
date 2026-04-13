@@ -32,12 +32,12 @@ import {
   buildProfileTrophyCounts,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
-  getProfileDailyActivityStatQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
   getProfilePointsStandingQueryOptions,
   getProfileRecordRanksQueryOptions,
+  getProfileStatsQueryOptions,
   getProfileValidatedMapsQueryOptions,
   type ProfileTab,
   pinProfileRecord,
@@ -92,9 +92,12 @@ export function ProfilePage({
   const activeBanCountQuery = useQuery(
     getProfileActiveBanQueryOptions(playerSteamid64),
   )
-  const dailyActivityQuery = useQuery({
-    ...getProfileDailyActivityStatQueryOptions(canonicalIdentifier),
-    enabled: activeTab === "home" && canonicalIdentifier !== null,
+  const playerStatsQuery = useQuery({
+    ...getProfileStatsQueryOptions(
+      canonicalIdentifier,
+      activeTab === "home" ? null : "playtime",
+    ),
+    enabled: canonicalIdentifier !== null,
   })
   const nubRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
@@ -427,6 +430,11 @@ export function ProfilePage({
           <ProfileSidebar
             identifier={canonicalIdentifier}
             player={player}
+            playtimeError={playerStatsQuery.isError}
+            playtimeLoading={playerStatsQuery.isLoading}
+            playtimeSeconds={
+              playerStatsQuery.data?.playtime?.total_seconds ?? null
+            }
             summary={summary}
             summaryLoading={summaryLoading}
           />
@@ -448,9 +456,9 @@ export function ProfilePage({
 
           {activeTab === "home" ? (
             <ProfileHomeContent
-              activityError={dailyActivityQuery.isError}
-              activityLoading={dailyActivityQuery.isLoading}
-              activityStat={dailyActivityQuery.data ?? null}
+              activityError={playerStatsQuery.isError}
+              activityLoading={playerStatsQuery.isLoading}
+              activityStat={playerStatsQuery.data?.daily_activity ?? null}
               canManagePinnedRecords={isOwnProfile}
               pinnedRecords={pinnedRecords}
               pinnedRecordsError={
