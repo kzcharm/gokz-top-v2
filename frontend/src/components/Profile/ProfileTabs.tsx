@@ -11,10 +11,16 @@ const tabDefinitions: Array<{
   to:
     | "/profile/$identifier"
     | "/profile/$identifier/records"
+    | "/profile/$identifier/unfinished"
     | "/profile/$identifier/stats"
 }> = [
   { key: "home", label: "Home", to: "/profile/$identifier" },
   { key: "records", label: "Records", to: "/profile/$identifier/records" },
+  {
+    key: "unfinished",
+    label: "Unfinished",
+    to: "/profile/$identifier/unfinished",
+  },
   { key: "stats", label: "Stats", to: "/profile/$identifier/stats" },
 ]
 
