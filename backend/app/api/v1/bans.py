@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/bans", tags=["bans"])
 async def read_bans(
     session: SessionDep,
     query: Annotated[BanListQuery, Query()],
-) -> Any:
+) -> BansPublic:
     bans, count = await crud.read_bans(session=session, query=query)
     return BansPublic(
         data=[crud.to_ban_public(ban=ban, player=player) for ban, player in bans],

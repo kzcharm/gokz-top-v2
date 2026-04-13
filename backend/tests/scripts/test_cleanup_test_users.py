@@ -8,6 +8,8 @@ from app.cleanup_test_users import (
     format_cleanup_result,
 )
 from app.models import (
+    Ban,
+    BanType,
     LeaderboardPlayer,
     Map,
     Player,
@@ -163,3 +165,26 @@ async def test_find_cleanup_candidates_includes_orphan_players(
     steamid64s = await find_cleanup_candidates(session=db)
 
     assert steamid64 in steamid64s
+
+
+async def test_find_cleanup_candidates_excludes_players_referenced_by_bans(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    db.add(Player(steamid64=steamid64, name="Test User"))
+    db.add(
+        Ban(
+            id=1_900_000_000 + (random_steamid64() % 1_000_000),
+            ban_type=BanType.BHOP_HACK,
+            steamid64=steamid64,
+            notes="ban",
+            stats="stats",
+            server_id=1,
+            updated_by_id="1",
+        )
+    )
+    await db.commit()
+
+    steamid64s = await find_cleanup_candidates(session=db)
+
+    assert steamid64 not in steamid64s

@@ -27,12 +27,14 @@ async def _create_ban(
 ) -> Ban:
     await db.exec(delete(Ban).where(Ban.id == id))
     await db.commit()
+    if await db.get(Player, steamid64) is None:
+        db.add(Player(steamid64=steamid64, name=player_name))
+        await db.commit()
     ban = Ban(
         id=id,
         ban_type=ban_type,
         expires_on=expires_on,
         steamid64=steamid64,
-        player_name=player_name,
         notes=notes,
         stats=stats,
         server_id=server_id,
@@ -60,15 +62,20 @@ async def _create_player(
     avatar_hash: str | None = None,
     country: str | None = None,
 ) -> Player:
-    await db.exec(delete(Player).where(Player.steamid64 == steamid64))
-    await db.commit()
-    player = Player(
-        steamid64=steamid64,
-        name=name,
-        alias=alias,
-        avatar_hash=avatar_hash,
-        country=country,
-    )
+    player = await db.get(Player, steamid64)
+    if player is None:
+        player = Player(
+            steamid64=steamid64,
+            name=name,
+            alias=alias,
+            avatar_hash=avatar_hash,
+            country=country,
+        )
+    else:
+        player.name = name
+        player.alias = alias
+        player.avatar_hash = avatar_hash
+        player.country = country
     db.add(player)
     await db.commit()
     await db.refresh(player)
@@ -140,6 +147,7 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert v0_response.status_code == 200
     assert [row["id"] for row in v0_response.json()] == [1002]
     assert v0_response.json()[0]["steamid64"] == "76561198000000002"
+    assert v0_response.json()[0]["player_name"] == "TempAlias"
 
     v1_response = await client.get(
         f"{settings.API_V1_STR}/bans",
@@ -150,11 +158,12 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert payload["count"] == 3
     assert [row["id"] for row in payload["data"]] == [1003, 1002]
     assert payload["data"][0]["ban_type"] == "other"
-    assert payload["data"][1]["steamid64"] == "76561198000000002"
     assert payload["data"][1]["player"] == {
         "steamid64": "76561198000000002",
         "display_name": "TempAlias",
     }
+    assert "steamid64" not in payload["data"][1]
+    assert "player_name" not in payload["data"][1]
 
 
 async def test_read_ban_v1_detail_and_missing(
@@ -185,11 +194,12 @@ async def test_read_ban_v1_detail_and_missing(
     assert response.status_code == 200
     assert response.json()["id"] == 1101
     assert response.json()["ban_type"] == "strafe_macro"
-    assert response.json()["player_name"] == "DetailAlias"
     assert response.json()["player"] == {
         "steamid64": "76561198000000101",
         "display_name": "DetailAlias",
     }
+    assert "steamid64" not in response.json()
+    assert "player_name" not in response.json()
 
     missing = await client.get(f"{settings.API_V1_STR}/bans/999999")
     assert missing.status_code == 404

@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import (
+    Ban,
     LeaderboardPlayer,
     Player,
     PlayerFollow,
@@ -51,6 +52,7 @@ def _candidate_statement():
             )
         )
     )
+    has_ban = exists(select(Ban.id).where(Ban.steamid64 == Player.steamid64))
     return (
         select(Player.steamid64)
         .outerjoin(User, User.steamid64 == Player.steamid64)
@@ -61,6 +63,7 @@ def _candidate_statement():
         .where(not_(has_leaderboard_row))
         .where(not_(has_follow))
         .where(not_(has_profile_view))
+        .where(not_(has_ban))
         .order_by(col(Player.created_at).desc(), col(Player.steamid64).desc())
     )
 
