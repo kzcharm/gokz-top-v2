@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from typing import Any
 
 from pydantic import ValidationError
@@ -57,7 +57,8 @@ async def _load_daily_activity_days(
     record_date = cast(func.timezone("UTC", col(Record.created_at)), Date)
     statement = select(record_date, func.count()).where(col(Record.steamid64) == steamid64)
     if start_date is not None:
-        statement = statement.where(record_date >= start_date)
+        start_datetime = datetime.combine(start_date, time.min, tzinfo=UTC)
+        statement = statement.where(col(Record.created_at) >= start_datetime)
     statement = statement.group_by(record_date).order_by(record_date)
     rows = (await session.exec(statement)).all()
     return [PlayerDailyActivityDayPublic(date=row[0], count=int(row[1])) for row in rows]
