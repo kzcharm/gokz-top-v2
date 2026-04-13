@@ -520,6 +520,61 @@ async def test_read_map_v1_returns_scope_aware_main_course_tiers(
 
 
 @pytest.mark.asyncio
+async def test_read_map_v1_returns_null_for_missing_scope_tiers_when_other_scope_exists(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_map(db, id=930203)
+    await _create_record_filter(
+        db,
+        id=930263,
+        map_id=930203,
+        stage=0,
+        mode_id=202,
+        tier=4,
+        has_teleports=False,
+    )
+    await _create_record_filter(
+        db,
+        id=930264,
+        map_id=930203,
+        stage=0,
+        mode_id=202,
+        tier=4,
+        has_teleports=True,
+    )
+
+    by_id_response = await client.get(f"{settings.API_V1_STR}/maps/930203")
+    by_name_response = await client.get(f"{settings.API_V1_STR}/maps/name/kz_test_930203")
+    filtered_response = await client.get(
+        f"{settings.API_V1_STR}/maps",
+        params={"id": 930203},
+    )
+
+    assert by_id_response.status_code == 200
+    assert by_id_response.json()["tiers"] == {
+        "OVR": 4,
+        "KZT": None,
+        "SKZ": None,
+        "VNL": 4,
+    }
+    assert by_name_response.status_code == 200
+    assert by_name_response.json()["tiers"] == {
+        "OVR": 4,
+        "KZT": None,
+        "SKZ": None,
+        "VNL": 4,
+    }
+    assert filtered_response.status_code == 200
+    assert filtered_response.json()[0]["tiers"] == {
+        "OVR": 4,
+        "KZT": None,
+        "SKZ": None,
+        "VNL": 4,
+    }
+
+
+@pytest.mark.asyncio
 async def test_read_map_v0_not_found(client: AsyncClient) -> None:
     response = await client.get("/v0/maps/999999")
     assert response.status_code == 404
