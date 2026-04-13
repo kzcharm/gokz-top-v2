@@ -23,6 +23,12 @@ build_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(build_app, name="build")
+sync_app = typer.Typer(
+    help="Synchronize external data into backend state.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+app.add_typer(sync_app, name="sync")
 
 console = Console()
 
@@ -255,7 +261,106 @@ def build_pbs(
     )
 
 
-@build_app.command("profile")
+def _sync_profiles_impl(
+    *,
+    steamid64s: list[int] | None = None,
+    missing_avatar: bool = False,
+    leaderboard: str | None = None,
+    stale_days: int | None = None,
+    limit: int | None = None,
+) -> None:
+    selection_flags = sum(
+        (
+            1 if missing_avatar else 0,
+            1 if leaderboard is not None else 0,
+            1 if stale_days is not None else 0,
+        )
+    )
+    if selection_flags > 1:
+        raise typer.BadParameter(
+            "Use only one of --missing-avatar, --stale-days, or --leaderboard."
+        )
+    if steamid64s is not None and selection_flags > 0:
+        raise typer.BadParameter(
+            "Use either --steamid64 or one selection filter, not both."
+        )
+
+    leaderboard_scope: RecordScope | None = None
+    if leaderboard is not None:
+        parsed_scopes = _parse_scopes([leaderboard])
+        leaderboard_scope = parsed_scopes[0]
+
+    try:
+        result = _run_async(
+            profile_task.rebuild_player_profiles(
+                steamid64s=steamid64s,
+                only_missing_avatar=missing_avatar,
+                leaderboard_scope=leaderboard_scope,
+                stale_days=stale_days,
+                limit=limit,
+            )
+        )
+    except profile_task.RebuildPlayerProfileInterruptedError as exc:
+        result = exc.result
+        _render_summary(
+            "Profile Sync Interrupted",
+            [
+                ("Players selected", str(result.selected)),
+                ("Players created", str(result.created)),
+                ("Players updated", str(result.updated)),
+                ("Players skipped", str(result.skipped)),
+            ],
+        )
+        raise typer.Exit(code=130) from exc
+
+    _render_summary(
+        "Profile Sync Complete",
+        [
+            ("Players selected", str(result.selected)),
+            ("Players created", str(result.created)),
+            ("Players updated", str(result.updated)),
+            ("Players skipped", str(result.skipped)),
+        ],
+    )
+
+
+@sync_app.command("profiles")
+def sync_profiles(
+    steamid64s: SteamIdOption = None,
+    missing_avatar: Annotated[
+        bool,
+        typer.Option(
+            "--missing-avatar",
+            help="Select only players that do not have an avatar hash yet.",
+        ),
+    ] = False,
+    leaderboard: Annotated[
+        str | None,
+        typer.Option("--leaderboard", help="Select all players on a leaderboard scope."),
+    ] = None,
+    stale_days: Annotated[
+        int | None,
+        typer.Option(
+            "--stale-days",
+            min=1,
+            help="Select players whose Steam profile was last updated at least N days ago.",
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(help="Optional limit on selected players."),
+    ] = None,
+) -> None:
+    _sync_profiles_impl(
+        steamid64s=steamid64s,
+        missing_avatar=missing_avatar,
+        leaderboard=leaderboard,
+        stale_days=stale_days,
+        limit=limit,
+    )
+
+
+@build_app.command("profile", hidden=True)
 def build_profile(
     steamid64s: SteamIdOption = None,
     all_players: Annotated[
@@ -274,41 +379,11 @@ def build_profile(
         typer.Option(help="Optional limit on selected players."),
     ] = None,
 ) -> None:
-    leaderboard_scope: RecordScope | None = None
-    if leaderboard is not None:
-        parsed_scopes = _parse_scopes([leaderboard])
-        leaderboard_scope = parsed_scopes[0]
-
-    try:
-        result = _run_async(
-            profile_task.rebuild_player_profiles(
-                steamid64s=steamid64s,
-                only_missing_avatar=not all_players,
-                leaderboard_scope=leaderboard_scope,
-                limit=limit,
-            )
-        )
-    except profile_task.RebuildPlayerProfileInterruptedError as exc:
-        result = exc.result
-        _render_summary(
-            "Profile Build Interrupted",
-            [
-                ("Players selected", str(result.selected)),
-                ("Players created", str(result.created)),
-                ("Players updated", str(result.updated)),
-                ("Players skipped", str(result.skipped)),
-            ],
-        )
-        raise typer.Exit(code=130) from exc
-
-    _render_summary(
-        "Profile Build Complete",
-        [
-            ("Players selected", str(result.selected)),
-            ("Players created", str(result.created)),
-            ("Players updated", str(result.updated)),
-            ("Players skipped", str(result.skipped)),
-        ],
+    _sync_profiles_impl(
+        steamid64s=steamid64s,
+        missing_avatar=not all_players and leaderboard is None,
+        leaderboard=leaderboard,
+        limit=limit,
     )
 
 
