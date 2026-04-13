@@ -40,7 +40,9 @@ export function ProfileTabs({
           ))}
         </TabsList>
         {trailingContent ? (
-          <div className="flex justify-start sm:justify-end">{trailingContent}</div>
+          <div className="flex justify-start sm:justify-end">
+            {trailingContent}
+          </div>
         ) : null}
       </div>
     </Tabs>

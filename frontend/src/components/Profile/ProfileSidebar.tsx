@@ -17,8 +17,8 @@ import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
   getPlayerDisplayName,
-  PlayerDisplay,
   PlayerContextMenuItems,
+  PlayerDisplay,
   PlayerFollowContextMenuItem,
 } from "@/components/Common/PlayerDisplay"
 import { Card, CardContent } from "@/components/ui/card"
@@ -33,10 +33,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
-import {
-  type GraphqlPlayer,
-  searchPlayersGraphql,
-} from "@/lib/player-graphql"
+import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -595,7 +592,8 @@ export function ProfileSidebar({
   const playerSearchQueryResult = useQuery({
     queryKey: ["graphql", "players", "search", playerSearchQuery],
     enabled: playerSearchQuery.length > 0,
-    queryFn: async () => (await searchPlayersGraphql(playerSearchQuery, 8)).data,
+    queryFn: async () =>
+      (await searchPlayersGraphql(playerSearchQuery, 8)).data,
     staleTime: 30_000,
   })
   const followSummary = followSummaryQuery.data
@@ -615,7 +613,7 @@ export function ProfileSidebar({
   useEffect(() => {
     setSearchInput("")
     setIsSearchFocused(false)
-  }, [identifier])
+  }, [])
 
   const handleOpenSocial = (tab: ProfileSocialTab) => {
     if (!authenticated) {
