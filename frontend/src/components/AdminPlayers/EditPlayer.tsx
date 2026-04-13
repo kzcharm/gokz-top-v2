@@ -82,7 +82,7 @@ export default function EditPlayer({ player }: { player: EditablePlayer }) {
   const mutation = useMutation({
     mutationFn: (data: PlayerUpdate) =>
       PlayersService.updatePlayer({
-        steamid64: player.steamid64,
+        identifier: player.steamid64,
         requestBody: data,
       }),
     onSuccess: () => {

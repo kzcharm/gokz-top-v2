@@ -64,6 +64,13 @@ from .player import (
     PlayersPublic,
     PlayerUpdate,
 )
+from .player_stats import (
+    PlayerDailyActivityContentPublic,
+    PlayerDailyActivityDayPublic,
+    PlayerDailyActivityStatPublic,
+    PlayerStatCache,
+    PlayerStatType,
+)
 from .player_follow import (
     PlayerFollow,
     PlayerFollowListQuery,
@@ -219,6 +226,11 @@ __all__ = [
     "PlayersListQuery",
     "PlayersPublic",
     "PlayerUpdate",
+    "PlayerDailyActivityContentPublic",
+    "PlayerDailyActivityDayPublic",
+    "PlayerDailyActivityStatPublic",
+    "PlayerStatCache",
+    "PlayerStatType",
     "PlayerFollow",
     "PlayerFollowListQuery",
     "PlayerFollowSummaryPublic",

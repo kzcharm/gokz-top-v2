@@ -32,6 +32,7 @@ import {
   buildProfileTrophyCounts,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
+  getProfileDailyActivityStatQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
@@ -91,6 +92,10 @@ export function ProfilePage({
   const activeBanCountQuery = useQuery(
     getProfileActiveBanQueryOptions(playerSteamid64),
   )
+  const dailyActivityQuery = useQuery({
+    ...getProfileDailyActivityStatQueryOptions(canonicalIdentifier),
+    enabled: activeTab === "home" && canonicalIdentifier !== null,
+  })
   const nubRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
       identifier: playerSteamid64,
@@ -443,6 +448,9 @@ export function ProfilePage({
 
           {activeTab === "home" ? (
             <ProfileHomeContent
+              activityError={dailyActivityQuery.isError}
+              activityLoading={dailyActivityQuery.isLoading}
+              activityStat={dailyActivityQuery.data ?? null}
               canManagePinnedRecords={isOwnProfile}
               pinnedRecords={pinnedRecords}
               pinnedRecordsError={

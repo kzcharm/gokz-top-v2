@@ -135,7 +135,7 @@ function sortMaps(
 
     switch (sortField) {
       case "tier":
-        comparison = leftTier - rightTier
+        comparison = compareNullableNumbers(leftTier, rightTier, sortDirection)
         break
       case "updated":
         comparison = Date.parse(left.updated_on) - Date.parse(right.updated_on)

@@ -85,6 +85,11 @@ from .player_profile_view import (
     create_player_profile_view,
     get_utc_today,
 )
+from .player_stats import (
+    get_or_rebuild_player_daily_activity_stat,
+    get_utc_midnight,
+    rebuild_player_daily_activity_stat,
+)
 from .record import (
     RECENT_RECORD_NOTIFY_CHANNEL,
     ensure_map_courses_for_valid_records,
@@ -191,7 +196,9 @@ __all__ = [
     "get_player_following",
     "get_player_pinned_record",
     "count_player_profile_views",
+    "get_or_rebuild_player_daily_activity_stat",
     "get_utc_today",
+    "get_utc_midnight",
     "get_recent_top_records_v0",
     "get_record_by_id",
     "get_record_by_uuid",
@@ -258,6 +265,7 @@ __all__ = [
     "upsert_record",
     "rebuild_record_pb_points_bucket",
     "rebuild_record_pb_points_for_course",
+    "rebuild_player_daily_activity_stat",
     "rebuild_leaderboard_player",
     "rebuild_leaderboard_players",
     "rebuild_leaderboard_players_for_keys",

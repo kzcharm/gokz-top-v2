@@ -5,8 +5,6 @@ export type BanPublic = {
     ban_type: BanType;
     expires_on?: (string | null);
     ip?: (string | null);
-    steamid64: string;
-    player_name?: (string | null);
     notes?: (string | null);
     stats?: (string | null);
     server_id?: (number | null);
@@ -115,10 +113,10 @@ export type MapSyncResult = {
 };
 
 export type MapTiers = {
-    OVR: number;
-    KZT: number;
-    SKZ: number;
-    VNL: number;
+    OVR: (number | null);
+    KZT: (number | null);
+    SKZ: (number | null);
+    VNL: (number | null);
 };
 
 export type MapWrPublic = {
@@ -160,6 +158,22 @@ export type ModePublic = {
     created_on?: (string | null);
     updated_on?: (string | null);
     updated_by_id: string;
+};
+
+export type PlayerDailyActivityContentPublic = {
+    days?: Array<PlayerDailyActivityDayPublic>;
+};
+
+export type PlayerDailyActivityDayPublic = {
+    date: string;
+    count: number;
+};
+
+export type PlayerDailyActivityStatPublic = {
+    steamid64: string;
+    type: PlayerStatType;
+    updated_at: string;
+    content: PlayerDailyActivityContentPublic;
 };
 
 export type PlayerFollowSummaryPublic = {
@@ -263,6 +277,8 @@ export type PlayersPublic = {
     data: Array<PlayerPublic>;
     count: number;
 };
+
+export type PlayerStatType = 'daily_activity';
 
 export type PlayerUpdate = {
     alias?: (string | null);
@@ -735,6 +751,12 @@ export type PlayersDeletePlayerPinnedRecordData = {
 };
 
 export type PlayersDeletePlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
+
+export type PlayersReadPlayerDailyActivityStatData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerDailyActivityStatResponse = (PlayerDailyActivityStatPublic);
 
 export type PlayersReadPlayerFollowSummaryData = {
     identifier: string;

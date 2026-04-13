@@ -4,6 +4,7 @@ import {
   type MapPublic,
   MapsService,
   type MapWrPublic,
+  type PlayerDailyActivityStatPublic,
   type PlayerFollowSummaryPublic,
   type PlayerPublic,
   type PlayersPublic,
@@ -108,6 +109,26 @@ export function getProfileFollowSummaryQueryOptions(identifier: string) {
       }),
     retry: false,
     staleTime: 30_000,
+  })
+}
+
+export function getProfileDailyActivityStatQueryOptions(
+  identifier: string | null,
+) {
+  return queryOptions({
+    queryKey: ["profile-daily-activity", identifier],
+    queryFn: async (): Promise<PlayerDailyActivityStatPublic | null> => {
+      if (!identifier) {
+        return null
+      }
+
+      return await PlayersService.readPlayerDailyActivityStat({
+        identifier,
+      })
+    },
+    enabled: identifier !== null,
+    retry: false,
+    staleTime: 60_000,
   })
 }
 

@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 interface MapCardProps {
-  activeTier: number
+  activeTier: number | null
   map: MapPublic
   wrRecord?: MapWrPublic | null
   wrLoading?: boolean

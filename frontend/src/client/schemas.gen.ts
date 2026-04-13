@@ -32,21 +32,6 @@ export const BanPublicSchema = {
             ],
             title: 'Ip'
         },
-        steamid64: {
-            type: 'string',
-            title: 'Steamid64'
-        },
-        player_name: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Player Name'
-        },
         notes: {
             anyOf: [
                 {
@@ -113,7 +98,7 @@ export const BanPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'ban_type', 'steamid64', 'created_on', 'updated_on'],
+    required: ['id', 'ban_type', 'created_on', 'updated_on'],
     title: 'BanPublic'
 } as const;
 
@@ -578,19 +563,47 @@ export const MapSyncResultSchema = {
 export const MapTiersSchema = {
     properties: {
         OVR: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Ovr'
         },
         KZT: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Kzt'
         },
         SKZ: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Skz'
         },
         VNL: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Vnl'
         }
     },
@@ -818,6 +831,61 @@ export const ModePublicSchema = {
     type: 'object',
     required: ['id', 'name', 'name_short', 'id_plugin', 'description', 'latest_version', 'latest_version_description', 'website', 'repo', 'contact_steamid64', 'updated_by_id'],
     title: 'ModePublic'
+} as const;
+
+export const PlayerDailyActivityContentPublicSchema = {
+    properties: {
+        days: {
+            items: {
+                '$ref': '#/components/schemas/PlayerDailyActivityDayPublic'
+            },
+            type: 'array',
+            title: 'Days'
+        }
+    },
+    type: 'object',
+    title: 'PlayerDailyActivityContentPublic'
+} as const;
+
+export const PlayerDailyActivityDayPublicSchema = {
+    properties: {
+        date: {
+            type: 'string',
+            format: 'date',
+            title: 'Date'
+        },
+        count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['date', 'count'],
+    title: 'PlayerDailyActivityDayPublic'
+} as const;
+
+export const PlayerDailyActivityStatPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        type: {
+            '$ref': '#/components/schemas/PlayerStatType'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        content: {
+            '$ref': '#/components/schemas/PlayerDailyActivityContentPublic'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'type', 'updated_at', 'content'],
+    title: 'PlayerDailyActivityStatPublic'
 } as const;
 
 export const PlayerFollowSummaryPublicSchema = {
@@ -1262,6 +1330,12 @@ export const PlayerRefPublicSchema = {
     type: 'object',
     required: ['steamid64', 'display_name'],
     title: 'PlayerRefPublic'
+} as const;
+
+export const PlayerStatTypeSchema = {
+    type: 'string',
+    enum: ['daily_activity'],
+    title: 'PlayerStatType'
 } as const;
 
 export const PlayerUpdateSchema = {
