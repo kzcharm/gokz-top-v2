@@ -201,11 +201,14 @@ async def load_map_tiers_by_scope(
         ovr_tier, kzt_tier, skz_tier, vnl_tier = scoped_tier_by_map_id.get(
             map_id, (None, None, None, None)
         )
+        has_scoped_tiers = any(
+            tier is not None for tier in (ovr_tier, kzt_tier, skz_tier, vnl_tier)
+        )
         resolved_tiers[map_id] = MapTiers(
-            OVR=fallback_tier if ovr_tier is None else ovr_tier,
-            KZT=fallback_tier if kzt_tier is None else kzt_tier,
-            SKZ=fallback_tier if skz_tier is None else skz_tier,
-            VNL=fallback_tier if vnl_tier is None else vnl_tier,
+            OVR=fallback_tier if ovr_tier is None and not has_scoped_tiers else ovr_tier,
+            KZT=fallback_tier if kzt_tier is None and not has_scoped_tiers else kzt_tier,
+            SKZ=fallback_tier if skz_tier is None and not has_scoped_tiers else skz_tier,
+            VNL=fallback_tier if vnl_tier is None and not has_scoped_tiers else vnl_tier,
         )
 
     return resolved_tiers

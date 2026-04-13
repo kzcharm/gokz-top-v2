@@ -316,6 +316,7 @@ async def test_load_map_tiers_by_scope_uses_scope_min_and_main_fallbacks(
 ) -> None:
     await _create_map(db, id=981006, name="kz_map_tiers")
     await _create_map(db, id=981007, name="kz_map_tiers_fallback")
+    await _create_map(db, id=981008, name="kz_map_tiers_vnl_only")
     await _create_record_filter(
         db,
         id=981303,
@@ -340,10 +341,28 @@ async def test_load_map_tiers_by_scope_uses_scope_min_and_main_fallbacks(
         mode_id=202,
         tier=8,
     )
+    await _create_record_filter(
+        db,
+        id=981306,
+        map_id=981008,
+        stage=0,
+        mode_id=202,
+        tier=4,
+        has_teleports=False,
+    )
+    await _create_record_filter(
+        db,
+        id=981307,
+        map_id=981008,
+        stage=0,
+        mode_id=202,
+        tier=4,
+        has_teleports=True,
+    )
 
     tiers_by_map_id = await crud.load_map_tiers_by_scope(
         session=db,
-        map_ids=[981006, 981007],
+        map_ids=[981006, 981007, 981008],
     )
 
     assert tiers_by_map_id[981006].model_dump() == {
@@ -357,6 +376,12 @@ async def test_load_map_tiers_by_scope_uses_scope_min_and_main_fallbacks(
         "KZT": 1,
         "SKZ": 1,
         "VNL": 1,
+    }
+    assert tiers_by_map_id[981008].model_dump() == {
+        "OVR": 4,
+        "KZT": None,
+        "SKZ": None,
+        "VNL": 4,
     }
 
 
