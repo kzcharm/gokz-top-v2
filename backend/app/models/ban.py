@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, DateTime, Index, Text
+from sqlalchemy import BigInteger, Column, DateTime, Index, Text
 from sqlalchemy import Enum as SQLAlchemyEnum
-from sqlmodel import Column, Field, SQLModel
+from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
 from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
@@ -34,13 +36,12 @@ class BanBase(LegacyDatetimeNamesMixin):
             nullable=False,
         ),
     )
-    expires_on: datetime | None = Field(
+    expires_on: datetime | None = Field(  # type: ignore[call-overload]
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
     ip: str | None = Field(default=None, max_length=64)
-    steamid64: int = Field(sa_type=BigInteger)
-    player_name: str | None = Field(default=None, max_length=255)
+    steamid64: int = Field(foreign_key="player.steamid64", sa_type=BigInteger)
     notes: str | None = Field(
         default=None,
         sa_column=Column(Text, nullable=True),
@@ -51,17 +52,17 @@ class BanBase(LegacyDatetimeNamesMixin):
     )
     server_id: int | None = None
     updated_by_id: str | None = Field(default=None, max_length=32)
-    created_at: datetime = Field(
+    created_at: datetime = Field(  # type: ignore[call-overload]
         default_factory=get_datetime_utc,
         validation_alias="created_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
-    updated_at: datetime = Field(
+    updated_at: datetime = Field(  # type: ignore[call-overload]
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
-    synced_at: datetime = Field(
+    synced_at: datetime = Field(  # type: ignore[call-overload]
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
@@ -95,7 +96,17 @@ class BanCompatPublicV0(SQLModel):
     updated_on: datetime
 
 
-class BanPublic(BanCompatPublicV0):
+class BanPublic(SQLModel):
+    id: int
+    ban_type: BanType
+    expires_on: datetime | None = None
+    ip: str | None = None
+    notes: str | None = None
+    stats: str | None = None
+    server_id: int | None = None
+    updated_by_id: str | None = None
+    created_on: datetime
+    updated_on: datetime
     player: PlayerRefPublic | None = None
 
 

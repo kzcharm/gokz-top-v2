@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import and_, exists, func, not_, or_
 from sqlalchemy.sql.elements import ColumnElement
@@ -87,14 +87,23 @@ def not_active_ban_exists_split_clause(
     )
 
 
-def to_ban_compat_public_v0(*, ban: Ban) -> BanCompatPublicV0:
+def to_ban_compat_public_v0(
+    *,
+    ban: Ban,
+    player: Player | None = None,
+) -> BanCompatPublicV0:
+    player_name = (
+        get_player_display_name(player=player)
+        if player is not None
+        else str(ban.steamid64)
+    )
     return BanCompatPublicV0(
         id=ban.id,
         ban_type=ban.ban_type,
         expires_on=ban.expires_on,
         ip=ban.ip,
         steamid64=str(ban.steamid64),
-        player_name=ban.player_name,
+        player_name=player_name,
         notes=ban.notes,
         stats=ban.stats,
         server_id=ban.server_id,
@@ -105,17 +114,18 @@ def to_ban_compat_public_v0(*, ban: Ban) -> BanCompatPublicV0:
 
 
 def to_ban_public(*, ban: Ban, player: Player | None = None) -> BanPublic:
-    compat = to_ban_compat_public_v0(ban=ban)
-    return BanPublic.model_validate(
-        {
-            **compat.model_dump(),
-            "player_name": (
-                get_player_display_name(player=player)
-                if player is not None
-                else compat.player_name
-            ),
-            "player": to_player_ref_public(player=player) if player is not None else None,
-        }
+    return BanPublic(
+        id=ban.id,
+        ban_type=ban.ban_type,
+        expires_on=ban.expires_on,
+        ip=ban.ip,
+        notes=ban.notes,
+        stats=ban.stats,
+        server_id=ban.server_id,
+        updated_by_id=ban.updated_by_id,
+        created_on=ban.created_at,
+        updated_on=ban.updated_at,
+        player=to_player_ref_public(player=player) if player is not None else None,
     )
 
 
@@ -174,14 +184,17 @@ async def read_bans(
         statement = statement.where(condition)
 
     count = (await session.exec(count_statement)).one()
-    bans = list(
-        (
-            await session.exec(
-                statement.order_by(col(Ban.id).desc())
-                .offset(query.offset)
-                .limit(query.limit)
-            )
-        ).all()
+    bans = cast(
+        list[tuple[Ban, Player | None]],
+        list(
+            (
+                await session.exec(
+                    statement.order_by(col(Ban.id).desc())
+                    .offset(query.offset)
+                    .limit(query.limit)
+                )
+            ).all()
+        ),
     )
     return bans, count
 

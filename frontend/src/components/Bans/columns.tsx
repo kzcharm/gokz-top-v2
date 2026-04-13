@@ -12,10 +12,7 @@ import {
 import { cn } from "@/lib/utils"
 
 type BanPlayer = {
-  alias?: string | null
-  avatar_hash?: string | null
-  country?: string | null
-  name: string
+  display_name?: string | null
   steamid64: string
 }
 
@@ -26,9 +23,7 @@ export interface BanRow {
   expires_on: string | null
   notes: string | null
   player: BanPlayer | null
-  player_name: string | null
   stats: string | null
-  steamid64: string
 }
 
 function formatBanTypeLabel(banType: string) {
@@ -104,19 +99,21 @@ function ExpiryBadge({ expiresOn }: { expiresOn: string | null }) {
 
 export const banColumns: ColumnDef<BanRow>[] = [
   {
-    accessorKey: "player_name",
+    accessorKey: "player",
     header: "Player",
     cell: ({ row }) => (
       <PlayerDisplay
         player={
-          row.original.player ?? {
-            steamid64: row.original.steamid64,
-            name: row.original.player_name ?? row.original.steamid64,
-            avatar_hash: null,
-            country: null,
-            alias: null,
-          }
+          row.original.player
+            ? {
+                steamid64: row.original.player.steamid64,
+                displayName:
+                  row.original.player.display_name ??
+                  row.original.player.steamid64,
+              }
+            : null
         }
+        fallbackSteamid64={row.original.player?.steamid64}
         nameMaxLength={28}
       />
     ),

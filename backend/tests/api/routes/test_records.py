@@ -184,7 +184,6 @@ async def _create_ban(
         ban_type=BanType.BHOP_HACK,
         expires_on=expires_on,
         steamid64=steamid64,
-        player_name=f"Player {steamid64}",
         notes="cheater",
         stats="stats",
         server_id=980300,

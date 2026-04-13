@@ -5,7 +5,7 @@ import pytest
 from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Ban, BanType, GlobalApiSyncState
+from app.models import Ban, BanType, GlobalApiSyncState, Player
 from app.services import globalapi_ban_sync
 
 pytestmark = pytest.mark.asyncio
@@ -75,6 +75,9 @@ async def test_sync_bans_from_globalapi_backfills_with_large_limit(
     stored = list((await db.exec(select(Ban).order_by(Ban.id.asc()))).all())
     assert [ban.id for ban in stored] == [1, 2]
     assert stored[1].ban_type == BanType.BHOP_MACRO
+    player = await db.get(Player, 76561198000000001)
+    assert player is not None
+    assert player.name == "Player 76561198000000001"
 
 
 async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
@@ -158,12 +161,17 @@ async def test_sync_bans_from_globalapi_keeps_local_rows_when_upstream_is_empty(
 ) -> None:
     await _clear_ban_sync_state(db)
     db.add(
+        Player(
+            steamid64=76561198000000500,
+            name="Existing",
+        )
+    )
+    db.add(
         Ban(
             id=500,
             ban_type=BanType.BHOP_HACK,
             expires_on=None,
             steamid64=76561198000000500,
-            player_name="Existing",
             notes="existing",
             stats="existing",
             server_id=1,
@@ -221,6 +229,9 @@ async def test_sync_bans_from_globalapi_counts_duplicates_and_invalid_types(
     assert result.warnings == 1
     assert await db.get(Ban, 700) is not None
     assert await db.get(Ban, 701) is None
+    created_player = await db.get(Player, 76561198000000700)
+    assert created_player is not None
+    assert created_player.name == "Player 76561198000000700"
 
 
 async def test_sync_bans_from_globalapi_allows_multiple_permanent_bans_for_one_player(
@@ -288,6 +299,43 @@ async def test_sync_bans_from_globalapi_maps_9999_expiry_to_null(
     stored = await db.get(Ban, 901)
     assert stored is not None
     assert stored.expires_on is None
+
+
+async def test_sync_bans_from_globalapi_updates_placeholder_player_name_only(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _clear_ban_sync_state(db)
+    db.add(Player(steamid64=76561198000000910, name="76561198000000910"))
+    db.add(Player(steamid64=76561198000000911, name="Established Name"))
+    await db.commit()
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        del client, offset, limit, updated_since
+        return [
+            _payload(ban_id=910, steamid64=76561198000000910)
+            | {"player_name": "Resolved Placeholder"},
+            _payload(ban_id=911, steamid64=76561198000000911)
+            | {"player_name": "Should Not Replace"},
+        ]
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+
+    result = await globalapi_ban_sync.sync_bans_from_globalapi(session=db)
+
+    assert result.processed == 2
+    placeholder_player = await db.get(Player, 76561198000000910)
+    assert placeholder_player is not None
+    assert placeholder_player.name == "Resolved Placeholder"
+    established_player = await db.get(Player, 76561198000000911)
+    assert established_player is not None
+    assert established_player.name == "Established Name"
 
 
 async def test_sync_bans_from_globalapi_rebuilds_leaderboards_for_touched_players(
