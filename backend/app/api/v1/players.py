@@ -12,6 +12,7 @@ from app.api.deps import (
 )
 from app.crud import player as player_crud
 from app.models import (
+    PlayerDailyActivityStatPublic,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
     PlayerPinnedRecordsPublic,
@@ -176,6 +177,21 @@ async def read_player_pinned_records(
         scope=scope,
     )
     return PlayerPinnedRecordsPublic(data=pinned_records, count=len(pinned_records))
+
+
+@router.get(
+    "/{identifier:path}/stats/daily_activity",
+    response_model=PlayerDailyActivityStatPublic,
+)
+async def read_player_daily_activity_stat(
+    identifier: str,
+    session: SessionDep,
+) -> PlayerDailyActivityStatPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    return await crud.get_or_rebuild_player_daily_activity_stat(
+        session=session,
+        steamid64=player.steamid64,
+    )
 
 
 @router.post(

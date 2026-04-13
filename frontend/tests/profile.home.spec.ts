@@ -17,6 +17,20 @@ const player = {
   profile_views: 7,
 }
 
+const dailyActivityStat = {
+  steamid64,
+  type: "daily_activity",
+  updated_at: "2026-04-03T12:00:00Z",
+  content: {
+    days: [
+      { date: "2025-12-31", count: 2 },
+      { date: "2026-01-01", count: 1 },
+      { date: "2026-03-30", count: 2 },
+      { date: "2026-03-31", count: 4 },
+    ],
+  },
+}
+
 const nubRecords = [
   {
     uuid: "019d1111-1111-7111-8111-111111111111",
@@ -181,7 +195,14 @@ const nubRecords = [
   },
 ]
 
-async function installProfileHomeRoutes(page: Page) {
+async function installProfileHomeRoutes(
+  page: Page,
+  {
+    activity = dailyActivityStat,
+  }: {
+    activity?: typeof dailyActivityStat
+  } = {},
+) {
   const requestedRankUuids: string[] = []
   const pinnedRecords = nubRecords.slice(0, 6).map((record, index) => ({
     id: `019e0000-0000-7000-8000-00000000000${index}`,
@@ -255,6 +276,17 @@ async function installProfileHomeRoutes(page: Page) {
   )
 
   await page.route(
+    /\/v1\/players\/[^/]+\/stats\/daily_activity$/,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(activity),
+      })
+    },
+  )
+
+  await page.route(
     /\/v1\/leaderboards\/players\/[^?]+(\?.*)?$/,
     async (route: Route) => {
       await route.fulfill({
@@ -323,6 +355,31 @@ test("Profile home renders live pinned records with points badges and absolute d
   await page.goto(`/profile/${steamid64}`)
 
   await expect(page.getByText("Pinned Alias")).toBeVisible()
+  await expect(page.getByText(/^Mon$/)).toBeVisible()
+  await expect(page.getByText(/^Wed$/)).toBeVisible()
+  await expect(page.getByText(/^Fri$/)).toBeVisible()
+  await expect(page.getByText(/^Jan$/)).toBeVisible()
+  await expect(page.getByText(/^Mar$/)).toBeVisible()
+  await expect(page.getByTestId("profile-activity-year-2026")).toBeVisible()
+  await expect(page.getByTestId("profile-activity-year-2025")).toBeVisible()
+  await expect(page.getByTestId("profile-activity-year-2026")).toHaveClass(
+    /bg-card/,
+  )
+  await expect(
+    page.getByTestId("profile-activity-cell-2026-03-31"),
+  ).toHaveAttribute("data-activity-level", "2")
+  await expect(
+    page.getByTestId("profile-activity-cell-2026-03-30"),
+  ).toHaveAttribute("data-activity-level", "2")
+  await expect(
+    page.getByTestId("profile-activity-cell-2026-01-01"),
+  ).toHaveAttribute("data-activity-level", "1")
+
+  await page.getByTestId("profile-activity-year-2025").click()
+  await expect(
+    page.getByTestId("profile-activity-cell-2025-12-31"),
+  ).toHaveAttribute("data-activity-level", "2")
+
   await expect(page.getByText("Pinned records")).toBeVisible()
   await expect(page.getByText("6 of 6")).toBeVisible()
 
@@ -355,4 +412,32 @@ test("Profile home renders live pinned records with points badges and absolute d
     nubRecords[4].uuid,
     nubRecords[5].uuid,
   ])
+})
+
+test("Profile home activity card shows empty-year message for players without activity", async ({
+  page,
+}) => {
+  const currentYear = String(new Date().getUTCFullYear())
+  await installProfileHomeRoutes(page, {
+    activity: {
+      steamid64,
+      type: "daily_activity",
+      updated_at: "2026-04-03T12:00:00Z",
+      content: {
+        days: [],
+      },
+    },
+  })
+
+  await page.goto(`/profile/${steamid64}`)
+
+  await expect(
+    page.getByTestId(`profile-activity-year-${currentYear}`),
+  ).toBeVisible()
+  await expect(
+    page.getByText(`No record submissions found for ${currentYear}.`),
+  ).toBeVisible()
+  await expect(
+    page.getByTestId(`profile-activity-cell-${currentYear}-empty-0-0`),
+  ).toHaveAttribute("data-activity-level", "0")
 })

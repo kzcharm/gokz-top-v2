@@ -73,7 +73,7 @@ function MapMetaItem({
   )
 }
 
-function MapHero({ map, tier }: { map: MapPublic; tier: number }) {
+function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
   const imageUrl = getMapImageUrl(map.name)
   const authorsList = map.authors ?? []
   const authors =

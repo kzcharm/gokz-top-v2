@@ -1,7 +1,7 @@
 import { PinOff } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
-
+import type { PlayerDailyActivityStatPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
@@ -16,11 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-
-import {
-  type ProfileActivityYear,
-  profileHomePlaceholder,
-} from "./profile-home-placeholder"
 import {
   formatNumber,
   type ProfileCompletionData,
@@ -28,12 +23,12 @@ import {
   type ProfileTrophyCounts,
 } from "./profile-utils"
 
-const activityTones = [
-  "bg-muted/70",
-  "bg-primary/15",
-  "bg-primary/30",
-  "bg-primary/55",
-  "bg-primary",
+const activityToneClasses = [
+  "bg-[#ebedf0] dark:bg-[#161b22]",
+  "bg-[#9be9a8] dark:bg-[#0e4429]",
+  "bg-[#40c463] dark:bg-[#006d32]",
+  "bg-[#30a14e] dark:bg-[#26a641]",
+  "bg-[#216e39] dark:bg-[#39d353]",
 ]
 
 const TROPHY_ASSETS = {
@@ -42,6 +37,41 @@ const TROPHY_ASSETS = {
   bronze: "https://kzgo.eu/trophy_bronze.png",
 } as const
 const PROFILE_COMPLETION_TWO_COLUMN_MIN_WIDTH = 960
+const CONTRIBUTION_DAY_LABELS = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+]
+const CONTRIBUTION_MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const
+
+type ActivityCell = {
+  date: string
+  count: number
+  isEmpty: boolean
+  level: number
+}
+
+type ActivityMonthLabel = {
+  month: (typeof CONTRIBUTION_MONTH_LABELS)[number]
+  weekIndex: number
+}
 
 function PaddedAverageNumber({ value }: { value: number }) {
   const formattedValue = formatNumber(value)
@@ -158,18 +188,173 @@ function CompletionCardsSkeleton({ twoColumns }: { twoColumns: boolean }) {
   )
 }
 
-function ActivityCard() {
-  const [activeYear, setActiveYear] = useState<ProfileActivityYear>("2026")
-  const levels = profileHomePlaceholder.activity[activeYear]
+function getCurrentUtcYear() {
+  return String(new Date().getUTCFullYear())
+}
 
-  const weeks = useMemo(() => {
-    return Array.from({ length: 53 }, (_, weekIndex) =>
-      Array.from(
-        { length: 7 },
-        (_, dayIndex) => levels[weekIndex * 7 + dayIndex],
-      ),
+function getActivityLevel(count: number) {
+  if (count <= 0) {
+    return 0
+  }
+
+  if (count >= 10) {
+    return 4
+  }
+
+  if (count >= 5) {
+    return 3
+  }
+
+  if (count >= 2) {
+    return 2
+  }
+
+  return 1
+}
+
+function buildActivityCalendar({
+  days,
+  year,
+}: {
+  days: Array<{ date: string; count: number }>
+  year: string
+}) {
+  const selectedYear = Number(year)
+  const yearStart = new Date(Date.UTC(selectedYear, 0, 1))
+  const yearEnd = new Date(Date.UTC(selectedYear, 11, 31))
+  const countsByDate = new Map(
+    days
+      .filter((day) => day.date.startsWith(`${year}-`))
+      .map((day) => [day.date, day.count]),
+  )
+  const weeks: ActivityCell[][] = []
+  let currentWeek: ActivityCell[] = []
+  const current = new Date(yearStart)
+  const startDayOfWeek = current.getUTCDay()
+
+  for (let dayIndex = 0; dayIndex < startDayOfWeek; dayIndex += 1) {
+    currentWeek.push({
+      date: `${year}-empty-0-${dayIndex}`,
+      count: 0,
+      isEmpty: true,
+      level: 0,
+    })
+  }
+
+  while (current <= yearEnd) {
+    const date = current.toISOString().slice(0, 10)
+    const count = countsByDate.get(date) ?? 0
+
+    currentWeek.push({
+      date,
+      count,
+      isEmpty: false,
+      level: getActivityLevel(count),
+    })
+
+    if (current.getUTCDay() === 6) {
+      weeks.push(currentWeek)
+      currentWeek = []
+    }
+
+    current.setUTCDate(current.getUTCDate() + 1)
+  }
+
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push({
+        date: `${year}-empty-${weeks.length}-${currentWeek.length}`,
+        count: 0,
+        isEmpty: true,
+        level: 0,
+      })
+    }
+
+    weeks.push(currentWeek)
+  }
+
+  const monthLabels: ActivityMonthLabel[] = []
+  let lastMonth = -1
+
+  for (const [weekIndex, week] of weeks.entries()) {
+    const firstRealDay = week.find((day) => !day.isEmpty)
+    if (!firstRealDay) {
+      continue
+    }
+
+    const monthIndex = new Date(`${firstRealDay.date}T00:00:00Z`).getUTCMonth()
+    if (monthIndex !== lastMonth) {
+      monthLabels.push({
+        month: CONTRIBUTION_MONTH_LABELS[monthIndex],
+        weekIndex,
+      })
+      lastMonth = monthIndex
+    }
+  }
+
+  return {
+    monthLabels,
+    weeks,
+    hasActivity: Array.from(countsByDate.values()).some((count) => count > 0),
+  }
+}
+
+function ActivityCard({
+  activityError,
+  activityLoading,
+  activityStat,
+}: {
+  activityError: boolean
+  activityLoading: boolean
+  activityStat: PlayerDailyActivityStatPublic | null
+}) {
+  const allDays = activityStat?.content.days ?? []
+  const availableYears = useMemo(() => {
+    const years = Array.from(
+      new Set(allDays.map((day) => day.date.slice(0, 4))),
     )
-  }, [levels])
+    years.sort((left, right) => right.localeCompare(left))
+    return years
+  }, [allDays])
+  const fallbackYear = getCurrentUtcYear()
+  const selectableYears =
+    availableYears.length > 0 ? availableYears : [fallbackYear]
+  const [activeYear, setActiveYear] = useState(
+    selectableYears[0] ?? fallbackYear,
+  )
+
+  useEffect(() => {
+    const nextYear = selectableYears[0] ?? fallbackYear
+    setActiveYear((currentYear) =>
+      selectableYears.includes(currentYear) ? currentYear : nextYear,
+    )
+  }, [fallbackYear, selectableYears])
+
+  const { hasActivity, monthLabels, weeks } = useMemo(() => {
+    return buildActivityCalendar({
+      days: allDays,
+      year: activeYear,
+    })
+  }, [activeYear, allDays])
+
+  if (activityLoading) {
+    return (
+      <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
+        <CardContent className="space-y-5 p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Activity
+              </p>
+              <Skeleton className="h-4 w-40" />
+            </div>
+            <Skeleton className="h-10 w-28 rounded-full" />
+          </div>
+          <Skeleton className="h-28 w-full rounded-[18px]" />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
@@ -181,11 +366,12 @@ function ActivityCard() {
             </p>
           </div>
           <div className="inline-flex rounded-full border border-border/70 bg-background/75 p-1">
-            {(["2025", "2026"] as const).map((year) => (
+            {selectableYears.map((year) => (
               <button
                 key={year}
                 type="button"
                 onClick={() => setActiveYear(year)}
+                data-testid={`profile-activity-year-${year}`}
                 className={cn(
                   "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
                   activeYear === year
@@ -199,30 +385,93 @@ function ActivityCard() {
           </div>
         </div>
 
+        {activityError ? (
+          <p className="text-sm text-destructive">
+            Unable to load daily activity right now.
+          </p>
+        ) : null}
+
         <div className="overflow-x-auto">
           <div className="flex w-full justify-center">
-            <div className="min-w-[720px] space-y-1.5">
-              {Array.from({ length: 7 }, (_, rowIndex) => (
-                <div key={rowIndex} className="flex gap-1.5">
-                  {weeks.map((week, weekIndex) => (
+            <div className="min-w-fit">
+              <div
+                className="relative ml-8 h-4"
+                style={{ width: `${weeks.length * 13}px` }}
+              >
+                {monthLabels.map((label) => (
+                  <span
+                    key={`${activeYear}-${label.month}`}
+                    className="absolute top-0 text-[11px] leading-4 text-muted-foreground"
+                    style={{ left: `${label.weekIndex * 13}px` }}
+                  >
+                    {label.month}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-2 flex gap-2">
+                <div className="flex flex-col justify-around pt-px text-[11px] leading-[10px] text-muted-foreground">
+                  {[1, 3, 5].map((dayIndex) => (
                     <span
-                      key={`${weekIndex}-${rowIndex}`}
-                      className={cn(
-                        "h-3 w-3 shrink-0 rounded-[4px] border border-black/0",
-                        activityTones[week[rowIndex]],
-                      )}
-                    />
+                      key={CONTRIBUTION_DAY_LABELS[dayIndex]}
+                      className="h-[23px]"
+                    >
+                      {CONTRIBUTION_DAY_LABELS[dayIndex]}
+                    </span>
                   ))}
                 </div>
-              ))}
+
+                <div className="flex gap-[3px]">
+                  {weeks.map((week, weekIndex) => (
+                    <div
+                      key={`${activeYear}-week-${weekIndex}`}
+                      className="flex flex-col gap-[3px]"
+                    >
+                      {week.map((day, dayIndex) =>
+                        day.isEmpty ? (
+                          <span
+                            key={`${weekIndex}-${dayIndex}-${day.date}`}
+                            data-testid={`profile-activity-cell-${day.date}`}
+                            data-activity-level="0"
+                            className="h-2.5 w-2.5 shrink-0"
+                          />
+                        ) : (
+                          <span
+                            key={`${weekIndex}-${dayIndex}-${day.date}`}
+                            data-testid={`profile-activity-cell-${day.date}`}
+                            data-activity-level={day.level}
+                            title={`${day.count} ${day.count === 1 ? "record" : "records"} on ${day.date} UTC`}
+                            className={cn(
+                              "h-2.5 w-2.5 shrink-0 rounded-[2px] border border-[rgba(27,31,35,0.06)] transition-colors hover:border-muted-foreground/45 dark:border-[#1b1f23] dark:hover:border-muted-foreground/55",
+                              activityToneClasses[day.level],
+                            )}
+                          />
+                        ),
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
+        {!activityError && !hasActivity ? (
+          <p className="text-sm text-muted-foreground">
+            No record submissions found for {activeYear}.
+          </p>
+        ) : null}
+
         <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
           <span>Less</span>
-          {activityTones.map((tone, index) => (
-            <span key={index} className={cn("h-3 w-3 rounded-[4px]", tone)} />
+          {activityToneClasses.map((tone, index) => (
+            <span
+              key={index}
+              className={cn(
+                "h-2.5 w-2.5 rounded-[2px] border border-[rgba(27,31,35,0.06)] dark:border-[#1b1f23]",
+                tone,
+              )}
+            />
           ))}
           <span>More</span>
         </div>
@@ -350,13 +599,17 @@ function ManagedPinnedRecordCard({
       }}
     >
       <DropdownMenuTrigger asChild>
-        <div
-          onContextMenu={(event: MouseEvent<HTMLDivElement>) => {
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-disabled={disabled}
+          className="block w-full text-left"
+          onContextMenu={(event: MouseEvent<HTMLButtonElement>) => {
             event.preventDefault()
             contextMenuRequestedRef.current = true
             setMenuOpen(true)
           }}
-          onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+          onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
             if (
               event.key === "ContextMenu" ||
               (event.shiftKey && event.key === "F10")
@@ -368,7 +621,7 @@ function ManagedPinnedRecordCard({
           }}
         >
           {children}
-        </div>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" sideOffset={8}>
         <DropdownMenuItem
@@ -387,6 +640,9 @@ function ManagedPinnedRecordCard({
 }
 
 export function ProfileHomeContent({
+  activityError,
+  activityLoading,
+  activityStat,
   canManagePinnedRecords,
   pinnedRecords,
   pinnedRecordsError,
@@ -394,6 +650,9 @@ export function ProfileHomeContent({
   pinnedRecordsMutating,
   onUnpinRecord,
 }: {
+  activityError: boolean
+  activityLoading: boolean
+  activityStat: PlayerDailyActivityStatPublic | null
   pinnedRecords: ProfilePinnedRecord[]
   pinnedRecordsError: boolean
   pinnedRecordsLoading: boolean
@@ -403,7 +662,11 @@ export function ProfileHomeContent({
 }) {
   return (
     <div className="min-w-0 space-y-6">
-      <ActivityCard />
+      <ActivityCard
+        activityError={activityError}
+        activityLoading={activityLoading}
+        activityStat={activityStat}
+      />
       {pinnedRecordsError ? (
         <Alert variant="destructive">
           <AlertTitle>Unable to load pinned record ranks</AlertTitle>
