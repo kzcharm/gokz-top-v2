@@ -11,6 +11,7 @@ from app.crud.record import get_pb_record_publics
 from app.models import (
     Map,
     Mode,
+    ModeScope,
     Player,
     RecentRecordListQuery,
     RecentRecordsPublic,
@@ -20,9 +21,8 @@ from app.models import (
     RecordPublic,
     RecordRankPublic,
     RecordRanksPublic,
-    RecordScope,
-    RecordType,
     RecordsPublic,
+    RecordType,
     ServerGlobalapi,
     User,
 )
@@ -82,7 +82,7 @@ async def _to_record_publics(
     session: SessionDep,
     records: list[Record],
     *,
-    scope: RecordScope,
+    scope: ModeScope,
 ) -> list[RecordPublic]:
     points_by_uuid = await crud.load_scoped_points_by_record_uuid(
         session=session,
@@ -134,7 +134,7 @@ async def read_recent_records(
 @router.get("/pb", response_model=list[RecordPublic])
 async def read_pb_records(
     session: SessionDep,
-    scope: RecordScope = RecordScope.OVR,
+    scope: ModeScope = ModeScope.OVR,
     type: RecordType = RecordType.NUB,
     exclude_cheaters: bool = True,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -189,7 +189,7 @@ async def read_pb_records(
 async def read_record_ranks(
     session: SessionDep,
     record_uuids: Annotated[list[uuid.UUID], Query(alias="uuid_list")],
-    scope: RecordScope = RecordScope.OVR,
+    scope: ModeScope = ModeScope.OVR,
     type: RecordType = RecordType.NUB,
     country: Annotated[str | None, Query(max_length=2)] = None,
 ) -> RecordRanksPublic:
@@ -218,7 +218,7 @@ async def read_record_ranks(
 async def read_record(
     session: SessionDep,
     record_uuid: uuid.UUID,
-    scope: RecordScope = RecordScope.OVR,
+    scope: ModeScope = ModeScope.OVR,
 ) -> Any:
     record = await crud.get_record_by_uuid(session=session, record_uuid=record_uuid)
     if record is None:
@@ -246,5 +246,5 @@ async def patch_record(
         raise HTTPException(status_code=404, detail="Record not found")
     record = await crud.update_record_validity(session=session, record=record, patch=patch)
     return (
-        await _to_record_publics(session, [record], scope=RecordScope.OVR)
+        await _to_record_publics(session, [record], scope=ModeScope.OVR)
     )[0]

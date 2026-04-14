@@ -10,11 +10,11 @@ from app import crud
 from app.models import (
     Map,
     MapCourse,
+    ModeScope,
     Player,
     Record,
     RecordFilter,
     RecordPb,
-    RecordScope,
     RecordType,
     ServerGlobalapi,
 )
@@ -176,7 +176,7 @@ async def test_get_pb_records_tie_break_prefers_lower_globalapi_id(
         map_id=981000,
         stage=0,
         steamid64=None,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
         record_type=RecordType.NUB,
     )
 
@@ -254,7 +254,7 @@ async def test_get_pb_records_player_anchor_respects_stage_filter(
         map_id=None,
         stage=0,
         steamid64=player_id,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
         record_type=RecordType.PRO,
     )
     bonus_records = await crud.get_pb_records(
@@ -262,7 +262,7 @@ async def test_get_pb_records_player_anchor_respects_stage_filter(
         map_id=None,
         stage=1,
         steamid64=player_id,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
         record_type=RecordType.PRO,
     )
 
@@ -303,7 +303,7 @@ async def test_load_scoped_course_tiers_uses_scope_min_and_stage_fallbacks(
     tiers = await crud.load_scoped_course_tiers(
         session=db,
         course_keys=[(981002, 0), (981003, 1), (981003, 2)],
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
 
     assert tiers[(981002, 0)] == 2
@@ -410,7 +410,7 @@ async def test_get_recent_record_public_by_uuid_uses_bonus_fallback_zero(
     recent_record = await crud.get_recent_record_public_by_uuid(
         session=db,
         record_uuid=record.uuid,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
 
     assert recent_record is not None
@@ -709,7 +709,7 @@ async def test_upsert_record_sets_estimated_points_for_new_pb_rows(
     points_by_uuid = await crud.load_scoped_points_by_record_uuid(
         session=db,
         record_uuids=[first_record.uuid, second_record.uuid],
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
 
     assert points_by_uuid[first_record.uuid] == 1000
@@ -789,7 +789,7 @@ async def test_rebuild_record_pbs_for_course_keeps_bonus_points_for_validated_ma
     points_by_uuid = await crud.load_scoped_points_by_record_uuid(
         session=db,
         record_uuids=[bonus_record.uuid],
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
 
     assert points_by_uuid[bonus_record.uuid] == 1000
@@ -831,7 +831,7 @@ async def test_read_map_wrs_uses_record_pb_main_course_rows(
     wr_rows = await crud.read_map_wrs(
         session=db,
         map_id=981024,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
     assert [(row.type, row.record_uuid) for row in wr_rows] == [
         (RecordType.NUB, nub_record.uuid),
@@ -855,7 +855,7 @@ async def test_read_map_wrs_uses_record_pb_main_course_rows(
         await crud.read_map_wrs(
             session=db,
             map_id=981024,
-            scope=RecordScope.OVR,
+            scope=ModeScope.OVR,
         )
     ) == []
 

@@ -5,7 +5,7 @@ from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
-from .record import RecordPublic, RecordScope, RecordType
+from .record import ModeScope, RecordPublic, RecordType
 from .utils import generate_uuid7, get_datetime_utc
 
 
@@ -42,9 +42,9 @@ class PlayerPinnedRecord(SQLModel, table=True):
             nullable=False,
         )
     )
-    scope: RecordScope = Field(
+    scope: ModeScope = Field(
         sa_column=Column(
-            SqlEnum(RecordScope, name="record_scope"),
+            SqlEnum(ModeScope, name="mode_scope"),
             nullable=False,
         )
     )
@@ -66,7 +66,7 @@ class PlayerPinnedRecord(SQLModel, table=True):
 
 class PlayerPinnedRecordUpsert(SQLModel):
     map_id: int
-    scope: RecordScope
+    scope: ModeScope
     type: RecordType
 
 
@@ -74,7 +74,7 @@ class PlayerPinnedRecordPublic(SQLModel):
     id: uuid.UUID
     player_steamid64: str
     map_id: int
-    scope: RecordScope
+    scope: ModeScope
     type: RecordType
     created_at: datetime
     updated_at: datetime

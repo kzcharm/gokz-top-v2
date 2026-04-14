@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from app.models import RecordScope
+from app.models import ModeScope
 from app.tasks.build.rating import rebuild_ratings
 
 pytestmark = pytest.mark.asyncio
@@ -46,7 +46,7 @@ async def test_rebuild_ratings_full_runs_points_then_leaderboard_then_sound(
 
     result = await rebuild_ratings(
         scope_ids=[1, 2],
-        scopes=[RecordScope.KZT, RecordScope.SKZ],
+        scopes=[ModeScope.KZT, ModeScope.SKZ],
         steamid64s=None,
         limit=None,
         full=True,
@@ -60,7 +60,7 @@ async def test_rebuild_ratings_full_runs_points_then_leaderboard_then_sound(
         (
             "points",
             {
-                "scopes": [RecordScope.KZT, RecordScope.SKZ],
+                "scopes": [ModeScope.KZT, ModeScope.SKZ],
                 "map_names": None,
                 "stage": 0,
                 "limit": None,

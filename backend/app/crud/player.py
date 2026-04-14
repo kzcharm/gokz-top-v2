@@ -14,15 +14,15 @@ from app.core.config import settings
 from app.crud.player_profile_view import count_player_profile_views
 from app.models import (
     LeaderboardPlayer,
+    ModeScope,
     Player,
     PlayerPublic,
     PlayerRefPublic,
     PlayerUpdate,
-    RecordScope,
     User,
 )
 from app.models.player import validate_player_custom_id
-from app.models.record import scope_to_id
+from app.models.record import mode_scope_to_id
 
 STEAM_COMMUNITY_HOSTS = {"steamcommunity.com", "www.steamcommunity.com"}
 STEAM_ID_TYPE_INDIVIDUAL = 1
@@ -456,7 +456,7 @@ async def search_players(
     search_term = search_input.search_text
     search_term_lower = search_input.search_text_lower
     prefix_pattern = f"{search_term_lower}%"
-    ovr_scope = scope_to_id(RecordScope.OVR)
+    ovr_scope = mode_scope_to_id(ModeScope.OVR)
 
     lower_name = func.lower(col(Player.name))
     lower_alias = func.lower(func.coalesce(col(Player.alias), ""))

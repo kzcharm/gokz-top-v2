@@ -22,11 +22,11 @@ from app.models import (
     MapReviewSource,
     MapReviewSummaryCache,
     MapReviewSummaryPublic,
+    ModeScope,
     Player,
     RecordPb,
-    RecordScope,
     get_datetime_utc,
-    scope_to_id,
+    mode_scope_to_id,
 )
 from app.services.language_detection import detect_language_code
 
@@ -178,7 +178,7 @@ async def has_finished_map_for_review(
         .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
         .where(
             col(RecordPb.steamid64) == steamid64,
-            col(RecordPb.scope) == scope_to_id(RecordScope.OVR),
+            col(RecordPb.scope) == mode_scope_to_id(ModeScope.OVR),
             col(MapCourse.map_id) == map_id,
             col(MapCourse.stage) == 0,
         )

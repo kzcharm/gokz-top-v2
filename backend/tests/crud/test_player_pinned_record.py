@@ -8,11 +8,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.models import (
     Map,
+    ModeScope,
     Player,
     PlayerPinnedRecord,
     Record,
     RecordPb,
-    RecordScope,
     RecordType,
     ServerGlobalapi,
 )
@@ -116,7 +116,7 @@ async def test_resolve_player_pinned_records_uses_current_pb(
         session=db,
         player_steamid64=steamid64,
         map_id=984100,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
         record_type=RecordType.NUB,
     )
 
@@ -131,7 +131,7 @@ async def test_resolve_player_pinned_records_uses_current_pb(
     resolved = await crud.resolve_player_pinned_records_public(
         session=db,
         player_steamid64=steamid64,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
 
     assert len(resolved) == 1
@@ -166,14 +166,14 @@ async def test_resolve_player_pinned_records_keeps_players_pb_not_map_wr(
         session=db,
         player_steamid64=steamid64,
         map_id=984105,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
         record_type=RecordType.NUB,
     )
 
     resolved = await crud.resolve_player_pinned_records_public(
         session=db,
         player_steamid64=steamid64,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
 
     assert len(resolved) == 1
@@ -200,7 +200,7 @@ async def test_resolve_player_pinned_records_omits_targets_without_pb(
         session=db,
         player_steamid64=steamid64,
         map_id=984110,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
         record_type=RecordType.NUB,
     )
 
@@ -210,7 +210,7 @@ async def test_resolve_player_pinned_records_omits_targets_without_pb(
     resolved = await crud.resolve_player_pinned_records_public(
         session=db,
         player_steamid64=steamid64,
-        scope=RecordScope.OVR,
+        scope=ModeScope.OVR,
     )
 
     assert resolved == []

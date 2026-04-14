@@ -18,9 +18,9 @@ from app.models import (
     MapReviewPublic,
     MapReviewsPublic,
     MapReviewUpsert,
-    MapWrPublic,
     MapSyncResult,
-    RecordScope,
+    MapWrPublic,
+    ModeScope,
     RecordType,
     ServerGroupStatus,
 )
@@ -85,7 +85,7 @@ async def read_map_by_name(
 @router.get("/wrs", response_model=list[MapWrPublic])
 async def read_map_wrs(
     session: SessionDep,
-    scope: RecordScope = RecordScope.OVR,
+    scope: ModeScope = ModeScope.OVR,
     type: Annotated[RecordType | None, Query()] = None,
     map_id: Annotated[int | None, Query()] = None,
     map_name: Annotated[str | None, Query()] = None,

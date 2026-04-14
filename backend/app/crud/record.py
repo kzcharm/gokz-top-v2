@@ -12,10 +12,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.regions import get_region_country_codes
 from app.models import (
+    Ban,
     Map,
     MapCourse,
     MapWrPublic,
     Mode,
+    ModeScope,
+    ModeScopeId,
     Player,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
@@ -23,15 +26,12 @@ from app.models import (
     RecentRecordModePublic,
     RecentRecordPublic,
     RecentRecordServerPublic,
-    Ban,
     Record,
     RecordCompatPublicV0,
     RecordListQuery,
     RecordPatch,
     RecordPb,
     RecordPublic,
-    RecordScope,
-    RecordScopeId,
     RecordType,
     ServerGlobalapi,
     ServerGlobalapiCompatPublicV0,
@@ -39,8 +39,8 @@ from app.models import (
     WorldRecordCountCompatPublicV0,
     generate_uuid7,
     get_datetime_utc,
-    scope_mode_ids,
-    scope_to_id,
+    mode_scope_mode_ids,
+    mode_scope_to_id,
     seconds_to_time_ms,
 )
 from app.services.course_points import (
@@ -211,12 +211,12 @@ async def _load_pb_points_by_record_uuid(
     *,
     session: AsyncSession,
     record_uuids: Sequence[uuid.UUID],
-    scope: RecordScope,
+    scope: ModeScope,
 ) -> dict[uuid.UUID, int]:
     if not record_uuids:
         return {}
 
-    scope_id = scope_to_id(scope)
+    scope_id = mode_scope_to_id(scope)
     statement = select(RecordPb.record_uuid, RecordPb.is_pro_only, RecordPb.points).where(
         col(RecordPb.record_uuid).in_(list(record_uuids)),
         col(RecordPb.scope) == scope_id,
@@ -239,7 +239,7 @@ async def load_scoped_points_by_record_uuid(
     *,
     session: AsyncSession,
     record_uuids: Sequence[uuid.UUID],
-    scope: RecordScope,
+    scope: ModeScope,
 ) -> dict[uuid.UUID, int]:
     return await _load_pb_points_by_record_uuid(
         session=session,
@@ -252,7 +252,7 @@ async def _load_scoped_record_tiers(
     *,
     session: AsyncSession,
     record_courses: Sequence[tuple[int, int]],
-    scope: RecordScope,
+    scope: ModeScope,
 ) -> dict[tuple[int, int], int]:
     return await load_scoped_course_tiers(
         session=session,
@@ -288,10 +288,22 @@ def _scope_ids_for_mode_id(mode_id: int) -> tuple[int, ...]:
     return tuple(
         scope_id
         for scope_id, mode_ids in (
-            (scope_to_id(RecordScope.OVR), scope_mode_ids(scope_to_id(RecordScope.OVR))),
-            (scope_to_id(RecordScope.KZT), scope_mode_ids(scope_to_id(RecordScope.KZT))),
-            (scope_to_id(RecordScope.SKZ), scope_mode_ids(scope_to_id(RecordScope.SKZ))),
-            (scope_to_id(RecordScope.VNL), scope_mode_ids(scope_to_id(RecordScope.VNL))),
+            (
+                mode_scope_to_id(ModeScope.OVR),
+                mode_scope_mode_ids(mode_scope_to_id(ModeScope.OVR)),
+            ),
+            (
+                mode_scope_to_id(ModeScope.KZT),
+                mode_scope_mode_ids(mode_scope_to_id(ModeScope.KZT)),
+            ),
+            (
+                mode_scope_to_id(ModeScope.SKZ),
+                mode_scope_mode_ids(mode_scope_to_id(ModeScope.SKZ)),
+            ),
+            (
+                mode_scope_to_id(ModeScope.VNL),
+                mode_scope_mode_ids(mode_scope_to_id(ModeScope.VNL)),
+            ),
         )
         if mode_id in mode_ids
     )
@@ -319,7 +331,7 @@ async def _select_pb_winner(
             col(Record.steamid64) == steamid64,
             col(Record.map_id) == course.map_id,
             col(Record.stage) == course.stage,
-            col(Record.mode_id).in_(list(scope_mode_ids(scope_id))),
+            col(Record.mode_id).in_(list(mode_scope_mode_ids(scope_id))),
         )
         .order_by(col(Record.time).asc(), *_record_tie_breakers())
         .limit(1)
@@ -330,8 +342,8 @@ async def _select_pb_winner(
     return (await session.exec(statement)).first()
 
 
-def _scope_from_id(scope_id: int) -> RecordScope:
-    return RecordScope[RecordScopeId(scope_id).name]
+def _mode_scope_from_id(scope_id: int) -> ModeScope:
+    return ModeScope[ModeScopeId(scope_id).name]
 
 
 async def _load_bucket_course_tier(
@@ -348,7 +360,7 @@ async def _load_bucket_course_tier(
         await load_scoped_course_tiers(
             session=session,
             course_keys=[(course.map_id, course.stage)],
-            scope=_scope_from_id(scope_id),
+            scope=_mode_scope_from_id(scope_id),
         )
     )[(course.map_id, course.stage)]
 
@@ -378,7 +390,7 @@ async def _load_bucket_winner_entries(
         col(Record.is_valid).is_(True),
         col(Record.map_id) == course.map_id,
         col(Record.stage) == course.stage,
-        col(Record.mode_id).in_(list(scope_mode_ids(scope_id))),
+        col(Record.mode_id).in_(list(mode_scope_mode_ids(scope_id))),
     )
     if record_type.is_pro:
         winner_rows = winner_rows.where(col(Record.teleports) == 0)
@@ -747,7 +759,7 @@ async def rebuild_record_pb_points_for_course(
                 await load_scoped_course_tiers(
                     session=session,
                     course_keys=[course_key],
-                    scope=_scope_from_id(missing_scope_id),
+                    scope=_mode_scope_from_id(missing_scope_id),
                 )
             )[course_key]
 
@@ -885,8 +897,8 @@ async def rebuild_record_pbs_for_course(
     stage: int,
 ) -> None:
     del map_id, stage
-    for scope in RecordScope:
-        scope_id = scope_to_id(scope)
+    for scope in ModeScope:
+        scope_id = mode_scope_to_id(scope)
         for record_type in RecordType:
             await _sync_record_pb_bucket(
                 session=session,
@@ -906,10 +918,10 @@ async def read_map_wrs(
     *,
     session: AsyncSession,
     map_id: int | None,
-    scope: RecordScope,
+    scope: ModeScope,
     record_type: RecordType | None = None,
 ) -> list[MapWrPublic]:
-    scope_id = scope_to_id(scope)
+    scope_id = mode_scope_to_id(scope)
     statement = (
         select(
             MapCourse.map_id,
@@ -950,7 +962,7 @@ async def read_map_wrs(
         MapWrPublic(
             record_uuid=record_uuid,
             map_id=row_map_id,
-            scope=_scope_from_id(row_scope_id),
+            scope=_mode_scope_from_id(row_scope_id),
             type=RecordType.PRO if row_is_pro_only else RecordType.NUB,
             mode_id=mode_id,
             player=to_player_ref_public(player=players_by_steamid64[player_steamid64]),
@@ -1288,7 +1300,7 @@ async def read_recent_records(
     session: AsyncSession,
     query: RecentRecordListQuery,
 ) -> tuple[list[RecentRecordPublic], int]:
-    scope_id = scope_to_id(query.scope)
+    scope_id = mode_scope_to_id(query.scope)
     pro_pb = aliased(RecordPb)
     ovr_pb = aliased(RecordPb)
     scoped_points = func.coalesce(pro_pb.points, ovr_pb.points, 0)
@@ -1412,7 +1424,7 @@ async def get_recent_record_public_by_uuid(
     *,
     session: AsyncSession,
     record_uuid: uuid.UUID,
-    scope: RecordScope = RecordScope.OVR,
+    scope: ModeScope = ModeScope.OVR,
 ) -> RecentRecordPublic | None:
     statement = (
         select(Record, Player, ServerGlobalapi, Map, Mode)
@@ -1647,13 +1659,13 @@ async def get_pb_records(
     map_id: int | None,
     stage: int,
     steamid64: int | None,
-    scope: RecordScope,
+    scope: ModeScope,
     record_type: RecordType,
     exclude_cheaters: bool = True,
     offset: int = 0,
     limit: int = 100,
 ) -> list[Record]:
-    scope_id = scope_to_id(scope)
+    scope_id = mode_scope_to_id(scope)
 
     if map_id is not None:
         course = await _get_map_course_by_map_stage(
@@ -1721,7 +1733,7 @@ async def get_pb_record_publics(
     map_name: str | None,
     stage: int,
     steamid64: int | None,
-    scope: RecordScope,
+    scope: ModeScope,
     record_type: RecordType,
     country: str | None = None,
     region: str | None = None,
@@ -1729,7 +1741,7 @@ async def get_pb_record_publics(
     offset: int = 0,
     limit: int = 100,
 ) -> list[RecordPublic]:
-    scope_id = scope_to_id(scope)
+    scope_id = mode_scope_to_id(scope)
     anchor_pb = aliased(RecordPb)
     pro_pb = aliased(RecordPb)
     ovr_pb = aliased(RecordPb)
@@ -1925,14 +1937,14 @@ async def read_record_ranks(
     *,
     session: AsyncSession,
     record_uuids: Sequence[uuid.UUID],
-    scope: RecordScope,
+    scope: ModeScope,
     record_type: RecordType,
     country: str | None = None,
 ) -> list[tuple[uuid.UUID, int | None, int | None]]:
     if not record_uuids:
         return []
 
-    scope_id = scope_to_id(scope)
+    scope_id = mode_scope_to_id(scope)
     is_pro_only = _is_pro_only_from_record_type(record_type)
     unique_record_uuids = list(dict.fromkeys(record_uuids))
     target_statement = (

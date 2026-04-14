@@ -12,6 +12,7 @@ from app.api.deps import (
 )
 from app.crud import player as player_crud
 from app.models import (
+    ModeScope,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
     PlayerPinnedRecordsPublic,
@@ -26,7 +27,6 @@ from app.models import (
     PlayerStatsPublic,
     PlayerStatType,
     PlayerUpdate,
-    RecordScope,
     RecordType,
     User,
 )
@@ -169,7 +169,7 @@ async def create_player_view(
 async def read_player_pinned_records(
     identifier: str,
     session: SessionDep,
-    scope: RecordScope = RecordScope.OVR,
+    scope: ModeScope = ModeScope.OVR,
 ) -> PlayerPinnedRecordsPublic:
     player = await _get_player_or_404(session=session, identifier=identifier)
     pinned_records = await crud.resolve_player_pinned_records_public(
@@ -249,7 +249,7 @@ async def delete_player_pinned_record(
     session: SessionDep,
     current_user: CurrentUser,
     map_id: int,
-    scope: RecordScope = RecordScope.OVR,
+    scope: ModeScope = ModeScope.OVR,
     type: RecordType = RecordType.NUB,
 ) -> PlayerPinnedRecordsPublic:
     player = await _get_player_or_404(session=session, identifier=identifier)

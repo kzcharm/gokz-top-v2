@@ -12,12 +12,11 @@ from app.models import (
     BanType,
     LeaderboardPlayer,
     Map,
+    ModeScope,
     Player,
     Record,
-    RecordScope,
     ServerGlobalapi,
     User,
-    scope_to_id,
 )
 from tests.utils.utils import random_steamid64
 
@@ -108,7 +107,7 @@ async def test_cleanup_test_users_delete_removes_only_safe_candidates(
 
     db.add(
         LeaderboardPlayer(
-            scope=scope_to_id(RecordScope.OVR),
+            scope=ModeScope.OVR,
             steamid64=protected,
             rating=1,
         )

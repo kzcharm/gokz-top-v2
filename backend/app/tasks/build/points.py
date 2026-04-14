@@ -7,7 +7,7 @@ from sqlmodel import col, select
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import Map, MapCourse, RecordScope, RecordScopeId
+from app.models import Map, MapCourse, ModeScope, ModeScopeId
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,10 @@ def _get_tqdm() -> Any:
     return tqdm
 
 
-def resolve_scopes(scope_names: Sequence[str] | None) -> tuple[RecordScope, ...]:
+def resolve_scopes(scope_names: Sequence[str] | None) -> tuple[ModeScope, ...]:
     if not scope_names:
-        return tuple(RecordScope)
-    return tuple(RecordScope[name] for name in scope_names)
+        return tuple(ModeScope)
+    return tuple(ModeScope[name] for name in scope_names)
 
 
 def resolve_stage(*, stage: int | None, all_stages: bool) -> int | None:
@@ -89,7 +89,7 @@ async def _load_course_plan(
 async def _load_course_scope_tiers(
     *,
     courses: Sequence[CoursePointsPlan],
-    scopes: Sequence[RecordScope],
+    scopes: Sequence[ModeScope],
 ) -> dict[int, dict[int, int]]:
     if not courses:
         return {}
@@ -111,7 +111,7 @@ async def _load_course_scope_tiers(
                 course_keys=unique_course_keys,
                 scope=scope,
             )
-            scope_id = int(RecordScopeId[scope.name])
+            scope_id = int(ModeScopeId[scope.name])
             for course_id, course_key in course_key_by_id.items():
                 tiers_by_course_id[course_id][scope_id] = scope_tiers[course_key]
 
@@ -121,14 +121,14 @@ async def _load_course_scope_tiers(
 async def _rebuild_course_points(
     *,
     course: CoursePointsPlan,
-    scopes: Sequence[RecordScope],
+    scopes: Sequence[ModeScope],
     tiers_by_scope: dict[int, int],
 ) -> int:
     async with async_session_maker() as session:
         updated_rows = await crud.rebuild_record_pb_points_for_course(
             session=session,
             course_id=course.course_id,
-            scope_ids=[int(RecordScopeId[scope.name]) for scope in scopes],
+            scope_ids=[int(ModeScopeId[scope.name]) for scope in scopes],
             tiers_by_scope=tiers_by_scope,
         )
         await session.commit()
@@ -137,7 +137,7 @@ async def _rebuild_course_points(
 
 async def rebuild_record_pb_points(
     *,
-    scopes: Sequence[RecordScope],
+    scopes: Sequence[ModeScope],
     map_names: Sequence[str] | None,
     stage: int | None,
     limit: int | None,

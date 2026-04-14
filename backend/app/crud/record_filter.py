@@ -7,10 +7,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models import (
     Map,
     MapTiers,
+    ModeScope,
     RecordFilter,
-    RecordScope,
-    scope_mode_ids,
-    scope_to_id,
+    mode_scope_mode_ids,
+    mode_scope_to_id,
 )
 
 
@@ -79,7 +79,7 @@ async def load_scoped_course_tiers(
     *,
     session: AsyncSession,
     course_keys: Sequence[tuple[int, int]],
-    scope: RecordScope,
+    scope: ModeScope,
 ) -> dict[tuple[int, int], int]:
     unique_course_keys = list(dict.fromkeys(course_keys))
     if not unique_course_keys:
@@ -107,7 +107,7 @@ async def load_scoped_course_tiers(
                 col(RecordFilter.stage).in_(stages),
                 col(RecordFilter.tickrate) == 128,
                 col(RecordFilter.mode_id).in_(
-                    list(scope_mode_ids(scope_to_id(scope)))
+                    list(mode_scope_mode_ids(mode_scope_to_id(scope)))
                 ),
                 col(RecordFilter.tier).is_not(None),
             )
@@ -150,10 +150,10 @@ async def load_map_tiers_by_scope(
     ).all()
     fallback_difficulty_by_map_id = dict(map_rows)
 
-    ovr_mode_ids = list(scope_mode_ids(scope_to_id(RecordScope.OVR)))
-    kzt_mode_ids = list(scope_mode_ids(scope_to_id(RecordScope.KZT)))
-    skz_mode_ids = list(scope_mode_ids(scope_to_id(RecordScope.SKZ)))
-    vnl_mode_ids = list(scope_mode_ids(scope_to_id(RecordScope.VNL)))
+    ovr_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.OVR)))
+    kzt_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.KZT)))
+    skz_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.SKZ)))
+    vnl_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.VNL)))
 
     all_mode_ids = sorted({*ovr_mode_ids, *kzt_mode_ids, *skz_mode_ids, *vnl_mode_ids})
 

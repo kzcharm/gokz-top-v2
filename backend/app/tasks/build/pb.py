@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import RecordScopeId
+from app.models import ModeScopeId
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class RecordPbBucket:
 
     @property
     def scope_name(self) -> str:
-        return RecordScopeId(self.scope).name
+        return ModeScopeId(self.scope).name
 
     @property
     def category_name(self) -> str:

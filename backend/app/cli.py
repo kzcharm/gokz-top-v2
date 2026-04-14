@@ -6,7 +6,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from app.models import RecordScope
+from app.models import ModeScope
 from app.tasks.build import pb as pb_task
 from app.tasks.build import points as points_task
 from app.tasks.build import profile as profile_task
@@ -48,17 +48,17 @@ SteamIdOption = Annotated[
 ]
 
 
-def _parse_scopes(scope_names: Sequence[str] | None) -> tuple[RecordScope, ...]:
+def _parse_scopes(scope_names: Sequence[str] | None) -> tuple[ModeScope, ...]:
     if not scope_names:
         return ()
 
-    scopes: list[RecordScope] = []
+    scopes: list[ModeScope] = []
     for raw_scope in scope_names:
         normalized_scope = raw_scope.strip().upper()
         try:
-            scopes.append(RecordScope[normalized_scope])
+            scopes.append(ModeScope[normalized_scope])
         except KeyError as exc:
-            valid_scopes = ", ".join(scope.name for scope in RecordScope)
+            valid_scopes = ", ".join(scope.name for scope in ModeScope)
             raise typer.BadParameter(
                 f"Invalid scope {raw_scope!r}. Expected one of: {valid_scopes}"
             ) from exc
@@ -139,7 +139,7 @@ def build_points(
         raise typer.BadParameter("Use either --stage or --all-stages, not both.")
 
     scopes = _parse_scopes(scope_names)
-    selected_scopes = scopes if scopes else tuple(RecordScope)
+    selected_scopes = scopes if scopes else tuple(ModeScope)
     selected_stage = points_task.resolve_stage(stage=stage, all_stages=all_stages)
     updated_rows = _run_async(
         points_task.rebuild_record_pb_points(
@@ -285,7 +285,7 @@ def _sync_profiles_impl(
             "Use either --steamid64 or one selection filter, not both."
         )
 
-    leaderboard_scope: RecordScope | None = None
+    leaderboard_scope: ModeScope | None = None
     if leaderboard is not None:
         parsed_scopes = _parse_scopes([leaderboard])
         leaderboard_scope = parsed_scopes[0]

@@ -8,11 +8,11 @@ from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.models import (
     Message,
+    ModeScope,
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
     PlayerLeaderboardsPublic,
-    RecordScope,
-    scope_to_id,
+    mode_scope_to_id,
 )
 
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
@@ -51,7 +51,7 @@ async def read_player_leaderboard(
 async def read_player_leaderboard_rank(
     identifier: str,
     session: SessionDep,
-    scope: RecordScope = Query(default=RecordScope.OVR),
+    scope: ModeScope = Query(default=ModeScope.OVR),
     country: Annotated[str | None, Query(max_length=2)] = None,
     region: Annotated[str | None, Query(max_length=3)] = None,
 ) -> PlayerLeaderboardRankPublic:
@@ -77,7 +77,7 @@ async def upsert_player_leaderboards(
 
     await crud.rebuild_leaderboard_players(
         session=session,
-        scope_ids=[scope_to_id(scope) for scope in RecordScope],
+        scope_ids=[mode_scope_to_id(scope) for scope in ModeScope],
         steamid64s=[player.steamid64],
     )
     await session.commit()
