@@ -4,9 +4,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.crud.record import get_pb_record_publics
 from app.models import (
+    ModeScope,
     PlayerPinnedRecord,
     PlayerPinnedRecordPublic,
-    RecordScope,
     RecordType,
 )
 
@@ -18,7 +18,7 @@ async def get_player_pinned_record(
     session: AsyncSession,
     player_steamid64: int,
     map_id: int,
-    scope: RecordScope,
+    scope: ModeScope,
     record_type: RecordType,
 ) -> PlayerPinnedRecord | None:
     statement = (
@@ -38,7 +38,7 @@ async def list_player_pinned_records(
     *,
     session: AsyncSession,
     player_steamid64: int,
-    scope: RecordScope,
+    scope: ModeScope,
 ) -> list[PlayerPinnedRecord]:
     statement = (
         select(PlayerPinnedRecord)
@@ -59,7 +59,7 @@ async def create_player_pinned_record(
     session: AsyncSession,
     player_steamid64: int,
     map_id: int,
-    scope: RecordScope,
+    scope: ModeScope,
     record_type: RecordType,
 ) -> PlayerPinnedRecord:
     existing = await get_player_pinned_record(
@@ -126,7 +126,7 @@ async def delete_player_pinned_record(
     session: AsyncSession,
     player_steamid64: int,
     map_id: int,
-    scope: RecordScope,
+    scope: ModeScope,
     record_type: RecordType,
 ) -> bool:
     existing = await get_player_pinned_record(
@@ -148,7 +148,7 @@ async def resolve_player_pinned_records_public(
     *,
     session: AsyncSession,
     player_steamid64: int,
-    scope: RecordScope,
+    scope: ModeScope,
 ) -> list[PlayerPinnedRecordPublic]:
     pinned_records = await list_player_pinned_records(
         session=session,

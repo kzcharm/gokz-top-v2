@@ -1,14 +1,15 @@
-from datetime import datetime
 from bisect import bisect_right
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from sqlalchemy import BigInteger, Column, DateTime, Index, SmallInteger, text
 from pydantic import field_serializer
+from sqlalchemy import BigInteger, Column, DateTime, Index, text
+from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
-from .record import RecordScope
+from .record import ModeScope
 from .region import GeographyFilterMixin
 from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
@@ -68,7 +69,7 @@ def _pchip_endpoint_slope(
 def _build_public_rating_slopes() -> tuple[float, ...]:
     point_count = len(_PUBLIC_RATING_ANCHORS)
     if point_count < 2:
-        return tuple()
+        return ()
 
     h_values = [
         _PUBLIC_RATING_ANCHOR_INPUTS[index + 1]
@@ -166,7 +167,13 @@ def scale_public_rating(value: float | None) -> float | None:
 
 
 class LeaderboardPlayerBase(LegacyDatetimeNamesMixin):
-    scope: int = Field(sa_type=SmallInteger, primary_key=True)
+    scope: ModeScope = Field(
+        sa_column=Column(
+            SqlEnum(ModeScope, name="mode_scope"),
+            primary_key=True,
+            nullable=False,
+        )
+    )
     steamid64: int = Field(
         foreign_key="player.steamid64",
         sa_type=BigInteger,
@@ -259,7 +266,13 @@ class LeaderboardPlayer(LeaderboardPlayerBase, table=True):
 class LeaderboardPlayerCount(LegacyDatetimeNamesMixin, table=True):
     __tablename__ = "leaderboard_player_count"
 
-    scope: int = Field(sa_type=SmallInteger, primary_key=True)
+    scope: ModeScope = Field(
+        sa_column=Column(
+            SqlEnum(ModeScope, name="mode_scope"),
+            primary_key=True,
+            nullable=False,
+        )
+    )
     total: int = Field(default=0, ge=0)
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
@@ -287,7 +300,7 @@ class PlayerLeaderboardEntryPublic(SQLModel):
 
 
 class PlayerLeaderboardRankPublic(SQLModel):
-    scope: RecordScope
+    scope: ModeScope
     rank: int | None = None
     rank_regional: int | None = None
     region: str | None = None
@@ -313,7 +326,7 @@ class PlayerLeaderboardsPublic(SQLModel):
 
 
 class PlayerLeaderboardListQuery(GeographyFilterMixin):
-    scope: RecordScope = RecordScope.OVR
+    scope: ModeScope = ModeScope.OVR
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)
     sort_by: LeaderboardPlayerSortBy = "rating"

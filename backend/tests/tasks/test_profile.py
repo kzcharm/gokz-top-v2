@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from app import cli
 from app.crud import player as player_crud
-from app.models import LeaderboardPlayer, Player, RecordScope, scope_to_id
+from app.models import LeaderboardPlayer, ModeScope, Player
 from app.tasks.build import profile
 from tests.utils.utils import random_steamid64
 
@@ -171,21 +171,21 @@ async def test_load_target_steamid64s_supports_leaderboard_scope_ordering(
 
     db.add(
         LeaderboardPlayer(
-            scope=scope_to_id(RecordScope.OVR),
+            scope=ModeScope.OVR,
             steamid64=second_player,
             rating=2_147_483_646,
         )
     )
     db.add(
         LeaderboardPlayer(
-            scope=scope_to_id(RecordScope.OVR),
+            scope=ModeScope.OVR,
             steamid64=first_player,
             rating=2_147_483_647,
         )
     )
     db.add(
         LeaderboardPlayer(
-            scope=scope_to_id(RecordScope.OVR),
+            scope=ModeScope.OVR,
             steamid64=third_player,
             rating=0,
         )
@@ -198,7 +198,7 @@ async def test_load_target_steamid64s_supports_leaderboard_scope_ordering(
         _BoundSessionFactory(db),
     )
 
-    selected = await profile.load_target_steamid64s(leaderboard_scope=RecordScope.OVR)
+    selected = await profile.load_target_steamid64s(leaderboard_scope=ModeScope.OVR)
 
     assert selected[:2] == [first_player, second_player]
     assert third_player not in selected

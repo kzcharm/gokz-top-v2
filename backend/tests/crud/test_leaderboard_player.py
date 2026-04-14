@@ -12,11 +12,12 @@ from app.models import (
     LeaderboardPlayer,
     Map,
     MapCourse,
+    ModeScope,
+    ModeScopeId,
     Player,
     RecordFilter,
     ServerGlobalapi,
 )
-from app.models.record import RecordScopeId
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -209,11 +210,11 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
 
     await _rebuild_player_scope(
         db,
-        scope_id=int(RecordScopeId.KZT),
+        scope_id=int(ModeScopeId.KZT),
         steamid64=player_id,
     )
 
-    row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id))
+    row = await db.get(LeaderboardPlayer, (ModeScope.KZT, player_id))
     assert row is not None
     assert row.points == 11_000
     assert row.wrs_nub == 10
@@ -280,11 +281,11 @@ async def test_rebuild_leaderboard_player_deletes_row_below_threshold(
 
     await _rebuild_player_scope(
         db,
-        scope_id=int(RecordScopeId.KZT),
+        scope_id=int(ModeScopeId.KZT),
         steamid64=player_id,
     )
 
-    row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id))
+    row = await db.get(LeaderboardPlayer, (ModeScope.KZT, player_id))
     assert row is None
 
 
@@ -324,10 +325,10 @@ async def test_rebuild_leaderboard_player_deletes_existing_row_for_active_ban(
 
     await _rebuild_player_scope(
         db,
-        scope_id=int(RecordScopeId.KZT),
+        scope_id=int(ModeScopeId.KZT),
         steamid64=player_id,
     )
-    assert await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id)) is not None
+    assert await db.get(LeaderboardPlayer, (ModeScope.KZT, player_id)) is not None
 
     await _create_ban(
         db,
@@ -337,11 +338,11 @@ async def test_rebuild_leaderboard_player_deletes_existing_row_for_active_ban(
     )
     await _rebuild_player_scope(
         db,
-        scope_id=int(RecordScopeId.KZT),
+        scope_id=int(ModeScopeId.KZT),
         steamid64=player_id,
     )
 
-    assert await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), player_id)) is None
+    assert await db.get(LeaderboardPlayer, (ModeScope.KZT, player_id)) is None
 
 
 async def test_load_leaderboard_player_keys_prioritizes_existing_rating_before_new_keys(
@@ -351,7 +352,7 @@ async def test_load_leaderboard_player_keys_prioritizes_existing_rating_before_n
     second_player = random_steamid64()
     newcomer = random_steamid64()
     server_id = 2_120_000_001
-    scope_id = int(RecordScopeId.KZT)
+    scope_id = int(ModeScopeId.KZT)
 
     await _create_player(db, steamid64=first_player, name="First Existing")
     await _create_player(db, steamid64=second_player, name="Second Existing")
@@ -421,7 +422,7 @@ async def test_load_leaderboard_player_keys_filters_source_keys_to_eligible_unba
     banned_player = random_steamid64()
     stale_existing_player = random_steamid64()
     server_id = 2_130_000_001
-    scope_id = int(RecordScopeId.KZT)
+    scope_id = int(ModeScopeId.KZT)
 
     await _create_player(db, steamid64=eligible_player, name="Eligible Player")
     await _create_player(db, steamid64=ineligible_player, name="Ineligible Player")

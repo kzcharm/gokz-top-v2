@@ -26,7 +26,7 @@ class TeleportsType(StrEnum):
     OVR = "OVR"
 
 
-class RecordScope(StrEnum):
+class ModeScope(StrEnum):
     OVR = "OVR"
     KZT = "KZT"
     SKZ = "SKZ"
@@ -42,34 +42,34 @@ class RecordType(StrEnum):
         return self is RecordType.PRO
 
 
-class RecordScopeId(IntEnum):
+class ModeScopeId(IntEnum):
     OVR = 0
     KZT = 1
     SKZ = 2
     VNL = 3
 
 
-SCOPE_ID_BY_SCOPE: dict[RecordScope, int] = {
-    RecordScope.OVR: RecordScopeId.OVR,
-    RecordScope.KZT: RecordScopeId.KZT,
-    RecordScope.SKZ: RecordScopeId.SKZ,
-    RecordScope.VNL: RecordScopeId.VNL,
+MODE_SCOPE_ID_BY_SCOPE: dict[ModeScope, int] = {
+    ModeScope.OVR: ModeScopeId.OVR,
+    ModeScope.KZT: ModeScopeId.KZT,
+    ModeScope.SKZ: ModeScopeId.SKZ,
+    ModeScope.VNL: ModeScopeId.VNL,
 }
 
-SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
-    RecordScopeId.OVR: (200, 201, 202, 203),
-    RecordScopeId.KZT: (200, 203),
-    RecordScopeId.SKZ: (201,),
-    RecordScopeId.VNL: (202,),
+MODE_SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
+    ModeScopeId.OVR: (200, 201, 202, 203),
+    ModeScopeId.KZT: (200, 203),
+    ModeScopeId.SKZ: (201,),
+    ModeScopeId.VNL: (202,),
 }
 
 
-def scope_to_id(scope: RecordScope) -> int:
-    return int(SCOPE_ID_BY_SCOPE[scope])
+def mode_scope_to_id(scope: ModeScope) -> int:
+    return int(MODE_SCOPE_ID_BY_SCOPE[scope])
 
 
-def scope_mode_ids(scope_id: int) -> tuple[int, ...]:
-    return SCOPE_MODE_IDS[scope_id]
+def mode_scope_mode_ids(scope_id: int) -> tuple[int, ...]:
+    return MODE_SCOPE_MODE_IDS[scope_id]
 
 
 def seconds_to_time_ms(value: Decimal | float | int | str) -> int:
@@ -351,7 +351,7 @@ class RecordPb(RecordPbBase, table=True):
 class RecordListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=10000)
-    scope: RecordScope = RecordScope.OVR
+    scope: ModeScope = ModeScope.OVR
     exclude_cheaters: bool = True
     id: list[int] | None = None
     steamid64: int | None = Field(default=None, sa_type=BigInteger)
@@ -416,7 +416,7 @@ class RecordRanksPublic(SQLModel):
 class MapWrPublic(SQLModel):
     record_uuid: uuid.UUID
     map_id: int
-    scope: RecordScope
+    scope: ModeScope
     type: RecordType
     mode_id: int
     player: PlayerRefPublic
@@ -463,7 +463,7 @@ class RecentRecordsPublic(SQLModel):
 class RecentRecordListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=50, ge=1, le=10000)
-    scope: RecordScope = RecordScope.OVR
+    scope: ModeScope = ModeScope.OVR
     points_more_or_equal_than: int | None = Field(default=None, ge=0, le=1000)
     is_pro_only: bool | None = None
 

@@ -11,10 +11,9 @@ from app import crud
 from app.core.db import async_session_maker
 from app.models import (
     LeaderboardPlayer,
+    ModeScope,
     Player,
-    RecordScope,
     get_datetime_utc,
-    scope_to_id,
 )
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -71,7 +70,7 @@ async def load_target_steamid64s(
     *,
     steamid64s: Sequence[int] | None = None,
     only_missing_avatar: bool = True,
-    leaderboard_scope: RecordScope | None = None,
+    leaderboard_scope: ModeScope | None = None,
     stale_before: datetime | None = None,
 ) -> list[int]:
     if steamid64s:
@@ -81,7 +80,7 @@ async def load_target_steamid64s(
         statement = (
             select(LeaderboardPlayer.steamid64)
             .where(
-                col(LeaderboardPlayer.scope) == scope_to_id(leaderboard_scope),
+                col(LeaderboardPlayer.scope) == leaderboard_scope,
                 col(LeaderboardPlayer.rating) > 0,
             )
             .order_by(
@@ -108,7 +107,7 @@ async def rebuild_player_profiles(
     *,
     steamid64s: Sequence[int] | None = None,
     only_missing_avatar: bool = True,
-    leaderboard_scope: RecordScope | None = None,
+    leaderboard_scope: ModeScope | None = None,
     stale_days: int | None = None,
     limit: int | None = None,
 ) -> RebuildPlayerProfileResult:

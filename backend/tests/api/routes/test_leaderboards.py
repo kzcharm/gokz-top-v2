@@ -14,12 +14,13 @@ from app.models import (
     LeaderboardPlayer,
     Map,
     MapCourse,
+    ModeScope,
+    ModeScopeId,
     Player,
     RecordFilter,
     ServerGlobalapi,
 )
 from app.models.leaderboard_player import scale_public_rating
-from app.models.record import RecordScopeId
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -34,7 +35,7 @@ async def _get_kzt_leaderboard_row(
     *,
     steamid64: int,
 ) -> LeaderboardPlayer:
-    row = await db.get(LeaderboardPlayer, (int(RecordScopeId.KZT), steamid64))
+    row = await db.get(LeaderboardPlayer, (ModeScope.KZT, steamid64))
     assert row is not None
     return row
 
@@ -288,9 +289,9 @@ async def _seed_leaderboard_data(
         await crud.rebuild_leaderboard_players(
             session=db,
             scope_ids=[
-                int(RecordScopeId.OVR),
-                int(RecordScopeId.KZT),
-                int(RecordScopeId.SKZ),
+                int(ModeScopeId.OVR),
+                int(ModeScopeId.KZT),
+                int(ModeScopeId.SKZ),
             ],
             steamid64s=[alpha, beta, gamma, delta],
         )

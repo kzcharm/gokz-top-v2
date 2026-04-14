@@ -7,7 +7,7 @@ from typing import Any
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import RecordScope, RecordScopeId
+from app.models import ModeScope, ModeScopeId
 from app.tasks.build.points import rebuild_record_pb_points
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def _get_tqdm() -> Any:
 def resolve_scope_ids(scope_names: Sequence[str] | None) -> list[int] | None:
     if not scope_names:
         return None
-    return [int(RecordScopeId[name.strip().upper()]) for name in scope_names]
+    return [int(ModeScopeId[name.strip().upper()]) for name in scope_names]
 
 
 def _play_completion_sound() -> None:
@@ -107,7 +107,7 @@ async def rebuild_leaderboard_rows(
         total_created += created
         total_updated += updated
         progress.set_postfix_str(
-            f"scope={RecordScopeId(scope_id).name} steamid64={steamid64}"
+            f"scope={ModeScopeId(scope_id).name} steamid64={steamid64}"
         )
 
     logger.info(
@@ -126,7 +126,7 @@ async def rebuild_leaderboard_rows(
 async def rebuild_ratings(
     *,
     scope_ids: Sequence[int] | None,
-    scopes: Sequence[RecordScope] | None,
+    scopes: Sequence[ModeScope] | None,
     steamid64s: Sequence[int] | None,
     limit: int | None,
     full: bool,

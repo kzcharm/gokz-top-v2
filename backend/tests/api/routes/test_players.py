@@ -10,11 +10,10 @@ from app.core.config import settings
 from app.crud import player as player_crud
 from app.models import (
     LeaderboardPlayer,
+    ModeScope,
     Player,
     PlayerFollow,
-    RecordScope,
     User,
-    scope_to_id,
 )
 from tests.utils.utils import get_user_token_headers, random_steamid64
 
@@ -44,7 +43,7 @@ async def _create_player(
 async def _set_ovr_rating(*, db: AsyncSession, steamid64: int, rating: int) -> None:
     db.add(
         LeaderboardPlayer(
-            scope=scope_to_id(RecordScope.OVR),
+            scope=ModeScope.OVR,
             steamid64=steamid64,
             rating=rating,
         )

@@ -16,9 +16,9 @@ from app.models import (
     MapReview,
     MapReviewSummaryCache,
     MapSyncResult,
+    ModeScope,
     Player,
     RecordFilter,
-    RecordScope,
     RecordType,
     ServerGlobalapi,
 )
@@ -393,19 +393,19 @@ async def test_read_map_wrs_v1_supports_map_name_scope_type_and_updates_without_
 
     by_name_response = await client.get(
         f"{settings.API_V1_STR}/maps/wrs",
-        params={"map_name": map_obj.name, "scope": RecordScope.KZT.value},
+        params={"map_name": map_obj.name, "scope": ModeScope.KZT.value},
     )
     assert by_name_response.status_code == 200
     by_name_payload = by_name_response.json()
     assert len(by_name_payload) == 1
     assert by_name_payload[0]["player"]["display_name"] == "KZT Winner"
-    assert by_name_payload[0]["scope"] == RecordScope.KZT.value
+    assert by_name_payload[0]["scope"] == ModeScope.KZT.value
 
     typed_response = await client.get(
         f"{settings.API_V1_STR}/maps/wrs",
         params={
             "map_name": other_map.name,
-            "scope": RecordScope.KZT.value,
+            "scope": ModeScope.KZT.value,
             "type": RecordType.PRO.value,
         },
     )
@@ -450,7 +450,7 @@ async def test_read_map_wrs_v1_supports_map_name_scope_type_and_updates_without_
 
     updated_response = await client.get(
         f"{settings.API_V1_STR}/maps/wrs",
-        params={"map_name": map_obj.name, "scope": RecordScope.KZT.value},
+        params={"map_name": map_obj.name, "scope": ModeScope.KZT.value},
     )
     assert updated_response.status_code == 200
     updated_payload = updated_response.json()
