@@ -54,10 +54,12 @@ async def test_sync_bans_from_globalapi_backfills_with_large_limit(
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
         del client
-        calls.append((offset, limit, updated_since))
+        assert updated_since is None
+        calls.append((offset, limit, created_since))
         if offset == 0:
             return [
                 _payload(ban_id=1, steamid64=76561198000000001),
@@ -87,6 +89,26 @@ async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
     await _clear_ban_sync_state(db)
     last_successful_at = datetime(2026, 4, 5, 12, 0, tzinfo=UTC)
     db.add(GlobalApiSyncState(task_name="bans", last_successful_at=last_successful_at))
+    db.add(
+        Player(
+            steamid64=76561198000000099,
+            name="Existing",
+        )
+    )
+    db.add(
+        Ban(
+            id=99,
+            ban_type=BanType.BHOP_HACK,
+            expires_on=None,
+            steamid64=76561198000000099,
+            notes="existing",
+            stats="existing",
+            server_id=1,
+            updated_by_id="1",
+            created_on=datetime(2026, 4, 5, 10, 0, tzinfo=UTC),
+            updated_on=datetime(2026, 4, 5, 11, 0, tzinfo=UTC),
+        )
+    )
     await db.commit()
 
     calls: list[tuple[int, int, datetime | None]] = []
@@ -96,10 +118,12 @@ async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
         del client
-        calls.append((offset, limit, updated_since))
+        assert updated_since is None
+        calls.append((offset, limit, created_since))
         return [_payload(ban_id=3, steamid64=76561198000000003)]
 
     monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
@@ -109,9 +133,46 @@ async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
     assert result.processed == 1
     assert calls[0][0] == 0
     assert calls[0][1] == globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT
-    assert calls[0][2] == last_successful_at - timedelta(
+    assert calls[0][2] == datetime(2026, 4, 5, 11, 0, tzinfo=UTC) - timedelta(
         seconds=globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS
     )
+
+
+async def test_sync_bans_from_globalapi_backfills_when_state_exists_but_table_is_empty(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _clear_ban_sync_state(db)
+    db.add(
+        GlobalApiSyncState(
+            task_name="bans",
+            last_successful_at=datetime(2026, 4, 14, 20, 18, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    calls: list[tuple[int, int, datetime | None]] = []
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        created_since: datetime | None = None,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        del client
+        assert updated_since is None
+        calls.append((offset, limit, created_since))
+        return []
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+
+    await globalapi_ban_sync.sync_bans_from_globalapi(session=db)
+
+    assert calls == [
+        (0, globalapi_ban_sync.settings.GLOBALAPI_BANS_BACKFILL_LIMIT, None)
+    ]
 
 
 async def test_sync_bans_from_globalapi_pages_incremental_results(
@@ -125,6 +186,26 @@ async def test_sync_bans_from_globalapi_pages_incremental_results(
             last_successful_at=datetime(2026, 4, 5, 12, 0, tzinfo=UTC),
         )
     )
+    db.add(
+        Player(
+            steamid64=76561198000000098,
+            name="Existing",
+        )
+    )
+    db.add(
+        Ban(
+            id=98,
+            ban_type=BanType.BHOP_HACK,
+            expires_on=None,
+            steamid64=76561198000000098,
+            notes="existing",
+            stats="existing",
+            server_id=1,
+            updated_by_id="1",
+            created_on=datetime(2026, 4, 5, 10, 0, tzinfo=UTC),
+            updated_on=datetime(2026, 4, 5, 11, 0, tzinfo=UTC),
+        )
+    )
     await db.commit()
 
     calls: list[int] = []
@@ -134,9 +215,10 @@ async def test_sync_bans_from_globalapi_pages_incremental_results(
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        del client, updated_since
+        del client, updated_since, created_since
         calls.append(offset)
         if offset == 0:
             return [
@@ -187,9 +269,10 @@ async def test_sync_bans_from_globalapi_keeps_local_rows_when_upstream_is_empty(
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        del client, offset, limit, updated_since
+        del client, offset, limit, updated_since, created_since
         return []
 
     monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
@@ -210,9 +293,10 @@ async def test_sync_bans_from_globalapi_counts_duplicates_and_invalid_types(
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        del client, offset, limit, updated_since
+        del client, offset, limit, updated_since, created_since
         return [
             _payload(ban_id=700, steamid64=76561198000000700),
             _payload(ban_id=700, steamid64=76561198000000700),
@@ -244,9 +328,10 @@ async def test_sync_bans_from_globalapi_allows_multiple_permanent_bans_for_one_p
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        del client, offset, limit, updated_since
+        del client, offset, limit, updated_since, created_since
         return [
             _payload(ban_id=801, steamid64=76561198000000801, ban_type="bhop_hack"),
             _payload(ban_id=802, steamid64=76561198000000801, ban_type="strafe_hack"),
@@ -279,9 +364,10 @@ async def test_sync_bans_from_globalapi_maps_9999_expiry_to_null(
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        del client, offset, limit, updated_since
+        del client, offset, limit, updated_since, created_since
         return [
             _payload(
                 ban_id=901,
@@ -315,9 +401,10 @@ async def test_sync_bans_from_globalapi_updates_placeholder_player_name_only(
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        del client, offset, limit, updated_since
+        del client, offset, limit, updated_since, created_since
         return [
             _payload(ban_id=910, steamid64=76561198000000910)
             | {"player_name": "Resolved Placeholder"},
@@ -350,9 +437,10 @@ async def test_sync_bans_from_globalapi_rebuilds_leaderboards_for_touched_player
         client: object,
         offset: int,
         limit: int,
+        created_since: datetime | None = None,
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        del client, offset, limit, updated_since
+        del client, offset, limit, updated_since, created_since
         return [
             _payload(ban_id=950, steamid64=76561198000000950),
             _payload(ban_id=951, steamid64=76561198000000951),

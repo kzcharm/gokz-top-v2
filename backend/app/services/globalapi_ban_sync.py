@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-from sqlalchemy import String, case, cast, or_
+from sqlalchemy import String, case, cast, func, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -205,11 +205,14 @@ async def fetch_bans_from_globalapi(
     client: httpx.AsyncClient | None = None,
     offset: int,
     limit: int,
+    created_since: datetime | None = None,
     updated_since: datetime | None = None,
 ) -> list[dict[str, Any]]:
     close_client = client is None
     resolved_client = client or httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS)
     params: dict[str, Any] = {"offset": offset, "limit": limit}
+    if created_since is not None:
+        params["created_since"] = created_since.isoformat()
     if updated_since is not None:
         params["updated_since"] = updated_since.isoformat()
 
@@ -241,10 +244,21 @@ async def sync_bans_from_globalapi(
     session: AsyncSession,
 ) -> GlobalApiSyncResult:
     sync_state = await session.get(GlobalApiSyncState, "bans")
-    updated_since: datetime | None = None
+    created_since: datetime | None = None
     limit = settings.GLOBALAPI_BANS_BACKFILL_LIMIT
-    if sync_state is not None and sync_state.last_successful_at is not None:
-        updated_since = sync_state.last_successful_at - timedelta(
+    latest_local_created_at = await session.exec(select(func.max(Ban.created_at)))
+    incremental_anchor = latest_local_created_at.one()
+    if (
+        sync_state is not None
+        and sync_state.last_successful_at is not None
+        and incremental_anchor is not None
+    ):
+        # GlobalAPI's bans endpoint currently honors created_since for new rows but
+        # does not reliably return rows for updated_since filters.
+        created_since = min(
+            sync_state.last_successful_at,
+            incremental_anchor,
+        ) - timedelta(
             seconds=settings.GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS
         )
         limit = settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT
@@ -268,7 +282,7 @@ async def sync_bans_from_globalapi(
                 client=client,
                 offset=offset,
                 limit=limit,
-                updated_since=updated_since,
+                created_since=created_since,
             )
             if not payloads:
                 break
