@@ -630,4 +630,115 @@ test.describe("Leaderboards page", () => {
       .poll(() => rankRequests.at(-1))
       .toEqual({ country: null, region: "EU" })
   })
+
+  test("maps tab loads leaderboard data and applies sorting and filters", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+    await stubRegions(page)
+    await stubPlayerGraphql(page)
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          count: 0,
+        }),
+      })
+    })
+    await page.route("**/v1/leaderboards/maps*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 3,
+          data: [
+            {
+              map: { id: 1, name: "kz_alpha" },
+              tier: 5,
+              review_summary: {
+                overall_avg: 4.7,
+                gameplay_avg: 4.5,
+                visuals_avg: 4.9,
+                reviews_count: 10,
+                gameplay_count: 10,
+                visuals_count: 10,
+                comments_count: 2,
+                updated_at: "2099-01-01T00:00:00Z",
+              },
+              unique_player_finishes: 10,
+              total_finishes: 15,
+              total_playtime: 100,
+              average_playtime_per_player: 10,
+              average_finishes_per_player: 1.5,
+              unique_pro_finishes: 4,
+              unique_nub_finishes: 10,
+              updated_at: "2099-01-01T00:00:00Z",
+            },
+            {
+              map: { id: 2, name: "kz_beta" },
+              tier: 3,
+              review_summary: {
+                overall_avg: 4.1,
+                gameplay_avg: 4.0,
+                visuals_avg: 4.2,
+                reviews_count: 8,
+                gameplay_count: 8,
+                visuals_count: 8,
+                comments_count: 10,
+                updated_at: "2099-01-01T00:00:00Z",
+              },
+              unique_player_finishes: 5,
+              total_finishes: 8,
+              total_playtime: 50,
+              average_playtime_per_player: 10,
+              average_finishes_per_player: 1.6,
+              unique_pro_finishes: 2,
+              unique_nub_finishes: 5,
+              updated_at: "2099-01-01T00:00:00Z",
+            },
+            {
+              map: { id: 3, name: "kz_gamma" },
+              tier: 5,
+              review_summary: null,
+              unique_player_finishes: 1,
+              total_finishes: 1,
+              total_playtime: 10,
+              average_playtime_per_player: 10,
+              average_finishes_per_player: 1,
+              unique_pro_finishes: 1,
+              unique_nub_finishes: 0,
+              updated_at: null,
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards")
+    await page.getByRole("tab", { name: "Maps" }).click()
+
+    await expect(page.getByText("kz_alpha")).toBeVisible()
+    await expect(page.getByText("kz_beta")).toBeVisible()
+
+    await page.getByRole("button", { name: "Comments" }).click()
+    await expect(
+      page.locator("tbody tr").first().getByText("kz_beta"),
+    ).toBeVisible()
+
+    await page
+      .getByRole("combobox", { name: "Filter maps leaderboard by tier" })
+      .click()
+    await page.getByRole("option", { name: "T5" }).click()
+    await expect(page.getByText("kz_beta")).not.toBeVisible()
+    await expect(page.getByText("kz_alpha")).toBeVisible()
+    await expect(page.getByText("kz_gamma")).toBeVisible()
+
+    await page
+      .getByRole("spinbutton", { name: "Minimum total playtime" })
+      .fill("90")
+    await expect(page.getByText("kz_alpha")).toBeVisible()
+    await expect(page.getByText("kz_gamma")).not.toBeVisible()
+  })
 })

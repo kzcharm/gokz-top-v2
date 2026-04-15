@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-04-14
+- Last Updated: 2026-04-15
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -43,9 +43,10 @@ Build the long-term platform for the GOKZ ecosystem:
 ### 5.1 Competitive Data and Rankings
 - Player ratings, points, and rankings with scope-aware calculations.
 - Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and eligibility-based membership semantics.
+- Public maps leaderboard is now available inside the `/leaderboards` page `Maps` tab, backed by `/v1/leaderboards/maps`, with scope switching, full validated-map reads, and client-side sorting/filtering for record-derived map metrics plus review summary fields.
 - Global and filtered leaderboards (scope, geography, and period when applicable).
 - Rank lookup support for profile and map contexts.
-- Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched Steam-backed player profiles.
+- Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched maps leaderboard rows selected from `Record.updated_at`, then touched Steam-backed player profiles.
 - Current leaderboard eligibility rule:
   - players only remain in `leaderboard_player` after 10 unique validated main-map finishes in the selected scope
   - actively banned players are removed from `leaderboard_player`

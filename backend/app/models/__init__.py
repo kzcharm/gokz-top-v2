@@ -28,6 +28,11 @@ from .map import (
     MapSyncResult,
     MapTiers,
 )
+from .map_leaderboard import (
+    MapLeaderboardCache,
+    MapLeaderboardEntryPublic,
+    MapLeaderboardsPublic,
+)
 from .map_review import (
     MapReview,
     MapReviewCommentInput,
@@ -195,6 +200,9 @@ __all__ = [
     "MapBase",
     "MapCompatPublicV0",
     "MapCourse",
+    "MapLeaderboardCache",
+    "MapLeaderboardEntryPublic",
+    "MapLeaderboardsPublic",
     "MapWrPublic",
     "MapPublic",
     "MapRefPublic",

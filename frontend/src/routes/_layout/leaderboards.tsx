@@ -32,6 +32,7 @@ import {
   columns,
   type LeaderboardTableRow,
 } from "@/components/Leaderboards/columns"
+import { MapsLeaderboardTab } from "@/components/Leaderboards/MapsLeaderboardTab"
 import { useScope } from "@/components/scope-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -152,6 +153,7 @@ function LeaderboardsRoute() {
   const [searchInput, setSearchInput] = useState("")
   const [activeTab, setActiveTab] =
     useState<(typeof LEADERBOARD_TAB_OPTIONS)[number]["value"]>("rating")
+  const isMapsTab = activeTab === "maps"
   const [isLocatingPlayer, setIsLocatingPlayer] = useState(false)
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [pendingSpotlightSteamid64, setPendingSpotlightSteamid64] = useState<
@@ -193,6 +195,7 @@ function LeaderboardsRoute() {
       selectedCountry,
       selectedRegion,
     ],
+    enabled: !isMapsTab,
     queryFn: () =>
       fetchLeaderboardPage({
         scope,
@@ -216,6 +219,7 @@ function LeaderboardsRoute() {
       selectedCountry,
       selectedRegion,
     ],
+    enabled: !isMapsTab,
     queryFn: () =>
       LeaderboardsService.readPlayerLeaderboard({
         scope,
@@ -248,14 +252,14 @@ function LeaderboardsRoute() {
       "leaderboard",
       leaderboardPlayerSteamid64s,
     ],
-    enabled: leaderboardPlayerSteamid64s.length > 0,
+    enabled: !isMapsTab && leaderboardPlayerSteamid64s.length > 0,
     queryFn: () => fetchPlayersForDisplay(leaderboardPlayerSteamid64s),
     staleTime: 30_000,
   })
   const regionsQuery = useQuery(getRegionsQueryOptions())
   const playerSearchQueryResult = useQuery({
     queryKey: ["graphql", "players", "search", playerSearchQuery],
-    enabled: playerSearchQuery.length > 0,
+    enabled: !isMapsTab && playerSearchQuery.length > 0,
     queryFn: async () =>
       (await searchPlayersGraphql(playerSearchQuery, 10)).data,
     staleTime: 30_000,
@@ -512,297 +516,311 @@ function LeaderboardsRoute() {
         </TabsList>
       </Tabs>
 
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex w-full flex-col gap-3 lg:max-w-[22rem]">
-                <div className="relative w-full">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    aria-label="Search players"
-                    value={searchInput}
-                    onChange={(event) => {
-                      if (searchBlurTimeoutRef.current !== null) {
-                        window.clearTimeout(searchBlurTimeoutRef.current)
-                      }
-                      setSearchInput(event.target.value)
-                      setIsSearchFocused(true)
-                    }}
-                    onFocus={() => {
-                      if (searchBlurTimeoutRef.current !== null) {
-                        window.clearTimeout(searchBlurTimeoutRef.current)
-                      }
-                      setIsSearchFocused(true)
-                    }}
-                    onBlur={() => {
-                      searchBlurTimeoutRef.current = window.setTimeout(() => {
-                        setIsSearchFocused(false)
-                      }, 100)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && searchResults.length > 0) {
-                        event.preventDefault()
-                        void handleSelectPlayer(searchResults[0])
-                      }
-                    }}
-                    placeholder="Search player ..."
-                    className="pl-9"
-                  />
-                  {showSearchResults ? (
-                    <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
-                      {playerSearchQueryResult.isLoading ? (
-                        <div className="px-4 py-3 text-sm text-muted-foreground">
-                          Searching players...
-                        </div>
-                      ) : playerSearchQueryResult.isError ? (
-                        <div className="px-4 py-3 text-sm text-destructive">
-                          Unable to search players right now.
-                        </div>
-                      ) : searchResults.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-muted-foreground">
-                          No players found.
-                        </div>
-                      ) : (
-                        <div className="py-1">
-                          {searchResults.map((player) => (
-                            <button
-                              key={player.steamid64}
-                              type="button"
-                              className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm transition-colors hover:bg-muted/60"
-                              onMouseDown={(event) => {
-                                event.preventDefault()
-                                void handleSelectPlayer(player)
-                              }}
-                            >
-                              <PlayerDisplay
-                                player={player}
-                                disableProfileLink
-                                className="min-w-0"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-                <Select
-                  value={selectedRegion ?? "all"}
-                  onValueChange={(value) => {
-                    const nextRegion = value === "all" ? null : value
-                    setSelectedRegion(nextRegion)
-                    if (nextRegion !== null) {
-                      setSelectedCountry(null)
-                    }
-                    setPageIndex(0)
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-[144px]">
-                    {selectedRegionOption ? (
-                      <RegionBadge
-                        regionCode={selectedRegionOption.code}
-                        regionName={selectedRegionOption.name}
+      {isMapsTab ? (
+        <MapsLeaderboardTab scope={scope} />
+      ) : (
+        <>
+          <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+            <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex w-full flex-col gap-3 lg:max-w-[22rem]">
+                    <div className="relative w-full">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        aria-label="Search players"
+                        value={searchInput}
+                        onChange={(event) => {
+                          if (searchBlurTimeoutRef.current !== null) {
+                            window.clearTimeout(searchBlurTimeoutRef.current)
+                          }
+                          setSearchInput(event.target.value)
+                          setIsSearchFocused(true)
+                        }}
+                        onFocus={() => {
+                          if (searchBlurTimeoutRef.current !== null) {
+                            window.clearTimeout(searchBlurTimeoutRef.current)
+                          }
+                          setIsSearchFocused(true)
+                        }}
+                        onBlur={() => {
+                          searchBlurTimeoutRef.current = window.setTimeout(
+                            () => {
+                              setIsSearchFocused(false)
+                            },
+                            100,
+                          )
+                        }}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === "Enter" &&
+                            searchResults.length > 0
+                          ) {
+                            event.preventDefault()
+                            void handleSelectPlayer(searchResults[0])
+                          }
+                        }}
+                        placeholder="Search player ..."
+                        className="pl-9"
                       />
-                    ) : (
-                      <span className="text-muted-foreground">region</span>
-                    )}
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">region</SelectItem>
-                    {(regionsQuery.data ?? []).map((region) => (
-                      <SelectItem key={region.code} value={region.code}>
-                        <RegionBadge
-                          regionCode={region.code}
-                          regionName={region.name}
-                        />
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      {showSearchResults ? (
+                        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
+                          {playerSearchQueryResult.isLoading ? (
+                            <div className="px-4 py-3 text-sm text-muted-foreground">
+                              Searching players...
+                            </div>
+                          ) : playerSearchQueryResult.isError ? (
+                            <div className="px-4 py-3 text-sm text-destructive">
+                              Unable to search players right now.
+                            </div>
+                          ) : searchResults.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-muted-foreground">
+                              No players found.
+                            </div>
+                          ) : (
+                            <div className="py-1">
+                              {searchResults.map((player) => (
+                                <button
+                                  key={player.steamid64}
+                                  type="button"
+                                  className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm transition-colors hover:bg-muted/60"
+                                  onMouseDown={(event) => {
+                                    event.preventDefault()
+                                    void handleSelectPlayer(player)
+                                  }}
+                                >
+                                  <PlayerDisplay
+                                    player={player}
+                                    disableProfileLink
+                                    className="min-w-0"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
 
-                <div className="w-full sm:w-[176px]">
-                  <CountryPicker
-                    value={selectedCountry}
-                    onChange={(value) => {
-                      setSelectedCountry(value)
-                      if (value !== null) {
-                        setSelectedRegion(null)
-                      }
-                      setPageIndex(0)
-                    }}
-                    placeholder="country"
-                    clearLabel="country"
-                  />
+                  <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                    <Select
+                      value={selectedRegion ?? "all"}
+                      onValueChange={(value) => {
+                        const nextRegion = value === "all" ? null : value
+                        setSelectedRegion(nextRegion)
+                        if (nextRegion !== null) {
+                          setSelectedCountry(null)
+                        }
+                        setPageIndex(0)
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[144px]">
+                        {selectedRegionOption ? (
+                          <RegionBadge
+                            regionCode={selectedRegionOption.code}
+                            regionName={selectedRegionOption.name}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground">region</span>
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">region</SelectItem>
+                        {(regionsQuery.data ?? []).map((region) => (
+                          <SelectItem key={region.code} value={region.code}>
+                            <RegionBadge
+                              regionCode={region.code}
+                              regionName={region.name}
+                            />
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="w-full sm:w-[176px]">
+                      <CountryPicker
+                        value={selectedCountry}
+                        onChange={(value) => {
+                          setSelectedCountry(value)
+                          if (value !== null) {
+                            setSelectedRegion(null)
+                          }
+                          setPageIndex(0)
+                        }}
+                        placeholder="country"
+                        clearLabel="country"
+                      />
+                    </div>
+
+                    <LoadingButton
+                      type="button"
+                      variant="outline"
+                      loading={isLocatingPlayer}
+                      disabled={!currentUser?.steamid64}
+                      onClick={() => void handleFindMe()}
+                    >
+                      <LocateFixed />
+                      Find Me
+                    </LoadingButton>
+                  </div>
                 </div>
 
-                <LoadingButton
-                  type="button"
-                  variant="outline"
-                  loading={isLocatingPlayer}
-                  disabled={!currentUser?.steamid64}
-                  onClick={() => void handleFindMe()}
-                >
-                  <LocateFixed />
-                  Find Me
-                </LoadingButton>
-              </div>
-            </div>
+                <div className="flex flex-col gap-4 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-3">
+                    <span>
+                      Total{" "}
+                      <span className="font-medium text-foreground">
+                        {new Intl.NumberFormat("en-US").format(totalPlayers)}
+                      </span>{" "}
+                      Players
+                    </span>
+                    {!hasExactCount ? (
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        loading total
+                      </span>
+                    ) : null}
+                    <div className="flex items-center gap-x-2">
+                      <span>Rows per page</span>
+                      <Select
+                        value={`${pageSize}`}
+                        onValueChange={(value) => {
+                          setPageSize(Number(value))
+                          setPageIndex(0)
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={pageSize} />
+                        </SelectTrigger>
+                        <SelectContent side="bottom">
+                          {LEADERBOARDS_PAGE_SIZE_OPTIONS.map(
+                            (nextPageSize) => (
+                              <SelectItem
+                                key={nextPageSize}
+                                value={`${nextPageSize}`}
+                              >
+                                {nextPageSize}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-            <div className="flex flex-col gap-4 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-3">
-                <span>
-                  Total{" "}
-                  <span className="font-medium text-foreground">
-                    {new Intl.NumberFormat("en-US").format(totalPlayers)}
-                  </span>{" "}
-                  Players
-                </span>
-                {!hasExactCount ? (
-                  <span className="inline-flex items-center gap-1 text-xs">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    loading total
-                  </span>
-                ) : null}
-                <div className="flex items-center gap-x-2">
-                  <span>Rows per page</span>
-                  <Select
-                    value={`${pageSize}`}
-                    onValueChange={(value) => {
-                      setPageSize(Number(value))
-                      setPageIndex(0)
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-[70px]">
-                      <SelectValue placeholder={pageSize} />
-                    </SelectTrigger>
-                    <SelectContent side="bottom">
-                      {LEADERBOARDS_PAGE_SIZE_OPTIONS.map((nextPageSize) => (
-                        <SelectItem
-                          key={nextPageSize}
-                          value={`${nextPageSize}`}
-                        >
-                          {nextPageSize}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                    <div className="flex items-center gap-x-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(0)}
+                        disabled={pageIndex === 0}
+                      >
+                        <span className="sr-only">Go to first page</span>
+                        <ChevronsLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() =>
+                          setPageIndex((current) => Math.max(0, current - 1))
+                        }
+                        disabled={pageIndex === 0}
+                      >
+                        <span className="sr-only">Go to previous page</span>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={pageCount}
+                        value={pageInputValue}
+                        onChange={(event) => {
+                          setPageInputValue(event.target.value)
+                        }}
+                        onBlur={commitPageInputValue}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault()
+                            commitPageInputValue()
+                          }
+                        }}
+                        className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        aria-label={`Current page, ${pageCount} total pages`}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() =>
+                          setPageIndex((current) =>
+                            Math.min(pageCount - 1, current + 1),
+                          )
+                        }
+                        disabled={!hasNextPage && pageIndex >= pageCount - 1}
+                      >
+                        <span className="sr-only">Go to next page</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(pageCount - 1)}
+                        disabled={!hasExactCount || pageIndex >= pageCount - 1}
+                      >
+                        <span className="sr-only">Go to last page</span>
+                        <ChevronsRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                <div className="flex items-center gap-x-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setPageIndex(0)}
-                    disabled={pageIndex === 0}
-                  >
-                    <span className="sr-only">Go to first page</span>
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() =>
-                      setPageIndex((current) => Math.max(0, current - 1))
-                    }
-                    disabled={pageIndex === 0}
-                  >
-                    <span className="sr-only">Go to previous page</span>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={pageCount}
-                    value={pageInputValue}
-                    onChange={(event) => {
-                      setPageInputValue(event.target.value)
-                    }}
-                    onBlur={commitPageInputValue}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault()
-                        commitPageInputValue()
-                      }
-                    }}
-                    className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    aria-label={`Current page, ${pageCount} total pages`}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() =>
-                      setPageIndex((current) =>
-                        Math.min(pageCount - 1, current + 1),
-                      )
-                    }
-                    disabled={!hasNextPage && pageIndex >= pageCount - 1}
-                  >
-                    <span className="sr-only">Go to next page</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setPageIndex(pageCount - 1)}
-                    disabled={!hasExactCount || pageIndex >= pageCount - 1}
-                  >
-                    <span className="sr-only">Go to last page</span>
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={leaderboardQuery.isLoading}
-            showFooter={false}
-            getRowProps={(row) => ({
-              "data-player-steamid64": row.player.steamid64,
-              className:
-                row.player.steamid64 === currentUser?.steamid64
-                  ? cn(
-                      "bg-primary/10 ring-1 ring-inset ring-primary/35",
-                      "transition-[background-color,box-shadow,transform] duration-500",
-                      "hover:bg-primary/15",
-                    )
-                  : undefined,
-            })}
-            serverPagination={{
-              pageIndex,
-              pageSize,
-              totalCount: leaderboardQuery.data?.count ?? 0,
-              onPageChange: setPageIndex,
-              onPageSizeChange: (size) => {
-                setPageSize(size)
-                setPageIndex(0)
-              },
-            }}
-            sorting={{
-              state: sorting,
-              onSortingChange,
-              manualSorting: true,
-            }}
-          />
-        </CardContent>
-      </Card>
+          <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+            <CardContent className="p-0">
+              <DataTable
+                columns={columns}
+                data={tableData}
+                isLoading={leaderboardQuery.isLoading}
+                showFooter={false}
+                getRowProps={(row) => ({
+                  "data-player-steamid64": row.player.steamid64,
+                  className:
+                    row.player.steamid64 === currentUser?.steamid64
+                      ? cn(
+                          "bg-primary/10 ring-1 ring-inset ring-primary/35",
+                          "transition-[background-color,box-shadow,transform] duration-500",
+                          "hover:bg-primary/15",
+                        )
+                      : undefined,
+                })}
+                serverPagination={{
+                  pageIndex,
+                  pageSize,
+                  totalCount: leaderboardQuery.data?.count ?? 0,
+                  onPageChange: setPageIndex,
+                  onPageSizeChange: (size) => {
+                    setPageSize(size)
+                    setPageIndex(0)
+                  },
+                }}
+                sorting={{
+                  state: sorting,
+                  onSortingChange,
+                  manualSorting: true,
+                }}
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

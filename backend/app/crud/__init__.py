@@ -25,6 +25,12 @@ from .map import (
     to_map_public,
     to_map_publics,
 )
+from .map_leaderboard import (
+    load_changed_map_leaderboard_keys,
+    read_map_leaderboard,
+    rebuild_map_leaderboards,
+    rebuild_map_leaderboards_for_keys,
+)
 from .map_review import (
     clear_map_review_comments,
     get_map_review_by_context,
@@ -188,6 +194,8 @@ __all__ = [
     "get_ban_by_id",
     "get_map_by_id",
     "get_map_by_name",
+    "load_changed_map_leaderboard_keys",
+    "read_map_leaderboard",
     "get_mode_by_id",
     "get_mode_by_name",
     "get_or_create_user_from_steam",
@@ -251,6 +259,8 @@ __all__ = [
     "to_map_public",
     "to_map_review_public",
     "to_map_publics",
+    "rebuild_map_leaderboards",
+    "rebuild_map_leaderboards_for_keys",
     "rebuild_map_review_summary",
     "has_finished_map_for_review",
     "to_mode_compat_public_v0",

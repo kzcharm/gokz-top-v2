@@ -22,8 +22,8 @@ import playerAvatarPlaceholderSrc from "@/assets/player-avatar-placeholder.jpg"
 import {
   ApiError,
   MapsService,
+  type ModeScope,
   PlayersService,
-  type RecordScope,
   type RecordType,
 } from "@/client"
 import EditPlayer from "@/components/AdminPlayers/EditPlayer"
@@ -87,7 +87,7 @@ type PlayerDisplaySubline =
       type: "wr"
       mapId?: number | null
       mapName?: string | null
-      scope?: RecordScope
+      scope?: ModeScope
       recordType?: RecordType
       emptyLabel?: string | null
     }

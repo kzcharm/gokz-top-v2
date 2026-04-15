@@ -141,6 +141,97 @@ export const HTTPValidationErrorSchema = {
     title: 'HTTPValidationError'
 } as const;
 
+export const MapLeaderboardEntryPublicSchema = {
+    properties: {
+        map: {
+            '$ref': '#/components/schemas/MapRefPublic'
+        },
+        tier: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tier'
+        },
+        review_summary: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/MapReviewSummaryPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        unique_player_finishes: {
+            type: 'integer',
+            title: 'Unique Player Finishes'
+        },
+        total_finishes: {
+            type: 'integer',
+            title: 'Total Finishes'
+        },
+        total_playtime: {
+            type: 'number',
+            title: 'Total Playtime'
+        },
+        average_playtime_per_player: {
+            type: 'number',
+            title: 'Average Playtime Per Player'
+        },
+        average_finishes_per_player: {
+            type: 'number',
+            title: 'Average Finishes Per Player'
+        },
+        unique_pro_finishes: {
+            type: 'integer',
+            title: 'Unique Pro Finishes'
+        },
+        unique_nub_finishes: {
+            type: 'integer',
+            title: 'Unique Nub Finishes'
+        },
+        updated_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['map', 'unique_player_finishes', 'total_finishes', 'total_playtime', 'average_playtime_per_player', 'average_finishes_per_player', 'unique_pro_finishes', 'unique_nub_finishes'],
+    title: 'MapLeaderboardEntryPublic'
+} as const;
+
+export const MapLeaderboardsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/MapLeaderboardEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'MapLeaderboardsPublic'
+} as const;
+
 export const MapPublicSchema = {
     properties: {
         id: {
@@ -624,7 +715,7 @@ export const MapWrPublicSchema = {
             title: 'Map Id'
         },
         scope: {
-            '$ref': '#/components/schemas/RecordScope'
+            '$ref': '#/components/schemas/ModeScope'
         },
         type: {
             '$ref': '#/components/schemas/RecordType'
@@ -833,6 +924,12 @@ export const ModePublicSchema = {
     title: 'ModePublic'
 } as const;
 
+export const ModeScopeSchema = {
+    type: 'string',
+    enum: ['OVR', 'KZT', 'SKZ', 'VNL'],
+    title: 'ModeScope'
+} as const;
+
 export const PlayerDailyActivityDayPublicSchema = {
     properties: {
         date: {
@@ -979,7 +1076,7 @@ export const PlayerLeaderboardEntryPublicSchema = {
 export const PlayerLeaderboardRankPublicSchema = {
     properties: {
         scope: {
-            '$ref': '#/components/schemas/RecordScope'
+            '$ref': '#/components/schemas/ModeScope'
         },
         rank: {
             anyOf: [
@@ -1115,7 +1212,7 @@ export const PlayerPinnedRecordPublicSchema = {
             title: 'Map Id'
         },
         scope: {
-            '$ref': '#/components/schemas/RecordScope'
+            '$ref': '#/components/schemas/ModeScope'
         },
         type: {
             '$ref': '#/components/schemas/RecordType'
@@ -1146,7 +1243,7 @@ export const PlayerPinnedRecordUpsertSchema = {
             title: 'Map Id'
         },
         scope: {
-            '$ref': '#/components/schemas/RecordScope'
+            '$ref': '#/components/schemas/ModeScope'
         },
         type: {
             '$ref': '#/components/schemas/RecordType'
@@ -1777,12 +1874,6 @@ export const RecordRanksPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'RecordRanksPublic'
-} as const;
-
-export const RecordScopeSchema = {
-    type: 'string',
-    enum: ['OVR', 'KZT', 'SKZ', 'VNL'],
-    title: 'RecordScope'
 } as const;
 
 export const RecordTypeSchema = {

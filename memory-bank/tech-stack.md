@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-04-14
+- Last Updated: 2026-04-15
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -17,6 +17,7 @@
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
   - Mirrored GlobalAPI ban rows are stored locally in PostgreSQL with a PostgreSQL enum-backed `ban_type` and append/update-only sync semantics
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by a single midnight-UTC rank pipeline plus repair/backfill CLIs
+  - The maps leaderboard is materialized in `cache.map_leaderboard`, keyed by `(map_id, scope)`, derived from raw valid stage-0 `record` rows, and joined with scoped map tiers plus map review summaries at read time
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
   - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity plus total playtime aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
@@ -33,7 +34,7 @@
   - WebSocket updates are delivered from `/v1/ws/servers` after cache updates, using PostgreSQL `LISTEN/NOTIFY` to fan out change events from the backend
 - Scheduled background maintenance:
   - Continuous GlobalAPI sync remains responsible for ingesting mirrored upstream records and other mirrored entities
-  - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, and refreshes touched player Steam profiles
+  - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, rebuilds touched maps leaderboard rows selected from `Record.updated_at`, and refreshes touched player Steam profiles
   - The midnight rank pipeline preserves `record_pb.updated_on` during point recalculation so same-day retries keep the same selection window
 
 ## Backend Runtime and Libraries
