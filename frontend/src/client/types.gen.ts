@@ -25,6 +25,25 @@ export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
 
+export type MapLeaderboardEntryPublic = {
+    map: MapRefPublic;
+    tier?: (number | null);
+    review_summary?: (MapReviewSummaryPublic | null);
+    unique_player_finishes: number;
+    total_finishes: number;
+    total_playtime: number;
+    average_playtime_per_player: number;
+    average_finishes_per_player: number;
+    unique_pro_finishes: number;
+    unique_nub_finishes: number;
+    updated_at?: (string | null);
+};
+
+export type MapLeaderboardsPublic = {
+    data: Array<MapLeaderboardEntryPublic>;
+    count: number;
+};
+
 export type MapPublic = {
     id: number;
     name: string;
@@ -122,7 +141,7 @@ export type MapTiers = {
 export type MapWrPublic = {
     record_uuid: string;
     map_id: number;
-    scope: RecordScope;
+    scope: ModeScope;
     type: RecordType;
     mode_id: number;
     player: PlayerRefPublic;
@@ -160,6 +179,8 @@ export type ModePublic = {
     updated_by_id: string;
 };
 
+export type ModeScope = 'OVR' | 'KZT' | 'SKZ' | 'VNL';
+
 export type PlayerDailyActivityDayPublic = {
     date: string;
     count: number;
@@ -192,7 +213,7 @@ export type PlayerLeaderboardEntryPublic = {
 };
 
 export type PlayerLeaderboardRankPublic = {
-    scope: RecordScope;
+    scope: ModeScope;
     rank?: (number | null);
     rank_regional?: (number | null);
     region?: (string | null);
@@ -217,7 +238,7 @@ export type PlayerPinnedRecordPublic = {
     id: string;
     player_steamid64: string;
     map_id: number;
-    scope: RecordScope;
+    scope: ModeScope;
     type: RecordType;
     created_at: string;
     updated_at: string;
@@ -231,7 +252,7 @@ export type PlayerPinnedRecordsPublic = {
 
 export type PlayerPinnedRecordUpsert = {
     map_id: number;
-    scope: RecordScope;
+    scope: ModeScope;
     type: RecordType;
 };
 
@@ -364,8 +385,6 @@ export type RecordRanksPublic = {
     data: Array<RecordRankPublic>;
     count: number;
 };
-
-export type RecordScope = 'OVR' | 'KZT' | 'SKZ' | 'VNL';
 
 export type RecordsPublic = {
     data: Array<RecordPublic>;
@@ -600,7 +619,7 @@ export type LeaderboardsReadPlayerLeaderboardData = {
     limit?: number;
     offset?: number;
     region?: (string | null);
-    scope?: RecordScope;
+    scope?: ModeScope;
     sortBy?: 'rating' | 'rating_easy' | 'rating_hard' | 'points' | 'wrs_nub' | 'wrs_pro' | 'records_900_plus' | 'records_800_plus' | 'unique_map_finishes';
     sortOrder?: "desc";
 };
@@ -611,7 +630,7 @@ export type LeaderboardsReadPlayerLeaderboardRankData = {
     country?: (string | null);
     identifier: string;
     region?: (string | null);
-    scope?: RecordScope;
+    scope?: ModeScope;
 };
 
 export type LeaderboardsReadPlayerLeaderboardRankResponse = (PlayerLeaderboardRankPublic);
@@ -621,6 +640,19 @@ export type LeaderboardsUpsertPlayerLeaderboardsData = {
 };
 
 export type LeaderboardsUpsertPlayerLeaderboardsResponse = (Message);
+
+export type LeaderboardsReadMapLeaderboardData = {
+    scope?: ModeScope;
+};
+
+export type LeaderboardsReadMapLeaderboardResponse = (MapLeaderboardsPublic);
+
+export type LeaderboardsUpsertMapLeaderboardsData = {
+    mapId?: (number | null);
+    scope?: (ModeScope | null);
+};
+
+export type LeaderboardsUpsertMapLeaderboardsResponse = (Message);
 
 export type LoginLoginSteamResponse = (unknown);
 
@@ -651,7 +683,7 @@ export type MapsReadMapByNameResponse = (MapPublic);
 export type MapsReadMapWrsData = {
     mapId?: (number | null);
     mapName?: (string | null);
-    scope?: RecordScope;
+    scope?: ModeScope;
     type?: (RecordType | null);
 };
 
@@ -736,7 +768,7 @@ export type PlayersCreatePlayerViewResponse = (PlayerProfileViewsPublic);
 
 export type PlayersReadPlayerPinnedRecordsData = {
     identifier: string;
-    scope?: RecordScope;
+    scope?: ModeScope;
 };
 
 export type PlayersReadPlayerPinnedRecordsResponse = (PlayerPinnedRecordsPublic);
@@ -751,7 +783,7 @@ export type PlayersCreatePlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic
 export type PlayersDeletePlayerPinnedRecordData = {
     identifier: string;
     mapId: number;
-    scope?: RecordScope;
+    scope?: ModeScope;
     type?: RecordType;
 };
 
@@ -828,7 +860,7 @@ export type RecordsReadRecordsData = {
     modeId?: (number | null);
     offset?: number;
     replayId?: (number | null);
-    scope?: RecordScope;
+    scope?: ModeScope;
     serverId?: (number | null);
     stage?: (number | null);
     steamid64?: (number | null);
@@ -843,7 +875,7 @@ export type RecordsReadRecentRecordsData = {
     limit?: number;
     offset?: number;
     pointsMoreOrEqualThan?: (number | null);
-    scope?: RecordScope;
+    scope?: ModeScope;
 };
 
 export type RecordsReadRecentRecordsResponse = (RecentRecordsPublic);
@@ -857,7 +889,7 @@ export type RecordsReadPbRecordsData = {
     mapName?: (string | null);
     offset?: number;
     region?: (string | null);
-    scope?: RecordScope;
+    scope?: ModeScope;
     stage?: number;
     type?: RecordType;
 };
@@ -866,7 +898,7 @@ export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);
 
 export type RecordsReadRecordRanksData = {
     country?: (string | null);
-    scope?: RecordScope;
+    scope?: ModeScope;
     type?: RecordType;
     uuidList: Array<(string)>;
 };
@@ -875,7 +907,7 @@ export type RecordsReadRecordRanksResponse = (RecordRanksPublic);
 
 export type RecordsReadRecordData = {
     recordUuid: string;
-    scope?: RecordScope;
+    scope?: ModeScope;
 };
 
 export type RecordsReadRecordResponse = (RecordPublic);

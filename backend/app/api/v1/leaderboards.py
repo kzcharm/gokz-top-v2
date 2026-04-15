@@ -1,13 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, get_current_active_superuser
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.models import (
     Message,
+    MapLeaderboardsPublic,
     ModeScope,
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
@@ -64,6 +65,33 @@ async def read_player_leaderboard_rank(
         country=country.strip().upper() if country is not None and country.strip() else None,
         region=region.strip().upper() if region is not None and region.strip() else None,
     )
+
+
+@router.get("/maps", response_model=MapLeaderboardsPublic)
+async def read_map_leaderboard(
+    session: SessionDep,
+    scope: ModeScope = Query(default=ModeScope.OVR),
+) -> MapLeaderboardsPublic:
+    return await crud.read_map_leaderboard(session=session, scope=scope)
+
+
+@router.put(
+    "/maps",
+    response_model=Message,
+    dependencies=[Depends(get_current_active_superuser)],
+)
+async def upsert_map_leaderboards(
+    session: SessionDep,
+    scope: ModeScope | None = Query(default=None),
+    map_id: int | None = Query(default=None),
+) -> Message:
+    await crud.rebuild_map_leaderboards(
+        session=session,
+        scopes=[scope] if scope is not None else None,
+        map_ids=[map_id] if map_id is not None else None,
+    )
+    await session.commit()
+    return Message(message="Map leaderboard rows rebuilt successfully")
 
 
 @router.put("/players/{identifier:path}", response_model=Message)

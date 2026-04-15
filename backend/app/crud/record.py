@@ -51,6 +51,7 @@ from app.services.course_points import (
 
 from .ban import not_active_ban_exists_clause
 from .map import get_map_by_name
+from .map_leaderboard import rebuild_map_leaderboards_for_keys
 from .player import read_players_batch, to_player_ref_public
 from .record_filter import load_scoped_course_tiers
 
@@ -1004,15 +1005,31 @@ async def _pb_keys_for_record_snapshot(
     )
 
 
-async def _refresh_record_pbs_for_change(
+def _map_leaderboard_keys_for_record_snapshot(
+    *,
+    map_id: int,
+    stage: int,
+    mode_id: int,
+) -> set[tuple[int, int]]:
+    if stage != 0:
+        return set()
+
+    return {
+        (map_id, scope_id)
+        for scope_id in _scope_ids_for_mode_id(mode_id)
+    }
+
+
+async def _refresh_record_read_models_for_change(
     *,
     session: AsyncSession,
     before: Record | None,
     after: Record | None,
 ) -> None:
-    keys: set[tuple[int, int, int, RecordType]] = set()
+    pb_keys: set[tuple[int, int, int, RecordType]] = set()
+    map_leaderboard_keys: set[tuple[int, int]] = set()
     if before is not None:
-        keys |= await _pb_keys_for_record_snapshot(
+        pb_keys |= await _pb_keys_for_record_snapshot(
             session=session,
             map_id=before.map_id,
             stage=before.stage,
@@ -1021,8 +1038,13 @@ async def _refresh_record_pbs_for_change(
             teleports=before.teleports,
             is_valid=before.is_valid,
         )
+        map_leaderboard_keys |= _map_leaderboard_keys_for_record_snapshot(
+            map_id=before.map_id,
+            stage=before.stage,
+            mode_id=before.mode_id,
+        )
     if after is not None:
-        keys |= await _pb_keys_for_record_snapshot(
+        pb_keys |= await _pb_keys_for_record_snapshot(
             session=session,
             map_id=after.map_id,
             stage=after.stage,
@@ -1031,8 +1053,17 @@ async def _refresh_record_pbs_for_change(
             teleports=after.teleports,
             is_valid=after.is_valid,
         )
+        map_leaderboard_keys |= _map_leaderboard_keys_for_record_snapshot(
+            map_id=after.map_id,
+            stage=after.stage,
+            mode_id=after.mode_id,
+        )
 
-    await rebuild_record_pb_buckets_for_keys(session=session, keys=keys)
+    await rebuild_record_pb_buckets_for_keys(session=session, keys=pb_keys)
+    await rebuild_map_leaderboards_for_keys(
+        session=session,
+        keys=sorted(map_leaderboard_keys),
+    )
 
 
 def _parse_pg_stats_boolean_frequency(
@@ -1517,7 +1548,11 @@ async def upsert_record(
             is_valid=is_valid,
         )
         session.add(record)
-        await _refresh_record_pbs_for_change(session=session, before=None, after=record)
+        await _refresh_record_read_models_for_change(
+            session=session,
+            before=None,
+            after=record,
+        )
         return record, True, False
 
     before_record = Record.model_validate(existing_record.model_dump())
@@ -1535,7 +1570,7 @@ async def upsert_record(
     existing_record.replay_id = replay_id
     existing_record.is_valid = is_valid
     session.add(existing_record)
-    await _refresh_record_pbs_for_change(
+    await _refresh_record_read_models_for_change(
         session=session,
         before=before_record,
         after=existing_record,
@@ -1553,7 +1588,7 @@ async def update_record_validity(
     record.is_valid = patch.is_valid
     record.updated_at = get_datetime_utc()
     session.add(record)
-    await _refresh_record_pbs_for_change(
+    await _refresh_record_read_models_for_change(
         session=session,
         before=before_record,
         after=record,
