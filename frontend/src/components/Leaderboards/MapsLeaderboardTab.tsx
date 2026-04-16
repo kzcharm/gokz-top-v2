@@ -85,13 +85,6 @@ function sortMaps(
           sortDirection,
         )
         break
-      case "comments_count":
-        comparison = compareNullableNumbers(
-          left.review_summary?.comments_count,
-          right.review_summary?.comments_count,
-          sortDirection,
-        )
-        break
       default:
         comparison = compareNullableNumbers(
           left[sortField],
@@ -180,13 +173,11 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       case "name":
       case "tier":
       case "overall_avg":
-      case "comments_count":
       case "total_finishes":
       case "total_playtime":
       case "average_first_completion_time":
       case "median_first_completion_time":
       case "average_playtime_per_player":
-      case "median_playtime_per_player":
       case "average_finishes_per_player":
       case "median_finishes_per_player":
       case "pro_nub_ratio":
