@@ -35,6 +35,7 @@ def test_cli_root_help() -> None:
 
     assert result.exit_code == 0
     assert "build" in result.output
+    assert "rebuild" in result.output
     assert "sync" in result.output
     assert "GOKZ.TOP backend operator CLI" in result.output
 
@@ -48,6 +49,50 @@ def test_cli_build_help() -> None:
     assert "rating" in result.output
     assert "points" in result.output
     assert "profile" not in result.output
+
+
+def test_cli_rebuild_help() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.app, ["rebuild", "--help"])
+
+    assert result.exit_code == 0
+    assert "maps" in result.output
+
+
+def test_cli_rebuild_maps_dispatches_filters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    async def _fake_rebuild_map_leaderboards(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return type(
+            "_MapRebuildResult",
+            (),
+            {
+                "scopes": (cli.ModeScope.KZT,),
+                "map_ids": (123, 456),
+                "rows_rebuilt": 2,
+            },
+        )()
+
+    monkeypatch.setattr(
+        "app.cli.maps_task.rebuild_map_leaderboards",
+        _fake_rebuild_map_leaderboards,
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ["rebuild", "maps", "--scope", "kzt", "--map-id", "123", "--map-id", "456"],
+    )
+
+    assert result.exit_code == 0
+    assert captured["scopes"] == (cli.ModeScope.KZT,)
+    assert captured["map_ids"] == [123, 456]
+    assert "Maps Rebuild Complete" in result.output
+    assert "Rows rebuilt" in result.output
 
 
 def test_cli_sync_help() -> None:

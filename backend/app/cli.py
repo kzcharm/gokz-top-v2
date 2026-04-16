@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from app.models import ModeScope
+from app.tasks.build import maps as maps_task
 from app.tasks.build import pb as pb_task
 from app.tasks.build import points as points_task
 from app.tasks.build import profile as profile_task
@@ -23,6 +24,12 @@ build_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(build_app, name="build")
+rebuild_app = typer.Typer(
+    help="Rebuild derived backend data on demand.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+app.add_typer(rebuild_app, name="rebuild")
 sync_app = typer.Typer(
     help="Synchronize external data into backend state.",
     no_args_is_help=True,
@@ -76,6 +83,31 @@ def _render_summary(title: str, rows: Sequence[tuple[str, str]]) -> None:
 
 def _run_async[T](coro: Coroutine[object, object, T]) -> T:
     return asyncio.run(coro)
+
+
+@rebuild_app.command("maps")
+def rebuild_maps(
+    scope_names: ScopeOption = None,
+    map_ids: Annotated[
+        list[int] | None,
+        typer.Option("--map-id", help="Filter by map id. Repeat for multiple maps."),
+    ] = None,
+) -> None:
+    scopes = _parse_scopes(scope_names)
+    result = _run_async(
+        maps_task.rebuild_map_leaderboards(
+            scopes=scopes if scopes else None,
+            map_ids=map_ids,
+        )
+    )
+    _render_summary(
+        "Maps Rebuild Complete",
+        [
+            ("Scopes", ", ".join(scope.name for scope in result.scopes)),
+            ("Map IDs", "*" if not result.map_ids else ", ".join(map(str, result.map_ids))),
+            ("Rows rebuilt", str(result.rows_rebuilt)),
+        ],
+    )
 
 
 @build_app.command("rating")
