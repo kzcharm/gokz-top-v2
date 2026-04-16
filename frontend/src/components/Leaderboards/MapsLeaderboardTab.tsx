@@ -85,20 +85,6 @@ function sortMaps(
           sortDirection,
         )
         break
-      case "gameplay_avg":
-        comparison = compareNullableNumbers(
-          left.review_summary?.gameplay_avg,
-          right.review_summary?.gameplay_avg,
-          sortDirection,
-        )
-        break
-      case "visuals_avg":
-        comparison = compareNullableNumbers(
-          left.review_summary?.visuals_avg,
-          right.review_summary?.visuals_avg,
-          sortDirection,
-        )
-        break
       case "comments_count":
         comparison = compareNullableNumbers(
           left.review_summary?.comments_count,
@@ -115,12 +101,7 @@ function sortMaps(
         break
     }
 
-    if (
-      comparison === 0 &&
-      (sortField === "overall_avg" ||
-        sortField === "gameplay_avg" ||
-        sortField === "visuals_avg")
-    ) {
+    if (comparison === 0 && sortField === "overall_avg") {
       comparison = compareNullableNumbers(
         left.review_summary?.comments_count,
         right.review_summary?.comments_count,
@@ -145,7 +126,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "unique_player_finishes", desc: true },
+    { id: "unique_nub_finishes", desc: true },
   ])
 
   const mapsQuery = useQuery({
@@ -170,10 +151,10 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       if (selectedTier !== "all" && row.tier !== Number(selectedTier)) {
         return false
       }
-      if (minUnique !== null && row.unique_player_finishes < minUnique) {
+      if (minUnique !== null && row.unique_nub_finishes < minUnique) {
         return false
       }
-      if (maxUnique !== null && row.unique_player_finishes > maxUnique) {
+      if (maxUnique !== null && row.unique_nub_finishes > maxUnique) {
         return false
       }
       if (minTotalPlaytime !== null && row.total_playtime < minTotalPlaytime) {
@@ -199,10 +180,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       case "name":
       case "tier":
       case "overall_avg":
-      case "gameplay_avg":
-      case "visuals_avg":
       case "comments_count":
-      case "unique_player_finishes":
       case "total_finishes":
       case "total_playtime":
       case "average_playtime_per_player":
@@ -211,7 +189,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       case "unique_nub_finishes":
         return nextField
       default:
-        return "unique_player_finishes"
+        return "unique_nub_finishes"
     }
   }, [sorting])
 

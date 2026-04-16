@@ -167,10 +167,6 @@ export const MapLeaderboardEntryPublicSchema = {
                 }
             ]
         },
-        unique_player_finishes: {
-            type: 'integer',
-            title: 'Unique Player Finishes'
-        },
         total_finishes: {
             type: 'integer',
             title: 'Total Finishes'
@@ -179,13 +175,33 @@ export const MapLeaderboardEntryPublicSchema = {
             type: 'number',
             title: 'Total Playtime'
         },
+        average_first_completion_time: {
+            type: 'number',
+            title: 'Average First Completion Time'
+        },
+        median_first_completion_time: {
+            type: 'number',
+            title: 'Median First Completion Time'
+        },
         average_playtime_per_player: {
             type: 'number',
             title: 'Average Playtime Per Player'
         },
+        median_playtime_per_player: {
+            type: 'number',
+            title: 'Median Playtime Per Player'
+        },
         average_finishes_per_player: {
             type: 'number',
             title: 'Average Finishes Per Player'
+        },
+        median_finishes_per_player: {
+            type: 'number',
+            title: 'Median Finishes Per Player'
+        },
+        pro_nub_ratio: {
+            type: 'number',
+            title: 'Pro Nub Ratio'
         },
         unique_pro_finishes: {
             type: 'integer',
@@ -209,7 +225,7 @@ export const MapLeaderboardEntryPublicSchema = {
         }
     },
     type: 'object',
-    required: ['map', 'unique_player_finishes', 'total_finishes', 'total_playtime', 'average_playtime_per_player', 'average_finishes_per_player', 'unique_pro_finishes', 'unique_nub_finishes'],
+    required: ['map', 'total_finishes', 'total_playtime', 'average_first_completion_time', 'median_first_completion_time', 'average_playtime_per_player', 'median_playtime_per_player', 'average_finishes_per_player', 'median_finishes_per_player', 'pro_nub_ratio', 'unique_pro_finishes', 'unique_nub_finishes'],
     title: 'MapLeaderboardEntryPublic'
 } as const;
 

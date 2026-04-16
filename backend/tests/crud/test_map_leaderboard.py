@@ -279,13 +279,120 @@ async def test_rebuild_map_leaderboards_aggregates_scope_metrics(
     row = await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT))
     assert rebuilt == 1
     assert row is not None
-    assert row.unique_player_finishes == 3
     assert row.total_finishes == 5
     assert row.total_playtime == pytest.approx(100.0)
+    assert row.average_first_completion_time == pytest.approx(19.667)
+    assert row.median_first_completion_time == pytest.approx(20.0)
     assert row.average_playtime_per_player == pytest.approx(33.333)
+    assert row.median_playtime_per_player == pytest.approx(20.0)
     assert row.average_finishes_per_player == pytest.approx(1.67)
+    assert row.median_finishes_per_player == pytest.approx(2.0)
+    assert row.pro_nub_ratio == pytest.approx(0.3333)
     assert row.unique_pro_finishes == 1
     assert row.unique_nub_finishes == 3
+
+
+async def test_rebuild_map_leaderboards_counts_nub_as_all_unique_finishers(
+    db: AsyncSession,
+) -> None:
+    map_id = 2_130_500_001
+    server_id = 2_130_500_002
+    await _create_map(db, map_id=map_id, name="kz_map_lb_nub", difficulty=5)
+    await _create_server(db, server_id=server_id)
+
+    player_pro_only = random_steamid64()
+    player_nub_only = random_steamid64()
+    for steamid64, name in (
+        (player_pro_only, "ProOnly"),
+        (player_nub_only, "NubOnly"),
+    ):
+        await _create_player(db, steamid64=steamid64, name=name)
+
+    await _upsert_record(
+        db,
+        record_id=2_130_510_001,
+        steamid64=player_pro_only,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_id,
+        stage=0,
+        teleports=0,
+        time_seconds="10.000",
+    )
+    await _upsert_record(
+        db,
+        record_id=2_130_510_002,
+        steamid64=player_nub_only,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_id,
+        stage=0,
+        teleports=5,
+        time_seconds="11.000",
+    )
+    await db.commit()
+
+    await db.exec(delete(MapLeaderboardCache))
+    await db.commit()
+
+    await crud.rebuild_map_leaderboards(
+        session=db,
+        scopes=[ModeScope.KZT],
+        map_ids=[map_id],
+    )
+    await db.commit()
+
+    row = await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT))
+    assert row is not None
+    assert row.unique_nub_finishes == 2
+    assert row.unique_pro_finishes == 1
+    assert row.unique_nub_finishes >= row.unique_pro_finishes
+
+
+async def test_rebuild_map_leaderboards_interpolates_even_player_medians(
+    db: AsyncSession,
+) -> None:
+    map_id = 2_130_600_001
+    server_id = 2_130_600_002
+    await _create_map(db, map_id=map_id, name="kz_map_lb_even", difficulty=5)
+    await _create_server(db, server_id=server_id)
+
+    players = [random_steamid64() for _ in range(4)]
+    for index, steamid64 in enumerate(players, start=1):
+        await _create_player(db, steamid64=steamid64, name=f"Even{index}")
+
+    record_id = 2_130_610_000
+    for finish_count, (steamid64, first_time) in enumerate(
+        zip(players, ("10.000", "20.000", "30.000", "40.000"), strict=True),
+        start=1,
+    ):
+        for offset in range(finish_count):
+            await _upsert_record(
+                db,
+                record_id=record_id,
+                steamid64=steamid64,
+                server_id=server_id,
+                mode_id=200,
+                map_id=map_id,
+                stage=0,
+                teleports=1,
+                time_seconds=str(Decimal(first_time) + Decimal(offset * 10)),
+            )
+            record_id += 1
+    await db.commit()
+
+    await crud.rebuild_map_leaderboards(
+        session=db,
+        scopes=[ModeScope.KZT],
+        map_ids=[map_id],
+    )
+    await db.commit()
+
+    row = await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT))
+    assert row is not None
+    assert row.median_first_completion_time == pytest.approx(25.0)
+    assert row.median_finishes_per_player == pytest.approx(2.5)
+    assert row.median_playtime_per_player == pytest.approx(45.0)
 
 
 async def test_read_map_leaderboard_includes_zero_rows_and_review_summaries(
@@ -352,13 +459,25 @@ async def test_read_map_leaderboard_includes_zero_rows_and_review_summaries(
     assert active_entry.review_summary.comments_count == 1
     assert active_entry.total_finishes == 1
     assert active_entry.total_playtime == pytest.approx(15.5)
+    assert active_entry.average_first_completion_time == pytest.approx(15.5)
+    assert active_entry.median_first_completion_time == pytest.approx(15.5)
+    assert active_entry.pro_nub_ratio == pytest.approx(0.0)
+    assert active_entry.unique_nub_finishes == 1
 
     empty_entry = payload.data[1]
     assert empty_entry.tier == 3
     assert empty_entry.review_summary is None
-    assert empty_entry.unique_player_finishes == 0
     assert empty_entry.total_finishes == 0
     assert empty_entry.total_playtime == 0
+    assert empty_entry.average_first_completion_time == 0
+    assert empty_entry.median_first_completion_time == 0
+    assert empty_entry.average_playtime_per_player == 0
+    assert empty_entry.median_playtime_per_player == 0
+    assert empty_entry.average_finishes_per_player == 0
+    assert empty_entry.median_finishes_per_player == 0
+    assert empty_entry.pro_nub_ratio == 0
+    assert empty_entry.unique_pro_finishes == 0
+    assert empty_entry.unique_nub_finishes == 0
     assert empty_entry.updated_at is None
 
 

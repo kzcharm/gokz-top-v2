@@ -186,15 +186,28 @@ async def test_read_map_leaderboard_returns_metrics_and_zero_rows(
     alpha_entry = payload["data"][0]
     assert alpha_entry["tier"] == 5
     assert alpha_entry["review_summary"]["comments_count"] == 1
-    assert alpha_entry["unique_player_finishes"] == 1
+    assert "unique_player_finishes" not in alpha_entry
     assert alpha_entry["total_finishes"] == 1
     assert alpha_entry["total_playtime"] == 12.0
+    assert alpha_entry["average_first_completion_time"] == 12.0
+    assert alpha_entry["median_first_completion_time"] == 12.0
+    assert alpha_entry["average_playtime_per_player"] == 12.0
+    assert alpha_entry["median_playtime_per_player"] == 12.0
+    assert alpha_entry["average_finishes_per_player"] == 1.0
+    assert alpha_entry["median_finishes_per_player"] == 1.0
+    assert alpha_entry["pro_nub_ratio"] == 0.0
+    assert alpha_entry["unique_nub_finishes"] == 1
 
     beta_entry = payload["data"][1]
     assert beta_entry["tier"] == 3
     assert beta_entry["review_summary"] is None
-    assert beta_entry["unique_player_finishes"] == 0
     assert beta_entry["total_finishes"] == 0
+    assert beta_entry["average_first_completion_time"] == 0
+    assert beta_entry["median_first_completion_time"] == 0
+    assert beta_entry["median_playtime_per_player"] == 0
+    assert beta_entry["median_finishes_per_player"] == 0
+    assert beta_entry["pro_nub_ratio"] == 0
+    assert beta_entry["unique_nub_finishes"] == 0
     assert beta_entry["updated_at"] is None
 
 
