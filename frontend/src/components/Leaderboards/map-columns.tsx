@@ -14,8 +14,13 @@ export type MapLeaderboardSortField =
   | "comments_count"
   | "total_finishes"
   | "total_playtime"
+  | "average_first_completion_time"
+  | "median_first_completion_time"
   | "average_playtime_per_player"
+  | "median_playtime_per_player"
   | "average_finishes_per_player"
+  | "median_finishes_per_player"
+  | "pro_nub_ratio"
   | "unique_pro_finishes"
   | "unique_nub_finishes"
 
@@ -186,6 +191,44 @@ function averagePlaytimeColumn(): ColumnDef<MapLeaderboardTableRow> {
   }
 }
 
+function timeMetricColumn(
+  accessorKey:
+    | "average_first_completion_time"
+    | "median_first_completion_time"
+    | "median_playtime_per_player",
+  title: string,
+): ColumnDef<MapLeaderboardTableRow> {
+  return {
+    accessorKey,
+    header: ({ column }) => (
+      <SortableHeader title={title} column={column} align="center" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex w-full justify-center font-medium tabular-nums">
+        {formatHoursMinutes(row.original[accessorKey])}
+      </div>
+    ),
+  }
+}
+
+function decimalMetricColumn(
+  accessorKey: "median_finishes_per_player" | "pro_nub_ratio",
+  title: string,
+  maximumFractionDigits: number,
+): ColumnDef<MapLeaderboardTableRow> {
+  return {
+    accessorKey,
+    header: ({ column }) => (
+      <SortableHeader title={title} column={column} align="center" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex w-full justify-center font-medium tabular-nums">
+        {formatDecimal(row.original[accessorKey], maximumFractionDigits)}
+      </div>
+    ),
+  }
+}
+
 export const mapLeaderboardColumns: ColumnDef<MapLeaderboardTableRow>[] = [
   {
     accessorKey: "name",
@@ -211,7 +254,10 @@ export const mapLeaderboardColumns: ColumnDef<MapLeaderboardTableRow>[] = [
   },
   integerMetricColumn("total_finishes", "Finishes"),
   totalPlaytimeColumn(),
+  timeMetricColumn("average_first_completion_time", "Avg 1st"),
+  timeMetricColumn("median_first_completion_time", "Med 1st"),
   averagePlaytimeColumn(),
+  timeMetricColumn("median_playtime_per_player", "Med Time"),
   {
     accessorKey: "average_finishes_per_player",
     header: ({ column }) => (
@@ -223,8 +269,10 @@ export const mapLeaderboardColumns: ColumnDef<MapLeaderboardTableRow>[] = [
       </div>
     ),
   },
+  decimalMetricColumn("median_finishes_per_player", "Med Finishes", 2),
   integerMetricColumn("unique_pro_finishes", "PRO"),
   integerMetricColumn("unique_nub_finishes", "NUB"),
+  decimalMetricColumn("pro_nub_ratio", "PRO/NUB", 4),
   ratingColumn(),
   {
     accessorKey: "comments_count",
