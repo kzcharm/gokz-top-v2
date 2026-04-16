@@ -29,11 +29,15 @@ export type MapLeaderboardEntryPublic = {
     map: MapRefPublic;
     tier?: (number | null);
     review_summary?: (MapReviewSummaryPublic | null);
-    unique_player_finishes: number;
     total_finishes: number;
     total_playtime: number;
+    average_first_completion_time: number;
+    median_first_completion_time: number;
     average_playtime_per_player: number;
+    median_playtime_per_player: number;
     average_finishes_per_player: number;
+    median_finishes_per_player: number;
+    pro_nub_ratio: number;
     unique_pro_finishes: number;
     unique_nub_finishes: number;
     updated_at?: (string | null);

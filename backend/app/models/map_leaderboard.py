@@ -26,11 +26,15 @@ class MapLeaderboardCache(SQLModel, table=True):
             nullable=False,
         )
     )
-    unique_player_finishes: int = Field(default=0, ge=0)
     total_finishes: int = Field(default=0, ge=0)
     total_playtime: float = Field(default=0, ge=0)
+    average_first_completion_time: float = Field(default=0, ge=0)
+    median_first_completion_time: float = Field(default=0, ge=0)
     average_playtime_per_player: float = Field(default=0, ge=0)
+    median_playtime_per_player: float = Field(default=0, ge=0)
     average_finishes_per_player: float = Field(default=0, ge=0)
+    median_finishes_per_player: float = Field(default=0, ge=0)
+    pro_nub_ratio: float = Field(default=0, ge=0)
     unique_pro_finishes: int = Field(default=0, ge=0)
     unique_nub_finishes: int = Field(default=0, ge=0)
     updated_at: datetime = Field(
@@ -43,11 +47,15 @@ class MapLeaderboardEntryPublic(SQLModel):
     map: MapRefPublic
     tier: int | None = None
     review_summary: MapReviewSummaryPublic | None = None
-    unique_player_finishes: int
     total_finishes: int
     total_playtime: float
+    average_first_completion_time: float
+    median_first_completion_time: float
     average_playtime_per_player: float
+    median_playtime_per_player: float
     average_finishes_per_player: float
+    median_finishes_per_player: float
+    pro_nub_ratio: float
     unique_pro_finishes: int
     unique_nub_finishes: int
     updated_at: datetime | None = None

@@ -79,70 +79,119 @@ async def _build_map_leaderboard_values_for_scope(
     map_ids: Sequence[int] | None,
 ) -> list[dict[str, object]]:
     now = get_datetime_utc()
-    statement = (
+    record_filters = [
+        col(Record.stage) == 0,
+        col(Record.is_valid).is_(True),
+        col(Record.mode_id).in_(list(MODE_SCOPE_MODE_IDS[mode_scope_to_id(scope)])),
+        not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
+    ]
+    if map_ids is not None:
+        record_filters.append(col(Record.map_id).in_(list(map_ids)))
+
+    per_player = (
         select(
-            Record.map_id,
-            func.count().label("total_finishes"),
-            func.count(func.distinct(Record.steamid64)).label("unique_player_finishes"),
-            func.coalesce(func.sum(Record.time), 0).label("total_playtime"),
-            func.count(
-                func.distinct(
-                    case((col(Record.teleports) == 0, col(Record.steamid64)), else_=None)
-                )
-            ).label("unique_pro_finishes"),
-            func.count(
-                func.distinct(
-                    case((col(Record.teleports) > 0, col(Record.steamid64)), else_=None)
-                )
-            ).label("unique_nub_finishes"),
+            Record.map_id.label("map_id"),
+            Record.steamid64.label("steamid64"),
+            func.count().label("player_finishes"),
+            func.coalesce(func.sum(Record.time), 0).label("player_playtime"),
+            func.min(Record.time).label("first_completion_time"),
+            func.bool_or(col(Record.teleports) == 0).label("has_pro_finish"),
         )
         .select_from(Record)
-        .where(
-            col(Record.stage) == 0,
-            col(Record.is_valid).is_(True),
-            col(Record.mode_id).in_(list(MODE_SCOPE_MODE_IDS[mode_scope_to_id(scope)])),
-            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
-        )
-        .group_by(Record.map_id)
-        .order_by(col(Record.map_id).asc())
+        .where(*record_filters)
+        .group_by(Record.map_id, Record.steamid64)
+        .subquery()
     )
-    if map_ids is not None:
-        statement = statement.where(col(Record.map_id).in_(list(map_ids)))
+
+    statement = (
+        select(
+            per_player.c.map_id,
+            func.count().label("unique_nub_finishes"),
+            func.coalesce(func.sum(per_player.c.player_finishes), 0).label("total_finishes"),
+            func.coalesce(func.sum(per_player.c.player_playtime), 0).label("total_playtime"),
+            func.avg(per_player.c.first_completion_time).label(
+                "average_first_completion_time"
+            ),
+            func.percentile_cont(0.5).within_group(
+                per_player.c.first_completion_time
+            ).label("median_first_completion_time"),
+            func.avg(per_player.c.player_playtime).label("average_playtime_per_player"),
+            func.percentile_cont(0.5).within_group(per_player.c.player_playtime).label(
+                "median_playtime_per_player"
+            ),
+            func.avg(per_player.c.player_finishes).label("average_finishes_per_player"),
+            func.percentile_cont(0.5).within_group(per_player.c.player_finishes).label(
+                "median_finishes_per_player"
+            ),
+            func.coalesce(
+                func.sum(
+                    case((per_player.c.has_pro_finish.is_(True), 1), else_=0)
+                ),
+                0,
+            ).label("unique_pro_finishes"),
+        )
+        .select_from(per_player)
+        .group_by(per_player.c.map_id)
+        .order_by(per_player.c.map_id.asc())
+    )
 
     rows = (await session.exec(statement)).all()
     values: list[dict[str, object]] = []
     for (
         map_id,
-        total_finishes,
-        unique_player_finishes,
-        total_playtime,
-        unique_pro_finishes,
         unique_nub_finishes,
+        total_finishes,
+        total_playtime,
+        average_first_completion_time,
+        median_first_completion_time,
+        average_playtime_per_player,
+        median_playtime_per_player,
+        average_finishes_per_player,
+        median_finishes_per_player,
+        unique_pro_finishes,
     ) in rows:
-        resolved_unique_player_finishes = int(unique_player_finishes or 0)
+        resolved_unique_nub_finishes = int(unique_nub_finishes or 0)
         resolved_total_finishes = int(total_finishes or 0)
         resolved_total_playtime = round(float(total_playtime or 0), 3)
-        average_playtime_per_player = (
-            round(resolved_total_playtime / resolved_unique_player_finishes, 3)
-            if resolved_unique_player_finishes > 0
-            else 0.0
+        resolved_average_first_completion_time = round(
+            float(average_first_completion_time or 0), 3
         )
-        average_finishes_per_player = (
-            round(resolved_total_finishes / resolved_unique_player_finishes, 2)
-            if resolved_unique_player_finishes > 0
+        resolved_median_first_completion_time = round(
+            float(median_first_completion_time or 0), 3
+        )
+        resolved_average_playtime_per_player = round(
+            float(average_playtime_per_player or 0), 3
+        )
+        resolved_median_playtime_per_player = round(
+            float(median_playtime_per_player or 0), 3
+        )
+        resolved_average_finishes_per_player = round(
+            float(average_finishes_per_player or 0), 2
+        )
+        resolved_median_finishes_per_player = round(
+            float(median_finishes_per_player or 0), 2
+        )
+        resolved_unique_pro_finishes = int(unique_pro_finishes or 0)
+        resolved_pro_nub_ratio = (
+            round(resolved_unique_pro_finishes / resolved_unique_nub_finishes, 4)
+            if resolved_unique_nub_finishes > 0
             else 0.0
         )
         values.append(
             {
                 "map_id": int(map_id),
                 "scope": scope,
-                "unique_player_finishes": resolved_unique_player_finishes,
                 "total_finishes": resolved_total_finishes,
                 "total_playtime": resolved_total_playtime,
-                "average_playtime_per_player": average_playtime_per_player,
-                "average_finishes_per_player": average_finishes_per_player,
-                "unique_pro_finishes": int(unique_pro_finishes or 0),
-                "unique_nub_finishes": int(unique_nub_finishes or 0),
+                "average_first_completion_time": resolved_average_first_completion_time,
+                "median_first_completion_time": resolved_median_first_completion_time,
+                "average_playtime_per_player": resolved_average_playtime_per_player,
+                "median_playtime_per_player": resolved_median_playtime_per_player,
+                "average_finishes_per_player": resolved_average_finishes_per_player,
+                "median_finishes_per_player": resolved_median_finishes_per_player,
+                "pro_nub_ratio": resolved_pro_nub_ratio,
+                "unique_pro_finishes": resolved_unique_pro_finishes,
+                "unique_nub_finishes": resolved_unique_nub_finishes,
                 "updated_at": now,
             }
         )
@@ -269,17 +318,27 @@ async def read_map_leaderboard(
                 map=MapRefPublic(id=map_obj.id, name=map_obj.name),
                 tier=tier,
                 review_summary=review_summaries_by_map_id.get(map_obj.id),
-                unique_player_finishes=(
-                    cache_row.unique_player_finishes if cache_row is not None else 0
-                ),
                 total_finishes=cache_row.total_finishes if cache_row is not None else 0,
                 total_playtime=cache_row.total_playtime if cache_row is not None else 0,
+                average_first_completion_time=(
+                    cache_row.average_first_completion_time if cache_row is not None else 0
+                ),
+                median_first_completion_time=(
+                    cache_row.median_first_completion_time if cache_row is not None else 0
+                ),
                 average_playtime_per_player=(
                     cache_row.average_playtime_per_player if cache_row is not None else 0
+                ),
+                median_playtime_per_player=(
+                    cache_row.median_playtime_per_player if cache_row is not None else 0
                 ),
                 average_finishes_per_player=(
                     cache_row.average_finishes_per_player if cache_row is not None else 0
                 ),
+                median_finishes_per_player=(
+                    cache_row.median_finishes_per_player if cache_row is not None else 0
+                ),
+                pro_nub_ratio=cache_row.pro_nub_ratio if cache_row is not None else 0,
                 unique_pro_finishes=(
                     cache_row.unique_pro_finishes if cache_row is not None else 0
                 ),
