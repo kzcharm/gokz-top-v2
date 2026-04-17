@@ -82,7 +82,7 @@ export function MapDisplay({
 
   return (
     <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-      <div className="relative">
+      <div className="relative" data-drag-scroll-ignore>
         <DropdownMenuTrigger asChild>
           <span
             aria-hidden="true"

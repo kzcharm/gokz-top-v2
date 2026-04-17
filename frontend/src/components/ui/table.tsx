@@ -1,10 +1,14 @@
 import * as React from "react"
 
+import { useHorizontalDragScroll } from "@/hooks/useHorizontalDragScroll"
 import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  const containerRef = useHorizontalDragScroll<HTMLDivElement>()
+
   return (
     <div
+      ref={containerRef}
       data-slot="table-container"
       className="relative w-full overflow-x-auto rounded-lg border"
     >

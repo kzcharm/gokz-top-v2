@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useHorizontalDragScroll } from "@/hooks/useHorizontalDragScroll"
 import { cn } from "@/lib/utils"
 import {
   formatNumber,
@@ -308,6 +309,7 @@ function ActivityCard({
   activityLoading: boolean
   activityStat: PlayerDailyActivityPublic | null
 }) {
+  const activityScrollRef = useHorizontalDragScroll<HTMLDivElement>()
   const allDays = activityStat?.days ?? []
   const availableYears = useMemo(() => {
     const years = Array.from(
@@ -391,7 +393,7 @@ function ActivityCard({
           </p>
         ) : null}
 
-        <div className="overflow-x-auto">
+        <div ref={activityScrollRef} className="overflow-x-auto">
           <div className="flex w-full justify-center">
             <div className="min-w-fit">
               <div
