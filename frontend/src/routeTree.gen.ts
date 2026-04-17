@@ -24,6 +24,11 @@ import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutProfileIdentifierRouteImport } from './routes/_layout/profile.$identifier'
+import { Route as LayoutLeaderboardsServersRouteImport } from './routes/_layout/leaderboards.servers'
+import { Route as LayoutLeaderboardsPowRouteImport } from './routes/_layout/leaderboards.pow'
+import { Route as LayoutLeaderboardsPlayersRouteImport } from './routes/_layout/leaderboards.players'
+import { Route as LayoutLeaderboardsMapsRouteImport } from './routes/_layout/leaderboards.maps'
+import { Route as LayoutLeaderboardsJumpstatsRouteImport } from './routes/_layout/leaderboards.jumpstats'
 import { Route as LayoutDashboardReviewsRouteImport } from './routes/_layout/dashboard.reviews'
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
@@ -107,6 +112,34 @@ const LayoutProfileIdentifierRoute = LayoutProfileIdentifierRouteImport.update({
   path: '/profile/$identifier',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutLeaderboardsServersRoute =
+  LayoutLeaderboardsServersRouteImport.update({
+    id: '/servers',
+    path: '/servers',
+    getParentRoute: () => LayoutLeaderboardsRoute,
+  } as any)
+const LayoutLeaderboardsPowRoute = LayoutLeaderboardsPowRouteImport.update({
+  id: '/pow',
+  path: '/pow',
+  getParentRoute: () => LayoutLeaderboardsRoute,
+} as any)
+const LayoutLeaderboardsPlayersRoute =
+  LayoutLeaderboardsPlayersRouteImport.update({
+    id: '/players',
+    path: '/players',
+    getParentRoute: () => LayoutLeaderboardsRoute,
+  } as any)
+const LayoutLeaderboardsMapsRoute = LayoutLeaderboardsMapsRouteImport.update({
+  id: '/maps',
+  path: '/maps',
+  getParentRoute: () => LayoutLeaderboardsRoute,
+} as any)
+const LayoutLeaderboardsJumpstatsRoute =
+  LayoutLeaderboardsJumpstatsRouteImport.update({
+    id: '/jumpstats',
+    path: '/jumpstats',
+    getParentRoute: () => LayoutLeaderboardsRoute,
+  } as any)
 const LayoutDashboardReviewsRoute = LayoutDashboardReviewsRouteImport.update({
   id: '/reviews',
   path: '/reviews',
@@ -160,7 +193,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof LayoutAdminRouteWithChildren
   '/bans': typeof LayoutBansRoute
   '/dashboard': typeof LayoutDashboardRouteWithChildren
-  '/leaderboards': typeof LayoutLeaderboardsRoute
+  '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -170,6 +203,11 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
+  '/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
+  '/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
+  '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
+  '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
+  '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
@@ -183,7 +221,7 @@ export interface FileRoutesByTo {
   '/admin': typeof LayoutAdminRouteWithChildren
   '/bans': typeof LayoutBansRoute
   '/dashboard': typeof LayoutDashboardRouteWithChildren
-  '/leaderboards': typeof LayoutLeaderboardsRoute
+  '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
   '/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -194,6 +232,11 @@ export interface FileRoutesByTo {
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
+  '/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
+  '/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
+  '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
+  '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
+  '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -208,7 +251,7 @@ export interface FileRoutesById {
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
   '/_layout/bans': typeof LayoutBansRoute
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
-  '/_layout/leaderboards': typeof LayoutLeaderboardsRoute
+  '/_layout/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/_layout/live': typeof LayoutLiveRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -219,6 +262,11 @@ export interface FileRoutesById {
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/_layout/dashboard/reviews': typeof LayoutDashboardReviewsRoute
+  '/_layout/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
+  '/_layout/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
+  '/_layout/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
+  '/_layout/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
+  '/_layout/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/_layout/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/_layout/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
@@ -245,6 +293,11 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/dashboard/records'
     | '/dashboard/reviews'
+    | '/leaderboards/jumpstats'
+    | '/leaderboards/maps'
+    | '/leaderboards/players'
+    | '/leaderboards/pow'
+    | '/leaderboards/servers'
     | '/profile/$identifier'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
@@ -269,6 +322,11 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/dashboard/records'
     | '/dashboard/reviews'
+    | '/leaderboards/jumpstats'
+    | '/leaderboards/maps'
+    | '/leaderboards/players'
+    | '/leaderboards/pow'
+    | '/leaderboards/servers'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -293,6 +351,11 @@ export interface FileRouteTypes {
     | '/_layout/admin/users'
     | '/_layout/dashboard/records'
     | '/_layout/dashboard/reviews'
+    | '/_layout/leaderboards/jumpstats'
+    | '/_layout/leaderboards/maps'
+    | '/_layout/leaderboards/players'
+    | '/_layout/leaderboards/pow'
+    | '/_layout/leaderboards/servers'
     | '/_layout/profile/$identifier'
     | '/_layout/profile/$identifier/records'
     | '/_layout/profile/$identifier/stats'
@@ -415,6 +478,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/leaderboards/servers': {
+      id: '/_layout/leaderboards/servers'
+      path: '/servers'
+      fullPath: '/leaderboards/servers'
+      preLoaderRoute: typeof LayoutLeaderboardsServersRouteImport
+      parentRoute: typeof LayoutLeaderboardsRoute
+    }
+    '/_layout/leaderboards/pow': {
+      id: '/_layout/leaderboards/pow'
+      path: '/pow'
+      fullPath: '/leaderboards/pow'
+      preLoaderRoute: typeof LayoutLeaderboardsPowRouteImport
+      parentRoute: typeof LayoutLeaderboardsRoute
+    }
+    '/_layout/leaderboards/players': {
+      id: '/_layout/leaderboards/players'
+      path: '/players'
+      fullPath: '/leaderboards/players'
+      preLoaderRoute: typeof LayoutLeaderboardsPlayersRouteImport
+      parentRoute: typeof LayoutLeaderboardsRoute
+    }
+    '/_layout/leaderboards/maps': {
+      id: '/_layout/leaderboards/maps'
+      path: '/maps'
+      fullPath: '/leaderboards/maps'
+      preLoaderRoute: typeof LayoutLeaderboardsMapsRouteImport
+      parentRoute: typeof LayoutLeaderboardsRoute
+    }
+    '/_layout/leaderboards/jumpstats': {
+      id: '/_layout/leaderboards/jumpstats'
+      path: '/jumpstats'
+      fullPath: '/leaderboards/jumpstats'
+      preLoaderRoute: typeof LayoutLeaderboardsJumpstatsRouteImport
+      parentRoute: typeof LayoutLeaderboardsRoute
+    }
     '/_layout/dashboard/reviews': {
       id: '/_layout/dashboard/reviews'
       path: '/reviews'
@@ -502,6 +600,25 @@ const LayoutDashboardRouteWithChildren = LayoutDashboardRoute._addFileChildren(
   LayoutDashboardRouteChildren,
 )
 
+interface LayoutLeaderboardsRouteChildren {
+  LayoutLeaderboardsJumpstatsRoute: typeof LayoutLeaderboardsJumpstatsRoute
+  LayoutLeaderboardsMapsRoute: typeof LayoutLeaderboardsMapsRoute
+  LayoutLeaderboardsPlayersRoute: typeof LayoutLeaderboardsPlayersRoute
+  LayoutLeaderboardsPowRoute: typeof LayoutLeaderboardsPowRoute
+  LayoutLeaderboardsServersRoute: typeof LayoutLeaderboardsServersRoute
+}
+
+const LayoutLeaderboardsRouteChildren: LayoutLeaderboardsRouteChildren = {
+  LayoutLeaderboardsJumpstatsRoute: LayoutLeaderboardsJumpstatsRoute,
+  LayoutLeaderboardsMapsRoute: LayoutLeaderboardsMapsRoute,
+  LayoutLeaderboardsPlayersRoute: LayoutLeaderboardsPlayersRoute,
+  LayoutLeaderboardsPowRoute: LayoutLeaderboardsPowRoute,
+  LayoutLeaderboardsServersRoute: LayoutLeaderboardsServersRoute,
+}
+
+const LayoutLeaderboardsRouteWithChildren =
+  LayoutLeaderboardsRoute._addFileChildren(LayoutLeaderboardsRouteChildren)
+
 interface LayoutProfileIdentifierRouteChildren {
   LayoutProfileIdentifierRecordsRoute: typeof LayoutProfileIdentifierRecordsRoute
   LayoutProfileIdentifierStatsRoute: typeof LayoutProfileIdentifierStatsRoute
@@ -527,7 +644,7 @@ interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutBansRoute: typeof LayoutBansRoute
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
-  LayoutLeaderboardsRoute: typeof LayoutLeaderboardsRoute
+  LayoutLeaderboardsRoute: typeof LayoutLeaderboardsRouteWithChildren
   LayoutLiveRoute: typeof LayoutLiveRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -538,7 +655,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
   LayoutBansRoute: LayoutBansRoute,
   LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
-  LayoutLeaderboardsRoute: LayoutLeaderboardsRoute,
+  LayoutLeaderboardsRoute: LayoutLeaderboardsRouteWithChildren,
   LayoutLiveRoute: LayoutLiveRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
