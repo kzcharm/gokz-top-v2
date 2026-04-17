@@ -175,11 +175,10 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       case "overall_avg":
       case "total_finishes":
       case "total_playtime":
+      case "average_playtime_per_player":
       case "average_first_completion_time":
       case "median_first_completion_time":
-      case "average_playtime_per_player":
       case "average_finishes_per_player":
-      case "median_finishes_per_player":
       case "pro_nub_ratio":
       case "unique_pro_finishes":
       case "unique_nub_finishes":

@@ -13,11 +13,10 @@ export type MapLeaderboardSortField =
   | "overall_avg"
   | "total_finishes"
   | "total_playtime"
+  | "average_playtime_per_player"
   | "average_first_completion_time"
   | "median_first_completion_time"
-  | "average_playtime_per_player"
   | "average_finishes_per_player"
-  | "median_finishes_per_player"
   | "pro_nub_ratio"
   | "unique_pro_finishes"
   | "unique_nub_finishes"
@@ -28,11 +27,22 @@ function formatInteger(value: number) {
   return new Intl.NumberFormat("en-US").format(value)
 }
 
-function formatDecimal(value: number, maximumFractionDigits = 2) {
+function formatDecimal(
+  value: number,
+  minimumFractionDigits = 0,
+  maximumFractionDigits = 2,
+) {
   return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
+    minimumFractionDigits,
     maximumFractionDigits,
   }).format(value)
+}
+
+function formatPercentage(value: number, maximumFractionDigits = 1) {
+  return `${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  }).format(value * 100)}%`
 }
 
 function formatHours(value: number) {
@@ -151,51 +161,9 @@ function OverallRatingStars({
   )
 }
 
-function ratingColumn(): ColumnDef<MapLeaderboardTableRow> {
-  return {
-    accessorKey: "overall_avg",
-    header: ({ column }) => (
-      <SortableHeader title="Rating" column={column} />
-    ),
-    cell: ({ row }) => (
-      <OverallRatingStars
-        overall={row.original.review_summary?.overall_avg ?? null}
-        reviewsCount={row.original.review_summary?.reviews_count ?? 0}
-      />
-    ),
-  }
-}
-
-function totalPlaytimeColumn(): ColumnDef<MapLeaderboardTableRow> {
-  return {
-    accessorKey: "total_playtime",
-    header: ({ column }) => (
-      <SortableHeader title="Play" column={column} align="center" />
-    ),
-    cell: ({ row }) => (
-      <div className="flex w-full justify-center font-medium tabular-nums">
-        {formatHours(row.original.total_playtime)}
-      </div>
-    ),
-  }
-}
-
-function averagePlaytimeColumn(): ColumnDef<MapLeaderboardTableRow> {
-  return {
-    accessorKey: "average_playtime_per_player",
-    header: ({ column }) => (
-      <SortableHeader title="Avg" column={column} align="center" />
-    ),
-    cell: ({ row }) => (
-      <div className="flex w-full justify-center font-medium tabular-nums">
-        {formatHoursMinutesSeconds(row.original.average_playtime_per_player)}
-      </div>
-    ),
-  }
-}
-
 function timeMetricColumn(
   accessorKey:
+    | "average_playtime_per_player"
     | "average_first_completion_time"
     | "median_first_completion_time",
   title: string,
@@ -214,7 +182,7 @@ function timeMetricColumn(
 }
 
 function decimalMetricColumn(
-  accessorKey: "median_finishes_per_player" | "pro_nub_ratio",
+  accessorKey: "pro_nub_ratio",
   title: string,
   maximumFractionDigits: number,
 ): ColumnDef<MapLeaderboardTableRow> {
@@ -225,7 +193,7 @@ function decimalMetricColumn(
     ),
     cell: ({ row }) => (
       <div className="flex w-full justify-center font-medium tabular-nums">
-        {formatDecimal(row.original[accessorKey], maximumFractionDigits)}
+        {formatPercentage(row.original[accessorKey], maximumFractionDigits)}
       </div>
     ),
   }
@@ -243,7 +211,6 @@ export const mapLeaderboardColumns: ColumnDef<MapLeaderboardTableRow>[] = [
       </div>
     ),
   },
-  ratingColumn(),
   {
     accessorKey: "tier",
     header: ({ column }) => (
@@ -255,9 +222,22 @@ export const mapLeaderboardColumns: ColumnDef<MapLeaderboardTableRow>[] = [
       </div>
     ),
   },
-  totalPlaytimeColumn(),
-  averagePlaytimeColumn(),
-  integerMetricColumn("total_finishes", "Fin"),
+  {
+    accessorKey: "total_playtime",
+    header: ({ column }) => (
+      <SortableHeader title="Playtime" column={column} align="center" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex w-full justify-center font-medium tabular-nums">
+        {formatHours(row.original.total_playtime)}
+      </div>
+    ),
+  },
+  timeMetricColumn("average_playtime_per_player", "Avg Playtime"),
+  integerMetricColumn("unique_nub_finishes", "NUB"),
+  integerMetricColumn("unique_pro_finishes", "PRO"),
+  decimalMetricColumn("pro_nub_ratio", "PRO Ratio", 1),
+  integerMetricColumn("total_finishes", "Finishes"),
   {
     accessorKey: "average_finishes_per_player",
     header: ({ column }) => (
@@ -265,14 +245,20 @@ export const mapLeaderboardColumns: ColumnDef<MapLeaderboardTableRow>[] = [
     ),
     cell: ({ row }) => (
       <div className="flex w-full justify-center font-medium tabular-nums">
-        {formatDecimal(row.original.average_finishes_per_player, 2)}
+        {formatDecimal(row.original.average_finishes_per_player, 2, 2)}
       </div>
     ),
   },
-  decimalMetricColumn("median_finishes_per_player", "Med Fin", 2),
   timeMetricColumn("average_first_completion_time", "1st Avg"),
   timeMetricColumn("median_first_completion_time", "1st Med"),
-  integerMetricColumn("unique_nub_finishes", "NUB"),
-  integerMetricColumn("unique_pro_finishes", "PRO"),
-  decimalMetricColumn("pro_nub_ratio", "P/N", 4),
+  {
+    accessorKey: "overall_avg",
+    header: ({ column }) => <SortableHeader title="Ratings" column={column} />,
+    cell: ({ row }) => (
+      <OverallRatingStars
+        overall={row.original.review_summary?.overall_avg ?? null}
+        reviewsCount={row.original.review_summary?.reviews_count ?? 0}
+      />
+    ),
+  },
 ]
