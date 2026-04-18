@@ -5,12 +5,14 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
+    KZMode,
     Map,
     MapTiers,
     ModeScope,
     RecordFilter,
-    mode_scope_mode_ids,
-    mode_scope_to_id,
+    RecordFilterCompatPublicV0,
+    legacy_mode_id_to_kz_mode,
+    mode_scope_modes,
 )
 
 
@@ -25,7 +27,7 @@ async def read_record_filters_v0(
     mode_ids: list[int] | None = None,
     tickrates: list[int] | None = None,
     has_teleports: bool | None = None,
-) -> list[RecordFilter]:
+) -> list[RecordFilterCompatPublicV0]:
     statement = select(RecordFilter)
 
     if ids:
@@ -35,14 +37,30 @@ async def read_record_filters_v0(
     if stages:
         statement = statement.where(col(RecordFilter.stage).in_(stages))
     if mode_ids:
-        statement = statement.where(col(RecordFilter.mode_id).in_(mode_ids))
+        statement = statement.where(
+            col(RecordFilter.mode).in_([legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids])
+        )
     if tickrates:
         statement = statement.where(col(RecordFilter.tickrate).in_(tickrates))
     if has_teleports is not None:
         statement = statement.where(col(RecordFilter.has_teleports) == has_teleports)
 
     statement = statement.order_by(col(RecordFilter.id).asc()).offset(offset).limit(limit)
-    return list((await session.exec(statement)).all())
+    rows = list((await session.exec(statement)).all())
+    return [
+        RecordFilterCompatPublicV0(
+            id=row.id,
+            map_id=row.map_id,
+            stage=row.stage,
+            mode_id=row.mode_id,
+            tickrate=row.tickrate,
+            has_teleports=row.has_teleports,
+            created_on=row.created_at,
+            updated_on=row.updated_at,
+            updated_by_id=row.updated_by_id,
+        )
+        for row in rows
+    ]
 
 
 async def record_filter_exists_for_course_mode(
@@ -58,7 +76,7 @@ async def record_filter_exists_for_course_mode(
         select(RecordFilter.id)
         .where(
             col(RecordFilter.stage) == stage,
-            col(RecordFilter.mode_id) == mode_id,
+            col(RecordFilter.mode) == legacy_mode_id_to_kz_mode(mode_id),
             col(RecordFilter.tickrate) == tickrate,
             col(RecordFilter.has_teleports) == has_teleports,
             or_(
@@ -106,9 +124,7 @@ async def load_scoped_course_tiers(
                 col(RecordFilter.map_id).in_(map_ids),
                 col(RecordFilter.stage).in_(stages),
                 col(RecordFilter.tickrate) == 128,
-                col(RecordFilter.mode_id).in_(
-                    list(mode_scope_mode_ids(mode_scope_to_id(scope)))
-                ),
+                col(RecordFilter.mode).in_(list(mode_scope_modes(scope))),
                 col(RecordFilter.tier).is_not(None),
             )
             .group_by(RecordFilter.map_id, RecordFilter.stage)
@@ -150,35 +166,35 @@ async def load_map_tiers_by_scope(
     ).all()
     fallback_difficulty_by_map_id = dict(map_rows)
 
-    ovr_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.OVR)))
-    kzt_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.KZT)))
-    skz_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.SKZ)))
-    vnl_mode_ids = list(mode_scope_mode_ids(mode_scope_to_id(ModeScope.VNL)))
+    ovr_modes = list(mode_scope_modes(ModeScope.OVR))
+    kzt_modes = list(mode_scope_modes(ModeScope.KZT))
+    skz_modes = list(mode_scope_modes(ModeScope.SKZ))
+    vnl_modes = list(mode_scope_modes(ModeScope.VNL))
 
-    all_mode_ids = sorted({*ovr_mode_ids, *kzt_mode_ids, *skz_mode_ids, *vnl_mode_ids})
+    all_modes: list[KZMode] = list(dict.fromkeys([*ovr_modes, *kzt_modes, *skz_modes, *vnl_modes]))
 
     scoped_tier_rows = (
         await session.exec(
             select(
                 RecordFilter.map_id,
                 func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode_id).in_(ovr_mode_ids))
+                .filter(col(RecordFilter.mode).in_(ovr_modes))
                 .label("ovr_tier"),
                 func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode_id).in_(kzt_mode_ids))
+                .filter(col(RecordFilter.mode).in_(kzt_modes))
                 .label("kzt_tier"),
                 func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode_id).in_(skz_mode_ids))
+                .filter(col(RecordFilter.mode).in_(skz_modes))
                 .label("skz_tier"),
                 func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode_id).in_(vnl_mode_ids))
+                .filter(col(RecordFilter.mode).in_(vnl_modes))
                 .label("vnl_tier"),
             )
             .where(
                 col(RecordFilter.map_id).in_(unique_map_ids),
                 col(RecordFilter.stage) == 0,
                 col(RecordFilter.tickrate) == 128,
-                col(RecordFilter.mode_id).in_(all_mode_ids),
+                col(RecordFilter.mode).in_(all_modes),
                 col(RecordFilter.tier).is_not(None),
             )
             .group_by(RecordFilter.map_id)

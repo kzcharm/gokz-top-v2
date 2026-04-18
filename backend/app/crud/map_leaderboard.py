@@ -14,11 +14,13 @@ from app.models import (
     MapLeaderboardsPublic,
     MapRefPublic,
     ModeScope,
-    ModeScopeId,
     Record,
     get_datetime_utc,
+    legacy_mode_id_to_kz_mode,
+    mode_scope_from_id,
+    mode_scope_modes,
+    mode_scope_to_id,
 )
-from app.models.record import MODE_SCOPE_MODE_IDS, mode_scope_to_id
 
 from .ban import not_active_ban_exists_clause
 from .map_review import load_map_review_summaries
@@ -33,9 +35,9 @@ def _normalize_scope_list(scopes: Iterable[ModeScope] | None) -> list[ModeScope]
 
 def _scope_ids_for_mode_id(mode_id: int) -> tuple[int, ...]:
     return tuple(
-        scope_id
-        for scope_id, mode_ids in MODE_SCOPE_MODE_IDS.items()
-        if mode_id in mode_ids
+        mode_scope_to_id(scope)
+        for scope in ModeScope
+        if legacy_mode_id_to_kz_mode(mode_id) in mode_scope_modes(scope)
     )
 
 
@@ -82,7 +84,7 @@ async def _build_map_leaderboard_values_for_scope(
     record_filters = [
         col(Record.stage) == 0,
         col(Record.is_valid).is_(True),
-        col(Record.mode_id).in_(list(MODE_SCOPE_MODE_IDS[mode_scope_to_id(scope)])),
+        col(Record.mode).in_(list(mode_scope_modes(scope))),
         not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
     ]
     if map_ids is not None:
@@ -242,7 +244,7 @@ async def rebuild_map_leaderboards_for_keys(
 
     map_ids_by_scope: dict[ModeScope, list[int]] = defaultdict(list)
     for map_id, scope_id in normalized_keys:
-        map_ids_by_scope[ModeScope[ModeScopeId(scope_id).name]].append(map_id)
+        map_ids_by_scope[mode_scope_from_id(scope_id)].append(map_id)
 
     processed = 0
     for scope, scope_map_ids in map_ids_by_scope.items():
@@ -263,20 +265,20 @@ async def load_changed_map_leaderboard_keys(
 ) -> list[tuple[int, int]]:
     rows = (
         await session.exec(
-            select(Record.map_id, Record.mode_id)
+            select(Record.map_id, Record.mode)
             .where(
                 col(Record.stage) == 0,
                 col(Record.updated_at) >= window_start,
                 col(Record.updated_at) < window_end,
             )
-            .order_by(col(Record.map_id).asc(), col(Record.mode_id).asc())
+            .order_by(col(Record.map_id).asc(), col(Record.mode).asc())
         )
     ).all()
     return sorted(
         {
             (map_id, scope_id)
-            for map_id, mode_id in rows
-            for scope_id in _scope_ids_for_mode_id(mode_id)
+            for map_id, mode in rows
+            for scope_id in _scope_ids_for_mode_id(mode.mode_id)
         }
     )
 

@@ -181,7 +181,6 @@ async def test_sync_canonical_modes_restores_canonical_keys(
     assert mode is not None
 
     mode.name = "drifted_mode_name"
-    mode.name_short = "DRFT"
     mode.id_plugin = 99
     mode.description = "Custom metadata survives sync"
     db.add(mode)

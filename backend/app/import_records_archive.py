@@ -24,6 +24,7 @@ from app.models import (
     Record,
     ServerGlobalapi,
     generate_uuid7,
+    legacy_mode_id_to_kz_mode,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -421,7 +422,7 @@ async def _upsert_records(*, session, rows: list[ImportedRecordRow]) -> tuple[in
             "id": row.id,
             "steamid64": row.steamid64,
             "server_id": row.server_id,
-            "mode_id": row.mode_id,
+            "mode": legacy_mode_id_to_kz_mode(row.mode_id),
             "map_id": row.map_id,
             "stage": row.stage,
             "time": row.time_seconds,
@@ -444,7 +445,7 @@ async def _upsert_records(*, session, rows: list[ImportedRecordRow]) -> tuple[in
                 set_={
                     "steamid64": insert_stmt.excluded.steamid64,
                     "server_id": insert_stmt.excluded.server_id,
-                    "mode_id": insert_stmt.excluded.mode_id,
+                    "mode": insert_stmt.excluded.mode,
                     "map_id": insert_stmt.excluded.map_id,
                     "stage": insert_stmt.excluded.stage,
                     "time": insert_stmt.excluded.time,

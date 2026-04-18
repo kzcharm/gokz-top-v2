@@ -30,6 +30,7 @@ async def _create_player(
     steamid64: int,
     name: str,
     alias: str | None = None,
+    custom_id: str | None = None,
     avatar_hash: str | None = None,
     country: str | None = None,
 ) -> Player:
@@ -39,6 +40,7 @@ async def _create_player(
         steamid64=steamid64,
         name=name,
         alias=alias,
+        custom_id=custom_id,
         avatar_hash=avatar_hash,
         country=country,
     )

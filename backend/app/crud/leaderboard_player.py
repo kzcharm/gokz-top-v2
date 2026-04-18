@@ -22,14 +22,15 @@ from app.models import (
     Map,
     MapCourse,
     ModeScope,
-    ModeScopeId,
     Player,
     PlayerLeaderboardEntryPublic,
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
     Record,
     RecordPb,
-    mode_scope_mode_ids,
+    legacy_mode_id_to_kz_mode,
+    mode_scope_from_id,
+    mode_scope_modes,
     mode_scope_to_id,
 )
 from app.models.leaderboard_player import LeaderboardPlayerSortBy
@@ -40,20 +41,11 @@ from .ban import not_active_ban_exists_split_clause
 ELIGIBLE_UNIQUE_MAP_FINISHES = 10
 DEFAULT_LOOKBACK = timedelta(hours=24)
 
-
-def _mode_scope_from_id(scope_id: int) -> ModeScope:
-    return ModeScope[ModeScopeId(scope_id).name]
-
-
 def _scope_ids_for_mode_id(mode_id: int) -> tuple[int, ...]:
-    scope_ids = (
-        mode_scope_to_id(ModeScope.OVR),
-        mode_scope_to_id(ModeScope.KZT),
-        mode_scope_to_id(ModeScope.SKZ),
-        mode_scope_to_id(ModeScope.VNL),
-    )
     return tuple(
-        scope_id for scope_id in scope_ids if mode_id in mode_scope_mode_ids(scope_id)
+        mode_scope_to_id(scope)
+        for scope in ModeScope
+        if legacy_mode_id_to_kz_mode(mode_id) in mode_scope_modes(scope)
     )
 
 
@@ -218,7 +210,7 @@ async def rebuild_leaderboard_player_counts(
     for scope_id in sorted(set(scope_ids)):
         action = await rebuild_leaderboard_player_count(
             session=session,
-            scope=_mode_scope_from_id(scope_id),
+            scope=mode_scope_from_id(scope_id),
         )
         if action == "created":
             created += 1
@@ -266,7 +258,7 @@ async def _load_player_pb_rows(
                 .join(MapCourse, col(RecordPb.course_id) == col(MapCourse.id))
                 .join(Map, col(MapCourse.map_id) == col(Map.id))
                 .where(
-                    col(RecordPb.scope) == scope_id,
+                    col(RecordPb.scope) == mode_scope_from_id(scope_id),
                     col(RecordPb.steamid64) == steamid64,
                     col(MapCourse.stage) == 0,
                     col(Map.validated).is_(True),
@@ -341,7 +333,7 @@ async def rebuild_leaderboard_player(
     scope_id: int,
     steamid64: int,
 ) -> Literal["created", "updated", "deleted", "noop"]:
-    scope = _mode_scope_from_id(scope_id)
+    scope = mode_scope_from_id(scope_id)
     existing = await session.get(LeaderboardPlayer, (scope, steamid64))
     if await _player_has_active_ban(session=session, steamid64=steamid64):
         if existing is None:
@@ -464,10 +456,12 @@ async def load_leaderboard_player_keys(
         col(LeaderboardPlayer.scope), col(LeaderboardPlayer.steamid64)
     )
     if scope_ids:
-        source_statement = source_statement.where(col(RecordPb.scope).in_(list(scope_ids)))
+        source_statement = source_statement.where(
+            col(RecordPb.scope).in_([mode_scope_from_id(scope_id) for scope_id in scope_ids])
+        )
         existing_statement = existing_statement.where(
             col(LeaderboardPlayer.scope).in_(
-                [_mode_scope_from_id(scope_id) for scope_id in scope_ids]
+                [mode_scope_from_id(scope_id) for scope_id in scope_ids]
             )
         )
     if steamid64s:
@@ -478,7 +472,10 @@ async def load_leaderboard_player_keys(
             col(LeaderboardPlayer.steamid64).in_(list(steamid64s))
         )
 
-    source_keys = set((await session.exec(source_statement.distinct())).all())
+    source_keys = {
+        (mode_scope_to_id(scope), steamid64)
+        for scope, steamid64 in (await session.exec(source_statement.distinct())).all()
+    }
     existing_keys = {
         (mode_scope_to_id(scope), steamid64)
         for scope, steamid64 in (await session.exec(existing_statement.distinct())).all()
@@ -492,7 +489,7 @@ async def load_leaderboard_player_keys(
     if scope_ids:
         prioritized_existing_statement = prioritized_existing_statement.where(
             col(LeaderboardPlayer.scope).in_(
-                [_mode_scope_from_id(scope_id) for scope_id in scope_ids]
+                [mode_scope_from_id(scope_id) for scope_id in scope_ids]
             )
         )
     if steamid64s:
@@ -540,19 +537,20 @@ async def load_changed_leaderboard_player_keys(
     session: AsyncSession,
     window_start: datetime,
 ) -> list[tuple[int, int]]:
-    record_pb_keys = set(
-        (
+    record_pb_keys = {
+        (mode_scope_to_id(scope), steamid64)
+        for scope, steamid64 in (
             await session.exec(
                 select(RecordPb.scope, RecordPb.steamid64)
                 .where(col(RecordPb.updated_at) >= window_start)
                 .distinct()
             )
         ).all()
-    )
+    }
 
     changed_record_rows = (
         await session.exec(
-            select(Record.steamid64, Record.mode_id)
+            select(Record.steamid64, Record.mode)
             .where(
                 or_(
                     col(Record.created_at) >= window_start,
@@ -564,8 +562,8 @@ async def load_changed_leaderboard_player_keys(
     ).all()
     record_keys = {
         (scope_id, steamid64)
-        for steamid64, mode_id in changed_record_rows
-        for scope_id in _scope_ids_for_mode_id(mode_id)
+        for steamid64, mode in changed_record_rows
+        for scope_id in _scope_ids_for_mode_id(mode.mode_id)
     }
     return sorted(record_pb_keys | record_keys)
 

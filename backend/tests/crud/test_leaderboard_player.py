@@ -497,7 +497,9 @@ async def test_load_leaderboard_player_keys_filters_source_keys_to_eligible_unba
         scope_ids=[scope_id],
     )
 
-    assert keys == [
-        (scope_id, eligible_player),
-        (scope_id, stale_existing_player),
-    ]
+    assert keys == sorted(
+        [
+            (scope_id, eligible_player),
+            (scope_id, stale_existing_player),
+        ]
+    )

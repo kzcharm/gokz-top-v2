@@ -160,14 +160,14 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
 
     point_buckets = sorted(
         {
-            (course_id, scope_id, RecordType.PRO if is_pro_only else RecordType.NUB)
-            for course_id, scope_id, is_pro_only, _steamid64 in rows
+            (course_id, scope.scope_id, RecordType.PRO if is_pro_only else RecordType.NUB)
+            for course_id, scope, is_pro_only, _steamid64 in rows
         }
     )
     leaderboard_keys = sorted(
         {
-            (scope_id, steamid64)
-            for _course_id, scope_id, _is_pro_only, steamid64 in rows
+            (scope.scope_id, steamid64)
+            for _course_id, scope, _is_pro_only, steamid64 in rows
         }
     )
     steamid64s = sorted(

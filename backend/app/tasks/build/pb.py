@@ -8,27 +8,27 @@ from sqlalchemy import text
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import ModeScopeId
+from app.models import ModeScope
 
 logger = logging.getLogger(__name__)
 
 
 SCOPE_MODE_VALUES_SQL = """
     VALUES
-        (0, 200),
-        (0, 201),
-        (0, 202),
-        (0, 203),
-        (1, 200),
-        (1, 203),
-        (2, 201),
-        (3, 202)
+        ('OVR'::mode_scope, 'KZT'::kz_mode),
+        ('OVR'::mode_scope, 'SKZ'::kz_mode),
+        ('OVR'::mode_scope, 'VNL'::kz_mode),
+        ('OVR'::mode_scope, 'NKZ'::kz_mode),
+        ('KZT'::mode_scope, 'KZT'::kz_mode),
+        ('KZT'::mode_scope, 'NKZ'::kz_mode),
+        ('SKZ'::mode_scope, 'SKZ'::kz_mode),
+        ('VNL'::mode_scope, 'VNL'::kz_mode)
 """
 
 
 @dataclass(frozen=True, slots=True)
 class RecordPbBucket:
-    scope: int
+    scope: ModeScope
     course_id: int
     map_id: int
     stage: int
@@ -38,7 +38,7 @@ class RecordPbBucket:
 
     @property
     def scope_name(self) -> str:
-        return ModeScopeId(self.scope).name
+        return self.scope.value
 
     @property
     def category_name(self) -> str:
@@ -110,7 +110,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
             await session.execute(
                 text(
                     f"""
-                    WITH scope_modes(scope, mode_id) AS (
+                    WITH scope_modes(scope, mode) AS (
                         {SCOPE_MODE_VALUES_SQL}
                     ),
                     expected_counts AS (
@@ -126,7 +126,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         JOIN map
                             ON map.id = map_course.map_id
                         JOIN scope_modes
-                            ON scope_modes.mode_id = record.mode_id
+                            ON scope_modes.mode = record.mode
                         WHERE record.is_valid = true
                             AND map.validated = true
                         GROUP BY scope_modes.scope, map_course.id
@@ -145,7 +145,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         JOIN map
                             ON map.id = map_course.map_id
                         JOIN scope_modes
-                            ON scope_modes.mode_id = record.mode_id
+                            ON scope_modes.mode = record.mode
                         WHERE record.is_valid = true
                             AND map.validated = true
                             AND record.teleports = 0

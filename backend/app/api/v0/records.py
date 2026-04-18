@@ -8,7 +8,6 @@ from app.api.deps import SessionDep
 from app.models import (
     CANONICAL_MODE_SEEDS,
     Map,
-    Mode,
     Player,
     RecentRecordCompatPublicV0,
     Record,
@@ -65,7 +64,7 @@ async def _to_record_compat_public_v0(
     player = await session.get(Player, record.steamid64)
     server = await session.get(ServerGlobalapi, record.server_id)
     map_obj = await session.get(Map, record.map_id)
-    mode = await session.get(Mode, record.mode_id)
+    mode = await crud.get_mode_by_short_name(session=session, short_name=record.mode)
     if player is None or server is None or map_obj is None or mode is None:
         raise HTTPException(status_code=500, detail="Record relations are inconsistent")
     return crud.to_record_compat_public_v0(

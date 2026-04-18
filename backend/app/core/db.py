@@ -4,7 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import User
+from app.models import Player, User
 
 database_uri = str(settings.SQLALCHEMY_DATABASE_URI)
 
@@ -32,6 +32,16 @@ def init_db(session: Session) -> None:
     # SQLModel.metadata.create_all(engine)
 
     crud.sync_canonical_modes_sync(session=session)
+
+    player_statement = select(Player).where(Player.steamid64 == settings.SUPER_USER_STEAMID64)
+    if not session.exec(player_statement).first():
+        session.add(
+            Player(
+                steamid64=settings.SUPER_USER_STEAMID64,
+                name=str(settings.SUPER_USER_STEAMID64),
+            )
+        )
+        session.commit()
 
     statement = select(User).where(User.steamid64 == settings.SUPER_USER_STEAMID64)
     if session.exec(statement).first():

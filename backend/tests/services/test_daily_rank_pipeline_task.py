@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.models import (
     Map,
+    ModeScopeId,
     Player,
     Record,
     RecordPb,
@@ -154,21 +155,22 @@ async def test_load_daily_rank_selection_uses_previous_utc_day_window(
     record_rows = (await db.exec(select(Record))).all()
     record_pbs = (await db.exec(select(RecordPb))).all()
     assert len(record_rows) == 3
-    assert len(record_pbs) == 3
-    record_pbs_by_steamid64 = {record_pb.steamid64: record_pb for record_pb in record_pbs}
+    assert len(record_pbs) == 8
+    record_pbs_by_steamid64 = {
+        steamid64: [record_pb for record_pb in record_pbs if record_pb.steamid64 == steamid64]
+        for steamid64 in (lower_bound_player, middle_player, upper_bound_player)
+    }
     records_by_steamid64 = {record.steamid64: record for record in record_rows}
 
     # Selection must follow the linked record creation time, not record_pb.updated_at.
-    record_pbs_by_steamid64[lower_bound_player].updated_at = datetime(
-        2099, 4, 4, 6, 0, tzinfo=UTC
-    )
-    record_pbs_by_steamid64[middle_player].updated_at = datetime(
-        2099, 4, 2, 23, 59, tzinfo=UTC
-    )
-    record_pbs_by_steamid64[upper_bound_player].updated_at = datetime(
-        2099, 4, 3, 18, 0, tzinfo=UTC
-    )
-    for record_pb in record_pbs_by_steamid64.values():
+    for record_pb in record_pbs_by_steamid64[lower_bound_player]:
+        record_pb.updated_at = datetime(2099, 4, 4, 6, 0, tzinfo=UTC)
+        db.add(record_pb)
+    for record_pb in record_pbs_by_steamid64[middle_player]:
+        record_pb.updated_at = datetime(2099, 4, 2, 23, 59, tzinfo=UTC)
+        db.add(record_pb)
+    for record_pb in record_pbs_by_steamid64[upper_bound_player]:
+        record_pb.updated_at = datetime(2099, 4, 3, 18, 0, tzinfo=UTC)
         db.add(record_pb)
     await db.commit()
 
@@ -178,23 +180,23 @@ async def test_load_daily_rank_selection_uses_previous_utc_day_window(
 
     assert selection.window_start == datetime(2099, 4, 3, 0, 0, tzinfo=UTC)
     assert selection.window_end == datetime(2099, 4, 4, 0, 0, tzinfo=UTC)
-    assert selection.pb_row_count == 2
+    assert selection.pb_row_count == 6
+    lower_course_id = record_pbs_by_steamid64[lower_bound_player][0].course_id
+    middle_course_id = record_pbs_by_steamid64[middle_player][0].course_id
     assert selection.point_buckets == [
-        (
-            record_pbs_by_steamid64[lower_bound_player].course_id,
-            record_pbs_by_steamid64[lower_bound_player].scope,
-            RecordType.NUB,
-        ),
-        (
-            record_pbs_by_steamid64[middle_player].course_id,
-            record_pbs_by_steamid64[middle_player].scope,
-            RecordType.PRO,
-        ),
+        (lower_course_id, int(ModeScopeId.OVR), RecordType.NUB),
+        (lower_course_id, int(ModeScopeId.KZT), RecordType.NUB),
+        (middle_course_id, int(ModeScopeId.OVR), RecordType.NUB),
+        (middle_course_id, int(ModeScopeId.OVR), RecordType.PRO),
+        (middle_course_id, int(ModeScopeId.KZT), RecordType.NUB),
+        (middle_course_id, int(ModeScopeId.KZT), RecordType.PRO),
     ]
     assert selection.leaderboard_keys == sorted(
         [
-            (record_pbs_by_steamid64[lower_bound_player].scope, lower_bound_player),
-            (record_pbs_by_steamid64[middle_player].scope, middle_player),
+            (int(ModeScopeId.OVR), lower_bound_player),
+            (int(ModeScopeId.KZT), lower_bound_player),
+            (int(ModeScopeId.OVR), middle_player),
+            (int(ModeScopeId.KZT), middle_player),
         ]
     )
     assert selection.map_leaderboard_keys == [
@@ -252,15 +254,16 @@ async def test_load_daily_rank_selection_ignores_record_pb_updated_at_window_mis
     )
 
     record_pbs = (await db.exec(select(RecordPb))).all()
-    assert len(record_pbs) == 2
-    record_pbs_by_steamid64 = {record_pb.steamid64: record_pb for record_pb in record_pbs}
-    record_pbs_by_steamid64[excluded_player].updated_at = datetime(
-        2099, 4, 3, 8, 0, tzinfo=UTC
-    )
-    record_pbs_by_steamid64[included_player].updated_at = datetime(
-        2099, 4, 2, 22, 0, tzinfo=UTC
-    )
-    for record_pb in record_pbs_by_steamid64.values():
+    assert len(record_pbs) == 6
+    record_pbs_by_steamid64 = {
+        steamid64: [record_pb for record_pb in record_pbs if record_pb.steamid64 == steamid64]
+        for steamid64 in (excluded_player, included_player)
+    }
+    for record_pb in record_pbs_by_steamid64[excluded_player]:
+        record_pb.updated_at = datetime(2099, 4, 3, 8, 0, tzinfo=UTC)
+        db.add(record_pb)
+    for record_pb in record_pbs_by_steamid64[included_player]:
+        record_pb.updated_at = datetime(2099, 4, 2, 22, 0, tzinfo=UTC)
         db.add(record_pb)
     await db.commit()
 
@@ -270,21 +273,19 @@ async def test_load_daily_rank_selection_ignores_record_pb_updated_at_window_mis
 
     assert selection.window_start == datetime(2099, 4, 3, 0, 0, tzinfo=UTC)
     assert selection.window_end == datetime(2099, 4, 4, 0, 0, tzinfo=UTC)
-    assert selection.pb_row_count == 1
+    assert selection.pb_row_count == 4
+    included_course_id = record_pbs_by_steamid64[included_player][0].course_id
     assert selection.point_buckets == [
-        (
-            record_pbs_by_steamid64[included_player].course_id,
-            record_pbs_by_steamid64[included_player].scope,
-            RecordType.PRO,
-        )
+        (included_course_id, int(ModeScopeId.OVR), RecordType.NUB),
+        (included_course_id, int(ModeScopeId.OVR), RecordType.PRO),
+        (included_course_id, int(ModeScopeId.KZT), RecordType.NUB),
+        (included_course_id, int(ModeScopeId.KZT), RecordType.PRO),
     ]
     assert selection.leaderboard_keys == [
-        (record_pbs_by_steamid64[included_player].scope, included_player)
+        (int(ModeScopeId.OVR), included_player),
+        (int(ModeScopeId.KZT), included_player),
     ]
-    assert selection.map_leaderboard_keys == [
-        (map_id, 0),
-        (map_id, 1),
-    ]
+    assert selection.map_leaderboard_keys == []
     assert selection.steamid64s == [included_player]
 
 

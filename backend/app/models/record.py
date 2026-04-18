@@ -4,15 +4,18 @@ from decimal import ROUND_HALF_UP, Decimal
 from enum import IntEnum, StrEnum
 from typing import Literal
 
+from pydantic import model_validator
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    Column,
     DateTime,
+    ForeignKey,
     Index,
     Numeric,
-    SmallInteger,
     text,
 )
+from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
@@ -32,6 +35,21 @@ class ModeScope(StrEnum):
     SKZ = "SKZ"
     VNL = "VNL"
 
+    @property
+    def scope_id(self) -> int:
+        return MODE_SCOPE_ID_BY_SCOPE[self]
+
+
+class KZMode(StrEnum):
+    KZT = "KZT"
+    SKZ = "SKZ"
+    VNL = "VNL"
+    NKZ = "NKZ"
+
+    @property
+    def mode_id(self) -> int:
+        return LEGACY_MODE_ID_BY_KZ_MODE[self]
+
 
 class RecordType(StrEnum):
     NUB = "NUB"
@@ -49,6 +67,17 @@ class ModeScopeId(IntEnum):
     VNL = 3
 
 
+LEGACY_MODE_ID_BY_KZ_MODE: dict[KZMode, int] = {
+    KZMode.KZT: 200,
+    KZMode.SKZ: 201,
+    KZMode.VNL: 202,
+    KZMode.NKZ: 203,
+}
+
+KZ_MODE_BY_LEGACY_MODE_ID: dict[int, KZMode] = {
+    legacy_id: mode for mode, legacy_id in LEGACY_MODE_ID_BY_KZ_MODE.items()
+}
+
 MODE_SCOPE_ID_BY_SCOPE: dict[ModeScope, int] = {
     ModeScope.OVR: ModeScopeId.OVR,
     ModeScope.KZT: ModeScopeId.KZT,
@@ -56,11 +85,11 @@ MODE_SCOPE_ID_BY_SCOPE: dict[ModeScope, int] = {
     ModeScope.VNL: ModeScopeId.VNL,
 }
 
-MODE_SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
-    ModeScopeId.OVR: (200, 201, 202, 203),
-    ModeScopeId.KZT: (200, 203),
-    ModeScopeId.SKZ: (201,),
-    ModeScopeId.VNL: (202,),
+MODE_SCOPE_MODES: dict[ModeScope, tuple[KZMode, ...]] = {
+    ModeScope.OVR: (KZMode.KZT, KZMode.SKZ, KZMode.VNL, KZMode.NKZ),
+    ModeScope.KZT: (KZMode.KZT, KZMode.NKZ),
+    ModeScope.SKZ: (KZMode.SKZ,),
+    ModeScope.VNL: (KZMode.VNL,),
 }
 
 
@@ -68,8 +97,67 @@ def mode_scope_to_id(scope: ModeScope) -> int:
     return int(MODE_SCOPE_ID_BY_SCOPE[scope])
 
 
+def mode_scope_from_id(scope_id: ModeScope | int) -> ModeScope:
+    if isinstance(scope_id, ModeScope):
+        return scope_id
+    return ModeScope[ModeScopeId(scope_id).name]
+
+
+def legacy_mode_id_to_kz_mode(mode_id: int) -> KZMode:
+    return KZ_MODE_BY_LEGACY_MODE_ID[mode_id]
+
+
+def kz_mode_to_legacy_mode_id(mode: KZMode) -> int:
+    return LEGACY_MODE_ID_BY_KZ_MODE[mode]
+
+
+def mode_scope_modes(scope: ModeScope) -> tuple[KZMode, ...]:
+    return MODE_SCOPE_MODES[scope]
+
+
 def mode_scope_mode_ids(scope_id: int) -> tuple[int, ...]:
-    return MODE_SCOPE_MODE_IDS[scope_id]
+    return tuple(
+        kz_mode_to_legacy_mode_id(mode)
+        for mode in mode_scope_modes(mode_scope_from_id(scope_id))
+    )
+
+
+MODE_SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
+    mode_scope_to_id(scope): mode_scope_mode_ids(mode_scope_to_id(scope))
+    for scope in ModeScope
+}
+
+
+def _normalize_record_payload(data: dict[str, object]) -> dict[str, object]:
+    payload = dict(data)
+    if "mode" not in payload and "mode_id" in payload:
+        payload["mode"] = normalize_kz_mode(payload.pop("mode_id"))
+    elif "mode" in payload:
+        payload["mode"] = normalize_kz_mode(payload["mode"])
+    return payload
+
+
+def _normalize_record_pb_payload(data: dict[str, object]) -> dict[str, object]:
+    payload = dict(data)
+    if "scope" in payload:
+        payload["scope"] = normalize_mode_scope(payload["scope"])
+    return payload
+
+
+def normalize_kz_mode(value: KZMode | str | int) -> KZMode:
+    if isinstance(value, KZMode):
+        return value
+    if isinstance(value, int):
+        return legacy_mode_id_to_kz_mode(value)
+    return KZMode(value)
+
+
+def normalize_mode_scope(value: ModeScope | str | int) -> ModeScope:
+    if isinstance(value, ModeScope):
+        return value
+    if isinstance(value, int):
+        return mode_scope_from_id(value)
+    return ModeScope(value)
 
 
 def seconds_to_time_ms(value: Decimal | float | int | str) -> int:
@@ -109,9 +197,12 @@ class RecordBase(LegacyDatetimeNamesMixin):
         foreign_key="server_globalapi.id",
         nullable=False,
     )
-    mode_id: int = Field(
-        foreign_key="mode.id",
-        nullable=False,
+    mode: KZMode = Field(
+        sa_column=Column(
+            SqlEnum(KZMode, name="kz_mode"),
+            ForeignKey("mode.name_short"),
+            nullable=False,
+        )
     )
     map_id: int = Field(
         foreign_key="map.id",
@@ -140,6 +231,20 @@ class RecordBase(LegacyDatetimeNamesMixin):
     replay_id: int | None = Field(default=None)
     is_valid: bool = True
 
+    def __init__(self, /, **data: object) -> None:
+        super().__init__(**_normalize_record_payload(data))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_mode_id_input(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        return _normalize_record_payload(data)
+
+    @property
+    def mode_id(self) -> int:
+        return kz_mode_to_legacy_mode_id(self.mode)
+
 
 class Record(RecordBase, table=True):
     __table_args__ = (
@@ -158,7 +263,7 @@ class Record(RecordBase, table=True):
             "stage",
             "steamid64",
             "time",
-            "mode_id",
+            "mode",
             postgresql_where=text("is_valid = true AND teleports = 0"),
         ),
         Index(
@@ -167,7 +272,7 @@ class Record(RecordBase, table=True):
             "stage",
             "steamid64",
             "time",
-            "mode_id",
+            "mode",
             postgresql_where=text("is_valid = true AND teleports > 0"),
         ),
         Index(
@@ -176,14 +281,14 @@ class Record(RecordBase, table=True):
             "stage",
             "steamid64",
             "time",
-            "mode_id",
+            "mode",
             postgresql_where=text("is_valid = true"),
         ),
         Index(
             "ix_record_valid_map_stage_mode_player_time",
             "map_id",
             "stage",
-            "mode_id",
+            "mode",
             "steamid64",
             "time",
             "id",
@@ -194,7 +299,7 @@ class Record(RecordBase, table=True):
             "ix_record_valid_pro_map_stage_mode_player_time",
             "map_id",
             "stage",
-            "mode_id",
+            "mode",
             "steamid64",
             "time",
             "id",
@@ -207,7 +312,7 @@ class Record(RecordBase, table=True):
             "map_id",
             "stage",
             "time",
-            "mode_id",
+            "mode",
             postgresql_where=text("is_valid = true AND teleports = 0"),
         ),
         Index(
@@ -216,7 +321,7 @@ class Record(RecordBase, table=True):
             "map_id",
             "stage",
             "time",
-            "mode_id",
+            "mode",
             postgresql_where=text("is_valid = true AND teleports > 0"),
         ),
         Index(
@@ -225,13 +330,13 @@ class Record(RecordBase, table=True):
             "map_id",
             "stage",
             "time",
-            "mode_id",
+            "mode",
             postgresql_where=text("is_valid = true"),
         ),
         Index(
             "ix_record_valid_player_mode_map_stage_time",
             "steamid64",
-            "mode_id",
+            "mode",
             "map_id",
             "stage",
             "time",
@@ -242,7 +347,7 @@ class Record(RecordBase, table=True):
         Index(
             "ix_record_valid_pro_player_mode_map_stage_time",
             "steamid64",
-            "mode_id",
+            "mode",
             "map_id",
             "stage",
             "time",
@@ -282,7 +387,13 @@ class Record(RecordBase, table=True):
 
 
 class RecordPbBase(LegacyDatetimeNamesMixin):
-    scope: int = Field(sa_type=SmallInteger, primary_key=True)
+    scope: ModeScope = Field(
+        sa_column=Column(
+            SqlEnum(ModeScope, name="mode_scope"),
+            primary_key=True,
+            nullable=False,
+        )
+    )
     course_id: int = Field(foreign_key="map_course.id", primary_key=True)
     steamid64: int = Field(
         foreign_key="player.steamid64",
@@ -303,6 +414,20 @@ class RecordPbBase(LegacyDatetimeNamesMixin):
         validation_alias="updated_on",
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
+
+    def __init__(self, /, **data: object) -> None:
+        super().__init__(**_normalize_record_pb_payload(data))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_scope_input(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        return _normalize_record_pb_payload(data)
+
+    @property
+    def scope_id(self) -> int:
+        return mode_scope_to_id(self.scope)
 
 
 class RecordPb(RecordPbBase, table=True):
@@ -465,6 +590,7 @@ class RecentRecordListQuery(SQLModel):
     limit: int = Field(default=50, ge=1, le=10000)
     scope: ModeScope = ModeScope.OVR
     points_more_or_equal_than: int | None = Field(default=None, ge=0, le=1000)
+    type: RecordType | None = None
     is_pro_only: bool | None = None
 
 
