@@ -117,8 +117,8 @@ def upgrade() -> None:
         ["steamid64"],
         ["steamid64"],
     )
-    op.drop_column("ban", "steam_id")
-    op.drop_column("ban", "player_name")
+    op.execute("ALTER TABLE ban DROP COLUMN IF EXISTS steam_id")
+    op.execute("ALTER TABLE ban DROP COLUMN IF EXISTS player_name")
 
 
 def downgrade() -> None:

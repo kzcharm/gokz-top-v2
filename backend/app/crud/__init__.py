@@ -45,6 +45,7 @@ from .map_review import (
 from .mode import (
     get_mode_by_id,
     get_mode_by_name,
+    get_mode_by_short_name,
     read_modes,
     sync_canonical_modes,
     sync_canonical_modes_sync,
@@ -198,6 +199,7 @@ __all__ = [
     "read_map_leaderboard",
     "get_mode_by_id",
     "get_mode_by_name",
+    "get_mode_by_short_name",
     "get_or_create_user_from_steam",
     "get_pb_records",
     "get_recent_record_public_by_uuid",

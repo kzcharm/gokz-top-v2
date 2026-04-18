@@ -459,7 +459,7 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
         await db.exec(
             select(RecordPb).where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope == 0,
+                RecordPb.scope == ModeScope.OVR,
                 RecordPb.is_pro_only.is_(False),
             )
         )
@@ -484,7 +484,7 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
             select(RecordPb)
             .where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope == 0,
+                RecordPb.scope == ModeScope.OVR,
                 RecordPb.is_pro_only.is_(False),
             )
             .order_by(RecordPb.time_ms.asc())
@@ -539,7 +539,7 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
         await db.exec(
             select(RecordPb).where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope.in_([0, 1]),
+                RecordPb.scope.in_([ModeScope.OVR, ModeScope.KZT]),
             )
         )
     ).all()
@@ -563,7 +563,7 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
             select(RecordPb)
             .where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope.in_([0, 1]),
+                RecordPb.scope.in_([ModeScope.OVR, ModeScope.KZT]),
             )
             .order_by(
                 RecordPb.scope.asc(),
@@ -616,7 +616,7 @@ async def test_record_pb_updated_at_uses_record_created_at_for_new_rows_and_now_
         await db.exec(
             select(RecordPb).where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope == 0,
+                RecordPb.scope == ModeScope.OVR,
                 RecordPb.steamid64 == player_id,
                 RecordPb.is_pro_only.is_(False),
             )
@@ -644,7 +644,7 @@ async def test_record_pb_updated_at_uses_record_created_at_for_new_rows_and_now_
         await db.exec(
             select(RecordPb).where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope == 0,
+                RecordPb.scope == ModeScope.OVR,
                 RecordPb.steamid64 == player_id,
                 RecordPb.is_pro_only.is_(False),
             )
@@ -846,7 +846,7 @@ async def test_read_map_wrs_uses_record_pb_main_course_rows(
     await db.exec(
         delete(RecordPb).where(
             RecordPb.course_id == main_course.id,
-            RecordPb.scope == 0,
+            RecordPb.scope == ModeScope.OVR,
         )
     )
     await db.commit()

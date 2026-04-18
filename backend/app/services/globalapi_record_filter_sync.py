@@ -9,7 +9,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import GlobalApiSyncResult, RecordFilter
+from app.models import GlobalApiSyncResult, RecordFilter, legacy_mode_id_to_kz_mode
 
 RECORD_FILTER_DATETIME_FALLBACK = "2018-07-10T21:02:51"
 _RECORD_FILTER_DATETIME_FALLBACK_VALUE = datetime.fromisoformat(
@@ -78,7 +78,7 @@ def _record_filter_values_from_globalapi(payload: dict[str, Any]) -> dict[str, A
         "id": record_filter_id,
         "map_id": map_id,
         "stage": _parse_int(payload.get("stage", 0), default=0),
-        "mode_id": mode_id,
+        "mode": legacy_mode_id_to_kz_mode(mode_id),
         "tickrate": tickrate,
         "has_teleports": _parse_bool(payload.get("has_teleports"), default=False),
         "created_at": _normalize_datetime(payload.get("created_on")),
@@ -197,7 +197,7 @@ async def sync_record_filters_from_globalapi(
                     set_={
                         "map_id": insert_statement.excluded.map_id,
                         "stage": insert_statement.excluded.stage,
-                        "mode_id": insert_statement.excluded.mode_id,
+                        "mode": insert_statement.excluded.mode,
                         "tickrate": insert_statement.excluded.tickrate,
                         "has_teleports": insert_statement.excluded.has_teleports,
                         "created_at": insert_statement.excluded.created_at,

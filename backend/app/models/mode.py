@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime
+from sqlalchemy import BigInteger, Column, DateTime
+from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
+from .record import KZMode
 from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
 
@@ -11,7 +13,7 @@ from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 class CanonicalModeSeed:
     id: int
     name: str
-    name_short: str
+    name_short: KZMode
     id_plugin: int
     description: str
     latest_version: int
@@ -26,7 +28,7 @@ CANONICAL_MODE_SEEDS: tuple[CanonicalModeSeed, ...] = (
     CanonicalModeSeed(
         id=200,
         name="kz_timer",
-        name_short="KZT",
+        name_short=KZMode.KZT,
         id_plugin=2,
         description="KZTimerGlobal mode.  Bunch of jumps and bhops and stuff.",
         latest_version=2171,
@@ -39,7 +41,7 @@ CANONICAL_MODE_SEEDS: tuple[CanonicalModeSeed, ...] = (
     CanonicalModeSeed(
         id=201,
         name="kz_simple",
-        name_short="SKZ",
+        name_short=KZMode.SKZ,
         id_plugin=1,
         description="SimpleKZ mode. RNG? We don't need no stinkin RNG.",
         latest_version=211,
@@ -52,7 +54,7 @@ CANONICAL_MODE_SEEDS: tuple[CanonicalModeSeed, ...] = (
     CanonicalModeSeed(
         id=202,
         name="kz_vanilla",
-        name_short="VNL",
+        name_short=KZMode.VNL,
         id_plugin=0,
         description="Vanilla mode. We need RNG.",
         latest_version=171,
@@ -65,7 +67,7 @@ CANONICAL_MODE_SEEDS: tuple[CanonicalModeSeed, ...] = (
     CanonicalModeSeed(
         id=203,
         name="kz_noperfkz",
-        name_short="NKZ",
+        name_short=KZMode.NKZ,
         id_plugin=3,
         description="NoPerfKZ mode. We don't need no stinkin RNG",
         latest_version=171,
@@ -80,7 +82,13 @@ CANONICAL_MODE_SEEDS: tuple[CanonicalModeSeed, ...] = (
 
 class ModeBase(LegacyDatetimeNamesMixin):
     name: str = Field(max_length=255, sa_column_kwargs={"unique": True})
-    name_short: str = Field(max_length=16, sa_column_kwargs={"unique": True})
+    name_short: KZMode = Field(
+        sa_column=Column(
+            SqlEnum(KZMode, name="kz_mode"),
+            unique=True,
+            nullable=False,
+        )
+    )
     id_plugin: int = Field(sa_column_kwargs={"unique": True})
     description: str = Field(max_length=1023)
     latest_version: int = Field(default=0, ge=0)
@@ -108,7 +116,7 @@ class Mode(ModeBase, table=True):
 class ModePublic(SQLModel):
     id: int
     name: str
-    name_short: str
+    name_short: KZMode
     id_plugin: int
     description: str
     latest_version: int

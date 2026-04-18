@@ -9,7 +9,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
-from .record import ModeScope
+from .record import ModeScope, normalize_mode_scope
 from .region import GeographyFilterMixin
 from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
@@ -194,6 +194,12 @@ class LeaderboardPlayerBase(LegacyDatetimeNamesMixin):
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
+    def __init__(self, /, **data: object) -> None:
+        payload = dict(data)
+        if "scope" in payload:
+            payload["scope"] = normalize_mode_scope(payload["scope"])
+        super().__init__(**payload)
+
 
 class LeaderboardPlayer(LeaderboardPlayerBase, table=True):
     __tablename__ = "leaderboard_player"
@@ -279,6 +285,12 @@ class LeaderboardPlayerCount(LegacyDatetimeNamesMixin, table=True):
         validation_alias="updated_on",
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+
+    def __init__(self, /, **data: object) -> None:
+        payload = dict(data)
+        if "scope" in payload:
+            payload["scope"] = normalize_mode_scope(payload["scope"])
+        super().__init__(**payload)
 
 
 class PlayerLeaderboardEntryPublic(SQLModel):

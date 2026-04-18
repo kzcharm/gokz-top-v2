@@ -26,7 +26,6 @@ from app.models import (
     Player,
     RecordPb,
     get_datetime_utc,
-    mode_scope_to_id,
 )
 from app.services.language_detection import detect_language_code
 
@@ -178,7 +177,7 @@ async def has_finished_map_for_review(
         .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
         .where(
             col(RecordPb.steamid64) == steamid64,
-            col(RecordPb.scope) == mode_scope_to_id(ModeScope.OVR),
+            col(RecordPb.scope) == ModeScope.OVR,
             col(MapCourse.map_id) == map_id,
             col(MapCourse.stage) == 0,
         )

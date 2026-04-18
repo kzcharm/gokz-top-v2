@@ -5,6 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
     CANONICAL_MODE_SEEDS,
+    KZMode,
     Mode,
     ModeAdminUpdate,
     ModeCompatPublicV0,
@@ -119,6 +120,11 @@ async def get_mode_by_id(*, session: AsyncSession, id: int) -> Mode | None:
 
 async def get_mode_by_name(*, session: AsyncSession, mode_name: str) -> Mode | None:
     statement = select(Mode).where(Mode.name == mode_name)
+    return (await session.exec(statement)).first()
+
+
+async def get_mode_by_short_name(*, session: AsyncSession, short_name: KZMode) -> Mode | None:
+    statement = select(Mode).where(Mode.name_short == short_name)
     return (await session.exec(statement)).first()
 
 
