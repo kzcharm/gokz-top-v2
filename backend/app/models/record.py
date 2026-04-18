@@ -402,7 +402,6 @@ class RecordPbBase(LegacyDatetimeNamesMixin):
     )
     is_pro_only: bool = Field(primary_key=True)
     record_uuid: uuid.UUID = Field(foreign_key="record.uuid", nullable=False)
-    time_ms: int = Field(sa_type=BigInteger)
     points: int = Field(
         default=1,
         ge=1,
@@ -437,20 +436,19 @@ class RecordPb(RecordPbBase, table=True):
             "points >= 1 AND points <= 1000", name="ck_record_pb_points_range"
         ),
         Index(
-            "ix_record_pb_scope_course_pro_time_uuid",
+            "ix_record_pb_scope_course_pro_record_uuid",
             "scope",
             "course_id",
             "is_pro_only",
-            "time_ms",
             "record_uuid",
         ),
         Index(
-            "ix_record_pb_player_scope_pro_course_time",
+            "ix_record_pb_player_scope_pro_course_record_uuid",
             "steamid64",
             "scope",
             "is_pro_only",
             "course_id",
-            "time_ms",
+            "record_uuid",
         ),
         Index(
             "ix_record_pb_record_uuid_scope_pro",

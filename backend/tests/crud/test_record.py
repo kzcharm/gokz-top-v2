@@ -482,12 +482,13 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     refreshed_rows = (
         await db.exec(
             select(RecordPb)
+            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.OVR,
                 RecordPb.is_pro_only.is_(False),
             )
-            .order_by(RecordPb.time_ms.asc())
+            .order_by(Record.time.asc(), Record.uuid.asc())
         )
     ).all()
     assert updated_rows == 2
@@ -561,6 +562,7 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
     refreshed_rows = (
         await db.exec(
             select(RecordPb)
+            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 RecordPb.course_id == course.id,
                 RecordPb.scope.in_([ModeScope.OVR, ModeScope.KZT]),
@@ -568,7 +570,8 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
             .order_by(
                 RecordPb.scope.asc(),
                 RecordPb.is_pro_only.asc(),
-                RecordPb.time_ms.asc(),
+                Record.time.asc(),
+                Record.uuid.asc(),
             )
         )
     ).all()
@@ -654,6 +657,127 @@ async def test_record_pb_updated_at_uses_record_created_at_for_new_rows_and_now_
     assert refreshed_pb.record_uuid == second_record.uuid
     assert refreshed_pb.record_uuid != first_record.uuid
     assert refreshed_pb.updated_at == next_updated_on
+
+
+async def test_record_pb_updated_at_and_points_refresh_when_record_time_changes_in_place(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _create_player(db, steamid64=first_player, name="First Runner")
+    await _create_player(db, steamid64=second_player, name="Second Runner")
+    await _create_map(db, id=981026, name="kz_pb_time_edit", difficulty=4)
+    await _create_server(db, id=981126, name="PB Time Edit Server")
+
+    first_record = await _create_record(
+        db,
+        id=981326,
+        steamid64=first_player,
+        map_id=981026,
+        server_id=981126,
+        mode_id=200,
+        stage=0,
+        time="10.000",
+        teleports=1,
+    )
+    second_record = await _create_record(
+        db,
+        id=981327,
+        steamid64=second_player,
+        map_id=981026,
+        server_id=981126,
+        mode_id=200,
+        stage=0,
+        time="12.000",
+        teleports=1,
+    )
+
+    baseline_points = await crud.load_scoped_points_by_record_uuid(
+        session=db,
+        record_uuids=[first_record.uuid, second_record.uuid],
+        scope=ModeScope.OVR,
+    )
+    assert baseline_points[first_record.uuid] == 1000
+    assert baseline_points[second_record.uuid] > 1
+
+    course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == 981026, MapCourse.stage == 0)
+        )
+    ).one()
+    initial_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == ModeScope.OVR,
+                RecordPb.steamid64 == second_player,
+                RecordPb.is_pro_only.is_(False),
+            )
+        )
+    ).one()
+    original_updated_at = initial_pb.updated_at
+
+    edited_updated_at = datetime(2026, 3, 3, tzinfo=UTC)
+    monkeypatch.setattr(crud.record, "get_datetime_utc", lambda: edited_updated_at)
+    edited_record, created, updated = await crud.upsert_record(
+        session=db,
+        record_id=981327,
+        record_uuid=None,
+        steamid64=second_player,
+        server_id=981126,
+        mode_id=200,
+        map_id=981026,
+        stage=0,
+        time_seconds=Decimal("9.500"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_on=edited_updated_at,
+        updated_by=second_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    assert created is False
+    assert updated is True
+    assert edited_record.uuid == second_record.uuid
+
+    refreshed_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == ModeScope.OVR,
+                RecordPb.steamid64 == second_player,
+                RecordPb.is_pro_only.is_(False),
+            )
+        )
+    ).one()
+    assert refreshed_pb.record_uuid == second_record.uuid
+    assert refreshed_pb.updated_at == edited_updated_at
+    assert refreshed_pb.updated_at != original_updated_at
+
+    points_by_uuid = await crud.load_scoped_points_by_record_uuid(
+        session=db,
+        record_uuids=[first_record.uuid, second_record.uuid],
+        scope=ModeScope.OVR,
+    )
+    assert points_by_uuid[second_record.uuid] == 1000
+    assert points_by_uuid[first_record.uuid] > 1
+
+    ordered_records = await crud.get_pb_records(
+        db,
+        map_id=981026,
+        stage=0,
+        steamid64=None,
+        scope=ModeScope.OVR,
+        record_type=RecordType.NUB,
+    )
+    assert [record.uuid for record in ordered_records] == [
+        second_record.uuid,
+        first_record.uuid,
+    ]
 
 
 async def test_upsert_record_sets_estimated_points_for_new_pb_rows(
@@ -863,6 +987,48 @@ async def test_read_map_wrs_uses_record_pb_main_course_rows(
 async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
     db: AsyncSession,
 ) -> None:
+    record_pb_course_record_uuid_index = (
+        await db.exec(
+            text(
+                """
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = 'record_pb'
+                  AND indexname = 'ix_record_pb_scope_course_pro_record_uuid'
+                """
+            )
+        )
+    ).one()
+    assert (
+        "INDEX ix_record_pb_scope_course_pro_record_uuid"
+        in record_pb_course_record_uuid_index[0]
+    )
+    assert "(scope, course_id, is_pro_only, record_uuid)" in (
+        record_pb_course_record_uuid_index[0]
+    )
+
+    record_pb_player_record_uuid_index = (
+        await db.exec(
+            text(
+                """
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = 'record_pb'
+                  AND indexname = 'ix_record_pb_player_scope_pro_course_record_uuid'
+                """
+            )
+        )
+    ).one()
+    assert (
+        "INDEX ix_record_pb_player_scope_pro_course_record_uuid"
+        in record_pb_player_record_uuid_index[0]
+    )
+    assert "(steamid64, scope, is_pro_only, course_id, record_uuid)" in (
+        record_pb_player_record_uuid_index[0]
+    )
+
     record_pb_index = (
         await db.exec(
             text(
@@ -894,6 +1060,16 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
     ).one()
     assert "INDEX ix_record_pb_updated_at_desc" in record_pb_updated_at_index[0]
     assert "updated_at DESC" in record_pb_updated_at_index[0]
+    assert (
+        await db.exec(
+            text(
+                """
+                SELECT to_regclass('public.ix_record_pb_scope_course_pro_time_uuid'),
+                       to_regclass('public.ix_record_pb_player_scope_pro_course_time')
+                """
+            )
+        )
+    ).one() == (None, None)
     assert (
         await db.exec(text("SELECT to_regclass('cache.map_wrs')"))
     ).one() == (None,)
