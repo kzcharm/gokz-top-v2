@@ -1,7 +1,5 @@
-import logging
 from datetime import UTC, datetime
 from decimal import Decimal
-from io import StringIO
 from typing import Any
 
 import httpx
@@ -220,6 +218,44 @@ async def test_sync_records_from_globalapi_uses_stored_cursor_over_local_max(
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
     assert state.cursor == 777
+
+
+async def test_sync_records_from_globalapi_disables_httpx_env_proxy_by_default(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _set_records_cursor(db, 998100)
+    client_kwargs: list[dict[str, Any]] = []
+
+    class _FakeClient:
+        def __init__(self, *_: object, **kwargs: Any) -> None:
+            client_kwargs.append(kwargs)
+
+        async def __aenter__(self) -> _FakeClient:
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+
+    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client, record_id
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync.httpx, "AsyncClient", _FakeClient)
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+
+    await record_sync.sync_records_from_globalapi(session=db)
+
+    assert client_kwargs == [
+        {
+            "timeout": record_sync.settings.GLOBALAPI_TIMEOUT_SECONDS,
+            "trust_env": False,
+        }
+    ]
 
 
 async def test_sync_records_from_globalapi_creates_dependencies_points_and_uuid_time(
@@ -808,23 +844,30 @@ async def test_sync_records_from_globalapi_emits_debug_logs_for_synced_records(
     monkeypatch.setattr(record_sync.crud, "notify_recent_record_updated", _fake_notify)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
-    logger = logging.getLogger("app.services.globalapi_record_sync")
-    previous_level = logger.level
-    stream = StringIO()
-    handler = logging.StreamHandler(stream)
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
-    try:
-        await record_sync.sync_records_from_globalapi(session=db)
-    finally:
-        logger.removeHandler(handler)
-        handler.close()
-        logger.setLevel(previous_level)
+    debug_messages: list[str] = []
+    info_messages: list[str] = []
 
-    output = stream.getvalue()
-    assert f"Fetching GlobalAPI record record_id={record_id}" in output
-    assert f"Synced GlobalAPI record record_id={record_id} action=created" in output
+    def _capture_debug(message: str, *args: object, **kwargs: object) -> None:
+        del kwargs
+        debug_messages.append(message % args if args else message)
+
+    def _capture_info(message: str, *args: object, **kwargs: object) -> None:
+        del kwargs
+        info_messages.append(message % args if args else message)
+
+    monkeypatch.setattr(record_sync.logger, "debug", _capture_debug)
+    monkeypatch.setattr(record_sync.logger, "info", _capture_info)
+
+    await record_sync.sync_records_from_globalapi(session=db)
+
+    assert f"Fetching GlobalAPI record record_id={record_id}" in debug_messages
+    assert any(
+        message.startswith(
+            f"Synced GlobalAPI record record_id={record_id} action=created"
+        )
+        for message in debug_messages
+    )
     assert (
         f"Finished GlobalAPI records sync at cursor={record_id + 1} processed=1 created=1 updated=0 errors=0 warnings=0"
-        in output
+        in info_messages
     )
