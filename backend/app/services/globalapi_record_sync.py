@@ -472,7 +472,10 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
         max_record_id,
     )
 
-    async with httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS) as client:
+    async with httpx.AsyncClient(
+        timeout=settings.GLOBALAPI_TIMEOUT_SECONDS,
+        trust_env=settings.GLOBALAPI_HTTPX_TRUST_ENV,
+    ) as client:
         while True:
             logger.debug("Fetching GlobalAPI record record_id=%s", cursor)
             fetch_result = await _fetch_record_with_retry(client=client, record_id=cursor)

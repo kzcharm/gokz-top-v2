@@ -27,6 +27,7 @@ class GlobalApiSyncTask:
     run: Callable[..., Awaitable[GlobalApiSyncResult]]
     schedule_hour_utc: int | None = None
     startup_stale_after_seconds: int | None = None
+    failure_retry_after_seconds: int = settings.GLOBALAPI_SYNC_FAILURE_RETRY_SECONDS
 
 
 GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
@@ -82,6 +83,15 @@ async def _task_is_stale(
 ) -> bool:
     state = await session.get(GlobalApiSyncState, task.task_name)
     now = get_datetime_utc()
+
+    if (
+        state is not None
+        and state.last_error
+        and state.last_completed_at is not None
+        and now - state.last_completed_at
+        < timedelta(seconds=task.failure_retry_after_seconds)
+    ):
+        return False
 
     if startup and task.startup_stale_after_seconds is not None:
         if state is None or state.last_successful_at is None:

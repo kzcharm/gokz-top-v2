@@ -223,6 +223,64 @@ async def test_run_globalapi_sync_tasks_honors_per_task_staleness(
     assert set(results) == {"records"}
 
 
+async def test_run_globalapi_sync_tasks_backs_off_recent_failed_tasks(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    task_name = "records_retry_backoff"
+    now = datetime(2026, 4, 23, 8, 0, tzinfo=UTC)
+    calls = 0
+
+    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == task_name))
+    await db.commit()
+    db.add(
+        GlobalApiSyncState(
+            task_name=task_name,
+            last_completed_at=now,
+            last_error="Failed to fetch record 27230021 from GlobalAPI",
+        )
+    )
+    await db.commit()
+
+    async def _records(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal calls
+        del session
+        calls += 1
+        return GlobalApiSyncResult(processed=1, created=1, updated=0, errors=0)
+
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (
+            globalapi_sync.GlobalApiSyncTask(
+                task_name,
+                0,
+                _records,
+                failure_retry_after_seconds=60,
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(
+        globalapi_sync,
+        "get_datetime_utc",
+        lambda: datetime(2026, 4, 23, 8, 0, 59, tzinfo=UTC),
+    )
+    assert await globalapi_sync.run_globalapi_sync_tasks(only_stale=True) == {}
+    assert calls == 0
+
+    monkeypatch.setattr(
+        globalapi_sync,
+        "get_datetime_utc",
+        lambda: datetime(2026, 4, 23, 8, 1, tzinfo=UTC),
+    )
+    results = await globalapi_sync.run_globalapi_sync_tasks(only_stale=True)
+
+    assert calls == 1
+    assert set(results) == {task_name}
+
+
 async def test_run_globalapi_sync_tasks_records_state_for_record_filters(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
