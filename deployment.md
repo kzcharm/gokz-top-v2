@@ -3,6 +3,7 @@
 You can deploy the project using Docker Compose to a remote server.
 
 This project expects you to have a Traefik proxy handling communication to the outside world and HTTPS certificates.
+The provided Traefik config uses Let's Encrypt with a Cloudflare DNS challenge so Cloudflare proxying can stay enabled.
 
 You can use CI/CD (continuous integration and continuous deployment) systems to deploy automatically, there are already configurations to do it with GitHub Actions.
 
@@ -14,6 +15,7 @@ But you have to configure a couple things first. 🤓
 * Configure the DNS records of your domain to point to the IP of the server you just created.
 * Configure a wildcard subdomain for your domain, so that you can have multiple subdomains for different services, e.g. `*.fastapi-project.example.com`. This will be useful for accessing different components, like `dashboard.fastapi-project.example.com`, `api.fastapi-project.example.com`, `traefik.fastapi-project.example.com`, `adminer.fastapi-project.example.com`, etc. And also for `staging`, like `dashboard.staging.fastapi-project.example.com`, `adminer.staging.fastapi-project.example.com`, etc.
 * Install and configure [Docker](https://docs.docker.com/engine/install/) on the remote server (Docker Engine, not Docker Desktop).
+* If your DNS is hosted on Cloudflare and you want to keep the proxy enabled, create a Cloudflare API token for the target zone with `Zone / Zone / Read` and `Zone / DNS / Edit` permissions. Traefik will use it for ACME DNS-01 validation.
 
 ## Public Traefik
 
@@ -89,6 +91,14 @@ export EMAIL=admin@example.com
 
 **Note**: you need to set a different email, an email `@example.com` won't work.
 
+* Create an environment variable with your Cloudflare DNS API token:
+
+```bash
+export CF_DNS_API_TOKEN=your-cloudflare-dns-token
+```
+
+Use a token scoped to the target zone with `Zone / Zone / Read` and `Zone / DNS / Edit` instead of a global API key.
+
 ### Start the Traefik Docker Compose
 
 Go to the directory where you copied the Traefik Docker Compose file in your remote server:
@@ -102,6 +112,8 @@ Now with the environment variables set and the `compose.traefik.yml` in place, y
 ```bash
 docker compose -f compose.traefik.yml up -d
 ```
+
+This Traefik configuration now solves Let's Encrypt challenges through Cloudflare DNS, so proxied `api.*`, `dashboard.*`, and related records can remain orange-cloud enabled.
 
 ## Deploy the FastAPI Project
 
