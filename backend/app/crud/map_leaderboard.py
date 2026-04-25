@@ -33,6 +33,10 @@ def _normalize_scope_list(scopes: Iterable[ModeScope] | None) -> list[ModeScope]
     return list(dict.fromkeys(scopes))
 
 
+def _normalize_map_ids(map_ids: Sequence[int]) -> list[int]:
+    return [map_id for map_id in dict.fromkeys(map_ids) if map_id > 0]
+
+
 def _scope_ids_for_mode_id(mode_id: int) -> tuple[int, ...]:
     return tuple(
         mode_scope_to_id(scope)
@@ -68,9 +72,13 @@ async def _load_target_map_ids(
     map_ids: Sequence[int] | None,
 ) -> list[int]:
     if map_ids is not None:
-        return list(dict.fromkeys(map_ids))
+        return _normalize_map_ids(map_ids)
 
-    rows = (await session.exec(select(Map.id).order_by(col(Map.id).asc()))).all()
+    rows = (
+        await session.exec(
+            select(Map.id).where(col(Map.id) > 0).order_by(col(Map.id).asc())
+        )
+    ).all()
     return [map_id for map_id in rows]
 
 
@@ -238,7 +246,9 @@ async def rebuild_map_leaderboards_for_keys(
     session: AsyncSession,
     keys: Sequence[tuple[int, int]],
 ) -> int:
-    normalized_keys = list(dict.fromkeys(keys))
+    normalized_keys = list(
+        dict.fromkeys((map_id, scope_id) for map_id, scope_id in keys if map_id > 0)
+    )
     if not normalized_keys:
         return 0
 
@@ -268,6 +278,7 @@ async def load_changed_map_leaderboard_keys(
             select(Record.map_id, Record.mode)
             .where(
                 col(Record.stage) == 0,
+                col(Record.map_id) > 0,
                 col(Record.updated_at) >= window_start,
                 col(Record.updated_at) < window_end,
             )

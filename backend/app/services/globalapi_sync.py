@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
-from collections.abc import Awaitable, Callable
-from contextlib import suppress
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import timedelta
 
+import psycopg
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
@@ -57,6 +59,39 @@ GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
 
 _globalapi_sync_run_lock = asyncio.Lock()
 _globalapi_sync_stop_event: asyncio.Event | None = None
+
+
+def _psycopg_database_uri() -> str:
+    return str(settings.SQLALCHEMY_DATABASE_URI).replace(
+        "postgresql+psycopg", "postgresql", 1
+    )
+
+
+def _task_advisory_lock_id(task_name: str) -> int:
+    lock_key = f"globalapi_sync_task:{task_name}"
+    return int(hashlib.md5(lock_key.encode()).hexdigest()[:15], 16)
+
+
+@asynccontextmanager
+async def _task_advisory_lock(task_name: str) -> AsyncIterator[bool]:
+    lock_id = _task_advisory_lock_id(task_name)
+    async with await psycopg.AsyncConnection.connect(
+        _psycopg_database_uri(),
+        autocommit=True,
+    ) as connection:
+        async with connection.cursor() as cursor:
+            await cursor.execute("SELECT pg_try_advisory_lock(%s)", (lock_id,))
+            row = await cursor.fetchone()
+        if not row or row[0] is not True:
+            yield False
+            return
+
+        try:
+            yield True
+        finally:
+            with suppress(Exception):
+                async with connection.cursor() as cursor:
+                    await cursor.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
 
 
 async def _get_or_create_sync_state(
@@ -171,10 +206,23 @@ async def run_globalapi_sync_tasks(
                     ):
                         continue
 
-            await _mark_task_started(task_name=task.task_name)
             try:
-                async with async_session_maker() as session:
-                    result = await task.run(session=session)
+                async with _task_advisory_lock(task.task_name) as lock_acquired:
+                    if not lock_acquired:
+                        logger.info(
+                            "Skipping GlobalAPI sync task %s because another worker holds the advisory lock",
+                            task.task_name,
+                        )
+                        continue
+
+                    await _mark_task_started(task_name=task.task_name)
+                    async with async_session_maker() as session:
+                        result = await task.run(session=session)
+                    await _mark_task_finished(
+                        task_name=task.task_name,
+                        result=result,
+                        error=None,
+                    )
             except Exception as exc:
                 logger.exception("GlobalAPI sync task %s failed", task.task_name)
                 await _mark_task_finished(
@@ -184,11 +232,6 @@ async def run_globalapi_sync_tasks(
                 )
                 continue
 
-            await _mark_task_finished(
-                task_name=task.task_name,
-                result=result,
-                error=None,
-            )
             results[task.task_name] = result
 
     return results

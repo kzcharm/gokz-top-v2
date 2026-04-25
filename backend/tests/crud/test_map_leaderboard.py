@@ -18,6 +18,7 @@ from app.models import (
     RecordPatch,
     RecordFilter,
     ServerGlobalapi,
+    mode_scope_to_id,
 )
 from tests.utils.utils import random_steamid64
 
@@ -574,3 +575,42 @@ async def test_update_record_validity_refreshes_map_leaderboard_row(
     )
 
     assert await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT)) is None
+
+
+async def test_rebuild_map_leaderboards_for_keys_ignores_invalid_map_ids(
+    db: AsyncSession,
+) -> None:
+    map_id = 2_134_000_001
+    server_id = 2_134_000_010
+    player_id = random_steamid64()
+
+    await _create_player(db, steamid64=player_id, name="Sentinel")
+    await _create_server(db, server_id=server_id)
+    await _create_map(db, map_id=map_id, name="kz_real_map", difficulty=5)
+    await _upsert_record(
+        db,
+        record_id=2_134_100_001,
+        steamid64=player_id,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_id,
+        stage=0,
+        teleports=1,
+        time_seconds="14.000",
+    )
+    await db.commit()
+
+    rebuilt = await crud.rebuild_map_leaderboards_for_keys(
+        session=db,
+        keys=[
+            (-1, mode_scope_to_id(ModeScope.OVR)),
+            (map_id, mode_scope_to_id(ModeScope.OVR)),
+        ],
+    )
+    await db.commit()
+
+    assert rebuilt == 1
+    assert await db.get(MapLeaderboardCache, (-1, ModeScope.OVR)) is None
+    real_row = await db.get(MapLeaderboardCache, (map_id, ModeScope.OVR))
+    assert real_row is not None
+    assert real_row.total_finishes == 1

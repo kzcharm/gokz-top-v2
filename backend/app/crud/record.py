@@ -1026,7 +1026,7 @@ def _map_leaderboard_keys_for_record_snapshot(
     stage: int,
     mode_id: int,
 ) -> set[tuple[int, int]]:
-    if stage != 0:
+    if stage != 0 or map_id <= 0:
         return set()
 
     return {
