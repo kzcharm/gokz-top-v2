@@ -19,8 +19,11 @@ from .leaderboard_player import (
 from .map import (
     get_map_by_id,
     get_map_by_name,
+    read_admin_maps,
     read_maps,
     read_maps_v1,
+    to_admin_map_public,
+    to_admin_map_publics,
     to_map_compat_public_v0,
     to_map_public,
     to_map_publics,
@@ -131,8 +134,10 @@ from .record import (
 from .record_filter import (
     load_map_tiers_by_scope,
     load_scoped_course_tiers,
+    read_admin_map_record_filters,
     read_record_filters_v0,
     record_filter_exists_for_course_mode,
+    to_admin_record_filter_public,
 )
 from .server import (
     SERVER_STATUS_NOTIFY_CHANNEL,
@@ -222,6 +227,7 @@ __all__ = [
     "get_user_by_steamid64",
     "get_max_record_globalapi_id",
     "read_maps",
+    "read_admin_maps",
     "read_map_wrs",
     "read_latest_map_reviews",
     "read_maps_v1",
@@ -257,6 +263,9 @@ __all__ = [
     "sync_canonical_modes_sync",
     "to_ban_compat_public_v0",
     "to_ban_public",
+    "to_admin_map_public",
+    "to_admin_map_publics",
+    "to_admin_record_filter_public",
     "to_map_compat_public_v0",
     "to_map_public",
     "to_map_review_public",
@@ -309,6 +318,7 @@ __all__ = [
     "record_a2s_failure",
     "record_a2s_success",
     "record_filter_exists_for_course_mode",
+    "read_admin_map_record_filters",
     "record_offline_mark",
     "record_plugin_heartbeat",
     "rotate_server_group_api_key",

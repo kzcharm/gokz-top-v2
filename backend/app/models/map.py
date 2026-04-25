@@ -124,3 +124,35 @@ class MapSyncResult(SQLModel):
     created: int
     updated: int
     errors: int
+
+
+class AdminMapPublic(SQLModel):
+    id: int
+    name: str
+    filesize: int
+    validated: bool
+    tiers: MapTiers
+    difficulty: int
+    created_on: datetime
+    updated_on: datetime
+    approved_by_steamid64: str
+    workshop_id: int | None = None
+    synced_at: datetime
+
+
+class AdminMapsPublic(SQLModel):
+    data: list[AdminMapPublic]
+    count: int
+
+
+class AdminMapListQuery(SQLModel):
+    q: str | None = Field(default=None, max_length=255)
+    validated: bool | None = None
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+class AdminMapUpdate(SQLModel):
+    model_config = {"extra": "forbid"}
+
+    validated: bool

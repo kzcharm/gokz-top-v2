@@ -1,7 +1,7 @@
 import {
   Activity,
   Home,
-  Map,
+  Map as MapIcon,
   Server,
   Settings,
   ShieldAlert,
@@ -35,6 +35,7 @@ const adminItem: Item = {
   children: [
     { title: "Users", path: "/admin/users", icon: Users },
     { title: "Players", path: "/admin/players", icon: UserIcon },
+    { title: "Maps", path: "/admin/maps", icon: MapIcon },
   ],
 }
 
@@ -58,7 +59,7 @@ export function AppSidebar() {
       path: "/leaderboards",
     },
     { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
-    { type: "link", icon: Map, title: "Maps", path: "/maps" },
+    { type: "link", icon: MapIcon, title: "Maps", path: "/maps" },
     { type: "link", icon: Activity, title: "Live", path: "/live" },
   ]
 

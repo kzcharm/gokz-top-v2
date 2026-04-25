@@ -5,6 +5,9 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
+    AdminMapRecordFiltersPublic,
+    AdminRecordFilterPublic,
+    AdminRecordFilterStagePublic,
     KZMode,
     Map,
     MapTiers,
@@ -14,6 +17,60 @@ from app.models import (
     legacy_mode_id_to_kz_mode,
     mode_scope_modes,
 )
+
+
+def to_admin_record_filter_public(
+    *, record_filter: RecordFilter
+) -> AdminRecordFilterPublic:
+    return AdminRecordFilterPublic(
+        id=record_filter.id,
+        map_id=record_filter.map_id,
+        stage=record_filter.stage,
+        mode=record_filter.mode,
+        has_teleports=record_filter.has_teleports,
+        tier=record_filter.tier,
+        created_on=record_filter.created_at,
+        updated_on=record_filter.updated_at,
+        updated_by_id=record_filter.updated_by_id,
+    )
+
+
+async def read_admin_map_record_filters(
+    *, session: AsyncSession, map_id: int
+) -> AdminMapRecordFiltersPublic:
+    rows = list(
+        (
+            await session.exec(
+                select(RecordFilter)
+                .where(
+                    col(RecordFilter.map_id) == map_id,
+                    col(RecordFilter.tickrate) == 128,
+                )
+                .order_by(
+                    col(RecordFilter.stage).asc(),
+                    col(RecordFilter.mode).asc(),
+                    col(RecordFilter.has_teleports).asc(),
+                    col(RecordFilter.id).asc(),
+                )
+            )
+        ).all()
+    )
+
+    stages: list[AdminRecordFilterStagePublic] = []
+    filters_by_stage: dict[int, list[AdminRecordFilterPublic]] = {}
+    for row in rows:
+        filters_by_stage.setdefault(row.stage, []).append(
+            to_admin_record_filter_public(record_filter=row)
+        )
+    for stage, record_filters in filters_by_stage.items():
+        stages.append(
+            AdminRecordFilterStagePublic(
+                stage=stage,
+                record_filters=record_filters,
+            )
+        )
+
+    return AdminMapRecordFiltersPublic(map_id=map_id, stages=stages)
 
 
 async def read_record_filters_v0(
