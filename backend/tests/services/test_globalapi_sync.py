@@ -12,6 +12,51 @@ from app.services import globalapi_sync
 pytestmark = pytest.mark.asyncio
 
 
+class _FakeAdvisoryLockCursor:
+    def __init__(self, connection: "_FakeAdvisoryLockConnection") -> None:
+        self._connection = connection
+
+    async def __aenter__(self) -> "_FakeAdvisoryLockCursor":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    async def execute(self, query: str, params: tuple[int] | None = None) -> None:
+        self._connection.executed.append((query, params))
+
+    async def fetchone(self) -> tuple[bool]:
+        return (self._connection.lock_acquired,)
+
+
+class _FakeAdvisoryLockConnection:
+    def __init__(self, *, lock_acquired: bool) -> None:
+        self.lock_acquired = lock_acquired
+        self.executed: list[tuple[str, tuple[int] | None]] = []
+
+    async def __aenter__(self) -> "_FakeAdvisoryLockConnection":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    def cursor(self) -> _FakeAdvisoryLockCursor:
+        return _FakeAdvisoryLockCursor(self)
+
+
+@pytest.fixture(autouse=True)
+def patched_task_lock(monkeypatch: pytest.MonkeyPatch):
+    original = globalapi_sync._task_advisory_lock
+
+    @asynccontextmanager
+    async def _lock(task_name: str):
+        del task_name
+        yield True
+
+    monkeypatch.setattr(globalapi_sync, "_task_advisory_lock", _lock)
+    return original
+
+
 def _patch_session_maker(
     *,
     db: AsyncSession,
@@ -112,6 +157,101 @@ async def test_run_globalapi_sync_tasks_prevents_overlap(
 
     release.set()
     await first_run
+
+
+async def test_run_globalapi_sync_tasks_uses_per_task_advisory_lock(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    patched_task_lock,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    fake_connection = _FakeAdvisoryLockConnection(lock_acquired=True)
+    task_started = False
+
+    async def _fake_connect(
+        dsn: str,
+        autocommit: bool,
+    ) -> _FakeAdvisoryLockConnection:
+        del dsn, autocommit
+        return fake_connection
+
+    async def _task(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal task_started
+        del session
+        task_started = True
+        return GlobalApiSyncResult(processed=1, created=0, updated=0, errors=0)
+
+    monkeypatch.setattr(globalapi_sync, "_task_advisory_lock", patched_task_lock)
+    monkeypatch.setattr(
+        globalapi_sync.psycopg.AsyncConnection,
+        "connect",
+        _fake_connect,
+    )
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (globalapi_sync.GlobalApiSyncTask("locked", 0, _task),),
+    )
+
+    await globalapi_sync.run_globalapi_sync_tasks(only_stale=False)
+
+    assert task_started is True
+    assert fake_connection.executed == [
+        (
+            "SELECT pg_try_advisory_lock(%s)",
+            (globalapi_sync._task_advisory_lock_id("locked"),),
+        ),
+        (
+            "SELECT pg_advisory_unlock(%s)",
+            (globalapi_sync._task_advisory_lock_id("locked"),),
+        ),
+    ]
+
+
+async def test_run_globalapi_sync_tasks_skips_task_without_advisory_lock(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    patched_task_lock,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    fake_connection = _FakeAdvisoryLockConnection(lock_acquired=False)
+    task_started = False
+
+    async def _fake_connect(
+        dsn: str,
+        autocommit: bool,
+    ) -> _FakeAdvisoryLockConnection:
+        del dsn, autocommit
+        return fake_connection
+
+    async def _task(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal task_started
+        del session
+        task_started = True
+        return GlobalApiSyncResult(processed=1, created=0, updated=0, errors=0)
+
+    monkeypatch.setattr(globalapi_sync, "_task_advisory_lock", patched_task_lock)
+    monkeypatch.setattr(
+        globalapi_sync.psycopg.AsyncConnection,
+        "connect",
+        _fake_connect,
+    )
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (globalapi_sync.GlobalApiSyncTask("locked", 0, _task),),
+    )
+
+    results = await globalapi_sync.run_globalapi_sync_tasks(only_stale=False)
+
+    assert results == {}
+    assert task_started is False
+    assert fake_connection.executed == [
+        (
+            "SELECT pg_try_advisory_lock(%s)",
+            (globalapi_sync._task_advisory_lock_id("locked"),),
+        ),
+    ]
 
 
 async def test_stop_globalapi_sync_runner_stops_background_loop(
