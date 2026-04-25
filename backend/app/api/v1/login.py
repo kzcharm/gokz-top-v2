@@ -18,13 +18,25 @@ router = APIRouter(tags=["login"])
 STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 
 
+def _external_base_url(request: Request) -> str:
+    """Prefer proxy headers so OpenID callbacks keep the public HTTPS origin."""
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    forwarded_host = request.headers.get("x-forwarded-host")
+    host = forwarded_host or request.headers.get("host")
+    if forwarded_proto and host:
+        scheme = forwarded_proto.split(",", 1)[0].strip()
+        public_host = host.split(",", 1)[0].strip()
+        return f"{scheme}://{public_host}".rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
 @router.get("/login/steam")
 async def login_steam(request: Request) -> RedirectResponse:
     """
     Initiate Steam OpenID authentication flow.
     Redirects user to Steam's login page.
     """
-    base_url = str(request.base_url).rstrip("/")
+    base_url = _external_base_url(request)
     callback_path = f"{settings.API_V1_STR}/login/steam/callback"
     return_url = f"{base_url}{callback_path}"
 
