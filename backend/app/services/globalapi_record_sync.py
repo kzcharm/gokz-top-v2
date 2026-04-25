@@ -454,11 +454,8 @@ async def _upsert_record(
 async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSyncResult:
     state = await _get_or_create_records_sync_state(session=session)
     max_record_id = await crud.get_max_record_globalapi_id(session=session)
-    cursor = (
-        state.cursor
-        if state.cursor is not None
-        else max(max_record_id or 0, DEFAULT_RECORD_START_ID)
-    )
+    next_record_id = max((max_record_id or 0) + 1, DEFAULT_RECORD_START_ID)
+    cursor = max(state.cursor or DEFAULT_RECORD_START_ID, next_record_id)
 
     processed = 0
     created = 0
