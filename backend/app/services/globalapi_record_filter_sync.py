@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Mapping
 
 import httpx
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import select
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import GlobalApiSyncResult, RecordFilter, legacy_mode_id_to_kz_mode
+from app.models import GlobalApiSyncResult, Map, RecordFilter, legacy_mode_id_to_kz_mode
 
 RECORD_FILTER_DATETIME_FALLBACK = "2018-07-10T21:02:51"
 _RECORD_FILTER_DATETIME_FALLBACK_VALUE = datetime.fromisoformat(
@@ -65,10 +65,27 @@ def _parse_optional_string(value: Any) -> str | None:
     return parsed or None
 
 
-def _record_filter_values_from_globalapi(payload: dict[str, Any]) -> dict[str, Any] | None:
+def _derive_record_filter_tier(
+    *,
+    map_id: int,
+    stage: int,
+    tickrate: int,
+    map_difficulty_by_id: Mapping[int, int],
+) -> int | None:
+    if map_id < 0 or stage != 0 or tickrate != 128:
+        return None
+    return map_difficulty_by_id.get(map_id)
+
+
+def _record_filter_values_from_globalapi(
+    payload: dict[str, Any],
+    *,
+    map_difficulty_by_id: Mapping[int, int],
+) -> dict[str, Any] | None:
     record_filter_id = _parse_int(payload.get("id"), default=-1)
     map_id = _parse_int(payload.get("map_id"), default=-2)
     mode_id = _parse_int(payload.get("mode_id"), default=-1)
+    stage = _parse_int(payload.get("stage", 0), default=0)
     tickrate = _parse_int(payload.get("tickrate"), default=0)
 
     if record_filter_id < 0 or mode_id < 0 or tickrate <= 0 or map_id < -1:
@@ -77,10 +94,16 @@ def _record_filter_values_from_globalapi(payload: dict[str, Any]) -> dict[str, A
     return {
         "id": record_filter_id,
         "map_id": map_id,
-        "stage": _parse_int(payload.get("stage", 0), default=0),
+        "stage": stage,
         "mode": legacy_mode_id_to_kz_mode(mode_id),
         "tickrate": tickrate,
         "has_teleports": _parse_bool(payload.get("has_teleports"), default=False),
+        "tier": _derive_record_filter_tier(
+            map_id=map_id,
+            stage=stage,
+            tickrate=tickrate,
+            map_difficulty_by_id=map_difficulty_by_id,
+        ),
         "created_at": _normalize_datetime(payload.get("created_on")),
         "updated_at": _normalize_datetime(payload.get("updated_on")),
         "updated_by_id": _parse_optional_string(payload.get("updated_by_id")),
@@ -150,6 +173,25 @@ async def sync_record_filters_from_globalapi(
             if not payloads:
                 break
 
+            map_ids = sorted(
+                {
+                    map_id
+                    for payload in payloads
+                    if (map_id := _parse_int(payload.get("map_id"), default=-2)) >= 0
+                }
+            )
+            map_difficulty_by_id = (
+                dict(
+                    (
+                        await session.exec(
+                            select(Map.id, Map.difficulty).where(Map.id.in_(map_ids))
+                        )
+                    ).all()
+                )
+                if map_ids
+                else {}
+            )
+
             rows_by_id: dict[int, dict[str, Any]] = {}
             page_processed = 0
             for payload in payloads:
@@ -162,7 +204,10 @@ async def sync_record_filters_from_globalapi(
                     duplicate_ids.add(record_filter_id)
                     continue
 
-                row = _record_filter_values_from_globalapi(payload)
+                row = _record_filter_values_from_globalapi(
+                    payload,
+                    map_difficulty_by_id=map_difficulty_by_id,
+                )
                 if row is None:
                     errors += 1
                     seen_ids.add(record_filter_id)
@@ -200,6 +245,9 @@ async def sync_record_filters_from_globalapi(
                         "mode": insert_statement.excluded.mode,
                         "tickrate": insert_statement.excluded.tickrate,
                         "has_teleports": insert_statement.excluded.has_teleports,
+                        "tier": func.coalesce(
+                            insert_statement.excluded.tier, table.c.tier
+                        ),
                         "created_at": insert_statement.excluded.created_at,
                         "updated_at": insert_statement.excluded.updated_at,
                         "updated_by_id": insert_statement.excluded.updated_by_id,

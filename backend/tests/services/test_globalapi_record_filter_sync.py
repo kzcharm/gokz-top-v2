@@ -5,10 +5,36 @@ import pytest
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import RecordFilter
+from app.models import Map, RecordFilter
 from app.services import globalapi_record_filter_sync as record_filter_sync
 
 pytestmark = pytest.mark.asyncio
+
+
+async def _create_map(
+    db: AsyncSession,
+    *,
+    id: int,
+    difficulty: int = 5,
+) -> Map:
+    await db.exec(delete(Map).where(Map.id == id))
+    await db.commit()
+
+    map_obj = Map(
+        id=id,
+        name=f"kz_test_{id}",
+        filesize=123456,
+        validated=True,
+        difficulty=difficulty,
+        created_on=datetime(2024, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2024, 1, 2, tzinfo=UTC),
+        approved_by_steamid64=76561198000000001,
+        synced_at=datetime(2024, 1, 3, tzinfo=UTC),
+    )
+    db.add(map_obj)
+    await db.commit()
+    await db.refresh(map_obj)
+    return map_obj
 
 
 async def _create_local_record_filter(
@@ -112,6 +138,43 @@ async def test_sync_record_filters_from_globalapi_syncs_multiple_pages(
     assert wildcard is not None
     assert wildcard.map_id == -1
     assert wildcard.tier is None
+
+
+async def test_sync_record_filters_from_globalapi_derives_main_course_tier_from_map(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_map(db, id=981205, difficulty=6)
+
+    async def _fake_fetch(
+        *,
+        client: object | None = None,
+        offset: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        del client, limit
+        if offset > 0:
+            return []
+        return [
+            _payload(id=981605, map_id=981205, stage=0, mode_id=200, tickrate=128),
+            _payload(id=981606, map_id=981205, stage=1, mode_id=200, tickrate=128),
+            _payload(id=981607, map_id=981205, stage=0, mode_id=200, tickrate=64),
+        ]
+
+    monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
+
+    result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
+
+    assert result.processed == 3
+    main_course = await db.get(RecordFilter, 981605)
+    assert main_course is not None
+    assert main_course.tier == 6
+    bonus = await db.get(RecordFilter, 981606)
+    assert bonus is not None
+    assert bonus.tier is None
+    low_tick = await db.get(RecordFilter, 981607)
+    assert low_tick is not None
+    assert low_tick.tier is None
 
 
 async def test_sync_record_filters_from_globalapi_updates_existing_rows(
