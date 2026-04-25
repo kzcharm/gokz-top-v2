@@ -101,10 +101,7 @@ function SortableHeader({
 }
 
 function integerMetricColumn(
-  accessorKey:
-    | "total_finishes"
-    | "unique_pro_finishes"
-    | "unique_nub_finishes",
+  accessorKey: "total_finishes" | "unique_pro_finishes" | "unique_nub_finishes",
   title: string,
 ): ColumnDef<MapLeaderboardTableRow> {
   return {

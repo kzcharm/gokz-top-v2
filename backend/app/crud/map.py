@@ -1,9 +1,11 @@
 from datetime import datetime
 
+from sqlalchemy import func
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
+    AdminMapPublic,
     Map,
     MapCompatPublicV0,
     MapPublic,
@@ -114,6 +116,40 @@ async def read_maps_v1(
     return list((await session.exec(statement)).all())
 
 
+async def read_admin_maps(
+    *,
+    session: AsyncSession,
+    offset: int = 0,
+    limit: int = 20,
+    q: str | None = None,
+    validated: bool | None = None,
+) -> tuple[list[Map], int]:
+    statement = select(Map)
+    count_statement = select(func.count()).select_from(Map)
+
+    filters = []
+    if q:
+        filters.append(col(Map.name).ilike(f"%{q}%"))
+    if validated is not None:
+        filters.append(col(Map.validated) == validated)
+
+    if filters:
+        statement = statement.where(*filters)
+        count_statement = count_statement.where(*filters)
+
+    count = (await session.exec(count_statement)).one()
+    maps = list(
+        (
+            await session.exec(
+                statement.order_by(col(Map.name).asc(), col(Map.id).asc())
+                .offset(offset)
+                .limit(limit)
+            )
+        ).all()
+    )
+    return maps, count
+
+
 def to_map_compat_public_v0(*, map_obj: Map) -> MapCompatPublicV0:
     return MapCompatPublicV0(
         id=map_obj.id,
@@ -149,6 +185,49 @@ def to_map_public(
         no_steamid_names=map_obj.no_steamid_names or [],
         review_summary=review_summary,
     )
+
+
+def to_admin_map_public(*, map_obj: Map, tiers: MapTiers) -> AdminMapPublic:
+    return AdminMapPublic(
+        id=map_obj.id,
+        name=map_obj.name,
+        filesize=map_obj.filesize,
+        validated=map_obj.validated,
+        tiers=tiers,
+        difficulty=map_obj.difficulty,
+        created_on=map_obj.created_at,
+        updated_on=map_obj.updated_at,
+        approved_by_steamid64=str(map_obj.approved_by_steamid64),
+        workshop_id=map_obj.workshop_id,
+        synced_at=map_obj.synced_at,
+    )
+
+
+async def to_admin_map_publics(
+    *, session: AsyncSession, maps: list[Map]
+) -> list[AdminMapPublic]:
+    if not maps:
+        return []
+
+    tiers_by_map_id = await load_map_tiers_by_scope(
+        session=session,
+        map_ids=[map_obj.id for map_obj in maps],
+    )
+    return [
+        to_admin_map_public(
+            map_obj=map_obj,
+            tiers=tiers_by_map_id.get(
+                map_obj.id,
+                MapTiers(
+                    OVR=map_obj.difficulty,
+                    KZT=map_obj.difficulty,
+                    SKZ=map_obj.difficulty,
+                    VNL=map_obj.difficulty,
+                ),
+            ),
+        )
+        for map_obj in maps
+    ]
 
 
 async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapPublic]:

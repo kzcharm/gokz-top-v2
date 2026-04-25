@@ -20,6 +20,10 @@ from .leaderboard_player import (
     PlayerLeaderboardsPublic,
 )
 from .map import (
+    AdminMapListQuery,
+    AdminMapPublic,
+    AdminMapsPublic,
+    AdminMapUpdate,
     Map,
     MapBase,
     MapCompatPublicV0,
@@ -135,6 +139,10 @@ from .record import (
     time_ms_to_seconds,
 )
 from .record_filter import (
+    AdminMapRecordFiltersPublic,
+    AdminRecordFilterPublic,
+    AdminRecordFilterStagePublic,
+    AdminRecordFilterTierUpdate,
     RecordFilter,
     RecordFilterBase,
     RecordFilterCompatPublicV0,
@@ -204,6 +212,14 @@ __all__ = [
     "KZMode",
     "LeaderboardPlayer",
     "LeaderboardPlayerCount",
+    "AdminMapListQuery",
+    "AdminMapPublic",
+    "AdminMapsPublic",
+    "AdminMapRecordFiltersPublic",
+    "AdminMapUpdate",
+    "AdminRecordFilterPublic",
+    "AdminRecordFilterStagePublic",
+    "AdminRecordFilterTierUpdate",
     "Map",
     "MapBase",
     "MapCompatPublicV0",

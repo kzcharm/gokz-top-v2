@@ -33,6 +33,7 @@ import { Route as LayoutDashboardReviewsRouteImport } from './routes/_layout/das
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
+import { Route as LayoutAdminMapsRouteImport } from './routes/_layout/admin.maps'
 import { Route as LayoutProfileIdentifierIndexRouteImport } from './routes/_layout/profile.$identifier.index'
 import { Route as LayoutProfileIdentifierUnfinishedRouteImport } from './routes/_layout/profile.$identifier.unfinished'
 import { Route as LayoutProfileIdentifierStatsRouteImport } from './routes/_layout/profile.$identifier.stats'
@@ -160,6 +161,11 @@ const LayoutAdminPlayersRoute = LayoutAdminPlayersRouteImport.update({
   path: '/players',
   getParentRoute: () => LayoutAdminRoute,
 } as any)
+const LayoutAdminMapsRoute = LayoutAdminMapsRouteImport.update({
+  id: '/maps',
+  path: '/maps',
+  getParentRoute: () => LayoutAdminRoute,
+} as any)
 const LayoutProfileIdentifierIndexRoute =
   LayoutProfileIdentifierIndexRouteImport.update({
     id: '/',
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
+  '/admin/maps': typeof LayoutAdminMapsRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/': typeof LayoutIndexRoute
+  '/admin/maps': typeof LayoutAdminMapsRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/admin/maps': typeof LayoutAdminMapsRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/maps/$mapName'
     | '/servers/$serverAddress'
+    | '/admin/maps'
     | '/admin/players'
     | '/admin/users'
     | '/dashboard/records'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName'
     | '/servers/$serverAddress'
     | '/'
+    | '/admin/maps'
     | '/admin/players'
     | '/admin/users'
     | '/dashboard/records'
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName'
     | '/servers/$serverAddress'
     | '/_layout/'
+    | '/_layout/admin/maps'
     | '/_layout/admin/players'
     | '/_layout/admin/users'
     | '/_layout/dashboard/records'
@@ -541,6 +553,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminPlayersRouteImport
       parentRoute: typeof LayoutAdminRoute
     }
+    '/_layout/admin/maps': {
+      id: '/_layout/admin/maps'
+      path: '/maps'
+      fullPath: '/admin/maps'
+      preLoaderRoute: typeof LayoutAdminMapsRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
     '/_layout/profile/$identifier/': {
       id: '/_layout/profile/$identifier/'
       path: '/'
@@ -573,11 +592,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface LayoutAdminRouteChildren {
+  LayoutAdminMapsRoute: typeof LayoutAdminMapsRoute
   LayoutAdminPlayersRoute: typeof LayoutAdminPlayersRoute
   LayoutAdminUsersRoute: typeof LayoutAdminUsersRoute
 }
 
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
+  LayoutAdminMapsRoute: LayoutAdminMapsRoute,
   LayoutAdminPlayersRoute: LayoutAdminPlayersRoute,
   LayoutAdminUsersRoute: LayoutAdminUsersRoute,
 }
