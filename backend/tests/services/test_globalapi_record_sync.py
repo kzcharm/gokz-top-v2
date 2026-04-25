@@ -177,13 +177,13 @@ async def test_sync_records_from_globalapi_starts_from_largest_local_id_or_200(
         errors=0,
         warnings=0,
     )
-    assert requested_ids == [981210, 981211, 981212, 981213, 981214]
+    assert requested_ids == [981211, 981212, 981213, 981214, 981215]
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
-    assert state.cursor == 981210
+    assert state.cursor == 981211
 
 
-async def test_sync_records_from_globalapi_uses_stored_cursor_over_local_max(
+async def test_sync_records_from_globalapi_skips_existing_ids_even_with_stale_stored_cursor(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -214,10 +214,47 @@ async def test_sync_records_from_globalapi_uses_stored_cursor_over_local_max(
 
     await record_sync.sync_records_from_globalapi(session=db)
 
-    assert requested_ids == [777, 778, 779, 780, 781]
+    assert requested_ids == [981221, 981222, 981223, 981224, 981225]
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
-    assert state.cursor == 777
+    assert state.cursor == 981221
+
+
+async def test_sync_records_from_globalapi_uses_stored_cursor_when_ahead_of_local_max(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _reset_records_sync_state(db)
+    steamid64 = random_steamid64()
+    await _create_local_record(
+        db,
+        record_id=981230,
+        steamid64=steamid64,
+        map_id=981003,
+        server_id=981103,
+    )
+    db.add(GlobalApiSyncState(task_name="records", cursor=981500))
+    await db.commit()
+
+    requested_ids: list[int] = []
+
+    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+        del client
+        requested_ids.append(record_id)
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+
+    await record_sync.sync_records_from_globalapi(session=db)
+
+    assert requested_ids == [981500, 981501, 981502, 981503, 981504]
+    state = await db.get(GlobalApiSyncState, "records")
+    assert state is not None
+    assert state.cursor == 981500
 
 
 async def test_sync_records_from_globalapi_disables_httpx_env_proxy_by_default(
