@@ -29,18 +29,21 @@ async def _create_globalapi_server(
     owner_steamid64: int,
     approval_status: int = 1,
     group_id: uuid.UUID | None = None,
+    name: str | None = None,
+    created_at: datetime | None = None,
+    updated_at: datetime | None = None,
 ) -> ServerGlobalapi:
     server = ServerGlobalapi(
         id=id,
         group_id=group_id,
         port=27015,
         ip=f"203.0.113.{id % 255}",
-        name=f"Admin Test Server {id}",
+        name=name or f"Admin Test Server {id}",
         owner_steamid64=owner_steamid64,
         approval_status=approval_status,
         approved_by_steamid64=0,
-        created_at=datetime(2021, 1, 1, tzinfo=UTC),
-        updated_at=datetime(2021, 1, 2, tzinfo=UTC),
+        created_at=created_at or datetime(2021, 1, 1, tzinfo=UTC),
+        updated_at=updated_at or datetime(2021, 1, 2, tzinfo=UTC),
         synced_at=datetime(2021, 1, 3, tzinfo=UTC),
     )
     db.add(server)
@@ -161,6 +164,115 @@ async def test_admin_globalapi_root_can_toggle_approval(
     assert refreshed is not None
     assert refreshed.approval_status == 1
     assert refreshed.approved_by_steamid64 == settings.SUPER_USER_STEAMID64
+
+
+async def test_admin_globalapi_list_supports_filtering_and_sorting(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    owner_steamid64 = random_steamid64()
+    await _create_globalapi_server(
+        db,
+        id=970021,
+        owner_steamid64=owner_steamid64,
+        approval_status=1,
+        name="Charlie Server",
+        created_at=datetime(2021, 1, 9, tzinfo=UTC),
+        updated_at=datetime(2021, 1, 6, tzinfo=UTC),
+    )
+    await _create_globalapi_server(
+        db,
+        id=970022,
+        owner_steamid64=owner_steamid64,
+        approval_status=1,
+        name="Alpha Server",
+        created_at=datetime(2021, 1, 5, tzinfo=UTC),
+        updated_at=datetime(2021, 1, 4, tzinfo=UTC),
+    )
+    await _create_globalapi_server(
+        db,
+        id=970023,
+        owner_steamid64=owner_steamid64,
+        approval_status=0,
+        name="Bravo Server",
+        created_at=datetime(2021, 1, 7, tzinfo=UTC),
+        updated_at=datetime(2021, 1, 8, tzinfo=UTC),
+    )
+
+    default_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={"limit": 100, "approval_status": 1},
+    )
+    assert default_response.status_code == 200
+    default_payload = default_response.json()
+    assert [server["id"] for server in default_payload["data"]] == [970022, 970021]
+    assert default_payload["data"][0]["created_at"]
+
+    server_sort_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={
+            "limit": 100,
+            "sort_by": "server",
+            "sort_order": "asc",
+        },
+    )
+    assert server_sort_response.status_code == 200
+    assert [server["id"] for server in server_sort_response.json()["data"]] == [
+        970022,
+        970023,
+        970021,
+    ]
+
+    updated_sort_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={
+            "limit": 100,
+            "sort_by": "updated_at",
+            "sort_order": "desc",
+        },
+    )
+    assert updated_sort_response.status_code == 200
+    assert [server["id"] for server in updated_sort_response.json()["data"]] == [
+        970023,
+        970021,
+        970022,
+    ]
+
+    created_sort_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={
+            "limit": 100,
+            "sort_by": "created_at",
+            "sort_order": "desc",
+        },
+    )
+    assert created_sort_response.status_code == 200
+    assert [server["id"] for server in created_sort_response.json()["data"]] == [
+        970021,
+        970023,
+        970022,
+    ]
+
+    id_sort_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={
+            "limit": 100,
+            "sort_by": "id",
+            "sort_order": "desc",
+        },
+    )
+    assert id_sort_response.status_code == 200
+    assert [server["id"] for server in id_sort_response.json()["data"]] == [
+        970023,
+        970022,
+        970021,
+    ]
 
 
 async def test_admin_globalapi_group_assignment_requires_owned_group(

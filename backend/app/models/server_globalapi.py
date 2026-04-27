@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import BigInteger, DateTime, Index
 from sqlmodel import Field, Relationship, SQLModel
@@ -59,12 +60,39 @@ class ServerGlobalapiCompatPublicV0(SQLModel):
     owner_steamid64: str
 
 
+class ServerGlobalapiAdminPublic(SQLModel):
+    id: int
+    group_id: uuid.UUID | None = None
+    port: int
+    ip: str | None = None
+    name: str | None = None
+    owner_steamid64: str
+    approval_status: int
+    approved_by_steamid64: str
+    created_at: datetime
+    updated_at: datetime
+    synced_at: datetime
+
+
+class ServerGlobalapiAdminUpdate(SQLModel):
+    group_id: uuid.UUID | None = None
+    approval_status: int | None = Field(default=None, ge=0, le=1)
+
+
+class ServerGlobalapiAdminServersPublic(SQLModel):
+    data: list[ServerGlobalapiAdminPublic]
+    count: int
+
+
 class ServerGlobalapiListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=10000)
     id: list[int] | None = None
+    group_id: uuid.UUID | None = None
     port: int | None = Field(default=None, ge=1, le=65535)
     ip: str | None = Field(default=None, max_length=255)
     name: str | None = Field(default=None, max_length=255)
     owner_steamid64: int | None = Field(default=None, sa_type=BigInteger)
     approval_status: int | None = Field(default=None, ge=0, le=1)
+    sort_by: Literal["id", "server", "updated_at", "created_at"] = "id"
+    sort_order: Literal["asc", "desc"] = "asc"

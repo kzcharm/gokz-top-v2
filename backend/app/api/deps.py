@@ -1,4 +1,6 @@
+import uuid
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from typing import Annotated
 
 import jwt
@@ -6,13 +8,20 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core import security
 from app.core.config import settings
 from app.core.db import async_session_maker
-from app.models import TokenPayload, User
+from app.models import (
+    AdminServerRole,
+    ServerGlobalapi,
+    ServerGroup,
+    TokenPayload,
+    User,
+)
 
 security_scheme = HTTPBearer()
 optional_security_scheme = HTTPBearer(auto_error=False)
@@ -98,3 +107,53 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+@dataclass(frozen=True)
+class AdminServerPrincipal:
+    user: User
+    role: AdminServerRole
+    owned_group_ids: frozenset[uuid.UUID]
+
+    @property
+    def can_approve_servers(self) -> bool:
+        return self.role == AdminServerRole.ROOT_ADMIN
+
+
+async def get_admin_server_principal(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> AdminServerPrincipal:
+    groups_statement = select(ServerGroup.id).where(
+        col(ServerGroup.owner_steamid64) == current_user.steamid64
+    )
+    owned_group_ids = frozenset((await session.exec(groups_statement)).all())
+
+    if current_user.is_superuser:
+        return AdminServerPrincipal(
+            user=current_user,
+            role=AdminServerRole.ROOT_ADMIN,
+            owned_group_ids=owned_group_ids,
+        )
+
+    owned_globalapi_statement = select(ServerGlobalapi.id).where(
+        col(ServerGlobalapi.owner_steamid64) == current_user.steamid64,
+        col(ServerGlobalapi.approval_status) == 1,
+    )
+    if (await session.exec(owned_globalapi_statement)).first() is None:
+        raise HTTPException(
+            status_code=403,
+            detail="The user doesn't have enough server privileges",
+        )
+
+    return AdminServerPrincipal(
+        user=current_user,
+        role=AdminServerRole.SERVER_OWNER,
+        owned_group_ids=owned_group_ids,
+    )
+
+
+AdminServerPrincipalDep = Annotated[
+    AdminServerPrincipal,
+    Depends(get_admin_server_principal),
+]
