@@ -15,7 +15,7 @@ from tests.utils.server import create_server_group
 pytestmark = pytest.mark.asyncio
 
 
-async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
+async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -147,7 +147,7 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
 
     assert result.processed == 6
     assert result.created == 2
-    assert result.updated == 1
+    assert result.updated == 0
     assert result.errors == 1
     assert result.warnings == 1
 
@@ -164,7 +164,7 @@ async def test_sync_servers_from_globalapi_upserts_and_infers_approval_status(
         )
     ).one()
     assert refreshed_existing[0] == group_id
-    assert refreshed_existing[1] == 1
+    assert refreshed_existing[1] == 0
     assert refreshed_existing[2] == "Existing Replica"
     assert refreshed_existing[3] == datetime(2020, 1, 1, tzinfo=UTC)
     assert refreshed_existing[4] == datetime(2020, 1, 1, tzinfo=UTC)
