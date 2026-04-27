@@ -6,18 +6,23 @@ from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.regions import get_region_code_for_country, get_region_country_codes
 from app.models import (
+    AdminServerGroupPublic,
     Map,
+    MapReview,
     Server,
     ServerCreate,
+    ServerGlobalapi,
     ServerGroup,
     ServerGroupCreate,
+    ServerGroupDependencyCounts,
+    ServerGroupPublic,
     ServerGroupStatus,
     ServerGroupSummary,
     ServerGroupUpdate,
@@ -165,6 +170,40 @@ def to_server_public(*, server: Server) -> ServerPublic:
     )
 
 
+def to_server_group_public(
+    *,
+    group: ServerGroup,
+    server_count: int = 0,
+) -> ServerGroupPublic:
+    return ServerGroupPublic(
+        id=group.id,
+        name=group.name,
+        custom_id=group.custom_id,
+        website=group.website,
+        discord=group.discord,
+        steam_group=group.steam_group,
+        owner_steamid64=(
+            str(group.owner_steamid64) if group.owner_steamid64 is not None else None
+        ),
+        status=group.status,
+        server_count=server_count,
+        created_at=group.created_at,
+        updated_at=group.updated_at,
+    )
+
+
+def to_admin_server_group_public(
+    *,
+    group: ServerGroup,
+    server_count: int = 0,
+) -> AdminServerGroupPublic:
+    public_group = to_server_group_public(group=group, server_count=server_count)
+    return AdminServerGroupPublic(
+        **public_group.model_dump(),
+        api_key=group.api_key,
+    )
+
+
 def generate_server_group_api_key() -> str:
     return str(uuid.uuid4())
 
@@ -251,11 +290,69 @@ async def read_server_groups(
     return groups, counts
 
 
+async def read_server_groups_for_admin(
+    *,
+    session: AsyncSession,
+    owner_steamid64: int | None = None,
+) -> tuple[list[ServerGroup], dict[uuid.UUID, int]]:
+    groups_statement = select(ServerGroup)
+    if owner_steamid64 is not None:
+        groups_statement = groups_statement.where(
+            col(ServerGroup.owner_steamid64) == owner_steamid64
+        )
+    groups_statement = groups_statement.order_by(col(ServerGroup.name).asc())
+    groups = list((await session.exec(groups_statement)).all())
+    group_ids = {group.id for group in groups}
+    if not group_ids:
+        return groups, {}
+
+    servers_statement = select(Server.group_id, func.count()).where(
+        col(Server.group_id).in_(group_ids)
+    ).group_by(col(Server.group_id))
+    return groups, {
+        group_id: count
+        for group_id, count in (await session.exec(servers_statement)).all()
+        if group_id is not None
+    }
+
+
+async def get_server_group_dependency_counts(
+    *,
+    session: AsyncSession,
+    group_id: uuid.UUID,
+) -> ServerGroupDependencyCounts:
+    server_count = (
+        await session.exec(
+            select(func.count()).select_from(Server).where(Server.group_id == group_id)
+        )
+    ).one()
+    globalapi_count = (
+        await session.exec(
+            select(func.count())
+            .select_from(ServerGlobalapi)
+            .where(ServerGlobalapi.group_id == group_id)
+        )
+    ).one()
+    map_review_count = (
+        await session.exec(
+            select(func.count())
+            .select_from(MapReview)
+            .where(MapReview.server_group_id == group_id)
+        )
+    ).one()
+    return ServerGroupDependencyCounts(
+        servers=server_count,
+        globalapi_servers=globalapi_count,
+        map_reviews=map_review_count,
+    )
+
+
 async def create_server_group(
     *,
     session: AsyncSession,
     group_in: ServerGroupCreate,
     owner_steamid64: int,
+    initial_status: ServerGroupStatus = ServerGroupStatus.PENDING,
 ) -> tuple[ServerGroup, str]:
     if await owner_has_invalidated_server_group(
         session=session,
@@ -267,9 +364,13 @@ async def create_server_group(
     now = get_datetime_utc()
     group = ServerGroup(
         name=group_in.name,
+        custom_id=group_in.custom_id,
+        website=group_in.website,
+        discord=group_in.discord,
+        steam_group=group_in.steam_group,
         api_key=api_key,
         owner_steamid64=owner_steamid64,
-        status=ServerGroupStatus.PENDING,
+        status=initial_status,
         created_at=now,
         updated_at=now,
     )
@@ -317,13 +418,9 @@ async def update_server_group(
 
 
 async def delete_server_group(*, session: AsyncSession, group: ServerGroup) -> None:
-    statement = select(Server).where(Server.group_id == group.id)
-    servers = list((await session.exec(statement)).all())
-    now = get_datetime_utc()
-    for server in servers:
-        server.group_id = None
-        server.updated_at = now
-        session.add(server)
+    counts = await get_server_group_dependency_counts(session=session, group_id=group.id)
+    if counts.total > 0:
+        raise ValueError("Server group has dependencies")
     await session.delete(group)
     await session.commit()
 
@@ -387,9 +484,16 @@ async def read_servers(
     *,
     session: AsyncSession,
     query: ServerListQuery,
+    owned_group_ids: set[uuid.UUID] | frozenset[uuid.UUID] | None = None,
 ) -> tuple[list[Server], int]:
     statement = select(Server)
+    if owned_group_ids is not None:
+        if not owned_group_ids:
+            return [], 0
+        statement = statement.where(col(Server.group_id).in_(owned_group_ids))
     if query.group_id is not None:
+        if owned_group_ids is not None and query.group_id not in owned_group_ids:
+            return [], 0
         statement = statement.where(col(Server.group_id) == query.group_id)
     if query.country:
         statement = statement.where(col(Server.country) == query.country.upper())
@@ -677,7 +781,7 @@ async def record_plugin_heartbeat(
         players=payload.players,
         is_online=True,
     )
-    if _should_auto_validate_server_group(group=group, server=server):
+    if _should_auto_validate_server_group(group=group, server=server) and group is not None:
         group.status = ServerGroupStatus.VALIDATED
         group.updated_at = payload.observed_at
         session.add(group)

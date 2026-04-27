@@ -3,12 +3,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, DateTime, Index, PrimaryKeyConstraint
+from pydantic import BaseModel, ConfigDict, field_validator
+from sqlalchemy import BigInteger, DateTime, Index, PrimaryKeyConstraint, text
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Column, Field, Relationship, SQLModel
 
+from .player import MAX_PLAYER_CUSTOM_ID_LENGTH, validate_player_custom_id
 from .utils import generate_uuid7, get_datetime_utc
 
 
@@ -41,6 +42,23 @@ class ServerGroupStatus(StrEnum):
 
 class ServerGroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
+    custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
+    website: str | None = Field(default=None, max_length=255)
+    discord: str | None = Field(default=None, max_length=255)
+    steam_group: str | None = Field(default=None, max_length=255)
+
+    @field_validator("custom_id", mode="after")
+    @classmethod
+    def _validate_custom_id(cls, value: str | None) -> str | None:
+        return validate_player_custom_id(value)
+
+    @field_validator("website", "discord", "steam_group", mode="after")
+    @classmethod
+    def _normalize_optional_metadata(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class ServerGroupCreate(ServerGroupBase):
@@ -49,7 +67,24 @@ class ServerGroupCreate(ServerGroupBase):
 
 class ServerGroupUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
+    website: str | None = Field(default=None, max_length=255)
+    discord: str | None = Field(default=None, max_length=255)
+    steam_group: str | None = Field(default=None, max_length=255)
     status: ServerGroupStatus | None = None
+
+    @field_validator("custom_id", mode="after")
+    @classmethod
+    def _validate_custom_id(cls, value: str | None) -> str | None:
+        return validate_player_custom_id(value)
+
+    @field_validator("website", "discord", "steam_group", mode="after")
+    @classmethod
+    def _normalize_optional_metadata(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class ServerGroup(ServerGroupBase, table=True):
@@ -57,6 +92,12 @@ class ServerGroup(ServerGroupBase, table=True):
     __table_args__ = (
         Index("uq_server_group_name", "name", unique=True),
         Index("uq_server_group_api_key", "api_key", unique=True),
+        Index(
+            "uq_server_group_custom_id_not_null",
+            "custom_id",
+            unique=True,
+            postgresql_where=text("custom_id IS NOT NULL"),
+        ),
     )
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
@@ -310,6 +351,36 @@ class ServerGroupApiKeyPublic(SQLModel):
     api_key: str
 
 
+class AdminServerGroupPublic(ServerGroupPublic):
+    api_key: str
+
+
+class AdminServerGroupsPublic(SQLModel):
+    data: list[AdminServerGroupPublic]
+    count: int
+
+
+class ServerGroupDependencyCounts(SQLModel):
+    servers: int = 0
+    globalapi_servers: int = 0
+    map_reviews: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.servers + self.globalapi_servers + self.map_reviews
+
+
+class AdminServerRole(StrEnum):
+    ROOT_ADMIN = "root_admin"
+    SERVER_OWNER = "server_owner"
+
+
+class AdminServerAccessPublic(SQLModel):
+    role: AdminServerRole
+    can_approve_servers: bool
+    owned_group_count: int = 0
+
+
 class ServerListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=1000)
@@ -386,6 +457,10 @@ class ServerSnapshotEvent(SQLModel):
 
 
 __all__ = [
+    "AdminServerGroupPublic",
+    "AdminServerGroupsPublic",
+    "AdminServerAccessPublic",
+    "AdminServerRole",
     "Server",
     "ServerBase",
     "ServerCreate",
@@ -393,6 +468,7 @@ __all__ = [
     "ServerGroupApiKeyPublic",
     "ServerGroupBase",
     "ServerGroupCreate",
+    "ServerGroupDependencyCounts",
     "ServerGroupPublic",
     "ServerGroupSummary",
     "ServerGroupUpdate",

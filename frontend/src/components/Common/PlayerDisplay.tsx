@@ -60,6 +60,10 @@ const flagComponents = Flags as Record<
 >
 const steamid64Pattern = /^\d{17}$/
 
+function isUnknownSteamid64(steamid64?: string | null): boolean {
+  return steamid64 === "0"
+}
+
 export type PlayerDisplayPlayer = {
   steamid64: string
   displayName?: string | null
@@ -129,6 +133,11 @@ export function getPlayerDisplayName(
   player?: PlayerDisplayPlayer | null,
   fallbackSteamid64?: string,
 ): string {
+  const steamid64 = player?.steamid64 || fallbackSteamid64
+  if (isUnknownSteamid64(steamid64)) {
+    return "Unknown"
+  }
+
   const displayName =
     player?.displayName?.trim() || player?.display_name?.trim()
   if (displayName) {

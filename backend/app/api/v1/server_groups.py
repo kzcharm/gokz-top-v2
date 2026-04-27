@@ -34,18 +34,9 @@ async def read_server_groups(session: SessionDep) -> Any:
     groups, counts = await crud.read_server_groups(session=session)
     return ServerGroupsPublic(
         data=[
-            ServerGroupPublic(
-                id=group.id,
-                name=group.name,
-                owner_steamid64=(
-                    str(group.owner_steamid64)
-                    if group.owner_steamid64 is not None
-                    else None
-                ),
-                status=group.status,
+            crud.to_server_group_public(
+                group=group,
                 server_count=counts.get(group.id, 0),
-                created_at=group.created_at,
-                updated_at=group.updated_at,
             )
             for group in groups
         ],
@@ -81,19 +72,7 @@ async def create_server_group(
         ) from exc
 
     return ServerGroupApiKeyPublic(
-        group=ServerGroupPublic(
-            id=group.id,
-            name=group.name,
-            owner_steamid64=(
-                str(group.owner_steamid64)
-                if group.owner_steamid64 is not None
-                else None
-            ),
-            status=group.status,
-            server_count=0,
-            created_at=group.created_at,
-            updated_at=group.updated_at,
-        ),
+        group=crud.to_server_group_public(group=group, server_count=0),
         api_key=api_key,
     )
 
@@ -126,16 +105,9 @@ async def update_server_group(
             status_code=409, detail="Server group already exists"
         ) from exc
 
-    return ServerGroupPublic(
-        id=group.id,
-        name=group.name,
-        owner_steamid64=(
-            str(group.owner_steamid64) if group.owner_steamid64 is not None else None
-        ),
-        status=group.status,
+    return crud.to_server_group_public(
+        group=group,
         server_count=await _get_server_count(session=session, group_id=group.id),
-        created_at=group.created_at,
-        updated_at=group.updated_at,
     )
 
 
@@ -160,18 +132,9 @@ async def rotate_server_group_api_key(
         group=group,
     )
     return ServerGroupApiKeyPublic(
-        group=ServerGroupPublic(
-            id=group.id,
-            name=group.name,
-            owner_steamid64=(
-                str(group.owner_steamid64)
-                if group.owner_steamid64 is not None
-                else None
-            ),
-            status=group.status,
+        group=crud.to_server_group_public(
+            group=group,
             server_count=await _get_server_count(session=session, group_id=group.id),
-            created_at=group.created_at,
-            updated_at=group.updated_at,
         ),
         api_key=api_key,
     )
@@ -192,5 +155,18 @@ async def delete_server_group(
     group = await crud.get_server_group_by_id(session=session, group_id=group_id)
     if group is None:
         raise HTTPException(status_code=404, detail="Server group not found")
-    await crud.delete_server_group(session=session, group=group)
+    try:
+        await crud.delete_server_group(session=session, group=group)
+    except ValueError as exc:
+        counts = await crud.get_server_group_dependency_counts(
+            session=session,
+            group_id=group.id,
+        )
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Server group has dependencies",
+                "dependencies": counts.model_dump(),
+            },
+        ) from exc
     return Message(message="Server group deleted successfully")

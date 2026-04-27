@@ -212,6 +212,151 @@ export const AdminRecordFilterTierUpdateSchema = {
     title: 'AdminRecordFilterTierUpdate'
 } as const;
 
+export const AdminServerAccessPublicSchema = {
+    properties: {
+        role: {
+            '$ref': '#/components/schemas/AdminServerRole'
+        },
+        can_approve_servers: {
+            type: 'boolean',
+            title: 'Can Approve Servers'
+        },
+        owned_group_count: {
+            type: 'integer',
+            title: 'Owned Group Count',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['role', 'can_approve_servers'],
+    title: 'AdminServerAccessPublic'
+} as const;
+
+export const AdminServerGroupPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        website: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Website'
+        },
+        discord: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord'
+        },
+        steam_group: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Group'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        owner_steamid64: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Owner Steamid64'
+        },
+        status: {
+            '$ref': '#/components/schemas/ServerGroupStatus'
+        },
+        server_count: {
+            type: 'integer',
+            title: 'Server Count',
+            default: 0
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        api_key: {
+            type: 'string',
+            title: 'Api Key'
+        }
+    },
+    type: 'object',
+    required: ['name', 'id', 'status', 'created_at', 'updated_at', 'api_key'],
+    title: 'AdminServerGroupPublic'
+} as const;
+
+export const AdminServerGroupsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/AdminServerGroupPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'AdminServerGroupsPublic'
+} as const;
+
+export const AdminServerRoleSchema = {
+    type: 'string',
+    enum: ['root_admin', 'server_owner'],
+    title: 'AdminServerRole'
+} as const;
+
 export const BanPublicSchema = {
     properties: {
         id: {
@@ -2271,6 +2416,134 @@ export const ServerDiscoveryRunPublicSchema = {
     title: 'ServerDiscoveryRunPublic'
 } as const;
 
+export const ServerGlobalapiAdminPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        group_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Group Id'
+        },
+        port: {
+            type: 'integer',
+            title: 'Port'
+        },
+        ip: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ip'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        owner_steamid64: {
+            type: 'string',
+            title: 'Owner Steamid64'
+        },
+        approval_status: {
+            type: 'integer',
+            title: 'Approval Status'
+        },
+        approved_by_steamid64: {
+            type: 'string',
+            title: 'Approved By Steamid64'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        synced_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Synced At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'port', 'owner_steamid64', 'approval_status', 'approved_by_steamid64', 'created_at', 'updated_at', 'synced_at'],
+    title: 'ServerGlobalapiAdminPublic'
+} as const;
+
+export const ServerGlobalapiAdminServersPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ServerGlobalapiAdminPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ServerGlobalapiAdminServersPublic'
+} as const;
+
+export const ServerGlobalapiAdminUpdateSchema = {
+    properties: {
+        group_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Group Id'
+        },
+        approval_status: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 1,
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Approval Status'
+        }
+    },
+    type: 'object',
+    title: 'ServerGlobalapiAdminUpdate'
+} as const;
+
 export const ServerGroupApiKeyPublicSchema = {
     properties: {
         group: {
@@ -2293,6 +2566,54 @@ export const ServerGroupCreateSchema = {
             maxLength: 255,
             minLength: 1,
             title: 'Name'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        website: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Website'
+        },
+        discord: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord'
+        },
+        steam_group: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Group'
         }
     },
     type: 'object',
@@ -2307,6 +2628,54 @@ export const ServerGroupPublicSchema = {
             maxLength: 255,
             minLength: 1,
             title: 'Name'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        website: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Website'
+        },
+        discord: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord'
+        },
+        steam_group: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Group'
         },
         id: {
             type: 'string',
@@ -2385,6 +2754,54 @@ export const ServerGroupUpdateSchema = {
                 }
             ],
             title: 'Name'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        website: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Website'
+        },
+        discord: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord'
+        },
+        steam_group: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Group'
         },
         status: {
             anyOf: [

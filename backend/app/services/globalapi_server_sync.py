@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -194,24 +193,14 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
     rows_to_insert = [
         row for server_id, row in rows_by_id.items() if server_id not in existing_servers
     ]
-    rows_to_update = [
-        (server_id, int(row["approval_status"]))
-        for server_id, row in rows_by_id.items()
-        if (existing_server := existing_servers.get(server_id)) is not None
-        and existing_server.approval_status != int(row["approval_status"])
-    ]
-    updated = len(rows_to_update)
+    # Approval state is managed locally by root admins in v2. New rows start with
+    # the mirrored GlobalAPI value, but existing rows keep local approval edits.
+    updated = 0
 
     if rows_to_insert:
         insert_statement = pg_insert(server_table).values(rows_to_insert)
         await session.exec(insert_statement.on_conflict_do_nothing(index_elements=[server_table.c.id]))
 
-    for server_id, approval_status in rows_to_update:
-        await session.exec(
-            update(ServerGlobalapi)
-            .where(ServerGlobalapi.id == server_id)
-            .values(approval_status=approval_status)
-        )
     await session.commit()
     session.expire_all()
 

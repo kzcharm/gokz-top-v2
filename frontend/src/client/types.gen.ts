@@ -49,6 +49,34 @@ export type AdminRecordFilterTierUpdate = {
     tier: (number | null);
 };
 
+export type AdminServerAccessPublic = {
+    role: AdminServerRole;
+    can_approve_servers: boolean;
+    owned_group_count?: number;
+};
+
+export type AdminServerGroupPublic = {
+    name: string;
+    custom_id?: (string | null);
+    website?: (string | null);
+    discord?: (string | null);
+    steam_group?: (string | null);
+    id: string;
+    owner_steamid64?: (string | null);
+    status: ServerGroupStatus;
+    server_count?: number;
+    created_at: string;
+    updated_at: string;
+    api_key: string;
+};
+
+export type AdminServerGroupsPublic = {
+    data: Array<AdminServerGroupPublic>;
+    count: number;
+};
+
+export type AdminServerRole = 'root_admin' | 'server_owner';
+
 export type BanPublic = {
     id: number;
     ban_type: BanType;
@@ -478,6 +506,30 @@ export type ServerDiscoveryRunPublic = {
     upserted_count: number;
 };
 
+export type ServerGlobalapiAdminPublic = {
+    id: number;
+    group_id?: (string | null);
+    port: number;
+    ip?: (string | null);
+    name?: (string | null);
+    owner_steamid64: string;
+    approval_status: number;
+    approved_by_steamid64: string;
+    created_at: string;
+    updated_at: string;
+    synced_at: string;
+};
+
+export type ServerGlobalapiAdminServersPublic = {
+    data: Array<ServerGlobalapiAdminPublic>;
+    count: number;
+};
+
+export type ServerGlobalapiAdminUpdate = {
+    group_id?: (string | null);
+    approval_status?: (number | null);
+};
+
 export type ServerGroupApiKeyPublic = {
     group: ServerGroupPublic;
     api_key: string;
@@ -485,10 +537,18 @@ export type ServerGroupApiKeyPublic = {
 
 export type ServerGroupCreate = {
     name: string;
+    custom_id?: (string | null);
+    website?: (string | null);
+    discord?: (string | null);
+    steam_group?: (string | null);
 };
 
 export type ServerGroupPublic = {
     name: string;
+    custom_id?: (string | null);
+    website?: (string | null);
+    discord?: (string | null);
+    steam_group?: (string | null);
     id: string;
     owner_steamid64?: (string | null);
     status: ServerGroupStatus;
@@ -511,6 +571,10 @@ export type ServerGroupSummary = {
 
 export type ServerGroupUpdate = {
     name?: (string | null);
+    custom_id?: (string | null);
+    website?: (string | null);
+    discord?: (string | null);
+    steam_group?: (string | null);
     status?: (ServerGroupStatus | null);
 };
 
@@ -669,6 +733,81 @@ export type AdminModesUpdateModeData = {
 };
 
 export type AdminModesUpdateModeResponse = (ModePublic);
+
+export type AdminServersReadAdminServerAccessResponse = (AdminServerAccessPublic);
+
+export type AdminServersReadAdminGlobalapiServersData = {
+    approvalStatus?: (number | null);
+    groupId?: (string | null);
+    limit?: number;
+    offset?: number;
+    ownerSteamid64?: (number | null);
+    q?: (string | null);
+    sortBy?: 'id' | 'server' | 'updated_at' | 'created_at';
+    sortOrder?: 'asc' | 'desc';
+};
+
+export type AdminServersReadAdminGlobalapiServersResponse = (ServerGlobalapiAdminServersPublic);
+
+export type AdminServersUpdateAdminGlobalapiServerData = {
+    requestBody: ServerGlobalapiAdminUpdate;
+    serverId: number;
+};
+
+export type AdminServersUpdateAdminGlobalapiServerResponse = (ServerGlobalapiAdminPublic);
+
+export type AdminServersReadAdminPublicServersData = {
+    city?: (string | null);
+    country?: (string | null);
+    groupId?: (string | null);
+    limit?: number;
+    offset?: number;
+    online?: (boolean | null);
+    region?: (string | null);
+    sourceType?: (ServerSource | null);
+};
+
+export type AdminServersReadAdminPublicServersResponse = (ServersPublic);
+
+export type AdminServersUpdateAdminPublicServerData = {
+    requestBody: ServerUpdate;
+    serverId: string;
+};
+
+export type AdminServersUpdateAdminPublicServerResponse = (ServerPublic);
+
+export type AdminServersDeleteAdminPublicServerData = {
+    serverId: string;
+};
+
+export type AdminServersDeleteAdminPublicServerResponse = (Message);
+
+export type AdminServersReadAdminServerGroupsResponse = (AdminServerGroupsPublic);
+
+export type AdminServersCreateAdminServerGroupData = {
+    requestBody: ServerGroupCreate;
+};
+
+export type AdminServersCreateAdminServerGroupResponse = (ServerGroupApiKeyPublic);
+
+export type AdminServersUpdateAdminServerGroupData = {
+    groupId: string;
+    requestBody: ServerGroupUpdate;
+};
+
+export type AdminServersUpdateAdminServerGroupResponse = (ServerGroupPublic);
+
+export type AdminServersDeleteAdminServerGroupData = {
+    groupId: string;
+};
+
+export type AdminServersDeleteAdminServerGroupResponse = (Message);
+
+export type AdminServersRotateAdminServerGroupApiKeyData = {
+    groupId: string;
+};
+
+export type AdminServersRotateAdminServerGroupApiKeyResponse = (ServerGroupApiKeyPublic);
 
 export type BansReadBansData = {
     banTypes?: (string | null);

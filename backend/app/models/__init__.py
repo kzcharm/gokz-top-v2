@@ -130,8 +130,8 @@ from .record import (
     kz_mode_to_legacy_mode_id,
     legacy_mode_id_to_kz_mode,
     mode_scope_from_id,
-    mode_scope_modes,
     mode_scope_mode_ids,
+    mode_scope_modes,
     mode_scope_to_id,
     normalize_kz_mode,
     normalize_mode_scope,
@@ -149,6 +149,10 @@ from .record_filter import (
 )
 from .region import RegionCode, RegionPublic, RegionsPublic
 from .server import (
+    AdminServerAccessPublic,
+    AdminServerGroupPublic,
+    AdminServerGroupsPublic,
+    AdminServerRole,
     Server,
     ServerBase,
     ServerCreate,
@@ -157,6 +161,7 @@ from .server import (
     ServerGroupApiKeyPublic,
     ServerGroupBase,
     ServerGroupCreate,
+    ServerGroupDependencyCounts,
     ServerGroupPublic,
     ServerGroupsPublic,
     ServerGroupStatus,
@@ -183,6 +188,9 @@ from .server import (
 )
 from .server_globalapi import (
     ServerGlobalapi,
+    ServerGlobalapiAdminPublic,
+    ServerGlobalapiAdminServersPublic,
+    ServerGlobalapiAdminUpdate,
     ServerGlobalapiBase,
     ServerGlobalapiCompatPublicV0,
     ServerGlobalapiListQuery,
@@ -200,6 +208,10 @@ from .user import (
 from .utils import generate_uuid7, get_datetime_utc
 
 __all__ = [
+    "AdminServerAccessPublic",
+    "AdminServerGroupPublic",
+    "AdminServerGroupsPublic",
+    "AdminServerRole",
     "Ban",
     "BanBase",
     "BanCompatPublicV0",
@@ -323,6 +335,7 @@ __all__ = [
     "ServerGroupApiKeyPublic",
     "ServerGroupBase",
     "ServerGroupCreate",
+    "ServerGroupDependencyCounts",
     "ServerGroupPublic",
     "ServerGroupStatus",
     "ServerGroupSummary",
@@ -335,6 +348,9 @@ __all__ = [
     "ServerHistoryPublic",
     "ServerHistoryQuery",
     "ServerGlobalapi",
+    "ServerGlobalapiAdminPublic",
+    "ServerGlobalapiAdminServersPublic",
+    "ServerGlobalapiAdminUpdate",
     "ServerGlobalapiBase",
     "ServerGlobalapiCompatPublicV0",
     "ServerGlobalapiListQuery",

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import {
   Activity,
   Home,
@@ -11,6 +12,7 @@ import {
   Users,
 } from "lucide-react"
 
+import { AdminServersService } from "@/client"
 import { Logo } from "@/components/Common/Logo"
 import {
   Sidebar,
@@ -36,12 +38,27 @@ const adminItem: Item = {
     { title: "Users", path: "/admin/users", icon: Users },
     { title: "Players", path: "/admin/players", icon: UserIcon },
     { title: "Maps", path: "/admin/maps", icon: MapIcon },
+    { title: "Servers", path: "/admin/servers", icon: Server },
   ],
+}
+
+const serverOwnerAdminItem: Item = {
+  type: "group",
+  icon: Users,
+  title: "Admin",
+  pathPrefix: "/admin",
+  children: [{ title: "Servers", path: "/admin/servers", icon: Server }],
 }
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
+  const serverAdminAccessQuery = useQuery({
+    queryKey: ["admin-servers-access", "sidebar"],
+    queryFn: () => AdminServersService.readAdminServerAccess(),
+    enabled: Boolean(currentUser) && !currentUser?.is_superuser,
+    retry: false,
+  })
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: "Servers", path: "/servers" },
@@ -66,7 +83,9 @@ export function AppSidebar() {
   const items: Item[] = currentUser
     ? currentUser.is_superuser
       ? [...publicItems, ...privateItems, adminItem]
-      : [...publicItems, ...privateItems]
+      : serverAdminAccessQuery.data
+        ? [...publicItems, ...privateItems, serverOwnerAdminItem]
+        : [...publicItems, ...privateItems]
     : publicItems
 
   return (

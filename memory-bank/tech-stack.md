@@ -11,6 +11,7 @@
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
+  - `/v1/admin/servers` for RBAC-protected server and server-group management
   - `/v1/maps/reviews` now supports website-authored review upserts plus authenticated comment-only deletion across a player's review rows for a map
 - Data strategy:
   - PostgreSQL as primary persistent store

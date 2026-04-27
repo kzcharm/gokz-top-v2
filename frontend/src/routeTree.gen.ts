@@ -32,6 +32,7 @@ import { Route as LayoutLeaderboardsJumpstatsRouteImport } from './routes/_layou
 import { Route as LayoutDashboardReviewsRouteImport } from './routes/_layout/dashboard.reviews'
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
+import { Route as LayoutAdminServersRouteImport } from './routes/_layout/admin.servers'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
 import { Route as LayoutAdminMapsRouteImport } from './routes/_layout/admin.maps'
 import { Route as LayoutProfileIdentifierIndexRouteImport } from './routes/_layout/profile.$identifier.index'
@@ -156,6 +157,11 @@ const LayoutAdminUsersRoute = LayoutAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => LayoutAdminRoute,
 } as any)
+const LayoutAdminServersRoute = LayoutAdminServersRouteImport.update({
+  id: '/servers',
+  path: '/servers',
+  getParentRoute: () => LayoutAdminRoute,
+} as any)
 const LayoutAdminPlayersRoute = LayoutAdminPlayersRouteImport.update({
   id: '/players',
   path: '/players',
@@ -207,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
+  '/admin/servers': typeof LayoutAdminServersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
+  '/admin/servers': typeof LayoutAdminServersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
@@ -268,6 +276,7 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/maps': typeof LayoutAdminMapsRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
+  '/_layout/admin/servers': typeof LayoutAdminServersRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/_layout/dashboard/reviews': typeof LayoutDashboardReviewsRoute
@@ -300,6 +309,7 @@ export interface FileRouteTypes {
     | '/servers/$serverAddress'
     | '/admin/maps'
     | '/admin/players'
+    | '/admin/servers'
     | '/admin/users'
     | '/dashboard/records'
     | '/dashboard/reviews'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/maps'
     | '/admin/players'
+    | '/admin/servers'
     | '/admin/users'
     | '/dashboard/records'
     | '/dashboard/reviews'
@@ -360,6 +371,7 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/admin/maps'
     | '/_layout/admin/players'
+    | '/_layout/admin/servers'
     | '/_layout/admin/users'
     | '/_layout/dashboard/records'
     | '/_layout/dashboard/reviews'
@@ -546,6 +558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminUsersRouteImport
       parentRoute: typeof LayoutAdminRoute
     }
+    '/_layout/admin/servers': {
+      id: '/_layout/admin/servers'
+      path: '/servers'
+      fullPath: '/admin/servers'
+      preLoaderRoute: typeof LayoutAdminServersRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
     '/_layout/admin/players': {
       id: '/_layout/admin/players'
       path: '/players'
@@ -594,12 +613,14 @@ declare module '@tanstack/react-router' {
 interface LayoutAdminRouteChildren {
   LayoutAdminMapsRoute: typeof LayoutAdminMapsRoute
   LayoutAdminPlayersRoute: typeof LayoutAdminPlayersRoute
+  LayoutAdminServersRoute: typeof LayoutAdminServersRoute
   LayoutAdminUsersRoute: typeof LayoutAdminUsersRoute
 }
 
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminMapsRoute: LayoutAdminMapsRoute,
   LayoutAdminPlayersRoute: LayoutAdminPlayersRoute,
+  LayoutAdminServersRoute: LayoutAdminServersRoute,
   LayoutAdminUsersRoute: LayoutAdminUsersRoute,
 }
 
