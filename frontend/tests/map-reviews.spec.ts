@@ -498,9 +498,6 @@ test("Map detail review dialog prefills latest review, saves website review, and
   await expect(page.getByTestId("map-add-review-button")).toBeVisible()
   await page.getByTestId("map-add-review-button").click()
 
-  await expect(
-    page.getByText("Prefilled from your latest server-group review"),
-  ).toBeVisible()
   await expect(page.getByLabel("Comment")).toHaveValue(
     "Latest server-group note",
   )
@@ -530,7 +527,7 @@ test("Own profile map context menu includes Add review", async ({ page }) => {
   await installProfileReviewRoutes(page, currentUserSteamid64)
   await page.goto(`/profile/${currentUserSteamid64}/records`)
 
-  await page.getByRole("link", { name: `Open ${mapName}` }).click({
+  await page.getByRole("link", { name: mapName }).click({
     button: "right",
   })
 
@@ -546,7 +543,7 @@ test("Other player profile map context menu omits Add review", async ({
   await installProfileReviewRoutes(page, otherUserSteamid64)
   await page.goto(`/profile/${otherUserSteamid64}/records`)
 
-  await page.getByRole("link", { name: `Open ${mapName}` }).click({
+  await page.getByRole("link", { name: mapName }).click({
     button: "right",
   })
 

@@ -18,7 +18,11 @@ test("Superuser sidebar groups admin users and players under admin", async ({
   const adminButton = page.getByRole("button", { name: "Admin" })
   const usersLink = page.getByRole("link", { name: "Users", exact: true })
   const playersLink = page.getByRole("link", { name: "Players", exact: true })
-  const mapsLink = page.getByRole("link", { name: "Maps", exact: true })
+  const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
+  const mapsLink = adminSubmenu.getByRole("link", {
+    name: "Maps",
+    exact: true,
+  })
 
   await expect(adminButton).toBeVisible()
   await expect(usersLink).toHaveCount(0)
@@ -51,14 +55,14 @@ test("Superuser can access users, players, and maps admin pages", async ({
 }) => {
   await page.goto("/admin/users")
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible()
-  await expect(page.getByText("Website users for this project")).toBeVisible()
+  await expect(
+    page.getByRole("textbox", { name: "Search users" }),
+  ).toBeVisible()
 
   await page.goto("/admin/players")
   await expect(page.getByRole("heading", { name: "Players" })).toBeVisible()
   await expect(
-    page.getByText(
-      "all Steam Players (who has played or potentially will play kz ( some mapper doesn't even played once, but we need to ensure them here)",
-    ),
+    page.getByRole("textbox", { name: "Search players" }),
   ).toBeVisible()
 
   await page.goto("/admin/maps")
@@ -158,8 +162,10 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
     .click()
   await expect(page.getByRole("heading", { name: "Main stage" })).toBeVisible()
   await expect(page.getByText(`#${recordFilterId}`)).toBeVisible()
-  await expect(page.getByText("KZT")).toBeVisible()
-  await expect(page.getByText("PRO")).toBeVisible()
+  const recordFilterRow = page.getByRole("row", {
+    name: new RegExp(`${recordFilterId}.*KZT.*PRO`),
+  })
+  await expect(recordFilterRow).toBeVisible()
 
   await page
     .getByRole("combobox", { name: `Tier for record filter ${recordFilterId}` })

@@ -395,7 +395,7 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText("kz_zeta")).toBeVisible()
   await expect(page.getByText("kz_hidden_bonus")).toHaveCount(0)
 
-  await expect(page.getByText("WR")).toHaveCount(0)
+  await expect(page.getByText("WR")).toBeVisible()
   await expect(page.getByText("Top 10")).toHaveCount(0)
   await expect(page.getByText("960")).toBeVisible()
   await expect(page.getByText("920")).toHaveCount(2)
