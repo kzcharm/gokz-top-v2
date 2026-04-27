@@ -63,9 +63,11 @@ const steamid64Pattern = /^\d{17}$/
 export type PlayerDisplayPlayer = {
   steamid64: string
   displayName?: string | null
+  display_name?: string | null
   name?: string | null
   alias?: string | null
   customId?: string | null
+  custom_id?: string | null
   avatarHash?: string | null
   avatar_hash?: string | null
   country?: string | null
@@ -127,7 +129,8 @@ export function getPlayerDisplayName(
   player?: PlayerDisplayPlayer | null,
   fallbackSteamid64?: string,
 ): string {
-  const displayName = player?.displayName?.trim()
+  const displayName =
+    player?.displayName?.trim() || player?.display_name?.trim()
   if (displayName) {
     return displayName
   }
@@ -158,6 +161,7 @@ function shouldHydratePlayer(player?: PlayerDisplayPlayer | null): boolean {
 
   const hasDisplayName =
     Boolean(player.displayName?.trim()) ||
+    Boolean(player.display_name?.trim()) ||
     Boolean(player.alias?.trim()) ||
     Boolean(player.name?.trim())
   const hasCountry = Boolean(player.country?.trim())
