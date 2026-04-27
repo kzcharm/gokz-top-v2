@@ -1,6 +1,7 @@
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from app import crud
 from app.api.deps import (
@@ -13,6 +14,7 @@ from app.api.deps import (
 from app.crud import player as player_crud
 from app.models import (
     ModeScope,
+    Player,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
     PlayerPinnedRecordsPublic,
@@ -30,6 +32,10 @@ from app.models import (
     RecordType,
     User,
 )
+from app.services.player_steam_profile import (
+    is_player_steam_profile_sync_due,
+    sync_player_steam_profile_if_due,
+)
 
 router = APIRouter(prefix="/players", tags=["players"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
@@ -42,7 +48,7 @@ def _parse_steamid64(steamid64: str) -> int:
         raise HTTPException(status_code=422, detail="Invalid steamid64") from exc
 
 
-async def _get_player_or_404(*, session: SessionDep, identifier: str):
+async def _get_player_or_404(*, session: SessionDep, identifier: str) -> Player:
     player = await player_crud.get_player_by_identifier(
         session=session,
         identifier=identifier,
@@ -398,11 +404,20 @@ async def read_player_following(
 
 
 @router.get("/{identifier:path}", response_model=PlayerPublic)
-async def read_player(identifier: str, session: SessionDep) -> Any:
+async def read_player(
+    identifier: str,
+    session: SessionDep,
+    background_tasks: BackgroundTasks,
+) -> Any:
     """
     Retrieve a player by app custom_id, steamid64, or full Steam profile URL.
     """
     player = await _get_player_or_404(session=session, identifier=identifier)
+    if is_player_steam_profile_sync_due(player=player, now=datetime.now(UTC)):
+        background_tasks.add_task(
+            sync_player_steam_profile_if_due,
+            steamid64=player.steamid64,
+        )
     return await crud.to_player_public_with_profile_views(session=session, player=player)
 
 

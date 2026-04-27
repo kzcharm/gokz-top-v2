@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -6,6 +7,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.api.v1 import players as players_api
 from app.core.config import settings
 from app.crud import player as player_crud
 from app.models import (
@@ -15,6 +17,7 @@ from app.models import (
     PlayerFollow,
     User,
 )
+from app.services import player_steam_profile
 from tests.utils.utils import get_user_token_headers, random_steamid64
 
 
@@ -25,12 +28,16 @@ async def _create_player(
     name: str,
     created_at: datetime | None = None,
     custom_id: str | None = None,
+    avatar_hash: str | None = None,
+    steam_profile_synced_at: datetime | None = None,
 ) -> Player:
     now = created_at or datetime.now(UTC)
     player = Player(
         steamid64=steamid64,
         name=name,
         custom_id=custom_id,
+        avatar_hash=avatar_hash,
+        steam_profile_synced_at=steam_profile_synced_at,
         created_at=now,
         updated_at=now,
     )
@@ -550,6 +557,223 @@ async def test_read_player_includes_is_website_user(
 
     assert response.status_code == 200
     assert response.json()["is_website_user"] is True
+
+
+@pytest.mark.asyncio
+async def test_read_player_schedules_steam_profile_sync_when_never_synced(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Missing Avatar Player",
+    )
+    scheduled_steamid64s: list[int] = []
+
+    async def _fake_sync_player_steam_profile_if_due(*, steamid64: int) -> None:
+        scheduled_steamid64s.append(steamid64)
+
+    monkeypatch.setattr(
+        players_api,
+        "sync_player_steam_profile_if_due",
+        _fake_sync_player_steam_profile_if_due,
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{player.steamid64}")
+
+    assert response.status_code == 200
+    assert response.json()["avatar_hash"] is None
+    assert scheduled_steamid64s == [player.steamid64]
+
+
+@pytest.mark.asyncio
+async def test_read_player_does_not_schedule_recent_steam_profile_sync(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Checked Avatar Player",
+        steam_profile_synced_at=datetime.now(UTC),
+    )
+    scheduled_steamid64s: list[int] = []
+
+    async def _fake_sync_player_steam_profile_if_due(*, steamid64: int) -> None:
+        scheduled_steamid64s.append(steamid64)
+
+    monkeypatch.setattr(
+        players_api,
+        "sync_player_steam_profile_if_due",
+        _fake_sync_player_steam_profile_if_due,
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{player.steamid64}")
+
+    assert response.status_code == 200
+    assert scheduled_steamid64s == []
+
+
+@pytest.mark.asyncio
+async def test_read_player_schedules_stale_steam_profile_sync(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Stale Steam Profile Player",
+        avatar_hash="a" * 40,
+        steam_profile_synced_at=datetime.now(UTC) - timedelta(days=8),
+    )
+    scheduled_steamid64s: list[int] = []
+
+    async def _fake_sync_player_steam_profile_if_due(*, steamid64: int) -> None:
+        scheduled_steamid64s.append(steamid64)
+
+    monkeypatch.setattr(
+        players_api,
+        "sync_player_steam_profile_if_due",
+        _fake_sync_player_steam_profile_if_due,
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{player.steamid64}")
+
+    assert response.status_code == 200
+    assert scheduled_steamid64s == [player.steamid64]
+
+
+@pytest.mark.asyncio
+async def test_sync_player_steam_profile_if_due_updates_hash(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Avatar Update Player",
+    )
+
+    @asynccontextmanager
+    async def _session_maker():
+        yield db
+
+    async def _fake_fetch_players_from_steam_api_if_available(
+        steamid64s: list[int],
+    ) -> dict[int, dict[str, str | bool | None]] | None:
+        return {
+            steamid64s[0]: {
+                "name": "Avatar Update Player",
+                "custom_id": None,
+                "avatar_hash": "b" * 40,
+                "country": None,
+                "fetched": True,
+            }
+        }
+
+    monkeypatch.setattr(player_steam_profile, "async_session_maker", _session_maker)
+    monkeypatch.setattr(
+        player_steam_profile,
+        "_fetch_players_from_steam_api_if_available",
+        _fake_fetch_players_from_steam_api_if_available,
+    )
+
+    await player_steam_profile.sync_player_steam_profile_if_due(
+        steamid64=player.steamid64,
+    )
+
+    db.expire_all()
+    refreshed = await db.get(Player, player.steamid64)
+    assert refreshed is not None
+    assert refreshed.avatar_hash == "b" * 40
+    assert refreshed.steam_profile_synced_at is not None
+
+
+@pytest.mark.asyncio
+async def test_sync_player_steam_profile_if_due_sets_empty_hash_when_not_found(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Deleted Steam Player",
+    )
+
+    @asynccontextmanager
+    async def _session_maker():
+        yield db
+
+    async def _fake_fetch_players_from_steam_api_if_available(
+        _steamid64s: list[int],
+    ) -> dict[int, dict[str, str | bool | None]] | None:
+        return {}
+
+    monkeypatch.setattr(player_steam_profile, "async_session_maker", _session_maker)
+    monkeypatch.setattr(
+        player_steam_profile,
+        "_fetch_players_from_steam_api_if_available",
+        _fake_fetch_players_from_steam_api_if_available,
+    )
+
+    await player_steam_profile.sync_player_steam_profile_if_due(
+        steamid64=player.steamid64,
+    )
+
+    db.expire_all()
+    refreshed = await db.get(Player, player.steamid64)
+    assert refreshed is not None
+    assert refreshed.avatar_hash == ""
+    assert refreshed.steam_profile_synced_at is not None
+
+
+@pytest.mark.asyncio
+async def test_sync_player_steam_profile_if_due_leaves_hash_null_on_fetch_failure(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Steam Failure Player",
+    )
+    fetch_calls = 0
+
+    @asynccontextmanager
+    async def _session_maker():
+        yield db
+
+    async def _fake_fetch_players_from_steam_api_if_available(
+        _steamid64s: list[int],
+    ) -> dict[int, dict[str, str | bool | None]] | None:
+        nonlocal fetch_calls
+        fetch_calls += 1
+        return None
+
+    monkeypatch.setattr(player_steam_profile, "async_session_maker", _session_maker)
+    monkeypatch.setattr(
+        player_steam_profile,
+        "_fetch_players_from_steam_api_if_available",
+        _fake_fetch_players_from_steam_api_if_available,
+    )
+
+    await player_steam_profile.sync_player_steam_profile_if_due(
+        steamid64=player.steamid64,
+    )
+    await player_steam_profile.sync_player_steam_profile_if_due(
+        steamid64=player.steamid64,
+    )
+
+    db.expire_all()
+    refreshed = await db.get(Player, player.steamid64)
+    assert refreshed is not None
+    assert refreshed.avatar_hash is None
+    assert refreshed.steam_profile_synced_at is not None
+    assert fetch_calls == 1
 
 
 @pytest.mark.asyncio
