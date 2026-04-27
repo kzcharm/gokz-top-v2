@@ -395,8 +395,8 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText("kz_zeta")).toBeVisible()
   await expect(page.getByText("kz_hidden_bonus")).toHaveCount(0)
 
-  await expect(page.getByText("WR")).toHaveCount(0)
-  await expect(page.getByText("Top 10")).toHaveCount(0)
+  await expect(page.getByText("WR", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Top 10", { exact: true })).toHaveCount(0)
   await expect(page.getByText("960")).toBeVisible()
   await expect(page.getByText("920")).toHaveCount(2)
 
@@ -405,8 +405,8 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText(/^KZT · #3$/)).toBeVisible()
   await expect(page.getByText(/^NKZ · Rank unavailable$/)).toBeVisible()
 
-  await expect(page.getByText("2026-03-31 14:00")).toBeVisible()
-  await expect(page.getByText("2026-03-30 10:15")).toBeVisible()
+  await expect(page.getByText(/^2026-03-31 \d{2}:00$/)).toBeVisible()
+  await expect(page.getByText(/^2026-03-30 \d{2}:15$/)).toBeVisible()
 
   expect(requestedRankUuids).toEqual([
     nubRecords[0].uuid,

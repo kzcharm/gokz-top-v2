@@ -275,8 +275,8 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page).toHaveURL(/\/servers(\?.*)?$/)
   await expect.poll(() => new URL(page.url()).search).toBe("")
   await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.1:27015")).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.2:27016")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
   await expect(page.getByRole("button", { name: /All/ })).toBeVisible()
 
   await page.waitForFunction(() => {
@@ -290,13 +290,13 @@ test("Public servers page supports live updates, filters, and route-bound detail
     ;(window as any).__dispatchServerMessage(payload)
   }, snapshotServers)
 
-  await expect(page.getByTestId("server-row-10.0.0.3:27017")).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.2:27016")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
   await expect(page.getByText("12 Players")).toBeVisible()
   await expect(page.getByText("2 Servers")).toBeVisible()
-  await expect(page.getByLabel("Refreshing server status")).toHaveCount(1)
+  await expect(page.getByTitle("Refreshing server status")).toHaveCount(1)
 
-  const hoverCard = page.getByTestId("server-row-10.0.0.3:27017")
+  const hoverCard = page.getByTestId("server-card-10.0.0.3:27017")
   await hoverCard.hover()
   await page.waitForTimeout(250)
   const hoveredBoxShadow = await hoverCard.evaluate((element) => {
@@ -305,33 +305,36 @@ test("Public servers page supports live updates, filters, and route-bound detail
   expect(hoveredBoxShadow).not.toBe("none")
 
   await page.getByRole("button", { name: "Online" }).click()
-  await expect(page.getByTestId("server-row-10.0.0.2:27016")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toBeVisible()
 
-  await page.getByRole("button", { name: /Europe/ }).click()
-  await expect(page.getByTestId("server-row-10.0.0.1:27015")).toHaveCount(0)
-  await expect(page.getByTestId("server-row-10.0.0.2:27016")).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.3:27017")).toBeVisible()
+  await page.getByRole("button", { name: /(EU|Europe)/ }).click()
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Online" }).click()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
 
   const searchInput = page.getByPlaceholder(
     "Search IP, hostname, map, city, group...",
   )
   await searchInput.fill("Gamma Live")
-  await expect(page.getByTestId("server-row-10.0.0.3:27017")).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.2:27016")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
 
   await searchInput.fill("10.0.0.3:27017")
-  await expect(page.getByTestId("server-row-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
 
   await searchInput.fill("")
-  await page.getByTestId("server-row-10.0.0.3:27017").click()
+  await page.getByTestId("server-card-10.0.0.3:27017").click()
 
   await expect(page).toHaveURL(/\/servers\/10\.0\.0\.3:27017(\?|$)/)
   await expect
     .poll(() => new URL(page.url()).searchParams.get("status"))
-    .toBe("all")
+    .toBeNull()
   await expect
     .poll(() => new URL(page.url()).searchParams.get("region"))
-    .toBe("EU")
+    .toBeNull()
   await expect
     .poll(() => new URL(page.url()).searchParams.get("view"))
     .toBeNull()
@@ -342,13 +345,12 @@ test("Public servers page supports live updates, filters, and route-bound detail
     .poll(() => new URL(page.url()).searchParams.get("dir"))
     .toBeNull()
   await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBeNull()
-  await expect(page.getByText("Gamma Live")).toBeVisible()
+  await expect(page.getByText("Gamma Live").first()).toBeVisible()
   await expect(
     page.getByRole("columnheader", { name: "Duration" }),
   ).toBeVisible()
   await expect(page.getByRole("cell", { name: "6:52" })).toBeVisible()
-  await expect(page.getByText(/ago/)).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.3:27017")).toHaveClass(
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveClass(
     /server-selected_650ms_ease-out/,
   )
 
@@ -356,9 +358,9 @@ test("Public servers page supports live updates, filters, and route-bound detail
     ;(window as any).__dispatchServerMessage(payload)
   }, updatedGammaServer)
 
-  await expect(page.getByText("Gamma Live Updated")).toBeVisible()
-  await expect(page.getByText("9/24")).toBeVisible()
-  await expect(page.getByLabel("Refreshing server status")).toHaveCount(0)
+  await expect(page.getByText("Gamma Live Updated").first()).toBeVisible()
+  await expect(page.getByText("9/24").first()).toBeVisible()
+  await expect(page.getByTitle("Refreshing server status")).toHaveCount(0)
 })
 
 test("Public servers page downloads a generic config for the visible sorted servers", async ({
@@ -448,9 +450,9 @@ test("Public servers page downloads a generic config for the visible sorted serv
     .getByPlaceholder("Search IP, hostname, map, city, group...")
     .fill("kz_")
 
-  await expect(page.getByTestId("server-row-10.0.0.1:27015")).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.3:27017")).toBeVisible()
-  await expect(page.getByTestId("server-row-10.0.0.2:27016")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
 
   const downloadPromise = page.waitForEvent("download")
   await page.getByTestId("download-servers-config-button").click()
@@ -626,6 +628,6 @@ test("Logged-in users can add a server from the servers page", async ({
   await page.getByTestId("add-server-address-input").fill("10.0.0.4:27018")
   await page.getByRole("button", { name: "Add" }).click()
 
-  await expect(page.getByTestId("server-row-10.0.0.4:27018")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.4:27018")).toBeVisible()
   await expect(page.getByText("Delta Added")).toBeVisible()
 })

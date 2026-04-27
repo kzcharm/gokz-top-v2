@@ -191,7 +191,10 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
 
   await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
     const url = new URL(route.request().url())
-    const isProOnly = url.searchParams.get("is_pro_only")
+    const recordType = url.searchParams.get("type")
+    const isProOnly =
+      url.searchParams.get("is_pro_only") ??
+      (recordType === "PRO" ? "true" : recordType === "NUB" ? "false" : null)
     const scope = url.searchParams.get("scope")
     const mapId = url.searchParams.get("map_id")
 
@@ -286,7 +289,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByText("Alpha Runner")).toBeVisible()
   await expect(page.getByText("TP Runner")).toHaveCount(0)
 
-  await page.getByRole("button", { name: "All countries" }).click()
+  await page.getByRole("button", { name: /^(All countries|country)$/ }).click()
   await page.getByRole("button", { name: "Germany" }).click()
   await expect
     .poll(() => pbRequests.at(-1))
@@ -298,7 +301,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
       region: null,
     })
 
-  await page.getByRole("combobox").filter({ hasText: "All regions" }).click()
+  await page.getByRole("combobox").click()
   await page.getByRole("option", { name: /^EU$/ }).click()
   await expect
     .poll(() => pbRequests.at(-1))
