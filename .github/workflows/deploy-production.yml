@@ -33,7 +33,10 @@ jobs:
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
+          API_HOST=api.${DOMAIN}
+          FRONTEND_HOSTNAME=dashboard.${DOMAIN}
           FRONTEND_HOST=https://dashboard.${DOMAIN}
+          ADMINER_HOST=adminer.${DOMAIN}
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
