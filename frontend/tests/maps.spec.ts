@@ -88,9 +88,10 @@ const mapLeaderboardRecords = [
   {
     uuid: "019e1111-1111-7111-8111-111111111111",
     id: 980900,
-    steamid64: "76561198000000001",
-    player_name: "Alpha Runner",
-    player_avatar_hash: null,
+    player: {
+      steamid64: "76561198000000001",
+      display_name: "Alpha Runner",
+    },
     steam_id: null,
     server_id: 980300,
     server_name: "Alpha Server",
@@ -113,9 +114,10 @@ const mapLeaderboardRecords = [
   {
     uuid: "019e2222-2222-7222-8222-222222222222",
     id: 980901,
-    steamid64: "76561198000000002",
-    player_name: "TP Runner",
-    player_avatar_hash: null,
+    player: {
+      steamid64: "76561198000000002",
+      display_name: "TP Runner",
+    },
     steam_id: null,
     server_id: 980301,
     server_name: "Teleport Server",

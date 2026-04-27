@@ -503,7 +503,7 @@ test("Map detail review dialog prefills latest review, saves website review, and
   )
 
   await page.getByLabel("Comment").fill("Website-ready note")
-  await page.getByRole("button", { name: "Save review" }).click()
+  await page.getByRole("button", { name: "Save" }).click()
 
   await expect(page.getByRole("dialog")).toHaveCount(0)
 

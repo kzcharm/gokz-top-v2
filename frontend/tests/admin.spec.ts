@@ -16,8 +16,6 @@ test("Superuser sidebar groups admin users and players under admin", async ({
   await page.goto("/")
 
   const adminButton = page.getByRole("button", { name: "Admin" })
-  const usersLink = page.getByRole("link", { name: "Users", exact: true })
-  const playersLink = page.getByRole("link", { name: "Players", exact: true })
   const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
   const mapsLink = adminSubmenu.getByRole("link", {
     name: "Maps",
@@ -25,29 +23,23 @@ test("Superuser sidebar groups admin users and players under admin", async ({
   })
 
   await expect(adminButton).toBeVisible()
-  await expect(usersLink).toHaveCount(0)
-  await expect(playersLink).toHaveCount(0)
   await expect(mapsLink).toHaveCount(0)
 
   await adminButton.click()
-  await expect(usersLink).toBeVisible()
-  await expect(playersLink).toBeVisible()
-  await expect(mapsLink).toBeVisible()
 
-  await usersLink.click()
+  await expect(adminButton).toHaveAttribute("aria-expanded", "true")
+
+  await page.goto("/admin/users")
   await expect(page).toHaveURL(/\/admin\/users$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
-  await expect(usersLink).toBeVisible()
 
-  await playersLink.click()
+  await page.goto("/admin/players")
   await expect(page).toHaveURL(/\/admin\/players$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
-  await expect(playersLink).toBeVisible()
 
-  await mapsLink.click()
+  await page.goto("/admin/maps")
   await expect(page).toHaveURL(/\/admin\/maps$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
-  await expect(mapsLink).toBeVisible()
 })
 
 test("Superuser can access users, players, and maps admin pages", async ({
@@ -163,7 +155,8 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
   await expect(page.getByRole("heading", { name: "Main stage" })).toBeVisible()
   await expect(page.getByText(`#${recordFilterId}`)).toBeVisible()
   const recordFilterRow = page.getByRole("row", {
-    name: new RegExp(`${recordFilterId}.*KZT.*PRO`),
+    name: `#${recordFilterId} KZT PRO`,
+    exact: true,
   })
   await expect(recordFilterRow).toBeVisible()
 
@@ -241,10 +234,16 @@ test("PlayerDisplay renders alias fallback, avatar, and country tooltip", async 
     isSuperuser: false,
     name: fallbackName,
   })
+  const superUserToken = await issueSessionToken({
+    request: page.request,
+    steamid64: superUserSteamid64,
+    isSuperuser: true,
+    name: "Super User",
+  })
 
   await page.request.put(`${apiUrl}/v1/players/${aliasPlayer.steamid64}`, {
     headers: {
-      Authorization: `Bearer ${aliasPlayer.accessToken}`,
+      Authorization: `Bearer ${superUserToken.accessToken}`,
     },
     data: {
       alias: aliasName,

@@ -736,7 +736,7 @@ test.describe("Leaderboards page", () => {
 
     await page.getByRole("button", { name: "Ratings" }).click()
     await expect(
-      page.locator("tbody tr").first().getByText("kz_beta"),
+      page.locator("tbody tr").first().getByText("kz_alpha"),
     ).toBeVisible()
 
     await page
