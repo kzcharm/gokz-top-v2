@@ -1,9 +1,16 @@
+import re
 from dataclasses import dataclass
 
 import pytest
 from typer.testing import CliRunner
 
 from app import cli
+
+_ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _plain_output(output: str) -> str:
+    return _ANSI_RE.sub("", output)
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,9 +121,10 @@ def test_cli_sync_profiles_help() -> None:
     )
 
     assert result.exit_code == 0
-    assert "--missing-avatar" in result.output
-    assert "--stale-days" in result.output
-    assert "--leaderboard" in result.output
+    output = _plain_output(result.output)
+    assert "--missing-avatar" in output
+    assert "--stale-days" in output
+    assert "--leaderboard" in output
 
 
 def test_cli_sync_profiles_defaults_to_all_players(
@@ -153,8 +161,9 @@ def test_cli_sync_profiles_rejects_multiple_selection_filters() -> None:
     )
 
     assert result.exit_code != 0
-    assert "Use only one of --missing-avatar, --stale-days, or" in result.output
-    assert "--leaderboard." in result.output
+    output = _plain_output(result.output)
+    assert "Use only one of --missing-avatar, --stale-days, or" in output
+    assert "--leaderboard." in output
 
 
 def test_cli_rating_help() -> None:
@@ -167,8 +176,9 @@ def test_cli_rating_help() -> None:
     )
 
     assert result.exit_code == 0
-    assert "--full" in result.output
-    assert "--scope" in result.output
+    output = _plain_output(result.output)
+    assert "--full" in output
+    assert "--scope" in output
 
 
 def test_cli_rating_full_dispatches_full_rebuild(
