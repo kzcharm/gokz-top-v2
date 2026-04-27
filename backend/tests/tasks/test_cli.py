@@ -107,7 +107,11 @@ def test_cli_sync_help() -> None:
 def test_cli_sync_profiles_help() -> None:
     runner = CliRunner()
 
-    result = runner.invoke(cli.app, ["sync", "profiles", "--help"])
+    result = runner.invoke(
+        cli.app,
+        ["sync", "profiles", "--help"],
+        terminal_width=160,
+    )
 
     assert result.exit_code == 0
     assert "--missing-avatar" in result.output
@@ -145,6 +149,7 @@ def test_cli_sync_profiles_rejects_multiple_selection_filters() -> None:
     result = runner.invoke(
         cli.app,
         ["sync", "profiles", "--missing-avatar", "--stale-days", "30"],
+        terminal_width=160,
     )
 
     assert result.exit_code != 0
@@ -155,7 +160,11 @@ def test_cli_sync_profiles_rejects_multiple_selection_filters() -> None:
 def test_cli_rating_help() -> None:
     runner = CliRunner()
 
-    result = runner.invoke(cli.app, ["build", "rating", "--help"])
+    result = runner.invoke(
+        cli.app,
+        ["build", "rating", "--help"],
+        terminal_width=160,
+    )
 
     assert result.exit_code == 0
     assert "--full" in result.output
