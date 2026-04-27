@@ -59,6 +59,8 @@ services:
     restart: "no"
     ports:
       - "8000:8000"
+    environment:
+      - ENABLE_TEST_AUTH_HELPERS=${ENABLE_TEST_AUTH_HELPERS:-false}
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -107,6 +109,7 @@ services:
       - .env
     environment:
       - VITE_API_URL=http://backend:8000
+      - ENABLE_TEST_AUTH_HELPERS=${ENABLE_TEST_AUTH_HELPERS:-false}
       # For the reports when run locally
       - PLAYWRIGHT_HTML_HOST=0.0.0.0
       - CI=${CI}
