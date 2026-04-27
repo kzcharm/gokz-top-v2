@@ -101,10 +101,9 @@ def test_play_completion_sound_skips_non_macos(
 
 def test_play_completion_sound_logs_failure_without_raising(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr("app.tasks.build.rating.platform.system", lambda: "Darwin")
-    caplog.set_level("WARNING")
+    warnings: list[str] = []
 
     class _CompletedProcess:
         returncode = 1
@@ -114,9 +113,13 @@ def test_play_completion_sound_logs_failure_without_raising(
         "app.tasks.build.rating.subprocess.run",
         lambda *args, **kwargs: _CompletedProcess(),
     )
+    monkeypatch.setattr(
+        "app.tasks.build.rating.logger.warning",
+        lambda message, *args: warnings.append(message % args),
+    )
 
     from app.tasks.build.rating import _play_completion_sound
 
     _play_completion_sound()
 
-    assert "Completion sound failed" in caplog.text
+    assert any("Completion sound failed" in message for message in warnings)

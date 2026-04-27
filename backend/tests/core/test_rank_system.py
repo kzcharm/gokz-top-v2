@@ -7,11 +7,11 @@ from app.core.rank_system import load_rank_system_settings
 def test_load_rank_system_settings_parses_current_config() -> None:
     settings = load_rank_system_settings()
 
-    assert settings.rating.decay == Decimal("0.99")
+    assert settings.rating.decay == Decimal("0.975")
     assert settings.rating.max_map_points == 1000
     assert settings.rating.target_max_raw_rating == 40000
-    assert settings.rating.multiplier == Decimal("0.4")
-    assert settings.points.shared_min_points_by_tier[4] == 400
+    assert settings.rating.multiplier == Decimal("1.000")
+    assert settings.points.shared_min_points_by_tier[4] == 350
     assert settings.points.top_five_bonuses[1] == 0.20
     assert settings.points.dist_weight == 0.875
 

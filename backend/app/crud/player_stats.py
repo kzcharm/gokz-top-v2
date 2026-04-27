@@ -28,7 +28,9 @@ from app.models import (
 
 def get_utc_midnight(*, now: datetime | None = None) -> datetime:
     current = now or get_datetime_utc()
-    normalized = current.astimezone(UTC) if current.tzinfo else current.replace(tzinfo=UTC)
+    normalized = (
+        current.astimezone(UTC) if current.tzinfo else current.replace(tzinfo=UTC)
+    )
     return normalized.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
@@ -100,14 +102,18 @@ async def _load_daily_activity_days(
     start_date: date | None = None,
 ) -> list[PlayerDailyActivityDayPublic]:
     record_date = _record_utc_date_expression()
-    statement = select(record_date, func.count()).where(col(Record.steamid64) == steamid64)
+    statement = select(record_date, func.count()).where(
+        col(Record.steamid64) == steamid64
+    )
     if start_date is not None:
         statement = statement.where(
             col(Record.created_at) >= _start_datetime_for_utc_date(start_date)
         )
     statement = statement.group_by(record_date).order_by(record_date)
     rows = (await session.exec(statement)).all()
-    return [PlayerDailyActivityDayPublic(date=row[0], count=int(row[1])) for row in rows]
+    return [
+        PlayerDailyActivityDayPublic(date=row[0], count=int(row[1])) for row in rows
+    ]
 
 
 async def _load_playtime_day_totals(
@@ -158,6 +164,7 @@ async def _upsert_player_stat_cache(
 
     persisted = await session.get(PlayerStatCache, (steamid64, stat_type))
     assert persisted is not None
+    await session.refresh(persisted)
     return persisted
 
 
@@ -185,7 +192,8 @@ async def rebuild_player_daily_activity_stat(
         start_date=latest_cached_day,
     )
     merged_days = (
-        [day for day in cached_content.days if day.date < latest_cached_day] + refreshed_days
+        [day for day in cached_content.days if day.date < latest_cached_day]
+        + refreshed_days
         if latest_cached_day is not None
         else refreshed_days
     )
@@ -273,7 +281,9 @@ async def get_or_rebuild_player_daily_activity_stat(
         PlayerStatCache,
         (steamid64, PlayerStatType.DAILY_ACTIVITY),
     )
-    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(now=current_now):
+    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(
+        now=current_now
+    ):
         return _to_player_daily_activity_stat_public(cache_row)
 
     return await rebuild_player_daily_activity_stat(
@@ -294,7 +304,9 @@ async def get_or_rebuild_player_playtime_stat(
         PlayerStatCache,
         (steamid64, PlayerStatType.PLAYTIME),
     )
-    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(now=current_now):
+    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(
+        now=current_now
+    ):
         return _to_player_playtime_stat_public(cache_row)
 
     return await rebuild_player_playtime_stat(

@@ -187,11 +187,13 @@ async def test_build_recent_record_upsert_event_returns_single_record_payload(
     assert event is not None
     assert event.type == "record.upserted"
     assert event.record.uuid == record.uuid
-    assert event.record.player.name == "Realtime Runner"
+    assert event.record.player.display_name == "Realtime Runner"
     assert event.record.server.name == "Realtime Server"
     assert event.record.mode.name == "KZT"
 
 
-async def test_build_recent_record_upsert_event_rejects_invalid_or_missing_record() -> None:
+async def test_build_recent_record_upsert_event_rejects_invalid_or_missing_record() -> (
+    None
+):
     assert await build_recent_record_upsert_event("not-a-uuid") is None
     assert await build_recent_record_upsert_event(str(uuid.uuid4())) is None

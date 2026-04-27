@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from sqlalchemy import update
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typer.testing import CliRunner
 
@@ -96,7 +97,10 @@ async def test_create_or_update_player_from_steam_if_fetched_skips_insert_when_f
         _fake_fetch_player_from_steam_api,
     )
 
-    player, was_created = await player_crud.create_or_update_player_from_steam_if_fetched(
+    (
+        player,
+        was_created,
+    ) = await player_crud.create_or_update_player_from_steam_if_fetched(
         session=db,
         steamid64=steamid64,
     )
@@ -273,7 +277,8 @@ def test_cli_profile_help() -> None:
     result = runner.invoke(cli.app, ["sync", "profiles", "--help"])
 
     assert result.exit_code == 0
-    assert "Select only players that do not have an avatar hash yet." in result.output
+    assert "Select only players that do" in result.output
+    assert "not have an avatar hash yet." in result.output
 
 
 async def test_load_target_steamid64s_supports_stale_days_selection(
@@ -305,6 +310,12 @@ async def test_load_target_steamid64s_supports_stale_days_selection(
             name="Never Synced",
             updated_at=None,
         )
+    )
+    await db.commit()
+    await db.exec(
+        update(Player)
+        .where(Player.steamid64 == null_updated_player)
+        .values(updated_at=None)
     )
     await db.commit()
 

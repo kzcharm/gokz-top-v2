@@ -71,7 +71,9 @@ async def _create_record(
     teleports: int = 1,
 ) -> Record:
     record_uuid_subquery = select(Record.uuid).where(Record.id == id)
-    await db.exec(delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery)))
+    await db.exec(
+        delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery))
+    )
     await db.exec(delete(Record).where(Record.id == id))
     await db.commit()
     record, _created, _updated = await crud.upsert_record(
@@ -178,7 +180,7 @@ async def test_resolve_player_pinned_records_keeps_players_pb_not_map_wr(
 
     assert len(resolved) == 1
     assert str(resolved[0].record.uuid) == str(player_record.uuid)
-    assert resolved[0].record.player["steamid64"] == str(steamid64)
+    assert resolved[0].record.player.steamid64 == str(steamid64)
 
 
 async def test_resolve_player_pinned_records_omits_targets_without_pb(
@@ -217,7 +219,9 @@ async def test_resolve_player_pinned_records_omits_targets_without_pb(
 
     stored = (
         await db.exec(
-            select(PlayerPinnedRecord).where(PlayerPinnedRecord.player_steamid64 == steamid64)
+            select(PlayerPinnedRecord).where(
+                PlayerPinnedRecord.player_steamid64 == steamid64
+            )
         )
     ).all()
     assert len(stored) == 1

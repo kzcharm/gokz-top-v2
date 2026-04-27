@@ -73,7 +73,9 @@ async def _create_record(
     time_seconds: str = "20.000",
 ) -> None:
     record_uuid_subquery = select(Record.uuid).where(Record.id == id)
-    await db.exec(delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery)))
+    await db.exec(
+        delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery))
+    )
     await db.exec(delete(Record).where(Record.id == id))
     await db.commit()
     await crud.upsert_record(
@@ -108,6 +110,10 @@ def _stats_url(steamid64: int, stat_type: str | None = None) -> str:
     if stat_type is None:
         return base_url
     return f"{base_url}?type={stat_type}"
+
+
+def _json_datetime(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
 
 
 @pytest.mark.asyncio
@@ -164,14 +170,14 @@ async def test_read_player_stats_builds_cache_on_first_read(
     assert response.json() == {
         "steamid64": str(steamid64),
         "daily_activity": {
-            "updated_at": now.isoformat(),
+            "updated_at": _json_datetime(now),
             "days": [
                 {"date": "2026-04-01", "count": 2},
                 {"date": "2026-04-02", "count": 1},
             ],
         },
         "playtime": {
-            "updated_at": now.isoformat(),
+            "updated_at": _json_datetime(now),
             "total_seconds": 30.0,
         },
     }
@@ -211,7 +217,7 @@ async def test_read_player_stats_supports_type_filter(
     assert response.json() == {
         "steamid64": str(steamid64),
         "playtime": {
-            "updated_at": now.isoformat(),
+            "updated_at": _json_datetime(now),
             "total_seconds": 15.25,
         },
     }
@@ -326,7 +332,7 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
     assert response.json() == {
         "steamid64": str(steamid64),
         "daily_activity": {
-            "updated_at": refresh_now.isoformat(),
+            "updated_at": _json_datetime(refresh_now),
             "days": [
                 {"date": "2026-04-01", "count": 1},
                 {"date": "2026-04-02", "count": 2},
@@ -334,7 +340,7 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
             ],
         },
         "playtime": {
-            "updated_at": refresh_now.isoformat(),
+            "updated_at": _json_datetime(refresh_now),
             "total_seconds": 36.0,
         },
     }
@@ -366,11 +372,11 @@ async def test_read_player_stats_returns_empty_payload_and_writes_cache(
     assert response.json() == {
         "steamid64": str(steamid64),
         "daily_activity": {
-            "updated_at": now.isoformat(),
+            "updated_at": _json_datetime(now),
             "days": [],
         },
         "playtime": {
-            "updated_at": now.isoformat(),
+            "updated_at": _json_datetime(now),
             "total_seconds": 0.0,
         },
     }

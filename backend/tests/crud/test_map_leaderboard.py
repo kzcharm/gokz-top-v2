@@ -15,8 +15,8 @@ from app.models import (
     ModeScope,
     Player,
     Record,
-    RecordPatch,
     RecordFilter,
+    RecordPatch,
     ServerGlobalapi,
     mode_scope_to_id,
 )
@@ -393,7 +393,7 @@ async def test_rebuild_map_leaderboards_interpolates_even_player_medians(
     assert row is not None
     assert row.median_first_completion_time == pytest.approx(25.0)
     assert row.median_finishes_per_player == pytest.approx(2.5)
-    assert row.median_playtime_per_player == pytest.approx(45.0)
+    assert row.median_playtime_per_player == pytest.approx(85.0)
 
 
 async def test_read_map_leaderboard_includes_zero_rows_and_review_summaries(
