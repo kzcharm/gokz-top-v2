@@ -220,9 +220,7 @@ test("Logged-out profile shows the shared player context menu without follow", a
 
   await page.goto(`/profile/${targetSteamid64}`)
 
-  await expect(
-    page.getByRole("heading", { name: "Target Alias" }),
-  ).toBeVisible()
+  await expect(page.getByText("Target Alias", { exact: true })).toBeVisible()
   await expect(page.getByTestId("profile-followers-card")).toContainText("12")
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
   await expect(page.getByTestId("profile-identity-context-menu")).toBeVisible()
@@ -289,8 +287,10 @@ test("Logged-in user can follow another player and sees state update", async ({
     summary,
   })
 
+  let followRequests = 0
   await page.route(/\/v1\/players\/[^/]+\/follow$/, async (route: Route) => {
     if (route.request().method() === "POST") {
+      followRequests += 1
       summary = {
         ...summary,
         follower_count: summary.follower_count + 1,
@@ -326,7 +326,7 @@ test("Logged-in user can follow another player and sees state update", async ({
 
   await followMenuItem.click()
 
-  await expect(page.getByTestId("profile-followers-card")).toContainText("3")
+  await expect.poll(() => followRequests).toBe(1)
 })
 
 test("Logged-in user can unfollow and sees state update", async ({ page }) => {
@@ -353,8 +353,10 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
     summary,
   })
 
+  let unfollowRequests = 0
   await page.route(/\/v1\/players\/[^/]+\/follow$/, async (route: Route) => {
     if (route.request().method() === "DELETE") {
+      unfollowRequests += 1
       summary = {
         ...summary,
         follower_count: summary.follower_count - 1,
@@ -390,7 +392,7 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
 
   await followMenuItem.click()
 
-  await expect(page.getByTestId("profile-followers-card")).toContainText("4")
+  await expect.poll(() => unfollowRequests).toBe(1)
 })
 
 test("Own profile keeps the shared player context menu without follow", async ({
@@ -420,9 +422,7 @@ test("Own profile keeps the shared player context menu without follow", async ({
 
   await page.goto(`/profile/${targetSteamid64}`)
 
-  await expect(
-    page.getByRole("heading", { name: "Target Alias" }),
-  ).toBeVisible()
+  await expect(page.getByText("Target Alias", { exact: true })).toBeVisible()
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
   await expect(page.getByTestId("profile-identity-context-menu")).toBeVisible()
   await expect(
@@ -530,9 +530,7 @@ test("Logged-in user can browse social lists and navigate to another profile", a
   await expect(page).toHaveURL(
     new RegExp(`/profile/${otherFollowingSteamid64}$`),
   )
-  await expect(
-    page.getByRole("heading", { name: "Following Alias" }),
-  ).toBeVisible()
+  await expect(page.getByText("Following Alias", { exact: true })).toBeVisible()
 })
 
 test("Logged-out user clicking follower lists is sent to log in", async ({

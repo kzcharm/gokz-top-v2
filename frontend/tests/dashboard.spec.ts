@@ -142,9 +142,9 @@ test("Public dashboard renders recent records and prepends live updates", async 
     })
   })
 
-  await page.goto("/")
+  await page.goto("/dashboard/records")
 
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/dashboard\/records$/)
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Records" })).toBeVisible()
   await expect(page.getByText("Seed Alias")).toBeVisible()

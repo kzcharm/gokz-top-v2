@@ -140,9 +140,9 @@ test.describe("Leaderboards page", () => {
       })
     })
 
-    await page.goto("/leaderboards")
+    await page.goto("/leaderboards/players")
 
-    await expect(page.getByRole("tab", { name: "Rating" })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Players" })).toBeVisible()
     await expect(
       page.getByRole("button", { name: "Find Me", exact: true }),
     ).toBeDisabled()
@@ -734,7 +734,7 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByText("kz_alpha")).toBeVisible()
     await expect(page.getByText("kz_beta")).toBeVisible()
 
-    await page.getByRole("button", { name: "Comments" }).click()
+    await page.getByRole("button", { name: "Ratings" }).click()
     await expect(
       page.locator("tbody tr").first().getByText("kz_beta"),
     ).toBeVisible()
