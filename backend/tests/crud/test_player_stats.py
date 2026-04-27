@@ -72,7 +72,9 @@ async def _create_record(
     time_seconds: str,
 ) -> None:
     record_uuid_subquery = select(Record.uuid).where(Record.id == id)
-    await db.exec(delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery)))
+    await db.exec(
+        delete(RecordPb).where(RecordPb.record_uuid.in_(record_uuid_subquery))
+    )
     await db.exec(delete(Record).where(Record.id == id))
     await db.commit()
     await crud.upsert_record(
@@ -99,7 +101,7 @@ async def _create_record(
 @pytest.mark.asyncio
 async def test_player_stats_cache_table_exists(db: AsyncSession) -> None:
     table_name = await db.exec(text("SELECT to_regclass('cache.player_stats')"))
-    assert table_name.one() == "cache.player_stats"
+    assert table_name.one()[0] == "cache.player_stats"
 
 
 @pytest.mark.asyncio
@@ -163,7 +165,9 @@ async def test_rebuild_player_daily_activity_stat_upserts_existing_cache_row(
     ).one()
     assert cache_rows == 1
 
-    cache_row = await db.get(PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY))
+    cache_row = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
+    )
     assert cache_row is not None
     assert cache_row.updated_at == second_now
     assert cache_row.content == {"days": [{"date": "2026-04-02", "count": 2}]}

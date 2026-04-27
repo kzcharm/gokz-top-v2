@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
@@ -17,6 +18,7 @@ from app.core.config import settings
 from app.core.db import async_engine, engine, init_db
 from app.main import app
 from app.models import PlayerProfileView, User
+from app.services.server_status import maintain_server_heartbeat_partitions
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_superuser_token_headers, random_steamid64
 
@@ -29,6 +31,11 @@ def _is_safe_test_database_name(name: str) -> bool:
 def _upgrade_test_database() -> None:
     alembic_config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     command.upgrade(alembic_config, "head")
+
+
+async def _maintain_test_server_heartbeat_partitions() -> None:
+    async with AsyncSession(async_engine) as session:
+        await maintain_server_heartbeat_partitions(session=session)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -56,6 +63,7 @@ def ensure_safe_test_database() -> None:
 @pytest.fixture(scope="session", autouse=True)
 def setup_db() -> Generator[None]:
     _upgrade_test_database()
+    asyncio.run(_maintain_test_server_heartbeat_partitions())
     with Session(engine) as session:
         init_db(session)
 

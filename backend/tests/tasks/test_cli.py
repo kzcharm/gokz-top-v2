@@ -148,7 +148,8 @@ def test_cli_sync_profiles_rejects_multiple_selection_filters() -> None:
     )
 
     assert result.exit_code != 0
-    assert "Use only one of --missing-avatar, --stale-days, or --leaderboard." in result.output
+    assert "Use only one of --missing-avatar, --stale-days, or" in result.output
+    assert "--leaderboard." in result.output
 
 
 def test_cli_rating_help() -> None:

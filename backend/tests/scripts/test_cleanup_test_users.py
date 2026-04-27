@@ -171,6 +171,7 @@ async def test_find_cleanup_candidates_excludes_players_referenced_by_bans(
 ) -> None:
     steamid64 = random_steamid64()
     db.add(Player(steamid64=steamid64, name="Test User"))
+    await db.flush()
     db.add(
         Ban(
             id=1_900_000_000 + (random_steamid64() % 1_000_000),

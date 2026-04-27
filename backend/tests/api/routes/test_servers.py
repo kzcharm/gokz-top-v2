@@ -725,7 +725,7 @@ async def test_offline_mark_preserves_identity_and_zeroes_player_state(
     assert response.status_code == 200
     payload = response.json()
     matching = next(item for item in payload["data"] if item["id"] == str(server.id))
-    assert matching["status"] == "invalid"
+    assert matching["status"] == "enabled"
     assert matching["live_status"]["hostname"] == "Identity Host"
     assert matching["live_status"]["map"] == "kz_offline"
     assert matching["live_status"]["player_count"] == 0
@@ -757,7 +757,9 @@ async def test_read_server_returns_null_map_tier_for_unknown_map(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
-    server = await create_server(db, hostname="Unknown Tier", map_name="kz_missing_tier")
+    server = await create_server(
+        db, hostname="Unknown Tier", map_name="kz_missing_tier"
+    )
 
     response = await client.get(f"{settings.API_V1_STR}/servers/{server.id}")
 

@@ -1,5 +1,6 @@
 import gzip
 import json
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import pytest
@@ -10,6 +11,19 @@ from app.import_records_archive import import_records_from_path, iter_record_pay
 from app.models import Player
 
 pytestmark = pytest.mark.asyncio
+
+
+def _bind_import_session(
+    monkeypatch: pytest.MonkeyPatch,
+    db: AsyncSession,
+) -> None:
+    @asynccontextmanager
+    async def _session_maker():
+        yield db
+
+    monkeypatch.setattr(
+        "app.import_records_archive.async_session_maker", _session_maker
+    )
 
 
 def _build_payload(
@@ -67,8 +81,10 @@ def test_iter_record_payloads_reads_json_and_gzip_archives(tmp_path) -> None:
 
 async def test_import_records_from_path_creates_records_and_uses_created_on_for_uuid(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
+    _bind_import_session(monkeypatch, db)
     steamid64 = 76561198000000011
     archive_path = tmp_path / "records.json.gz"
     payload = _build_payload(
@@ -104,8 +120,10 @@ async def test_import_records_from_path_creates_records_and_uses_created_on_for_
 
 async def test_import_records_from_path_updates_existing_record_without_changing_uuid(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
+    _bind_import_session(monkeypatch, db)
     steamid64 = 76561198000000012
     original_payload = _build_payload(
         record_id=998220,
@@ -130,6 +148,7 @@ async def test_import_records_from_path_updates_existing_record_without_changing
 
     existing = await crud.get_record_by_id(session=db, record_id=998220)
     assert existing is not None
+    existing_uuid = existing.uuid
 
     archive_path.write_text(json.dumps([updated_payload]), encoding="utf-8")
     result = await import_records_from_path(archive_path, batch_size=1, log_every=1)
@@ -140,17 +159,20 @@ async def test_import_records_from_path_updates_existing_record_without_changing
     assert result.updated == 1
     assert result.errors == 0
 
+    db.expire_all()
     refreshed = await crud.get_record_by_id(session=db, record_id=998220)
     assert refreshed is not None
-    assert refreshed.uuid == existing.uuid
+    assert refreshed.uuid == existing_uuid
     assert refreshed.points == 900
     assert refreshed.is_valid is True
 
 
 async def test_import_records_from_path_skips_records_with_null_id(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
+    _bind_import_session(monkeypatch, db)
     steamid64 = 76561198000000013
     archive_path = tmp_path / "records-null-id.json"
     payload = _build_payload(record_id=998230, steamid64=steamid64)

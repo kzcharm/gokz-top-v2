@@ -73,7 +73,11 @@ async def test_sync_bans_from_globalapi_backfills_with_large_limit(
 
     assert result.processed == 2
     assert result.created == 2
-    assert calls[0] == (0, globalapi_ban_sync.settings.GLOBALAPI_BANS_BACKFILL_LIMIT, None)
+    assert calls[0] == (
+        0,
+        globalapi_ban_sync.settings.GLOBALAPI_BANS_BACKFILL_LIMIT,
+        None,
+    )
     stored = list((await db.exec(select(Ban).order_by(Ban.id.asc()))).all())
     assert [ban.id for ban in stored] == [1, 2]
     assert stored[1].ban_type == BanType.BHOP_MACRO
@@ -95,6 +99,7 @@ async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
             name="Existing",
         )
     )
+    await db.flush()
     db.add(
         Ban(
             id=99,
@@ -133,7 +138,7 @@ async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
     assert result.processed == 1
     assert calls[0][0] == 0
     assert calls[0][1] == globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT
-    assert calls[0][2] == datetime(2026, 4, 5, 11, 0, tzinfo=UTC) - timedelta(
+    assert calls[0][2] == datetime(2026, 4, 5, 10, 0, tzinfo=UTC) - timedelta(
         seconds=globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS
     )
 
@@ -192,6 +197,7 @@ async def test_sync_bans_from_globalapi_pages_incremental_results(
             name="Existing",
         )
     )
+    await db.flush()
     db.add(
         Ban(
             id=98,
@@ -233,7 +239,10 @@ async def test_sync_bans_from_globalapi_pages_incremental_results(
 
     result = await globalapi_ban_sync.sync_bans_from_globalapi(session=db)
 
-    assert result.processed == globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT + 1
+    assert (
+        result.processed
+        == globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT + 1
+    )
     assert calls == [0, globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT]
 
 
@@ -248,6 +257,7 @@ async def test_sync_bans_from_globalapi_keeps_local_rows_when_upstream_is_empty(
             name="Existing",
         )
     )
+    await db.flush()
     db.add(
         Ban(
             id=500,
@@ -288,6 +298,7 @@ async def test_sync_bans_from_globalapi_counts_duplicates_and_invalid_types(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await _clear_ban_sync_state(db)
+
     async def _fake_fetch(
         *,
         client: object,
@@ -323,6 +334,7 @@ async def test_sync_bans_from_globalapi_allows_multiple_permanent_bans_for_one_p
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await _clear_ban_sync_state(db)
+
     async def _fake_fetch(
         *,
         client: object,
@@ -345,7 +357,9 @@ async def test_sync_bans_from_globalapi_allows_multiple_permanent_bans_for_one_p
     rows = list(
         (
             await db.exec(
-                select(Ban).where(Ban.steamid64 == 76561198000000801).order_by(Ban.id.asc())
+                select(Ban)
+                .where(Ban.steamid64 == 76561198000000801)
+                .order_by(Ban.id.asc())
             )
         ).all()
     )

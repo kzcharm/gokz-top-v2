@@ -24,6 +24,7 @@ from app.models import (
 )
 from app.models.utils import get_datetime_utc
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
+from app.services.language_detection import detect_language_code
 from tests.utils.server import create_server_group
 from tests.utils.utils import random_steamid64
 
@@ -114,7 +115,7 @@ async def _create_review(
     if comment_text is not None:
         comment = {
             "text": comment_text,
-            "language": "en",
+            "language": detect_language_code(comment_text),
             "created_at": updated_at.isoformat(),
             "updated_at": updated_at.isoformat(),
         }
@@ -148,7 +149,9 @@ async def _create_ovr_pb(
 ) -> None:
     course = (
         await db.exec(
-            select(MapCourse).where(MapCourse.map_id == map_id, MapCourse.stage == stage)
+            select(MapCourse).where(
+                MapCourse.map_id == map_id, MapCourse.stage == stage
+            )
         )
     ).first()
     if course is None:
@@ -490,7 +493,9 @@ async def test_read_map_v1_returns_scope_aware_main_course_tiers(
     )
 
     by_id_response = await client.get(f"{settings.API_V1_STR}/maps/930202")
-    by_name_response = await client.get(f"{settings.API_V1_STR}/maps/name/kz_test_930202")
+    by_name_response = await client.get(
+        f"{settings.API_V1_STR}/maps/name/kz_test_930202"
+    )
     filtered_response = await client.get(
         f"{settings.API_V1_STR}/maps",
         params={"id": 930202},
@@ -545,7 +550,9 @@ async def test_read_map_v1_returns_null_for_missing_scope_tiers_when_other_scope
     )
 
     by_id_response = await client.get(f"{settings.API_V1_STR}/maps/930203")
-    by_name_response = await client.get(f"{settings.API_V1_STR}/maps/name/kz_test_930203")
+    by_name_response = await client.get(
+        f"{settings.API_V1_STR}/maps/name/kz_test_930203"
+    )
     filtered_response = await client.get(
         f"{settings.API_V1_STR}/maps",
         params={"id": 930203},
@@ -691,8 +698,12 @@ async def test_put_map_review_with_user_auth_upserts_website_review(
     assert second_response.status_code == 200
     second_payload = second_response.json()
     assert second_payload["created_at"] == first_review_created_at
-    assert second_payload["content"]["comment"]["created_at"] == first_comment_created_at
-    assert second_payload["content"]["comment"]["updated_at"] == first_comment_updated_at
+    assert (
+        second_payload["content"]["comment"]["created_at"] == first_comment_created_at
+    )
+    assert (
+        second_payload["content"]["comment"]["updated_at"] == first_comment_updated_at
+    )
 
     stored_review = await crud.get_map_review_by_context(
         session=db,

@@ -22,6 +22,10 @@ from tests.utils.server import create_server
 pytestmark = pytest.mark.asyncio
 
 
+def _json_datetime(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
+
+
 @pytest.fixture(autouse=True)
 def reset_server_status_runtime_state() -> Generator[None]:
     server_status._server_a2s_in_flight_until.clear()
@@ -520,7 +524,7 @@ async def test_run_server_a2s_refresh_cycle_keeps_recent_server_online_on_single
     assert refreshed.live_status.player_count == 4
     assert refreshed.live_status.players == [{"name": "Player One"}]
     state = refreshed.live_status.state
-    assert state["last_successful_seen_at"] == previous_success_at.isoformat()
+    assert state["last_successful_seen_at"] == _json_datetime(previous_success_at)
     assert state["last_a2s_seen_at"] is not None
     assert datetime.fromisoformat(state["last_a2s_seen_at"]) > previous_success_at
 
@@ -625,7 +629,9 @@ async def test_record_a2s_success_invalidates_after_extended_invalid_map_window(
     assert refreshed.live_status is not None
     assert refreshed.live_status.is_online is True
     assert refreshed.live_status.state["invalid_count"] == 11
-    assert refreshed.live_status.state["last_valid_seen_at"] == last_valid_seen_at.isoformat()
+    assert refreshed.live_status.state["last_valid_seen_at"] == _json_datetime(
+        last_valid_seen_at
+    )
 
 
 async def test_record_a2s_failure_invalidates_after_24_hours_and_100_timeouts(

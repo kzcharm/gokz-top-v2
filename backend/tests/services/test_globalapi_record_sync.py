@@ -152,7 +152,9 @@ async def test_sync_records_from_globalapi_starts_from_largest_local_id_or_200(
 
     requested_ids: list[int] = []
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         requested_ids.append(record_id)
         return record_sync.RecordFetchResult(kind="null")
@@ -166,7 +168,9 @@ async def test_sync_records_from_globalapi_starts_from_largest_local_id_or_200(
 
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
-    monkeypatch.setattr(record_sync.crud, "get_max_record_globalapi_id", _fake_max_record_id)
+    monkeypatch.setattr(
+        record_sync.crud, "get_max_record_globalapi_id", _fake_max_record_id
+    )
 
     result = await record_sync.sync_records_from_globalapi(session=db)
 
@@ -201,7 +205,9 @@ async def test_sync_records_from_globalapi_skips_existing_ids_even_with_stale_st
 
     requested_ids: list[int] = []
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         requested_ids.append(record_id)
         return record_sync.RecordFetchResult(kind="null")
@@ -238,7 +244,9 @@ async def test_sync_records_from_globalapi_uses_stored_cursor_when_ahead_of_loca
 
     requested_ids: list[int] = []
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         requested_ids.append(record_id)
         return record_sync.RecordFetchResult(kind="null")
@@ -274,7 +282,9 @@ async def test_sync_records_from_globalapi_disables_httpx_env_proxy_by_default(
         async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
             del exc_type, exc, tb
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client, record_id
         return record_sync.RecordFetchResult(kind="null")
 
@@ -306,7 +316,9 @@ async def test_sync_records_from_globalapi_creates_dependencies_points_and_uuid_
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=750)
     expected_created_on = datetime(2026, 3, 30, 12, 34, 56, tzinfo=UTC)
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         if record_id == payload["id"]:
             return record_sync.RecordFetchResult(kind="record", payload=payload)
@@ -329,8 +341,17 @@ async def test_sync_records_from_globalapi_creates_dependencies_points_and_uuid_
         del session
         notified_record_ids.append(str(record_uuid))
 
+    async def _fake_max_record_id(*, session: AsyncSession) -> int:
+        del session
+        return record_id - 1
+
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
+    monkeypatch.setattr(
+        record_sync.crud, "get_max_record_globalapi_id", _fake_max_record_id
+    )
     monkeypatch.setattr(record_sync.crud, "notify_recent_record_updated", _fake_notify)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
@@ -376,7 +397,9 @@ async def test_sync_records_from_globalapi_discards_overlong_custom_id(
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=750)
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         if record_id == payload["id"]:
             return record_sync.RecordFetchResult(kind="record", payload=payload)
@@ -394,7 +417,9 @@ async def test_sync_records_from_globalapi_discards_overlong_custom_id(
         return None
 
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
     result = await record_sync.sync_records_from_globalapi(session=db)
@@ -420,7 +445,9 @@ async def test_sync_records_from_globalapi_probes_next_ids_after_null(
     payload = _build_payload(record_id=success_id, steamid64=steamid64, points=321)
     requested_ids: list[int] = []
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         requested_ids.append(record_id)
         if record_id == success_id:
@@ -439,7 +466,9 @@ async def test_sync_records_from_globalapi_probes_next_ids_after_null(
         return None
 
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
     result = await record_sync.sync_records_from_globalapi(session=db)
@@ -466,7 +495,9 @@ async def test_fetch_record_with_retry_retries_same_id_after_rate_limit(
     calls: list[int] = []
     sleeps: list[float] = []
 
-    async def _fake_fetch_once(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch_once(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         calls.append(record_id)
         if len(calls) == 1:
@@ -504,7 +535,9 @@ async def test_fetch_record_with_retry_retries_same_id_after_transient_error(
     calls: list[int] = []
     sleeps: list[float] = []
 
-    async def _fake_fetch_once(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch_once(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         calls.append(record_id)
         if len(calls) == 1:
@@ -532,7 +565,9 @@ async def test_fetch_record_with_retry_raises_after_exhausting_transient_retries
     calls: list[int] = []
     sleeps: list[float] = []
 
-    async def _fake_fetch_once(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch_once(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         calls.append(record_id)
         raise record_sync.GlobalApiRecordSyncTransientError("transient")
@@ -565,7 +600,9 @@ async def test_sync_records_from_globalapi_counts_malformed_points_and_advances_
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=2001)
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         if record_id == payload["id"]:
             return record_sync.RecordFetchResult(kind="record", payload=payload)
@@ -582,8 +619,7 @@ async def test_sync_records_from_globalapi_counts_malformed_points_and_advances_
     assert result.processed == 0
     assert result.errors == 1
     assert (
-        await record_sync.crud.get_record_by_id(session=db, record_id=record_id)
-        is None
+        await record_sync.crud.get_record_by_id(session=db, record_id=record_id) is None
     )
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
@@ -615,7 +651,9 @@ async def test_sync_records_from_globalapi_updates_existing_record_without_chang
         player_name="Updated Runner",
     )
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         if record_id == payload["id"]:
             return record_sync.RecordFetchResult(kind="record", payload=payload)
@@ -638,8 +676,17 @@ async def test_sync_records_from_globalapi_updates_existing_record_without_chang
         del session
         notified_record_ids.append(str(record_uuid))
 
+    async def _fake_max_record_id(*, session: AsyncSession) -> int:
+        del session
+        return record_id - 1
+
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
+    monkeypatch.setattr(
+        record_sync.crud, "get_max_record_globalapi_id", _fake_max_record_id
+    )
     monkeypatch.setattr(record_sync.crud, "notify_recent_record_updated", _fake_notify)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
@@ -669,7 +716,9 @@ async def test_sync_records_from_globalapi_hydrates_main_stage_points_from_top(
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=0)
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         if record_id == payload["id"]:
             return record_sync.RecordFetchResult(kind="record", payload=payload)
@@ -712,7 +761,9 @@ async def test_sync_records_from_globalapi_hydrates_main_stage_points_from_top(
         return None
 
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
     monkeypatch.setattr(
         record_sync.httpx,
@@ -756,7 +807,9 @@ async def test_sync_records_from_globalapi_skips_top_points_lookup_for_non_main_
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=0)
     payload["stage"] = 3
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         if record_id == payload["id"]:
             return record_sync.RecordFetchResult(kind="record", payload=payload)
@@ -791,7 +844,9 @@ async def test_sync_records_from_globalapi_skips_top_points_lookup_for_non_main_
         return None
 
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
     monkeypatch.setattr(
         record_sync.httpx,
@@ -811,7 +866,9 @@ async def test_sync_records_from_globalapi_skips_top_points_lookup_for_non_main_
     assert top_calls == []
 
 
-async def test_hydrate_main_stage_points_from_top_does_not_retry_on_rate_limit() -> None:
+async def test_hydrate_main_stage_points_from_top_does_not_retry_on_rate_limit() -> (
+    None
+):
     payload = _build_payload(record_id=998270, steamid64=random_steamid64(), points=0)
     calls: list[dict[str, Any]] = []
 
@@ -856,7 +913,9 @@ async def test_sync_records_from_globalapi_emits_debug_logs_for_synced_records(
     steamid64 = random_steamid64()
     payload = _build_payload(record_id=record_id, steamid64=steamid64, points=444)
 
-    async def _fake_fetch(*, client: object, record_id: int) -> record_sync.RecordFetchResult:
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
         del client
         if record_id == payload["id"]:
             return record_sync.RecordFetchResult(kind="record", payload=payload)
@@ -877,7 +936,9 @@ async def test_sync_records_from_globalapi_emits_debug_logs_for_synced_records(
         return None
 
     monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-    monkeypatch.setattr(record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
     monkeypatch.setattr(record_sync.crud, "notify_recent_record_updated", _fake_notify)
     monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
 
