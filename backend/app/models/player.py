@@ -117,6 +117,10 @@ class Player(PlayerBase, table=True):
 
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)
     is_country_locked: bool = Field(default=False, nullable=False)
+    steam_profile_synced_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
     search_vector: str | None = Field(
         default=None,
         sa_column=Column(

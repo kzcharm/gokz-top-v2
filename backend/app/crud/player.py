@@ -194,9 +194,18 @@ def _normalize_steam_player_payload(
 async def _fetch_players_from_steam_api(
     steamid64s: Sequence[int],
 ) -> dict[int, dict[str, str | bool | None]]:
+    steam_data_by_steamid64 = await _fetch_players_from_steam_api_if_available(
+        steamid64s,
+    )
+    return steam_data_by_steamid64 or {}
+
+
+async def _fetch_players_from_steam_api_if_available(
+    steamid64s: Sequence[int],
+) -> dict[int, dict[str, str | bool | None]] | None:
     unique_steamid64s = list(dict.fromkeys(steamid64s))
     if not unique_steamid64s or not settings.STEAM_API_KEY:
-        return {}
+        return None
 
     params = {
         "key": settings.STEAM_API_KEY,
@@ -212,11 +221,11 @@ async def _fetch_players_from_steam_api(
             response.raise_for_status()
             payload = response.json()
     except Exception:
-        return {}
+        return None
 
     players = payload.get("response", {}).get("players", [])
     if not isinstance(players, list):
-        return {}
+        return None
 
     steam_data_by_steamid64: dict[int, dict[str, str | bool | None]] = {}
     for raw_player in players:
