@@ -89,6 +89,8 @@ Scope model:
 - Server group support and filterable browsing.
 - Cached live status must be served from PostgreSQL-backed cache rows, not live upstream queries on page load.
 - Support richer plugin heartbeats keyed by server-group API keys, with A2S polling and Steam server-list discovery as collector-side inputs.
+- SourceMod plugins can submit player connection sessions via authenticated `/v1/player-sessions` connect, heartbeat, and disconnect events for playtime, activity, map-time, and shared-IP analytics.
+- Open player sessions are closed automatically after heartbeat timeout using the last known heartbeat as the disconnect timestamp.
 - Preserve last-known server identity fields when a server goes offline so players can still see which server is down.
 
 ### 5.6 Jumpstats and Replays

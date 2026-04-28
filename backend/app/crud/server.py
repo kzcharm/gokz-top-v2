@@ -16,6 +16,7 @@ from app.models import (
     AdminServerGroupPublic,
     Map,
     MapReview,
+    PlayerSession,
     Server,
     ServerCreate,
     ServerGlobalapi,
@@ -340,10 +341,18 @@ async def get_server_group_dependency_counts(
             .where(MapReview.server_group_id == group_id)
         )
     ).one()
+    player_session_count = (
+        await session.exec(
+            select(func.count())
+            .select_from(PlayerSession)
+            .where(PlayerSession.server_group_id == group_id)
+        )
+    ).one()
     return ServerGroupDependencyCounts(
         servers=server_count,
         globalapi_servers=globalapi_count,
         map_reviews=map_review_count,
+        player_sessions=player_session_count,
     )
 
 

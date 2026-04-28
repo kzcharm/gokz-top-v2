@@ -24,6 +24,10 @@ from app.services.globalapi_sync import (
     run_globalapi_sync_runner_in_app,
     stop_globalapi_sync_runner,
 )
+from app.services.player_session_timeout import (
+    run_player_session_timeout_runner_in_app,
+    stop_player_session_timeout_runner,
+)
 from app.services.record_events import (
     listen_for_recent_record_updates,
 )
@@ -56,6 +60,7 @@ async def lifespan(_: FastAPI):
     collector_task: asyncio.Task[None] | None = None
     globalapi_sync_task: asyncio.Task[None] | None = None
     daily_rank_pipeline_task: asyncio.Task[None] | None = None
+    player_session_timeout_task: asyncio.Task[None] | None = None
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
         collector_task = asyncio.create_task(run_server_status_collector_in_app())
     if settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP:
@@ -63,6 +68,10 @@ async def lifespan(_: FastAPI):
     if settings.RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP:
         daily_rank_pipeline_task = asyncio.create_task(
             run_daily_rank_pipeline_runner_in_app()
+        )
+    if settings.RUN_PLAYER_SESSION_TIMEOUT_RUNNER_IN_APP:
+        player_session_timeout_task = asyncio.create_task(
+            run_player_session_timeout_runner_in_app()
         )
     try:
         yield
@@ -72,6 +81,7 @@ async def lifespan(_: FastAPI):
         await stop_collector(collector_task)
         await stop_globalapi_sync_runner(globalapi_sync_task)
         await stop_daily_rank_pipeline_runner(daily_rank_pipeline_task)
+        await stop_player_session_timeout_runner(player_session_timeout_task)
 
 
 app = FastAPI(
