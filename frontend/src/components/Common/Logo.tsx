@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 
-import { SITE_NAME } from "@/lib/site"
+import { APP_VERSION_LABEL, SITE_NAME } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
 interface LogoProps {
@@ -32,8 +32,13 @@ export function Logo({
   const fullLogo = (
     <span className="flex items-center gap-3">
       {logoMark}
-      <span className="text-primary text-xl font-bold tracking-wide whitespace-nowrap">
-        {SITE_NAME}
+      <span className="flex items-baseline gap-2 whitespace-nowrap">
+        <span className="text-primary text-xl font-bold tracking-wide">
+          {SITE_NAME}
+        </span>
+        <span className="text-muted-foreground text-xs font-semibold tracking-normal">
+          {APP_VERSION_LABEL}
+        </span>
       </span>
     </span>
   )
