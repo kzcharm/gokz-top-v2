@@ -10,6 +10,7 @@ from app.api.v1 import (
     login,
     maps,
     modes,
+    player_sessions,
     players,
     private,
     record_ws,
@@ -32,6 +33,7 @@ api_router.include_router(graphql.router)
 api_router.include_router(leaderboards.router)
 api_router.include_router(maps.router)
 api_router.include_router(modes.router)
+api_router.include_router(player_sessions.router)
 api_router.include_router(records.router)
 api_router.include_router(regions.router)
 api_router.include_router(record_ws.router)

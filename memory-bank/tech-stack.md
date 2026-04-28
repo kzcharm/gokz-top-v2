@@ -22,6 +22,7 @@
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
   - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity plus total playtime aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
+  - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned
@@ -30,12 +31,14 @@
 - Live server status subsystem:
   - Public reads come from cached `/v1/servers` and `/v1/servers/{id}` responses only; browsers never trigger upstream A2S or Steam server-list queries
   - Plugin heartbeats ingest through `PUT /v1/servers/status` with a server-group API key and resolve servers by `(ip, port)`
+  - Player session events ingest through `/v1/player-sessions/connect`, `/heartbeat`, and `/disconnect` with `X-Server-Group-Key`; server group identity is derived from the API key rather than request JSON
   - Discovery uses Steam `IGameServersService/GetServerList` across regions `0..7`, with a one-hour background interval and a superuser-triggered manual run endpoint
   - A separate collector process handles Steam server-list discovery, A2S refresh, offline marking, and raw heartbeat partition maintenance
   - WebSocket updates are delivered from `/v1/ws/servers` after cache updates, using PostgreSQL `LISTEN/NOTIFY` to fan out change events from the backend
 - Scheduled background maintenance:
   - Continuous GlobalAPI sync remains responsible for ingesting mirrored upstream records and other mirrored entities
   - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, rebuilds touched maps leaderboard rows selected from `Record.updated_at`, and refreshes touched player Steam profiles
+  - An advisory-locked in-app player-session timeout runner closes open sessions after the configured heartbeat timeout by setting `disconnect_at` to the last heartbeat timestamp
   - The midnight rank pipeline preserves `record_pb.updated_on` during point recalculation so same-day retries keep the same selection window
 
 ## Backend Runtime and Libraries

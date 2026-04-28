@@ -364,10 +364,16 @@ class ServerGroupDependencyCounts(SQLModel):
     servers: int = 0
     globalapi_servers: int = 0
     map_reviews: int = 0
+    player_sessions: int = 0
 
     @property
     def total(self) -> int:
-        return self.servers + self.globalapi_servers + self.map_reviews
+        return (
+            self.servers
+            + self.globalapi_servers
+            + self.map_reviews
+            + self.player_sessions
+        )
 
 
 class AdminServerRole(StrEnum):

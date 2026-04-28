@@ -85,6 +85,13 @@ from .player_pinned_record import (
     PlayerPinnedRecordUpsert,
 )
 from .player_profile_view import PlayerProfileView
+from .player_session import (
+    PlayerSession,
+    PlayerSessionConnect,
+    PlayerSessionDisconnect,
+    PlayerSessionHeartbeat,
+    PlayerSessionPublic,
+)
 from .player_stats import (
     PlayerDailyActivityContentPublic,
     PlayerDailyActivityDayPublic,
@@ -269,6 +276,11 @@ __all__ = [
     "PlayerProfileView",
     "PlayerProfileViewCreate",
     "PlayerProfileViewsPublic",
+    "PlayerSession",
+    "PlayerSessionConnect",
+    "PlayerSessionDisconnect",
+    "PlayerSessionHeartbeat",
+    "PlayerSessionPublic",
     "PlayerPublic",
     "PlayerRefPublic",
     "PlayerSearchQuery",
