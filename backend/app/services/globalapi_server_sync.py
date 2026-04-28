@@ -202,7 +202,6 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
         await session.exec(insert_statement.on_conflict_do_nothing(index_elements=[server_table.c.id]))
 
     await session.commit()
-    session.expire_all()
 
     return GlobalApiSyncResult(
         processed=processed,

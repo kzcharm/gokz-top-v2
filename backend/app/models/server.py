@@ -203,7 +203,10 @@ class Server(ServerBase, table=True):
     group: ServerGroup | None = Relationship(back_populates="servers")
     live_status: Optional["ServerLiveStatus"] = Relationship(  # noqa: UP045, UP037
         back_populates="server",
-        sa_relationship_kwargs={"uselist": False},
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "uselist": False,
+        },
     )
 
 

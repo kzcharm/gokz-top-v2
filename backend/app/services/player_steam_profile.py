@@ -32,49 +32,55 @@ async def sync_player_steam_profile_if_due(*, steamid64: int) -> None:
     now = datetime.now(UTC)
     stale_before = now - STEAM_PROFILE_SYNC_INTERVAL
     async with async_session_maker() as session:
-        claim_statement = (
-            update(Player)
-            .where(
-                col(Player.steamid64) == steamid64,
-                or_(
-                    col(Player.steam_profile_synced_at).is_(None),
-                    col(Player.steam_profile_synced_at) <= stale_before,
-                ),
-            )
-            .values(
-                steam_profile_synced_at=now,
-                updated_at=now,
-            )
-            .returning(col(Player.steamid64))
-        )
-        claimed_steamid64 = (await session.execute(claim_statement)).scalar_one_or_none()
-        await session.commit()
-
-        if claimed_steamid64 is None:
-            return
-
-        steam_data_by_steamid64 = await _fetch_players_from_steam_api_if_available(
-            [steamid64],
-        )
-        if steam_data_by_steamid64 is None:
-            return
-
-        steam_data = steam_data_by_steamid64.get(steamid64)
-        if steam_data is None:
-            update_statement = (
+        try:
+            claim_statement = (
                 update(Player)
-                .where(col(Player.steamid64) == steamid64)
-                .values(
-                    avatar_hash="",
-                    updated_at=datetime.now(UTC),
+                .where(
+                    col(Player.steamid64) == steamid64,
+                    or_(
+                        col(Player.steam_profile_synced_at).is_(None),
+                        col(Player.steam_profile_synced_at) <= stale_before,
+                    ),
                 )
+                .values(
+                    steam_profile_synced_at=now,
+                    updated_at=now,
+                )
+                .returning(col(Player.steamid64))
             )
-            await session.execute(update_statement)
+            claimed_steamid64 = (
+                await session.execute(claim_statement)
+            ).scalar_one_or_none()
             await session.commit()
-            return
+            session.expunge_all()
 
-        await create_or_update_player_from_steam_data_if_fetched(
-            session=session,
-            steamid64=steamid64,
-            steam_data=steam_data,
-        )
+            if claimed_steamid64 is None:
+                return
+
+            steam_data_by_steamid64 = await _fetch_players_from_steam_api_if_available(
+                [steamid64],
+            )
+            if steam_data_by_steamid64 is None:
+                return
+
+            steam_data = steam_data_by_steamid64.get(steamid64)
+            if steam_data is None:
+                update_statement = (
+                    update(Player)
+                    .where(col(Player.steamid64) == steamid64)
+                    .values(
+                        avatar_hash="",
+                        updated_at=datetime.now(UTC),
+                    )
+                )
+                await session.execute(update_statement)
+                await session.commit()
+                return
+
+            await create_or_update_player_from_steam_data_if_fetched(
+                session=session,
+                steamid64=steamid64,
+                steam_data=steam_data,
+            )
+        finally:
+            session.expunge_all()
