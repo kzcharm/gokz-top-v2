@@ -14,7 +14,7 @@ function getAppVersion(): string {
 
   try {
     return execSync(
-      'git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --always --dirty',
+      'git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --abbrev=0',
       {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
