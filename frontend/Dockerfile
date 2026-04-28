@@ -13,6 +13,7 @@ RUN bun install
 
 COPY ./frontend /app/frontend
 ARG VITE_API_URL
+ARG VITE_APP_VERSION
 ARG VITE_MAP_IMAGE_CDN_BASE_URL
 
 RUN bun run build

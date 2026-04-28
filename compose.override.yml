@@ -93,6 +93,7 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         - VITE_API_URL=http://localhost:8000
+        - VITE_APP_VERSION=${VITE_APP_VERSION:-dev}
         - NODE_ENV=development
 
   playwright:

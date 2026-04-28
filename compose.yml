@@ -155,6 +155,7 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         - VITE_API_URL=https://${API_HOST?Variable not set}
+        - VITE_APP_VERSION=${VITE_APP_VERSION:-dev}
         - NODE_ENV=production
     labels:
       - traefik.enable=true
