@@ -15,6 +15,7 @@ from app.models import (
     PlayerSessionPublic,
     ServerGroup,
 )
+from app.services.geoip import lookup_geoip_city
 
 
 def to_player_session_public(*, player_session: PlayerSession) -> PlayerSessionPublic:
@@ -39,20 +40,37 @@ async def get_player_session_by_id(
     return await session.get(PlayerSession, session_id)
 
 
-async def _ensure_placeholder_player(
+async def _ensure_player_for_session(
     *,
     session: AsyncSession,
     steamid64: int,
     now: datetime,
+    ip_address: str,
 ) -> None:
+    location = lookup_geoip_city(ip_address)
+    country = location.country_code if location is not None else None
     player_table = Player.__table__  # type: ignore[attr-defined]
     insert_statement = pg_insert(player_table).values(
         steamid64=steamid64,
         name=str(steamid64),
+        country=country,
         created_at=now,
         updated_at=now,
     )
-    await session.exec(insert_statement.on_conflict_do_nothing())
+    if country is None:
+        await session.exec(insert_statement.on_conflict_do_nothing())
+        return
+
+    await session.exec(
+        insert_statement.on_conflict_do_update(
+            index_elements=[player_table.c.steamid64],
+            set_={
+                "country": country,
+                "updated_at": now,
+            },
+            where=player_table.c.is_country_locked.is_(False),
+        )
+    )
 
 
 def _same_connect_identity(
@@ -87,10 +105,11 @@ async def connect_player_session(
             return existing
         raise ValueError("Player session already exists")
 
-    await _ensure_placeholder_player(
+    await _ensure_player_for_session(
         session=session,
         steamid64=player_steamid64,
         now=payload.connected_at,
+        ip_address=str(payload.ip_address),
     )
     player_session = PlayerSession(
         id=payload.session_id,

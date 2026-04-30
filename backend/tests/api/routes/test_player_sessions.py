@@ -6,6 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import Player, ServerGroupStatus, generate_uuid7
+from app.services.geoip import GeoIPLocation
 from tests.utils.server import create_server_group
 from tests.utils.utils import random_steamid64
 
@@ -36,6 +37,7 @@ async def _connect_session(
     session_id: str,
     steamid64: int,
     connected_at: datetime,
+    ip_address: str = "127.0.0.42",
 ) -> dict[str, object]:
     response = await client.post(
         f"{settings.API_V1_STR}/player-sessions/connect",
@@ -44,6 +46,7 @@ async def _connect_session(
             session_id=session_id,
             steamid64=steamid64,
             connected_at=connected_at,
+            ip_address=ip_address,
         ),
     )
     assert response.status_code == 200
@@ -80,6 +83,94 @@ async def test_connect_creates_player_session_and_placeholder_player(
     player = await db.get(Player, steamid64)
     assert player is not None
     assert player.name == str(steamid64)
+
+
+async def test_connect_sets_placeholder_player_country_from_geoip(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.crud.player_session.lookup_geoip_city",
+        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+    )
+    _, api_key = await create_server_group(db)
+    steamid64 = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+
+    await _connect_session(
+        client=client,
+        api_key=api_key,
+        session_id=str(generate_uuid7(timestamp=connected_at)),
+        steamid64=steamid64,
+        connected_at=connected_at,
+        ip_address="8.8.8.8",
+    )
+
+    player = await db.get(Player, steamid64)
+    assert player is not None
+    assert player.country == "US"
+
+
+async def test_connect_updates_unlocked_player_country_from_geoip(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.crud.player_session.lookup_geoip_city",
+        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+    )
+    group, api_key = await create_server_group(db)
+    steamid64 = random_steamid64()
+    player = Player(steamid64=steamid64, name="Runner", country="CA")
+    db.add(player)
+    await db.commit()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+
+    await _connect_session(
+        client=client,
+        api_key=api_key,
+        session_id=str(generate_uuid7(timestamp=connected_at)),
+        steamid64=steamid64,
+        connected_at=connected_at,
+    )
+
+    await db.refresh(player)
+    assert player.country == "US"
+
+
+async def test_connect_does_not_update_locked_player_country_from_geoip(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.crud.player_session.lookup_geoip_city",
+        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+    )
+    group, api_key = await create_server_group(db)
+    steamid64 = random_steamid64()
+    player = Player(
+        steamid64=steamid64,
+        name="Runner",
+        country="CA",
+        is_country_locked=True,
+    )
+    db.add(player)
+    await db.commit()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+
+    await _connect_session(
+        client=client,
+        api_key=api_key,
+        session_id=str(generate_uuid7(timestamp=connected_at)),
+        steamid64=steamid64,
+        connected_at=connected_at,
+    )
+
+    await db.refresh(player)
+    assert player.country == "CA"
 
 
 async def test_connect_duplicate_is_idempotent_for_same_player_and_group(
