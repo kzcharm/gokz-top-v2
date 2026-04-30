@@ -112,6 +112,214 @@ export const AdminMapsPublicSchema = {
     title: 'AdminMapsPublic'
 } as const;
 
+export const AdminPlayerSessionIpLinkBucketPublicSchema = {
+    properties: {
+        key: {
+            type: 'string',
+            title: 'Key'
+        },
+        label: {
+            type: 'string',
+            title: 'Label'
+        },
+        ip_address: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ip Address'
+        },
+        ip_prefix: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ip Prefix'
+        },
+        geo_country: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Geo Country'
+        },
+        geo_region: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Geo Region'
+        },
+        geo_city: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Geo City'
+        }
+    },
+    type: 'object',
+    required: ['key', 'label'],
+    title: 'AdminPlayerSessionIpLinkBucketPublic'
+} as const;
+
+export const AdminPlayerSessionIpLinkPlayerPublicSchema = {
+    properties: {
+        player: {
+            '$ref': '#/components/schemas/PlayerPublic'
+        },
+        distance: {
+            type: 'integer',
+            title: 'Distance'
+        },
+        link_count: {
+            type: 'integer',
+            title: 'Link Count',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['player', 'distance'],
+    title: 'AdminPlayerSessionIpLinkPlayerPublic'
+} as const;
+
+export const AdminPlayerSessionIpLinkPublicSchema = {
+    properties: {
+        from_steamid64: {
+            type: 'string',
+            title: 'From Steamid64'
+        },
+        to_steamid64: {
+            type: 'string',
+            title: 'To Steamid64'
+        },
+        distance: {
+            type: 'integer',
+            title: 'Distance'
+        },
+        bucket: {
+            '$ref': '#/components/schemas/AdminPlayerSessionIpLinkBucketPublic'
+        },
+        match_mode: {
+            type: 'string',
+            enum: ['exact_ip', 'same_24', 'same_16_city'],
+            title: 'Match Mode'
+        },
+        session_count_from: {
+            type: 'integer',
+            title: 'Session Count From'
+        },
+        session_count_to: {
+            type: 'integer',
+            title: 'Session Count To'
+        },
+        first_seen_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'First Seen At'
+        },
+        last_seen_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Last Seen At'
+        }
+    },
+    type: 'object',
+    required: ['from_steamid64', 'to_steamid64', 'distance', 'bucket', 'match_mode', 'session_count_from', 'session_count_to', 'first_seen_at', 'last_seen_at'],
+    title: 'AdminPlayerSessionIpLinkPublic'
+} as const;
+
+export const AdminPlayerSessionIpLinkSkippedBucketPublicSchema = {
+    properties: {
+        bucket: {
+            '$ref': '#/components/schemas/AdminPlayerSessionIpLinkBucketPublic'
+        },
+        reason: {
+            type: 'string',
+            const: 'too_many_players',
+            title: 'Reason'
+        },
+        player_count: {
+            type: 'integer',
+            title: 'Player Count'
+        }
+    },
+    type: 'object',
+    required: ['bucket', 'reason', 'player_count'],
+    title: 'AdminPlayerSessionIpLinkSkippedBucketPublic'
+} as const;
+
+export const AdminPlayerSessionIpLinksPublicSchema = {
+    properties: {
+        target: {
+            '$ref': '#/components/schemas/PlayerPublic'
+        },
+        match_mode: {
+            type: 'string',
+            enum: ['exact_ip', 'same_24', 'same_16_city'],
+            title: 'Match Mode'
+        },
+        depth: {
+            type: 'integer',
+            title: 'Depth'
+        },
+        from_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'From At'
+        },
+        to_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'To At'
+        },
+        players: {
+            items: {
+                '$ref': '#/components/schemas/AdminPlayerSessionIpLinkPlayerPublic'
+            },
+            type: 'array',
+            title: 'Players'
+        },
+        links: {
+            items: {
+                '$ref': '#/components/schemas/AdminPlayerSessionIpLinkPublic'
+            },
+            type: 'array',
+            title: 'Links'
+        },
+        skipped_buckets: {
+            items: {
+                '$ref': '#/components/schemas/AdminPlayerSessionIpLinkSkippedBucketPublic'
+            },
+            type: 'array',
+            title: 'Skipped Buckets'
+        }
+    },
+    type: 'object',
+    required: ['target', 'match_mode', 'depth', 'from_at', 'to_at', 'players', 'links', 'skipped_buckets'],
+    title: 'AdminPlayerSessionIpLinksPublic'
+} as const;
+
 export const AdminPlayerSessionPublicSchema = {
     properties: {
         id: {

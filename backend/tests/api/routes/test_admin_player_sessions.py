@@ -22,6 +22,9 @@ async def _create_player_session(
     name: str,
     map_name: str,
     ip_address: str,
+    geo_country: str | None = None,
+    geo_region: str | None = None,
+    geo_city: str | None = None,
     disconnect_after: timedelta | None = None,
 ) -> PlayerSession:
     player = await db.get(Player, steamid64)
@@ -46,6 +49,9 @@ async def _create_player_session(
         disconnect_at=disconnect_at,
         last_heartbeat_at=disconnect_at or connected_at + timedelta(minutes=5),
         ip_address=ip_address,
+        geo_country=geo_country,
+        geo_region=geo_region,
+        geo_city=geo_city,
         map_name=map_name,
     )
     db.add(player_session)
@@ -180,3 +186,334 @@ async def test_read_admin_player_sessions_latest_only_returns_newest_per_player(
     assert payload["count"] == 2
     assert [row["id"] for row in payload["data"]] == [str(newest.id), str(other.id)]
     assert [row["map_name"] for row in payload["data"]] == ["kz_latest", "kz_other"]
+
+
+async def test_admin_player_session_ip_links_require_superuser(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    unauthenticated_response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        params={"steamid64": str(random_steamid64())},
+    )
+    normal_user_response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=normal_user_token_headers,
+        params={"steamid64": str(random_steamid64())},
+    )
+
+    assert unauthenticated_response.status_code in {401, 403}
+    assert normal_user_response.status_code == 403
+
+
+async def test_admin_player_session_ip_links_exact_ip_depth_one(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    group, _api_key = await create_server_group(db, name="Alt Group")
+    target = random_steamid64()
+    linked = random_steamid64()
+    unrelated = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    await _create_player_session(
+        db,
+        steamid64=target,
+        group_id=group.id,
+        connected_at=connected_at,
+        name="Target",
+        map_name="kz_target",
+        ip_address="8.8.8.8",
+    )
+    await _create_player_session(
+        db,
+        steamid64=linked,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=5),
+        name="Linked",
+        map_name="kz_linked",
+        ip_address="8.8.8.8",
+    )
+    await _create_player_session(
+        db,
+        steamid64=unrelated,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=10),
+        name="Unrelated",
+        map_name="kz_unrelated",
+        ip_address="8.8.4.4",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=superuser_token_headers,
+        params={
+            "steamid64": str(target),
+            "match_mode": "exact_ip",
+            "depth": 1,
+            "days": 365,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["target"]["steamid64"] == str(target)
+    assert [row["player"]["steamid64"] for row in payload["players"]] == [
+        str(target),
+        str(linked),
+    ]
+    assert payload["players"][1]["distance"] == 1
+    assert payload["links"][0]["bucket"]["label"] == "8.8.8.8"
+    assert payload["skipped_buckets"] == []
+
+
+async def test_admin_player_session_ip_links_depth_two_avoids_loops(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    group, _api_key = await create_server_group(db, name="Depth Group")
+    target = random_steamid64()
+    first_hop = random_steamid64()
+    second_hop = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    await _create_player_session(
+        db,
+        steamid64=target,
+        group_id=group.id,
+        connected_at=connected_at,
+        name="Target",
+        map_name="kz_target",
+        ip_address="8.8.8.8",
+    )
+    await _create_player_session(
+        db,
+        steamid64=first_hop,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=1),
+        name="First",
+        map_name="kz_first",
+        ip_address="8.8.8.8",
+    )
+    await _create_player_session(
+        db,
+        steamid64=first_hop,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=2),
+        name="First",
+        map_name="kz_first_next",
+        ip_address="1.1.1.1",
+    )
+    await _create_player_session(
+        db,
+        steamid64=second_hop,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=3),
+        name="Second",
+        map_name="kz_second",
+        ip_address="1.1.1.1",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=superuser_token_headers,
+        params={"steamid64": str(target), "depth": 2},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    distances = {
+        row["player"]["steamid64"]: row["distance"] for row in payload["players"]
+    }
+    assert distances == {
+        str(target): 0,
+        str(first_hop): 1,
+        str(second_hop): 2,
+    }
+    assert len(payload["links"]) == 2
+
+
+async def test_admin_player_session_ip_links_same_24(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    group, _api_key = await create_server_group(db, name="Prefix Group")
+    target = random_steamid64()
+    linked = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    await _create_player_session(
+        db,
+        steamid64=target,
+        group_id=group.id,
+        connected_at=connected_at,
+        name="Target",
+        map_name="kz_target",
+        ip_address="8.8.8.8",
+    )
+    await _create_player_session(
+        db,
+        steamid64=linked,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=1),
+        name="Linked",
+        map_name="kz_linked",
+        ip_address="8.8.8.9",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=superuser_token_headers,
+        params={"steamid64": str(target), "match_mode": "same_24"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [row["player"]["steamid64"] for row in payload["players"]] == [
+        str(target),
+        str(linked),
+    ]
+    assert payload["links"][0]["bucket"]["ip_prefix"] == "8.8.8.0/24"
+
+
+async def test_admin_player_session_ip_links_same_16_city_requires_geo_match(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    group, _api_key = await create_server_group(db, name="Geo Group")
+    target = random_steamid64()
+    linked = random_steamid64()
+    different_city = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    await _create_player_session(
+        db,
+        steamid64=target,
+        group_id=group.id,
+        connected_at=connected_at,
+        name="Target",
+        map_name="kz_target",
+        ip_address="8.8.1.1",
+        geo_country="US",
+        geo_region="Illinois",
+        geo_city="Chicago",
+    )
+    await _create_player_session(
+        db,
+        steamid64=linked,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=1),
+        name="Linked",
+        map_name="kz_linked",
+        ip_address="8.8.2.2",
+        geo_country="US",
+        geo_region="Illinois",
+        geo_city="Chicago",
+    )
+    await _create_player_session(
+        db,
+        steamid64=different_city,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=2),
+        name="Other",
+        map_name="kz_other",
+        ip_address="8.8.3.3",
+        geo_country="US",
+        geo_region="Illinois",
+        geo_city="Springfield",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=superuser_token_headers,
+        params={"steamid64": str(target), "match_mode": "same_16_city"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [row["player"]["steamid64"] for row in payload["players"]] == [
+        str(target),
+        str(linked),
+    ]
+    assert payload["links"][0]["bucket"]["ip_prefix"] == "8.8.0.0/16"
+    assert payload["links"][0]["bucket"]["geo_city"] == "Chicago"
+
+
+async def test_admin_player_session_ip_links_time_range_and_busy_bucket(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    group, _api_key = await create_server_group(db, name="Busy Group")
+    target = random_steamid64()
+    linked = random_steamid64()
+    old_linked = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    await _create_player_session(
+        db,
+        steamid64=target,
+        group_id=group.id,
+        connected_at=connected_at,
+        name="Target",
+        map_name="kz_target",
+        ip_address="8.8.8.8",
+    )
+    await _create_player_session(
+        db,
+        steamid64=linked,
+        group_id=group.id,
+        connected_at=connected_at + timedelta(minutes=1),
+        name="Linked",
+        map_name="kz_linked",
+        ip_address="8.8.8.8",
+    )
+    await _create_player_session(
+        db,
+        steamid64=old_linked,
+        group_id=group.id,
+        connected_at=connected_at - timedelta(days=400),
+        name="Old",
+        map_name="kz_old",
+        ip_address="8.8.8.8",
+    )
+
+    time_range_response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=superuser_token_headers,
+        params={"steamid64": str(target), "days": 365},
+    )
+    busy_response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=superuser_token_headers,
+        params={
+            "steamid64": str(target),
+            "days": 365,
+            "max_players_per_bucket": 1,
+        },
+    )
+
+    assert time_range_response.status_code == 200
+    assert [
+        row["player"]["steamid64"] for row in time_range_response.json()["players"]
+    ] == [str(target), str(linked)]
+    assert busy_response.status_code == 200
+    busy_payload = busy_response.json()
+    assert [row["player"]["steamid64"] for row in busy_payload["players"]] == [
+        str(target)
+    ]
+    assert busy_payload["links"] == []
+    assert busy_payload["skipped_buckets"][0]["bucket"]["label"] == "8.8.8.8"
+    assert busy_payload["skipped_buckets"][0]["player_count"] == 2
+
+
+async def test_admin_player_session_ip_links_invalid_query(
+    client: AsyncClient,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions/ip-links",
+        headers=superuser_token_headers,
+        params={"steamid64": "not-a-steamid", "depth": 6},
+    )
+
+    assert response.status_code == 422

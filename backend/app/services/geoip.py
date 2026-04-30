@@ -5,18 +5,24 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from app.core.config import settings
 
+geoip2_database: Any
+GeoIPAddressNotFoundError: type[Exception]
 try:
     from geoip2 import database as geoip2_database
     from geoip2.errors import AddressNotFoundError
+
+    GeoIPAddressNotFoundError = AddressNotFoundError
 except ImportError:  # pragma: no cover - exercised through runtime fallback
     geoip2_database = None
 
-    class AddressNotFoundError(Exception):
+    class FallbackGeoIPAddressNotFoundError(Exception):
         pass
+
+    GeoIPAddressNotFoundError = FallbackGeoIPAddressNotFoundError
 
 
 class GeoIPCityReader(Protocol):
@@ -28,7 +34,8 @@ class GeoIPCityReader(Protocol):
 @dataclass(frozen=True, slots=True)
 class GeoIPLocation:
     country_code: str | None
-    city_name: str | None
+    region_name: str | None = None
+    city_name: str | None = None
 
 
 class GeoIPCityDatabase:
@@ -55,23 +62,38 @@ class GeoIPCityDatabase:
 
         try:
             response = reader.city(parsed_ip.compressed)
-        except AddressNotFoundError:
+        except GeoIPAddressNotFoundError:
             return None
         except ValueError:
             return None
 
         country_code = getattr(response.country, "iso_code", None)
+        subdivision_name = None
+        subdivisions = getattr(response, "subdivisions", None)
+        if subdivisions is not None:
+            most_specific = getattr(subdivisions, "most_specific", None)
+            subdivision_name = getattr(most_specific, "name", None)
         city_name = getattr(response.city, "name", None)
         normalized_country = (
             country_code.upper() if isinstance(country_code, str) else None
         )
+        normalized_region = (
+            subdivision_name
+            if isinstance(subdivision_name, str) and subdivision_name
+            else None
+        )
         normalized_city = (
             city_name if isinstance(city_name, str) and city_name else None
         )
-        if normalized_country is None and normalized_city is None:
+        if (
+            normalized_country is None
+            and normalized_region is None
+            and normalized_city is None
+        ):
             return None
         return GeoIPLocation(
             country_code=normalized_country,
+            region_name=normalized_region,
             city_name=normalized_city,
         )
 
@@ -108,7 +130,7 @@ class GeoIPCityDatabase:
         if geoip2_database is None:
             return None
         try:
-            return geoip2_database.Reader(db_path)
+            return cast(GeoIPCityReader, geoip2_database.Reader(db_path))
         except OSError:
             return None
 

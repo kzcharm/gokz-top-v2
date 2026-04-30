@@ -77,6 +77,18 @@ class PlayerSession(SQLModel, table=True):
             "ip_address",
             text("connected_at DESC"),
         ),
+        Index(
+            "ix_player_session_geo_bucket_connected_at",
+            "geo_country",
+            "geo_region",
+            "geo_city",
+            text("connected_at DESC"),
+            postgresql_where=text(
+                "geo_country IS NOT NULL "
+                "AND geo_region IS NOT NULL "
+                "AND geo_city IS NOT NULL"
+            ),
+        ),
     )
 
     id: uuid.UUID = Field(primary_key=True)
@@ -103,6 +115,9 @@ class PlayerSession(SQLModel, table=True):
     ip_address: str = Field(
         sa_column=Column(INET, nullable=False),
     )
+    geo_country: str | None = Field(default=None, max_length=2)
+    geo_region: str | None = Field(default=None, max_length=255)
+    geo_city: str | None = Field(default=None, max_length=255)
     map_name: str = Field(min_length=1, max_length=255)
     duration_seconds: int | None = Field(
         default=None,
@@ -207,6 +222,54 @@ class AdminPlayerSessionsPublic(SQLModel):
     count: int
 
 
+AdminPlayerSessionIpLinkMatchMode = Literal["exact_ip", "same_24", "same_16_city"]
+
+
+class AdminPlayerSessionIpLinkBucketPublic(SQLModel):
+    key: str
+    label: str
+    ip_address: str | None = None
+    ip_prefix: str | None = None
+    geo_country: str | None = None
+    geo_region: str | None = None
+    geo_city: str | None = None
+
+
+class AdminPlayerSessionIpLinkPlayerPublic(SQLModel):
+    player: PlayerPublic
+    distance: int
+    link_count: int = 0
+
+
+class AdminPlayerSessionIpLinkPublic(SQLModel):
+    from_steamid64: str
+    to_steamid64: str
+    distance: int
+    bucket: AdminPlayerSessionIpLinkBucketPublic
+    match_mode: AdminPlayerSessionIpLinkMatchMode
+    session_count_from: int
+    session_count_to: int
+    first_seen_at: datetime
+    last_seen_at: datetime
+
+
+class AdminPlayerSessionIpLinkSkippedBucketPublic(SQLModel):
+    bucket: AdminPlayerSessionIpLinkBucketPublic
+    reason: Literal["too_many_players"]
+    player_count: int
+
+
+class AdminPlayerSessionIpLinksPublic(SQLModel):
+    target: PlayerPublic
+    match_mode: AdminPlayerSessionIpLinkMatchMode
+    depth: int
+    from_at: datetime
+    to_at: datetime
+    players: list[AdminPlayerSessionIpLinkPlayerPublic]
+    links: list[AdminPlayerSessionIpLinkPublic]
+    skipped_buckets: list[AdminPlayerSessionIpLinkSkippedBucketPublic]
+
+
 class AdminPlayerSessionListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)
@@ -221,6 +284,12 @@ class AdminPlayerSessionListQuery(SQLModel):
 
 
 __all__ = [
+    "AdminPlayerSessionIpLinkBucketPublic",
+    "AdminPlayerSessionIpLinkMatchMode",
+    "AdminPlayerSessionIpLinkPlayerPublic",
+    "AdminPlayerSessionIpLinkPublic",
+    "AdminPlayerSessionIpLinksPublic",
+    "AdminPlayerSessionIpLinkSkippedBucketPublic",
     "AdminPlayerSessionListQuery",
     "AdminPlayerSessionPublic",
     "AdminPlayerSessionsPublic",
