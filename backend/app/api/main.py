@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     admin_maps,
     admin_modes,
+    admin_player_sessions,
     admin_servers,
     bans,
     graphql,
@@ -42,6 +43,7 @@ api_router.include_router(servers.router)
 api_router.include_router(server_ws.router)
 api_router.include_router(admin_maps.router)
 api_router.include_router(admin_modes.router)
+api_router.include_router(admin_player_sessions.router)
 api_router.include_router(admin_servers.router)
 api_router.include_router(utils.router)
 

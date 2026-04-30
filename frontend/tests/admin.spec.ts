@@ -37,12 +37,16 @@ test("Superuser sidebar groups admin users and players under admin", async ({
   await expect(page).toHaveURL(/\/admin\/players$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
 
+  await page.goto("/admin/player-sessions")
+  await expect(page).toHaveURL(/\/admin\/player-sessions$/)
+  await expect(adminButton).toHaveAttribute("data-active", "true")
+
   await page.goto("/admin/maps")
   await expect(page).toHaveURL(/\/admin\/maps$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
 })
 
-test("Superuser can access users, players, and maps admin pages", async ({
+test("Superuser can access users, players, player sessions, and maps admin pages", async ({
   page,
 }) => {
   await page.goto("/admin/users")
@@ -57,6 +61,14 @@ test("Superuser can access users, players, and maps admin pages", async ({
     page.getByRole("textbox", { name: "Search players" }),
   ).toBeVisible()
 
+  await page.goto("/admin/player-sessions")
+  await expect(
+    page.getByRole("heading", { name: /Player Sessions/ }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("switch", { name: "Latest session per player" }),
+  ).toBeVisible()
+
   await page.goto("/admin/maps")
   await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
 })
@@ -64,7 +76,7 @@ test("Superuser can access users, players, and maps admin pages", async ({
 test.describe("Admin page access control", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test("Non-superuser cannot access users, players, or maps admin pages", async ({
+  test("Non-superuser cannot access users, players, player sessions, or maps admin pages", async ({
     page,
   }) => {
     await logInUser(page, randomSteamid64(), { isSuperuser: false })
@@ -75,9 +87,66 @@ test.describe("Admin page access control", () => {
     await page.goto("/admin/players")
     await expect(page).not.toHaveURL(/\/admin\/players$/)
 
+    await page.goto("/admin/player-sessions")
+    await expect(page).not.toHaveURL(/\/admin\/player-sessions$/)
+
     await page.goto("/admin/maps")
     await expect(page).not.toHaveURL(/\/admin\/maps$/)
   })
+})
+
+test("Superuser can view player sessions, filter latest sessions, and reveal IPs", async ({
+  page,
+}) => {
+  let latestOnly = false
+
+  await page.route(/\/v1\/admin\/player-sessions(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    latestOnly = url.searchParams.get("latest_only") === "true"
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          adminPlayerSessionPayload({
+            latestOnly,
+            sessionId: "01966858-7280-7000-8000-000000000001",
+          }),
+        ],
+        count: latestOnly ? 1 : 2,
+      }),
+    })
+  })
+
+  await page.goto("/admin/player-sessions")
+
+  await expect(
+    page.getByRole("heading", { name: /Player Sessions/ }),
+  ).toBeVisible()
+  await expect(page.getByText("Session Runner")).toBeVisible()
+  await expect(page.getByText("Session Group")).toBeVisible()
+  await expect(page.getByText("kz_session_admin")).toBeVisible()
+  await expect(page.getByText("***.***.***.***")).toBeVisible()
+  await expect(page.getByText("192.0.2.42")).toHaveCount(0)
+
+  await page
+    .getByRole("button", {
+      name: /Reveal IP for session 01966858-7280-7000-8000-000000000001/,
+    })
+    .click()
+  await expect(page.getByText("192.0.2.42")).toBeVisible()
+  await page
+    .getByRole("button", {
+      name: /Hide IP for session 01966858-7280-7000-8000-000000000001/,
+    })
+    .click()
+  await expect(page.getByText("***.***.***.***")).toBeVisible()
+  await expect(page.getByText("192.0.2.42")).toHaveCount(0)
+
+  await page.getByRole("switch", { name: "Latest session per player" }).click()
+  await expect(
+    page.getByRole("switch", { name: "Latest session per player" }),
+  ).toHaveAttribute("aria-checked", "true")
+  await expect.poll(() => latestOnly).toBe(true)
 })
 
 test("Superuser can manage map validation and 128-tick record filter tiers", async ({
@@ -213,6 +282,39 @@ function adminRecordFilterPayload({
     created_on: "2021-01-01T00:00:00Z",
     updated_on: "2021-01-02T00:00:00Z",
     updated_by_id: `${superUserSteamid64}`,
+  }
+}
+
+function adminPlayerSessionPayload({
+  latestOnly,
+  sessionId,
+}: {
+  latestOnly: boolean
+  sessionId: string
+}) {
+  return {
+    id: sessionId,
+    player: {
+      steamid64: "76561198012345678",
+      name: "Session Runner",
+      alias: null,
+      custom_id: null,
+      avatar_hash: "abcdef",
+      country: "DE",
+      created_at: "2026-04-01T00:00:00Z",
+      last_played_at: "2026-04-28T12:00:00Z",
+      updated_at: "2026-04-28T12:00:00Z",
+      is_website_user: false,
+      profile_views: 0,
+    },
+    server_group_id: "01966858-7280-7000-8000-000000000010",
+    server_group_name: "Session Group",
+    connected_at: latestOnly ? "2026-04-28T14:00:00Z" : "2026-04-28T12:00:00Z",
+    disconnect_at: "2026-04-28T14:30:00Z",
+    last_heartbeat_at: "2026-04-28T14:30:00Z",
+    ip_address: "192.0.2.42",
+    map_name: "kz_session_admin",
+    duration_seconds: 1800,
   }
 }
 

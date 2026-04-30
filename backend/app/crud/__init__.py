@@ -101,6 +101,8 @@ from .player_session import (
     disconnect_player_session,
     get_player_session_by_id,
     heartbeat_player_session,
+    read_admin_player_sessions,
+    to_admin_player_session_public,
     to_player_session_public,
 )
 from .player_stats import (
@@ -247,6 +249,7 @@ __all__ = [
     "get_max_record_globalapi_id",
     "read_maps",
     "read_admin_maps",
+    "read_admin_player_sessions",
     "read_map_wrs",
     "read_latest_map_reviews",
     "read_maps_v1",
@@ -286,6 +289,7 @@ __all__ = [
     "to_ban_public",
     "to_admin_map_public",
     "to_admin_map_publics",
+    "to_admin_player_session_public",
     "to_admin_record_filter_public",
     "to_map_compat_public_v0",
     "to_map_public",

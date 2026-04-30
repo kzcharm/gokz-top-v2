@@ -112,6 +112,91 @@ export const AdminMapsPublicSchema = {
     title: 'AdminMapsPublic'
 } as const;
 
+export const AdminPlayerSessionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerPublic'
+        },
+        server_group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Group Id'
+        },
+        server_group_name: {
+            type: 'string',
+            title: 'Server Group Name'
+        },
+        connected_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Connected At'
+        },
+        disconnect_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Disconnect At'
+        },
+        last_heartbeat_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Last Heartbeat At'
+        },
+        ip_address: {
+            type: 'string',
+            title: 'Ip Address'
+        },
+        map_name: {
+            type: 'string',
+            title: 'Map Name'
+        },
+        duration_seconds: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Duration Seconds'
+        }
+    },
+    type: 'object',
+    required: ['id', 'player', 'server_group_id', 'server_group_name', 'connected_at', 'last_heartbeat_at', 'ip_address', 'map_name'],
+    title: 'AdminPlayerSessionPublic'
+} as const;
+
+export const AdminPlayerSessionsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/AdminPlayerSessionPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'AdminPlayerSessionsPublic'
+} as const;
+
 export const AdminRecordFilterPublicSchema = {
     properties: {
         id: {
@@ -1807,6 +1892,138 @@ export const PlayerRefPublicSchema = {
     type: 'object',
     required: ['steamid64', 'display_name'],
     title: 'PlayerRefPublic'
+} as const;
+
+export const PlayerSessionConnectSchema = {
+    properties: {
+        session_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Session Id'
+        },
+        player_steamid64: {
+            type: 'string',
+            title: 'Player Steamid64'
+        },
+        connected_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Connected At'
+        },
+        ip_address: {
+            type: 'string',
+            format: 'ipv4',
+            title: 'Ip Address'
+        },
+        map_name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Map Name'
+        }
+    },
+    type: 'object',
+    required: ['session_id', 'player_steamid64', 'connected_at', 'ip_address', 'map_name'],
+    title: 'PlayerSessionConnect'
+} as const;
+
+export const PlayerSessionDisconnectSchema = {
+    properties: {
+        session_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Session Id'
+        },
+        disconnect_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Disconnect At'
+        }
+    },
+    type: 'object',
+    required: ['session_id', 'disconnect_at'],
+    title: 'PlayerSessionDisconnect'
+} as const;
+
+export const PlayerSessionHeartbeatSchema = {
+    properties: {
+        session_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Session Id'
+        },
+        heartbeat_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Heartbeat At'
+        }
+    },
+    type: 'object',
+    required: ['session_id', 'heartbeat_at'],
+    title: 'PlayerSessionHeartbeat'
+} as const;
+
+export const PlayerSessionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player_steamid64: {
+            type: 'string',
+            title: 'Player Steamid64'
+        },
+        server_group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Group Id'
+        },
+        connected_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Connected At'
+        },
+        disconnect_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Disconnect At'
+        },
+        last_heartbeat_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Last Heartbeat At'
+        },
+        ip_address: {
+            type: 'string',
+            title: 'Ip Address'
+        },
+        map_name: {
+            type: 'string',
+            title: 'Map Name'
+        },
+        duration_seconds: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Duration Seconds'
+        }
+    },
+    type: 'object',
+    required: ['id', 'player_steamid64', 'server_group_id', 'connected_at', 'last_heartbeat_at', 'ip_address', 'map_name'],
+    title: 'PlayerSessionPublic'
 } as const;
 
 export const PlayerStatTypeSchema = {

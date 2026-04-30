@@ -28,6 +28,24 @@ export type AdminMapUpdate = {
     validated: boolean;
 };
 
+export type AdminPlayerSessionPublic = {
+    id: string;
+    player: PlayerPublic;
+    server_group_id: string;
+    server_group_name: string;
+    connected_at: string;
+    disconnect_at?: (string | null);
+    last_heartbeat_at: string;
+    ip_address: string;
+    map_name: string;
+    duration_seconds?: (number | null);
+};
+
+export type AdminPlayerSessionsPublic = {
+    data: Array<AdminPlayerSessionPublic>;
+    count: number;
+};
+
 export type AdminRecordFilterPublic = {
     id: number;
     map_id: number;
@@ -374,6 +392,36 @@ export type PlayersBatchPublic = {
 
 export type PlayersBatchRead = {
     steamid64s: Array<(string)>;
+};
+
+export type PlayerSessionConnect = {
+    session_id: string;
+    player_steamid64: string;
+    connected_at: string;
+    ip_address: string;
+    map_name: string;
+};
+
+export type PlayerSessionDisconnect = {
+    session_id: string;
+    disconnect_at: string;
+};
+
+export type PlayerSessionHeartbeat = {
+    session_id: string;
+    heartbeat_at: string;
+};
+
+export type PlayerSessionPublic = {
+    id: string;
+    player_steamid64: string;
+    server_group_id: string;
+    connected_at: string;
+    disconnect_at?: (string | null);
+    last_heartbeat_at: string;
+    ip_address: string;
+    map_name: string;
+    duration_seconds?: (number | null);
 };
 
 export type PlayersPublic = {
@@ -734,6 +782,16 @@ export type AdminModesUpdateModeData = {
 
 export type AdminModesUpdateModeResponse = (ModePublic);
 
+export type AdminPlayerSessionsReadAdminPlayerSessionsData = {
+    latestOnly?: boolean;
+    limit?: number;
+    offset?: number;
+    sortBy?: 'connected_at' | 'last_heartbeat_at' | 'disconnect_at' | 'duration_seconds';
+    sortOrder?: 'asc' | 'desc';
+};
+
+export type AdminPlayerSessionsReadAdminPlayerSessionsResponse = (AdminPlayerSessionsPublic);
+
 export type AdminServersReadAdminServerAccessResponse = (AdminServerAccessPublic);
 
 export type AdminServersReadAdminGlobalapiServersData = {
@@ -1071,6 +1129,27 @@ export type PlayersUpsertPlayerFromSteamData = {
 };
 
 export type PlayersUpsertPlayerFromSteamResponse = (PlayerPublic);
+
+export type PlayerSessionsConnectPlayerSessionData = {
+    requestBody: PlayerSessionConnect;
+    xServerGroupKey?: (string | null);
+};
+
+export type PlayerSessionsConnectPlayerSessionResponse = (PlayerSessionPublic);
+
+export type PlayerSessionsHeartbeatPlayerSessionData = {
+    requestBody: PlayerSessionHeartbeat;
+    xServerGroupKey?: (string | null);
+};
+
+export type PlayerSessionsHeartbeatPlayerSessionResponse = (PlayerSessionPublic);
+
+export type PlayerSessionsDisconnectPlayerSessionData = {
+    requestBody: PlayerSessionDisconnect;
+    xServerGroupKey?: (string | null);
+};
+
+export type PlayerSessionsDisconnectPlayerSessionResponse = (PlayerSessionPublic);
 
 export type RecordsReadRecordsData = {
     createdSince?: (string | null);

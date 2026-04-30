@@ -1,12 +1,15 @@
 import uuid
 from datetime import datetime, timedelta
+from typing import cast
 
-from sqlalchemy import update
+from sqlalchemy import String, func, update
+from sqlalchemy import cast as sa_cast
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import col
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
+    AdminPlayerSessionPublic,
     Player,
     PlayerSession,
     PlayerSessionConnect,
@@ -16,6 +19,8 @@ from app.models import (
     ServerGroup,
 )
 from app.services.geoip import lookup_geoip_city
+
+from .player import to_player_public
 
 
 def to_player_session_public(*, player_session: PlayerSession) -> PlayerSessionPublic:
@@ -32,12 +37,106 @@ def to_player_session_public(*, player_session: PlayerSession) -> PlayerSessionP
     )
 
 
+def to_admin_player_session_public(
+    *,
+    player_session: PlayerSession,
+    player: Player,
+    server_group: ServerGroup,
+) -> AdminPlayerSessionPublic:
+    return AdminPlayerSessionPublic(
+        id=player_session.id,
+        player=to_player_public(player=player),
+        server_group_id=server_group.id,
+        server_group_name=server_group.name,
+        connected_at=player_session.connected_at,
+        disconnect_at=player_session.disconnect_at,
+        last_heartbeat_at=player_session.last_heartbeat_at,
+        ip_address=str(player_session.ip_address),
+        map_name=player_session.map_name,
+        duration_seconds=player_session.duration_seconds,
+    )
+
+
 async def get_player_session_by_id(
     *,
     session: AsyncSession,
     session_id: uuid.UUID,
 ) -> PlayerSession | None:
     return await session.get(PlayerSession, session_id)
+
+
+async def read_admin_player_sessions(
+    *,
+    session: AsyncSession,
+    offset: int = 0,
+    limit: int = 20,
+    latest_only: bool = False,
+    sort_by: str = "connected_at",
+    sort_order: str = "desc",
+) -> tuple[list[tuple[PlayerSession, Player, ServerGroup]], int]:
+    sort_columns = {
+        "connected_at": col(PlayerSession.connected_at),
+        "last_heartbeat_at": col(PlayerSession.last_heartbeat_at),
+        "disconnect_at": col(PlayerSession.disconnect_at),
+        "duration_seconds": col(PlayerSession.duration_seconds),
+    }
+    sort_column = sort_columns.get(sort_by, col(PlayerSession.connected_at))
+    sort_direction = sort_column.asc() if sort_order == "asc" else sort_column.desc()
+    session_id_sort = sa_cast(col(PlayerSession.id), String)
+
+    statement = (
+        select(PlayerSession, Player, ServerGroup)
+        .select_from(PlayerSession)
+        .join(Player, col(Player.steamid64) == col(PlayerSession.player_steamid64))
+        .join(ServerGroup, col(ServerGroup.id) == col(PlayerSession.server_group_id))
+    )
+
+    if latest_only:
+        session_rank = (
+            func.row_number()
+            .over(
+                partition_by=col(PlayerSession.player_steamid64),
+                order_by=[
+                    col(PlayerSession.connected_at).desc(),
+                    session_id_sort.desc(),
+                ],
+            )
+            .label("session_rank")
+        )
+        latest_sessions = select(
+            col(PlayerSession.id).label("session_id"),
+            session_rank,
+        ).subquery()
+        statement = statement.join(
+            latest_sessions,
+            latest_sessions.c.session_id == col(PlayerSession.id),
+        ).where(latest_sessions.c.session_rank == 1)
+        count_statement = select(func.count()).select_from(
+            select(latest_sessions.c.session_id)
+            .where(latest_sessions.c.session_rank == 1)
+            .subquery()
+        )
+    else:
+        count_statement = select(func.count()).select_from(PlayerSession)
+
+    count = (await session.exec(count_statement)).one()
+    rows = cast(
+        list[tuple[PlayerSession, Player, ServerGroup]],
+        list(
+            (
+                await session.exec(
+                    statement.order_by(
+                        sort_direction.nullslast(),
+                        col(PlayerSession.connected_at).desc(),
+                        session_id_sort.desc(),
+                    )
+                    .offset(offset)
+                    .limit(limit)
+                )
+            ).all()
+        ),
+    )
+    return rows, count
 
 
 async def _ensure_player_for_session(
@@ -208,5 +307,7 @@ __all__ = [
     "disconnect_player_session",
     "get_player_session_by_id",
     "heartbeat_player_session",
+    "read_admin_player_sessions",
+    "to_admin_player_session_public",
     "to_player_session_public",
 ]

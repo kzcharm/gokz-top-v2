@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 from ipaddress import IPv4Address
+from typing import Literal
 
 from pydantic import field_validator
 from sqlalchemy import (
@@ -15,6 +16,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import INET
 from sqlmodel import Field, SQLModel
+
+from .player import PlayerPublic
 
 
 def _normalize_datetime(value: datetime) -> datetime:
@@ -186,7 +189,41 @@ class PlayerSessionPublic(SQLModel):
     duration_seconds: int | None = None
 
 
+class AdminPlayerSessionPublic(SQLModel):
+    id: uuid.UUID
+    player: PlayerPublic
+    server_group_id: uuid.UUID
+    server_group_name: str
+    connected_at: datetime
+    disconnect_at: datetime | None = None
+    last_heartbeat_at: datetime
+    ip_address: str
+    map_name: str
+    duration_seconds: int | None = None
+
+
+class AdminPlayerSessionsPublic(SQLModel):
+    data: list[AdminPlayerSessionPublic]
+    count: int
+
+
+class AdminPlayerSessionListQuery(SQLModel):
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=100)
+    latest_only: bool = False
+    sort_by: Literal[
+        "connected_at",
+        "last_heartbeat_at",
+        "disconnect_at",
+        "duration_seconds",
+    ] = "connected_at"
+    sort_order: Literal["asc", "desc"] = "desc"
+
+
 __all__ = [
+    "AdminPlayerSessionListQuery",
+    "AdminPlayerSessionPublic",
+    "AdminPlayerSessionsPublic",
     "PlayerSession",
     "PlayerSessionConnect",
     "PlayerSessionDisconnect",
