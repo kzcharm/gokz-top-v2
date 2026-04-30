@@ -86,6 +86,12 @@ from .player_pinned_record import (
 )
 from .player_profile_view import PlayerProfileView
 from .player_session import (
+    AdminPlayerSessionIpLinkBucketPublic,
+    AdminPlayerSessionIpLinkMatchMode,
+    AdminPlayerSessionIpLinkPlayerPublic,
+    AdminPlayerSessionIpLinkPublic,
+    AdminPlayerSessionIpLinkSkippedBucketPublic,
+    AdminPlayerSessionIpLinksPublic,
     AdminPlayerSessionListQuery,
     AdminPlayerSessionPublic,
     AdminPlayerSessionsPublic,
@@ -239,6 +245,12 @@ __all__ = [
     "AdminMapsPublic",
     "AdminMapRecordFiltersPublic",
     "AdminMapUpdate",
+    "AdminPlayerSessionIpLinkBucketPublic",
+    "AdminPlayerSessionIpLinkMatchMode",
+    "AdminPlayerSessionIpLinkPlayerPublic",
+    "AdminPlayerSessionIpLinkPublic",
+    "AdminPlayerSessionIpLinksPublic",
+    "AdminPlayerSessionIpLinkSkippedBucketPublic",
     "AdminPlayerSessionListQuery",
     "AdminPlayerSessionPublic",
     "AdminPlayerSessionsPublic",

@@ -28,6 +28,53 @@ export type AdminMapUpdate = {
     validated: boolean;
 };
 
+export type AdminPlayerSessionIpLinkBucketPublic = {
+    key: string;
+    label: string;
+    ip_address?: (string | null);
+    ip_prefix?: (string | null);
+    geo_country?: (string | null);
+    geo_region?: (string | null);
+    geo_city?: (string | null);
+};
+
+export type AdminPlayerSessionIpLinkPlayerPublic = {
+    player: PlayerPublic;
+    distance: number;
+    link_count?: number;
+};
+
+export type AdminPlayerSessionIpLinkPublic = {
+    from_steamid64: string;
+    to_steamid64: string;
+    distance: number;
+    bucket: AdminPlayerSessionIpLinkBucketPublic;
+    match_mode: 'exact_ip' | 'same_24' | 'same_16_city';
+    session_count_from: number;
+    session_count_to: number;
+    first_seen_at: string;
+    last_seen_at: string;
+};
+
+export type match_mode = 'exact_ip' | 'same_24' | 'same_16_city';
+
+export type AdminPlayerSessionIpLinkSkippedBucketPublic = {
+    bucket: AdminPlayerSessionIpLinkBucketPublic;
+    reason: "too_many_players";
+    player_count: number;
+};
+
+export type AdminPlayerSessionIpLinksPublic = {
+    target: PlayerPublic;
+    match_mode: 'exact_ip' | 'same_24' | 'same_16_city';
+    depth: number;
+    from_at: string;
+    to_at: string;
+    players: Array<AdminPlayerSessionIpLinkPlayerPublic>;
+    links: Array<AdminPlayerSessionIpLinkPublic>;
+    skipped_buckets: Array<AdminPlayerSessionIpLinkSkippedBucketPublic>;
+};
+
 export type AdminPlayerSessionPublic = {
     id: string;
     player: PlayerPublic;
@@ -791,6 +838,18 @@ export type AdminPlayerSessionsReadAdminPlayerSessionsData = {
 };
 
 export type AdminPlayerSessionsReadAdminPlayerSessionsResponse = (AdminPlayerSessionsPublic);
+
+export type AdminPlayerSessionsReadAdminPlayerSessionIpLinksData = {
+    _from?: (string | null);
+    days?: number;
+    depth?: number;
+    matchMode?: 'exact_ip' | 'same_24' | 'same_16_city';
+    maxPlayersPerBucket?: number;
+    steamid64: string;
+    to?: (string | null);
+};
+
+export type AdminPlayerSessionsReadAdminPlayerSessionIpLinksResponse = (AdminPlayerSessionIpLinksPublic);
 
 export type AdminServersReadAdminServerAccessResponse = (AdminServerAccessPublic);
 

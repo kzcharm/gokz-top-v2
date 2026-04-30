@@ -13,6 +13,9 @@ class _FakeReader:
         del ip_address
         return SimpleNamespace(
             country=SimpleNamespace(iso_code=self._location.country_code),
+            subdivisions=SimpleNamespace(
+                most_specific=SimpleNamespace(name=self._location.region_name)
+            ),
             city=SimpleNamespace(name=self._location.city_name),
         )
 
@@ -53,10 +56,12 @@ def test_geoip_city_database_reloads_reader_when_file_changes(tmp_path: Path) ->
 
     assert database.lookup("8.8.8.8") == GeoIPLocation(
         country_code="US",
+        region_name=None,
         city_name="Chicago",
     )
     assert database.lookup("8.8.8.8") == GeoIPLocation(
         country_code="US",
+        region_name=None,
         city_name="Chicago",
     )
     assert len(created_readers) == 1
@@ -65,7 +70,29 @@ def test_geoip_city_database_reloads_reader_when_file_changes(tmp_path: Path) ->
 
     assert database.lookup("1.1.1.1") == GeoIPLocation(
         country_code="CA",
+        region_name=None,
         city_name="Toronto",
     )
     assert len(created_readers) == 2
     assert created_readers[0].closed is True
+
+
+def test_geoip_city_database_reads_region(tmp_path: Path) -> None:
+    db_path = tmp_path / "GeoLite2-City.mmdb"
+    db_path.write_text("version-1")
+    database = GeoIPCityDatabase(
+        db_path=db_path,
+        reader_factory=lambda _: _FakeReader(
+            location=GeoIPLocation(
+                country_code="US",
+                region_name="Illinois",
+                city_name="Chicago",
+            )
+        ),
+    )
+
+    assert database.lookup("8.8.8.8") == GeoIPLocation(
+        country_code="US",
+        region_name="Illinois",
+        city_name="Chicago",
+    )

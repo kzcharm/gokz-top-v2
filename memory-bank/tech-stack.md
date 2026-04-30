@@ -23,6 +23,7 @@
   - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity plus total playtime aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
   - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds
+  - Player sessions snapshot GeoIP country/region/city at ingest time for admin-only shared-IP traversal across exact IP, `/24`, and `/16 + city` buckets
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned
@@ -32,6 +33,7 @@
   - Public reads come from cached `/v1/servers` and `/v1/servers/{id}` responses only; browsers never trigger upstream A2S or Steam server-list queries
   - Plugin heartbeats ingest through `PUT /v1/servers/status` with a server-group API key and resolve servers by `(ip, port)`
   - Player session events ingest through `/v1/player-sessions/connect`, `/heartbeat`, and `/disconnect` with `X-Server-Group-Key`; server group identity is derived from the API key rather than request JSON
+  - Superuser session investigations use `/v1/admin/player-sessions/ip-links` to traverse shared-IP session buckets with bounded depth and busy-bucket skipping
   - Discovery uses Steam `IGameServersService/GetServerList` across regions `0..7`, with a one-hour background interval and a superuser-triggered manual run endpoint
   - A separate collector process handles Steam server-list discovery, A2S refresh, offline marking, and raw heartbeat partition maintenance
   - WebSocket updates are delivered from `/v1/ws/servers` after cache updates, using PostgreSQL `LISTEN/NOTIFY` to fan out change events from the backend

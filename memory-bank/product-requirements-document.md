@@ -85,6 +85,7 @@ Scope model:
 ### 5.5 Servers and Live Status
 - Public server registry and ownership-aware management.
 - Admin server management provides Root Admin access to all GlobalAPI/public servers and Server Owner access to owned servers, with approval control reserved for Root Admins.
+- Root Admins can investigate possible alternate accounts from player-session IP evidence using bounded exact-IP, `/24`, or `/16 + city` traversal; the workflow returns explainable links and skipped busy buckets, not scores or automated enforcement.
 - Live status ingestion and display.
 - Server group support and filterable browsing.
 - Cached live status must be served from PostgreSQL-backed cache rows, not live upstream queries on page load.

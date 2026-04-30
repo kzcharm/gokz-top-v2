@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -5,7 +6,7 @@ from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Player, ServerGroupStatus, generate_uuid7
+from app.models import Player, PlayerSession, ServerGroupStatus, generate_uuid7
 from app.services.geoip import GeoIPLocation
 from tests.utils.server import create_server_group
 from tests.utils.utils import random_steamid64
@@ -92,13 +93,17 @@ async def test_connect_sets_placeholder_player_country_from_geoip(
 ) -> None:
     monkeypatch.setattr(
         "app.crud.player_session.lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+        lambda ip: GeoIPLocation(
+            country_code="US",
+            region_name="Illinois",
+            city_name="Chicago",
+        ),
     )
     _, api_key = await create_server_group(db)
     steamid64 = random_steamid64()
     connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
 
-    await _connect_session(
+    payload = await _connect_session(
         client=client,
         api_key=api_key,
         session_id=str(generate_uuid7(timestamp=connected_at)),
@@ -108,8 +113,13 @@ async def test_connect_sets_placeholder_player_country_from_geoip(
     )
 
     player = await db.get(Player, steamid64)
+    player_session = await db.get(PlayerSession, uuid.UUID(str(payload["id"])))
     assert player is not None
     assert player.country == "US"
+    assert player_session is not None
+    assert player_session.geo_country == "US"
+    assert player_session.geo_region == "Illinois"
+    assert player_session.geo_city == "Chicago"
 
 
 async def test_connect_updates_unlocked_player_country_from_geoip(
