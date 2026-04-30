@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import {
   Activity,
+  Clock3,
   Home,
   Map as MapIcon,
   Server,
@@ -37,6 +38,11 @@ const adminItem: Item = {
   children: [
     { title: "Users", path: "/admin/users", icon: Users },
     { title: "Players", path: "/admin/players", icon: UserIcon },
+    {
+      title: "Player Sessions",
+      path: "/admin/player-sessions",
+      icon: Clock3,
+    },
     { title: "Maps", path: "/admin/maps", icon: MapIcon },
     { title: "Servers", path: "/admin/servers", icon: Server },
   ],

@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminMapsReadAdminMapsData, AdminMapsReadAdminMapsResponse, AdminMapsUpdateAdminMapData, AdminMapsUpdateAdminMapResponse, AdminMapsReadAdminMapRecordFiltersData, AdminMapsReadAdminMapRecordFiltersResponse, AdminMapsUpdateAdminRecordFilterData, AdminMapsUpdateAdminRecordFilterResponse, AdminModesUpdateModeData, AdminModesUpdateModeResponse, AdminServersReadAdminServerAccessResponse, AdminServersReadAdminGlobalapiServersData, AdminServersReadAdminGlobalapiServersResponse, AdminServersUpdateAdminGlobalapiServerData, AdminServersUpdateAdminGlobalapiServerResponse, AdminServersReadAdminPublicServersData, AdminServersReadAdminPublicServersResponse, AdminServersUpdateAdminPublicServerData, AdminServersUpdateAdminPublicServerResponse, AdminServersDeleteAdminPublicServerData, AdminServersDeleteAdminPublicServerResponse, AdminServersReadAdminServerGroupsResponse, AdminServersCreateAdminServerGroupData, AdminServersCreateAdminServerGroupResponse, AdminServersUpdateAdminServerGroupData, AdminServersUpdateAdminServerGroupResponse, AdminServersDeleteAdminServerGroupData, AdminServersDeleteAdminServerGroupResponse, AdminServersRotateAdminServerGroupApiKeyData, AdminServersRotateAdminServerGroupApiKeyResponse, BansReadBansData, BansReadBansResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LeaderboardsReadMapLeaderboardData, LeaderboardsReadMapLeaderboardResponse, LeaderboardsUpsertMapLeaderboardsData, LeaderboardsUpsertMapLeaderboardsResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsDeleteMapReviewCommentsData, MapsDeleteMapReviewCommentsResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerPinnedRecordsData, PlayersReadPlayerPinnedRecordsResponse, PlayersCreatePlayerPinnedRecordData, PlayersCreatePlayerPinnedRecordResponse, PlayersDeletePlayerPinnedRecordData, PlayersDeletePlayerPinnedRecordResponse, PlayersReadPlayerStatsData, PlayersReadPlayerStatsResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminMapsReadAdminMapsData, AdminMapsReadAdminMapsResponse, AdminMapsUpdateAdminMapData, AdminMapsUpdateAdminMapResponse, AdminMapsReadAdminMapRecordFiltersData, AdminMapsReadAdminMapRecordFiltersResponse, AdminMapsUpdateAdminRecordFilterData, AdminMapsUpdateAdminRecordFilterResponse, AdminModesUpdateModeData, AdminModesUpdateModeResponse, AdminPlayerSessionsReadAdminPlayerSessionsData, AdminPlayerSessionsReadAdminPlayerSessionsResponse, AdminServersReadAdminServerAccessResponse, AdminServersReadAdminGlobalapiServersData, AdminServersReadAdminGlobalapiServersResponse, AdminServersUpdateAdminGlobalapiServerData, AdminServersUpdateAdminGlobalapiServerResponse, AdminServersReadAdminPublicServersData, AdminServersReadAdminPublicServersResponse, AdminServersUpdateAdminPublicServerData, AdminServersUpdateAdminPublicServerResponse, AdminServersDeleteAdminPublicServerData, AdminServersDeleteAdminPublicServerResponse, AdminServersReadAdminServerGroupsResponse, AdminServersCreateAdminServerGroupData, AdminServersCreateAdminServerGroupResponse, AdminServersUpdateAdminServerGroupData, AdminServersUpdateAdminServerGroupResponse, AdminServersDeleteAdminServerGroupData, AdminServersDeleteAdminServerGroupResponse, AdminServersRotateAdminServerGroupApiKeyData, AdminServersRotateAdminServerGroupApiKeyResponse, BansReadBansData, BansReadBansResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LeaderboardsReadMapLeaderboardData, LeaderboardsReadMapLeaderboardResponse, LeaderboardsUpsertMapLeaderboardsData, LeaderboardsUpsertMapLeaderboardsResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapByNameData, MapsReadMapByNameResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsDeleteMapReviewCommentsData, MapsDeleteMapReviewCommentsResponse, MapsTriggerMapSyncResponse, ModesReadModesResponse, ModesReadModeByNameData, ModesReadModeByNameResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerPinnedRecordsData, PlayersReadPlayerPinnedRecordsResponse, PlayersCreatePlayerPinnedRecordData, PlayersCreatePlayerPinnedRecordResponse, PlayersDeletePlayerPinnedRecordData, PlayersDeletePlayerPinnedRecordResponse, PlayersReadPlayerStatsData, PlayersReadPlayerStatsResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayerSessionsConnectPlayerSessionData, PlayerSessionsConnectPlayerSessionResponse, PlayerSessionsHeartbeatPlayerSessionData, PlayerSessionsHeartbeatPlayerSessionResponse, PlayerSessionsDisconnectPlayerSessionData, PlayerSessionsDisconnectPlayerSessionResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UsersDeleteUserData, UsersDeleteUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminMapsService {
     /**
@@ -31,7 +31,7 @@ export class AdminMapsService {
             }
         });
     }
-
+    
     /**
      * Update Admin Map
      * @param data The data for the request.
@@ -54,7 +54,7 @@ export class AdminMapsService {
             }
         });
     }
-
+    
     /**
      * Read Admin Map Record Filters
      * @param data The data for the request.
@@ -74,7 +74,7 @@ export class AdminMapsService {
             }
         });
     }
-
+    
     /**
      * Update Admin Record Filter
      * @param data The data for the request.
@@ -125,6 +125,36 @@ export class AdminModesService {
     }
 }
 
+export class AdminPlayerSessionsService {
+    /**
+     * Read Admin Player Sessions
+     * @param data The data for the request.
+     * @param data.offset
+     * @param data.limit
+     * @param data.latestOnly
+     * @param data.sortBy
+     * @param data.sortOrder
+     * @returns AdminPlayerSessionsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readAdminPlayerSessions(data: AdminPlayerSessionsReadAdminPlayerSessionsData = {}): CancelablePromise<AdminPlayerSessionsReadAdminPlayerSessionsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/admin/player-sessions',
+            query: {
+                offset: data.offset,
+                limit: data.limit,
+                latest_only: data.latestOnly,
+                sort_by: data.sortBy,
+                sort_order: data.sortOrder
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class AdminServersService {
     /**
      * Read Admin Server Access
@@ -137,7 +167,7 @@ export class AdminServersService {
             url: '/v1/admin/servers/access'
         });
     }
-
+    
     /**
      * Read Admin Globalapi Servers
      * @param data The data for the request.
@@ -171,7 +201,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Update Admin Globalapi Server
      * @param data The data for the request.
@@ -194,7 +224,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Read Admin Public Servers
      * @param data The data for the request.
@@ -228,7 +258,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Update Admin Public Server
      * @param data The data for the request.
@@ -251,7 +281,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Delete Admin Public Server
      * @param data The data for the request.
@@ -271,7 +301,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Read Admin Server Groups
      * @returns AdminServerGroupsPublic Successful Response
@@ -283,7 +313,7 @@ export class AdminServersService {
             url: '/v1/admin/servers/groups'
         });
     }
-
+    
     /**
      * Create Admin Server Group
      * @param data The data for the request.
@@ -302,7 +332,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Update Admin Server Group
      * @param data The data for the request.
@@ -325,7 +355,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Delete Admin Server Group
      * @param data The data for the request.
@@ -345,7 +375,7 @@ export class AdminServersService {
             }
         });
     }
-
+    
     /**
      * Rotate Admin Server Group Api Key
      * @param data The data for the request.
@@ -409,7 +439,7 @@ export class BansService {
             }
         });
     }
-
+    
     /**
      * Read Ban
      * @param data The data for the request.
@@ -446,7 +476,7 @@ export class DefaultService {
             }
         });
     }
-
+    
     /**
      * Handle Http Post
      * @returns unknown Successful Response
@@ -494,7 +524,7 @@ export class LeaderboardsService {
             }
         });
     }
-
+    
     /**
      * Read Player Leaderboard Rank
      * @param data The data for the request.
@@ -522,7 +552,7 @@ export class LeaderboardsService {
             }
         });
     }
-
+    
     /**
      * Upsert Player Leaderboards
      * @param data The data for the request.
@@ -542,7 +572,7 @@ export class LeaderboardsService {
             }
         });
     }
-
+    
     /**
      * Read Map Leaderboard
      * @param data The data for the request.
@@ -562,7 +592,7 @@ export class LeaderboardsService {
             }
         });
     }
-
+    
     /**
      * Upsert Map Leaderboards
      * @param data The data for the request.
@@ -600,7 +630,7 @@ export class LoginService {
             url: '/v1/login/steam'
         });
     }
-
+    
     /**
      * Steam Callback
      * Handle Steam OpenID callback.
@@ -615,7 +645,7 @@ export class LoginService {
             url: '/v1/login/steam/callback'
         });
     }
-
+    
     /**
      * Test Token
      * Test access token
@@ -666,7 +696,7 @@ export class MapsService {
             }
         });
     }
-
+    
     /**
      * Read Map By Name
      * @param data The data for the request.
@@ -686,7 +716,7 @@ export class MapsService {
             }
         });
     }
-
+    
     /**
      * Read Map Wrs
      * @param data The data for the request.
@@ -712,7 +742,7 @@ export class MapsService {
             }
         });
     }
-
+    
     /**
      * Read Map By Id
      * @param data The data for the request.
@@ -732,7 +762,7 @@ export class MapsService {
             }
         });
     }
-
+    
     /**
      * Read Map Reviews
      * @param data The data for the request.
@@ -766,7 +796,7 @@ export class MapsService {
             }
         });
     }
-
+    
     /**
      * Put Map Review
      * @param data The data for the request.
@@ -789,7 +819,7 @@ export class MapsService {
             }
         });
     }
-
+    
     /**
      * Delete Map Review Comments
      * @param data The data for the request.
@@ -809,7 +839,7 @@ export class MapsService {
             }
         });
     }
-
+    
     /**
      * Trigger Map Sync
      * @returns MapSyncResult Successful Response
@@ -836,7 +866,7 @@ export class ModesService {
             url: '/v1/modes/'
         });
     }
-
+    
     /**
      * Read Mode By Name
      * Retrieve a mode by name.
@@ -857,7 +887,7 @@ export class ModesService {
             }
         });
     }
-
+    
     /**
      * Read Mode By Id
      * Retrieve a mode by id.
@@ -907,7 +937,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Read Players Batch
      * Retrieve players by steamid64 list.
@@ -927,7 +957,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Search Players
      * Search players by identifier, name, alias, and rating-weighted relevance.
@@ -952,7 +982,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Create Player View
      * Record an authenticated profile view for the current UTC day.
@@ -973,7 +1003,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Read Player Pinned Records
      * @param data The data for the request.
@@ -997,7 +1027,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Create Player Pinned Record
      * @param data The data for the request.
@@ -1020,7 +1050,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Delete Player Pinned Record
      * @param data The data for the request.
@@ -1048,7 +1078,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Read Player Stats
      * @param data The data for the request.
@@ -1072,7 +1102,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Read Player Follow Summary
      * Retrieve follow counts and viewer relationship state for a player.
@@ -1093,7 +1123,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Follow Player
      * Follow a player.
@@ -1114,7 +1144,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Unfollow Player
      * Unfollow a player.
@@ -1135,7 +1165,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Read Player Followers
      * Retrieve followers for a player.
@@ -1162,7 +1192,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Read Player Following
      * Retrieve players followed by a player.
@@ -1189,7 +1219,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Read Player
      * Retrieve a player by app custom_id, steamid64, or full Steam profile URL.
@@ -1210,7 +1240,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Update Player
      * Update player profile data.
@@ -1234,7 +1264,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Upsert Player From Steam
      * Create or update player from a Steam-resolvable identifier.
@@ -1250,6 +1280,77 @@ export class PlayersService {
             path: {
                 identifier: data.identifier
             },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class PlayerSessionsService {
+    /**
+     * Connect Player Session
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @param data.xServerGroupKey
+     * @returns PlayerSessionPublic Successful Response
+     * @throws ApiError
+     */
+    public static connectPlayerSession(data: PlayerSessionsConnectPlayerSessionData): CancelablePromise<PlayerSessionsConnectPlayerSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-sessions/connect',
+            headers: {
+                'X-Server-Group-Key': data.xServerGroupKey
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Heartbeat Player Session
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @param data.xServerGroupKey
+     * @returns PlayerSessionPublic Successful Response
+     * @throws ApiError
+     */
+    public static heartbeatPlayerSession(data: PlayerSessionsHeartbeatPlayerSessionData): CancelablePromise<PlayerSessionsHeartbeatPlayerSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-sessions/heartbeat',
+            headers: {
+                'X-Server-Group-Key': data.xServerGroupKey
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Disconnect Player Session
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @param data.xServerGroupKey
+     * @returns PlayerSessionPublic Successful Response
+     * @throws ApiError
+     */
+    public static disconnectPlayerSession(data: PlayerSessionsDisconnectPlayerSessionData): CancelablePromise<PlayerSessionsDisconnectPlayerSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-sessions/disconnect',
+            headers: {
+                'X-Server-Group-Key': data.xServerGroupKey
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: 'Validation Error'
             }
@@ -1307,7 +1408,7 @@ export class RecordsService {
             }
         });
     }
-
+    
     /**
      * Read Recent Records
      * @param data The data for the request.
@@ -1337,7 +1438,7 @@ export class RecordsService {
             }
         });
     }
-
+    
     /**
      * Read Pb Records
      * @param data The data for the request.
@@ -1377,7 +1478,7 @@ export class RecordsService {
             }
         });
     }
-
+    
     /**
      * Read Record Ranks
      * @param data The data for the request.
@@ -1403,7 +1504,7 @@ export class RecordsService {
             }
         });
     }
-
+    
     /**
      * Read Record
      * @param data The data for the request.
@@ -1427,7 +1528,7 @@ export class RecordsService {
             }
         });
     }
-
+    
     /**
      * Patch Record
      * @param data The data for the request.
@@ -1478,7 +1579,7 @@ export class ServerGroupsService {
             url: '/v1/server-groups/'
         });
     }
-
+    
     /**
      * Create Server Group
      * @param data The data for the request.
@@ -1497,7 +1598,7 @@ export class ServerGroupsService {
             }
         });
     }
-
+    
     /**
      * Update Server Group
      * @param data The data for the request.
@@ -1520,7 +1621,7 @@ export class ServerGroupsService {
             }
         });
     }
-
+    
     /**
      * Delete Server Group
      * @param data The data for the request.
@@ -1540,7 +1641,7 @@ export class ServerGroupsService {
             }
         });
     }
-
+    
     /**
      * Rotate Server Group Api Key
      * @param data The data for the request.
@@ -1585,7 +1686,7 @@ export class ServersService {
             }
         });
     }
-
+    
     /**
      * Read Servers
      * @param data The data for the request.
@@ -1619,7 +1720,7 @@ export class ServersService {
             }
         });
     }
-
+    
     /**
      * Create Server
      * @param data The data for the request.
@@ -1638,7 +1739,7 @@ export class ServersService {
             }
         });
     }
-
+    
     /**
      * Trigger Server Discovery
      * @returns ServerDiscoveryRunPublic Successful Response
@@ -1650,7 +1751,7 @@ export class ServersService {
             url: '/v1/servers/discovery'
         });
     }
-
+    
     /**
      * Read Server History
      * @param data The data for the request.
@@ -1678,7 +1779,7 @@ export class ServersService {
             }
         });
     }
-
+    
     /**
      * Read Server
      * @param data The data for the request.
@@ -1698,7 +1799,7 @@ export class ServersService {
             }
         });
     }
-
+    
     /**
      * Update Server
      * @param data The data for the request.
@@ -1721,7 +1822,7 @@ export class ServersService {
             }
         });
     }
-
+    
     /**
      * Delete Server
      * @param data The data for the request.
@@ -1770,7 +1871,7 @@ export class UsersService {
             }
         });
     }
-
+    
     /**
      * Read User Me
      * Get current user.
@@ -1783,7 +1884,7 @@ export class UsersService {
             url: '/v1/users/me'
         });
     }
-
+    
     /**
      * Read User By Id
      * Get a specific user by steamid64.
@@ -1804,7 +1905,7 @@ export class UsersService {
             }
         });
     }
-
+    
     /**
      * Update User
      * Update a user.
@@ -1828,7 +1929,7 @@ export class UsersService {
             }
         });
     }
-
+    
     /**
      * Delete User
      * Delete a user.

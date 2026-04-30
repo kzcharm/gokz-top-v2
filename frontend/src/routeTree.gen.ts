@@ -34,6 +34,7 @@ import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/das
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminServersRouteImport } from './routes/_layout/admin.servers'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
+import { Route as LayoutAdminPlayerSessionsRouteImport } from './routes/_layout/admin.player-sessions'
 import { Route as LayoutAdminMapsRouteImport } from './routes/_layout/admin.maps'
 import { Route as LayoutProfileIdentifierIndexRouteImport } from './routes/_layout/profile.$identifier.index'
 import { Route as LayoutProfileIdentifierUnfinishedRouteImport } from './routes/_layout/profile.$identifier.unfinished'
@@ -167,6 +168,12 @@ const LayoutAdminPlayersRoute = LayoutAdminPlayersRouteImport.update({
   path: '/players',
   getParentRoute: () => LayoutAdminRoute,
 } as any)
+const LayoutAdminPlayerSessionsRoute =
+  LayoutAdminPlayerSessionsRouteImport.update({
+    id: '/player-sessions',
+    path: '/player-sessions',
+    getParentRoute: () => LayoutAdminRoute,
+  } as any)
 const LayoutAdminMapsRoute = LayoutAdminMapsRouteImport.update({
   id: '/maps',
   path: '/maps',
@@ -212,6 +219,7 @@ export interface FileRoutesByFullPath {
   '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
+  '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/servers': typeof LayoutAdminServersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
@@ -243,6 +251,7 @@ export interface FileRoutesByTo {
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/': typeof LayoutIndexRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
+  '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/servers': typeof LayoutAdminServersRoute
   '/admin/users': typeof LayoutAdminUsersRoute
@@ -275,6 +284,7 @@ export interface FileRoutesById {
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/maps': typeof LayoutAdminMapsRoute
+  '/_layout/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
   '/_layout/admin/servers': typeof LayoutAdminServersRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName'
     | '/servers/$serverAddress'
     | '/admin/maps'
+    | '/admin/player-sessions'
     | '/admin/players'
     | '/admin/servers'
     | '/admin/users'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/servers/$serverAddress'
     | '/'
     | '/admin/maps'
+    | '/admin/player-sessions'
     | '/admin/players'
     | '/admin/servers'
     | '/admin/users'
@@ -370,6 +382,7 @@ export interface FileRouteTypes {
     | '/servers/$serverAddress'
     | '/_layout/'
     | '/_layout/admin/maps'
+    | '/_layout/admin/player-sessions'
     | '/_layout/admin/players'
     | '/_layout/admin/servers'
     | '/_layout/admin/users'
@@ -572,6 +585,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminPlayersRouteImport
       parentRoute: typeof LayoutAdminRoute
     }
+    '/_layout/admin/player-sessions': {
+      id: '/_layout/admin/player-sessions'
+      path: '/player-sessions'
+      fullPath: '/admin/player-sessions'
+      preLoaderRoute: typeof LayoutAdminPlayerSessionsRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
     '/_layout/admin/maps': {
       id: '/_layout/admin/maps'
       path: '/maps'
@@ -612,6 +632,7 @@ declare module '@tanstack/react-router' {
 
 interface LayoutAdminRouteChildren {
   LayoutAdminMapsRoute: typeof LayoutAdminMapsRoute
+  LayoutAdminPlayerSessionsRoute: typeof LayoutAdminPlayerSessionsRoute
   LayoutAdminPlayersRoute: typeof LayoutAdminPlayersRoute
   LayoutAdminServersRoute: typeof LayoutAdminServersRoute
   LayoutAdminUsersRoute: typeof LayoutAdminUsersRoute
@@ -619,6 +640,7 @@ interface LayoutAdminRouteChildren {
 
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminMapsRoute: LayoutAdminMapsRoute,
+  LayoutAdminPlayerSessionsRoute: LayoutAdminPlayerSessionsRoute,
   LayoutAdminPlayersRoute: LayoutAdminPlayersRoute,
   LayoutAdminServersRoute: LayoutAdminServersRoute,
   LayoutAdminUsersRoute: LayoutAdminUsersRoute,

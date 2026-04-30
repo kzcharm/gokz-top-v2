@@ -86,6 +86,9 @@ from .player_pinned_record import (
 )
 from .player_profile_view import PlayerProfileView
 from .player_session import (
+    AdminPlayerSessionListQuery,
+    AdminPlayerSessionPublic,
+    AdminPlayerSessionsPublic,
     PlayerSession,
     PlayerSessionConnect,
     PlayerSessionDisconnect,
@@ -236,6 +239,9 @@ __all__ = [
     "AdminMapsPublic",
     "AdminMapRecordFiltersPublic",
     "AdminMapUpdate",
+    "AdminPlayerSessionListQuery",
+    "AdminPlayerSessionPublic",
+    "AdminPlayerSessionsPublic",
     "AdminRecordFilterPublic",
     "AdminRecordFilterStagePublic",
     "AdminRecordFilterTierUpdate",
