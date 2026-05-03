@@ -3,6 +3,7 @@ import {
   Activity,
   Clock3,
   Home,
+  Link as LinkIcon,
   Map as MapIcon,
   Server,
   Settings,
@@ -38,6 +39,11 @@ const adminItem: Item = {
   children: [
     { title: "Users", path: "/admin/users", icon: Users },
     { title: "Players", path: "/admin/players", icon: UserIcon },
+    {
+      title: "Social Links",
+      path: "/admin/player-social-links",
+      icon: LinkIcon,
+    },
     {
       title: "Player Sessions",
       path: "/admin/player-sessions",

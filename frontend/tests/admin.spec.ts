@@ -41,6 +41,10 @@ test("Superuser sidebar groups admin users and players under admin", async ({
   await expect(page).toHaveURL(/\/admin\/player-sessions$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
 
+  await page.goto("/admin/player-social-links")
+  await expect(page).toHaveURL(/\/admin\/player-social-links$/)
+  await expect(adminButton).toHaveAttribute("data-active", "true")
+
   await page.goto("/admin/maps")
   await expect(page).toHaveURL(/\/admin\/maps$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
@@ -71,6 +75,11 @@ test("Superuser can access users, players, player sessions, and maps admin pages
 
   await page.goto("/admin/maps")
   await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+
+  await page.goto("/admin/player-social-links")
+  await expect(
+    page.getByRole("heading", { name: /Player Social Links/ }),
+  ).toBeVisible()
 })
 
 test.describe("Admin page access control", () => {
@@ -90,8 +99,113 @@ test.describe("Admin page access control", () => {
     await page.goto("/admin/player-sessions")
     await expect(page).not.toHaveURL(/\/admin\/player-sessions$/)
 
+    await page.goto("/admin/player-social-links")
+    await expect(page).not.toHaveURL(/\/admin\/player-social-links$/)
+
     await page.goto("/admin/maps")
     await expect(page).not.toHaveURL(/\/admin\/maps$/)
+  })
+})
+
+test.describe("Admin social links", () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
+  test("Superuser can view, add, edit, and delete player social links", async ({
+    page,
+  }) => {
+    await logInUser(page, superUserSteamid64, {
+      isSuperuser: true,
+      name: "Super User",
+    })
+    let links: unknown[] = []
+
+    await page.route(
+      /\/v1\/admin\/player-social-links(\?.*)?$/,
+      async (route) => {
+        const method = route.request().method()
+        if (method === "POST") {
+          links = [
+            {
+              id: "019e0000-0000-7000-8000-000000000301",
+              player_steamid64: "76561198012345678",
+              player: {
+                steamid64: "76561198012345678",
+                display_name: "Social Admin",
+              },
+              platform: "github",
+              account_identifier: "social-admin",
+              verified: true,
+              url: "https://github.com/social-admin",
+              created_at: "2026-04-01T00:00:00Z",
+              updated_at: "2026-04-01T00:00:00Z",
+            },
+          ]
+          await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(links[0]),
+          })
+          return
+        }
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+    await page.route(
+      /\/v1\/admin\/player-social-links\/[^/]+$/,
+      async (route) => {
+        const method = route.request().method()
+        if (method === "PATCH") {
+          links = [
+            {
+              ...(links[0] as object),
+              verified: false,
+              url: "https://github.com/social-admin-updated",
+              account_identifier: "social-admin-updated",
+            },
+          ]
+          await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(links[0]),
+          })
+          return
+        }
+        if (method === "DELETE") {
+          links = []
+          await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify({
+              message: "Social link deleted successfully",
+            }),
+          })
+          return
+        }
+        await route.continue()
+      },
+    )
+
+    await page.goto("/admin/player-social-links")
+    await expect(
+      page.getByRole("heading", { name: /Player Social Links/ }),
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Add" }).click()
+    await page.getByLabel("Steam ID64").fill("76561198012345678")
+    await page.getByLabel("URL").fill("https://github.com/social-admin")
+    await page.getByRole("switch", { name: "Verified" }).click()
+    await page.getByRole("button", { name: "Save" }).click()
+    await expect(page.getByText("social-admin")).toBeVisible()
+
+    await page.getByRole("button", { name: "Edit social link" }).click()
+    await page.getByLabel("URL").fill("https://github.com/social-admin-updated")
+    await page.getByRole("switch", { name: "Verified" }).click()
+    await page.getByRole("button", { name: "Save" }).click()
+    await expect(page.getByText("social-admin-updated")).toBeVisible()
+    await expect(page.getByText("No")).toBeVisible()
+
+    await page.getByRole("button", { name: "Delete social link" }).click()
+    await expect(page.getByText("No social links found.")).toBeVisible()
   })
 })
 

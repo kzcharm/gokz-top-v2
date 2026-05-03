@@ -279,6 +279,31 @@ async function installProfileHomeRoutes(
   )
 
   await page.route(
+    /\/v1\/players\/[^/]+\/social-links$/,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "019e0000-0000-7000-8000-000000000101",
+              player_steamid64: steamid64,
+              platform: "github",
+              account_identifier: "pinned-alias",
+              verified: false,
+              url: "https://github.com/pinned-alias",
+              created_at: "2026-04-01T00:00:00Z",
+              updated_at: "2026-04-01T00:00:00Z",
+            },
+          ],
+          count: 1,
+        }),
+      })
+    },
+  )
+
+  await page.route(
     /\/v1\/players\/[^/]+\/stats(\?.*)?$/,
     async (route: Route) => {
       await route.fulfill({
@@ -416,6 +441,21 @@ test("Profile home renders live pinned records with points badges and absolute d
     nubRecords[4].uuid,
     nubRecords[5].uuid,
   ])
+})
+
+test("Profile card renders unverified social link icons", async ({ page }) => {
+  await installProfileHomeRoutes(page)
+
+  await page.goto(`/profile/${steamid64}`)
+
+  await expect(page.getByTestId("profile-social-links")).toBeVisible()
+  await expect(page.getByTestId("profile-social-link-github")).toHaveAttribute(
+    "href",
+    "https://github.com/pinned-alias",
+  )
+  await expect(
+    page.getByLabel("GitHub unverified link for Pinned Alias"),
+  ).toBeVisible()
 })
 
 test("Profile home activity card shows empty-year message for players without activity", async ({

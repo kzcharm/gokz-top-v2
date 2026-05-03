@@ -405,6 +405,131 @@ export const AdminPlayerSessionsPublicSchema = {
     title: 'AdminPlayerSessionsPublic'
 } as const;
 
+export const AdminPlayerSocialLinkCreateSchema = {
+    properties: {
+        url: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Url'
+        },
+        player_steamid64: {
+            type: 'string',
+            title: 'Player Steamid64'
+        },
+        verified: {
+            type: 'boolean',
+            title: 'Verified',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['url', 'player_steamid64'],
+    title: 'AdminPlayerSocialLinkCreate'
+} as const;
+
+export const AdminPlayerSocialLinkPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player_steamid64: {
+            type: 'string',
+            title: 'Player Steamid64'
+        },
+        platform: {
+            '$ref': '#/components/schemas/PlayerSocialPlatform'
+        },
+        account_identifier: {
+            type: 'string',
+            title: 'Account Identifier'
+        },
+        verified: {
+            type: 'boolean',
+            title: 'Verified'
+        },
+        url: {
+            type: 'string',
+            title: 'Url'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        player: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['id', 'player_steamid64', 'platform', 'account_identifier', 'verified', 'url', 'created_at', 'updated_at'],
+    title: 'AdminPlayerSocialLinkPublic'
+} as const;
+
+export const AdminPlayerSocialLinkUpdateSchema = {
+    properties: {
+        url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Url'
+        },
+        verified: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Verified'
+        }
+    },
+    type: 'object',
+    title: 'AdminPlayerSocialLinkUpdate'
+} as const;
+
+export const AdminPlayerSocialLinksPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/AdminPlayerSocialLinkPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'AdminPlayerSocialLinksPublic'
+} as const;
+
 export const AdminRecordFilterPublicSchema = {
     properties: {
         id: {
@@ -2232,6 +2357,101 @@ export const PlayerSessionPublicSchema = {
     type: 'object',
     required: ['id', 'player_steamid64', 'server_group_id', 'connected_at', 'last_heartbeat_at', 'ip_address', 'map_name'],
     title: 'PlayerSessionPublic'
+} as const;
+
+export const PlayerSocialLinkCreateSchema = {
+    properties: {
+        url: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Url'
+        }
+    },
+    type: 'object',
+    required: ['url'],
+    title: 'PlayerSocialLinkCreate'
+} as const;
+
+export const PlayerSocialLinkPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player_steamid64: {
+            type: 'string',
+            title: 'Player Steamid64'
+        },
+        platform: {
+            '$ref': '#/components/schemas/PlayerSocialPlatform'
+        },
+        account_identifier: {
+            type: 'string',
+            title: 'Account Identifier'
+        },
+        verified: {
+            type: 'boolean',
+            title: 'Verified'
+        },
+        url: {
+            type: 'string',
+            title: 'Url'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'player_steamid64', 'platform', 'account_identifier', 'verified', 'url', 'created_at', 'updated_at'],
+    title: 'PlayerSocialLinkPublic'
+} as const;
+
+export const PlayerSocialLinkUpdateSchema = {
+    properties: {
+        url: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Url'
+        }
+    },
+    type: 'object',
+    required: ['url'],
+    title: 'PlayerSocialLinkUpdate'
+} as const;
+
+export const PlayerSocialLinksPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerSocialLinkPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerSocialLinksPublic'
+} as const;
+
+export const PlayerSocialPlatformSchema = {
+    type: 'string',
+    enum: ['bilibili', 'github', 'twitch', 'x', 'youtube'],
+    title: 'PlayerSocialPlatform'
 } as const;
 
 export const PlayerStatTypeSchema = {

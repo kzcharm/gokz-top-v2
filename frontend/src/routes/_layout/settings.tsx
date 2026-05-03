@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import AppearanceSettings from "@/components/UserSettings/AppearanceSettings"
+import SocialLinksSettings from "@/components/UserSettings/SocialLinksSettings"
 import UserInformation from "@/components/UserSettings/UserInformation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
@@ -8,6 +9,11 @@ import { getPageTitle } from "@/lib/site"
 
 const tabsConfig = [
   { value: "my-profile", title: "My profile", component: UserInformation },
+  {
+    value: "social-links",
+    title: "Social links",
+    component: SocialLinksSettings,
+  },
   { value: "appearance", title: "Appearance", component: AppearanceSettings },
 ]
 
