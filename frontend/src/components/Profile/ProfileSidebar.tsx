@@ -12,7 +12,7 @@ import {
 } from "react"
 import { toast } from "sonner"
 
-import type { PlayerPublic } from "@/client"
+import { type PlayerPublic, PlayersService } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
@@ -32,9 +32,15 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
+import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -85,6 +91,16 @@ function ProfileIdentityCard({
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${player.steamid64}`
     : null
+  const socialLinksQuery = useQuery({
+    queryKey: ["player-social-links", player.steamid64],
+    queryFn: () =>
+      PlayersService.readPlayerSocialLinks({
+        identifier: player.steamid64,
+      }),
+    enabled: hasProfileLink,
+    staleTime: 60_000,
+  })
+  const socialLinks = socialLinksQuery.data?.data ?? []
   const regionalStandingPrefix = profileSummary.region ?? "Region"
   const regionalStandingLabel =
     profileSummary.regionalStanding === null
@@ -218,6 +234,46 @@ function ProfileIdentityCard({
                     <p className="text-sm text-muted-foreground">
                       {secondaryName}
                     </p>
+                  ) : null}
+                  {socialLinks.length > 0 ? (
+                    <div
+                      className="flex flex-wrap items-center justify-center gap-2 pt-1"
+                      data-testid="profile-social-links"
+                    >
+                      {socialLinks.map((link) => {
+                        const platformLabel = getSocialPlatformLabel(
+                          link.platform,
+                        )
+                        return (
+                          <Tooltip key={link.id}>
+                            <TooltipTrigger asChild>
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={`${platformLabel}${link.verified ? "" : " unverified"} link for ${primaryName}`}
+                                data-testid={`profile-social-link-${link.platform}`}
+                                className={cn(
+                                  "inline-flex size-8 items-center justify-center rounded-full border bg-background/80 text-foreground transition-colors hover:border-primary/70 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                                  link.verified
+                                    ? "border-border/70"
+                                    : "border-dashed border-muted-foreground/45 text-muted-foreground",
+                                )}
+                              >
+                                <SocialPlatformIcon
+                                  platform={link.platform}
+                                  className="size-4"
+                                />
+                              </a>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>
+                              {platformLabel}
+                              {link.verified ? "" : " · unverified"}
+                            </TooltipContent>
+                          </Tooltip>
+                        )
+                      })}
+                    </div>
                   ) : null}
                 </div>
               </div>

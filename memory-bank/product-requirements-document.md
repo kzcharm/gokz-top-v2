@@ -78,6 +78,7 @@ Scope model:
 
 ### 5.4 Player Profile Experience
 - Rich profile overview (identity, ranking highlights, competitive summary).
+- Player profiles show linked X, Bilibili, YouTube, GitHub, and Twitch accounts from v2-native social-link records, with unverified links visible but marked.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).
 - Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity and total playtime available on the profile.
 - Shareable, fast-loading profile UI with clear information hierarchy.
@@ -103,6 +104,7 @@ Scope model:
 - User auth/session flows and API key support.
 - Role-based access for admin/operator capabilities.
 - Player preferences/settings persistence.
+- Authenticated players can manage their own social links from settings; superusers can view, add, edit, delete, and verify player social links from admin.
 
 ## 6) Compatibility Strategy (Mirror + Extend)
 

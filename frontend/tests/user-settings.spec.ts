@@ -32,6 +32,62 @@ test.describe("Profile and theme", () => {
     )
   })
 
+  test("Social links tab can add and delete a link", async ({ page }) => {
+    const steamid64 = randomSteamid64()
+    let links: unknown[] = []
+    await logInUser(page, steamid64)
+    await page.route(
+      new RegExp(`/v1/players/${steamid64}/social-links$`),
+      async (route) => {
+        if (route.request().method() === "POST") {
+          links = [
+            {
+              id: "019e0000-0000-7000-8000-000000000201",
+              player_steamid64: String(steamid64),
+              platform: "x",
+              account_identifier: "settings_user",
+              verified: false,
+              url: "https://x.com/settings_user",
+              created_at: "2026-04-01T00:00:00Z",
+              updated_at: "2026-04-01T00:00:00Z",
+            },
+          ]
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+    await page.route(
+      new RegExp(`/v1/players/${steamid64}/social-links/[^/]+$`),
+      async (route) => {
+        if (route.request().method() === "DELETE") {
+          links = []
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+
+    await page.goto("/settings")
+    await page.getByRole("tab", { name: "Social links" }).click()
+    await page
+      .getByRole("textbox", { name: "Social profile URL" })
+      .fill("https://x.com/settings_user")
+    await page.getByRole("button", { name: "Add" }).click()
+
+    await expect(page.getByText("settings_user")).toBeVisible()
+    await expect(page.getByText("Unverified")).toBeVisible()
+
+    await page.getByRole("button", { name: "Delete X link" }).click()
+    await expect(page.getByText("No social links added yet.")).toBeVisible()
+  })
+
   test("Theme selected in appearance settings is preserved across sessions", async ({
     page,
   }) => {

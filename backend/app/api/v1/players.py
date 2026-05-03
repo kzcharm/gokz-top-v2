@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -25,6 +26,9 @@ from app.models import (
     PlayersBatchRead,
     PlayerSearchQuery,
     PlayersListQuery,
+    PlayerSocialLinkCreate,
+    PlayerSocialLinksPublic,
+    PlayerSocialLinkUpdate,
     PlayersPublic,
     PlayerStatsPublic,
     PlayerStatType,
@@ -77,6 +81,16 @@ def _ensure_current_user_owns_player(
         raise HTTPException(
             status_code=403,
             detail="You cannot modify another player's pinned records",
+        )
+
+
+def _ensure_current_user_owns_social_link(
+    *, current_user: CurrentUser, target_steamid64: int
+) -> None:
+    if current_user.steamid64 != target_steamid64:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot modify another player's social links",
         )
 
 
@@ -201,6 +215,134 @@ async def read_player_stats(
         session=session,
         steamid64=player.steamid64,
         stat_type=type,
+    )
+
+
+@router.get(
+    "/{identifier:path}/social-links",
+    response_model=PlayerSocialLinksPublic,
+)
+async def read_player_social_links(
+    identifier: str,
+    session: SessionDep,
+) -> PlayerSocialLinksPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    links = await crud.list_player_social_links(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    return PlayerSocialLinksPublic(
+        data=crud.to_player_social_link_publics(links=links),
+        count=len(links),
+    )
+
+
+@router.post(
+    "/{identifier:path}/social-links",
+    response_model=PlayerSocialLinksPublic,
+)
+async def create_player_social_link(
+    identifier: str,
+    body: PlayerSocialLinkCreate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerSocialLinksPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_social_link(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+
+    try:
+        await crud.create_player_social_link(
+            session=session,
+            player_steamid64=player.steamid64,
+            url=body.url,
+            verified=False,
+        )
+    except crud.PlayerSocialLinkConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    links = await crud.list_player_social_links(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    return PlayerSocialLinksPublic(
+        data=crud.to_player_social_link_publics(links=links),
+        count=len(links),
+    )
+
+
+@router.patch(
+    "/{identifier:path}/social-links/{link_id}",
+    response_model=PlayerSocialLinksPublic,
+)
+async def update_player_social_link(
+    identifier: str,
+    link_id: uuid.UUID,
+    body: PlayerSocialLinkUpdate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerSocialLinksPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_social_link(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+    link = await crud.get_player_social_link(session=session, id=link_id)
+    if link is None or link.player_steamid64 != player.steamid64:
+        raise HTTPException(status_code=404, detail="Social link not found")
+
+    try:
+        await crud.update_player_social_link(
+            session=session,
+            link=link,
+            url=body.url,
+        )
+    except crud.PlayerSocialLinkConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    links = await crud.list_player_social_links(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    return PlayerSocialLinksPublic(
+        data=crud.to_player_social_link_publics(links=links),
+        count=len(links),
+    )
+
+
+@router.delete(
+    "/{identifier:path}/social-links/{link_id}",
+    response_model=PlayerSocialLinksPublic,
+)
+async def delete_player_social_link(
+    identifier: str,
+    link_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerSocialLinksPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_social_link(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+    link = await crud.get_player_social_link(session=session, id=link_id)
+    if link is None or link.player_steamid64 != player.steamid64:
+        raise HTTPException(status_code=404, detail="Social link not found")
+
+    await crud.delete_player_social_link(session=session, link=link)
+    links = await crud.list_player_social_links(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    return PlayerSocialLinksPublic(
+        data=crud.to_player_social_link_publics(links=links),
+        count=len(links),
     )
 
 

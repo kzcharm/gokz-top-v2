@@ -12,6 +12,7 @@
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
   - `/v1/admin/servers` for RBAC-protected server and server-group management
+  - `/v1/admin/player-social-links` for superuser management of player social links and verification state
   - `/v1/maps/reviews` now supports website-authored review upserts plus authenticated comment-only deletion across a player's review rows for a map
 - Data strategy:
   - PostgreSQL as primary persistent store
@@ -24,6 +25,7 @@
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
   - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds
   - Player sessions snapshot GeoIP country/region/city at ingest time for admin-only shared-IP traversal across exact IP, `/24`, and `/16 + city` buckets
+  - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned

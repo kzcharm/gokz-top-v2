@@ -93,6 +93,34 @@ export type AdminPlayerSessionsPublic = {
     count: number;
 };
 
+export type AdminPlayerSocialLinkCreate = {
+    url: string;
+    player_steamid64: string;
+    verified?: boolean;
+};
+
+export type AdminPlayerSocialLinkPublic = {
+    id: string;
+    player_steamid64: string;
+    platform: PlayerSocialPlatform;
+    account_identifier: string;
+    verified: boolean;
+    url: string;
+    created_at: string;
+    updated_at: string;
+    player?: (PlayerRefPublic | null);
+};
+
+export type AdminPlayerSocialLinksPublic = {
+    data: Array<AdminPlayerSocialLinkPublic>;
+    count: number;
+};
+
+export type AdminPlayerSocialLinkUpdate = {
+    url?: (string | null);
+    verified?: (boolean | null);
+};
+
 export type AdminRecordFilterPublic = {
     id: number;
     map_id: number;
@@ -470,6 +498,32 @@ export type PlayerSessionPublic = {
     map_name: string;
     duration_seconds?: (number | null);
 };
+
+export type PlayerSocialLinkCreate = {
+    url: string;
+};
+
+export type PlayerSocialLinkPublic = {
+    id: string;
+    player_steamid64: string;
+    platform: PlayerSocialPlatform;
+    account_identifier: string;
+    verified: boolean;
+    url: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PlayerSocialLinksPublic = {
+    data: Array<PlayerSocialLinkPublic>;
+    count: number;
+};
+
+export type PlayerSocialLinkUpdate = {
+    url: string;
+};
+
+export type PlayerSocialPlatform = 'bilibili' | 'github' | 'twitch' | 'x' | 'youtube';
 
 export type PlayersPublic = {
     data: Array<PlayerPublic>;
@@ -851,6 +905,39 @@ export type AdminPlayerSessionsReadAdminPlayerSessionIpLinksData = {
 
 export type AdminPlayerSessionsReadAdminPlayerSessionIpLinksResponse = (AdminPlayerSessionIpLinksPublic);
 
+export type AdminPlayerSocialLinksReadAdminPlayerSocialLinksData = {
+    limit?: number;
+    offset?: number;
+    platform?: (PlayerSocialPlatform | null);
+    sortBy?: 'created_at' | 'updated_at' | 'platform';
+    sortOrder?: 'asc' | 'desc';
+    steamid64?: (string | null);
+    verified?: (boolean | null);
+};
+
+export type AdminPlayerSocialLinksReadAdminPlayerSocialLinksResponse = (AdminPlayerSocialLinksPublic);
+
+export type AdminPlayerSocialLinksCreateAdminPlayerSocialLinkData = {
+    requestBody: AdminPlayerSocialLinkCreate;
+};
+
+export type AdminPlayerSocialLinksCreateAdminPlayerSocialLinkResponse = (AdminPlayerSocialLinkPublic);
+
+export type AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkData = {
+    linkId: string;
+    requestBody: AdminPlayerSocialLinkUpdate;
+};
+
+export type AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkResponse = (AdminPlayerSocialLinkPublic);
+
+export type AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkData = {
+    linkId: string;
+};
+
+export type AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkResponse = ({
+    [key: string]: (string);
+});
+
 export type AdminServersReadAdminServerAccessResponse = (AdminServerAccessPublic);
 
 export type AdminServersReadAdminGlobalapiServersData = {
@@ -1135,6 +1222,34 @@ export type PlayersReadPlayerStatsData = {
 };
 
 export type PlayersReadPlayerStatsResponse = (PlayerStatsPublic);
+
+export type PlayersReadPlayerSocialLinksData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerSocialLinksResponse = (PlayerSocialLinksPublic);
+
+export type PlayersCreatePlayerSocialLinkData = {
+    identifier: string;
+    requestBody: PlayerSocialLinkCreate;
+};
+
+export type PlayersCreatePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
+
+export type PlayersUpdatePlayerSocialLinkData = {
+    identifier: string;
+    linkId: string;
+    requestBody: PlayerSocialLinkUpdate;
+};
+
+export type PlayersUpdatePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
+
+export type PlayersDeletePlayerSocialLinkData = {
+    identifier: string;
+    linkId: string;
+};
+
+export type PlayersDeletePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
 
 export type PlayersReadPlayerFollowSummaryData = {
     identifier: string;
