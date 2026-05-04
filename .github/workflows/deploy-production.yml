@@ -32,7 +32,7 @@ jobs:
       - name: Write deployment env file
         run: |
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
-          VITE_APP_VERSION="$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0)"
+          VITE_APP_VERSION="$(bash scripts/get-app-version.sh)"
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
           API_HOST=api.${DOMAIN}

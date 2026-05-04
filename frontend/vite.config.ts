@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import path from "node:path"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
@@ -13,11 +13,13 @@ function getAppVersion(): string {
   }
 
   try {
-    return execSync(
-      'git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --abbrev=0',
+    return execFileSync(
+      "bash",
+      [path.resolve(__dirname, "../scripts/get-app-version.sh")],
       {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
+        cwd: __dirname,
       },
     ).trim()
   } catch {
