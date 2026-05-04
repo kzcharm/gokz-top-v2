@@ -13,6 +13,12 @@ import {
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
+import { getScopeTone } from "@/components/Common/ScopeSelector"
+import {
+  TierSelector,
+  type TierSelectorValue,
+} from "@/components/Common/TierSelector"
+import type { AppScope } from "@/components/scope-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,8 +39,6 @@ import { getPageTitle } from "@/lib/site"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
-const TIER_OPTIONS = ["none", "0", "1", "2", "3", "4", "5", "6", "7", "8"]
-
 type MapValidationDraft = {
   originalValidated: boolean
   validated: boolean
@@ -46,6 +50,18 @@ type FilterTierDraft = {
   tier: number | null
 }
 type FilterTierDrafts = Record<number, FilterTierDraft>
+
+function shouldIgnoreRowToggle(target: EventTarget | null) {
+  if (!(target instanceof Element)) {
+    return false
+  }
+
+  return Boolean(
+    target.closest(
+      'a, button, input, select, textarea, [role="button"], [role="checkbox"], [role="combobox"], [data-row-click-ignore="true"]',
+    ),
+  )
+}
 
 export const Route = createFileRoute("/_layout/admin/maps")({
   component: AdminMaps,
@@ -207,21 +223,29 @@ function AdminMaps() {
   const columns = useMemo<ColumnDef<AdminMapPublic>[]>(
     () => [
       {
-        id: "expand",
-        header: () => <span className="sr-only">Record filters</span>,
+        accessorKey: "id",
+        header: "ID",
         cell: ({ row }) => {
           const rowId = String(row.original.id)
           const isExpanded = expandedMapId === rowId
+
           return (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`${isExpanded ? "Hide" : "Show"} record filters for ${row.original.name}`}
-              onClick={() => setExpandedMapId(isExpanded ? null : rowId)}
-            >
-              {isExpanded ? <ChevronDown /> : <ChevronRight />}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${isExpanded ? "Hide" : "Show"} record filters for ${row.original.name}`}
+                className="shrink-0"
+                data-row-click-ignore="true"
+                onClick={() => setExpandedMapId(isExpanded ? null : rowId)}
+              >
+                {isExpanded ? <ChevronDown /> : <ChevronRight />}
+              </Button>
+              <span className="font-mono text-muted-foreground">
+                {row.original.id}
+              </span>
+            </div>
           )
         },
       },
@@ -229,16 +253,7 @@ function AdminMaps() {
         accessorKey: "name",
         header: "Map",
         cell: ({ row }) => (
-          <MapDisplay mapName={row.original.name} className="w-64" />
-        ),
-      },
-      {
-        accessorKey: "id",
-        header: "Map ID",
-        cell: ({ row }) => (
-          <span className="font-mono text-muted-foreground">
-            {row.original.id}
-          </span>
+          <MapDisplay mapName={row.original.name} className="min-w-0 w-64" />
         ),
       },
       {
@@ -325,6 +340,11 @@ function AdminMaps() {
   const tableData = data?.data ?? []
   const totalCount = data?.count ?? 0
 
+  const toggleExpandedMap = useCallback((mapId: number) => {
+    const rowId = String(mapId)
+    setExpandedMapId((current) => (current === rowId ? null : rowId))
+  }, [])
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -387,6 +407,27 @@ function AdminMaps() {
         data={tableData}
         emptyText="No maps found."
         footerSummary={<span />}
+        getRowProps={(row) => ({
+          "aria-expanded": expandedMapId === String(row.id),
+          className: "cursor-pointer",
+          onClick: (event) => {
+            if (shouldIgnoreRowToggle(event.target)) {
+              return
+            }
+            toggleExpandedMap(row.id)
+          },
+          onKeyDown: (event) => {
+            if (event.target !== event.currentTarget) {
+              return
+            }
+            if (event.key !== "Enter" && event.key !== " ") {
+              return
+            }
+            event.preventDefault()
+            toggleExpandedMap(row.id)
+          },
+          tabIndex: 0,
+        })}
         getRowId={(row) => String(row.id)}
         expandedRowId={expandedMapId}
         renderExpandedContent={(map) => (
@@ -423,12 +464,18 @@ function TierSummary({ map }: { map: AdminMapPublic }) {
     ["KZT", map.tiers.KZT],
     ["SKZ", map.tiers.SKZ],
     ["VNL", map.tiers.VNL],
-  ] as const
+  ] as const satisfies ReadonlyArray<readonly [AppScope, number | null]>
 
   return (
     <div className="flex flex-wrap gap-1.5">
       {tiers.map(([scope, tier]) => (
-        <Badge key={scope} variant="outline">
+        <Badge
+          key={scope}
+          className={cn(
+            "border-transparent font-mono font-semibold tracking-[0.16em]",
+            getScopeTone(scope),
+          )}
+        >
           {scope} {tier ?? "N/A"}
         </Badge>
       ))}
@@ -538,39 +585,26 @@ function RecordFilterTierRow({
     <tr className="border-t">
       <td className="px-3 py-2 text-muted-foreground">#{recordFilter.id}</td>
       <td className="px-3 py-2">
-        <Badge variant="secondary">{recordFilter.mode}</Badge>
+        <ModeScopeBadge mode={recordFilter.mode} />
       </td>
       <td className="px-3 py-2">
         <RecordFilterTypeBadge hasTeleports={recordFilter.has_teleports} />
       </td>
       <td className="px-3 py-2">
-        <Select
-          value={tierToSelectValue(selectedTier)}
+        <TierSelector
+          value={tierToSelectorValue(selectedTier)}
           onValueChange={(value) =>
             onTierDraftChange(
               recordFilter,
               value === "none" ? null : Number(value),
             )
           }
+          includeAll={false}
+          includeNone
           disabled={disabled}
-        >
-          <SelectTrigger
-            aria-label={`Tier for record filter ${recordFilter.id}`}
-            className="w-28"
-            size="sm"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {TIER_OPTIONS.map((tier) => (
-                <SelectItem key={tier} value={tier}>
-                  {tier === "none" ? "None" : `Tier ${tier}`}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+          ariaLabel={`Tier for record filter ${recordFilter.id}`}
+          triggerClassName="w-16 min-w-16 justify-center"
+        />
       </td>
       <td className="px-3 py-2 text-right">
         {isChanged ? (
@@ -580,6 +614,21 @@ function RecordFilterTierRow({
         )}
       </td>
     </tr>
+  )
+}
+
+function ModeScopeBadge({ mode }: { mode: AdminRecordFilterPublic["mode"] }) {
+  const scopeTone = getScopeTone(mode === "NKZ" ? "KZT" : (mode as AppScope))
+
+  return (
+    <Badge
+      className={cn(
+        "min-w-11 justify-center rounded-md border-transparent px-2 py-0.5 font-semibold tracking-[0.08em]",
+        scopeTone,
+      )}
+    >
+      {mode}
+    </Badge>
   )
 }
 
@@ -599,8 +648,8 @@ function RecordFilterTypeBadge({ hasTeleports }: { hasTeleports: boolean }) {
   )
 }
 
-function tierToSelectValue(tier: number | null) {
-  return tier === null ? "none" : String(tier)
+function tierToSelectorValue(tier: number | null): TierSelectorValue {
+  return tier === null ? "none" : (String(tier) as `${number}`)
 }
 
 function formatBytes(bytes: number) {

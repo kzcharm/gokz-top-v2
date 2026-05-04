@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
-const SCOPE_OPTIONS: Array<{
+export const SCOPE_OPTIONS: Array<{
   toneClassName: string
   value: AppScope
 }> = [
@@ -37,7 +37,7 @@ const SCOPE_OPTIONS: Array<{
   },
 ]
 
-function getScopeTone(scope: AppScope) {
+export function getScopeTone(scope: AppScope) {
   return (
     SCOPE_OPTIONS.find((option) => option.value === scope)?.toneClassName ??
     SCOPE_OPTIONS[0].toneClassName
