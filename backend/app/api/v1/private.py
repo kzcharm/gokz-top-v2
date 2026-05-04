@@ -8,7 +8,7 @@ from app import crud
 from app.api.deps import SessionDep
 from app.core import security
 from app.core.config import settings
-from app.models import Token
+from app.models import Token, UserRole, normalize_user_roles
 
 router = APIRouter(tags=["private"], prefix="/private")
 
@@ -24,7 +24,7 @@ class PrivateAuthSessionCreate(BaseModel):
         json_schema_extra={
             "example": {
                 "steamid64": str(settings.SUPER_USER_STEAMID64),
-                "is_superuser": True,
+                "roles": ["superuser"],
                 "is_active": True,
                 "name": "Docs Admin",
             }
@@ -32,7 +32,7 @@ class PrivateAuthSessionCreate(BaseModel):
     )
 
     steamid64: str | int = str(settings.SUPER_USER_STEAMID64)
-    is_superuser: bool = True
+    roles: list[UserRole] = [UserRole.SUPERUSER]
     is_active: bool = True
     name: str | None = "Docs Admin"
 
@@ -61,7 +61,9 @@ async def create_auth_session(
             player.name = body.name
             session.add(player)
 
-    user.is_superuser = body.is_superuser
+    user.roles = normalize_user_roles(body.roles)
+    if steamid64 == settings.SUPER_USER_STEAMID64:
+        user.roles = normalize_user_roles([*user.roles, UserRole.SUPERUSER])
     user.is_active = body.is_active
     session.add(user)
     await session.commit()

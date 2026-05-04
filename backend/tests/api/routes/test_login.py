@@ -176,7 +176,7 @@ async def test_use_access_token(
     assert response.status_code == 200
     result = response.json()
     assert result["steamid64"] == str(settings.SUPER_USER_STEAMID64)
-    assert result["is_superuser"] is True
+    assert result["roles"] == ["superuser"]
     assert result["player"] is not None
 
 

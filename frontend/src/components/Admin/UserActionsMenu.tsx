@@ -27,7 +27,11 @@ export const UserActionsMenu = ({ user }: UserActionsMenuProps) => {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Open actions for ${user.player?.display_name ?? user.steamid64}`}
+        >
           <EllipsisVertical />
         </Button>
       </DropdownMenuTrigger>

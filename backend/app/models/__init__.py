@@ -230,9 +230,11 @@ from .user import (
     UserBase,
     UserCreate,
     UserPublic,
+    UserRole,
     UsersListQuery,
     UsersPublic,
     UserUpdate,
+    normalize_user_roles,
 )
 from .utils import generate_uuid7, get_datetime_utc
 
@@ -431,6 +433,7 @@ __all__ = [
     "UserCreate",
     "UsersListQuery",
     "UserPublic",
+    "UserRole",
     "UsersPublic",
     "UserUpdate",
     "TeleportsType",
@@ -445,6 +448,7 @@ __all__ = [
     "mode_scope_to_id",
     "normalize_kz_mode",
     "normalize_mode_scope",
+    "normalize_user_roles",
     "seconds_to_time_ms",
     "time_ms_to_seconds",
 ]

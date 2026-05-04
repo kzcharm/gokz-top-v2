@@ -14,7 +14,7 @@ async def test_create_auth_session(client: AsyncClient, db: AsyncSession) -> Non
         f"{settings.API_V1_STR}/private/auth/session",
         json={
             "steamid64": steamid64,
-            "is_superuser": False,
+            "roles": [],
             "is_active": True,
             "name": "Pollo Listo",
         },

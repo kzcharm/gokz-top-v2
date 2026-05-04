@@ -415,7 +415,7 @@ test.describe("Leaderboards page", () => {
         contentType: "application/json",
         body: JSON.stringify({
           steamid64: "76561198000000042",
-          is_superuser: false,
+          roles: [],
           player: {
             steamid64: "76561198000000042",
             name: "Find Me Player",
@@ -546,7 +546,7 @@ test.describe("Leaderboards page", () => {
         contentType: "application/json",
         body: JSON.stringify({
           steamid64: "76561198000000042",
-          is_superuser: false,
+          roles: [],
           player: {
             steamid64: "76561198000000042",
             name: "Find Me Player",

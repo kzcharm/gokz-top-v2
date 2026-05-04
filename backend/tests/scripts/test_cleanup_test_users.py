@@ -17,6 +17,7 @@ from app.models import (
     Record,
     ServerGlobalapi,
     User,
+    UserRole,
 )
 from tests.utils.utils import random_steamid64
 
@@ -27,11 +28,11 @@ async def _create_test_user(
     db: AsyncSession,
     *,
     name: str = "Test User",
-    is_superuser: bool = False,
+    roles: list[UserRole] | None = None,
 ) -> int:
     steamid64 = random_steamid64()
     db.add(Player(steamid64=steamid64, name=name))
-    db.add(User(steamid64=steamid64, is_active=True, is_superuser=is_superuser))
+    db.add(User(steamid64=steamid64, is_active=True, roles=roles or []))
     await db.commit()
     return steamid64
 
@@ -42,7 +43,7 @@ async def test_find_cleanup_candidates_only_selects_disposable_test_users(
     disposable = await _create_test_user(db)
     named_differently = await _create_test_user(db, name="Real User")
     referenced = await _create_test_user(db)
-    superuser = await _create_test_user(db, is_superuser=True)
+    superuser = await _create_test_user(db, roles=[UserRole.SUPERUSER])
     map_id = 1_500_000_000 + (random_steamid64() % 1_000_000)
     server_id = 1_600_000_000 + (random_steamid64() % 1_000_000)
     record_id = 1_700_000_000 + (random_steamid64() % 1_000_000)

@@ -27,6 +27,7 @@ from app.models import (
     PlayersListQuery,
     PlayerUpdate,
     User,
+    UserRole,
     UsersListQuery,
     UserUpdate,
 )
@@ -63,7 +64,7 @@ async def _create_user(
     user = await crud.get_or_create_user_from_steam(
         session=db, steamid64=random_steamid64()
     )
-    user.is_superuser = superuser
+    user.roles = [UserRole.SUPERUSER] if superuser else []
     user.is_active = active
     db.add(user)
     await db.commit()
@@ -202,7 +203,7 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
         current_user=User(
             steamid64=random_steamid64(),
             is_active=True,
-            is_superuser=True,
+            roles=[UserRole.SUPERUSER],
         ),
     )
     assert updated.alias == "Alias"
@@ -216,7 +217,7 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
             current_user=User(
                 steamid64=random_steamid64(),
                 is_active=True,
-                is_superuser=True,
+                roles=[UserRole.SUPERUSER],
             ),
         )
 
@@ -228,7 +229,7 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
             current_user=User(
                 steamid64=random_steamid64(),
                 is_active=True,
-                is_superuser=True,
+                roles=[UserRole.SUPERUSER],
             ),
         )
 
@@ -290,7 +291,7 @@ async def test_modes_routes_direct_branches(db: AsyncSession) -> None:
 async def test_private_route_direct_branches(db: AsyncSession) -> None:
     body = PrivateAuthSessionCreate(
         steamid64=random_steamid64(),
-        is_superuser=True,
+        roles=[UserRole.SUPERUSER],
         is_active=True,
         name="Route Test Name",
     )
@@ -345,7 +346,7 @@ async def test_deps_direct_branches(db: AsyncSession) -> None:
         deps.get_current_active_superuser(non_super)
 
     yes_super = await _create_user(db, superuser=True)
-    assert deps.get_current_active_superuser(yes_super).is_superuser is True
+    assert deps.get_current_active_superuser(yes_super).roles == [UserRole.SUPERUSER]
 
 
 @pytest.mark.asyncio
@@ -378,7 +379,7 @@ async def test_login_route_direct_branches(db: AsyncSession) -> None:
     mocked_response.raise_for_status.return_value = None
     mocked_response.text = "ns:http://specs.openid.net/auth/2.0\nis_valid:true"
 
-    inactive = User(steamid64=steamid64, is_active=False, is_superuser=False)
+    inactive = User(steamid64=steamid64, is_active=False, roles=[])
     with (
         patch(
             "app.api.v1.login.httpx.AsyncClient.post",
@@ -392,7 +393,7 @@ async def test_login_route_direct_branches(db: AsyncSession) -> None:
         with pytest.raises(HTTPException, match="Inactive user"):
             await login_routes.steam_callback(request=callback_request, session=db)
 
-    active = User(steamid64=steamid64, is_active=True, is_superuser=False)
+    active = User(steamid64=steamid64, is_active=True, roles=[])
     with (
         patch(
             "app.api.v1.login.httpx.AsyncClient.post",
@@ -417,7 +418,7 @@ async def test_private_route_requires_test_auth_helpers_enabled(
 ) -> None:
     body = PrivateAuthSessionCreate(
         steamid64=random_steamid64(),
-        is_superuser=False,
+        roles=[],
         is_active=True,
         name="Route Test Name",
     )

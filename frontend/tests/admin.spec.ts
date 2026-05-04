@@ -10,6 +10,67 @@ test("Admin root redirects to users page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible()
 })
 
+test.describe("Map admin access", () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
+  test("Map admin redirects to maps and only sees the maps admin link", async ({
+    page,
+  }) => {
+    await logInUser(page, randomSteamid64(), {
+      roles: ["map_admin"],
+      name: "Map Admin",
+    })
+
+    await page.route(/\/v1\/admin\/maps(\?.*)?$/, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ data: [], count: 0 }),
+      })
+    })
+
+    await page.goto("/admin")
+    await expect(page).toHaveURL(/\/admin\/maps$/)
+    await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+
+    await page.goto("/")
+    const adminButton = page.getByRole("button", { name: "Admin" })
+    await adminButton.click()
+
+    await expect(page.getByRole("link", { name: "Maps" })).toBeVisible()
+    await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0)
+    await expect(page.getByRole("link", { name: "Players" })).toHaveCount(0)
+    await expect(page.getByRole("link", { name: "Servers" })).toHaveCount(0)
+  })
+
+  test("Map admin cannot access superuser-only admin pages", async ({
+    page,
+  }) => {
+    await logInUser(page, randomSteamid64(), {
+      roles: ["map_admin"],
+      name: "Map Admin",
+    })
+
+    await page.route(/\/v1\/admin\/maps(\?.*)?$/, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ data: [], count: 0 }),
+      })
+    })
+
+    await page.goto("/admin/users")
+    await expect(page).not.toHaveURL(/\/admin\/users$/)
+
+    await page.goto("/admin/players")
+    await expect(page).not.toHaveURL(/\/admin\/players$/)
+
+    await page.goto("/admin/player-sessions")
+    await expect(page).not.toHaveURL(/\/admin\/player-sessions$/)
+
+    await page.goto("/admin/player-social-links")
+    await expect(page).not.toHaveURL(/\/admin\/player-social-links$/)
+  })
+})
+
 test("Superuser sidebar groups admin users and players under admin", async ({
   page,
 }) => {
@@ -88,7 +149,7 @@ test.describe("Admin page access control", () => {
   test("Non-superuser cannot access users, players, player sessions, or maps admin pages", async ({
     page,
   }) => {
-    await logInUser(page, randomSteamid64(), { isSuperuser: false })
+    await logInUser(page, randomSteamid64(), { roles: [] })
 
     await page.goto("/admin/users")
     await expect(page).not.toHaveURL(/\/admin\/users$/)
@@ -114,7 +175,7 @@ test.describe("Admin social links", () => {
     page,
   }) => {
     await logInUser(page, superUserSteamid64, {
-      isSuperuser: true,
+      roles: ["superuser"],
       name: "Super User",
     })
     let links: unknown[] = []
@@ -355,6 +416,79 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
   ).toContainText("Tier 6")
 })
 
+test("Superuser can edit a user and assign multiple roles", async ({
+  page,
+}) => {
+  const targetSteamid64 = "76561198012345678"
+  let userRoles: string[] = []
+  let isActive = true
+
+  await page.route(/\/v1\/users\/(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            steamid64: targetSteamid64,
+            is_active: isActive,
+            roles: userRoles,
+            created_at: "2026-04-01T00:00:00Z",
+            last_visited_at: "2026-04-02T00:00:00Z",
+            player: {
+              steamid64: targetSteamid64,
+              display_name: "Role Target",
+            },
+          },
+        ],
+        count: 1,
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/users\/76561198012345678$/, async (route) => {
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON() as {
+        is_active: boolean
+        roles: string[]
+      }
+      isActive = body.is_active
+      userRoles = body.roles
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          steamid64: targetSteamid64,
+          is_active: isActive,
+          roles: userRoles,
+          created_at: "2026-04-01T00:00:00Z",
+          last_visited_at: "2026-04-02T00:00:00Z",
+          player: {
+            steamid64: targetSteamid64,
+            display_name: "Role Target",
+          },
+        }),
+      })
+      return
+    }
+
+    await route.continue()
+  })
+
+  await page.goto("/admin/users")
+  await expect(page.getByRole("heading", { name: "Users" })).toBeVisible()
+
+  await page
+    .getByRole("button", { name: "Open actions for Role Target" })
+    .click()
+  await page.getByRole("menuitem", { name: "Edit User" }).click()
+
+  await page.getByRole("checkbox", { name: "Superuser role" }).click()
+  await page.getByRole("checkbox", { name: "Map Admin role" }).click()
+  await page.getByRole("button", { name: "Save" }).click()
+
+  await expect(page.getByText("Superuser")).toBeVisible()
+  await expect(page.getByText("Map Admin")).toBeVisible()
+})
+
 function adminMapPayload({
   mapId,
   validated,
@@ -441,19 +575,19 @@ test("PlayerDisplay renders alias fallback, avatar, and country tooltip", async 
   const aliasPlayer = await issueSessionToken({
     request: page.request,
     steamid64: randomSteamid64(),
-    isSuperuser: false,
+    roles: [],
     name: `Source ${Date.now()}`,
   })
   const fallbackPlayer = await issueSessionToken({
     request: page.request,
     steamid64: randomSteamid64(),
-    isSuperuser: false,
+    roles: [],
     name: fallbackName,
   })
   const superUserToken = await issueSessionToken({
     request: page.request,
     steamid64: superUserSteamid64,
-    isSuperuser: true,
+    roles: ["superuser"],
     name: "Super User",
   })
 
@@ -468,7 +602,7 @@ test("PlayerDisplay renders alias fallback, avatar, and country tooltip", async 
   })
 
   await logInUser(page, superUserSteamid64, {
-    isSuperuser: true,
+    roles: ["superuser"],
     name: "Super User",
   })
   await page.goto("/admin/players")

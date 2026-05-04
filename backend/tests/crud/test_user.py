@@ -4,7 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import Player, User, UserCreate, UserUpdate
+from app.models import Player, User, UserCreate, UserRole, UserUpdate
 from tests.utils.utils import random_steamid64
 
 
@@ -17,7 +17,7 @@ async def test_create_user(db: AsyncSession) -> None:
 
     assert user.steamid64 == steamid64
     assert user.is_active is True
-    assert user.is_superuser is False
+    assert user.roles == []
 
 
 @pytest.mark.asyncio
@@ -65,16 +65,16 @@ async def test_get_or_create_user_from_steam_sets_superuser_for_configured_id(
         steamid64=settings.SUPER_USER_STEAMID64,
     )
 
-    assert user.is_superuser is True
+    assert user.roles == [UserRole.SUPERUSER]
 
 
 @pytest.mark.asyncio
-async def test_get_or_create_user_from_steam_clears_superuser_for_non_configured_id(
+async def test_get_or_create_user_from_steam_preserves_manual_roles_for_non_configured_id(
     db: AsyncSession,
 ) -> None:
     steamid64 = random_steamid64()
     user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
-    user.is_superuser = True
+    user.roles = [UserRole.MAP_ADMIN]
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -83,7 +83,7 @@ async def test_get_or_create_user_from_steam_clears_superuser_for_non_configured
         session=db, steamid64=steamid64
     )
 
-    assert refreshed.is_superuser is False
+    assert refreshed.roles == [UserRole.MAP_ADMIN]
 
 
 @pytest.mark.asyncio
@@ -91,11 +91,11 @@ async def test_update_user(db: AsyncSession) -> None:
     steamid64 = random_steamid64()
     user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
 
-    update = UserUpdate(is_active=False, is_superuser=True)
+    update = UserUpdate(is_active=False, roles=[UserRole.SUPERUSER])
     updated = await crud.update_user(session=db, db_user=user, user_in=update)
 
     assert updated.is_active is False
-    assert updated.is_superuser is True
+    assert updated.roles == [UserRole.SUPERUSER]
 
 
 @pytest.mark.asyncio
@@ -123,7 +123,7 @@ async def test_get_or_create_user_from_steam_handles_duplicate_insert_race(
 ) -> None:
     steamid64 = random_steamid64()
     db.add(Player(steamid64=steamid64, name=f"player_{steamid64}"))
-    db.add(User(steamid64=steamid64, is_active=True, is_superuser=False))
+    db.add(User(steamid64=steamid64, is_active=True, roles=[]))
     await db.commit()
 
     async def _noop_create_or_update_player(

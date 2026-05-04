@@ -5,7 +5,12 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import { type UserPublic, UsersService, type UserUpdate } from "@/client"
+import {
+  type UserPublic,
+  type UserRole,
+  UsersService,
+  type UserUpdate,
+} from "@/client"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -21,16 +26,18 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
 } from "@/components/ui/form"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
+import { USER_ROLE_OPTIONS } from "@/lib/user-roles"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  is_superuser: z.boolean(),
+  roles: z.array(z.enum(["superuser", "map_admin"])),
   is_active: z.boolean(),
 })
 
@@ -51,8 +58,8 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     mode: "onBlur",
     criteriaMode: "all",
     defaultValues: {
-      is_superuser: user.is_superuser,
-      is_active: user.is_active,
+      roles: user.roles,
+      is_active: user.is_active ?? true,
     },
   })
 
@@ -78,7 +85,13 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuItem
         onSelect={(e) => e.preventDefault()}
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          form.reset({
+            roles: user.roles,
+            is_active: user.is_active ?? true,
+          })
+          setIsOpen(true)
+        }}
       >
         <Pencil />
         Edit User
@@ -95,16 +108,49 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
             <div className="grid gap-4 py-4">
               <FormField
                 control={form.control}
-                name="is_superuser"
+                name="roles"
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">Is superuser?</FormLabel>
+                  <FormItem className="gap-3">
+                    <div className="space-y-1">
+                      <FormLabel>Roles</FormLabel>
+                      <FormDescription>
+                        Choose one or more admin roles for this account.
+                      </FormDescription>
+                    </div>
+                    <div className="grid gap-3">
+                      {USER_ROLE_OPTIONS.map((roleOption) => {
+                        const checked = field.value.includes(roleOption.value)
+                        return (
+                          <div
+                            key={roleOption.value}
+                            className="flex items-start gap-3 rounded-md border p-3"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                aria-label={`${roleOption.label} role`}
+                                checked={checked}
+                                onCheckedChange={(nextChecked) => {
+                                  const nextRoles = nextChecked
+                                    ? [...field.value, roleOption.value]
+                                    : field.value.filter(
+                                        (role) => role !== roleOption.value,
+                                      )
+                                  field.onChange(nextRoles as UserRole[])
+                                }}
+                              />
+                            </FormControl>
+                            <span className="grid gap-1">
+                              <span className="text-sm font-medium">
+                                {roleOption.label}
+                              </span>
+                              <span className="text-muted-foreground text-sm">
+                                {roleOption.description}
+                              </span>
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </FormItem>
                 )}
               />

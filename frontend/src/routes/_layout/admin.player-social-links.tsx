@@ -39,6 +39,7 @@ import {
   SocialPlatformIcon,
   socialPlatformOrder,
 } from "@/lib/social-links"
+import { isSuperuser } from "@/lib/user-roles"
 import { handleError } from "@/utils"
 
 type LinkDialogState =
@@ -59,7 +60,7 @@ export const Route = createFileRoute("/_layout/admin/player-social-links")({
         to: "/login",
       })
     })
-    if (!user.is_superuser) {
+    if (!isSuperuser(user)) {
       throw redirect({
         to: "/",
       })

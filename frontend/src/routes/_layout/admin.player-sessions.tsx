@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/table"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
+import { isSuperuser } from "@/lib/user-roles"
 
 type SessionSortBy = "connected_at" | "disconnect_at" | "duration_seconds"
 type AltMatchMode = "exact_ip" | "same_24" | "same_16_city"
@@ -73,7 +74,7 @@ export const Route = createFileRoute("/_layout/admin/player-sessions")({
         to: "/login",
       })
     })
-    if (!user.is_superuser) {
+    if (!isSuperuser(user)) {
       throw redirect({
         to: "/",
       })

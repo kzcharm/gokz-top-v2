@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import Player, User
+from app.models import Player, User, UserRole
 from tests.utils.user import create_random_user, user_authentication_headers
 from tests.utils.utils import random_steamid64
 
@@ -31,7 +31,7 @@ async def _create_user(
         created_at=created_at,
         last_visited_at=last_visited_at,
         is_active=True,
-        is_superuser=False,
+        roles=[],
     )
     db.add(player)
     db.add(user)
@@ -52,7 +52,7 @@ async def test_get_users_superuser_me(
     assert response.status_code == 200
     current_user = response.json()
     assert current_user["is_active"] is True
-    assert current_user["is_superuser"] is True
+    assert current_user["roles"] == ["superuser"]
     assert current_user["steamid64"] == str(settings.SUPER_USER_STEAMID64)
     assert current_user["last_visited_at"] is not None
     assert current_user["player"] is not None
@@ -71,7 +71,7 @@ async def test_get_users_normal_user_me(
     assert response.status_code == 200
     current_user = response.json()
     assert current_user["is_active"] is True
-    assert current_user["is_superuser"] is False
+    assert current_user["roles"] == []
     assert int(current_user["steamid64"]) > 0
     assert current_user["last_visited_at"] is not None
 
@@ -192,6 +192,29 @@ async def test_retrieve_users_without_privileges(
 
 
 @pytest.mark.asyncio
+async def test_retrieve_users_rejects_map_admin(
+    client: AsyncClient,
+) -> None:
+    response = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["map_admin"],
+            "is_active": True,
+            "name": "Map Admin",
+        },
+    )
+    headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+    users_response = await client.get(
+        f"{settings.API_V1_STR}/users/",
+        headers=headers,
+    )
+
+    assert users_response.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_get_existing_user_as_superuser(
     client: AsyncClient,
     superuser_token_headers: dict[str, str],
@@ -287,18 +310,18 @@ async def test_update_user(
     response = await client.patch(
         f"{settings.API_V1_STR}/users/{steamid64}",
         headers=superuser_token_headers,
-        json={"is_superuser": True, "is_active": False},
+        json={"roles": ["superuser", "map_admin"], "is_active": False},
     )
 
     assert response.status_code == 200
     updated_user = response.json()
-    assert updated_user["is_superuser"] is True
+    assert updated_user["roles"] == ["superuser", "map_admin"]
     assert updated_user["is_active"] is False
 
     db.expire_all()
     refreshed = (await db.exec(select(User).where(User.steamid64 == steamid64))).first()
     assert refreshed is not None
-    assert refreshed.is_superuser is True
+    assert refreshed.roles == [UserRole.SUPERUSER, UserRole.MAP_ADMIN]
     assert refreshed.is_active is False
 
 

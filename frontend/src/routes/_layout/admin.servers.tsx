@@ -55,6 +55,7 @@ import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { getPageTitle } from "@/lib/site"
+import { isSuperuser } from "@/lib/user-roles"
 import { extractErrorMessage } from "@/utils"
 
 const NO_GROUP = "__none"
@@ -70,7 +71,7 @@ export const Route = createFileRoute("/_layout/admin/servers")({
       localStorage.removeItem("access_token")
       throw redirect({ to: "/login" })
     })
-    if (user.is_superuser) {
+    if (isSuperuser(user)) {
       return
     }
     await AdminServersService.readAdminServerAccess().catch(() => {

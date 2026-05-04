@@ -106,7 +106,7 @@ async function installProfileRoutes({
         id: "019e0000-0000-7000-8000-000000000001",
         steamid64: currentUser.steamid64,
         is_active: true,
-        is_superuser: false,
+        roles: [],
       }),
     })
   })

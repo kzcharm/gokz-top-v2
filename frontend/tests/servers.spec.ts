@@ -589,7 +589,7 @@ test("Logged-in users can add a server from the servers page", async ({
       contentType: "application/json",
       body: JSON.stringify({
         steamid64: "76561198000000001",
-        is_superuser: false,
+        roles: [],
         is_active: true,
         player: {
           steamid64: "76561198000000001",

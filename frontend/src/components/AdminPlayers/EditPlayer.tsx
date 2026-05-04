@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { isSuperuser } from "@/lib/user-roles"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
@@ -99,7 +100,7 @@ export default function EditPlayer({ player }: { player: EditablePlayer }) {
     },
   })
 
-  if (!user?.is_superuser) {
+  if (!isSuperuser(user)) {
     return null
   }
 

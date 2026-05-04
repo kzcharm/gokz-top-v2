@@ -23,6 +23,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import useAuth from "@/hooks/useAuth"
+import { hasRole, isSuperuser } from "@/lib/user-roles"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
 
@@ -31,44 +32,14 @@ const privateItems: Item[] = [
   { type: "link", icon: Settings, title: "Settings", path: "/settings" },
 ]
 
-const adminItem: Item = {
-  type: "group",
-  icon: Users,
-  title: "Admin",
-  pathPrefix: "/admin",
-  children: [
-    { title: "Users", path: "/admin/users", icon: Users },
-    { title: "Players", path: "/admin/players", icon: UserIcon },
-    {
-      title: "Social Links",
-      path: "/admin/player-social-links",
-      icon: LinkIcon,
-    },
-    {
-      title: "Player Sessions",
-      path: "/admin/player-sessions",
-      icon: Clock3,
-    },
-    { title: "Maps", path: "/admin/maps", icon: MapIcon },
-    { title: "Servers", path: "/admin/servers", icon: Server },
-  ],
-}
-
-const serverOwnerAdminItem: Item = {
-  type: "group",
-  icon: Users,
-  title: "Admin",
-  pathPrefix: "/admin",
-  children: [{ title: "Servers", path: "/admin/servers", icon: Server }],
-}
-
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
+  const currentUserIsSuperuser = isSuperuser(currentUser)
   const serverAdminAccessQuery = useQuery({
     queryKey: ["admin-servers-access", "sidebar"],
     queryFn: () => AdminServersService.readAdminServerAccess(),
-    enabled: Boolean(currentUser) && !currentUser?.is_superuser,
+    enabled: Boolean(currentUser) && !currentUserIsSuperuser,
     retry: false,
   })
 
@@ -92,12 +63,47 @@ export function AppSidebar() {
     { type: "link", icon: Activity, title: "Live", path: "/live" },
   ]
 
+  const adminChildren = currentUserIsSuperuser
+    ? [
+        { title: "Users", path: "/admin/users", icon: Users },
+        { title: "Players", path: "/admin/players", icon: UserIcon },
+        {
+          title: "Social Links",
+          path: "/admin/player-social-links",
+          icon: LinkIcon,
+        },
+        {
+          title: "Player Sessions",
+          path: "/admin/player-sessions",
+          icon: Clock3,
+        },
+        { title: "Maps", path: "/admin/maps", icon: MapIcon },
+        { title: "Servers", path: "/admin/servers", icon: Server },
+      ]
+    : [
+        ...(hasRole(currentUser, "map_admin")
+          ? [{ title: "Maps", path: "/admin/maps", icon: MapIcon }]
+          : []),
+        ...(serverAdminAccessQuery.data
+          ? [{ title: "Servers", path: "/admin/servers", icon: Server }]
+          : []),
+      ]
+
+  const adminItem: Item | null =
+    adminChildren.length > 0
+      ? {
+          type: "group",
+          icon: Users,
+          title: "Admin",
+          pathPrefix: "/admin",
+          children: adminChildren,
+        }
+      : null
+
   const items: Item[] = currentUser
-    ? currentUser.is_superuser
+    ? adminItem
       ? [...publicItems, ...privateItems, adminItem]
-      : serverAdminAccessQuery.data
-        ? [...publicItems, ...privateItems, serverOwnerAdminItem]
-        : [...publicItems, ...privateItems]
+      : [...publicItems, ...privateItems]
     : publicItems
 
   return (

@@ -2,8 +2,9 @@ import argparse
 import asyncio
 import sys
 from dataclasses import dataclass
+from typing import Any
 
-from sqlalchemy import delete, exists, not_, or_
+from sqlalchemy import delete, exists, func, not_, or_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -27,38 +28,43 @@ class CleanupTestUsersResult:
     steamid64s: list[int]
 
 
-def _candidate_statement():
+def _candidate_statement() -> Any:
     has_record = exists(
-        select(Record.steamid64).where(Record.steamid64 == Player.steamid64)
+        select(Record.steamid64).where(col(Record.steamid64) == col(Player.steamid64))
     )
     has_leaderboard_row = exists(
         select(LeaderboardPlayer.steamid64).where(
-            LeaderboardPlayer.steamid64 == Player.steamid64
+            col(LeaderboardPlayer.steamid64) == col(Player.steamid64)
         )
     )
     has_follow = exists(
         select(PlayerFollow.follower_steamid64).where(
             or_(
-                PlayerFollow.follower_steamid64 == Player.steamid64,
-                PlayerFollow.followed_steamid64 == Player.steamid64,
+                col(PlayerFollow.follower_steamid64) == col(Player.steamid64),
+                col(PlayerFollow.followed_steamid64) == col(Player.steamid64),
             )
         )
     )
     has_profile_view = exists(
         select(PlayerProfileView.viewer_steamid64).where(
             or_(
-                PlayerProfileView.viewer_steamid64 == Player.steamid64,
-                PlayerProfileView.target_steamid64 == Player.steamid64,
+                col(PlayerProfileView.viewer_steamid64) == col(Player.steamid64),
+                col(PlayerProfileView.target_steamid64) == col(Player.steamid64),
             )
         )
     )
-    has_ban = exists(select(Ban.id).where(Ban.steamid64 == Player.steamid64))
+    has_ban = exists(select(Ban.id).where(col(Ban.steamid64) == col(Player.steamid64)))
     return (
         select(Player.steamid64)
-        .outerjoin(User, User.steamid64 == Player.steamid64)
-        .where(or_(User.steamid64.is_(None), User.is_superuser.is_(False)))
-        .where(Player.name == "Test User")
-        .where(Player.steamid64 != settings.SUPER_USER_STEAMID64)
+        .outerjoin(User, col(User.steamid64) == col(Player.steamid64))
+        .where(
+            or_(
+                col(User.steamid64).is_(None),
+                func.coalesce(func.cardinality(col(User.roles)), 0) == 0,
+            )
+        )
+        .where(col(Player.name) == "Test User")
+        .where(col(Player.steamid64) != settings.SUPER_USER_STEAMID64)
         .where(not_(has_record))
         .where(not_(has_leaderboard_row))
         .where(not_(has_follow))

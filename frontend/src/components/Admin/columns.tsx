@@ -6,6 +6,7 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { USER_ROLE_LABELS } from "@/lib/user-roles"
 import { UserActionsMenu } from "./UserActionsMenu"
 
 export type UserTableData = UserPublic & {
@@ -59,13 +60,20 @@ export const columns: ColumnDef<UserTableData>[] = [
     ),
   },
   {
-    accessorKey: "is_superuser",
+    accessorKey: "roles",
     header: "Role",
-    cell: ({ row }) => (
-      <Badge variant={row.original.is_superuser ? "default" : "secondary"}>
-        {row.original.is_superuser ? "Superuser" : "User"}
-      </Badge>
-    ),
+    cell: ({ row }) =>
+      row.original.roles.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {row.original.roles.map((role) => (
+            <Badge key={role} variant="default">
+              {USER_ROLE_LABELS[role]}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <Badge variant="secondary">User</Badge>
+      ),
   },
   {
     accessorKey: "created_at",
