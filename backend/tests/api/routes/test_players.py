@@ -11,13 +11,15 @@ from app.api.v1 import players as players_api
 from app.core.config import settings
 from app.crud import player as player_crud
 from app.models import (
+    Ban,
+    BanType,
     LeaderboardPlayer,
     ModeScope,
     Player,
     PlayerFollow,
     User,
 )
-from app.services import player_steam_profile
+from app.services import globalapi_ban_sync, player_steam_profile
 from tests.utils.utils import get_user_token_headers, random_steamid64
 
 
@@ -56,6 +58,33 @@ async def _set_ovr_rating(*, db: AsyncSession, steamid64: int, rating: int) -> N
         )
     )
     await db.commit()
+
+
+async def _create_ban(
+    *,
+    db: AsyncSession,
+    ban_id: int,
+    steamid64: int,
+    ban_type: BanType = BanType.BHOP_HACK,
+    expires_on: datetime | None = None,
+    notes: str | None = None,
+) -> Ban:
+    ban = Ban(
+        id=ban_id,
+        ban_type=ban_type,
+        expires_on=expires_on,
+        steamid64=steamid64,
+        notes=notes,
+        stats="stats",
+        server_id=1,
+        updated_by_id="1",
+        created_at=datetime.now(UTC) - timedelta(days=1),
+        updated_at=datetime.now(UTC) - timedelta(hours=1),
+    )
+    db.add(ban)
+    await db.commit()
+    await db.refresh(ban)
+    return ban
 
 
 @pytest.mark.asyncio
@@ -1697,3 +1726,231 @@ async def test_create_player_view_returns_not_found_for_missing_player(
     )
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leaderboard(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Ban Check Owner",
+    )
+    await crud.get_or_create_user_from_steam(session=db, steamid64=player.steamid64)
+    headers = await get_user_token_headers(client, player.steamid64)
+    ban = await _create_ban(
+        db=db,
+        ban_id=9_500,
+        steamid64=player.steamid64,
+        expires_on=None,
+        notes="locally active",
+    )
+    expired_at = datetime.now(UTC) - timedelta(hours=1)
+    rebuilt_steamid64s: list[int] = []
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        steamid64: int | None = None,
+        created_since: datetime | None = None,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, object]]:
+        del client, limit, created_since, updated_since
+        assert steamid64 == player.steamid64
+        if offset > 0:
+            return []
+        return [
+            {
+                "id": ban.id,
+                "ban_type": "bhop_hack",
+                "expires_on": expired_at.isoformat(),
+                "ip": "203.0.113.1",
+                "steamid64": str(player.steamid64),
+                "player_name": player.name,
+                "notes": "expired upstream",
+                "stats": "stats",
+                "server_id": 1,
+                "updated_by_id": "1",
+                "created_on": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
+                "updated_on": datetime.now(UTC).isoformat(),
+            }
+        ]
+
+    async def _fake_rebuild(
+        *,
+        session: AsyncSession,
+        scope_ids: list[int] | None = None,
+        steamid64s: list[int] | None = None,
+    ) -> tuple[int, int, int]:
+        del session, scope_ids
+        rebuilt_steamid64s.extend(steamid64s or [])
+        return 0, 0, 0
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+    monkeypatch.setattr(
+        globalapi_ban_sync.crud,
+        "rebuild_leaderboard_players",
+        _fake_rebuild,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/unban-check",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cleared_ban_count"] == 1
+    assert response.json()["remaining_active_ban_count"] == 0
+    assert rebuilt_steamid64s == [player.steamid64]
+
+    db.expire_all()
+    refreshed = await db.get(Ban, ban.id)
+    assert refreshed is not None
+    assert refreshed.expires_on == expired_at
+    assert refreshed.notes == "expired upstream"
+
+
+@pytest.mark.asyncio
+async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_reports_it(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Still Banned",
+    )
+    await crud.get_or_create_user_from_steam(session=db, steamid64=player.steamid64)
+    headers = await get_user_token_headers(client, player.steamid64)
+    ban = await _create_ban(
+        db=db,
+        ban_id=9_501,
+        steamid64=player.steamid64,
+        expires_on=None,
+    )
+    future_expiry = datetime.now(UTC) + timedelta(days=7)
+    rebuilt_steamid64s: list[int] = []
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        steamid64: int | None = None,
+        created_since: datetime | None = None,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, object]]:
+        del client, limit, created_since, updated_since
+        assert steamid64 == player.steamid64
+        if offset > 0:
+            return []
+        return [
+            {
+                "id": ban.id,
+                "ban_type": "bhop_hack",
+                "expires_on": future_expiry.isoformat(),
+                "ip": "203.0.113.1",
+                "steamid64": str(player.steamid64),
+                "player_name": player.name,
+                "notes": "still active upstream",
+                "stats": "stats",
+                "server_id": 1,
+                "updated_by_id": "1",
+                "created_on": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
+                "updated_on": datetime.now(UTC).isoformat(),
+            }
+        ]
+
+    async def _fake_rebuild(
+        *,
+        session: AsyncSession,
+        scope_ids: list[int] | None = None,
+        steamid64s: list[int] | None = None,
+    ) -> tuple[int, int, int]:
+        del session, scope_ids
+        rebuilt_steamid64s.extend(steamid64s or [])
+        return 0, 0, 0
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+    monkeypatch.setattr(
+        globalapi_ban_sync.crud,
+        "rebuild_leaderboard_players",
+        _fake_rebuild,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/unban-check",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cleared_ban_count"] == 0
+    assert response.json()["remaining_active_ban_count"] == 1
+    assert rebuilt_steamid64s == []
+
+    db.expire_all()
+    refreshed = await db.get(Ban, ban.id)
+    assert refreshed is not None
+    assert refreshed.expires_on == future_expiry
+
+
+@pytest.mark.asyncio
+async def test_check_player_ban_status_rejects_other_users(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Target Profile",
+    )
+    other_headers = await get_user_token_headers(client, random_steamid64())
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/unban-check",
+        headers=other_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "You cannot check another player's ban status"
+
+
+@pytest.mark.asyncio
+async def test_check_player_ban_status_returns_bad_gateway_on_globalapi_failure(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Failure Owner",
+    )
+    await crud.get_or_create_user_from_steam(session=db, steamid64=player.steamid64)
+    headers = await get_user_token_headers(client, player.steamid64)
+
+    async def _fake_sync(
+        *,
+        session: AsyncSession,
+        steamid64: int,
+    ) -> globalapi_ban_sync.PlayerBanSyncResult:
+        del session, steamid64
+        raise globalapi_ban_sync.GlobalApiBanSyncError(
+            "Failed to fetch bans from GlobalAPI"
+        )
+
+    monkeypatch.setattr(players_api, "sync_player_bans_from_globalapi", _fake_sync)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/unban-check",
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Failed to fetch bans from GlobalAPI"

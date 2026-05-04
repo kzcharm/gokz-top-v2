@@ -37,7 +37,9 @@ const isAuthenticationApiError = (error: ApiError) => {
       ? error.body.detail
       : null
 
-  return detail === "Could not validate credentials" || detail === "Inactive user"
+  return (
+    detail === "Could not validate credentials" || detail === "Inactive user"
+  )
 }
 
 const handleApiError = (error: Error) => {

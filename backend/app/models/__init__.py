@@ -61,6 +61,7 @@ from .mode import (
 )
 from .player import (
     Player,
+    PlayerBanStatusCheckPublic,
     PlayerBase,
     PlayerProfileViewCreate,
     PlayerProfileViewsPublic,
@@ -310,6 +311,7 @@ __all__ = [
     "ModeCompatPublicV0",
     "ModePublic",
     "Player",
+    "PlayerBanStatusCheckPublic",
     "PlayerBase",
     "PlayerProfileView",
     "PlayerProfileViewCreate",

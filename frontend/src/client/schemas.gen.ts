@@ -1726,6 +1726,28 @@ export const ModeScopeSchema = {
     title: 'ModeScope'
 } as const;
 
+export const PlayerBanStatusCheckPublicSchema = {
+    properties: {
+        message: {
+            type: 'string',
+            title: 'Message'
+        },
+        cleared_ban_count: {
+            type: 'integer',
+            title: 'Cleared Ban Count',
+            default: 0
+        },
+        remaining_active_ban_count: {
+            type: 'integer',
+            title: 'Remaining Active Ban Count',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['message'],
+    title: 'PlayerBanStatusCheckPublic'
+} as const;
+
 export const PlayerDailyActivityDayPublicSchema = {
     properties: {
         date: {

@@ -1,4 +1,5 @@
 import uuid
+import logging
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -16,6 +17,7 @@ from app.crud import player as player_crud
 from app.models import (
     ModeScope,
     Player,
+    PlayerBanStatusCheckPublic,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
     PlayerPinnedRecordsPublic,
@@ -36,6 +38,10 @@ from app.models import (
     RecordType,
     User,
 )
+from app.services.globalapi_ban_sync import (
+    GlobalApiBanSyncError,
+    sync_player_bans_from_globalapi,
+)
 from app.services.player_steam_profile import (
     is_player_steam_profile_sync_due,
     sync_player_steam_profile_if_due,
@@ -43,6 +49,7 @@ from app.services.player_steam_profile import (
 
 router = APIRouter(prefix="/players", tags=["players"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+logger = logging.getLogger(__name__)
 
 
 def _parse_steamid64(steamid64: str) -> int:
@@ -91,6 +98,16 @@ def _ensure_current_user_owns_social_link(
         raise HTTPException(
             status_code=403,
             detail="You cannot modify another player's social links",
+        )
+
+
+def _ensure_current_user_can_check_own_ban_status(
+    *, current_user: CurrentUser, target_steamid64: int
+) -> None:
+    if current_user.steamid64 != target_steamid64:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot check another player's ban status",
         )
 
 
@@ -490,6 +507,52 @@ async def unfollow_player(
         session=session,
         target_steamid64=player.steamid64,
         viewer_steamid64=current_user.steamid64,
+    )
+
+
+@router.post(
+    "/{identifier:path}/unban-check",
+    response_model=PlayerBanStatusCheckPublic,
+)
+async def check_player_ban_status(
+    identifier: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerBanStatusCheckPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_can_check_own_ban_status(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+
+    try:
+        result = await sync_player_bans_from_globalapi(
+            session=session,
+            steamid64=player.steamid64,
+        )
+    except GlobalApiBanSyncError as exc:
+        logger.warning(
+            "GlobalAPI ban status check failed for steamid64=%s: %s",
+            player.steamid64,
+            exc,
+        )
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    if result.remaining_active_ban_count == 0:
+        message = (
+            "Your ban status has been updated and no active bans remain."
+            if result.cleared_active_ban_count > 0
+            else "No active bans remain on your profile."
+        )
+    elif result.cleared_active_ban_count > 0:
+        message = "Your ban status has been updated, but active bans still remain."
+    else:
+        message = "GlobalAPI still reports active bans for your profile."
+
+    return PlayerBanStatusCheckPublic(
+        message=message,
+        cleared_ban_count=result.cleared_active_ban_count,
+        remaining_active_ban_count=result.remaining_active_ban_count,
     )
 
 
