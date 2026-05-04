@@ -481,3 +481,180 @@ async def test_sync_bans_from_globalapi_rebuilds_leaderboards_for_touched_player
 
     assert result.processed == 2
     assert rebuilt_steamid64s == [76561198000000950, 76561198000000951]
+
+
+async def test_sync_player_bans_from_globalapi_pages_by_player_and_upserts_updates(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _clear_ban_sync_state(db)
+    steamid64 = 76561198000001010
+    db.add(Player(steamid64=steamid64, name="Paged Player"))
+    db.add(
+        Ban(
+            id=1_010,
+            ban_type=BanType.BHOP_HACK,
+            expires_on=None,
+            steamid64=steamid64,
+            notes="existing note",
+            stats="existing stats",
+            server_id=1,
+            updated_by_id="1",
+            created_at=datetime(2026, 4, 1, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    monkeypatch.setattr(globalapi_ban_sync.settings, "GLOBALAPI_BANS_BACKFILL_LIMIT", 1)
+    calls: list[tuple[int, int, int | None]] = []
+    active_until = datetime.now(UTC) + timedelta(days=7)
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        steamid64: int | None = None,
+        created_since: datetime | None = None,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        del client, created_since, updated_since
+        calls.append((offset, limit, steamid64))
+        if offset == 0:
+            return [
+                _payload(
+                    ban_id=1_010,
+                    steamid64=steamid64 or 0,
+                    updated_on="2026-04-06T12:00:00+00:00",
+                )
+                | {
+                    "expires_on": active_until.isoformat(),
+                    "notes": "updated note",
+                    "stats": "updated stats",
+                }
+            ]
+        if offset == 1:
+            return [
+                _payload(
+                    ban_id=1_011,
+                    steamid64=steamid64 or 0,
+                    updated_on="2026-04-07T12:00:00+00:00",
+                )
+            ]
+        return []
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+
+    result = await globalapi_ban_sync.sync_player_bans_from_globalapi(
+        session=db,
+        steamid64=steamid64,
+    )
+
+    assert result.cleared_active_ban_count == 0
+    assert result.remaining_active_ban_count == 2
+    assert calls == [(0, 1, steamid64), (1, 1, steamid64), (2, 1, steamid64)]
+
+    rows = list(
+        (
+            await db.exec(
+                select(Ban)
+                .where(Ban.steamid64 == steamid64)
+                .order_by(Ban.id.asc())
+            )
+        ).all()
+    )
+    assert [row.id for row in rows] == [1_010, 1_011]
+    assert rows[0].notes == "updated note"
+    assert rows[0].stats == "updated stats"
+    assert rows[0].expires_on == active_until
+
+
+async def test_sync_player_bans_from_globalapi_clears_active_ban_without_duplicates(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _clear_ban_sync_state(db)
+    steamid64 = 76561198000001011
+    db.add(Player(steamid64=steamid64, name="Cleared Player"))
+    db.add(
+        Ban(
+            id=1_020,
+            ban_type=BanType.BHOP_HACK,
+            expires_on=None,
+            steamid64=steamid64,
+            notes="existing",
+            stats="existing",
+            server_id=1,
+            updated_by_id="1",
+            created_at=datetime(2026, 4, 1, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    expired_at = datetime.now(UTC) - timedelta(hours=1)
+    rebuilt_steamid64s: list[int] = []
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        steamid64: int | None = None,
+        created_since: datetime | None = None,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        del client, limit, created_since, updated_since
+        if offset > 0:
+            return []
+        return [
+            _payload(
+                ban_id=1_020,
+                steamid64=steamid64 or 0,
+                updated_on="2026-04-08T12:00:00+00:00",
+            )
+            | {
+                "expires_on": expired_at.isoformat(),
+                "notes": "expired",
+            }
+        ]
+
+    async def _fake_rebuild_leaderboards(
+        *,
+        session: AsyncSession,
+        scope_ids: list[int] | None = None,
+        steamid64s: list[int] | None = None,
+    ) -> tuple[int, int, int]:
+        del session, scope_ids
+        rebuilt_steamid64s.extend(steamid64s or [])
+        return 0, 0, 0
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+    monkeypatch.setattr(
+        globalapi_ban_sync.crud,
+        "rebuild_leaderboard_players",
+        _fake_rebuild_leaderboards,
+    )
+
+    result = await globalapi_ban_sync.sync_player_bans_from_globalapi(
+        session=db,
+        steamid64=steamid64,
+    )
+
+    assert result.cleared_active_ban_count == 1
+    assert result.remaining_active_ban_count == 0
+    assert rebuilt_steamid64s == [steamid64]
+
+    rows = list(
+        (
+            await db.exec(
+                select(Ban)
+                .where(Ban.steamid64 == steamid64)
+                .order_by(Ban.id.asc())
+            )
+        ).all()
+    )
+    assert len(rows) == 1
+    assert rows[0].id == 1_020
+    assert rows[0].expires_on == expired_at

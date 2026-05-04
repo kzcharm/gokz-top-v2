@@ -65,6 +65,12 @@ export type ProfileBansResult = {
   data: ProfileBan[]
 }
 
+export type ProfileBanStatusCheckResult = {
+  message: string
+  cleared_ban_count: number
+  remaining_active_ban_count: number
+}
+
 export function getProfileActiveBanQueryOptions(steamid64: string | null) {
   return queryOptions({
     queryKey: ["profile-active-bans", steamid64],
@@ -99,6 +105,50 @@ export function getProfileActiveBanQueryOptions(steamid64: string | null) {
     retry: false,
     staleTime: 30_000,
   })
+}
+
+export async function checkProfileUnbanStatus({
+  identifier,
+}: {
+  identifier: string
+}): Promise<ProfileBanStatusCheckResult> {
+  const accessToken = localStorage.getItem("access_token")
+  const encodedIdentifier = encodeURIComponent(identifier)
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/unban-check`,
+    {
+      method: "POST",
+      credentials: OpenAPI.CREDENTIALS,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
+  )
+
+  const payload = (await response.json().catch(() => null)) as
+    | ProfileBanStatusCheckResult
+    | { detail?: string }
+    | null
+  if (!response.ok) {
+    throw new Error(
+      payload && typeof payload === "object" && "detail" in payload
+        ? (payload.detail ?? "Failed to check ban status")
+        : "Failed to check ban status",
+    )
+  }
+
+  const result =
+    payload &&
+    typeof payload === "object" &&
+    "message" in payload &&
+    "cleared_ban_count" in payload &&
+    "remaining_active_ban_count" in payload
+      ? payload
+      : null
+
+  return {
+    message: result?.message ?? "Ban status checked.",
+    cleared_ban_count: result?.cleared_ban_count ?? 0,
+    remaining_active_ban_count: result?.remaining_active_ban_count ?? 0,
+  }
 }
 
 export function getProfileFollowSummaryQueryOptions(identifier: string) {

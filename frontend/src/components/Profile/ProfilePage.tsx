@@ -9,12 +9,14 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import useAuth from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
+import { extractErrorMessage } from "@/utils"
 
 import {
   ProfileCompletionSection,
@@ -30,6 +32,7 @@ import {
   buildProfileCompletionData,
   buildProfileTotalPoints,
   buildProfileTrophyCounts,
+  checkProfileUnbanStatus,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfilePbRecordsQueryOptions,
@@ -293,6 +296,43 @@ export function ProfilePage({
       toast.error("Failed to unpin record")
     },
   })
+  const unbanCheckMutation = useMutation({
+    mutationFn: async () => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      return await checkProfileUnbanStatus({
+        identifier: playerSteamid64,
+      })
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["profile-active-bans", playerSteamid64],
+      })
+
+      if (result.remaining_active_ban_count === 0) {
+        toast.success("Ban status updated", {
+          description:
+            result.cleared_ban_count > 0
+              ? "Your profile is no longer marked as actively banned."
+              : result.message,
+        })
+        return
+      }
+
+      toast.info("Ban status checked", {
+        description:
+          result.cleared_ban_count > 0
+            ? `${result.message} ${result.remaining_active_ban_count} active ban(s) remain.`
+            : result.message,
+      })
+    },
+    onError: (error) => {
+      toast.error("Failed to check ban status", {
+        description: extractErrorMessage(error),
+      })
+    },
+  })
   const summary = useMemo(() => {
     const totalPoints = buildProfileTotalPoints({
       nubRecords: nubRecordsQuery.data ?? [],
@@ -353,6 +393,7 @@ export function ProfilePage({
   const activeBanCount = activeBanCountQuery.data?.count ?? 0
   const hasPermanentBan = activeBans.some((ban) => ban.expires_on == null)
   const showBanWarning = activeBanCount > 0
+  const showUnbanCheckButton = isOwnProfile && showBanWarning
   const profileTabsTrailingContent =
     activeTab === "records" ? (
       <Label
@@ -392,6 +433,27 @@ export function ProfilePage({
             )}
           >
             <div className="grid gap-3">
+              {showUnbanCheckButton ? (
+                <div className="flex justify-start">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-testid="profile-unban-check-button"
+                    disabled={unbanCheckMutation.isPending}
+                    onClick={() => {
+                      if (unbanCheckMutation.isPending) {
+                        return
+                      }
+                      void unbanCheckMutation.mutateAsync()
+                    }}
+                  >
+                    {unbanCheckMutation.isPending
+                      ? "Checking..."
+                      : "Check unban status"}
+                  </Button>
+                </div>
+              ) : null}
               {activeBans.map((ban) => (
                 <div
                   key={ban.id}

@@ -357,6 +357,12 @@ export type ModePublic = {
 
 export type ModeScope = 'OVR' | 'KZT' | 'SKZ' | 'VNL';
 
+export type PlayerBanStatusCheckPublic = {
+    message: string;
+    cleared_ban_count?: number;
+    remaining_active_ban_count?: number;
+};
+
 export type PlayerDailyActivityDayPublic = {
     date: string;
     count: number;
@@ -1270,6 +1276,12 @@ export type PlayersUnfollowPlayerData = {
 };
 
 export type PlayersUnfollowPlayerResponse = (PlayerFollowSummaryPublic);
+
+export type PlayersCheckPlayerBanStatusData = {
+    identifier: string;
+};
+
+export type PlayersCheckPlayerBanStatusResponse = (PlayerBanStatusCheckPublic);
 
 export type PlayersReadPlayerFollowersData = {
     identifier: string;

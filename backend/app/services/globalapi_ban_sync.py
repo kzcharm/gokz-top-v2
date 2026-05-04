@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -22,6 +23,12 @@ _PERMANENT_BAN_SENTINEL = datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
 
 class GlobalApiBanSyncError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class PlayerBanSyncResult:
+    cleared_active_ban_count: int
+    remaining_active_ban_count: int
 
 
 def _normalize_datetime(value: Any) -> datetime | None:
@@ -205,12 +212,15 @@ async def fetch_bans_from_globalapi(
     client: httpx.AsyncClient | None = None,
     offset: int,
     limit: int,
+    steamid64: int | None = None,
     created_since: datetime | None = None,
     updated_since: datetime | None = None,
 ) -> list[dict[str, Any]]:
     close_client = client is None
     resolved_client = client or httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS)
     params: dict[str, Any] = {"offset": offset, "limit": limit}
+    if steamid64 is not None:
+        params["steamid64"] = steamid64
     if created_since is not None:
         params["created_since"] = created_since.isoformat()
     if updated_since is not None:
@@ -237,6 +247,95 @@ async def fetch_bans_from_globalapi(
         raise GlobalApiBanSyncError("GlobalAPI returned unexpected ban payload type")
 
     return [item for item in payload if isinstance(item, dict)]
+
+
+async def _upsert_ban_payloads(
+    *,
+    session: AsyncSession,
+    payloads: list[dict[str, Any]],
+    synced_at: datetime,
+    seen_ids: set[int] | None = None,
+) -> tuple[int, int, int, int, int, set[int]]:
+    rows_by_id: dict[int, dict[str, Any]] = {}
+    player_payloads: list[dict[str, Any]] = []
+    errors = 0
+    warnings = 0
+    resolved_seen_ids = seen_ids if seen_ids is not None else set()
+
+    for payload in payloads:
+        ban_id = _parse_int(payload.get("id"), default=None)
+        if ban_id is None:
+            errors += 1
+            continue
+        if ban_id in resolved_seen_ids:
+            warnings += 1
+            continue
+
+        row = _ban_values_from_globalapi(payload=payload, synced_at=synced_at)
+        if row is None:
+            errors += 1
+            resolved_seen_ids.add(ban_id)
+            continue
+
+        resolved_seen_ids.add(ban_id)
+        rows_by_id[ban_id] = row
+        player_payloads.append(payload)
+
+    if not rows_by_id:
+        return 0, 0, 0, errors, warnings, set()
+
+    ban_ids = list(rows_by_id.keys())
+    table = Ban.__table__  # type: ignore[attr-defined]
+    touched_steamid64s = {int(row["steamid64"]) for row in rows_by_id.values()}
+    existing_ids = set(
+        (await session.exec(select(table.c.id).where(table.c.id.in_(ban_ids)))).all()
+    )
+    created = sum(1 for ban_id in ban_ids if ban_id not in existing_ids)
+    updated = sum(1 for ban_id in ban_ids if ban_id in existing_ids)
+
+    await _upsert_players_for_bans(
+        session=session,
+        payloads=player_payloads,
+        synced_at=synced_at,
+    )
+
+    insert_statement = pg_insert(table).values(list(rows_by_id.values()))
+    upsert_statement = insert_statement.on_conflict_do_update(
+        index_elements=[table.c.id],
+        set_={
+            "ban_type": insert_statement.excluded.ban_type,
+            "expires_on": insert_statement.excluded.expires_on,
+            "ip": insert_statement.excluded.ip,
+            "steamid64": insert_statement.excluded.steamid64,
+            "notes": insert_statement.excluded.notes,
+            "stats": insert_statement.excluded.stats,
+            "server_id": insert_statement.excluded.server_id,
+            "updated_by_id": insert_statement.excluded.updated_by_id,
+            "created_at": insert_statement.excluded.created_at,
+            "updated_at": insert_statement.excluded.updated_at,
+            "synced_at": insert_statement.excluded.synced_at,
+        },
+    )
+    await session.exec(upsert_statement)
+
+    return len(rows_by_id), created, updated, errors, warnings, touched_steamid64s
+
+
+async def _load_active_ban_ids_for_player(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    now: datetime | None = None,
+) -> set[int]:
+    current_time = now or datetime.now(UTC)
+    statement = select(Ban.id).where(
+        Ban.steamid64 == steamid64,
+        or_(
+            Ban.expires_on.is_(None),
+            Ban.expires_on >= current_time,
+        ),
+    )
+    return {int(ban_id) for ban_id in (await session.exec(statement)).all()}
 
 
 async def sync_bans_from_globalapi(
@@ -287,71 +386,30 @@ async def sync_bans_from_globalapi(
             if not payloads:
                 break
 
-            rows_by_id: dict[int, dict[str, Any]] = {}
-            player_payloads: list[dict[str, Any]] = []
-            for payload in payloads:
-                ban_id = _parse_int(payload.get("id"), default=None)
-                if ban_id is None:
-                    errors += 1
-                    continue
-                if ban_id in seen_ids:
-                    warnings += 1
-                    continue
+            (
+                processed_page,
+                created_page,
+                updated_page,
+                errors_page,
+                warnings_page,
+                touched_page,
+            ) = await _upsert_ban_payloads(
+                session=session,
+                payloads=payloads,
+                synced_at=synced_at,
+                seen_ids=seen_ids,
+            )
+            processed += processed_page
+            created += created_page
+            updated += updated_page
+            errors += errors_page
+            warnings += warnings_page
+            touched_steamid64s.update(touched_page)
 
-                row = _ban_values_from_globalapi(payload=payload, synced_at=synced_at)
-                if row is None:
-                    errors += 1
-                    seen_ids.add(ban_id)
-                    continue
-
-                seen_ids.add(ban_id)
-                rows_by_id[ban_id] = row
-                player_payloads.append(payload)
-
-            if rows_by_id:
-                ban_ids = list(rows_by_id.keys())
-                table = Ban.__table__  # type: ignore[attr-defined]
-                touched_steamid64s.update(
-                    int(row["steamid64"]) for row in rows_by_id.values()
-                )
-                existing_ids = set(
-                    (
-                        await session.exec(
-                            select(table.c.id).where(table.c.id.in_(ban_ids))
-                        )
-                    ).all()
-                )
-                created += sum(1 for ban_id in ban_ids if ban_id not in existing_ids)
-                updated += sum(1 for ban_id in ban_ids if ban_id in existing_ids)
-
-                await _upsert_players_for_bans(
-                    session=session,
-                    payloads=player_payloads,
-                    synced_at=synced_at,
-                )
-
-                insert_statement = pg_insert(table).values(list(rows_by_id.values()))
-                upsert_statement = insert_statement.on_conflict_do_update(
-                    index_elements=[table.c.id],
-                    set_={
-                        "ban_type": insert_statement.excluded.ban_type,
-                        "expires_on": insert_statement.excluded.expires_on,
-                        "ip": insert_statement.excluded.ip,
-                        "steamid64": insert_statement.excluded.steamid64,
-                        "notes": insert_statement.excluded.notes,
-                        "stats": insert_statement.excluded.stats,
-                        "server_id": insert_statement.excluded.server_id,
-                        "updated_by_id": insert_statement.excluded.updated_by_id,
-                        "created_at": insert_statement.excluded.created_at,
-                        "updated_at": insert_statement.excluded.updated_at,
-                        "synced_at": insert_statement.excluded.synced_at,
-                    },
-                )
-                await session.exec(upsert_statement)
+            if processed_page > 0:
                 await session.commit()
                 session.expire_all()
 
-            processed += len(rows_by_id)
             if len(payloads) < limit:
                 break
             offset += limit
@@ -370,4 +428,68 @@ async def sync_bans_from_globalapi(
         updated=updated,
         errors=errors,
         warnings=warnings,
+    )
+
+
+async def sync_player_bans_from_globalapi(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+) -> PlayerBanSyncResult:
+    before_active_ban_ids = await _load_active_ban_ids_for_player(
+        session=session,
+        steamid64=steamid64,
+    )
+    offset = 0
+    limit = settings.GLOBALAPI_BANS_BACKFILL_LIMIT
+    seen_ids: set[int] = set()
+
+    async with httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS) as client:
+        while True:
+            synced_at = datetime.now(UTC)
+            payloads = await fetch_bans_from_globalapi(
+                client=client,
+                offset=offset,
+                limit=limit,
+                steamid64=steamid64,
+            )
+            if not payloads:
+                break
+
+            (
+                processed_page,
+                _created_page,
+                _updated_page,
+                _errors_page,
+                _warnings_page,
+                _touched_page,
+            ) = await _upsert_ban_payloads(
+                session=session,
+                payloads=payloads,
+                synced_at=synced_at,
+                seen_ids=seen_ids,
+            )
+            if processed_page > 0:
+                await session.commit()
+                session.expire_all()
+
+            if len(payloads) < limit:
+                break
+            offset += limit
+
+    after_active_ban_ids = await _load_active_ban_ids_for_player(
+        session=session,
+        steamid64=steamid64,
+    )
+    if before_active_ban_ids != after_active_ban_ids:
+        await crud.rebuild_leaderboard_players(
+            session=session,
+            steamid64s=[steamid64],
+        )
+        await session.commit()
+        session.expire_all()
+
+    return PlayerBanSyncResult(
+        cleared_active_ban_count=len(before_active_ban_ids - after_active_ban_ids),
+        remaining_active_ban_count=len(after_active_ban_ids),
     )

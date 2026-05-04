@@ -34,6 +34,16 @@ const playerStats = {
   },
 }
 
+function createAccessToken(targetSteamid64: string) {
+  const header = Buffer.from(
+    JSON.stringify({ alg: "none", typ: "JWT" }),
+  ).toString("base64url")
+  const payload = Buffer.from(
+    JSON.stringify({ sub: targetSteamid64 }),
+  ).toString("base64url")
+  return `${header}.${payload}.signature`
+}
+
 const nubRecords = [
   {
     uuid: "019d1111-1111-7111-8111-111111111111",
@@ -202,11 +212,23 @@ async function installProfileHomeRoutes(
   page: Page,
   {
     stats = playerStats,
+    currentUserSteamid64 = null,
+    activeBans = [],
   }: {
     stats?: typeof playerStats
+    currentUserSteamid64?: string | null
+    activeBans?: Array<{
+      id: number
+      ban_type: string
+      created_on: string
+      expires_on?: string | null
+      notes?: string | null
+    }>
   } = {},
 ) {
   const requestedRankUuids: string[] = []
+  let unbanCheckCalls = 0
+  let activeBanState = [...activeBans]
   const pinnedRecords = nubRecords.slice(0, 6).map((record, index) => ({
     id: `019e0000-0000-7000-8000-00000000000${index}`,
     player_steamid64: steamid64,
@@ -216,7 +238,35 @@ async function installProfileHomeRoutes(
     record,
   }))
 
+  if (currentUserSteamid64) {
+    await page.addInitScript((token) => {
+      localStorage.setItem("access_token", token)
+    }, createAccessToken(currentUserSteamid64))
+  }
+
   await page.route(/\/v1\/users\/me$/, async (route: Route) => {
+    if (currentUserSteamid64) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          steamid64: currentUserSteamid64,
+          is_active: true,
+          roles: [],
+          created_at: "2026-03-01T12:00:00Z",
+          last_visited_at: "2026-04-01T12:00:00Z",
+          player: {
+            steamid64: currentUserSteamid64,
+            display_name:
+              currentUserSteamid64 === steamid64
+                ? player.alias
+                : "Other Viewer",
+          },
+        }),
+      })
+      return
+    }
+
     await route.fulfill({
       status: 401,
       contentType: "application/json",
@@ -252,9 +302,32 @@ async function installProfileHomeRoutes(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ data: [], count: 0 }),
+      body: JSON.stringify({
+        data: activeBanState,
+        count: activeBanState.length,
+      }),
     })
   })
+
+  await page.route(
+    /\/v1\/players\/[^/]+\/unban-check$/,
+    async (route: Route) => {
+      unbanCheckCalls += 1
+      const clearedBanCount = activeBanState.length
+      activeBanState = []
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          message:
+            "Your ban status has been updated and no active bans remain.",
+          cleared_ban_count: clearedBanCount,
+          remaining_active_ban_count: activeBanState.length,
+        }),
+      })
+    },
+  )
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route: Route) => {
     await route.fulfill({
@@ -314,6 +387,18 @@ async function installProfileHomeRoutes(
     },
   )
 
+  await page.route(/\/v1\/admin\/servers\/access$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        role: "server_owner",
+        can_approve_servers: false,
+        owned_group_count: 0,
+      }),
+    })
+  })
+
   await page.route(
     /\/v1\/leaderboards\/players\/[^?]+(\?.*)?$/,
     async (route: Route) => {
@@ -372,13 +457,16 @@ async function installProfileHomeRoutes(
     })
   })
 
-  return requestedRankUuids
+  return {
+    requestedRankUuids,
+    getUnbanCheckCalls: () => unbanCheckCalls,
+  }
 }
 
 test("Profile home renders live pinned records with points badges and absolute dates", async ({
   page,
 }) => {
-  const requestedRankUuids = await installProfileHomeRoutes(page)
+  const { requestedRankUuids } = await installProfileHomeRoutes(page)
 
   await page.goto(`/profile/${steamid64}`)
 
@@ -487,4 +575,51 @@ test("Profile home activity card shows empty-year message for players without ac
   await expect(
     page.getByTestId(`profile-activity-cell-${currentYear}-empty-0-0`),
   ).toHaveAttribute("data-activity-level", "0")
+})
+
+test("Own profile can check GlobalAPI unban status and clear the ban warning", async ({
+  page,
+}) => {
+  const { getUnbanCheckCalls } = await installProfileHomeRoutes(page, {
+    currentUserSteamid64: steamid64,
+    activeBans: [
+      {
+        id: 2001,
+        ban_type: "bhop_hack",
+        created_on: "2026-04-01T12:00:00Z",
+        expires_on: null,
+        notes: "Permanent local mirror",
+      },
+    ],
+  })
+
+  await page.goto(`/profile/${steamid64}`)
+
+  await expect(page.getByText("This player has been banned")).toBeVisible()
+  await expect(page.getByTestId("profile-unban-check-button")).toBeVisible()
+
+  await page.getByTestId("profile-unban-check-button").click()
+
+  await expect(page.getByText("This player has been banned")).toHaveCount(0)
+  expect(getUnbanCheckCalls()).toBe(1)
+})
+
+test("Other viewers do not see the unban check button", async ({ page }) => {
+  await installProfileHomeRoutes(page, {
+    currentUserSteamid64: "76561198000000099",
+    activeBans: [
+      {
+        id: 2002,
+        ban_type: "bhop_hack",
+        created_on: "2026-04-01T12:00:00Z",
+        expires_on: null,
+        notes: "Permanent local mirror",
+      },
+    ],
+  })
+
+  await page.goto(`/profile/${steamid64}`)
+
+  await expect(page.getByText("This player has been banned")).toBeVisible()
+  await expect(page.getByTestId("profile-unban-check-button")).toHaveCount(0)
 })
