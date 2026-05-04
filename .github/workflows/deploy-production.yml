@@ -36,13 +36,13 @@ jobs:
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
           API_HOST=api.${DOMAIN}
-          FRONTEND_HOSTNAME=dashboard.${DOMAIN}
-          FRONTEND_HOST=https://dashboard.${DOMAIN}
+          FRONTEND_HOSTNAME=${DOMAIN}
+          FRONTEND_HOST=https://${DOMAIN}
           ADMINER_HOST=adminer.${DOMAIN}
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
-          BACKEND_CORS_ORIGINS=https://dashboard.${DOMAIN},https://api.${DOMAIN}
+          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://api.${DOMAIN}
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}
