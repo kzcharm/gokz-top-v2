@@ -13,7 +13,7 @@ But you have to configure a couple things first. 🤓
 
 * Have a remote server ready and available.
 * Configure the DNS records of your domain to point to the IP of the server you just created.
-* Configure a wildcard subdomain for your domain, so that you can have multiple subdomains for different services, e.g. `*.fastapi-project.example.com`. This will be useful for accessing different components, like `dashboard.fastapi-project.example.com`, `api.fastapi-project.example.com`, `traefik.fastapi-project.example.com`, `adminer.fastapi-project.example.com`, etc. And also for `staging`, like `dashboard.staging.fastapi-project.example.com`, `adminer.staging.fastapi-project.example.com`, etc.
+* Configure your DNS records so the root domain and the subdomains you use for services point to the server. In this project that means the frontend can live at `fastapi-project.example.com` in production and `staging.fastapi-project.example.com` in staging, while service subdomains such as `api.fastapi-project.example.com`, `api.staging.fastapi-project.example.com`, `traefik.fastapi-project.example.com`, and `adminer.fastapi-project.example.com` continue to work.
 * Install and configure [Docker](https://docs.docker.com/engine/install/) on the remote server (Docker Engine, not Docker Desktop).
 * If your DNS is hosted on Cloudflare and you want to keep the proxy enabled, create a Cloudflare API token for the target zone with `Zone / Zone / Read` and `Zone / DNS / Edit` permissions. Traefik will use it for ACME DNS-01 validation.
 
@@ -113,7 +113,7 @@ Now with the environment variables set and the `compose.traefik.yml` in place, y
 docker compose -f compose.traefik.yml up -d
 ```
 
-This Traefik configuration now solves Let's Encrypt challenges through Cloudflare DNS, so proxied `api.*`, `dashboard.*`, and related records can remain orange-cloud enabled.
+This Traefik configuration now solves Let's Encrypt challenges through Cloudflare DNS, so proxied frontend, `api.*`, and related records can remain orange-cloud enabled.
 
 ## Deploy the FastAPI Project
 
@@ -176,7 +176,7 @@ Note: you can use the Python command above to generate a secure secret key.
 Set the `BACKEND_CORS_ORIGINS` to include your domain:
 
 ```bash
-export BACKEND_CORS_ORIGINS="https://dashboard.${DOMAIN?Variable not set},https://api.${DOMAIN?Variable not set}"
+export BACKEND_CORS_ORIGINS="https://${DOMAIN?Variable not set},https://api.${DOMAIN?Variable not set}"
 ```
 
 You can set several other environment variables:
@@ -327,7 +327,7 @@ Traefik UI: `https://traefik.fastapi-project.example.com`
 
 ### Production
 
-Frontend: `https://dashboard.fastapi-project.example.com`
+Frontend: `https://fastapi-project.example.com`
 
 Backend API docs: `https://api.fastapi-project.example.com/docs`
 
@@ -337,7 +337,7 @@ Adminer: `https://adminer.fastapi-project.example.com`
 
 ### Staging
 
-Frontend: `https://dashboard.staging.fastapi-project.example.com`
+Frontend: `https://staging.fastapi-project.example.com`
 
 Backend API docs: `https://api.staging.fastapi-project.example.com/docs`
 
