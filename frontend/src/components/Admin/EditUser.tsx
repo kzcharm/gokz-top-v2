@@ -37,7 +37,7 @@ import { USER_ROLE_OPTIONS } from "@/lib/user-roles"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  roles: z.array(z.enum(["superuser", "map_admin"])),
+  roles: z.array(z.enum(["superuser", "map_admin", "server_owner"])),
   is_active: z.boolean(),
 })
 

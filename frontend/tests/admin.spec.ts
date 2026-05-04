@@ -71,6 +71,64 @@ test.describe("Map admin access", () => {
   })
 })
 
+test.describe("Server owner access", () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
+  test("Server owner redirects to servers and only sees the servers admin link", async ({
+    page,
+  }) => {
+    await page.route(/\/v1\/admin\/servers\/access$/, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          role: "server_owner",
+          can_approve_servers: false,
+          owned_group_count: 0,
+        }),
+      })
+    })
+    await page.route(/\/v1\/admin\/servers\/groups$/, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ data: [], count: 0 }),
+      })
+    })
+    await page.route(
+      /\/v1\/admin\/servers\/globalapi(\?.*)?$/,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ data: [], count: 0 }),
+        })
+      },
+    )
+    await page.route(/\/v1\/admin\/servers\/public(\?.*)?$/, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ data: [], count: 0 }),
+      })
+    })
+
+    await logInUser(page, randomSteamid64(), {
+      roles: ["server_owner"],
+      name: "Server Owner",
+    })
+
+    await page.goto("/admin")
+    await expect(page).toHaveURL(/\/admin\/servers$/)
+    await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
+
+    await page.goto("/")
+    const adminButton = page.getByRole("button", { name: "Admin" })
+    await adminButton.click()
+
+    await expect(page.getByRole("link", { name: "Servers" })).toBeVisible()
+    await expect(page.getByRole("link", { name: "Maps" })).toHaveCount(0)
+    await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0)
+    await expect(page.getByRole("link", { name: "Players" })).toHaveCount(0)
+  })
+})
+
 test("Superuser sidebar groups admin users and players under admin", async ({
   page,
 }) => {
@@ -483,10 +541,12 @@ test("Superuser can edit a user and assign multiple roles", async ({
 
   await page.getByRole("checkbox", { name: "Superuser role" }).click()
   await page.getByRole("checkbox", { name: "Map Admin role" }).click()
+  await page.getByRole("checkbox", { name: "Server Owner role" }).click()
   await page.getByRole("button", { name: "Save" }).click()
 
   await expect(page.getByText("Superuser")).toBeVisible()
   await expect(page.getByText("Map Admin")).toBeVisible()
+  await expect(page.getByText("Server Owner")).toBeVisible()
 })
 
 function adminMapPayload({

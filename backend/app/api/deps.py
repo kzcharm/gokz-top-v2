@@ -161,6 +161,13 @@ async def get_admin_server_principal(
             owned_group_ids=owned_group_ids,
         )
 
+    if user_has_role(current_user, UserRole.SERVER_OWNER):
+        return AdminServerPrincipal(
+            user=current_user,
+            role=AdminServerRole.SERVER_OWNER,
+            owned_group_ids=owned_group_ids,
+        )
+
     owned_globalapi_statement = select(ServerGlobalapi.id).where(
         col(ServerGlobalapi.owner_steamid64) == current_user.steamid64,
         col(ServerGlobalapi.approval_status) == 1,

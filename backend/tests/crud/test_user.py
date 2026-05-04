@@ -74,7 +74,7 @@ async def test_get_or_create_user_from_steam_preserves_manual_roles_for_non_conf
 ) -> None:
     steamid64 = random_steamid64()
     user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
-    user.roles = [UserRole.MAP_ADMIN]
+    user.roles = [UserRole.SERVER_OWNER, UserRole.MAP_ADMIN]
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -83,7 +83,7 @@ async def test_get_or_create_user_from_steam_preserves_manual_roles_for_non_conf
         session=db, steamid64=steamid64
     )
 
-    assert refreshed.roles == [UserRole.MAP_ADMIN]
+    assert refreshed.roles == [UserRole.MAP_ADMIN, UserRole.SERVER_OWNER]
 
 
 @pytest.mark.asyncio
@@ -91,11 +91,14 @@ async def test_update_user(db: AsyncSession) -> None:
     steamid64 = random_steamid64()
     user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
 
-    update = UserUpdate(is_active=False, roles=[UserRole.SUPERUSER])
+    update = UserUpdate(
+        is_active=False,
+        roles=[UserRole.SERVER_OWNER, UserRole.SUPERUSER],
+    )
     updated = await crud.update_user(session=db, db_user=user, user_in=update)
 
     assert updated.is_active is False
-    assert updated.roles == [UserRole.SUPERUSER]
+    assert updated.roles == [UserRole.SUPERUSER, UserRole.SERVER_OWNER]
 
 
 @pytest.mark.asyncio

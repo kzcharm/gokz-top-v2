@@ -827,7 +827,7 @@ export type UserPublic = {
     player?: (PlayerRefPublic | null);
 };
 
-export type UserRole = 'superuser' | 'map_admin';
+export type UserRole = 'superuser' | 'map_admin' | 'server_owner';
 
 export type UsersPublic = {
     data: Array<UserPublic>;

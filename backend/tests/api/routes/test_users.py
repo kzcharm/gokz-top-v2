@@ -192,16 +192,18 @@ async def test_retrieve_users_without_privileges(
 
 
 @pytest.mark.asyncio
-async def test_retrieve_users_rejects_map_admin(
+@pytest.mark.parametrize("role", ["map_admin", "server_owner"])
+async def test_retrieve_users_rejects_non_superuser_admin_roles(
     client: AsyncClient,
+    role: str,
 ) -> None:
     response = await client.post(
         f"{settings.API_V1_STR}/private/auth/session",
         json={
             "steamid64": random_steamid64(),
-            "roles": ["map_admin"],
+            "roles": [role],
             "is_active": True,
-            "name": "Map Admin",
+            "name": "Admin Role User",
         },
     )
     headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
