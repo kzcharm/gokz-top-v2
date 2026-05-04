@@ -31,7 +31,7 @@ export class AdminMapsService {
             }
         });
     }
-    
+
     /**
      * Update Admin Map
      * @param data The data for the request.
