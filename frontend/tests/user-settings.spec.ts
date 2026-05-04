@@ -91,7 +91,7 @@ test.describe("Profile and theme", () => {
   test("Theme selected in appearance settings is preserved across sessions", async ({
     page,
   }) => {
-    await logInUser(page, superUserSteamid64, { isSuperuser: true })
+    await logInUser(page, superUserSteamid64, { roles: ["superuser"] })
     await page.goto("/settings")
 
     await page.getByRole("tab", { name: "Appearance" }).click()
@@ -102,14 +102,14 @@ test.describe("Profile and theme", () => {
     await page.evaluate(() => {
       localStorage.removeItem("access_token")
     })
-    await logInUser(page, superUserSteamid64, { isSuperuser: true })
+    await logInUser(page, superUserSteamid64, { roles: ["superuser"] })
     await expect(page.locator("html")).toHaveClass(/light/)
   })
 
   test("Datetime settings default to iso-like, show previews, and support 12h", async ({
     page,
   }) => {
-    await logInUser(page, superUserSteamid64, { isSuperuser: true })
+    await logInUser(page, superUserSteamid64, { roles: ["superuser"] })
     await page.goto("/settings")
 
     await page.getByRole("tab", { name: "Appearance" }).click()

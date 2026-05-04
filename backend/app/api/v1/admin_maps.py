@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep, get_current_active_map_admin
 from app.models import (
     AdminMapListQuery,
     AdminMapPublic,
@@ -19,7 +19,7 @@ from app.models import (
 
 router = APIRouter(prefix="/admin", tags=["admin-maps"])
 
-CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+CurrentMapAdmin = Annotated[User, Depends(get_current_active_map_admin)]
 
 
 @router.get("/maps", response_model=AdminMapsPublic)
@@ -27,7 +27,7 @@ async def read_admin_maps(
     *,
     session: SessionDep,
     query: Annotated[AdminMapListQuery, Query()],
-    _current_user: CurrentSuperuser,
+    _current_user: CurrentMapAdmin,
 ) -> AdminMapsPublic:
     maps, count = await crud.read_admin_maps(
         session=session,
@@ -48,7 +48,7 @@ async def update_admin_map(
     session: SessionDep,
     id: int,
     map_in: AdminMapUpdate,
-    current_user: CurrentSuperuser,
+    current_user: CurrentMapAdmin,
 ) -> AdminMapPublic:
     map_obj = await crud.get_map_by_id(session=session, id=id)
     if map_obj is None:
@@ -77,7 +77,7 @@ async def read_admin_map_record_filters(
     *,
     session: SessionDep,
     id: int,
-    _current_user: CurrentSuperuser,
+    _current_user: CurrentMapAdmin,
 ) -> AdminMapRecordFiltersPublic:
     map_obj = await crud.get_map_by_id(session=session, id=id)
     if map_obj is None:
@@ -91,7 +91,7 @@ async def update_admin_record_filter(
     session: SessionDep,
     id: int,
     filter_in: AdminRecordFilterTierUpdate,
-    current_user: CurrentSuperuser,
+    current_user: CurrentMapAdmin,
 ) -> AdminRecordFilterPublic:
     record_filter = await session.get(RecordFilter, id)
     if record_filter is None:

@@ -4,7 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import Player, User
+from app.models import Player, User, UserRole
 
 database_uri = str(settings.SQLALCHEMY_DATABASE_URI)
 
@@ -50,8 +50,8 @@ def init_db(session: Session) -> None:
     session.add(
         User(
             steamid64=settings.SUPER_USER_STEAMID64,
-            is_superuser=True,
             is_active=True,
+            roles=[UserRole.SUPERUSER],
         )
     )
     session.commit()

@@ -3996,14 +3996,16 @@ export const UserPublicSchema = {
             title: 'Is Active',
             default: true
         },
-        is_superuser: {
-            type: 'boolean',
-            title: 'Is Superuser',
-            default: false
-        },
         steamid64: {
             type: 'string',
             title: 'Steamid64'
+        },
+        roles: {
+            items: {
+                '$ref': '#/components/schemas/UserRole'
+            },
+            type: 'array',
+            title: 'Roles'
         },
         created_at: {
             anyOf: [
@@ -4041,8 +4043,14 @@ export const UserPublicSchema = {
         }
     },
     type: 'object',
-    required: ['steamid64'],
+    required: ['steamid64', 'roles'],
     title: 'UserPublic'
+} as const;
+
+export const UserRoleSchema = {
+    type: 'string',
+    enum: ['superuser', 'map_admin'],
+    title: 'UserRole'
 } as const;
 
 export const UserUpdateSchema = {
@@ -4058,16 +4066,19 @@ export const UserUpdateSchema = {
             ],
             title: 'Is Active'
         },
-        is_superuser: {
+        roles: {
             anyOf: [
                 {
-                    type: 'boolean'
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
                 },
                 {
                     type: 'null'
                 }
             ],
-            title: 'Is Superuser'
+            title: 'Roles'
         }
     },
     type: 'object',

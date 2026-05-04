@@ -88,7 +88,7 @@ async function installPinnedRecordRoutes(page: Page) {
       body: JSON.stringify({
         steamid64,
         is_active: true,
-        is_superuser: false,
+        roles: [],
         created_at: "2026-03-01T12:00:00Z",
         last_visited_at: "2026-03-31T12:00:00Z",
         player: { steamid64, display_name: "Pinned Alias" },

@@ -4,12 +4,12 @@ import { issueSessionToken } from "./privateApi"
 export async function logInUser(
   page: Page,
   steamid64?: number,
-  opts?: { isSuperuser?: boolean; name?: string },
+  opts?: { name?: string; roles?: string[] },
 ) {
   const { accessToken } = await issueSessionToken({
     request: page.request,
     steamid64,
-    isSuperuser: opts?.isSuperuser ?? false,
+    roles: opts?.roles ?? [],
     name: opts?.name ?? "Test User",
   })
 

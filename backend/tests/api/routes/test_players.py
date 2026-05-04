@@ -546,7 +546,7 @@ async def test_read_player_includes_is_website_user(
         User(
             steamid64=website_user.steamid64,
             is_active=True,
-            is_superuser=False,
+            roles=[],
         )
     )
     await db.commit()
@@ -795,7 +795,7 @@ async def test_read_players_list_includes_is_website_user(
         User(
             steamid64=website_user.steamid64,
             is_active=True,
-            is_superuser=False,
+            roles=[],
         )
     )
     await db.commit()

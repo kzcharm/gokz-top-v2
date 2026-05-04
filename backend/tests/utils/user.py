@@ -14,7 +14,7 @@ async def user_authentication_headers(
         f"{settings.API_V1_STR}/private/auth/session",
         json={
             "steamid64": steamid64,
-            "is_superuser": False,
+            "roles": [],
             "is_active": True,
             "name": "Test User",
         },

@@ -36,6 +36,7 @@ import { Switch } from "@/components/ui/switch"
 import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { getPageTitle } from "@/lib/site"
+import { canAccessAdminMaps } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
@@ -77,7 +78,7 @@ export const Route = createFileRoute("/_layout/admin/maps")({
         to: "/login",
       })
     })
-    if (!user.is_superuser) {
+    if (!canAccessAdminMaps(user)) {
       throw redirect({
         to: "/",
       })

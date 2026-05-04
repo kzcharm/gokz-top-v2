@@ -14,6 +14,7 @@ import PendingUsers from "@/components/Pending/PendingUsers"
 import { Input } from "@/components/ui/input"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
+import { isSuperuser } from "@/lib/user-roles"
 
 export const Route = createFileRoute("/_layout/admin/players")({
   component: AdminPlayers,
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_layout/admin/players")({
         to: "/login",
       })
     })
-    if (!user.is_superuser) {
+    if (!isSuperuser(user)) {
       throw redirect({
         to: "/",
       })

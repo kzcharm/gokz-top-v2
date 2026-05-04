@@ -820,12 +820,14 @@ export type ServerUpdate = {
 
 export type UserPublic = {
     is_active?: boolean;
-    is_superuser?: boolean;
     steamid64: string;
+    roles: Array<UserRole>;
     created_at?: (string | null);
     last_visited_at?: (string | null);
     player?: (PlayerRefPublic | null);
 };
+
+export type UserRole = 'superuser' | 'map_admin';
 
 export type UsersPublic = {
     data: Array<UserPublic>;
@@ -834,7 +836,7 @@ export type UsersPublic = {
 
 export type UserUpdate = {
     is_active?: (boolean | null);
-    is_superuser?: (boolean | null);
+    roles?: (Array<UserRole> | null);
 };
 
 export type ValidationError = {

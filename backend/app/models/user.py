@@ -1,25 +1,54 @@
+from collections.abc import Iterable
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal
 
-from sqlalchemy import BigInteger, DateTime
+from sqlalchemy import BigInteger, Column, DateTime
+from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
 
 from .player import Player, PlayerRefPublic
 from .utils import get_datetime_utc
 
 
+def _enum_values(enum_class: type[StrEnum]) -> list[str]:
+    return [member.value for member in enum_class]
+
+
+class UserRole(StrEnum):
+    SUPERUSER = "superuser"
+    MAP_ADMIN = "map_admin"
+
+
+USER_ROLE_ORDER: tuple[UserRole, ...] = (
+    UserRole.SUPERUSER,
+    UserRole.MAP_ADMIN,
+)
+
+
+def normalize_user_roles(
+    roles: Iterable[UserRole | str] | None,
+) -> list[UserRole]:
+    if roles is None:
+        return []
+
+    role_set = {role if isinstance(role, UserRole) else UserRole(role) for role in roles}
+    return [role for role in USER_ROLE_ORDER if role in role_set]
+
+
 class UserBase(SQLModel):
     is_active: bool = True
-    is_superuser: bool = False
 
 
 class UserCreate(UserBase):
     steamid64: int = Field(sa_type=BigInteger)
+    roles: list[UserRole] = Field(default_factory=list)
 
 
 class UserUpdate(SQLModel):
     is_active: bool | None = None
-    is_superuser: bool | None = None
+    roles: list[UserRole] | None = None
 
 
 class User(UserBase, table=True):
@@ -36,6 +65,21 @@ class User(UserBase, table=True):
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
+    roles: list[UserRole] = Field(
+        default_factory=list,
+        sa_column=Column(
+            ARRAY(
+                SQLAlchemyEnum(
+                    UserRole,
+                    name="user_role",
+                    values_callable=_enum_values,
+                )
+            ),
+            nullable=False,
+            default=list,
+            server_default="{}",
+        ),
+    )
     player: Player | None = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[User.steamid64]", "uselist": False}
     )
@@ -43,6 +87,7 @@ class User(UserBase, table=True):
 
 class UserPublic(UserBase):
     steamid64: str
+    roles: list[UserRole]
     created_at: datetime | None = None
     last_visited_at: datetime | None = None
     player: PlayerRefPublic | None = None

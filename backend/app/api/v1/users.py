@@ -4,12 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import col, func, select
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import (
+    CurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+    user_has_role,
+)
 from app.models import (
     Message,
     User,
-    UsersListQuery,
     UserPublic,
+    UserRole,
+    UsersListQuery,
     UsersPublic,
     UserUpdate,
     get_datetime_utc,
@@ -84,7 +90,7 @@ async def read_user_by_id(
     user = await session.get(User, steamid64)
     if user == current_user:
         return await crud.to_user_public(session=session, user=user)
-    if not current_user.is_superuser:
+    if not user_has_role(current_user, UserRole.SUPERUSER):
         raise HTTPException(
             status_code=403,
             detail="The user doesn't have enough privileges",

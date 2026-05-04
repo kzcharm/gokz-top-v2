@@ -12,7 +12,7 @@ setup("authenticate", async ({ page, request }) => {
   const response = await request.post(`${apiUrl}/v1/private/auth/session`, {
     data: {
       steamid64: superUserSteamid64,
-      is_superuser: true,
+      roles: ["superuser"],
       is_active: true,
       name: "Super User",
     },

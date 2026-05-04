@@ -6,7 +6,7 @@ from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Map, RecordFilter
+from app.models import Map, RecordFilter, UserRole
 
 
 async def _create_map(
@@ -67,19 +67,86 @@ async def _create_record_filter(
     return record_filter
 
 
+async def _issue_role_headers(
+    client: AsyncClient,
+    *,
+    steamid64: int,
+    roles: list[UserRole],
+) -> dict[str, str]:
+    response = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": steamid64,
+            "roles": [role.value for role in roles],
+            "is_active": True,
+            "name": "Admin Maps Tester",
+        },
+    )
+    payload = response.json()
+    return {"Authorization": f"Bearer {payload['access_token']}"}
+
+
 @pytest.mark.asyncio
-async def test_admin_maps_require_superuser(
+async def test_admin_maps_require_map_admin_or_superuser(
     client: AsyncClient,
     normal_user_token_headers: dict[str, str],
 ) -> None:
+    map_admin_headers = await _issue_role_headers(
+        client,
+        steamid64=76561199011110001,
+        roles=[UserRole.MAP_ADMIN],
+    )
     unauthenticated_response = await client.get(f"{settings.API_V1_STR}/admin/maps")
     normal_user_response = await client.get(
         f"{settings.API_V1_STR}/admin/maps",
         headers=normal_user_token_headers,
     )
+    map_admin_response = await client.get(
+        f"{settings.API_V1_STR}/admin/maps",
+        headers=map_admin_headers,
+    )
 
     assert unauthenticated_response.status_code in {401, 403}
     assert normal_user_response.status_code == 403
+    assert map_admin_response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_map_admin_can_update_map_validation_and_record_filter_tier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_admin_headers = await _issue_role_headers(
+        client,
+        steamid64=76561199011110002,
+        roles=[UserRole.MAP_ADMIN],
+    )
+    map_obj = await _create_map(db, id=991005, name="kz_map_admin_access")
+    record_filter = await _create_record_filter(
+        db,
+        id=99100501,
+        map_id=map_obj.id,
+        stage=0,
+        mode_id=200,
+        tier=2,
+    )
+
+    map_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/maps/{map_obj.id}",
+        headers=map_admin_headers,
+        json={"validated": False},
+    )
+    filter_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/record-filters/{record_filter.id}",
+        headers=map_admin_headers,
+        json={"tier": 6},
+    )
+
+    assert map_response.status_code == 200
+    assert map_response.json()["validated"] is False
+    assert filter_response.status_code == 200
+    assert filter_response.json()["tier"] == 6
+    assert filter_response.json()["updated_by_id"] == "76561199011110002"
 
 
 @pytest.mark.asyncio

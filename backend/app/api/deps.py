@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -21,6 +21,8 @@ from app.models import (
     ServerGroup,
     TokenPayload,
     User,
+    UserRole,
+    normalize_user_roles,
 )
 
 security_scheme = HTTPBearer()
@@ -101,12 +103,35 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 OptionalCurrentUser = Annotated[User | None, Depends(get_optional_current_user)]
 
 
+def user_has_role(user: User, role: UserRole) -> bool:
+    return role in normalize_user_roles(user.roles)
+
+
+def user_has_any_role(user: User, *roles: UserRole) -> bool:
+    normalized_roles = set(normalize_user_roles(user.roles))
+    return any(role in normalized_roles for role in roles)
+
+
+def require_roles(*roles: UserRole) -> Callable[..., User]:
+    def dependency(
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        if not user_has_any_role(current_user, *roles):
+            raise HTTPException(
+                status_code=403,
+                detail="The user doesn't have enough privileges",
+            )
+        return current_user
+
+    return dependency
+
+
 def get_current_active_superuser(current_user: CurrentUser) -> User:
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=403, detail="The user doesn't have enough privileges"
-        )
-    return current_user
+    return require_roles(UserRole.SUPERUSER)(current_user)
+
+
+def get_current_active_map_admin(current_user: CurrentUser) -> User:
+    return require_roles(UserRole.SUPERUSER, UserRole.MAP_ADMIN)(current_user)
 
 
 @dataclass(frozen=True)
@@ -129,7 +154,7 @@ async def get_admin_server_principal(
     )
     owned_group_ids = frozenset((await session.exec(groups_statement)).all())
 
-    if current_user.is_superuser:
+    if user_has_role(current_user, UserRole.SUPERUSER):
         return AdminServerPrincipal(
             user=current_user,
             role=AdminServerRole.ROOT_ADMIN,
