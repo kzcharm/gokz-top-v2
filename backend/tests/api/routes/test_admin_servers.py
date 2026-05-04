@@ -13,6 +13,7 @@ from app.models import (
     ServerGroupCreate,
     ServerGroupStatus,
     ServerGroupUpdate,
+    UserRole,
 )
 from app.services import globalapi_server_sync
 from tests.utils.server import create_server, create_server_group
@@ -91,6 +92,34 @@ async def test_admin_server_access_requires_approved_globalapi_server(
     assert response.status_code == 200
     assert response.json()["role"] == "server_owner"
     assert response.json()["can_approve_servers"] is False
+
+
+async def test_admin_server_access_accepts_explicit_server_owner_role(
+    client: AsyncClient,
+) -> None:
+    steamid64 = random_steamid64()
+    response = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": steamid64,
+            "roles": [UserRole.SERVER_OWNER.value],
+            "is_active": True,
+            "name": "Server Owner",
+        },
+    )
+    headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+    access_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/access",
+        headers=headers,
+    )
+
+    assert access_response.status_code == 200
+    assert access_response.json() == {
+        "role": "server_owner",
+        "can_approve_servers": False,
+        "owned_group_count": 0,
+    }
 
 
 async def test_admin_globalapi_owner_is_filtered_and_cannot_approve(

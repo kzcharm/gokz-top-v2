@@ -3,6 +3,7 @@ import type { UserPublic, UserRole } from "@/client"
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   superuser: "Superuser",
   map_admin: "Map Admin",
+  server_owner: "Server Owner",
 }
 
 export const USER_ROLE_OPTIONS: Array<{
@@ -20,6 +21,12 @@ export const USER_ROLE_OPTIONS: Array<{
     label: "Map Admin",
     description:
       "Full access to the admin maps page and map record-filter tiers.",
+  },
+  {
+    value: "server_owner",
+    label: "Server Owner",
+    description:
+      "Access the admin servers page and manage server resources you own.",
   },
 ]
 
