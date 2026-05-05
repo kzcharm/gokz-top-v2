@@ -231,13 +231,36 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_omega")).toHaveCount(0)
 
+  await page.keyboard.press("KeyS")
+  await expect
+    .poll(async () => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0)
+
+  await page.keyboard.press("KeyW")
+  await expect
+    .poll(async () => page.evaluate(() => window.scrollY))
+    .toBe(0)
+
+  await page.keyboard.press("KeyD")
+  await expect(page.getByText("Page 2 of 2")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_omega")).toBeVisible()
+
+  const searchBox = page.getByRole("textbox", { name: "Search maps by name" })
+  await searchBox.focus()
+  await page.keyboard.press("KeyA")
+  await expect(searchBox).toHaveValue("a")
+  await expect(page.getByText("Page 2 of 2")).toBeVisible()
+  await searchBox.fill("")
+  await page.getByText("30 maps loaded").click()
+
+  await page.keyboard.press("KeyA")
+  await expect(page.getByText("Page 1 of 2")).toBeVisible()
+
   expect(new URL(mapsRequestUrl).searchParams.get("is_validated")).toBe("true")
   expect(new URL(mapsRequestUrl).searchParams.get("scope")).toBeNull()
   expect(new URL(mapsRequestUrl).searchParams.get("difficulty")).toBeNull()
 
-  await page
-    .getByRole("textbox", { name: "Search maps by name" })
-    .fill("special")
+  await searchBox.fill("special")
   await expect(page.getByTestId("map-card-kz_special_search")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_alpha")).toHaveCount(0)
 

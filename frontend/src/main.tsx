@@ -8,6 +8,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { ApiError, OpenAPI } from "./client"
+import { WASDNavigationProvider } from "./components/Common/WASDNavigation"
 import { DateTimeFormatProvider } from "./components/date-time-format-provider"
 import { ScopeProvider } from "./components/scope-provider"
 import { ThemeProvider } from "./components/theme-provider"
@@ -70,7 +71,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <ScopeProvider defaultScope="OVR" storageKey="gokz-app-scope">
         <DateTimeFormatProvider>
           <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
+            <WASDNavigationProvider>
+              <RouterProvider router={router} />
+            </WASDNavigationProvider>
             <Toaster richColors closeButton />
           </QueryClientProvider>
         </DateTimeFormatProvider>

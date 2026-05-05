@@ -13,6 +13,7 @@ import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
+import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { MapCard } from "@/components/Maps/MapCard"
 import {
   getMapSkillPercentage,
@@ -396,6 +397,21 @@ export function MapsCatalog() {
     () => getPageNumbers(page, totalPages),
     [page, totalPages],
   )
+  const keyboardPaginationRef = useKeyboardPagination({
+    enabled: totalPages > 1,
+    canPrevious: page > 1,
+    canNext: page < totalPages,
+    onPrevious: () => {
+      startTransition(() => {
+        setPage((currentPage) => Math.max(1, currentPage - 1))
+      })
+    },
+    onNext: () => {
+      startTransition(() => {
+        setPage((currentPage) => Math.min(totalPages, currentPage + 1))
+      })
+    },
+  })
 
   if (mapsQuery.isLoading) {
     return <PendingMaps />
@@ -495,7 +511,7 @@ export function MapsCatalog() {
   }
 
   return (
-    <div className="space-y-8">
+    <div ref={keyboardPaginationRef} className="space-y-8">
       <section className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight">Maps</h1>
 

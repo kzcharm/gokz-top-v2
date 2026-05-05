@@ -23,7 +23,7 @@ import {
   useEffect,
   useState,
 } from "react"
-
+import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -138,6 +138,16 @@ export function DataTable<TData, TValue>({
   const pageIndex = table.getState().pagination.pageIndex
   const pageCount = table.getPageCount()
   const [pageInputValue, setPageInputValue] = useState(`${pageIndex + 1}`)
+  const hasPaginationFooter = Boolean(
+    showFooter && (serverPagination || pageCount > 1),
+  )
+  const keyboardPaginationRef = useKeyboardPagination({
+    enabled: hasPaginationFooter,
+    canPrevious: table.getCanPreviousPage(),
+    canNext: table.getCanNextPage(),
+    onPrevious: () => table.previousPage(),
+    onNext: () => table.nextPage(),
+  })
 
   useEffect(() => {
     setPageInputValue(`${pageIndex + 1}`)
@@ -160,7 +170,7 @@ export function DataTable<TData, TValue>({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div ref={keyboardPaginationRef} className="flex flex-col gap-4">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -234,7 +244,7 @@ export function DataTable<TData, TValue>({
         </TableBody>
       </Table>
 
-      {showFooter && (serverPagination || pageCount > 1) && (
+      {hasPaginationFooter && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-t bg-muted/20">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="text-sm text-muted-foreground">
