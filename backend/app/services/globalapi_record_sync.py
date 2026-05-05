@@ -2,11 +2,12 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 import httpx
+from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
@@ -16,6 +17,7 @@ from app.models import (
     GlobalApiSyncState,
     Map,
     Player,
+    PlayerProfileField,
     ServerGlobalapi,
     get_datetime_utc,
 )
@@ -26,8 +28,14 @@ RATE_LIMIT_SLEEP_SECONDS = 300
 TRANSIENT_ERROR_RETRY_ATTEMPTS = 5
 TRANSIENT_ERROR_SLEEP_SECONDS = 5
 NULL_SLEEP_SECONDS = 1
+EXISTING_ID_SCAN_BATCH_SIZE = 10_000
+MISSING_IDS_BATCH_SIZE = 100
+MISSING_ID_ATTEMPT_LIMIT = 2_000
+RECENT_GAP_BACKFILL_LOOKBACK = MISSING_ID_ATTEMPT_LIMIT
+MISSING_RECORD_RETRY_SECONDS = 600
 
 logger = logging.getLogger(__name__)
+_missing_record_retry_after: dict[int, datetime] = {}
 
 
 class GlobalApiRecordSyncError(RuntimeError):
@@ -99,6 +107,139 @@ async def _get_or_create_records_sync_state(
     await session.commit()
     await session.refresh(state)
     return state
+
+
+def _prune_missing_record_retry_cache(*, now: datetime) -> None:
+    expired_ids = [
+        record_id
+        for record_id, retry_after in _missing_record_retry_after.items()
+        if retry_after <= now
+    ]
+    for record_id in expired_ids:
+        del _missing_record_retry_after[record_id]
+
+
+def _defer_missing_record_retry(*, record_id: int, now: datetime) -> None:
+    _missing_record_retry_after[record_id] = now + timedelta(
+        seconds=MISSING_RECORD_RETRY_SECONDS
+    )
+
+
+def _clear_missing_record_retry(*, record_id: int) -> None:
+    _missing_record_retry_after.pop(record_id, None)
+
+
+async def _find_missing_record_ids_in_db_range(
+    *,
+    session: AsyncSession,
+    start_id: int,
+    end_id: int,
+    limit: int = MISSING_IDS_BATCH_SIZE,
+) -> list[int]:
+    if start_id > end_id or limit <= 0:
+        return []
+
+    missing_ids: list[int] = []
+    scan_cursor = max(start_id, DEFAULT_RECORD_START_ID)
+
+    while scan_cursor <= end_id and len(missing_ids) < limit:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id
+                    FROM record
+                    WHERE id >= :scan_cursor
+                      AND id <= :end_id
+                    ORDER BY id
+                    LIMIT :batch_size
+                    """
+                ),
+                {
+                    "scan_cursor": scan_cursor,
+                    "end_id": end_id,
+                    "batch_size": EXISTING_ID_SCAN_BATCH_SIZE,
+                },
+            )
+        ).all()
+        existing_ids = [int(row[0]) for row in rows]
+
+        if not existing_ids:
+            remaining = min(limit - len(missing_ids), end_id - scan_cursor + 1)
+            missing_ids.extend(range(scan_cursor, scan_cursor + remaining))
+            break
+
+        first_existing = existing_ids[0]
+        if first_existing > scan_cursor:
+            gap_size = min(limit - len(missing_ids), first_existing - scan_cursor)
+            missing_ids.extend(range(scan_cursor, scan_cursor + gap_size))
+            if len(missing_ids) >= limit:
+                break
+
+        for current_id, next_id in zip(existing_ids, existing_ids[1:], strict=False):
+            if len(missing_ids) >= limit:
+                break
+            if next_id - current_id <= 1:
+                continue
+            gap_start = current_id + 1
+            gap_size = min(limit - len(missing_ids), next_id - gap_start)
+            missing_ids.extend(range(gap_start, gap_start + gap_size))
+
+        scan_cursor = existing_ids[-1] + 1
+
+    return missing_ids
+
+
+async def _find_due_missing_record_ids_in_db_range(
+    *,
+    session: AsyncSession,
+    start_id: int,
+    end_id: int,
+    limit: int,
+) -> list[int]:
+    if limit <= 0:
+        return []
+
+    now = get_datetime_utc()
+    _prune_missing_record_retry_cache(now=now)
+    query_limit = limit + len(_missing_record_retry_after)
+    missing_ids = await _find_missing_record_ids_in_db_range(
+        session=session,
+        start_id=start_id,
+        end_id=end_id,
+        limit=query_limit,
+    )
+    due_missing_ids: list[int] = []
+    for record_id in missing_ids:
+        retry_after = _missing_record_retry_after.get(record_id)
+        if retry_after is not None and retry_after > now:
+            continue
+        due_missing_ids.append(record_id)
+        if len(due_missing_ids) >= limit:
+            break
+    return due_missing_ids
+
+
+async def _advance_records_cursor(
+    *,
+    session: AsyncSession,
+    state: GlobalApiSyncState,
+    cursor: int,
+) -> None:
+    state.cursor = cursor
+    session.add(state)
+    await session.commit()
+
+
+async def _set_records_cursor_to_local_tip(
+    *,
+    session: AsyncSession,
+    state: GlobalApiSyncState,
+    max_record_id: int,
+) -> int:
+    cursor = max(max_record_id + 1, DEFAULT_RECORD_START_ID)
+    await _advance_records_cursor(session=session, state=state, cursor=cursor)
+    return cursor
 
 
 async def _fetch_record_once(
@@ -310,13 +451,18 @@ async def _ensure_player(
         player.name = resolved_name
     elif steam_name and steam_name != str(steamid64):
         player.name = steam_name
-    if steam_data.get("custom_id"):
+    if steam_data.get("custom_id") and player.custom_id is None:
         normalized_custom_id = crud.normalize_custom_id(steam_data["custom_id"])
         if normalized_custom_id:
             player.custom_id = normalized_custom_id
     if steam_data.get("avatar_hash"):
         player.avatar_hash = steam_data["avatar_hash"]
-    if steam_data.get("country") and not player.is_country_locked:
+    country_locked = await crud.player_profile_field_change_exists(
+        session=session,
+        player_steamid64=steamid64,
+        field=PlayerProfileField.COUNTRY,
+    )
+    if steam_data.get("country") and not country_locked:
         player.country = steam_data["country"]
     if player.created_at is None or created_on < player.created_at:
         player.created_at = created_on
@@ -451,16 +597,146 @@ async def _upsert_record(
     return record.uuid, created, updated
 
 
+async def _backfill_missing_records_in_db_range(
+    *,
+    session: AsyncSession,
+    client: httpx.AsyncClient,
+    state: GlobalApiSyncState,
+    start_cursor: int,
+    max_record_id: int,
+) -> tuple[GlobalApiSyncResult, int, bool]:
+    processed = 0
+    created = 0
+    updated = 0
+    errors = 0
+    warnings = 0
+    cursor = max(start_cursor, DEFAULT_RECORD_START_ID)
+    attempts = 0
+
+    while cursor <= max_record_id and attempts < MISSING_ID_ATTEMPT_LIMIT:
+        missing_record_ids = await _find_due_missing_record_ids_in_db_range(
+            session=session,
+            start_id=cursor,
+            end_id=max_record_id,
+            limit=min(
+                MISSING_IDS_BATCH_SIZE,
+                MISSING_ID_ATTEMPT_LIMIT - attempts,
+            ),
+        )
+        if not missing_record_ids:
+            cursor = await _set_records_cursor_to_local_tip(
+                session=session,
+                state=state,
+                max_record_id=max_record_id,
+            )
+            return (
+                GlobalApiSyncResult(
+                    processed=processed,
+                    created=created,
+                    updated=updated,
+                    errors=errors,
+                    warnings=warnings,
+                ),
+                cursor,
+                True,
+            )
+
+        logger.info(
+            "Backfilling %s missing GlobalAPI record ids in local range %s..%s",
+            len(missing_record_ids),
+            cursor,
+            max_record_id,
+        )
+
+        for record_id in missing_record_ids:
+            attempts += 1
+            fetch_result = await _fetch_record_with_retry(
+                client=client,
+                record_id=record_id,
+            )
+            cursor = record_id + 1
+            if fetch_result.kind != "record":
+                warnings += 1
+                _defer_missing_record_retry(
+                    record_id=record_id,
+                    now=get_datetime_utc(),
+                )
+                await _advance_records_cursor(
+                    session=session,
+                    state=state,
+                    cursor=cursor,
+                )
+                continue
+
+            hydrated_payload = await _hydrate_main_stage_points_from_top(
+                client=client,
+                payload=fetch_result.payload or {},
+            )
+            try:
+                record_uuid, row_created, row_updated = await _upsert_record(
+                    session=session,
+                    payload=hydrated_payload,
+                )
+            except ValueError as exc:
+                logger.warning(
+                    "Skipping malformed missing GlobalAPI record record_id=%s: %s",
+                    record_id,
+                    exc,
+                )
+                errors += 1
+                _defer_missing_record_retry(
+                    record_id=record_id,
+                    now=get_datetime_utc(),
+                )
+                await _advance_records_cursor(
+                    session=session,
+                    state=state,
+                    cursor=cursor,
+                )
+                continue
+
+            processed += 1
+            created += int(row_created)
+            updated += int(row_updated)
+            _clear_missing_record_retry(record_id=record_id)
+            logger.info(
+                "Backfilled missing GlobalAPI record record_id=%s created=%s updated=%s uuid=%s",
+                record_id,
+                row_created,
+                row_updated,
+                record_uuid,
+            )
+            state.cursor = cursor
+            session.add(state)
+            await crud.notify_recent_record_updated(
+                session=session,
+                record_uuid=record_uuid,
+            )
+            await session.commit()
+
+    return (
+        GlobalApiSyncResult(
+            processed=processed,
+            created=created,
+            updated=updated,
+            errors=errors,
+            warnings=warnings,
+        ),
+        cursor,
+        cursor > max_record_id,
+    )
+
+
 async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSyncResult:
     state = await _get_or_create_records_sync_state(session=session)
     max_record_id = await crud.get_max_record_globalapi_id(session=session)
-    next_record_id = max((max_record_id or 0) + 1, DEFAULT_RECORD_START_ID)
-    cursor = max(state.cursor or DEFAULT_RECORD_START_ID, next_record_id)
+    cursor = max(state.cursor or DEFAULT_RECORD_START_ID, DEFAULT_RECORD_START_ID)
 
     processed = 0
     created = 0
     updated = 0
     errors = 0
+    warnings = 0
 
     logger.info(
         "Starting GlobalAPI records sync from cursor=%s (stored_cursor=%s, local_max_record_id=%s)",
@@ -473,6 +749,47 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
         timeout=settings.GLOBALAPI_TIMEOUT_SECONDS,
         trust_env=settings.GLOBALAPI_HTTPX_TRUST_ENV,
     ) as client:
+        if max_record_id is not None and cursor <= max_record_id:
+            if MISSING_ID_ATTEMPT_LIMIT <= 0:
+                cursor = await _set_records_cursor_to_local_tip(
+                    session=session,
+                    state=state,
+                    max_record_id=max_record_id,
+                )
+            else:
+                backfill_result, cursor, backfill_complete = (
+                    await _backfill_missing_records_in_db_range(
+                        session=session,
+                        client=client,
+                        state=state,
+                        start_cursor=cursor,
+                        max_record_id=max_record_id,
+                    )
+                )
+                processed += backfill_result.processed
+                created += backfill_result.created
+                updated += backfill_result.updated
+                errors += backfill_result.errors
+                warnings += backfill_result.warnings
+                if not backfill_complete:
+                    result = GlobalApiSyncResult(
+                        processed=processed,
+                        created=created,
+                        updated=updated,
+                        errors=errors,
+                        warnings=warnings,
+                    )
+                    logger.info(
+                        "Paused GlobalAPI records sync during missing-id backfill at cursor=%s processed=%s created=%s updated=%s errors=%s warnings=%s",
+                        cursor,
+                        result.processed,
+                        result.created,
+                        result.updated,
+                        result.errors,
+                        result.warnings,
+                    )
+                    return result
+
         while True:
             logger.debug("Fetching GlobalAPI record record_id=%s", cursor)
             fetch_result = await _fetch_record_with_retry(client=client, record_id=cursor)
@@ -601,6 +918,7 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 created=created,
                 updated=updated,
                 errors=errors,
+                warnings=warnings,
             )
             logger.info(
                 "Finished GlobalAPI records sync at cursor=%s processed=%s created=%s updated=%s errors=%s warnings=%s",
