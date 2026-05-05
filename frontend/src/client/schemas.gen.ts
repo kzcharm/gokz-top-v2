@@ -1839,6 +1839,17 @@ export const PlayerLeaderboardEntryPublicSchema = {
             ],
             title: 'Rating'
         },
+        raw_rating: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Raw Rating'
+        },
         rating_easy: {
             anyOf: [
                 {
@@ -1887,7 +1898,7 @@ export const PlayerLeaderboardEntryPublicSchema = {
         }
     },
     type: 'object',
-    required: ['rank', 'player', 'rating', 'rating_easy', 'rating_hard', 'points', 'wrs_nub', 'wrs_pro', 'records_900_plus', 'records_800_plus', 'unique_map_finishes'],
+    required: ['rank', 'player', 'rating', 'raw_rating', 'rating_easy', 'rating_hard', 'points', 'wrs_nub', 'wrs_pro', 'records_900_plus', 'records_800_plus', 'unique_map_finishes'],
     title: 'PlayerLeaderboardEntryPublic'
 } as const;
 

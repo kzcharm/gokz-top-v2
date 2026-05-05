@@ -229,6 +229,7 @@ def _build_player_leaderboard_entry_public(
         rank=rank,
         player=to_player_ref_public(player=player),
         rating=leaderboard_row.rating,
+        raw_rating=leaderboard_row.rating,
         rating_easy=leaderboard_row.rating_easy,
         rating_hard=leaderboard_row.rating_hard,
         points=leaderboard_row.points,

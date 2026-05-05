@@ -9,6 +9,11 @@ import {
 } from "@/components/Common/PlayerDisplay"
 import { formatRating } from "@/components/Profile/profile-utils"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export type LeaderboardTableRow = PlayerLeaderboardEntryPublic & {
   playerData: PlayerDisplayPlayer
@@ -36,6 +41,14 @@ function formatLeaderboardMetric(
   if (value === null) {
     return "0"
   }
+  return formatMetric(value)
+}
+
+function formatRawRating(value: number | null) {
+  if (value === null) {
+    return "No raw rating"
+  }
+
   return formatMetric(value)
 }
 
@@ -98,9 +111,28 @@ function metricColumn(
             : "flex w-full justify-center"
         }
       >
-        <span className="font-medium tabular-nums">
-          {formatLeaderboardMetric(accessorKey, row.original[accessorKey])}
-        </span>
+        {accessorKey === "rating" ? (
+          <Tooltip delayDuration={250}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="rounded-sm bg-transparent p-0 font-medium tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                {formatLeaderboardMetric(
+                  accessorKey,
+                  row.original[accessorKey],
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={6}>
+              Raw rating: {formatRawRating(row.original.raw_rating)}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="font-medium tabular-nums">
+            {formatLeaderboardMetric(accessorKey, row.original[accessorKey])}
+          </span>
+        )}
       </div>
     ),
   }

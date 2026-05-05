@@ -384,6 +384,7 @@ export type PlayerLeaderboardEntryPublic = {
     rank: number;
     player: PlayerRefPublic;
     rating: (number | null);
+    raw_rating: (number | null);
     rating_easy: (number | null);
     rating_hard: (number | null);
     points: number;
