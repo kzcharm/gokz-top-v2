@@ -11,13 +11,23 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
+from app.crud.player_profile_field_change import (
+    build_player_profile_field_status,
+    get_player_profile_field_changes,
+    player_profile_field_change_exists,
+    upsert_player_profile_field_change,
+)
 from app.crud.player_profile_view import count_player_profile_views
 from app.models import (
     LeaderboardPlayer,
     ModeScope,
     Player,
+    PlayerProfileField,
+    PlayerProfileFieldStatus,
     PlayerPublic,
     PlayerRefPublic,
+    PlayerSettingsPublic,
+    PlayerSettingsUpdate,
     PlayerUpdate,
     User,
 )
@@ -27,6 +37,10 @@ STEAM_COMMUNITY_HOSTS = {"steamcommunity.com", "www.steamcommunity.com"}
 STEAM_ID_TYPE_INDIVIDUAL = 1
 STEAM_ID_INSTANCE_DESKTOP = 1
 PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR = "<%"
+
+
+class PlayerSettingsConflictError(ValueError):
+    pass
 
 
 @dataclass(slots=True)
@@ -286,18 +300,29 @@ async def _get_assignable_custom_id(
     return None
 
 
+async def _player_country_is_locked(
+    *, session: AsyncSession, player_steamid64: int
+) -> bool:
+    return await player_profile_field_change_exists(
+        session=session,
+        player_steamid64=player_steamid64,
+        field=PlayerProfileField.COUNTRY,
+    )
+
+
 def _apply_steam_player_update(
     *,
     player: Player,
     steam_data: dict[str, str | bool | None],
     now: datetime,
     custom_id: str | None,
+    country_locked: bool,
 ) -> None:
     player.name = steam_data["name"] or player.name
-    if custom_id is not None:
+    if custom_id is not None and player.custom_id is None:
         player.custom_id = custom_id
     player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
-    if not player.is_country_locked:
+    if not country_locked:
         player.country = steam_data["country"] or player.country
     player.updated_at = now
 
@@ -314,11 +339,16 @@ async def _commit_player_update_with_custom_id_fallback(
     if player is None:
         raise RuntimeError("Player missing during Steam update retry")
 
+    country_locked = await _player_country_is_locked(
+        session=session,
+        player_steamid64=steamid64,
+    )
     _apply_steam_player_update(
         player=player,
         steam_data=steam_data,
         now=now,
         custom_id=custom_id,
+        country_locked=country_locked,
     )
     session.add(player)
     await session.commit()
@@ -572,11 +602,16 @@ async def create_or_update_player_from_steam(
                 player_steamid64=steamid64,
                 custom_id=steam_data["custom_id"],
             )
+            country_locked = await _player_country_is_locked(
+                session=session,
+                player_steamid64=steamid64,
+            )
             _apply_steam_player_update(
                 player=player,
                 steam_data=steam_data,
                 now=now,
                 custom_id=custom_id,
+                country_locked=country_locked,
             )
             session.add(player)
             try:
@@ -687,11 +722,16 @@ async def create_or_update_player_from_steam_data_if_fetched(
             player_steamid64=steamid64,
             custom_id=steam_data["custom_id"],
         )
+        country_locked = await _player_country_is_locked(
+            session=session,
+            player_steamid64=steamid64,
+        )
         _apply_steam_player_update(
             player=player,
             steam_data=steam_data,
             now=now,
             custom_id=custom_id,
+            country_locked=country_locked,
         )
         session.add(player)
         try:
@@ -776,15 +816,140 @@ async def create_or_update_player_from_steam_data_if_fetched(
 async def update_player(
     *, session: AsyncSession, db_player: Player, player_in: PlayerUpdate
 ) -> Player:
+    now = datetime.now(UTC)
     player_data = player_in.model_dump(exclude_unset=True)
-    if "country" in player_data and player_data["country"] is not None:
-        player_data["is_country_locked"] = True
     db_player.sqlmodel_update(player_data)
-    db_player.updated_at = datetime.now(UTC)
+    if "country" in player_data and player_data["country"] is not None:
+        await upsert_player_profile_field_change(
+            session=session,
+            player_steamid64=db_player.steamid64,
+            field=PlayerProfileField.COUNTRY,
+            changed_at=now,
+        )
+    db_player.updated_at = now
     session.add(db_player)
     await session.commit()
     await session.refresh(db_player)
     return db_player
+
+
+async def get_player_settings(
+    *, session: AsyncSession, player: Player, now: datetime | None = None
+) -> PlayerSettingsPublic:
+    resolved_now = now or datetime.now(UTC)
+    changes = await get_player_profile_field_changes(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    alias_changed_at = changes.get(PlayerProfileField.ALIAS)
+    custom_id_changed_at = changes.get(PlayerProfileField.CUSTOM_ID)
+    country_changed_at = changes.get(PlayerProfileField.COUNTRY)
+    country_locked = country_changed_at is not None
+    return PlayerSettingsPublic(
+        player=to_player_public(player=player),
+        alias=build_player_profile_field_status(
+            changed_at=alias_changed_at.changed_at if alias_changed_at else None,
+            now=resolved_now,
+        ),
+        custom_id=build_player_profile_field_status(
+            changed_at=custom_id_changed_at.changed_at if custom_id_changed_at else None,
+            now=resolved_now,
+        ),
+        country=PlayerProfileFieldStatus(
+            last_changed_at=country_changed_at.changed_at if country_changed_at else None,
+            next_available_at=None,
+            can_change=True,
+        ),
+        country_locked=country_locked,
+    )
+
+
+def _ensure_profile_text_value(*, field_name: str, value: str | None) -> str:
+    if value is None:
+        raise ValueError(f"{field_name} cannot be cleared")
+    if not value.strip():
+        raise ValueError(f"{field_name} cannot be blank")
+    return value
+
+
+def _ensure_can_change_field(
+    *,
+    field_name: str,
+    status: PlayerProfileFieldStatus,
+) -> None:
+    if not status.can_change:
+        raise PermissionError(f"{field_name} can only be changed once every 30 days")
+
+
+async def update_player_settings(
+    *,
+    session: AsyncSession,
+    player: Player,
+    settings_in: PlayerSettingsUpdate,
+) -> PlayerSettingsPublic:
+    now = datetime.now(UTC)
+    player_data = settings_in.model_dump(exclude_unset=True)
+    current_settings = await get_player_settings(session=session, player=player, now=now)
+    changed_fields: list[PlayerProfileField] = []
+
+    if "alias" in player_data:
+        alias = _ensure_profile_text_value(
+            field_name=PlayerProfileField.ALIAS.value,
+            value=settings_in.alias,
+        )
+        if alias != player.alias:
+            _ensure_can_change_field(
+                field_name=PlayerProfileField.ALIAS.value,
+                status=current_settings.alias,
+            )
+            player.alias = alias
+            changed_fields.append(PlayerProfileField.ALIAS)
+
+    if "custom_id" in player_data:
+        custom_id = _ensure_profile_text_value(
+            field_name=PlayerProfileField.CUSTOM_ID.value,
+            value=settings_in.custom_id,
+        )
+        if custom_id != player.custom_id:
+            _ensure_can_change_field(
+                field_name=PlayerProfileField.CUSTOM_ID.value,
+                status=current_settings.custom_id,
+            )
+            existing_player = await _get_player_by_custom_id(
+                session=session,
+                custom_id=custom_id,
+            )
+            if (
+                existing_player is not None
+                and existing_player.steamid64 != player.steamid64
+            ):
+                raise PlayerSettingsConflictError("custom_id is already in use")
+            player.custom_id = custom_id
+            changed_fields.append(PlayerProfileField.CUSTOM_ID)
+
+    if "country" in player_data:
+        country = _ensure_profile_text_value(
+            field_name=PlayerProfileField.COUNTRY.value,
+            value=settings_in.country,
+        )
+        if country != player.country:
+            player.country = country
+            changed_fields.append(PlayerProfileField.COUNTRY)
+
+    if changed_fields:
+        player.updated_at = now
+        session.add(player)
+        for field in changed_fields:
+            await upsert_player_profile_field_change(
+                session=session,
+                player_steamid64=player.steamid64,
+                field=field,
+                changed_at=now,
+            )
+        await session.commit()
+        await session.refresh(player)
+
+    return await get_player_settings(session=session, player=player, now=now)
 
 
 async def load_website_user_steamid64s(

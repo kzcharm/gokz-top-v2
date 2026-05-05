@@ -444,6 +444,12 @@ export type PlayerPlaytimePublic = {
     total_seconds?: number;
 };
 
+export type PlayerProfileFieldStatus = {
+    last_changed_at?: (string | null);
+    next_available_at?: (string | null);
+    can_change?: boolean;
+};
+
 export type PlayerProfileViewsPublic = {
     profile_views?: number;
 };
@@ -504,6 +510,20 @@ export type PlayerSessionPublic = {
     ip_address: string;
     map_name: string;
     duration_seconds?: (number | null);
+};
+
+export type PlayerSettingsPublic = {
+    player: PlayerPublic;
+    alias: PlayerProfileFieldStatus;
+    custom_id: PlayerProfileFieldStatus;
+    country: PlayerProfileFieldStatus;
+    country_locked?: boolean;
+};
+
+export type PlayerSettingsUpdate = {
+    alias?: (string | null);
+    custom_id?: (string | null);
+    country?: (string | null);
 };
 
 export type PlayerSocialLinkCreate = {
@@ -1299,6 +1319,14 @@ export type PlayersReadPlayerFollowingData = {
 };
 
 export type PlayersReadPlayerFollowingResponse = (PlayersPublic);
+
+export type PlayersReadCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
+
+export type PlayersUpdateCurrentPlayerSettingsData = {
+    requestBody: PlayerSettingsUpdate;
+};
+
+export type PlayersUpdateCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
 
 export type PlayersReadPlayerData = {
     identifier: string;

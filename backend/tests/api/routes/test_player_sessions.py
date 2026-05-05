@@ -6,7 +6,14 @@ from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Player, PlayerSession, ServerGroupStatus, generate_uuid7
+from app.models import (
+    Player,
+    PlayerProfileField,
+    PlayerProfileFieldChange,
+    PlayerSession,
+    ServerGroupStatus,
+    generate_uuid7,
+)
 from app.services.geoip import GeoIPLocation
 from tests.utils.server import create_server_group
 from tests.utils.utils import random_steamid64
@@ -165,9 +172,15 @@ async def test_connect_does_not_update_locked_player_country_from_geoip(
         steamid64=steamid64,
         name="Runner",
         country="CA",
-        is_country_locked=True,
     )
     db.add(player)
+    db.add(
+        PlayerProfileFieldChange(
+            player_steamid64=steamid64,
+            field=PlayerProfileField.COUNTRY,
+            changed_at=datetime.now(UTC),
+        )
+    )
     await db.commit()
     connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
 

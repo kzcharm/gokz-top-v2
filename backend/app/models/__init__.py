@@ -85,6 +85,13 @@ from .player_pinned_record import (
     PlayerPinnedRecordsPublic,
     PlayerPinnedRecordUpsert,
 )
+from .player_profile_field_change import (
+    PlayerProfileField,
+    PlayerProfileFieldChange,
+    PlayerProfileFieldStatus,
+    PlayerSettingsPublic,
+    PlayerSettingsUpdate,
+)
 from .player_profile_view import PlayerProfileView
 from .player_session import (
     AdminPlayerSessionIpLinkBucketPublic,
@@ -316,6 +323,11 @@ __all__ = [
     "PlayerProfileView",
     "PlayerProfileViewCreate",
     "PlayerProfileViewsPublic",
+    "PlayerProfileField",
+    "PlayerProfileFieldChange",
+    "PlayerProfileFieldStatus",
+    "PlayerSettingsPublic",
+    "PlayerSettingsUpdate",
     "PlayerSession",
     "PlayerSessionConnect",
     "PlayerSessionDisconnect",

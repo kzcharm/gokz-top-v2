@@ -2121,6 +2121,42 @@ export const PlayerPlaytimePublicSchema = {
     title: 'PlayerPlaytimePublic'
 } as const;
 
+export const PlayerProfileFieldStatusSchema = {
+    properties: {
+        last_changed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Changed At'
+        },
+        next_available_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Next Available At'
+        },
+        can_change: {
+            type: 'boolean',
+            title: 'Can Change',
+            default: true
+        }
+    },
+    type: 'object',
+    title: 'PlayerProfileFieldStatus'
+} as const;
+
 export const PlayerProfileViewsPublicSchema = {
     properties: {
         profile_views: {
@@ -2390,6 +2426,75 @@ export const PlayerSessionPublicSchema = {
     type: 'object',
     required: ['id', 'player_steamid64', 'server_group_id', 'connected_at', 'last_heartbeat_at', 'ip_address', 'map_name'],
     title: 'PlayerSessionPublic'
+} as const;
+
+export const PlayerSettingsPublicSchema = {
+    properties: {
+        player: {
+            '$ref': '#/components/schemas/PlayerPublic'
+        },
+        alias: {
+            '$ref': '#/components/schemas/PlayerProfileFieldStatus'
+        },
+        custom_id: {
+            '$ref': '#/components/schemas/PlayerProfileFieldStatus'
+        },
+        country: {
+            '$ref': '#/components/schemas/PlayerProfileFieldStatus'
+        },
+        country_locked: {
+            type: 'boolean',
+            title: 'Country Locked',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['player', 'alias', 'custom_id', 'country'],
+    title: 'PlayerSettingsPublic'
+} as const;
+
+export const PlayerSettingsUpdateSchema = {
+    properties: {
+        alias: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alias'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'PlayerSettingsUpdate'
 } as const;
 
 export const PlayerSocialLinkCreateSchema = {

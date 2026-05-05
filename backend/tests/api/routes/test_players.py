@@ -17,9 +17,12 @@ from app.models import (
     ModeScope,
     Player,
     PlayerFollow,
+    PlayerProfileField,
+    PlayerProfileFieldChange,
     User,
 )
 from app.services import globalapi_ban_sync, player_steam_profile
+from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_user_token_headers, random_steamid64
 
 
@@ -47,6 +50,24 @@ async def _create_player(
     await db.commit()
     await db.refresh(player)
     return player
+
+
+async def _create_profile_field_change(
+    *,
+    db: AsyncSession,
+    steamid64: int,
+    field: PlayerProfileField,
+    changed_at: datetime,
+) -> PlayerProfileFieldChange:
+    change = PlayerProfileFieldChange(
+        player_steamid64=steamid64,
+        field=field,
+        changed_at=changed_at,
+    )
+    db.add(change)
+    await db.commit()
+    await db.refresh(change)
+    return change
 
 
 async def _set_ovr_rating(*, db: AsyncSession, steamid64: int, rating: int) -> None:
@@ -924,7 +945,11 @@ async def test_update_player_authenticated_persists_changes(
     assert refreshed is not None
     assert refreshed.alias == "Updated Alias"
     assert refreshed.country == "DE"
-    assert refreshed.is_country_locked is True
+    assert await crud.player_profile_field_change_exists(
+        session=db,
+        player_steamid64=steamid64,
+        field=PlayerProfileField.COUNTRY,
+    )
 
 
 @pytest.mark.asyncio
@@ -1022,7 +1047,268 @@ async def test_update_player_locks_country_after_manual_set(
     refreshed = await db.get(Player, steamid64)
     assert refreshed is not None
     assert refreshed.country == "DE"
-    assert refreshed.is_country_locked is True
+    assert await crud.player_profile_field_change_exists(
+        session=db,
+        player_steamid64=steamid64,
+        field=PlayerProfileField.COUNTRY,
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_current_player_settings_returns_edit_status(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Settings Target",
+        custom_id="settings-target",
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player"]["steamid64"] == str(steamid64)
+    assert payload["player"]["name"] == "Test User"
+    assert payload["alias"]["can_change"] is True
+    assert payload["custom_id"]["can_change"] is True
+    assert payload["country"]["can_change"] is True
+    assert payload["country_locked"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_persists_changes_and_locks_country(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db=db, steamid64=steamid64, name="Settings Save")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={
+            "alias": "Saved Alias",
+            "custom_id": "Saved_Custom",
+            "country": "de",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player"]["alias"] == "Saved Alias"
+    assert payload["player"]["custom_id"] == "saved_custom"
+    assert payload["player"]["country"] == "DE"
+    assert payload["country_locked"] is True
+    assert payload["country"]["can_change"] is True
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.alias == "Saved Alias"
+    assert refreshed.custom_id == "saved_custom"
+    assert refreshed.country == "DE"
+    for field in (
+        PlayerProfileField.ALIAS,
+        PlayerProfileField.CUSTOM_ID,
+        PlayerProfileField.COUNTRY,
+    ):
+        assert await crud.player_profile_field_change_exists(
+            session=db,
+            player_steamid64=steamid64,
+            field=field,
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_enforces_alias_cooldown(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Alias Cooldown",
+        custom_id="alias-cooldown",
+    )
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.ALIAS,
+        changed_at=datetime.now(UTC),
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"alias": "Blocked Alias"},
+    )
+
+    assert response.status_code == 409
+    assert "30 days" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_enforces_custom_id_cooldown(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Custom Cooldown",
+        custom_id="custom-cooldown",
+    )
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.CUSTOM_ID,
+        changed_at=datetime.now(UTC),
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"custom_id": "new-custom-cooldown"},
+    )
+
+    assert response.status_code == 409
+    assert "30 days" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_rejects_custom_id_conflict(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db=db, steamid64=steamid64, name="Custom Conflict")
+    await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Custom Owner",
+        custom_id="taken-custom",
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"custom_id": "taken-custom"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "custom_id is already in use"
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_rejects_clear_and_name_edits(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="No Clear",
+        custom_id="no-clear",
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    clear_response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"alias": None},
+    )
+    name_response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"name": "Not Allowed"},
+    )
+
+    assert clear_response.status_code == 422
+    assert name_response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_allows_country_changes_after_lock(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Country Lock",
+        custom_id="country-lock",
+    )
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.COUNTRY,
+        changed_at=datetime.now(UTC),
+    )
+    player = await db.get(Player, steamid64)
+    assert player is not None
+    player.country = "CA"
+    db.add(player)
+    await db.commit()
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"country": "DE"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["player"]["country"] == "DE"
+    assert response.json()["country_locked"] is True
+    assert response.json()["country"]["can_change"] is True
+
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.country == "DE"
 
 
 @pytest.mark.asyncio
@@ -1254,6 +1540,51 @@ async def test_upsert_player_from_steam_keeps_existing_custom_id_on_collision(
     assert refreshed_target.name == "Updated Target Name"
     assert refreshed_owner is not None
     assert refreshed_owner.custom_id == "taken-custom-id"
+
+
+@pytest.mark.asyncio
+async def test_upsert_player_from_steam_only_fills_null_custom_id(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Target Player",
+        custom_id="current-custom-id",
+    )
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | None]:
+        return {
+            "name": "Updated Target Name",
+            "custom_id": "new-steam-custom",
+            "avatar_hash": "a" * 40,
+            "country": "DE",
+            "fetched": True,
+        }
+
+    monkeypatch.setattr(
+        player_crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/steam",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["custom_id"] == "current-custom-id"
+
+    refreshed_target = await db.get(Player, target.steamid64)
+    assert refreshed_target is not None
+    assert refreshed_target.custom_id == "current-custom-id"
 
 
 @pytest.mark.asyncio
@@ -1739,15 +2070,18 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
         steamid64=random_steamid64(),
         name="Ban Check Owner",
     )
-    await crud.get_or_create_user_from_steam(session=db, steamid64=player.steamid64)
-    headers = await get_user_token_headers(client, player.steamid64)
+    player_steamid64 = player.steamid64
+    player_name = player.name
+    await crud.get_or_create_user_from_steam(session=db, steamid64=player_steamid64)
+    headers = await get_user_token_headers(client, player_steamid64)
     ban = await _create_ban(
         db=db,
         ban_id=9_500,
-        steamid64=player.steamid64,
+        steamid64=player_steamid64,
         expires_on=None,
         notes="locally active",
     )
+    ban_id = ban.id
     expired_at = datetime.now(UTC) - timedelta(hours=1)
     rebuilt_steamid64s: list[int] = []
 
@@ -1761,17 +2095,17 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
         updated_since: datetime | None = None,
     ) -> list[dict[str, object]]:
         del client, limit, created_since, updated_since
-        assert steamid64 == player.steamid64
+        assert steamid64 == player_steamid64
         if offset > 0:
             return []
         return [
             {
-                "id": ban.id,
+                "id": ban_id,
                 "ban_type": "bhop_hack",
                 "expires_on": expired_at.isoformat(),
                 "ip": "203.0.113.1",
-                "steamid64": str(player.steamid64),
-                "player_name": player.name,
+                "steamid64": str(player_steamid64),
+                "player_name": player_name,
                 "notes": "expired upstream",
                 "stats": "stats",
                 "server_id": 1,
@@ -1799,17 +2133,17 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{player.steamid64}/unban-check",
+        f"{settings.API_V1_STR}/players/{player_steamid64}/unban-check",
         headers=headers,
     )
 
     assert response.status_code == 200
     assert response.json()["cleared_ban_count"] == 1
     assert response.json()["remaining_active_ban_count"] == 0
-    assert rebuilt_steamid64s == [player.steamid64]
+    assert rebuilt_steamid64s == [player_steamid64]
 
     db.expire_all()
-    refreshed = await db.get(Ban, ban.id)
+    refreshed = await db.get(Ban, ban_id)
     assert refreshed is not None
     assert refreshed.expires_on == expired_at
     assert refreshed.notes == "expired upstream"
@@ -1826,14 +2160,17 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
         steamid64=random_steamid64(),
         name="Still Banned",
     )
-    await crud.get_or_create_user_from_steam(session=db, steamid64=player.steamid64)
-    headers = await get_user_token_headers(client, player.steamid64)
+    player_steamid64 = player.steamid64
+    player_name = player.name
+    await crud.get_or_create_user_from_steam(session=db, steamid64=player_steamid64)
+    headers = await get_user_token_headers(client, player_steamid64)
     ban = await _create_ban(
         db=db,
         ban_id=9_501,
-        steamid64=player.steamid64,
+        steamid64=player_steamid64,
         expires_on=None,
     )
+    ban_id = ban.id
     future_expiry = datetime.now(UTC) + timedelta(days=7)
     rebuilt_steamid64s: list[int] = []
 
@@ -1847,17 +2184,17 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
         updated_since: datetime | None = None,
     ) -> list[dict[str, object]]:
         del client, limit, created_since, updated_since
-        assert steamid64 == player.steamid64
+        assert steamid64 == player_steamid64
         if offset > 0:
             return []
         return [
             {
-                "id": ban.id,
+                "id": ban_id,
                 "ban_type": "bhop_hack",
                 "expires_on": future_expiry.isoformat(),
                 "ip": "203.0.113.1",
-                "steamid64": str(player.steamid64),
-                "player_name": player.name,
+                "steamid64": str(player_steamid64),
+                "player_name": player_name,
                 "notes": "still active upstream",
                 "stats": "stats",
                 "server_id": 1,
@@ -1885,7 +2222,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{player.steamid64}/unban-check",
+        f"{settings.API_V1_STR}/players/{player_steamid64}/unban-check",
         headers=headers,
     )
 
@@ -1895,7 +2232,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
     assert rebuilt_steamid64s == []
 
     db.expire_all()
-    refreshed = await db.get(Ban, ban.id)
+    refreshed = await db.get(Ban, ban_id)
     assert refreshed is not None
     assert refreshed.expires_on == future_expiry
 
