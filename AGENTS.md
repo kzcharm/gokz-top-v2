@@ -44,3 +44,12 @@ After a major feature or completed milestone, update `memory-bank/tech-stack.md`
 Do not hand-edit generated files in `frontend/src/client/` or `frontend/src/routeTree.gen.ts`. Keep secrets in local `.env` files.
 
 For database schema changes, create migrations with Alembic autogenerate rather than writing migration files by hand.
+
+## Documentation Workflow
+Public documentation lives in the `notes/` submodule, backed by the separate `kzcharm/gokz-top-docs` repository.
+
+When a change affects public behavior, APIs, plugin setup, rating logic, server operator workflows, or troubleshooting, update the docs in `notes/`.
+
+Before editing docs, initialize the submodule with `git submodule update --init --recursive` and make sure `notes/` is on a branch, not a detached HEAD.
+
+Commit documentation changes inside `notes/` first. Update this parent repository's submodule pointer only when the app should pin a specific docs revision alongside a product or behavior change.
