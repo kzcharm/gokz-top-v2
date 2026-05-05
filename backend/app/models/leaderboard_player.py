@@ -297,6 +297,7 @@ class PlayerLeaderboardEntryPublic(SQLModel):
     rank: int
     player: PlayerRefPublic
     rating: float | None
+    raw_rating: int | None
     rating_easy: float | None
     rating_hard: float | None
     points: int

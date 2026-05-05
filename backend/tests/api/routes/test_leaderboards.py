@@ -358,10 +358,12 @@ async def test_read_player_leaderboard_default_sort_and_rank(
     assert payload["data"][0]["player"]["display_name"] == "Alpha"
     assert payload["data"][0]["rank"] == 1
     assert payload["data"][0]["rating"] == pytest.approx(_public_rating(alpha_row.rating))
+    assert payload["data"][0]["raw_rating"] == alpha_row.rating
     assert payload["data"][1]["player"]["steamid64"] == str(players["beta"])
     assert payload["data"][1]["player"]["display_name"] == "Beta"
     assert payload["data"][1]["rank"] == 2
     assert payload["data"][1]["rating"] == pytest.approx(_public_rating(beta_row.rating))
+    assert payload["data"][1]["raw_rating"] == beta_row.rating
     assert len(payload["data"]) == 2
 
 
