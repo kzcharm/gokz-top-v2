@@ -27,6 +27,7 @@ import {
   type PlayerDisplayPlayer,
 } from "@/components/Common/PlayerDisplay"
 import { RegionBadge } from "@/components/Common/RegionFlag"
+import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import {
   columns,
   type LeaderboardTableRow,
@@ -452,6 +453,17 @@ export function PlayersLeaderboardTab() {
     ? leaderboardCountQuery.data!.count
     : pageIndex * pageSize + tableData.length + (hasNextPage ? 1 : 0)
   const pageCount = Math.max(1, Math.ceil(totalPlayers / pageSize))
+  const keyboardPaginationRef = useKeyboardPagination({
+    enabled: pageCount > 1 || hasNextPage,
+    canPrevious: pageIndex > 0,
+    canNext: hasNextPage || pageIndex < pageCount - 1,
+    onPrevious: () => {
+      setPageIndex((current) => Math.max(0, current - 1))
+    },
+    onNext: () => {
+      setPageIndex((current) => Math.min(pageCount - 1, current + 1))
+    },
+  })
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
 
@@ -654,7 +666,10 @@ export function PlayersLeaderboardTab() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+              <div
+                ref={keyboardPaginationRef}
+                className="flex flex-wrap items-center gap-3 lg:justify-end"
+              >
                 <div className="flex items-center gap-x-1">
                   <Button
                     variant="outline"
