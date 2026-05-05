@@ -16,6 +16,7 @@ interface CountryPickerProps {
   clearLabel?: string
   className?: string
   triggerClassName?: string
+  disabled?: boolean
 }
 
 export function CountryPicker({
@@ -25,6 +26,7 @@ export function CountryPicker({
   clearLabel = "Clear selection",
   className,
   triggerClassName,
+  disabled = false,
 }: CountryPickerProps) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
@@ -57,16 +59,22 @@ export function CountryPicker({
   }, [query])
 
   return (
-    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
+    <DropdownMenu
+      modal={false}
+      open={open && !disabled}
+      onOpenChange={(nextOpen) => setOpen(disabled ? false : nextOpen)}
+    >
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           className={cn(
             "border-input data-[state=open]:bg-accent/50 focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full items-center justify-between rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow,background-color] focus-visible:ring-[3px]",
             open && "border-ring ring-ring/50 ring-[3px]",
+            disabled && "cursor-not-allowed opacity-50",
             triggerClassName,
           )}
           data-state={open ? "open" : "closed"}
+          disabled={disabled}
         >
           <span className="flex min-w-0 items-center gap-2">
             {value ? (

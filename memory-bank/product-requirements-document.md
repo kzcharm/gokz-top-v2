@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-04-15
+- Last Updated: 2026-05-05
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -104,6 +104,9 @@ Scope model:
 - User auth/session flows and API key support.
 - Role-based access for admin/operator capabilities.
 - Player preferences/settings persistence.
+- Authenticated players can self-edit `alias` and `custom_id` from `/settings`, with independent 30-day cooldowns and no cooldown consumption for no-op submissions.
+- Authenticated players can manually set `country` from `/settings`; manual country changes disable later automatic GeoIP/Steam overwrites but do not block later manual country edits.
+- `name` remains read-only in settings because it is synced from Steam rather than edited locally.
 - Authenticated players can manage their own social links from settings; superusers can view, add, edit, delete, and verify player social links from admin.
 
 ## 6) Compatibility Strategy (Mirror + Extend)

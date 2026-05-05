@@ -1,5 +1,5 @@
-import uuid
 import logging
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -27,6 +27,8 @@ from app.models import (
     PlayersBatchPublic,
     PlayersBatchRead,
     PlayerSearchQuery,
+    PlayerSettingsPublic,
+    PlayerSettingsUpdate,
     PlayersListQuery,
     PlayerSocialLinkCreate,
     PlayerSocialLinksPublic,
@@ -606,6 +608,47 @@ async def read_player_following(
         data=await crud.to_player_publics(session=session, players=following),
         count=count,
     )
+
+
+@router.get("/me/settings", response_model=PlayerSettingsPublic)
+async def read_current_player_settings(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerSettingsPublic:
+    player = await crud.get_player_by_steamid64(
+        session=session,
+        steamid64=current_user.steamid64,
+    )
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return await crud.get_player_settings(session=session, player=player)
+
+
+@router.patch("/me/settings", response_model=PlayerSettingsPublic)
+async def update_current_player_settings(
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: PlayerSettingsUpdate,
+) -> PlayerSettingsPublic:
+    player = await crud.get_player_by_steamid64(
+        session=session,
+        steamid64=current_user.steamid64,
+    )
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    try:
+        return await crud.update_player_settings(
+            session=session,
+            player=player,
+            settings_in=body,
+        )
+    except crud.PlayerSettingsConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{identifier:path}", response_model=PlayerPublic)

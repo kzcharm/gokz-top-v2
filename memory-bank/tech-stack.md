@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-04-15
+- Last Updated: 2026-05-05
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -25,6 +25,8 @@
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
   - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds
   - Player sessions snapshot GeoIP country/region/city at ingest time for admin-only shared-IP traversal across exact IP, `/24`, and `/16 + city` buckets
+  - Player self-service profile edits are tracked in `player_profile_field_change`, keyed by `(player_steamid64, field)`, with 30-day cooldown rows for `alias` and `custom_id` plus a `country` row that disables automatic country refreshes after a manual country change
+  - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_profile_field_change(country)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
