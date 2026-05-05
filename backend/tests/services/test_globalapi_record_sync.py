@@ -14,6 +14,23 @@ from tests.utils.utils import random_steamid64
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.fixture(autouse=True)
+def _disable_missing_id_backfill_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _unlocked_country(*args: object, **kwargs: object) -> bool:
+        del args, kwargs
+        return False
+
+    record_sync._missing_record_retry_after.clear()
+    monkeypatch.setattr(record_sync, "MISSING_ID_ATTEMPT_LIMIT", 0)
+    monkeypatch.setattr(
+        record_sync.crud,
+        "player_profile_field_change_exists",
+        _unlocked_country,
+    )
+
+
 async def _reset_records_sync_state(db: AsyncSession) -> None:
     await db.exec(
         delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "records")
@@ -224,6 +241,123 @@ async def test_sync_records_from_globalapi_skips_existing_ids_even_with_stale_st
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
     assert state.cursor == 981221
+
+
+async def test_sync_records_from_globalapi_backfills_delayed_gap_after_cursor_reset(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    delayed_record_id = 998430
+    await _set_records_cursor(db, delayed_record_id)
+    record_sync._missing_record_retry_after.clear()
+    await _delete_record_by_id(db, record_id=delayed_record_id)
+    await _delete_record_by_id(db, record_id=delayed_record_id + 1)
+    await _create_local_record(
+        db,
+        record_id=delayed_record_id - 2,
+        steamid64=random_steamid64(),
+        map_id=998401,
+        server_id=998501,
+    )
+    await _create_local_record(
+        db,
+        record_id=delayed_record_id - 1,
+        steamid64=random_steamid64(),
+        map_id=998402,
+        server_id=998502,
+    )
+    steamid64 = random_steamid64()
+    delayed_payload = _build_payload(
+        record_id=delayed_record_id,
+        steamid64=steamid64,
+        map_id=998403,
+        server_id=998503,
+    )
+    probe_payload = _build_payload(
+        record_id=delayed_record_id + 1,
+        steamid64=random_steamid64(),
+        map_id=998404,
+        server_id=998504,
+    )
+    delayed_is_visible = False
+    requested_ids: list[int] = []
+
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
+        del client
+        requested_ids.append(record_id)
+        if record_id == delayed_record_id and delayed_is_visible:
+            return record_sync.RecordFetchResult(kind="record", payload=delayed_payload)
+        if record_id == delayed_record_id + 1:
+            return record_sync.RecordFetchResult(kind="record", payload=probe_payload)
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _fake_hydrate(
+        *, client: object, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        del client
+        return payload
+
+    async def _fake_player_fetch(_steamid64: int) -> dict[str, str | None]:
+        return {
+            "name": "Steam Runner",
+            "custom_id": None,
+            "avatar_hash": None,
+            "country": None,
+        }
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync, "MISSING_ID_ATTEMPT_LIMIT", 10)
+    monkeypatch.setattr(record_sync, "MISSING_IDS_BATCH_SIZE", 10)
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(
+        record_sync, "_hydrate_main_stage_points_from_top", _fake_hydrate
+    )
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+
+    first_result = await record_sync.sync_records_from_globalapi(session=db)
+
+    assert first_result.created == 1
+    assert (
+        await record_sync.crud.get_record_by_id(
+            session=db,
+            record_id=delayed_record_id,
+        )
+        is None
+    )
+    assert (
+        await record_sync.crud.get_record_by_id(
+            session=db,
+            record_id=delayed_record_id + 1,
+        )
+        is not None
+    )
+    state = await db.get(GlobalApiSyncState, "records")
+    assert state is not None
+    assert state.cursor == delayed_record_id + 2
+
+    delayed_is_visible = True
+    requested_ids.clear()
+    await _set_records_cursor(db, delayed_record_id)
+    second_result = await record_sync.sync_records_from_globalapi(session=db)
+
+    assert requested_ids[0] == delayed_record_id
+    assert second_result.created == 1
+    backfilled_record = await record_sync.crud.get_record_by_id(
+        session=db,
+        record_id=delayed_record_id,
+    )
+    assert backfilled_record is not None
+    assert backfilled_record.steamid64 == steamid64
+    state = await db.get(GlobalApiSyncState, "records")
+    assert state is not None
+    assert state.cursor == delayed_record_id + 2
 
 
 async def test_sync_records_from_globalapi_uses_stored_cursor_when_ahead_of_local_max(
