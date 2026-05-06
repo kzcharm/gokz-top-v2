@@ -592,7 +592,7 @@ export function PlayersLeaderboardTab() {
       </Card>
 
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
+        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
             data={tableData}

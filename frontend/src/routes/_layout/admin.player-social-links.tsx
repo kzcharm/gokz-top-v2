@@ -10,8 +10,14 @@ import {
   type PlayerSocialPlatform,
   UsersService,
 } from "@/client"
+import {
+  AdminControlsCard,
+  AdminPageHeader,
+  AdminTableCard,
+} from "@/components/Admin/AdminPageLayout"
 import { DataTable } from "@/components/Common/DataTable"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -344,16 +350,9 @@ function AdminPlayerSocialLinks() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Player Social Links{" "}
-            <span className="text-base font-medium text-muted-foreground">
-              (Total {(data?.count ?? 0).toLocaleString()})
-            </span>
-          </h1>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+      <AdminPageHeader title="Player Social Links" />
+      <AdminControlsCard>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Input
             aria-label="Filter by Steam ID64"
             className="sm:w-56"
@@ -410,13 +409,18 @@ function AdminPlayerSocialLinks() {
             Add
           </Button>
         </div>
-      </div>
-      <DataTable
+      </AdminControlsCard>
+      <AdminTableCard>
+        <DataTable
         columns={columns}
         data={data?.data ?? []}
         isLoading={isLoading}
+        stickyHeader
+        stickyHeaderTopClassName="top-16"
+        tableContainerClassName="md:overflow-visible"
+        tableClassName="border-separate border-spacing-0"
+        showFooter={false}
         emptyText="No social links found."
-        footerSummary={<span />}
         serverPagination={{
           pageIndex,
           pageSize,
@@ -428,6 +432,21 @@ function AdminPlayerSocialLinks() {
           },
         }}
       />
+        <TablePaginationFooter
+          totalLabel="Links"
+          totalCount={data?.count ?? 0}
+          pageIndex={pageIndex}
+          pageCount={Math.max(1, Math.ceil((data?.count ?? 0) / pageSize))}
+          pageSize={pageSize}
+          onPageIndexChange={setPageIndex}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPageIndex(0)
+          }}
+          hasExactCount={!isLoading}
+          isTotalCountLoading={isLoading}
+        />
+      </AdminTableCard>
       <LinkDialog
         state={dialogState}
         open={dialogOpen}

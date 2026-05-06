@@ -10,6 +10,11 @@ import {
   type AdminRecordFilterPublic,
   UsersService,
 } from "@/client"
+import {
+  AdminControlsCard,
+  AdminPageHeader,
+  AdminTableCard,
+} from "@/components/Admin/AdminPageLayout"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
@@ -18,6 +23,7 @@ import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import type { AppScope } from "@/components/scope-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -348,16 +354,9 @@ function AdminMaps() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Maps{" "}
-            <span className="text-base font-medium text-muted-foreground">
-              (Total {totalCount.toLocaleString()})
-            </span>
-          </h1>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <AdminPageHeader title="Maps" />
+      <AdminControlsCard>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <Input
             aria-label="Search maps"
             className="w-full sm:w-80"
@@ -401,13 +400,18 @@ function AdminMaps() {
             Save
           </LoadingButton>
         </div>
-      </div>
+      </AdminControlsCard>
 
-      <DataTable
+      <AdminTableCard>
+        <DataTable
         columns={columns}
         data={tableData}
+        stickyHeader
+        stickyHeaderTopClassName="top-16"
+        tableContainerClassName="md:overflow-visible"
+        tableClassName="border-separate border-spacing-0"
+        showFooter={false}
         emptyText="No maps found."
-        footerSummary={<span />}
         getRowProps={(row) => ({
           "aria-expanded": expandedMapId === String(row.id),
           className: "cursor-pointer",
@@ -455,6 +459,25 @@ function AdminMaps() {
           },
         }}
       />
+        <TablePaginationFooter
+          totalLabel="Maps"
+          totalCount={totalCount}
+          pageIndex={pageIndex}
+          pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
+          pageSize={pageSize}
+          onPageIndexChange={(nextPageIndex) => {
+            setPageIndex(nextPageIndex)
+            setExpandedMapId(null)
+          }}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPageIndex(0)
+            setExpandedMapId(null)
+          }}
+          hasExactCount={!isLoading}
+          isTotalCountLoading={isLoading}
+        />
+      </AdminTableCard>
     </div>
   )
 }

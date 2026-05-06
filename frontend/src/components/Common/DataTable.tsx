@@ -192,7 +192,7 @@ export function DataTable<TData, TValue>({
                     key={header.id}
                     className={
                       stickyHeader
-                        ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted/95 first:rounded-tl-[27px] last:rounded-tr-[27px] supports-[backdrop-filter]:bg-muted/75`
+                        ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted first:rounded-tl-[27px] last:rounded-tr-[27px]`
                         : undefined
                     }
                   >

@@ -28,9 +28,15 @@ import {
   type ServerPublic,
   UsersService,
 } from "@/client"
+import {
+  AdminControlsCard,
+  AdminPageHeader,
+  AdminTableCard,
+} from "@/components/Admin/AdminPageLayout"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -103,12 +109,10 @@ function AdminServers() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Servers</h1>
-          {access ? <RoleBadge access={access} /> : null}
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Servers"
+        aside={access ? <RoleBadge access={access} /> : null}
+      />
 
       <Tabs value={tab} onValueChange={setTab} className="gap-5">
         <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
@@ -345,37 +349,45 @@ function GlobalApiServersTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          className="sm:max-w-sm"
-          placeholder="Search GlobalAPI servers..."
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value)
-            setPageIndex(0)
-          }}
-        />
-        <Select
-          value={approvalFilter}
-          onValueChange={(value) => {
-            setApprovalFilter(value)
-            setPageIndex(0)
-          }}
-        >
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All approvals</SelectItem>
-            <SelectItem value="1">Approved</SelectItem>
-            <SelectItem value="0">Pending</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <DataTable
+      <AdminControlsCard>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <Input
+            className="sm:max-w-sm"
+            placeholder="Search GlobalAPI servers..."
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPageIndex(0)
+            }}
+          />
+          <Select
+            value={approvalFilter}
+            onValueChange={(value) => {
+              setApprovalFilter(value)
+              setPageIndex(0)
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All approvals</SelectItem>
+              <SelectItem value="1">Approved</SelectItem>
+              <SelectItem value="0">Pending</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </AdminControlsCard>
+      <AdminTableCard>
+        <DataTable
         columns={columns}
         data={query.data?.data ?? []}
         isLoading={query.isLoading}
+        stickyHeader
+        stickyHeaderTopClassName="top-16"
+        tableContainerClassName="md:overflow-visible"
+        tableClassName="border-separate border-spacing-0"
+        showFooter={false}
         emptyText="No GlobalAPI servers found."
         serverPagination={{
           pageIndex,
@@ -393,6 +405,21 @@ function GlobalApiServersTab({
           manualSorting: true,
         }}
       />
+        <TablePaginationFooter
+          totalLabel="Servers"
+          totalCount={query.data?.count ?? 0}
+          pageIndex={pageIndex}
+          pageCount={Math.max(1, Math.ceil((query.data?.count ?? 0) / pageSize))}
+          pageSize={pageSize}
+          onPageIndexChange={setPageIndex}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPageIndex(0)
+          }}
+          hasExactCount={!query.isLoading}
+          isTotalCountLoading={query.isLoading}
+        />
+      </AdminTableCard>
     </div>
   )
 }
@@ -583,7 +610,7 @@ function PublicServersTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <AdminControlsCard>
         <Select
           value={groupFilter}
           onValueChange={(value) => {
@@ -603,11 +630,17 @@ function PublicServersTab({
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <DataTable
+      </AdminControlsCard>
+      <AdminTableCard>
+        <DataTable
         columns={columns}
         data={query.data?.data ?? []}
         isLoading={query.isLoading}
+        stickyHeader
+        stickyHeaderTopClassName="top-16"
+        tableContainerClassName="md:overflow-visible"
+        tableClassName="border-separate border-spacing-0"
+        showFooter={false}
         emptyText="No public servers found."
         serverPagination={{
           pageIndex,
@@ -620,6 +653,21 @@ function PublicServersTab({
           },
         }}
       />
+        <TablePaginationFooter
+          totalLabel="Servers"
+          totalCount={query.data?.count ?? 0}
+          pageIndex={pageIndex}
+          pageCount={Math.max(1, Math.ceil((query.data?.count ?? 0) / pageSize))}
+          pageSize={pageSize}
+          onPageIndexChange={setPageIndex}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPageIndex(0)
+          }}
+          hasExactCount={!query.isLoading}
+          isTotalCountLoading={query.isLoading}
+        />
+      </AdminTableCard>
     </div>
   )
 }
@@ -776,17 +824,26 @@ function ServerGroupsTab({ groups }: { groups: AdminServerGroupPublic[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end gap-2">
-        <Button type="button" onClick={() => setCreating(true)}>
-          <Plus />
-          Create group
-        </Button>
-      </div>
-      <DataTable
+      <AdminControlsCard>
+        <div className="flex items-center justify-start gap-2">
+          <Button type="button" onClick={() => setCreating(true)}>
+            <Plus />
+            Create group
+          </Button>
+        </div>
+      </AdminControlsCard>
+      <AdminTableCard>
+        <DataTable
         columns={columns}
         data={groups}
+        stickyHeader
+        stickyHeaderTopClassName="top-16"
+        tableContainerClassName="md:overflow-visible"
+        tableClassName="border-separate border-spacing-0"
+        showFooter={false}
         emptyText="No server groups found."
-      />
+        />
+      </AdminTableCard>
       <ServerGroupDialog open={creating} onOpenChange={setCreating} />
       <ServerGroupDialog
         group={editingGroup}

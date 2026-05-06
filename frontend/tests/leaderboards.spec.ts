@@ -150,6 +150,13 @@ test.describe("Leaderboards page", () => {
       page.getByRole("button", { name: "Select record scope" }),
     ).toContainText("OVR")
     await expect(page.getByText("No results found.")).toBeVisible()
+    await expect(page.getByText("Rows per page")).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: "Go to first page" }),
+    ).toBeDisabled()
+    await expect(
+      page.getByRole("textbox", { name: "Current page, 1 total pages" }),
+    ).toHaveValue("1")
   })
 
   test("hydrates visible leaderboard players with one batched graphql request", async ({
@@ -733,6 +740,13 @@ test.describe("Leaderboards page", () => {
 
     await expect(page.getByText("kz_alpha")).toBeVisible()
     await expect(page.getByText("kz_beta")).toBeVisible()
+    await expect(page.getByText("Rows per page")).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: "Go to first page" }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("textbox", { name: "Current page, 1 total pages" }),
+    ).toHaveValue("1")
 
     await page.getByRole("button", { name: "Ratings" }).click()
     await expect(

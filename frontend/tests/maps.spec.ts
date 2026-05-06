@@ -237,9 +237,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     .toBeGreaterThan(0)
 
   await page.keyboard.press("KeyW")
-  await expect
-    .poll(async () => page.evaluate(() => window.scrollY))
-    .toBe(0)
+  await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0)
 
   await page.keyboard.press("KeyD")
   await expect(page.getByText("Page 2 of 2")).toBeVisible()
