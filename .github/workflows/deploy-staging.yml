@@ -13,6 +13,8 @@ jobs:
     env:
       ENVIRONMENT: staging
       DOMAIN: ${{ secrets.DOMAIN_STAGING }}
+      API_HOST_STAGING: ${{ secrets.API_HOST_STAGING }}
+      ADMINER_HOST_STAGING: ${{ secrets.ADMINER_HOST_STAGING }}
       STACK_NAME: ${{ secrets.STACK_NAME_STAGING }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
       SUPER_USER_STEAMID64: ${{ secrets.SUPER_USER_STEAMID64 }}
@@ -31,16 +33,18 @@ jobs:
         run: |
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
           VITE_APP_VERSION="$(bash scripts/get-app-version.sh)"
+          api_host="${API_HOST_STAGING:-api.${DOMAIN}}"
+          adminer_host="${ADMINER_HOST_STAGING:-adminer.${DOMAIN}}"
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
-          API_HOST=api.${DOMAIN}
+          API_HOST=${api_host}
           FRONTEND_HOSTNAME=${DOMAIN}
           FRONTEND_HOST=https://${DOMAIN}
-          ADMINER_HOST=adminer.${DOMAIN}
+          ADMINER_HOST=${adminer_host}
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
-          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://api.${DOMAIN}
+          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://${api_host}
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}
