@@ -33,10 +33,12 @@ jobs:
         run: |
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
           VITE_APP_VERSION="$(bash scripts/get-app-version.sh)"
+          frontend_host_rule="Host(\`${DOMAIN}\`)"
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
           API_HOST=api.${DOMAIN}
           FRONTEND_HOSTNAME=${DOMAIN}
+          FRONTEND_HOST_RULE=${frontend_host_rule}
           FRONTEND_HOST=https://${DOMAIN}
           ADMINER_HOST=adminer.${DOMAIN}
           ENVIRONMENT=${ENVIRONMENT}
