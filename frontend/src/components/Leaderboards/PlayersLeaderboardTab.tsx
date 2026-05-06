@@ -625,126 +625,12 @@ export function PlayersLeaderboardTab() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-4 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-3">
-                <span>
-                  Total{" "}
-                  <span className="font-medium text-foreground">
-                    {new Intl.NumberFormat("en-US").format(totalPlayers)}
-                  </span>{" "}
-                  Players
-                </span>
-                {!hasExactCount ? (
-                  <span className="inline-flex items-center gap-1 text-xs">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    loading total
-                  </span>
-                ) : null}
-                <div className="flex items-center gap-x-2">
-                  <span>Rows per page</span>
-                  <Select
-                    value={`${pageSize}`}
-                    onValueChange={(value) => {
-                      setPageSize(Number(value))
-                      setPageIndex(0)
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-[70px]">
-                      <SelectValue placeholder={pageSize} />
-                    </SelectTrigger>
-                    <SelectContent side="bottom">
-                      {LEADERBOARDS_PAGE_SIZE_OPTIONS.map((nextPageSize) => (
-                        <SelectItem
-                          key={nextPageSize}
-                          value={`${nextPageSize}`}
-                        >
-                          {nextPageSize}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div
-                ref={keyboardPaginationRef}
-                className="flex flex-wrap items-center gap-3 lg:justify-end"
-              >
-                <div className="flex items-center gap-x-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setPageIndex(0)}
-                    disabled={pageIndex === 0}
-                  >
-                    <span className="sr-only">Go to first page</span>
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() =>
-                      setPageIndex((current) => Math.max(0, current - 1))
-                    }
-                    disabled={pageIndex === 0}
-                  >
-                    <span className="sr-only">Go to previous page</span>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={pageCount}
-                    value={pageInputValue}
-                    onChange={(event) => {
-                      setPageInputValue(event.target.value)
-                    }}
-                    onBlur={commitPageInputValue}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault()
-                        commitPageInputValue()
-                      }
-                    }}
-                    className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    aria-label={`Current page, ${pageCount} total pages`}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() =>
-                      setPageIndex((current) =>
-                        Math.min(pageCount - 1, current + 1),
-                      )
-                    }
-                    disabled={!hasNextPage && pageIndex >= pageCount - 1}
-                  >
-                    <span className="sr-only">Go to next page</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setPageIndex(pageCount - 1)}
-                    disabled={!hasExactCount || pageIndex >= pageCount - 1}
-                  >
-                    <span className="sr-only">Go to last page</span>
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
 
       <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0">
+        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
           <DataTable
             columns={columns}
             data={tableData}
@@ -777,6 +663,117 @@ export function PlayersLeaderboardTab() {
               manualSorting: true,
             }}
           />
+          <div className="flex flex-col gap-4 border-t border-border/70 px-6 py-4 text-sm text-muted-foreground sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <span>
+                Total{" "}
+                <span className="font-medium text-foreground">
+                  {new Intl.NumberFormat("en-US").format(totalPlayers)}
+                </span>{" "}
+                Players
+              </span>
+              {!hasExactCount ? (
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  loading total
+                </span>
+              ) : null}
+              <div className="flex items-center gap-x-2">
+                <span>Rows per page</span>
+                <Select
+                  value={`${pageSize}`}
+                  onValueChange={(value) => {
+                    setPageSize(Number(value))
+                    setPageIndex(0)
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={pageSize} />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    {LEADERBOARDS_PAGE_SIZE_OPTIONS.map((nextPageSize) => (
+                      <SelectItem key={nextPageSize} value={`${nextPageSize}`}>
+                        {nextPageSize}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div
+              ref={keyboardPaginationRef}
+              className="flex flex-wrap items-center gap-3 lg:justify-end"
+            >
+              <div className="flex items-center gap-x-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setPageIndex(0)}
+                  disabled={pageIndex === 0}
+                >
+                  <span className="sr-only">Go to first page</span>
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() =>
+                    setPageIndex((current) => Math.max(0, current - 1))
+                  }
+                  disabled={pageIndex === 0}
+                >
+                  <span className="sr-only">Go to previous page</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={pageCount}
+                  value={pageInputValue}
+                  onChange={(event) => {
+                    setPageInputValue(event.target.value)
+                  }}
+                  onBlur={commitPageInputValue}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      commitPageInputValue()
+                    }
+                  }}
+                  className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  aria-label={`Current page, ${pageCount} total pages`}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() =>
+                    setPageIndex((current) =>
+                      Math.min(pageCount - 1, current + 1),
+                    )
+                  }
+                  disabled={!hasNextPage && pageIndex >= pageCount - 1}
+                >
+                  <span className="sr-only">Go to next page</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setPageIndex(pageCount - 1)}
+                  disabled={!hasExactCount || pageIndex >= pageCount - 1}
+                >
+                  <span className="sr-only">Go to last page</span>
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </>
