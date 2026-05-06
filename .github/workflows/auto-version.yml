@@ -183,9 +183,7 @@ jobs:
     needs:
       - version
       - deploy_staging
-    runs-on:
-      - self-hosted
-      - production
+    runs-on: self-hosted
     env:
       ENVIRONMENT: production
       DOMAIN: ${{ secrets.DOMAIN_PRODUCTION }}
