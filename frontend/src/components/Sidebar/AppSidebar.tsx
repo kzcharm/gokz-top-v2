@@ -28,7 +28,6 @@ import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const privateItems: Item[] = [
-  { type: "link", icon: ShieldAlert, title: "Bans", path: "/bans" },
   { type: "link", icon: Settings, title: "Settings", path: "/settings" },
 ]
 
@@ -45,6 +44,7 @@ export function AppSidebar() {
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: "Servers", path: "/servers" },
+    { type: "link", icon: ShieldAlert, title: "Bans", path: "/bans" },
     {
       type: "link",
       icon: UserCircle2,
