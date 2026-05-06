@@ -47,6 +47,10 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   isLoading?: boolean
   emptyText?: string
+  stickyHeader?: boolean
+  stickyHeaderTopClassName?: string
+  tableContainerClassName?: string
+  tableClassName?: string
   showFooter?: boolean
   footerSummary?: ReactNode
   pageInputEnabled?: boolean
@@ -74,6 +78,10 @@ export function DataTable<TData, TValue>({
   data,
   isLoading = false,
   emptyText = "No results found.",
+  stickyHeader = false,
+  stickyHeaderTopClassName = "top-0",
+  tableContainerClassName,
+  tableClassName,
   showFooter = true,
   footerSummary,
   pageInputEnabled = false,
@@ -171,13 +179,23 @@ export function DataTable<TData, TValue>({
 
   return (
     <div ref={keyboardPaginationRef} className="flex flex-col gap-4">
-      <Table>
+      <Table
+        containerClassName={tableContainerClassName}
+        className={tableClassName}
+      >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="hover:bg-transparent">
               {headerGroup.headers.map((header) => {
                 return (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    className={
+                      stickyHeader
+                        ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted/95 first:rounded-tl-[27px] last:rounded-tr-[27px] supports-[backdrop-filter]:bg-muted/75`
+                        : undefined
+                    }
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(

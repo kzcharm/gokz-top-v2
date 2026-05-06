@@ -4,15 +4,7 @@ import {
   type OnChangeFn,
   type SortingState,
 } from "@tanstack/react-table"
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Loader2,
-  LocateFixed,
-  Search,
-} from "lucide-react"
+import { LocateFixed, Search } from "lucide-react"
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -27,13 +19,12 @@ import {
   type PlayerDisplayPlayer,
 } from "@/components/Common/PlayerDisplay"
 import { RegionBadge } from "@/components/Common/RegionFlag"
-import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   columns,
   type LeaderboardTableRow,
 } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
@@ -42,7 +33,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
 import {
@@ -143,7 +133,6 @@ export function PlayersLeaderboardTab() {
   const spotlightStartTimeoutRef = useRef<number | null>(null)
   const searchBlurTimeoutRef = useRef<number | null>(null)
   const playerSearchQuery = deferredSearchInput.trim()
-  const [pageInputValue, setPageInputValue] = useState("1")
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
 
@@ -453,35 +442,8 @@ export function PlayersLeaderboardTab() {
     ? leaderboardCountQuery.data!.count
     : pageIndex * pageSize + tableData.length + (hasNextPage ? 1 : 0)
   const pageCount = Math.max(1, Math.ceil(totalPlayers / pageSize))
-  const keyboardPaginationRef = useKeyboardPagination({
-    enabled: pageCount > 1 || hasNextPage,
-    canPrevious: pageIndex > 0,
-    canNext: hasNextPage || pageIndex < pageCount - 1,
-    onPrevious: () => {
-      setPageIndex((current) => Math.max(0, current - 1))
-    },
-    onNext: () => {
-      setPageIndex((current) => Math.min(pageCount - 1, current + 1))
-    },
-  })
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
-
-  useEffect(() => {
-    setPageInputValue(`${Math.min(pageIndex + 1, pageCount)}`)
-  }, [pageCount, pageIndex])
-
-  const commitPageInputValue = () => {
-    const nextValue = Number(pageInputValue)
-    if (!Number.isFinite(nextValue)) {
-      setPageInputValue(`${pageIndex + 1}`)
-      return
-    }
-
-    const nextPage = Math.min(Math.max(Math.trunc(nextValue), 1), pageCount)
-    setPageInputValue(`${nextPage}`)
-    setPageIndex(nextPage - 1)
-  }
 
   return (
     <>
@@ -629,12 +591,16 @@ export function PlayersLeaderboardTab() {
         </CardContent>
       </Card>
 
-      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
           <DataTable
             columns={columns}
             data={tableData}
             isLoading={leaderboardQuery.isLoading}
+            stickyHeader
+            stickyHeaderTopClassName="top-16"
+            tableContainerClassName="md:overflow-visible"
+            tableClassName="border-separate border-spacing-0"
             showFooter={false}
             getRowProps={(row) => ({
               "data-player-steamid64": row.player.steamid64,
@@ -663,117 +629,20 @@ export function PlayersLeaderboardTab() {
               manualSorting: true,
             }}
           />
-          <div className="flex flex-col gap-4 border-t border-border/70 px-6 py-4 text-sm text-muted-foreground sm:px-8 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <span>
-                Total{" "}
-                <span className="font-medium text-foreground">
-                  {new Intl.NumberFormat("en-US").format(totalPlayers)}
-                </span>{" "}
-                Players
-              </span>
-              {!hasExactCount ? (
-                <span className="inline-flex items-center gap-1 text-xs">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  loading total
-                </span>
-              ) : null}
-              <div className="flex items-center gap-x-2">
-                <span>Rows per page</span>
-                <Select
-                  value={`${pageSize}`}
-                  onValueChange={(value) => {
-                    setPageSize(Number(value))
-                    setPageIndex(0)
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue placeholder={pageSize} />
-                  </SelectTrigger>
-                  <SelectContent side="top">
-                    {LEADERBOARDS_PAGE_SIZE_OPTIONS.map((nextPageSize) => (
-                      <SelectItem key={nextPageSize} value={`${nextPageSize}`}>
-                        {nextPageSize}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div
-              ref={keyboardPaginationRef}
-              className="flex flex-wrap items-center gap-3 lg:justify-end"
-            >
-              <div className="flex items-center gap-x-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setPageIndex(0)}
-                  disabled={pageIndex === 0}
-                >
-                  <span className="sr-only">Go to first page</span>
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() =>
-                    setPageIndex((current) => Math.max(0, current - 1))
-                  }
-                  disabled={pageIndex === 0}
-                >
-                  <span className="sr-only">Go to previous page</span>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={pageCount}
-                  value={pageInputValue}
-                  onChange={(event) => {
-                    setPageInputValue(event.target.value)
-                  }}
-                  onBlur={commitPageInputValue}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault()
-                      commitPageInputValue()
-                    }
-                  }}
-                  className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  aria-label={`Current page, ${pageCount} total pages`}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() =>
-                    setPageIndex((current) =>
-                      Math.min(pageCount - 1, current + 1),
-                    )
-                  }
-                  disabled={!hasNextPage && pageIndex >= pageCount - 1}
-                >
-                  <span className="sr-only">Go to next page</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setPageIndex(pageCount - 1)}
-                  disabled={!hasExactCount || pageIndex >= pageCount - 1}
-                >
-                  <span className="sr-only">Go to last page</span>
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          <TablePaginationFooter
+            totalLabel="Players"
+            totalCount={totalPlayers}
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            onPageIndexChange={setPageIndex}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setPageIndex(0)
+            }}
+            hasNextPage={hasNextPage}
+            hasExactCount={hasExactCount}
+          />
         </CardContent>
       </Card>
     </>

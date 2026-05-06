@@ -9,6 +9,7 @@ import { startTransition, useEffect, useMemo, useState } from "react"
 
 import { LeaderboardsService, type MapLeaderboardEntryPublic } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   TierSelector,
   type TierSelectorValue,
@@ -200,14 +201,14 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
     () => sortedRows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
     [pageIndex, pageSize, sortedRows],
   )
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
 
   useEffect(() => {
-    const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
     if (pageIndex <= pageCount - 1) {
       return
     }
     setPageIndex(pageCount - 1)
-  }, [filteredRows.length, pageIndex, pageSize])
+  }, [pageCount, pageIndex])
 
   const resetFilters = () => {
     startTransition(() => {
@@ -335,21 +336,13 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       ) : null}
 
       <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0">
+        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
           <DataTable
             columns={mapLeaderboardColumns}
             data={visibleRows}
             isLoading={mapsQuery.isLoading}
             emptyText="No maps matched the current filters."
-            footerSummary={
-              <>
-                Total{" "}
-                <span className="font-medium text-foreground">
-                  {new Intl.NumberFormat("en-US").format(filteredRows.length)}
-                </span>{" "}
-                maps
-              </>
-            }
+            showFooter={false}
             serverPagination={{
               pageIndex,
               pageSize,
@@ -364,6 +357,18 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
               state: sorting,
               onSortingChange,
               manualSorting: true,
+            }}
+          />
+          <TablePaginationFooter
+            totalLabel="Maps"
+            totalCount={filteredRows.length}
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            onPageIndexChange={setPageIndex}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize)
+              setPageIndex(0)
             }}
           />
         </CardContent>

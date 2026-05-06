@@ -8,9 +8,10 @@ import {
   getPlayerDisplayName,
   PlayerDisplay,
 } from "@/components/Common/PlayerDisplay"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
 import { cn } from "@/lib/utils"
@@ -116,6 +117,7 @@ export function BansPage() {
 
   const bans = bansQuery.data?.data ?? []
   const totalCount = bansQuery.data?.count ?? 0
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults =
     isSearchFocused && selectedPlayer === null && playerSearchQuery.length > 0
@@ -136,15 +138,13 @@ export function BansPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="gap-3">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl border border-red-300/60 bg-red-100/70 p-2 text-red-700 shadow-sm dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
-                <ShieldAlert className="size-5" />
-              </div>
-              <CardTitle className="text-xl">Bans</CardTitle>
-            </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Bans</h1>
+      </div>
+
+      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
             <div className="w-full lg:max-w-[18rem]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -237,14 +237,17 @@ export function BansPage() {
               </div>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </CardContent>
+      </Card>
+
+      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
           <DataTable
             columns={banColumns}
             data={bans}
             isLoading={bansQuery.isLoading}
             emptyText="No bans found."
-            pageInputEnabled
+            showFooter={false}
             getRowId={(row) => `${row.id}`}
             expandedRowId={expandedBanId}
             getRowProps={(row) => {
@@ -278,15 +281,18 @@ export function BansPage() {
                 setPageIndex(0)
               },
             }}
-            footerSummary={
-              <>
-                Total{" "}
-                <span className="font-medium text-foreground">
-                  {totalCount}
-                </span>{" "}
-                bans
-              </>
-            }
+          />
+          <TablePaginationFooter
+            totalLabel="Bans"
+            totalCount={totalCount}
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            onPageIndexChange={setPageIndex}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize)
+              setPageIndex(0)
+            }}
           />
         </CardContent>
       </Card>
