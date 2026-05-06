@@ -44,7 +44,6 @@ export function AppSidebar() {
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: "Servers", path: "/servers" },
-    { type: "link", icon: ShieldAlert, title: "Bans", path: "/bans" },
     {
       type: "link",
       icon: UserCircle2,
@@ -61,6 +60,7 @@ export function AppSidebar() {
     { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
     { type: "link", icon: MapIcon, title: "Maps", path: "/maps" },
     { type: "link", icon: Activity, title: "Live", path: "/live" },
+    { type: "link", icon: ShieldAlert, title: "Bans", path: "/bans" },
   ]
 
   const adminChildren = currentUserIsSuperuser
