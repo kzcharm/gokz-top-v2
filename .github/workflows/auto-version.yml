@@ -177,6 +177,13 @@ jobs:
           EOF
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d
+      - name: Verify staging frontend and API
+        run: |
+          set -euo pipefail
+
+          api_host="${API_HOST_STAGING:-api.${DOMAIN}}"
+          curl -fsS "https://${DOMAIN}" > /dev/null
+          curl -fsS "https://${api_host}/v1/utils/health-check/" > /dev/null
 
   deploy_production:
     if: github.repository_owner != 'fastapi' && needs.version.outputs.release_created == 'true'
@@ -237,3 +244,9 @@ jobs:
           EOF
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d
+      - name: Verify production frontend and API
+        run: |
+          set -euo pipefail
+
+          curl -fsS "https://${DOMAIN}" > /dev/null
+          curl -fsS "https://api.${DOMAIN}/v1/utils/health-check/" > /dev/null
