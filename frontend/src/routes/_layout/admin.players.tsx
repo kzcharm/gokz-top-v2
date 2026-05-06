@@ -8,9 +8,14 @@ import {
 import { useDeferredValue, useMemo, useState } from "react"
 
 import { type PlayerPublic, PlayersService, UsersService } from "@/client"
+import {
+  AdminControlsCard,
+  AdminPageHeader,
+  AdminTableCard,
+} from "@/components/Admin/AdminPageLayout"
 import { columns } from "@/components/AdminPlayers/columns"
 import { DataTable } from "@/components/Common/DataTable"
-import PendingUsers from "@/components/Pending/PendingUsers"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Input } from "@/components/ui/input"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
@@ -115,15 +120,8 @@ function AdminPlayers() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Players{" "}
-            <span className="text-base font-medium text-muted-foreground">
-              (Total {totalCount.toLocaleString()})
-            </span>
-          </h1>
-        </div>
+      <AdminPageHeader title="Players" />
+      <AdminControlsCard>
         <Input
           aria-label="Search players"
           className="w-full sm:w-80"
@@ -134,19 +132,22 @@ function AdminPlayers() {
             setPageIndex(0)
           }}
         />
-      </div>
-      {isTableLoading ? (
-        <PendingUsers />
-      ) : (
+      </AdminControlsCard>
+      <AdminTableCard>
         <DataTable
           columns={columns}
           data={visibleTableData}
+          isLoading={isTableLoading}
+          stickyHeader
+          stickyHeaderTopClassName="top-16"
+          tableContainerClassName="md:overflow-visible"
+          tableClassName="border-separate border-spacing-0"
+          showFooter={false}
           emptyText={
             isSearchMode
               ? "No players matched your search."
               : "No results found."
           }
-          footerSummary={<span />}
           serverPagination={{
             pageIndex,
             pageSize,
@@ -163,7 +164,21 @@ function AdminPlayers() {
             manualSorting: true,
           }}
         />
-      )}
+        <TablePaginationFooter
+          totalLabel="Players"
+          totalCount={totalCount}
+          pageIndex={pageIndex}
+          pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
+          pageSize={pageSize}
+          onPageIndexChange={setPageIndex}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPageIndex(0)
+          }}
+          hasExactCount={!isTableLoading}
+          isTotalCountLoading={isTableLoading}
+        />
+      </AdminTableCard>
     </div>
   )
 }

@@ -17,12 +17,17 @@ import {
   PlayersService,
   UsersService,
 } from "@/client"
+import {
+  AdminControlsCard,
+  AdminPageHeader,
+  AdminTableCard,
+} from "@/components/Admin/AdminPageLayout"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
-import PendingUsers from "@/components/Pending/PendingUsers"
 import { formatTimerTime } from "@/components/Servers/utils"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -226,14 +231,9 @@ function AdminPlayerSessions() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Player Sessions{" "}
-          <span className="text-base font-medium text-muted-foreground">
-            (Total {totalCount.toLocaleString()})
-          </span>
-        </h1>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <AdminPageHeader title="Player Sessions" />
+      <AdminControlsCard>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <FindAltsDialog />
           <div className="flex items-center gap-3">
             <Switch
@@ -253,16 +253,18 @@ function AdminPlayerSessions() {
             </label>
           </div>
         </div>
-      </div>
-
-      {query.isLoading ? (
-        <PendingUsers />
-      ) : (
+      </AdminControlsCard>
+      <AdminTableCard>
         <DataTable
           columns={columns}
           data={query.data?.data ?? []}
+          isLoading={query.isLoading}
+          stickyHeader
+          stickyHeaderTopClassName="top-16"
+          tableContainerClassName="md:overflow-visible"
+          tableClassName="border-separate border-spacing-0"
+          showFooter={false}
           emptyText="No player sessions found."
-          footerSummary={<span />}
           serverPagination={{
             pageIndex,
             pageSize,
@@ -279,7 +281,21 @@ function AdminPlayerSessions() {
             manualSorting: true,
           }}
         />
-      )}
+        <TablePaginationFooter
+          totalLabel="Sessions"
+          totalCount={totalCount}
+          pageIndex={pageIndex}
+          pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
+          pageSize={pageSize}
+          onPageIndexChange={setPageIndex}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPageIndex(0)
+          }}
+          hasExactCount={!query.isLoading}
+          isTotalCountLoading={query.isLoading}
+        />
+      </AdminTableCard>
     </div>
   )
 }
