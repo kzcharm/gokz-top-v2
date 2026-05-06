@@ -700,7 +700,7 @@ export function ProfileSidebar({
 
   return (
     <>
-      <div className="grid min-w-0 auto-rows-fr items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1">
+      <div className="grid min-w-0 items-stretch gap-6 md:auto-rows-fr md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 xl:auto-rows-auto">
         <ProfileIdentityCard
           displayName={player.alias || player.name}
           profileSummary={summary}
