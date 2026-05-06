@@ -21,6 +21,7 @@ import {
   Fragment,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
 } from "react"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
@@ -93,6 +94,9 @@ export function DataTable<TData, TValue>({
   serverPagination,
   sorting,
 }: DataTableProps<TData, TValue>) {
+  const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  const stickyHeaderCellRef = useRef<HTMLTableCellElement | null>(null)
+  const [isStickyHeaderPinned, setIsStickyHeaderPinned] = useState(false)
   const paginationState = serverPagination
     ? {
         pageIndex: serverPagination.pageIndex,
@@ -161,6 +165,46 @@ export function DataTable<TData, TValue>({
     setPageInputValue(`${pageIndex + 1}`)
   }, [pageIndex])
 
+  useEffect(() => {
+    if (!stickyHeader) {
+      setIsStickyHeaderPinned(false)
+      return
+    }
+
+    const updateStickyHeaderPinnedState = () => {
+      const container = tableContainerRef.current
+      const stickyHeaderCell = stickyHeaderCellRef.current
+
+      if (!container || !stickyHeaderCell) {
+        setIsStickyHeaderPinned(false)
+        return
+      }
+
+      const stickyTop = Number.parseFloat(
+        window.getComputedStyle(stickyHeaderCell).top,
+      )
+      const containerRect = container.getBoundingClientRect()
+      const stickyHeaderHeight = stickyHeaderCell.getBoundingClientRect().height
+
+      setIsStickyHeaderPinned(
+        Number.isFinite(stickyTop) &&
+          containerRect.top <= stickyTop &&
+          containerRect.bottom > stickyTop + stickyHeaderHeight,
+      )
+    }
+
+    updateStickyHeaderPinnedState()
+    window.addEventListener("scroll", updateStickyHeaderPinnedState, {
+      passive: true,
+    })
+    window.addEventListener("resize", updateStickyHeaderPinnedState)
+
+    return () => {
+      window.removeEventListener("scroll", updateStickyHeaderPinnedState)
+      window.removeEventListener("resize", updateStickyHeaderPinnedState)
+    }
+  }, [data.length, stickyHeader, stickyHeaderTopClassName])
+
   const commitPageInputValue = () => {
     if (!pageInputEnabled) {
       return
@@ -180,6 +224,7 @@ export function DataTable<TData, TValue>({
   return (
     <div ref={keyboardPaginationRef} className="flex flex-col gap-4">
       <Table
+        ref={tableContainerRef}
         containerClassName={tableContainerClassName}
         className={tableClassName}
       >
@@ -190,9 +235,14 @@ export function DataTable<TData, TValue>({
                 return (
                   <TableHead
                     key={header.id}
+                    ref={header.id === headerGroup.headers[0]?.id ? stickyHeaderCellRef : undefined}
                     className={
                       stickyHeader
-                        ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted first:rounded-tl-[27px] last:rounded-tr-[27px]`
+                        ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted ${
+                            isStickyHeaderPinned
+                              ? "first:rounded-tl-none last:rounded-tr-none"
+                              : "first:rounded-tl-[27px] last:rounded-tr-[27px]"
+                          }`
                         : undefined
                     }
                   >
