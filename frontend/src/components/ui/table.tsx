@@ -7,26 +7,46 @@ type TableProps = React.ComponentProps<"table"> & {
   containerClassName?: string
 }
 
-function Table({ className, containerClassName, ...props }: TableProps) {
-  const containerRef = useHorizontalDragScroll<HTMLDivElement>()
+const Table = React.forwardRef<HTMLDivElement, TableProps>(
+  ({ className, containerClassName, ...props }, forwardedRef) => {
+    const containerRef = useHorizontalDragScroll<HTMLDivElement>()
 
-  return (
-    <div
-      ref={containerRef}
-      data-slot="table-container"
-      className={cn(
-        "relative w-full overflow-x-auto rounded-lg border",
-        containerClassName,
-      )}
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
-    </div>
-  )
-}
+    const setRefs = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        containerRef.current = node
+
+        if (typeof forwardedRef === "function") {
+          forwardedRef(node)
+          return
+        }
+
+        if (forwardedRef) {
+          forwardedRef.current = node
+        }
+      },
+      [containerRef, forwardedRef],
+    )
+
+    return (
+      <div
+        ref={setRefs}
+        data-slot="table-container"
+        className={cn(
+          "relative w-full overflow-x-auto rounded-lg border",
+          containerClassName,
+        )}
+      >
+        <table
+          data-slot="table"
+          className={cn("w-full caption-bottom text-sm", className)}
+          {...props}
+        />
+      </div>
+    )
+  },
+)
+
+Table.displayName = "Table"
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
