@@ -181,8 +181,14 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS "https://${DOMAIN}" > /dev/null
-          docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
-            curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null
+          for _ in $(seq 1 20); do
+            if docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
+              curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
 
   deploy_production:
     if: github.repository_owner != 'fastapi' && needs.version.outputs.release_created == 'true'
@@ -248,5 +254,11 @@ jobs:
           set -euo pipefail
 
           curl -fsS "https://${DOMAIN}" > /dev/null
-          docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
-            curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null
+          for _ in $(seq 1 20); do
+            if docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
+              curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
