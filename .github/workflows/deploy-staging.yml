@@ -35,7 +35,7 @@ jobs:
           VITE_APP_VERSION="$(bash scripts/get-app-version.sh)"
           api_host="${API_HOST_STAGING:-api.${DOMAIN}}"
           adminer_host="${ADMINER_HOST_STAGING:-adminer.${DOMAIN}}"
-          frontend_host_rule="Host(\`${DOMAIN}\`) || Host(\`staging.kzcharm.com\`)"
+          frontend_host_rule="Host(\`${DOMAIN}\`)"
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
           API_HOST=${api_host}
@@ -46,7 +46,7 @@ jobs:
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
-          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://staging.kzcharm.com,https://${api_host}
+          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://${api_host}
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}
