@@ -332,7 +332,7 @@ async def test_player_twitch_social_link_verify_start_returns_authorization_url(
     state = decode_twitch_verification_state_token(params["state"][0])
     assert state.steamid64 == steamid64
     assert state.link_id == link["id"]
-    assert state.return_path == "/settings"
+    assert state.return_path == "/settings?tab=social-links"
 
 
 async def test_player_twitch_social_link_verify_start_rejects_invalid_cases(
@@ -395,6 +395,87 @@ async def test_player_twitch_social_link_verify_start_rejects_invalid_cases(
     assert verified.status_code == 409
 
 
+async def test_player_twitch_social_link_add_start_returns_authorization_url(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Twitch Add")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    monkeypatch.setattr(settings, "TWITCH_CLIENT_ID", "test-client")
+    monkeypatch.setattr(settings, "TWITCH_CLIENT_SECRET", "test-secret")
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/add/twitch/start",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    parsed = urlparse(payload["authorization_url"])
+    params = parse_qs(parsed.query)
+    state = decode_twitch_verification_state_token(params["state"][0])
+    assert state.mode == "add"
+    assert state.link_id is None
+
+
+async def test_player_twitch_social_link_add_callback_creates_verified_link(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Add Callback User")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    state = create_twitch_verification_state_token(
+        steamid64=steamid64,
+        return_path="/settings?tab=social-links",
+        mode="add",
+    )
+
+    async def _fake_token(**_: object) -> str:
+        return "user-token"
+
+    monkeypatch.setattr(players_routes, "exchange_twitch_code_for_access_token", _fake_token)
+
+    async def _fake_user(**_: object) -> TwitchAuthenticatedUser:
+        return TwitchAuthenticatedUser(
+            account_identifier="newstreamer",
+            display_name="NewStreamer",
+        )
+
+    monkeypatch.setattr(players_routes, "fetch_twitch_authenticated_user", _fake_user)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/social-links/verify/twitch/callback",
+        params={"state": state, "code": "oauth-code"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code in {302, 307}
+    assert response.headers["location"] == (
+        f"{settings.FRONTEND_HOST.rstrip('/')}/settings"
+        "?tab=social-links&twitchVerification=success"
+    )
+    links_response = await client.get(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        headers=headers,
+    )
+    payload = links_response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["platform"] == "twitch"
+    assert payload["data"][0]["verified"] is True
+
+
 async def test_player_twitch_social_link_callback_verifies_matching_account(
     client: AsyncClient,
     db: AsyncSession,
@@ -416,7 +497,8 @@ async def test_player_twitch_social_link_callback_verifies_matching_account(
     state = create_twitch_verification_state_token(
         steamid64=steamid64,
         link_id=str(link["id"]),
-        return_path="/settings",
+        return_path="/settings?tab=social-links",
+        mode="verify",
     )
     async def _fake_token(**_: object) -> str:
         return "user-token"
@@ -469,7 +551,8 @@ async def test_player_twitch_social_link_callback_redirects_mismatch_without_mut
     state = create_twitch_verification_state_token(
         steamid64=steamid64,
         link_id=str(link["id"]),
-        return_path="/settings",
+        return_path="/settings?tab=social-links",
+        mode="verify",
     )
     async def _fake_token(**_: object) -> str:
         return "user-token"
@@ -527,7 +610,7 @@ async def test_player_twitch_social_link_confirm_replaces_identifier_and_verifie
         link_id=str(link["id"]),
         current_account_identifier="oldname",
         authenticated_account_identifier="newname",
-        return_path="/settings",
+        return_path="/settings?tab=social-links",
     )
 
     response = await client.post(
@@ -585,7 +668,7 @@ async def test_player_twitch_social_link_confirm_rejects_invalid_token_and_confl
         link_id=str(first_link["id"]),
         current_account_identifier="original",
         authenticated_account_identifier="newname",
-        return_path="/settings",
+        return_path="/settings?tab=social-links",
     )
     wrong_owner = await client.post(
         f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/twitch/confirm",
@@ -599,7 +682,7 @@ async def test_player_twitch_social_link_confirm_rejects_invalid_token_and_confl
         link_id=str(first_link["id"]),
         current_account_identifier="original",
         authenticated_account_identifier="takenname",
-        return_path="/settings",
+        return_path="/settings?tab=social-links",
     )
     conflict = await client.post(
         f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/twitch/confirm",

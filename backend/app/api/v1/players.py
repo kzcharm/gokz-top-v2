@@ -18,6 +18,7 @@ from app.api.deps import (
 from app.core.config import settings
 from app.crud import player as player_crud
 from app.models import (
+    LiveStreamState,
     ModeScope,
     Player,
     PlayerBanStatusCheckPublic,
@@ -33,6 +34,7 @@ from app.models import (
     PlayerSettingsPublic,
     PlayerSettingsUpdate,
     PlayersListQuery,
+    PlayerSocialLink,
     PlayerSocialLinkCreate,
     PlayerSocialLinksPublic,
     PlayerSocialLinkUpdate,
@@ -42,6 +44,10 @@ from app.models import (
     PlayerStatsPublic,
     PlayerStatType,
     PlayerUpdate,
+    PlayerWebhookCreate,
+    PlayerWebhookPublic,
+    PlayerWebhooksPublic,
+    PlayerWebhookUpdate,
     RecordType,
     User,
 )
@@ -49,9 +55,15 @@ from app.services.globalapi_ban_sync import (
     GlobalApiBanSyncError,
     sync_player_bans_from_globalapi,
 )
+from app.services.player_social_links import build_player_social_link_url
 from app.services.player_steam_profile import (
     is_player_steam_profile_sync_due,
     sync_player_steam_profile_if_due,
+)
+from app.services.player_webhooks import (
+    DiscordWebhookStreamEvent,
+    build_discord_embed_payload,
+    send_discord_webhook,
 )
 from app.services.twitch_social_link_verification import (
     build_twitch_authorization_url,
@@ -131,6 +143,27 @@ def _ensure_current_user_can_check_own_ban_status(
         )
 
 
+async def _get_current_user_player_or_404(
+    *, session: SessionDep, current_user: CurrentUser
+) -> Player:
+    player = await crud.get_player_by_steamid64(
+        session=session,
+        steamid64=current_user.steamid64,
+    )
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return player
+
+
+async def _get_current_user_webhook_or_404(
+    *, session: SessionDep, current_user: CurrentUser, webhook_id: uuid.UUID
+):
+    webhook = await crud.get_player_webhook(session=session, id=webhook_id)
+    if webhook is None or webhook.user_steamid64 != current_user.steamid64:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return webhook
+
+
 def _external_base_url(request: Request) -> str:
     forwarded_proto = request.headers.get("x-forwarded-proto")
     forwarded_host = request.headers.get("x-forwarded-host")
@@ -143,7 +176,88 @@ def _external_base_url(request: Request) -> str:
 
 
 def _settings_return_path() -> str:
-    return "/settings"
+    return "/settings?tab=social-links"
+
+
+async def _build_test_webhook_event(
+    *,
+    session: SessionDep,
+    player: Player,
+) -> DiscordWebhookStreamEvent:
+    links = await crud.list_player_social_links(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    live_links = [
+        link
+        for link in links
+        if link.verified
+        and link.platform in {PlayerSocialPlatform.BILIBILI, PlayerSocialPlatform.TWITCH}
+    ]
+
+    candidates: list[tuple[PlayerSocialLink, LiveStreamState | None]] = []
+    for link in live_links:
+        candidates.append(
+            (link, await crud.get_live_stream_state(session=session, social_link_id=link.id))
+        )
+
+    if candidates:
+        best_link, best_state = max(
+            candidates,
+            key=lambda item: (
+                item[1].last_live_seen_at if item[1] else datetime(1970, 1, 1, tzinfo=UTC),
+                item[1].last_live_started_at
+                if item[1]
+                else datetime(1970, 1, 1, tzinfo=UTC),
+            ),
+        )
+        preview_image_url = None
+        if best_state is not None:
+            preview_image_url = (
+                best_state.last_keyframe_image_url or best_state.last_preview_image_url
+            )
+        return DiscordWebhookStreamEvent(
+            player_display_name=player.alias or player.name,
+            player_avatar_hash=player.avatar_hash,
+            platform=best_link.platform,
+            stream_url=(
+                best_state.last_stream_url
+                if best_state and best_state.last_stream_url
+                else build_player_social_link_url(
+                    platform=best_link.platform,
+                    account_identifier=best_link.account_identifier,
+                )
+            ),
+            stream_title=(
+                best_state.last_stream_title
+                if best_state and best_state.last_stream_title
+                else "Webhook test notification"
+            ),
+            stream_preview_image_url=preview_image_url,
+            channel_display_name=(
+                best_state.last_channel_display_name
+                if best_state and best_state.last_channel_display_name
+                else best_link.account_identifier
+            ),
+            viewer_count=best_state.last_viewer_count if best_state else None,
+            started_at=(
+                best_state.last_live_started_at
+                if best_state and best_state.last_live_started_at
+                else datetime.now(UTC)
+            ),
+        )
+
+    return DiscordWebhookStreamEvent(
+        player_display_name=player.alias or player.name,
+        player_avatar_hash=player.avatar_hash,
+        platform=PlayerSocialPlatform.TWITCH,
+        stream_url="https://www.twitch.tv/directory/category/kz-climb",
+        stream_title="Webhook test notification",
+        stream_preview_image_url=None,
+        channel_display_name=None,
+        viewer_count=None,
+        started_at=datetime.now(UTC),
+    )
 
 
 def _twitch_callback_url(_request: Request) -> str:
@@ -152,6 +266,10 @@ def _twitch_callback_url(_request: Request) -> str:
         f"{settings.API_V1_STR}"
         f"{router.prefix}/social-links/verify/twitch/callback"
     )
+
+
+def _twitch_return_path() -> str:
+    return "/settings?tab=social-links"
 
 
 def _ensure_link_is_twitch_and_unverified(*, link: Any) -> None:
@@ -444,7 +562,50 @@ async def start_player_twitch_social_link_verification(
     state = create_twitch_verification_state_token(
         steamid64=player.steamid64,
         link_id=str(link.id),
-        return_path=_settings_return_path(),
+        return_path=_twitch_return_path(),
+        mode="verify",
+    )
+    authorization_url = build_twitch_authorization_url(
+        redirect_uri=_twitch_callback_url(request),
+        state=state,
+    )
+    return {"authorization_url": authorization_url}
+
+
+@router.post(
+    "/{identifier:path}/social-links/add/twitch/start",
+)
+async def start_player_twitch_social_link_add(
+    identifier: str,
+    request: Request,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> dict[str, str]:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_social_link(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+
+    existing_links = await crud.list_player_social_links(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    if any(link.platform == PlayerSocialPlatform.TWITCH for link in existing_links):
+        raise HTTPException(
+            status_code=409,
+            detail="A Twitch social link already exists for this player",
+        )
+
+    try:
+        ensure_twitch_verification_configured()
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    state = create_twitch_verification_state_token(
+        steamid64=player.steamid64,
+        return_path=_twitch_return_path(),
+        mode="add",
     )
     authorization_url = build_twitch_authorization_url(
         redirect_uri=_twitch_callback_url(request),
@@ -508,8 +669,39 @@ async def complete_player_twitch_social_link_verification(
             )
         )
 
+    if decoded_state.mode == "add":
+        try:
+            await crud.create_player_social_link(
+                session=session,
+                player_steamid64=decoded_state.steamid64,
+                url=f"https://www.twitch.tv/{twitch_user.account_identifier}",
+                verified=True,
+            )
+        except crud.PlayerSocialLinkConflictError as exc:
+            return RedirectResponse(
+                url=build_twitch_verification_error_return_url(
+                    frontend_host=frontend_host,
+                    return_path=decoded_state.return_path,
+                    message=str(exc),
+                )
+            )
+        except ValueError as exc:
+            return RedirectResponse(
+                url=build_twitch_verification_error_return_url(
+                    frontend_host=frontend_host,
+                    return_path=decoded_state.return_path,
+                    message=str(exc),
+                )
+            )
+        return RedirectResponse(
+            url=build_twitch_verification_success_return_url(
+                frontend_host=frontend_host,
+                return_path=decoded_state.return_path,
+            )
+        )
+
     try:
-        link_id = uuid.UUID(decoded_state.link_id)
+        link_id = uuid.UUID(decoded_state.link_id or "")
     except ValueError:
         return RedirectResponse(
             url=build_twitch_verification_error_return_url(
@@ -901,6 +1093,134 @@ async def read_current_player_settings(
     if player is None:
         raise HTTPException(status_code=404, detail="Player not found")
     return await crud.get_player_settings(session=session, player=player)
+
+
+@router.get("/me/webhooks", response_model=PlayerWebhooksPublic)
+async def read_current_player_webhooks(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerWebhooksPublic:
+    webhooks = await crud.list_player_webhooks(
+        session=session,
+        user_steamid64=current_user.steamid64,
+    )
+    return PlayerWebhooksPublic(
+        data=crud.to_player_webhook_publics(webhooks=webhooks),
+        count=len(webhooks),
+    )
+
+
+@router.post("/me/webhooks", response_model=PlayerWebhooksPublic)
+async def create_current_player_webhook(
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: PlayerWebhookCreate,
+) -> PlayerWebhooksPublic:
+    try:
+        await crud.create_player_webhook(
+            session=session,
+            user_steamid64=current_user.steamid64,
+            url=body.url,
+        )
+    except crud.PlayerWebhookConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    webhooks = await crud.list_player_webhooks(
+        session=session,
+        user_steamid64=current_user.steamid64,
+    )
+    return PlayerWebhooksPublic(
+        data=crud.to_player_webhook_publics(webhooks=webhooks),
+        count=len(webhooks),
+    )
+
+
+@router.patch("/me/webhooks/{webhook_id}", response_model=PlayerWebhooksPublic)
+async def update_current_player_webhook(
+    webhook_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: PlayerWebhookUpdate,
+) -> PlayerWebhooksPublic:
+    webhook = await _get_current_user_webhook_or_404(
+        session=session,
+        current_user=current_user,
+        webhook_id=webhook_id,
+    )
+    try:
+        await crud.update_player_webhook(
+            session=session,
+            webhook=webhook,
+            url=body.url,
+            enabled=body.enabled,
+        )
+    except crud.PlayerWebhookConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    webhooks = await crud.list_player_webhooks(
+        session=session,
+        user_steamid64=current_user.steamid64,
+    )
+    return PlayerWebhooksPublic(
+        data=crud.to_player_webhook_publics(webhooks=webhooks),
+        count=len(webhooks),
+    )
+
+
+@router.delete("/me/webhooks/{webhook_id}", response_model=PlayerWebhooksPublic)
+async def delete_current_player_webhook(
+    webhook_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerWebhooksPublic:
+    webhook = await _get_current_user_webhook_or_404(
+        session=session,
+        current_user=current_user,
+        webhook_id=webhook_id,
+    )
+    await crud.delete_player_webhook(session=session, webhook=webhook)
+    webhooks = await crud.list_player_webhooks(
+        session=session,
+        user_steamid64=current_user.steamid64,
+    )
+    return PlayerWebhooksPublic(
+        data=crud.to_player_webhook_publics(webhooks=webhooks),
+        count=len(webhooks),
+    )
+
+
+@router.post("/me/webhooks/{webhook_id}/test", response_model=PlayerWebhookPublic)
+async def test_current_player_webhook(
+    webhook_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerWebhookPublic:
+    webhook = await _get_current_user_webhook_or_404(
+        session=session,
+        current_user=current_user,
+        webhook_id=webhook_id,
+    )
+    player = await _get_current_user_player_or_404(
+        session=session,
+        current_user=current_user,
+    )
+    event = await _build_test_webhook_event(session=session, player=player)
+    payload = build_discord_embed_payload(event=event, is_test=True)
+    try:
+        await send_discord_webhook(webhook_url=webhook.url, payload=payload)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to send webhook: {exc}") from exc
+
+    tested = await crud.mark_player_webhook_tested(
+        session=session,
+        webhook=webhook,
+        tested_at=datetime.now(UTC),
+    )
+    return crud.to_player_webhook_public(webhook=tested)
 
 
 @router.patch("/me/settings", response_model=PlayerSettingsPublic)

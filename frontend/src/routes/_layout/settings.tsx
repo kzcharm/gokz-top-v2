@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import AppearanceSettings from "@/components/UserSettings/AppearanceSettings"
 import SocialLinksSettings from "@/components/UserSettings/SocialLinksSettings"
 import UserInformation from "@/components/UserSettings/UserInformation"
+import WebhooksSettings from "@/components/UserSettings/WebhooksSettings"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
@@ -15,6 +16,7 @@ const tabsConfig = [
     title: "Social links",
     component: SocialLinksSettings,
   },
+  { value: "webhooks", title: "Webhooks", component: WebhooksSettings },
   { value: "appearance", title: "Appearance", component: AppearanceSettings },
 ]
 

@@ -603,6 +603,32 @@ export type PlayerUpdate = {
     country?: (string | null);
 };
 
+export type PlayerWebhookCreate = {
+    url: string;
+};
+
+export type PlayerWebhookProvider = 'discord';
+
+export type PlayerWebhookPublic = {
+    id: string;
+    provider: PlayerWebhookProvider;
+    url: string;
+    enabled: boolean;
+    last_tested_at?: (string | null);
+    created_at: string;
+    updated_at: string;
+};
+
+export type PlayerWebhooksPublic = {
+    data: Array<PlayerWebhookPublic>;
+    count: number;
+};
+
+export type PlayerWebhookUpdate = {
+    url?: (string | null);
+    enabled?: (boolean | null);
+};
+
 export type RecentRecordMapPublic = {
     id: number;
     name: string;
@@ -1334,6 +1360,14 @@ export type PlayersStartPlayerTwitchSocialLinkVerificationResponse = ({
     [key: string]: (string);
 });
 
+export type PlayersStartPlayerTwitchSocialLinkAddData = {
+    identifier: string;
+};
+
+export type PlayersStartPlayerTwitchSocialLinkAddResponse = ({
+    [key: string]: (string);
+});
+
 export type PlayersCompletePlayerTwitchSocialLinkVerificationData = {
     code?: (string | null);
     error?: (string | null);
@@ -1398,6 +1432,33 @@ export type PlayersUpdateCurrentPlayerSettingsData = {
 };
 
 export type PlayersUpdateCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
+
+export type PlayersReadCurrentPlayerWebhooksResponse = (PlayerWebhooksPublic);
+
+export type PlayersCreateCurrentPlayerWebhookData = {
+    requestBody: PlayerWebhookCreate;
+};
+
+export type PlayersCreateCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
+
+export type PlayersUpdateCurrentPlayerWebhookData = {
+    requestBody: PlayerWebhookUpdate;
+    webhookId: string;
+};
+
+export type PlayersUpdateCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
+
+export type PlayersDeleteCurrentPlayerWebhookData = {
+    webhookId: string;
+};
+
+export type PlayersDeleteCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
+
+export type PlayersTestCurrentPlayerWebhookData = {
+    webhookId: string;
+};
+
+export type PlayersTestCurrentPlayerWebhookResponse = (PlayerWebhookPublic);
 
 export type PlayersReadPlayerData = {
     identifier: string;

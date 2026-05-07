@@ -2853,6 +2853,124 @@ export const PlayerUpdateSchema = {
     title: 'PlayerUpdate'
 } as const;
 
+export const PlayerWebhookCreateSchema = {
+    properties: {
+        url: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Url'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['url'],
+    title: 'PlayerWebhookCreate'
+} as const;
+
+export const PlayerWebhookProviderSchema = {
+    type: 'string',
+    enum: ['discord'],
+    title: 'PlayerWebhookProvider'
+} as const;
+
+export const PlayerWebhookPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        provider: {
+            '$ref': '#/components/schemas/PlayerWebhookProvider'
+        },
+        url: {
+            type: 'string',
+            title: 'Url'
+        },
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled'
+        },
+        last_tested_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Tested At'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'provider', 'url', 'enabled', 'created_at', 'updated_at'],
+    title: 'PlayerWebhookPublic'
+} as const;
+
+export const PlayerWebhookUpdateSchema = {
+    properties: {
+        url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Url'
+        },
+        enabled: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Enabled'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'PlayerWebhookUpdate'
+} as const;
+
+export const PlayerWebhooksPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerWebhookPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerWebhooksPublic'
+} as const;
+
 export const PlayersBatchPublicSchema = {
     properties: {
         data: {
