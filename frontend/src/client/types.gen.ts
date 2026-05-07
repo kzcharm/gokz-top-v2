@@ -205,6 +205,7 @@ export type LiveStreamCardPublic = {
     stream_url: string;
     last_viewer_count?: (number | null);
     preview_image_url?: (string | null);
+    hover_preview_image_url?: (string | null);
     stream_title?: (string | null);
     started_at?: (string | null);
     last_streamed_at?: (string | null);

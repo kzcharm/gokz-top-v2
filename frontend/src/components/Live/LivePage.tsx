@@ -63,6 +63,9 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
   const { formatDateTime } = useDateTimeFormat()
   const platformLabel = getSocialPlatformLabel(stream.selected_platform)
   const previewImageUrl = resolvePreviewImageUrl(stream.preview_image_url)
+  const hoverPreviewImageUrl = resolvePreviewImageUrl(
+    stream.hover_preview_image_url,
+  )
   const timingLabel = stream.is_live
     ? stream.started_at
       ? `Started ${formatDateTime(stream.started_at, {
@@ -88,7 +91,18 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
             <img
               src={previewImageUrl}
               alt={`${stream.player.alias || stream.player.name} stream preview`}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              className={cn(
+                "h-full w-full object-cover transition-all duration-300 group-hover:scale-[1.03]",
+                hoverPreviewImageUrl ? "group-hover:opacity-0" : "",
+              )}
+              loading="lazy"
+            />
+          ) : null}
+          {hoverPreviewImageUrl ? (
+            <img
+              src={hoverPreviewImageUrl}
+              alt={`${stream.player.alias || stream.player.name} live keyframe preview`}
+              className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-300 group-hover:scale-[1.03] group-hover:opacity-100"
               loading="lazy"
             />
           ) : null}
