@@ -5,7 +5,13 @@ import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.models import LiveStreamState, Player, PlayerSocialLink, PlayerSocialPlatform
+from app.models import (
+    LiveStreamState,
+    Player,
+    PlayerSocialLink,
+    PlayerSocialPlatform,
+    PlayerWebhook,
+)
 from app.services import live_streams
 from app.services.live_streams import (
     BilibiliLiveStatus,
@@ -225,6 +231,25 @@ async def _create_live_stream_state(
     await db.commit()
     await db.refresh(state)
     return state
+
+
+async def _create_player_webhook(
+    db: AsyncSession,
+    *,
+    user_steamid64: int,
+    url: str,
+    enabled: bool = True,
+) -> PlayerWebhook:
+    await crud.get_or_create_user_from_steam(session=db, steamid64=user_steamid64)
+    webhook = PlayerWebhook(
+        user_steamid64=user_steamid64,
+        url=url,
+        enabled=enabled,
+    )
+    db.add(webhook)
+    await db.commit()
+    await db.refresh(webhook)
+    return webhook
 
 
 async def test_refresh_live_streams_uses_only_verified_live_links(
@@ -578,6 +603,237 @@ async def test_refresh_live_streams_isolates_twitch_failures_from_bilibili(
     assert twitch_state.is_live is True
     assert twitch_state.last_checked_at == previous_checked_at
     assert twitch_state.last_stream_url == "https://www.twitch.tv/streamer"
+
+
+async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Webhook Streamer",
+        alias="Webhook Alias",
+    )
+    player.avatar_hash = "a" * 40
+    db.add(player)
+    await db.commit()
+    await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    await _create_player_webhook(
+        db,
+        user_steamid64=player.steamid64,
+        url=(
+            "https://discord.com/api/webhooks/523456789012345678/"
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ),
+    )
+
+    async def _fake_check_bilibili_live_status(
+        _uids: list[int],
+    ) -> dict[int, BilibiliLiveStatus]:
+        return {}
+
+    async def _fake_check_twitch_live_status(
+        account_identifiers: list[str],
+    ) -> dict[str, TwitchLiveStatus]:
+        assert account_identifiers == ["streamer"]
+        return {
+            "streamer": TwitchLiveStatus(
+                is_live=True,
+                stream_title="Twitch on air",
+                viewer_count=321,
+                preview_image_url=(
+                    "https://static-cdn.jtvnw.net/previews-ttv/"
+                    "live_user_streamer-640x360.jpg"
+                ),
+                hover_preview_image_url=None,
+                stream_url="https://www.twitch.tv/streamer",
+                channel_display_name="StreamerTV",
+                started_at=datetime(2026, 5, 7, 8, 30, tzinfo=UTC),
+            )
+        }
+
+    sent_payloads: list[dict[str, object]] = []
+
+    async def _fake_send_discord_webhook(
+        *, webhook_url: str, payload: dict[str, object]
+    ) -> None:
+        assert webhook_url.startswith("https://discord.com/api/webhooks/")
+        sent_payloads.append(payload)
+
+    monkeypatch.setattr(live_streams, "check_bilibili_live_status", _fake_check_bilibili_live_status)
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setattr(live_streams, "check_twitch_live_status", _fake_check_twitch_live_status)
+    monkeypatch.setattr(live_streams, "send_discord_webhook", _fake_send_discord_webhook)
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 1
+    assert len(sent_payloads) == 1
+    embed = sent_payloads[0]["embeds"][0]
+    assert embed["title"] == "Stream started: Webhook Alias on Twitch"
+    assert embed["author"]["icon_url"] == f"https://avatars.steamstatic.com/{'a' * 40}_full.jpg"
+    assert embed["image"]["url"] == (
+        "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
+    )
+
+
+async def test_refresh_live_streams_does_not_resend_webhook_while_already_live(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Already Live")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    checked_at = datetime(2026, 5, 6, 20, 0, tzinfo=UTC)
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=True,
+        last_checked_at=checked_at,
+        last_live_seen_at=checked_at,
+        last_live_started_at=checked_at,
+        last_stream_url="https://www.twitch.tv/streamer",
+    )
+    await _create_player_webhook(
+        db,
+        user_steamid64=player.steamid64,
+        url=(
+            "https://discord.com/api/webhooks/623456789012345678/"
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        ),
+    )
+
+    async def _fake_check_twitch_live_status(
+        account_identifiers: list[str],
+    ) -> dict[str, TwitchLiveStatus]:
+        assert account_identifiers == ["streamer"]
+        return {
+            "streamer": TwitchLiveStatus(
+                is_live=True,
+                stream_title="Still live",
+                viewer_count=321,
+                preview_image_url=(
+                    "https://static-cdn.jtvnw.net/previews-ttv/"
+                    "live_user_streamer-640x360.jpg"
+                ),
+                hover_preview_image_url=None,
+                stream_url="https://www.twitch.tv/streamer",
+                channel_display_name="StreamerTV",
+                started_at=checked_at,
+            )
+        }
+
+    sent_count = 0
+
+    async def _fake_send_discord_webhook(
+        *, webhook_url: str, payload: dict[str, object]
+    ) -> None:
+        del webhook_url, payload
+        nonlocal sent_count
+        sent_count += 1
+
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setattr(live_streams, "check_twitch_live_status", _fake_check_twitch_live_status)
+    monkeypatch.setattr(live_streams, "send_discord_webhook", _fake_send_discord_webhook)
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 1
+    assert sent_count == 0
+
+
+async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_webhooks(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Fanout")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="123456",
+        verified=True,
+    )
+    await _create_player_webhook(
+        db,
+        user_steamid64=player.steamid64,
+        url=(
+            "https://discord.com/api/webhooks/723456789012345678/"
+            "1111111111111111111111111111111111111111111111111111111111111111"
+        ),
+        enabled=True,
+    )
+    await _create_player_webhook(
+        db,
+        user_steamid64=player.steamid64,
+        url=(
+            "https://discord.com/api/webhooks/823456789012345678/"
+            "2222222222222222222222222222222222222222222222222222222222222222"
+        ),
+        enabled=True,
+    )
+    await _create_player_webhook(
+        db,
+        user_steamid64=player.steamid64,
+        url=(
+            "https://discord.com/api/webhooks/923456789012345678/"
+            "3333333333333333333333333333333333333333333333333333333333333333"
+        ),
+        enabled=False,
+    )
+
+    async def _fake_check_bilibili_live_status(
+        uids: list[int],
+    ) -> dict[int, BilibiliLiveStatus]:
+        assert uids == [123456]
+        return {
+            123456: BilibiliLiveStatus(
+                is_live=True,
+                stream_title="On air",
+                viewer_count=88,
+                preview_image_url="https://i0.hdslb.com/bfs/live/test-cover.jpg",
+                hover_preview_image_url="https://i0.hdslb.com/bfs/live-key-frame/test.jpg",
+                stream_url="https://live.bilibili.com/42",
+                channel_display_name="Streamer CN",
+                started_at=datetime(2026, 5, 7, 12, 0, tzinfo=UTC),
+            )
+        }
+
+    attempted_urls: list[str] = []
+
+    async def _fake_send_discord_webhook(
+        *, webhook_url: str, payload: dict[str, object]
+    ) -> None:
+        del payload
+        attempted_urls.append(webhook_url)
+        if webhook_url.endswith("1111111111111111111111111111111111111111111111111111111111111111"):
+            raise live_streams.httpx.ConnectError("network down")
+
+    monkeypatch.setattr(live_streams, "check_bilibili_live_status", _fake_check_bilibili_live_status)
+    monkeypatch.setattr(live_streams, "send_discord_webhook", _fake_send_discord_webhook)
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 1
+    assert len(attempted_urls) == 2
+    state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
+    assert state is not None
+    assert state.is_live is True
+    assert state.last_stream_url == "https://live.bilibili.com/42"
 
 
 async def test_read_live_stream_cards_prefers_most_recent_platform_for_offline_player(

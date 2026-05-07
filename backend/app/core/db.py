@@ -4,7 +4,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.models import Player, User, UserRole
+from app.models import Player, PlayerWebhook, User, UserRole
+
+LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL = (
+    "https://discord.com/api/webhooks/"
+    "1501972929104056350/"
+    "4HkAfMWGNJ6mz6vQ_NNDo7uEe7niiuddM-q8HPW6qZ5yxXc5gpRy69XTpdnBTF2UMiJ6"
+)
 
 database_uri = str(settings.SQLALCHEMY_DATABASE_URI)
 
@@ -45,6 +51,7 @@ def init_db(session: Session) -> None:
 
     statement = select(User).where(User.steamid64 == settings.SUPER_USER_STEAMID64)
     if session.exec(statement).first():
+        _ensure_local_superuser_test_webhook_sync(session=session)
         return
 
     session.add(
@@ -52,6 +59,27 @@ def init_db(session: Session) -> None:
             steamid64=settings.SUPER_USER_STEAMID64,
             is_active=True,
             roles=[UserRole.SUPERUSER],
+        )
+    )
+    session.commit()
+    _ensure_local_superuser_test_webhook_sync(session=session)
+
+
+def _ensure_local_superuser_test_webhook_sync(*, session: Session) -> None:
+    if settings.ENVIRONMENT != "local":
+        return
+
+    statement = select(PlayerWebhook).where(
+        PlayerWebhook.user_steamid64 == settings.SUPER_USER_STEAMID64,
+        PlayerWebhook.url == LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
+    )
+    if session.exec(statement).first() is not None:
+        return
+
+    session.add(
+        PlayerWebhook(
+            user_steamid64=settings.SUPER_USER_STEAMID64,
+            url=LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
         )
     )
     session.commit()
@@ -63,3 +91,26 @@ async def init_db_async(session: AsyncSession) -> None:
         session=session,
         steamid64=settings.SUPER_USER_STEAMID64,
     )
+    await _ensure_local_superuser_test_webhook_async(session=session)
+
+
+async def _ensure_local_superuser_test_webhook_async(
+    *, session: AsyncSession
+) -> None:
+    if settings.ENVIRONMENT != "local":
+        return
+
+    statement = select(PlayerWebhook).where(
+        PlayerWebhook.user_steamid64 == settings.SUPER_USER_STEAMID64,
+        PlayerWebhook.url == LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
+    )
+    if (await session.exec(statement)).first() is not None:
+        return
+
+    session.add(
+        PlayerWebhook(
+            user_steamid64=settings.SUPER_USER_STEAMID64,
+            url=LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
+        )
+    )
+    await session.commit()
