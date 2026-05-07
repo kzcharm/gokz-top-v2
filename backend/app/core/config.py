@@ -97,6 +97,8 @@ class Settings(BaseSettings):
     PLAYER_SESSION_TIMEOUT_SECONDS: int = 60
     PLAYER_SESSION_TIMEOUT_POLL_SECONDS: int = 15
     LIVE_STREAM_POLL_SECONDS: int = 60
+    TWITCH_CLIENT_ID: str | None = None
+    TWITCH_CLIENT_SECRET: str | None = None
     LOG_LEVEL: str = "INFO"
     GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")
     SUPER_USER_STEAMID64: int

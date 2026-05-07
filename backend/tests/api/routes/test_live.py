@@ -30,11 +30,12 @@ async def _create_social_link(
     *,
     player_steamid64: int,
     account_identifier: str,
+    platform: PlayerSocialPlatform = PlayerSocialPlatform.BILIBILI,
     verified: bool = True,
 ) -> PlayerSocialLink:
     link = PlayerSocialLink(
         player_steamid64=player_steamid64,
-        platform=PlayerSocialPlatform.BILIBILI,
+        platform=platform,
         account_identifier=account_identifier,
         verified=verified,
     )
@@ -53,6 +54,7 @@ async def _create_state(
     last_live_seen_at,
     stream_url: str,
     preview_url: str | None = None,
+    hover_preview_url: str | None = None,
     viewer_count: int | None = None,
 ) -> LiveStreamState:
     state = LiveStreamState(
@@ -64,9 +66,7 @@ async def _create_state(
         last_stream_url=stream_url,
         last_stream_title="Session title",
         last_preview_image_url=preview_url,
-        last_keyframe_image_url="https://i0.hdslb.com/bfs/live-key-frame/live-frame.jpg"
-        if is_live
-        else None,
+        last_keyframe_image_url=hover_preview_url,
         last_viewer_count=viewer_count,
         updated_at=last_checked_at,
     )
@@ -110,6 +110,7 @@ async def test_read_live_streams_filters_online_and_offline(
         last_live_seen_at=now,
         stream_url="https://live.bilibili.com/42",
         preview_url="https://i0.hdslb.com/bfs/live/live-cover.jpg",
+        hover_preview_url="https://i0.hdslb.com/bfs/live-key-frame/live-frame.jpg",
         viewer_count=145612,
     )
     await _create_state(
@@ -171,6 +172,105 @@ async def test_read_live_streams_excludes_unobserved_links(
 
     assert response.status_code == 200
     assert response.json() == {"data": [], "count": 0}
+
+
+async def test_read_live_streams_serializes_twitch_cards_and_recency(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    now = get_datetime_utc()
+    live_player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Twitch Player",
+    )
+    mixed_player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Mixed Player",
+    )
+    twitch_live_link = await _create_social_link(
+        db,
+        player_steamid64=live_player.steamid64,
+        account_identifier="twitch-player",
+        platform=PlayerSocialPlatform.TWITCH,
+    )
+    mixed_twitch_link = await _create_social_link(
+        db,
+        player_steamid64=mixed_player.steamid64,
+        account_identifier="mixed-twitch",
+        platform=PlayerSocialPlatform.TWITCH,
+    )
+    mixed_bilibili_link = await _create_social_link(
+        db,
+        player_steamid64=mixed_player.steamid64,
+        account_identifier="654321",
+        platform=PlayerSocialPlatform.BILIBILI,
+    )
+    await _create_state(
+        db,
+        link_id=twitch_live_link.id,
+        is_live=True,
+        last_checked_at=now,
+        last_live_seen_at=now,
+        stream_url="https://www.twitch.tv/twitch-player",
+        preview_url=(
+            "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg"
+        ),
+        viewer_count=9123,
+    )
+    await _create_state(
+        db,
+        link_id=mixed_twitch_link.id,
+        is_live=False,
+        last_checked_at=now,
+        last_live_seen_at=now - timedelta(days=1),
+        stream_url="https://www.twitch.tv/mixed-twitch",
+        preview_url=(
+            "https://static-cdn.jtvnw.net/previews-ttv/live_user_mixed-twitch-640x360.jpg"
+        ),
+        viewer_count=1200,
+    )
+    await _create_state(
+        db,
+        link_id=mixed_bilibili_link.id,
+        is_live=False,
+        last_checked_at=now,
+        last_live_seen_at=now - timedelta(days=3),
+        stream_url="https://live.bilibili.com/84",
+        preview_url="https://i0.hdslb.com/bfs/live/mixed-cover.jpg",
+    )
+
+    live_response = await client.get("/v1/live/streams", params={"online": True})
+
+    assert live_response.status_code == 200
+    live_payload = live_response.json()
+    assert live_payload["count"] == 1
+    assert live_payload["data"][0]["selected_platform"] == "twitch"
+    assert (
+        live_payload["data"][0]["preview_image_url"]
+        == "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg"
+    )
+    assert live_payload["data"][0]["hover_preview_image_url"] is None
+
+    offline_response = await client.get(
+        "/v1/live/streams",
+        params={"online": False},
+    )
+
+    assert offline_response.status_code == 200
+    offline_payload = offline_response.json()
+    assert offline_payload["count"] == 1
+    assert offline_payload["data"][0]["player"]["steamid64"] == str(
+        mixed_player.steamid64
+    )
+    assert offline_payload["data"][0]["selected_platform"] == "twitch"
+    assert offline_payload["data"][0]["stream_url"] == "https://www.twitch.tv/mixed-twitch"
+    assert (
+        offline_payload["data"][0]["preview_image_url"]
+        == "https://static-cdn.jtvnw.net/previews-ttv/live_user_mixed-twitch-640x360.jpg"
+    )
+    assert offline_payload["data"][0]["hover_preview_image_url"] is None
 
 
 async def test_proxy_live_preview_image_returns_bytes(
