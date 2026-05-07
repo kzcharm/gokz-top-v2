@@ -38,7 +38,9 @@ test.describe("Map admin access", () => {
       exact: true,
     })
     const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
-    await adminButton.click()
+    if ((await adminButton.getAttribute("aria-expanded")) !== "true") {
+      await adminButton.click()
+    }
 
     await expect(
       adminSubmenu.getByRole("link", { name: "Maps", exact: true }),
@@ -136,7 +138,9 @@ test.describe("Server owner access", () => {
       exact: true,
     })
     const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
-    await adminButton.click()
+    if ((await adminButton.getAttribute("aria-expanded")) !== "true") {
+      await adminButton.click()
+    }
 
     await expect(
       adminSubmenu.getByRole("link", { name: "Servers", exact: true }),
@@ -352,7 +356,7 @@ test.describe("Admin social links", () => {
     await editDialog.getByRole("switch", { name: "Verified" }).click()
     await editDialog.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("social-admin-updated")).toBeVisible()
-    await expect(page.getByText("No")).toBeVisible()
+    await expect(page.getByText("No", { exact: true })).toBeVisible()
 
     await page.getByRole("button", { name: "Delete social link" }).click()
     await expect(page.getByText("No social links found.")).toBeVisible()
@@ -502,7 +506,7 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
     page.getByRole("combobox", {
       name: `Tier for record filter ${recordFilterId}`,
     }),
-  ).toContainText("Tier 6")
+  ).toContainText("T6")
 })
 
 test("Superuser can edit a user and assign multiple roles", async ({
