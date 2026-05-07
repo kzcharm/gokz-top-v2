@@ -736,7 +736,12 @@ ${mapNamesMarkup}
             {title}
           </p>
         </div>
-        <div ref={chartRef} className="h-72 w-full" aria-label={title} />
+        <div
+          ref={chartRef}
+          className="h-72 w-full"
+          role="img"
+          aria-label={title}
+        />
       </CardContent>
     </Card>
   )

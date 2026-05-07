@@ -43,6 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ENABLE_TEST_AUTH_HELPERS: "true"
+      FRONTEND_HOST_RULE: 'Host(`localhost`)'
       POSTGRES_DB: app_test
     strategy:
       matrix:

@@ -13,6 +13,8 @@ jobs:
 
   test-docker-compose:
     runs-on: ubuntu-latest
+    env:
+      FRONTEND_HOST_RULE: 'Host(`localhost`)'
     steps:
       - name: Checkout
         uses: actions/checkout@v6

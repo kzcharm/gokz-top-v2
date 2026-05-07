@@ -490,6 +490,7 @@ async def test_sync_player_bans_from_globalapi_pages_by_player_and_upserts_updat
     await _clear_ban_sync_state(db)
     steamid64 = 76561198000001010
     db.add(Player(steamid64=steamid64, name="Paged Player"))
+    await db.flush()
     db.add(
         Ban(
             id=1_010,
@@ -577,6 +578,7 @@ async def test_sync_player_bans_from_globalapi_clears_active_ban_without_duplica
     await _clear_ban_sync_state(db)
     steamid64 = 76561198000001011
     db.add(Player(steamid64=steamid64, name="Cleared Player"))
+    await db.flush()
     db.add(
         Ban(
             id=1_020,

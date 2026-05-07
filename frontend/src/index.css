@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
 @font-face {
   font-family: "Lora";
   font-style: normal;
@@ -101,9 +104,6 @@
   font-display: swap;
   src: url("/fonts/RobotoMono-700.ttf") format("truetype");
 }
-
-@import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
