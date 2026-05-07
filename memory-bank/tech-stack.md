@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-05-05
+- Last Updated: 2026-05-07
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -11,6 +11,7 @@
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
+  - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying
   - `/v1/admin/servers` for RBAC-protected server and server-group management
   - `/v1/admin/player-social-links` for superuser management of player social links and verification state
   - `/v1/maps/reviews` now supports website-authored review upserts plus authenticated comment-only deletion across a player's review rows for a map
@@ -28,6 +29,7 @@
   - Player self-service profile edits are tracked in `player_profile_field_change`, keyed by `(player_steamid64, field)`, with 30-day cooldown rows for `alias` and `custom_id` plus a `country` row that disables automatic country refreshes after a manual country change
   - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_profile_field_change(country)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
+  - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned
@@ -45,6 +47,7 @@
   - Continuous GlobalAPI sync remains responsible for ingesting mirrored upstream records and other mirrored entities
   - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, rebuilds touched maps leaderboard rows selected from `Record.updated_at`, and refreshes touched player Steam profiles
   - An advisory-locked in-app player-session timeout runner closes open sessions after the configured heartbeat timeout by setting `disconnect_at` to the last heartbeat timestamp
+  - An advisory-locked in-app live-stream runner polls verified Bilibili social links on a fixed interval and updates `live_stream_state` without clearing live rows on transport failures
   - The midnight rank pipeline preserves `record_pb.updated_on` during point recalculation so same-day retries keep the same selection window
 
 ## Backend Runtime and Libraries

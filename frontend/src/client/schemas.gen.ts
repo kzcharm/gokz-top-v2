@@ -922,6 +922,173 @@ export const KZModeSchema = {
     title: 'KZMode'
 } as const;
 
+export const LiveStreamCardPublicSchema = {
+    properties: {
+        player: {
+            '$ref': '#/components/schemas/LiveStreamPlayerPublic'
+        },
+        selected_platform: {
+            '$ref': '#/components/schemas/PlayerSocialPlatform'
+        },
+        selected_platform_account_identifier: {
+            type: 'string',
+            title: 'Selected Platform Account Identifier'
+        },
+        is_live: {
+            type: 'boolean',
+            title: 'Is Live'
+        },
+        stream_url: {
+            type: 'string',
+            title: 'Stream Url'
+        },
+        last_viewer_count: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Viewer Count'
+        },
+        preview_image_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Preview Image Url'
+        },
+        stream_title: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stream Title'
+        },
+        started_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Started At'
+        },
+        last_streamed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Streamed At'
+        }
+    },
+    type: 'object',
+    required: ['player', 'selected_platform', 'selected_platform_account_identifier', 'is_live', 'stream_url'],
+    title: 'LiveStreamCardPublic'
+} as const;
+
+export const LiveStreamPlayerPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        alias: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alias'
+        },
+        avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Avatar Hash'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        is_website_user: {
+            type: 'boolean',
+            title: 'Is Website User',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'name'],
+    title: 'LiveStreamPlayerPublic'
+} as const;
+
+export const LiveStreamsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/LiveStreamCardPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'LiveStreamsPublic'
+} as const;
+
 export const MapLeaderboardEntryPublicSchema = {
     properties: {
         map: {
