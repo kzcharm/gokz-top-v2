@@ -35,6 +35,8 @@ type ActivePagination = {
   snapshot: KeyboardPaginationSnapshot
 }
 
+type PaginationDirection = "previous" | "next"
+
 const SCROLL_STEP_RATIO = 0.8
 const SCROLL_ANIMATION_DURATION_MS = 220
 
@@ -70,39 +72,88 @@ function isVisibleElement(element: HTMLElement) {
   )
 }
 
+function getVisibleViewportArea(element: HTMLElement) {
+  const rect = element.getBoundingClientRect()
+  const visibleWidth =
+    Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0)
+  const visibleHeight =
+    Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0)
+
+  if (visibleWidth <= 0 || visibleHeight <= 0) {
+    return 0
+  }
+
+  return visibleWidth * visibleHeight
+}
+
+function canHandleDirection(
+  snapshot: KeyboardPaginationSnapshot,
+  direction: PaginationDirection,
+) {
+  return direction === "previous" ? snapshot.canPrevious : snapshot.canNext
+}
+
 function findActivePagination(
   registrations: RegisteredPagination[],
+  direction: PaginationDirection,
 ): ActivePagination | null {
-  const visibleRegistrations = registrations.filter((registration) => {
-    return (
-      registration.element.isConnected &&
-      registration.getSnapshot().enabled &&
-      isVisibleElement(registration.element)
-    )
-  })
+  const enabledRegistrations = registrations
+    .filter((registration) => {
+      return registration.element.isConnected && registration.getSnapshot().enabled
+    })
+    .map((registration) => ({
+      registration,
+      snapshot: registration.getSnapshot(),
+    }))
+    .filter(({ snapshot }) => canHandleDirection(snapshot, direction))
 
-  if (visibleRegistrations.length === 0) {
+  if (enabledRegistrations.length === 0) {
     return null
   }
 
   const activeElement = document.activeElement
   const focusedRegistration =
     activeElement instanceof Element
-      ? visibleRegistrations.find((registration) =>
+      ? enabledRegistrations.find(({ registration }) =>
           registration.element.contains(activeElement),
         )
       : undefined
 
-  const hoveredRegistration =
-    focusedRegistration ??
-    visibleRegistrations.find((registration) =>
-      registration.element.matches(":hover"),
-    )
+  if (focusedRegistration) {
+    return focusedRegistration
+  }
 
-  const registration =
-    hoveredRegistration ??
-    [...visibleRegistrations].sort((left, right) => {
-      const position = left.element.compareDocumentPosition(right.element)
+  if (enabledRegistrations.length === 1) {
+    return enabledRegistrations[0]
+  }
+
+  const visibleRegistrations = enabledRegistrations.filter(({ registration }) =>
+    isVisibleElement(registration.element),
+  )
+  const hoveredRegistration = visibleRegistrations.find(({ registration }) =>
+    registration.element.matches(":hover"),
+  )
+
+  if (hoveredRegistration) {
+    return hoveredRegistration
+  }
+
+  if (visibleRegistrations.length === 1) {
+    return visibleRegistrations[0]
+  }
+
+  const registration = [...visibleRegistrations].sort((left, right) => {
+      const visibleAreaDifference =
+        getVisibleViewportArea(right.registration.element) -
+        getVisibleViewportArea(left.registration.element)
+
+      if (visibleAreaDifference !== 0) {
+        return visibleAreaDifference
+      }
+
+      const position = left.registration.element.compareDocumentPosition(
+        right.registration.element,
+      )
 
       if (position & Node.DOCUMENT_POSITION_PRECEDING) {
         return 1
@@ -111,17 +162,14 @@ function findActivePagination(
         return -1
       }
 
-      return left.id - right.id
+      return left.registration.id - right.registration.id
     })[0]
 
   if (!registration) {
-    return null
+    return enabledRegistrations[enabledRegistrations.length - 1] ?? null
   }
 
-  return {
-    registration,
-    snapshot: registration.getSnapshot(),
-  }
+  return registration
 }
 
 export function WASDNavigationProvider({ children }: { children: ReactNode }) {
@@ -247,18 +295,29 @@ export function WASDNavigationProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const activePagination = findActivePagination(registrationsRef.current)
-      if (!activePagination) {
-        return
-      }
+      if (key === "a") {
+        const activePagination = findActivePagination(
+          registrationsRef.current,
+          "previous",
+        )
+        if (!activePagination) {
+          return
+        }
 
-      if (key === "a" && activePagination.snapshot.canPrevious) {
         event.preventDefault()
         activePagination.snapshot.onPrevious()
         return
       }
 
-      if (key === "d" && activePagination.snapshot.canNext) {
+      const activePagination = findActivePagination(
+        registrationsRef.current,
+        "next",
+      )
+      if (!activePagination) {
+        return
+      }
+
+      if (key === "d") {
         event.preventDefault()
         activePagination.snapshot.onNext()
       }
