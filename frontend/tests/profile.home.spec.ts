@@ -477,9 +477,18 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText(/^Jan$/)).toBeVisible()
   await expect(page.getByText(/^Mar$/)).toBeVisible()
   await expect(page.getByText("10.5 hrs")).toBeVisible()
-  await expect(page.getByTestId("profile-activity-year-2026")).toBeVisible()
-  await expect(page.getByTestId("profile-activity-year-2025")).toBeVisible()
-  await expect(page.getByTestId("profile-activity-year-2026")).toHaveClass(
+  await expect(
+    page.getByText("Latest", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByTestId("profile-activity-view-last-365-days"),
+  ).toBeVisible()
+  await expect(page.getByTestId("profile-activity-view-2026")).toBeVisible()
+  await expect(page.getByTestId("profile-activity-view-2025")).toBeVisible()
+  await expect(
+    page.getByTestId("profile-activity-view-last-365-days"),
+  ).toHaveClass(/bg-card/)
+  await expect(page.getByTestId("profile-activity-view-2026")).not.toHaveClass(
     /bg-card/,
   )
   await expect(
@@ -491,8 +500,11 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(
     page.getByTestId("profile-activity-cell-2026-01-01"),
   ).toHaveAttribute("data-activity-level", "1")
+  await expect(
+    page.getByTestId("profile-activity-cell-2025-12-31"),
+  ).toHaveAttribute("data-activity-level", "2")
 
-  await page.getByTestId("profile-activity-year-2025").click()
+  await page.getByTestId("profile-activity-view-2025").click()
   await expect(
     page.getByTestId("profile-activity-cell-2025-12-31"),
   ).toHaveAttribute("data-activity-level", "2")
@@ -549,7 +561,6 @@ test("Profile card renders unverified social link icons", async ({ page }) => {
 test("Profile home activity card shows empty-year message for players without activity", async ({
   page,
 }) => {
-  const currentYear = String(new Date().getUTCFullYear())
   await installProfileHomeRoutes(page, {
     stats: {
       steamid64,
@@ -567,13 +578,13 @@ test("Profile home activity card shows empty-year message for players without ac
   await page.goto(`/profile/${steamid64}`)
 
   await expect(
-    page.getByTestId(`profile-activity-year-${currentYear}`),
+    page.getByTestId("profile-activity-view-last-365-days"),
   ).toBeVisible()
   await expect(
-    page.getByText(`No record submissions found for ${currentYear}.`),
+    page.getByText("No record submissions found in the latest 365 days."),
   ).toBeVisible()
   await expect(
-    page.getByTestId(`profile-activity-cell-${currentYear}-empty-0-0`),
+    page.getByTestId(/profile-activity-cell-.*-empty-0-0/),
   ).toHaveAttribute("data-activity-level", "0")
 })
 
