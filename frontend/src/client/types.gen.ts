@@ -197,6 +197,34 @@ export type HTTPValidationError = {
 
 export type KZMode = 'KZT' | 'SKZ' | 'VNL' | 'NKZ';
 
+export type LiveStreamCardPublic = {
+    player: LiveStreamPlayerPublic;
+    selected_platform: PlayerSocialPlatform;
+    selected_platform_account_identifier: string;
+    is_live: boolean;
+    stream_url: string;
+    last_viewer_count?: (number | null);
+    preview_image_url?: (string | null);
+    stream_title?: (string | null);
+    started_at?: (string | null);
+    last_streamed_at?: (string | null);
+};
+
+export type LiveStreamPlayerPublic = {
+    steamid64: string;
+    name: string;
+    alias?: (string | null);
+    avatar_hash?: (string | null);
+    country?: (string | null);
+    custom_id?: (string | null);
+    is_website_user?: boolean;
+};
+
+export type LiveStreamsPublic = {
+    data: Array<LiveStreamCardPublic>;
+    count: number;
+};
+
 export type MapLeaderboardEntryPublic = {
     map: MapRefPublic;
     tier?: (number | null);
@@ -1109,6 +1137,18 @@ export type LeaderboardsUpsertMapLeaderboardsData = {
 };
 
 export type LeaderboardsUpsertMapLeaderboardsResponse = (Message);
+
+export type LiveReadLiveStreamsData = {
+    online?: (boolean | null);
+};
+
+export type LiveReadLiveStreamsResponse = (LiveStreamsPublic);
+
+export type LiveProxyLivePreviewImageData = {
+    url: string;
+};
+
+export type LiveProxyLivePreviewImageResponse = (unknown);
 
 export type LoginLoginSteamResponse = (unknown);
 

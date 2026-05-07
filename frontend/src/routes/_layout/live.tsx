@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { FeaturePlaceholder } from "@/components/Common/FeaturePlaceholder"
+import { LivePage } from "@/components/Live/LivePage"
 import { getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/_layout/live")({
@@ -15,13 +15,5 @@ export const Route = createFileRoute("/_layout/live")({
 })
 
 function LiveRoute() {
-  return (
-    <FeaturePlaceholder
-      section="Live"
-      title="Live"
-      description="The live page is not implemented yet. This placeholder route is here so the sidebar can expose the planned live stream and activity area."
-      backTo="/maps"
-      backLabel="Go to maps"
-    />
-  )
+  return <LivePage />
 }
