@@ -17,6 +17,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useTheme } from "@/components/theme-provider"
 import { useHorizontalDragScroll } from "@/hooks/useHorizontalDragScroll"
 import { useMediaQuery } from "@/hooks/useMobile"
@@ -43,6 +48,7 @@ const TROPHY_ASSETS = {
   bronze: "https://kzgo.eu/trophy_bronze.png",
 } as const
 const PROFILE_COMPLETION_TWO_COLUMN_MIN_WIDTH = 960
+const ROLLING_ACTIVITY_WINDOW_ID = "last-365-days"
 const CONTRIBUTION_DAY_LABELS = [
   "Sun",
   "Mon",
@@ -199,6 +205,13 @@ function getCurrentUtcYear() {
   return String(new Date().getUTCFullYear())
 }
 
+function getCurrentUtcDate() {
+  const now = new Date()
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  )
+}
+
 function getActivityLevel(count: number) {
   if (count <= 0) {
     return 0
@@ -221,34 +234,39 @@ function getActivityLevel(count: number) {
 
 function buildActivityCalendar({
   days,
-  year,
+  start,
+  end,
 }: {
   days: Array<{ date: string; count: number }>
-  year: string
+  start: Date
+  end: Date
 }) {
-  const selectedYear = Number(year)
-  const yearStart = new Date(Date.UTC(selectedYear, 0, 1))
-  const yearEnd = new Date(Date.UTC(selectedYear, 11, 31))
+  const startDate = new Date(start)
+  const endDate = new Date(end)
   const countsByDate = new Map(
     days
-      .filter((day) => day.date.startsWith(`${year}-`))
+      .filter((day) => {
+        const date = new Date(`${day.date}T00:00:00Z`)
+        return date >= startDate && date <= endDate
+      })
       .map((day) => [day.date, day.count]),
   )
   const weeks: ActivityCell[][] = []
   let currentWeek: ActivityCell[] = []
-  const current = new Date(yearStart)
+  const current = new Date(startDate)
   const startDayOfWeek = current.getUTCDay()
+  const rangeKey = `${startDate.toISOString().slice(0, 10)}-${endDate.toISOString().slice(0, 10)}`
 
   for (let dayIndex = 0; dayIndex < startDayOfWeek; dayIndex += 1) {
     currentWeek.push({
-      date: `${year}-empty-0-${dayIndex}`,
+      date: `${rangeKey}-empty-0-${dayIndex}`,
       count: 0,
       isEmpty: true,
       level: 0,
     })
   }
 
-  while (current <= yearEnd) {
+  while (current <= endDate) {
     const date = current.toISOString().slice(0, 10)
     const count = countsByDate.get(date) ?? 0
 
@@ -270,7 +288,7 @@ function buildActivityCalendar({
   if (currentWeek.length > 0) {
     while (currentWeek.length < 7) {
       currentWeek.push({
-        date: `${year}-empty-${weeks.length}-${currentWeek.length}`,
+        date: `${rangeKey}-empty-${weeks.length}-${currentWeek.length}`,
         count: 0,
         isEmpty: true,
         level: 0,
@@ -317,6 +335,7 @@ function ActivityCard({
 }) {
   const activityScrollRef = useHorizontalDragScroll<HTMLDivElement>()
   const allDays = activityStat?.days ?? []
+  const fallbackYear = getCurrentUtcYear()
   const availableYears = useMemo(() => {
     const years = Array.from(
       new Set(allDays.map((day) => day.date.slice(0, 4))),
@@ -324,26 +343,70 @@ function ActivityCard({
     years.sort((left, right) => right.localeCompare(left))
     return years
   }, [allDays])
-  const fallbackYear = getCurrentUtcYear()
-  const selectableYears =
-    availableYears.length > 0 ? availableYears : [fallbackYear]
-  const [activeYear, setActiveYear] = useState(
-    selectableYears[0] ?? fallbackYear,
+  const selectableViews = useMemo(
+    () => [
+      {
+        id: ROLLING_ACTIVITY_WINDOW_ID,
+        label: "Latest",
+      },
+      ...(availableYears.length > 0 ? availableYears : [fallbackYear]).map(
+        (year) => ({
+          id: year,
+          label: year,
+        }),
+      ),
+    ],
+    [availableYears, fallbackYear],
+  )
+  const [activeView, setActiveView] = useState(
+    selectableViews[0]?.id ?? ROLLING_ACTIVITY_WINDOW_ID,
   )
 
   useEffect(() => {
-    const nextYear = selectableYears[0] ?? fallbackYear
-    setActiveYear((currentYear) =>
-      selectableYears.includes(currentYear) ? currentYear : nextYear,
+    const nextView = selectableViews[0]?.id ?? ROLLING_ACTIVITY_WINDOW_ID
+    const allowedViews = new Set(selectableViews.map((view) => view.id))
+    setActiveView((currentView) =>
+      allowedViews.has(currentView) ? currentView : nextView,
     )
-  }, [fallbackYear, selectableYears])
+  }, [selectableViews])
 
-  const { hasActivity, monthLabels, weeks } = useMemo(() => {
-    return buildActivityCalendar({
-      days: allDays,
-      year: activeYear,
-    })
-  }, [activeYear, allDays])
+  const {
+    hasActivity,
+    monthLabels,
+    weeks,
+    emptyStateLabel,
+    rangeKey,
+  } = useMemo(() => {
+    if (activeView === ROLLING_ACTIVITY_WINDOW_ID) {
+      const end = getCurrentUtcDate()
+      const start = new Date(end)
+      start.setUTCDate(start.getUTCDate() - 364)
+
+      return {
+        ...buildActivityCalendar({
+          days: allDays,
+          start,
+          end,
+        }),
+        emptyStateLabel: "the latest 365 days",
+        rangeKey: ROLLING_ACTIVITY_WINDOW_ID,
+      }
+    }
+
+    const selectedYear = Number(activeView)
+    const start = new Date(Date.UTC(selectedYear, 0, 1))
+    const end = new Date(Date.UTC(selectedYear, 11, 31))
+
+    return {
+      ...buildActivityCalendar({
+        days: allDays,
+        start,
+        end,
+      }),
+      emptyStateLabel: activeView,
+      rangeKey: activeView,
+    }
+  }, [activeView, allDays])
 
   if (activityLoading) {
     return (
@@ -374,20 +437,20 @@ function ActivityCard({
             </p>
           </div>
           <div className="inline-flex rounded-full border border-border/70 bg-background/75 p-1">
-            {selectableYears.map((year) => (
+            {selectableViews.map((view) => (
               <button
-                key={year}
+                key={view.id}
                 type="button"
-                onClick={() => setActiveYear(year)}
-                data-testid={`profile-activity-year-${year}`}
+                onClick={() => setActiveView(view.id)}
+                data-testid={`profile-activity-view-${view.id}`}
                 className={cn(
                   "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-                  activeYear === year
+                  activeView === view.id
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                {year}
+                {view.label}
               </button>
             ))}
           </div>
@@ -408,7 +471,7 @@ function ActivityCard({
               >
                 {monthLabels.map((label) => (
                   <span
-                    key={`${activeYear}-${label.month}`}
+                    key={`${rangeKey}-${label.month}-${label.weekIndex}`}
                     className="absolute top-0 text-[11px] leading-4 text-muted-foreground"
                     style={{ left: `${label.weekIndex * 13}px` }}
                   >
@@ -432,7 +495,7 @@ function ActivityCard({
                 <div className="flex gap-[3px]">
                   {weeks.map((week, weekIndex) => (
                     <div
-                      key={`${activeYear}-week-${weekIndex}`}
+                      key={`${rangeKey}-week-${weekIndex}`}
                       className="flex flex-col gap-[3px]"
                     >
                       {week.map((day, dayIndex) =>
@@ -444,16 +507,30 @@ function ActivityCard({
                             className="h-2.5 w-2.5 shrink-0"
                           />
                         ) : (
-                          <span
+                          <Tooltip
                             key={`${weekIndex}-${dayIndex}-${day.date}`}
-                            data-testid={`profile-activity-cell-${day.date}`}
-                            data-activity-level={day.level}
-                            title={`${day.count} ${day.count === 1 ? "record" : "records"} on ${day.date} UTC`}
-                            className={cn(
-                              "h-2.5 w-2.5 shrink-0 rounded-[2px] border border-[rgba(27,31,35,0.06)] transition-colors hover:border-muted-foreground/45 dark:border-[#1b1f23] dark:hover:border-muted-foreground/55",
-                              activityToneClasses[day.level],
-                            )}
-                          />
+                            delayDuration={0}
+                          >
+                            <TooltipTrigger asChild>
+                              <span
+                                data-testid={`profile-activity-cell-${day.date}`}
+                                data-activity-level={day.level}
+                                className={cn(
+                                  "h-2.5 w-2.5 shrink-0 rounded-[2px] border border-[rgba(27,31,35,0.06)] transition-colors hover:border-muted-foreground/45 dark:border-[#1b1f23] dark:hover:border-muted-foreground/55",
+                                  activityToneClasses[day.level],
+                                )}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent
+                              hideArrow
+                              sideOffset={6}
+                              className="rounded-sm border border-border bg-background px-2 py-1 font-normal text-foreground shadow-md"
+                            >
+                              {day.count}{" "}
+                              {day.count === 1 ? "record" : "records"} on{" "}
+                              {day.date} UTC
+                            </TooltipContent>
+                          </Tooltip>
                         ),
                       )}
                     </div>
@@ -466,7 +543,7 @@ function ActivityCard({
 
         {!activityError && !hasActivity ? (
           <p className="text-sm text-muted-foreground">
-            No record submissions found for {activeYear}.
+            No record submissions found in {emptyStateLabel}.
           </p>
         ) : null}
 
