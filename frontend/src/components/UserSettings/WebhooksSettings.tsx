@@ -7,6 +7,12 @@ import { PlayersService, type PlayerWebhookPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Button } from "@/components/ui/button"
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -230,59 +236,53 @@ export default function WebhooksSettings() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="space-y-2 rounded-lg border p-4">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold">Discord webhooks</h3>
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <CardTitle>Discord webhooks</CardTitle>
           <Button
             type="button"
-            variant="outline"
             disabled={query.isLoading}
             onClick={() => setIsAddDialogOpen(true)}
           >
             <Plus className="size-4" /> Add
           </Button>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Receive pretty Discord embed notifications when your verified Twitch
-          or Bilibili stream starts.
-        </p>
-      </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {webhooks.length > 0 ? (
+            webhooks.map((webhook) => {
+              const busy =
+                updateMutation.isPending ||
+                deleteMutation.isPending ||
+                createMutation.isPending
 
-      <div className="space-y-3">
-        {webhooks.length > 0 ? (
-          webhooks.map((webhook) => {
-            const busy =
-              updateMutation.isPending ||
-              deleteMutation.isPending ||
-              createMutation.isPending
-
-            return (
-              <WebhookRow
-                key={webhook.id}
-                webhook={webhook}
-                busy={busy}
-                onToggle={(currentWebhook, enabled) =>
-                  updateMutation.mutate({
-                    webhookId: currentWebhook.id,
-                    requestBody: { enabled },
-                  })
-                }
-                onEdit={(currentWebhook) => {
-                  setEditingWebhook(currentWebhook)
-                  setEditingUrl(currentWebhook.url)
-                }}
-                onDelete={(currentWebhook) =>
-                  deleteMutation.mutate(currentWebhook.id)
-                }
-              />
-            )
-          })
-        ) : (
-          <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-            No webhooks added yet.
-          </div>
-        )}
-      </div>
+              return (
+                <WebhookRow
+                  key={webhook.id}
+                  webhook={webhook}
+                  busy={busy}
+                  onToggle={(currentWebhook, enabled) =>
+                    updateMutation.mutate({
+                      webhookId: currentWebhook.id,
+                      requestBody: { enabled },
+                    })
+                  }
+                  onEdit={(currentWebhook) => {
+                    setEditingWebhook(currentWebhook)
+                    setEditingUrl(currentWebhook.url)
+                  }}
+                  onDelete={(currentWebhook) =>
+                    deleteMutation.mutate(currentWebhook.id)
+                  }
+                />
+              )
+            })
+          ) : (
+            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+              No webhooks added yet.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog
         open={isAddDialogOpen}

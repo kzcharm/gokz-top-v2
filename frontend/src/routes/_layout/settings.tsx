@@ -1,31 +1,43 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useRouterState,
+} from "@tanstack/react-router"
 
-import AppearanceSettings from "@/components/UserSettings/AppearanceSettings"
-import SocialLinksSettings from "@/components/UserSettings/SocialLinksSettings"
-import UserInformation from "@/components/UserSettings/UserInformation"
-import WebhooksSettings from "@/components/UserSettings/WebhooksSettings"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
 
-const tabsConfig = [
-  { value: "my-profile", title: "My profile", component: UserInformation },
+const SETTINGS_TAB_OPTIONS = [
+  { value: "profile", label: "Profile", to: "/settings/profile" },
   {
     value: "social-links",
-    title: "Social links",
-    component: SocialLinksSettings,
+    label: "Social Links",
+    to: "/settings/social-links",
   },
-  { value: "webhooks", title: "Webhooks", component: WebhooksSettings },
-  { value: "appearance", title: "Appearance", component: AppearanceSettings },
-]
+  { value: "webhooks", label: "Webhooks", to: "/settings/webhooks" },
+  { value: "appearance", label: "Appearance", to: "/settings/appearance" },
+] as const
 
 export const Route = createFileRoute("/_layout/settings")({
-  component: UserSettings,
-  beforeLoad: () => {
+  component: UserSettingsLayout,
+  beforeLoad: ({ location }) => {
     if (!isLoggedIn()) {
       throw redirect({
         to: "/login",
+      })
+    }
+
+    if (location.pathname === "/settings") {
+      const requestedTab = new URLSearchParams(location.search).get("tab")
+      const targetTab = SETTINGS_TAB_OPTIONS.find(
+        (tab) => tab.value === requestedTab,
+      )
+
+      throw redirect({
+        to: targetTab?.to ?? "/settings/profile",
       })
     }
   },
@@ -38,67 +50,33 @@ export const Route = createFileRoute("/_layout/settings")({
   }),
 })
 
-function UserSettings() {
+function UserSettingsLayout() {
   const { user: currentUser } = useAuth()
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window === "undefined") {
-      return "my-profile"
-    }
-    const tab = new URLSearchParams(window.location.search).get("tab")
-    return tabsConfig.some((entry) => entry.value === tab)
-      ? (tab ?? "my-profile")
-      : "my-profile"
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
   })
-
-  useEffect(() => {
-    const onPopState = () => {
-      const tab = new URLSearchParams(window.location.search).get("tab")
-      setActiveTab(
-        tabsConfig.some((entry) => entry.value === tab)
-          ? (tab ?? "my-profile")
-          : "my-profile",
-      )
-    }
-
-    window.addEventListener("popstate", onPopState)
-    return () => window.removeEventListener("popstate", onPopState)
-  }, [])
 
   if (!currentUser) {
     return null
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">User Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences
-        </p>
-      </div>
+  const activeTab =
+    SETTINGS_TAB_OPTIONS.find((tab) => pathname.startsWith(tab.to))?.value ??
+    "profile"
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(nextTab) => {
-          setActiveTab(nextTab)
-          const url = new URL(window.location.href)
-          url.searchParams.set("tab", nextTab)
-          window.history.replaceState({}, "", url)
-        }}
-      >
-        <TabsList>
-          {tabsConfig.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.title}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {tabsConfig.map((tab) => (
-          <TabsContent key={tab.value} value={tab.value}>
-            <tab.component />
-          </TabsContent>
+  return (
+    <Tabs value={activeTab} className="flex flex-col gap-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+      </div>
+      <TabsList className="w-fit border border-border bg-background/60">
+        {SETTINGS_TAB_OPTIONS.map((tab) => (
+          <TabsTrigger key={tab.value} value={tab.value} asChild>
+            <Link to={tab.to}>{tab.label}</Link>
+          </TabsTrigger>
         ))}
-      </Tabs>
-    </div>
+      </TabsList>
+      <Outlet />
+    </Tabs>
   )
 }

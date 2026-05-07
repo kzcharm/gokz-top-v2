@@ -6,6 +6,7 @@ import { type PlayerSettingsPublic, PlayersService } from "@/client"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useAuth from "@/hooks/useAuth"
@@ -150,9 +151,9 @@ const UserInformation = () => {
   const countryDisabled = !isEditing || mutation.isPending
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <div className="flex items-center justify-between gap-3 py-4">
-        <h3 className="text-lg font-semibold">Steam Profile</h3>
+    <Card className="max-w-2xl">
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <CardTitle>Profile</CardTitle>
         {isEditing ? (
           <div className="flex items-center gap-2">
             <Button
@@ -189,78 +190,83 @@ const UserInformation = () => {
             Edit
           </Button>
         )}
-      </div>
-      <form
-        id="user-settings-form"
-        className="space-y-5 rounded-lg border p-4"
-        onSubmit={(event) => {
-          event.preventDefault()
-          mutation.mutate()
-        }}
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <p className="text-sm text-muted-foreground">Steam name</p>
-            <p className="font-medium">{player?.name ?? "Unknown"}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Steam ID64</p>
-            <p className="font-mono text-sm">{currentUser.steamid64}</p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label htmlFor="settings-alias" className="text-sm font-medium">
-              Alias
-            </label>
-            <Input
-              id="settings-alias"
-              value={aliasInput}
-              maxLength={25}
-              disabled={aliasDisabled}
-              placeholder="Alias"
-              onChange={(event) => setAliasInput(event.target.value)}
-            />
-            {settings ? <FieldHint status={settings.alias} /> : null}
+      </CardHeader>
+      <CardContent>
+        <form
+          id="user-settings-form"
+          className="space-y-5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            mutation.mutate()
+          }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-sm text-muted-foreground">Steam name</p>
+              <p className="font-medium">{player?.name ?? "Unknown"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Steam ID64</p>
+              <p className="font-mono text-sm">{currentUser.steamid64}</p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="settings-custom-id" className="text-sm font-medium">
-              Custom ID
-            </label>
-            <Input
-              id="settings-custom-id"
-              value={customIdInput}
-              maxLength={25}
-              disabled={customIdDisabled}
-              placeholder="custom-id"
-              onChange={(event) => setCustomIdInput(event.target.value)}
-            />
-            {settings ? <FieldHint status={settings.custom_id} /> : null}
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Country</span>
-            <CountryPicker
-              value={countryInput}
-              onChange={setCountryInput}
-              placeholder="Select a country"
-              clearLabel="Clear country"
-              disabled={countryDisabled}
-            />
-            {settings ? (
-              <FieldHint
-                status={settings.country}
-                locked={settings.country_locked}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="settings-alias" className="text-sm font-medium">
+                Alias
+              </label>
+              <Input
+                id="settings-alias"
+                value={aliasInput}
+                maxLength={25}
+                disabled={aliasDisabled}
+                placeholder="Alias"
+                onChange={(event) => setAliasInput(event.target.value)}
               />
-            ) : null}
+              {settings ? <FieldHint status={settings.alias} /> : null}
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="settings-custom-id"
+                className="text-sm font-medium"
+              >
+                Custom ID
+              </label>
+              <Input
+                id="settings-custom-id"
+                value={customIdInput}
+                maxLength={25}
+                disabled={customIdDisabled}
+                placeholder="custom-id"
+                onChange={(event) => setCustomIdInput(event.target.value)}
+              />
+              {settings ? <FieldHint status={settings.custom_id} /> : null}
+            </div>
           </div>
-        </div>
-      </form>
-    </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <span className="text-sm font-medium">Country</span>
+              <CountryPicker
+                value={countryInput}
+                onChange={setCountryInput}
+                placeholder="Select a country"
+                clearLabel="Clear country"
+                disabled={countryDisabled}
+              />
+              {settings ? (
+                <FieldHint
+                  status={settings.country}
+                  locked={settings.country_locked}
+                />
+              ) : null}
+            </div>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 

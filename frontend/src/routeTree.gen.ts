@@ -23,6 +23,10 @@ import { Route as LayoutLeaderboardsRouteImport } from './routes/_layout/leaderb
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutSettingsWebhooksRouteImport } from './routes/_layout/settings.webhooks'
+import { Route as LayoutSettingsSocialLinksRouteImport } from './routes/_layout/settings.social-links'
+import { Route as LayoutSettingsProfileRouteImport } from './routes/_layout/settings.profile'
+import { Route as LayoutSettingsAppearanceRouteImport } from './routes/_layout/settings.appearance'
 import { Route as LayoutProfileIdentifierRouteImport } from './routes/_layout/profile.$identifier'
 import { Route as LayoutLeaderboardsServersRouteImport } from './routes/_layout/leaderboards.servers'
 import { Route as LayoutLeaderboardsPowRouteImport } from './routes/_layout/leaderboards.pow'
@@ -111,6 +115,28 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSettingsWebhooksRoute = LayoutSettingsWebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
+  getParentRoute: () => LayoutSettingsRoute,
+} as any)
+const LayoutSettingsSocialLinksRoute =
+  LayoutSettingsSocialLinksRouteImport.update({
+    id: '/social-links',
+    path: '/social-links',
+    getParentRoute: () => LayoutSettingsRoute,
+  } as any)
+const LayoutSettingsProfileRoute = LayoutSettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => LayoutSettingsRoute,
+} as any)
+const LayoutSettingsAppearanceRoute =
+  LayoutSettingsAppearanceRouteImport.update({
+    id: '/appearance',
+    path: '/appearance',
+    getParentRoute: () => LayoutSettingsRoute,
+  } as any)
 const LayoutProfileIdentifierRoute = LayoutProfileIdentifierRouteImport.update({
   id: '/profile/$identifier',
   path: '/profile/$identifier',
@@ -221,7 +247,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
-  '/settings': typeof LayoutSettingsRoute
+  '/settings': typeof LayoutSettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -239,6 +265,10 @@ export interface FileRoutesByFullPath {
   '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
+  '/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/settings/profile': typeof LayoutSettingsProfileRoute
+  '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
+  '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -253,7 +283,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
-  '/settings': typeof LayoutSettingsRoute
+  '/settings': typeof LayoutSettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -271,6 +301,10 @@ export interface FileRoutesByTo {
   '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
   '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
+  '/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/settings/profile': typeof LayoutSettingsProfileRoute
+  '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
+  '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -287,7 +321,7 @@ export interface FileRoutesById {
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
   '/_layout/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/_layout/live': typeof LayoutLiveRoute
-  '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/settings': typeof LayoutSettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRoute
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -306,6 +340,10 @@ export interface FileRoutesById {
   '/_layout/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/_layout/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/_layout/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
+  '/_layout/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/_layout/settings/profile': typeof LayoutSettingsProfileRoute
+  '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
+  '/_layout/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/_layout/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/_layout/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -341,6 +379,10 @@ export interface FileRouteTypes {
     | '/leaderboards/pow'
     | '/leaderboards/servers'
     | '/profile/$identifier'
+    | '/settings/appearance'
+    | '/settings/profile'
+    | '/settings/social-links'
+    | '/settings/webhooks'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -373,6 +415,10 @@ export interface FileRouteTypes {
     | '/leaderboards/players'
     | '/leaderboards/pow'
     | '/leaderboards/servers'
+    | '/settings/appearance'
+    | '/settings/profile'
+    | '/settings/social-links'
+    | '/settings/webhooks'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -407,6 +453,10 @@ export interface FileRouteTypes {
     | '/_layout/leaderboards/pow'
     | '/_layout/leaderboards/servers'
     | '/_layout/profile/$identifier'
+    | '/_layout/settings/appearance'
+    | '/_layout/settings/profile'
+    | '/_layout/settings/social-links'
+    | '/_layout/settings/webhooks'
     | '/_layout/profile/$identifier/records'
     | '/_layout/profile/$identifier/stats'
     | '/_layout/profile/$identifier/unfinished'
@@ -520,6 +570,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/_layout/settings/webhooks': {
+      id: '/_layout/settings/webhooks'
+      path: '/webhooks'
+      fullPath: '/settings/webhooks'
+      preLoaderRoute: typeof LayoutSettingsWebhooksRouteImport
+      parentRoute: typeof LayoutSettingsRoute
+    }
+    '/_layout/settings/social-links': {
+      id: '/_layout/settings/social-links'
+      path: '/social-links'
+      fullPath: '/settings/social-links'
+      preLoaderRoute: typeof LayoutSettingsSocialLinksRouteImport
+      parentRoute: typeof LayoutSettingsRoute
+    }
+    '/_layout/settings/profile': {
+      id: '/_layout/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof LayoutSettingsProfileRouteImport
+      parentRoute: typeof LayoutSettingsRoute
+    }
+    '/_layout/settings/appearance': {
+      id: '/_layout/settings/appearance'
+      path: '/appearance'
+      fullPath: '/settings/appearance'
+      preLoaderRoute: typeof LayoutSettingsAppearanceRouteImport
+      parentRoute: typeof LayoutSettingsRoute
     }
     '/_layout/profile/$identifier': {
       id: '/_layout/profile/$identifier'
@@ -705,6 +783,24 @@ const LayoutLeaderboardsRouteChildren: LayoutLeaderboardsRouteChildren = {
 const LayoutLeaderboardsRouteWithChildren =
   LayoutLeaderboardsRoute._addFileChildren(LayoutLeaderboardsRouteChildren)
 
+interface LayoutSettingsRouteChildren {
+  LayoutSettingsAppearanceRoute: typeof LayoutSettingsAppearanceRoute
+  LayoutSettingsProfileRoute: typeof LayoutSettingsProfileRoute
+  LayoutSettingsSocialLinksRoute: typeof LayoutSettingsSocialLinksRoute
+  LayoutSettingsWebhooksRoute: typeof LayoutSettingsWebhooksRoute
+}
+
+const LayoutSettingsRouteChildren: LayoutSettingsRouteChildren = {
+  LayoutSettingsAppearanceRoute: LayoutSettingsAppearanceRoute,
+  LayoutSettingsProfileRoute: LayoutSettingsProfileRoute,
+  LayoutSettingsSocialLinksRoute: LayoutSettingsSocialLinksRoute,
+  LayoutSettingsWebhooksRoute: LayoutSettingsWebhooksRoute,
+}
+
+const LayoutSettingsRouteWithChildren = LayoutSettingsRoute._addFileChildren(
+  LayoutSettingsRouteChildren,
+)
+
 interface LayoutProfileIdentifierRouteChildren {
   LayoutProfileIdentifierRecordsRoute: typeof LayoutProfileIdentifierRecordsRoute
   LayoutProfileIdentifierStatsRoute: typeof LayoutProfileIdentifierStatsRoute
@@ -732,7 +828,7 @@ interface LayoutRouteChildren {
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
   LayoutLeaderboardsRoute: typeof LayoutLeaderboardsRouteWithChildren
   LayoutLiveRoute: typeof LayoutLiveRoute
-  LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutSettingsRoute: typeof LayoutSettingsRouteWithChildren
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutProfileIdentifierRoute: typeof LayoutProfileIdentifierRouteWithChildren
 }
@@ -743,7 +839,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
   LayoutLeaderboardsRoute: LayoutLeaderboardsRouteWithChildren,
   LayoutLiveRoute: LayoutLiveRoute,
-  LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutSettingsRoute: LayoutSettingsRouteWithChildren,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutProfileIdentifierRoute: LayoutProfileIdentifierRouteWithChildren,
 }
