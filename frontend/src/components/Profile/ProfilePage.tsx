@@ -27,8 +27,8 @@ import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileTabs } from "./ProfileTabs"
 import { ProfileUnfinishedTab } from "./ProfileUnfinishedTab"
-import { buildProfileRecordDistribution } from "./profile-record-distribution"
 import { getPointsRankLabel } from "./profile-ranks"
+import { buildProfileRecordDistribution } from "./profile-record-distribution"
 import {
   buildProfileCompletionData,
   buildProfileTotalPoints,

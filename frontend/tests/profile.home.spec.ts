@@ -477,9 +477,7 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText(/^Jan$/)).toBeVisible()
   await expect(page.getByText(/^Mar$/)).toBeVisible()
   await expect(page.getByText("10.5 hrs")).toBeVisible()
-  await expect(
-    page.getByText("Latest", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByText("Latest", { exact: true })).toBeVisible()
   await expect(
     page.getByTestId("profile-activity-view-last-365-days"),
   ).toBeVisible()

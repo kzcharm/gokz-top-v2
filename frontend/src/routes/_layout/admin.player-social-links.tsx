@@ -412,26 +412,26 @@ function AdminPlayerSocialLinks() {
       </AdminControlsCard>
       <AdminTableCard>
         <DataTable
-        columns={columns}
-        data={data?.data ?? []}
-        isLoading={isLoading}
-        stickyHeader
-        stickyHeaderTopClassName="top-16"
-        tableContainerClassName="md:overflow-visible"
-        tableClassName="border-separate border-spacing-0"
-        showFooter={false}
-        emptyText="No social links found."
-        serverPagination={{
-          pageIndex,
-          pageSize,
-          totalCount: data?.count ?? 0,
-          onPageChange: setPageIndex,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPageIndex(0)
-          },
-        }}
-      />
+          columns={columns}
+          data={data?.data ?? []}
+          isLoading={isLoading}
+          stickyHeader
+          stickyHeaderTopClassName="top-16"
+          tableContainerClassName="md:overflow-visible"
+          tableClassName="border-separate border-spacing-0"
+          showFooter={false}
+          emptyText="No social links found."
+          serverPagination={{
+            pageIndex,
+            pageSize,
+            totalCount: data?.count ?? 0,
+            onPageChange: setPageIndex,
+            onPageSizeChange: (size) => {
+              setPageSize(size)
+              setPageIndex(0)
+            },
+          }}
+        />
         <TablePaginationFooter
           totalLabel="Links"
           totalCount={data?.count ?? 0}

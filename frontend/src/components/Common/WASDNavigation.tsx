@@ -99,7 +99,9 @@ function findActivePagination(
 ): ActivePagination | null {
   const enabledRegistrations = registrations
     .filter((registration) => {
-      return registration.element.isConnected && registration.getSnapshot().enabled
+      return (
+        registration.element.isConnected && registration.getSnapshot().enabled
+      )
     })
     .map((registration) => ({
       registration,
@@ -143,27 +145,27 @@ function findActivePagination(
   }
 
   const registration = [...visibleRegistrations].sort((left, right) => {
-      const visibleAreaDifference =
-        getVisibleViewportArea(right.registration.element) -
-        getVisibleViewportArea(left.registration.element)
+    const visibleAreaDifference =
+      getVisibleViewportArea(right.registration.element) -
+      getVisibleViewportArea(left.registration.element)
 
-      if (visibleAreaDifference !== 0) {
-        return visibleAreaDifference
-      }
+    if (visibleAreaDifference !== 0) {
+      return visibleAreaDifference
+    }
 
-      const position = left.registration.element.compareDocumentPosition(
-        right.registration.element,
-      )
+    const position = left.registration.element.compareDocumentPosition(
+      right.registration.element,
+    )
 
-      if (position & Node.DOCUMENT_POSITION_PRECEDING) {
-        return 1
-      }
-      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
-        return -1
-      }
+    if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+      return 1
+    }
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+      return -1
+    }
 
-      return left.registration.id - right.registration.id
-    })[0]
+    return left.registration.id - right.registration.id
+  })[0]
 
   if (!registration) {
     return enabledRegistrations[enabledRegistrations.length - 1] ?? null

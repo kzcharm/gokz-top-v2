@@ -1,5 +1,5 @@
-import * as echarts from "echarts"
 import type { EChartsOption } from "echarts"
+import * as echarts from "echarts"
 import { PinOff } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -8,6 +8,7 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
+import { useTheme } from "@/components/theme-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -22,17 +23,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useTheme } from "@/components/theme-provider"
 import { useHorizontalDragScroll } from "@/hooks/useHorizontalDragScroll"
 import { useMediaQuery } from "@/hooks/useMobile"
 import { cn } from "@/lib/utils"
+import type { ProfileRecordDistributionBin } from "./profile-record-distribution"
 import {
   formatNumber,
   type ProfileCompletionData,
   type ProfilePinnedRecord,
   type ProfileTrophyCounts,
 } from "./profile-utils"
-import type { ProfileRecordDistributionBin } from "./profile-record-distribution"
 
 const activityToneClasses = [
   "bg-[#ebedf0] dark:bg-[#161b22]",
@@ -370,17 +370,27 @@ function ActivityCard({
     )
   }, [selectableViews])
 
-  const {
-    hasActivity,
-    monthLabels,
-    weeks,
-    emptyStateLabel,
-    rangeKey,
-  } = useMemo(() => {
-    if (activeView === ROLLING_ACTIVITY_WINDOW_ID) {
-      const end = getCurrentUtcDate()
-      const start = new Date(end)
-      start.setUTCDate(start.getUTCDate() - 364)
+  const { hasActivity, monthLabels, weeks, emptyStateLabel, rangeKey } =
+    useMemo(() => {
+      if (activeView === ROLLING_ACTIVITY_WINDOW_ID) {
+        const end = getCurrentUtcDate()
+        const start = new Date(end)
+        start.setUTCDate(start.getUTCDate() - 364)
+
+        return {
+          ...buildActivityCalendar({
+            days: allDays,
+            start,
+            end,
+          }),
+          emptyStateLabel: "the latest 365 days",
+          rangeKey: ROLLING_ACTIVITY_WINDOW_ID,
+        }
+      }
+
+      const selectedYear = Number(activeView)
+      const start = new Date(Date.UTC(selectedYear, 0, 1))
+      const end = new Date(Date.UTC(selectedYear, 11, 31))
 
       return {
         ...buildActivityCalendar({
@@ -388,25 +398,10 @@ function ActivityCard({
           start,
           end,
         }),
-        emptyStateLabel: "the latest 365 days",
-        rangeKey: ROLLING_ACTIVITY_WINDOW_ID,
+        emptyStateLabel: activeView,
+        rangeKey: activeView,
       }
-    }
-
-    const selectedYear = Number(activeView)
-    const start = new Date(Date.UTC(selectedYear, 0, 1))
-    const end = new Date(Date.UTC(selectedYear, 11, 31))
-
-    return {
-      ...buildActivityCalendar({
-        days: allDays,
-        start,
-        end,
-      }),
-      emptyStateLabel: activeView,
-      rangeKey: activeView,
-    }
-  }, [activeView, allDays])
+    }, [activeView, allDays])
 
   if (activityLoading) {
     return (
@@ -647,7 +642,9 @@ function ProfileDistributionChart({
           }
           const value =
             typeof entry.value === "number" ? entry.value : Number(entry.value)
-          const hoveredBin = bins.find((bin) => bin.label === String(entry.name ?? ""))
+          const hoveredBin = bins.find(
+            (bin) => bin.label === String(entry.name ?? ""),
+          )
           const mapNamesMarkup =
             hoveredBin && hoveredBin.topMapNames.length > 0
               ? `<div style="margin-top:8px;font-size:12px;line-height:1.5;">
