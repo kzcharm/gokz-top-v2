@@ -335,13 +335,17 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
         </Alert>
       ) : null}
 
-      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
+      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={mapLeaderboardColumns}
             data={visibleRows}
             isLoading={mapsQuery.isLoading}
             emptyText="No maps matched the current filters."
+            stickyHeader
+            stickyHeaderTopClassName="top-16"
+            tableContainerClassName="md:overflow-visible"
+            tableClassName="border-separate border-spacing-0"
             showFooter={false}
             serverPagination={{
               pageIndex,
