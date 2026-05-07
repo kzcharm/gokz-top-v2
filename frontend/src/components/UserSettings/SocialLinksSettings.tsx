@@ -86,7 +86,7 @@ async function throwResponseError(response: Response): Promise<never> {
 }
 
 function openPopup(url: string) {
-  const popup = window.open(url, "_blank", "width=640,height=720")
+  const popup = window.open(url, "_blank")
   if (popup) {
     popup.focus()
   }
