@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
 
 import AppearanceSettings from "@/components/UserSettings/AppearanceSettings"
 import SocialLinksSettings from "@/components/UserSettings/SocialLinksSettings"
@@ -37,6 +38,29 @@ export const Route = createFileRoute("/_layout/settings")({
 
 function UserSettings() {
   const { user: currentUser } = useAuth()
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") {
+      return "my-profile"
+    }
+    const tab = new URLSearchParams(window.location.search).get("tab")
+    return tabsConfig.some((entry) => entry.value === tab)
+      ? (tab ?? "my-profile")
+      : "my-profile"
+  })
+
+  useEffect(() => {
+    const onPopState = () => {
+      const tab = new URLSearchParams(window.location.search).get("tab")
+      setActiveTab(
+        tabsConfig.some((entry) => entry.value === tab)
+          ? (tab ?? "my-profile")
+          : "my-profile",
+      )
+    }
+
+    window.addEventListener("popstate", onPopState)
+    return () => window.removeEventListener("popstate", onPopState)
+  }, [])
 
   if (!currentUser) {
     return null
@@ -51,7 +75,15 @@ function UserSettings() {
         </p>
       </div>
 
-      <Tabs defaultValue="my-profile">
+      <Tabs
+        value={activeTab}
+        onValueChange={(nextTab) => {
+          setActiveTab(nextTab)
+          const url = new URL(window.location.href)
+          url.searchParams.set("tab", nextTab)
+          window.history.replaceState({}, "", url)
+        }}
+      >
         <TabsList>
           {tabsConfig.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>

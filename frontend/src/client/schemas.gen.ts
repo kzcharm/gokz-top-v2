@@ -2745,6 +2745,20 @@ export const PlayerSocialLinkUpdateSchema = {
     title: 'PlayerSocialLinkUpdate'
 } as const;
 
+export const PlayerSocialLinkVerifyConfirmSchema = {
+    properties: {
+        pending_token: {
+            type: 'string',
+            maxLength: 4000,
+            minLength: 1,
+            title: 'Pending Token'
+        }
+    },
+    type: 'object',
+    required: ['pending_token'],
+    title: 'PlayerSocialLinkVerifyConfirm'
+} as const;
+
 export const PlayerSocialLinksPublicSchema = {
     properties: {
         data: {
