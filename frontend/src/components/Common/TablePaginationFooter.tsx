@@ -5,7 +5,7 @@ import {
   ChevronsRight,
   Loader2,
 } from "lucide-react"
-import { useEffect, useState, type ReactNode } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { Button } from "@/components/ui/button"

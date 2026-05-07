@@ -19,11 +19,11 @@ import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { getScopeTone } from "@/components/Common/ScopeSelector"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
-import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import type { AppScope } from "@/components/scope-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -404,61 +404,61 @@ function AdminMaps() {
 
       <AdminTableCard>
         <DataTable
-        columns={columns}
-        data={tableData}
-        stickyHeader
-        stickyHeaderTopClassName="top-16"
-        tableContainerClassName="md:overflow-visible"
-        tableClassName="border-separate border-spacing-0"
-        showFooter={false}
-        emptyText="No maps found."
-        getRowProps={(row) => ({
-          "aria-expanded": expandedMapId === String(row.id),
-          className: "cursor-pointer",
-          onClick: (event) => {
-            if (shouldIgnoreRowToggle(event.target)) {
-              return
-            }
-            toggleExpandedMap(row.id)
-          },
-          onKeyDown: (event) => {
-            if (event.target !== event.currentTarget) {
-              return
-            }
-            if (event.key !== "Enter" && event.key !== " ") {
-              return
-            }
-            event.preventDefault()
-            toggleExpandedMap(row.id)
-          },
-          tabIndex: 0,
-        })}
-        getRowId={(row) => String(row.id)}
-        expandedRowId={expandedMapId}
-        renderExpandedContent={(map) => (
-          <MapRecordFilters
-            map={map}
-            filterTierDrafts={filterTierDrafts}
-            onTierDraftChange={setFilterTierDraft}
-            disabled={saveMutation.isPending}
-          />
-        )}
-        isLoading={isLoading}
-        serverPagination={{
-          pageIndex,
-          pageSize,
-          totalCount,
-          onPageChange: (nextPageIndex) => {
-            setPageIndex(nextPageIndex)
-            setExpandedMapId(null)
-          },
-          onPageSizeChange: (nextPageSize) => {
-            setPageSize(nextPageSize)
-            setPageIndex(0)
-            setExpandedMapId(null)
-          },
-        }}
-      />
+          columns={columns}
+          data={tableData}
+          stickyHeader
+          stickyHeaderTopClassName="top-16"
+          tableContainerClassName="md:overflow-visible"
+          tableClassName="border-separate border-spacing-0"
+          showFooter={false}
+          emptyText="No maps found."
+          getRowProps={(row) => ({
+            "aria-expanded": expandedMapId === String(row.id),
+            className: "cursor-pointer",
+            onClick: (event) => {
+              if (shouldIgnoreRowToggle(event.target)) {
+                return
+              }
+              toggleExpandedMap(row.id)
+            },
+            onKeyDown: (event) => {
+              if (event.target !== event.currentTarget) {
+                return
+              }
+              if (event.key !== "Enter" && event.key !== " ") {
+                return
+              }
+              event.preventDefault()
+              toggleExpandedMap(row.id)
+            },
+            tabIndex: 0,
+          })}
+          getRowId={(row) => String(row.id)}
+          expandedRowId={expandedMapId}
+          renderExpandedContent={(map) => (
+            <MapRecordFilters
+              map={map}
+              filterTierDrafts={filterTierDrafts}
+              onTierDraftChange={setFilterTierDraft}
+              disabled={saveMutation.isPending}
+            />
+          )}
+          isLoading={isLoading}
+          serverPagination={{
+            pageIndex,
+            pageSize,
+            totalCount,
+            onPageChange: (nextPageIndex) => {
+              setPageIndex(nextPageIndex)
+              setExpandedMapId(null)
+            },
+            onPageSizeChange: (nextPageSize) => {
+              setPageSize(nextPageSize)
+              setPageIndex(0)
+              setExpandedMapId(null)
+            },
+          }}
+        />
         <TablePaginationFooter
           totalLabel="Maps"
           totalCount={totalCount}

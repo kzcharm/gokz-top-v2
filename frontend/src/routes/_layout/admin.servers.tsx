@@ -380,36 +380,39 @@ function GlobalApiServersTab({
       </AdminControlsCard>
       <AdminTableCard>
         <DataTable
-        columns={columns}
-        data={query.data?.data ?? []}
-        isLoading={query.isLoading}
-        stickyHeader
-        stickyHeaderTopClassName="top-16"
-        tableContainerClassName="md:overflow-visible"
-        tableClassName="border-separate border-spacing-0"
-        showFooter={false}
-        emptyText="No GlobalAPI servers found."
-        serverPagination={{
-          pageIndex,
-          pageSize,
-          totalCount: query.data?.count ?? 0,
-          onPageChange: setPageIndex,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPageIndex(0)
-          },
-        }}
-        sorting={{
-          state: sorting,
-          onSortingChange,
-          manualSorting: true,
-        }}
-      />
+          columns={columns}
+          data={query.data?.data ?? []}
+          isLoading={query.isLoading}
+          stickyHeader
+          stickyHeaderTopClassName="top-16"
+          tableContainerClassName="md:overflow-visible"
+          tableClassName="border-separate border-spacing-0"
+          showFooter={false}
+          emptyText="No GlobalAPI servers found."
+          serverPagination={{
+            pageIndex,
+            pageSize,
+            totalCount: query.data?.count ?? 0,
+            onPageChange: setPageIndex,
+            onPageSizeChange: (size) => {
+              setPageSize(size)
+              setPageIndex(0)
+            },
+          }}
+          sorting={{
+            state: sorting,
+            onSortingChange,
+            manualSorting: true,
+          }}
+        />
         <TablePaginationFooter
           totalLabel="Servers"
           totalCount={query.data?.count ?? 0}
           pageIndex={pageIndex}
-          pageCount={Math.max(1, Math.ceil((query.data?.count ?? 0) / pageSize))}
+          pageCount={Math.max(
+            1,
+            Math.ceil((query.data?.count ?? 0) / pageSize),
+          )}
           pageSize={pageSize}
           onPageIndexChange={setPageIndex}
           onPageSizeChange={(size) => {
@@ -633,31 +636,34 @@ function PublicServersTab({
       </AdminControlsCard>
       <AdminTableCard>
         <DataTable
-        columns={columns}
-        data={query.data?.data ?? []}
-        isLoading={query.isLoading}
-        stickyHeader
-        stickyHeaderTopClassName="top-16"
-        tableContainerClassName="md:overflow-visible"
-        tableClassName="border-separate border-spacing-0"
-        showFooter={false}
-        emptyText="No public servers found."
-        serverPagination={{
-          pageIndex,
-          pageSize,
-          totalCount: query.data?.count ?? 0,
-          onPageChange: setPageIndex,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPageIndex(0)
-          },
-        }}
-      />
+          columns={columns}
+          data={query.data?.data ?? []}
+          isLoading={query.isLoading}
+          stickyHeader
+          stickyHeaderTopClassName="top-16"
+          tableContainerClassName="md:overflow-visible"
+          tableClassName="border-separate border-spacing-0"
+          showFooter={false}
+          emptyText="No public servers found."
+          serverPagination={{
+            pageIndex,
+            pageSize,
+            totalCount: query.data?.count ?? 0,
+            onPageChange: setPageIndex,
+            onPageSizeChange: (size) => {
+              setPageSize(size)
+              setPageIndex(0)
+            },
+          }}
+        />
         <TablePaginationFooter
           totalLabel="Servers"
           totalCount={query.data?.count ?? 0}
           pageIndex={pageIndex}
-          pageCount={Math.max(1, Math.ceil((query.data?.count ?? 0) / pageSize))}
+          pageCount={Math.max(
+            1,
+            Math.ceil((query.data?.count ?? 0) / pageSize),
+          )}
           pageSize={pageSize}
           onPageIndexChange={setPageIndex}
           onPageSizeChange={(size) => {
@@ -834,14 +840,14 @@ function ServerGroupsTab({ groups }: { groups: AdminServerGroupPublic[] }) {
       </AdminControlsCard>
       <AdminTableCard>
         <DataTable
-        columns={columns}
-        data={groups}
-        stickyHeader
-        stickyHeaderTopClassName="top-16"
-        tableContainerClassName="md:overflow-visible"
-        tableClassName="border-separate border-spacing-0"
-        showFooter={false}
-        emptyText="No server groups found."
+          columns={columns}
+          data={groups}
+          stickyHeader
+          stickyHeaderTopClassName="top-16"
+          tableContainerClassName="md:overflow-visible"
+          tableClassName="border-separate border-spacing-0"
+          showFooter={false}
+          emptyText="No server groups found."
         />
       </AdminTableCard>
       <ServerGroupDialog open={creating} onOpenChange={setCreating} />

@@ -26,7 +26,12 @@ export function AdminControlsCard({
   className?: string
 }) {
   return (
-    <Card className={cn("gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0", className)}>
+    <Card
+      className={cn(
+        "gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0",
+        className,
+      )}
+    >
       <CardContent className="p-6 sm:px-8 sm:py-6">{children}</CardContent>
     </Card>
   )
@@ -40,7 +45,12 @@ export function AdminTableCard({
   className?: string
 }) {
   return (
-    <Card className={cn("gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0", className)}>
+    <Card
+      className={cn(
+        "gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0",
+        className,
+      )}
+    >
       <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
         {children}
       </CardContent>

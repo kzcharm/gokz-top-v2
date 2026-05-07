@@ -18,16 +18,16 @@ export function buildProfileRecordDistribution(
   const bins: ProfileRecordDistributionBin[] = Array.from(
     { length: RANGE_BIN_COUNT },
     (_, index) => {
-    const start = index * RANGE_WIDTH
-    const end = start + RANGE_WIDTH - 1
+      const start = index * RANGE_WIDTH
+      const end = start + RANGE_WIDTH - 1
 
-    return {
-      label: `${start}-${end}`,
-      count: 0,
-      topMapNames: [],
-      hasMoreMapNames: false,
-    }
-  },
+      return {
+        label: `${start}-${end}`,
+        count: 0,
+        topMapNames: [],
+        hasMoreMapNames: false,
+      }
+    },
   )
 
   bins.push({
@@ -36,7 +36,10 @@ export function buildProfileRecordDistribution(
     topMapNames: [],
     hasMoreMapNames: false,
   })
-  const recordsByBin = Array.from({ length: bins.length }, () => [] as RecordPublic[])
+  const recordsByBin = Array.from(
+    { length: bins.length },
+    () => [] as RecordPublic[],
+  )
 
   for (const record of records) {
     const points = record.points
@@ -65,10 +68,14 @@ export function buildProfileRecordDistribution(
         return right.points - left.points
       }
 
-      const mapNameComparison = left.map_name.localeCompare(right.map_name, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      })
+      const mapNameComparison = left.map_name.localeCompare(
+        right.map_name,
+        undefined,
+        {
+          numeric: true,
+          sensitivity: "base",
+        },
+      )
       if (mapNameComparison !== 0) {
         return mapNameComparison
       }
