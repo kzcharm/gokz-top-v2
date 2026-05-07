@@ -392,6 +392,9 @@ test.describe("Leaderboards page", () => {
 
     await expect(page.getByRole("row", { name: /41.*Beta/ })).toBeVisible()
     await expect(page.getByRole("row", { name: /41.*Beta/ })).toHaveClass(
+      /bg-primary\/10/,
+    )
+    await expect(page.getByRole("row", { name: /41.*Beta/ })).toHaveClass(
       /leaderboard-self-spotlight/,
     )
 
