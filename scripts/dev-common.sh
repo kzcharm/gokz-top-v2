@@ -131,6 +131,22 @@ read_dotenv_value() {
   printf '%s' "$value"
 }
 
+ensure_compose_local_defaults() {
+  if [[ -n "${FRONTEND_HOST_RULE-}" ]]; then
+    return 0
+  fi
+
+  local frontend_hostname=""
+  frontend_hostname="${FRONTEND_HOSTNAME-}"
+  if [[ -z "$frontend_hostname" ]]; then
+    frontend_hostname="$(read_dotenv_value FRONTEND_HOSTNAME)"
+  fi
+
+  if [[ -n "$frontend_hostname" ]]; then
+    export FRONTEND_HOST_RULE="Host(\`$frontend_hostname\`)"
+  fi
+}
+
 is_local_db_container() {
   local container_id="$1"
   local service_label=""
@@ -158,6 +174,8 @@ prepare_backend_dev() {
   local geoipupdate_license_key_value=""
   local local_db_container_id=""
   local db_status=""
+
+  ensure_compose_local_defaults
 
   if ! command -v docker >/dev/null 2>&1; then
     echo "Error: docker is required to run the local database."
@@ -256,7 +274,7 @@ prepare_backend_dev() {
     docker compose up -d "${services[@]}" >/dev/null
   fi
 
-  if [[ -z "$local_db_container_id" || "$start_db" == "true" ]]; then
+  if [[ "$start_db" == "true" || "${#services[@]}" -gt 1 ]]; then
     local_db_container_id="$(docker compose ps -q db 2>/dev/null || true)"
   fi
   if [[ -z "$local_db_container_id" ]]; then
