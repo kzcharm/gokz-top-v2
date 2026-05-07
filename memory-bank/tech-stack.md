@@ -11,7 +11,7 @@
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
-  - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying
+  - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying of Bilibili preview assets
   - `/v1/admin/servers` for RBAC-protected server and server-group management
   - `/v1/admin/player-social-links` for superuser management of player social links and verification state
   - `/v1/maps/reviews` now supports website-authored review upserts plus authenticated comment-only deletion across a player's review rows for a map
@@ -47,7 +47,7 @@
   - Continuous GlobalAPI sync remains responsible for ingesting mirrored upstream records and other mirrored entities
   - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, rebuilds touched maps leaderboard rows selected from `Record.updated_at`, and refreshes touched player Steam profiles
   - An advisory-locked in-app player-session timeout runner closes open sessions after the configured heartbeat timeout by setting `disconnect_at` to the last heartbeat timestamp
-  - An advisory-locked in-app live-stream runner polls verified Bilibili social links on a fixed interval and updates `live_stream_state` without clearing live rows on transport failures
+  - An advisory-locked in-app live-stream runner polls verified Bilibili and Twitch social links on a fixed interval, caches Twitch app tokens in-process, and updates `live_stream_state` without clearing live rows on transport failures
   - The midnight rank pipeline preserves `record_pb.updated_on` during point recalculation so same-day retries keep the same selection window
 
 ## Backend Runtime and Libraries
@@ -118,6 +118,7 @@
 ## External Integrations
 - Steam OpenID and Steam Web API integration paths exist in backend flows.
 - GlobalAPI endpoints are consumed for synchronization/compatibility behavior.
+- Twitch Helix API is consumed for verified Twitch live-stream status using app credentials.
 - GlobalAPI ban sync uses large backfill pages for catch-up, then incremental `updated_since` polling with a steady-state page size of `10`.
 
 ## Implementation Constraints

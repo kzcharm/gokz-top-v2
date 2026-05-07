@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
@@ -19,10 +20,17 @@ from app.core.db import async_session_maker
 from app.models import PlayerSocialPlatform, get_datetime_utc
 from app.services.player_social_links import build_player_social_link_url
 
+logger = logging.getLogger(__name__)
+
 ENABLED_LIVE_STREAM_PLATFORMS: tuple[PlayerSocialPlatform, ...] = (
     PlayerSocialPlatform.BILIBILI,
+    PlayerSocialPlatform.TWITCH,
 )
 BILIBILI_PREVIEW_HOST_SUFFIXES = ("hdslb.com",)
+TWITCH_STREAMS_CHUNK_SIZE = 100
+TWITCH_THUMBNAIL_WIDTH = 640
+TWITCH_THUMBNAIL_HEIGHT = 360
+TWITCH_TOKEN_REFRESH_BUFFER = timedelta(seconds=60)
 LIVE_STREAM_RUNNER_LOCK_ID = int.from_bytes(
     hashlib.sha256(b"gokz-top-v2:live-stream-runner").digest()[:8],
     byteorder="big",
@@ -31,7 +39,7 @@ LIVE_STREAM_RUNNER_LOCK_ID = int.from_bytes(
 
 
 @dataclass(frozen=True, slots=True)
-class BilibiliLiveStatus:
+class LiveStreamStatus:
     is_live: bool
     stream_title: str | None = None
     viewer_count: int | None = None
@@ -40,6 +48,17 @@ class BilibiliLiveStatus:
     stream_url: str | None = None
     channel_display_name: str | None = None
     started_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchAppAccessToken:
+    access_token: str
+    expires_at: datetime
+
+
+BilibiliLiveStatus = LiveStreamStatus
+TwitchLiveStatus = LiveStreamStatus
+_twitch_app_access_token: TwitchAppAccessToken | None = None
 
 
 def get_live_stream_stale_after() -> timedelta:
@@ -147,6 +166,168 @@ async def check_bilibili_live_status(
     return result
 
 
+def is_twitch_live_stream_polling_enabled() -> bool:
+    return bool(settings.TWITCH_CLIENT_ID and settings.TWITCH_CLIENT_SECRET)
+
+
+def _clear_twitch_app_access_token_cache() -> None:
+    global _twitch_app_access_token
+    _twitch_app_access_token = None
+
+
+def _parse_twitch_started_at(value: object | None) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip()
+    if not normalized:
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _expand_twitch_thumbnail_url(template: object | None) -> str | None:
+    if not isinstance(template, str):
+        return None
+    normalized = template.strip()
+    if not normalized:
+        return None
+    return (
+        normalized.replace("{width}", str(TWITCH_THUMBNAIL_WIDTH))
+        .replace("{height}", str(TWITCH_THUMBNAIL_HEIGHT))
+    )
+
+
+async def _fetch_twitch_app_access_token() -> TwitchAppAccessToken:
+    if not is_twitch_live_stream_polling_enabled():
+        raise RuntimeError("Twitch live polling credentials are not configured")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(
+            "https://id.twitch.tv/oauth2/token",
+            params={
+                "client_id": settings.TWITCH_CLIENT_ID,
+                "client_secret": settings.TWITCH_CLIENT_SECRET,
+                "grant_type": "client_credentials",
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    access_token = payload.get("access_token")
+    expires_in = payload.get("expires_in")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise ValueError("Twitch OAuth response did not include an access token")
+    if not isinstance(expires_in, int | float) or expires_in <= 0:
+        raise ValueError("Twitch OAuth response did not include a valid expiry")
+
+    return TwitchAppAccessToken(
+        access_token=access_token,
+        expires_at=get_datetime_utc() + timedelta(seconds=int(expires_in)),
+    )
+
+
+async def _get_twitch_app_access_token(*, force_refresh: bool = False) -> str:
+    global _twitch_app_access_token
+
+    now = get_datetime_utc()
+    if (
+        force_refresh is False
+        and _twitch_app_access_token is not None
+        and _twitch_app_access_token.expires_at - TWITCH_TOKEN_REFRESH_BUFFER > now
+    ):
+        return _twitch_app_access_token.access_token
+
+    _twitch_app_access_token = await _fetch_twitch_app_access_token()
+    return _twitch_app_access_token.access_token
+
+
+async def _fetch_twitch_streams_payload(
+    user_logins: list[str],
+    *,
+    access_token: str,
+) -> list[dict[str, Any]]:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            "https://api.twitch.tv/helix/streams",
+            params=[("user_login", user_login) for user_login in user_logins],
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Client-Id": settings.TWITCH_CLIENT_ID or "",
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    data = payload.get("data")
+    if not isinstance(data, list):
+        raise ValueError("Twitch streams API returned an invalid payload")
+    return [item for item in data if isinstance(item, dict)]
+
+
+async def check_twitch_live_status(
+    account_identifiers: Sequence[str],
+) -> dict[str, TwitchLiveStatus]:
+    if not account_identifiers:
+        return {}
+    if not is_twitch_live_stream_polling_enabled():
+        raise RuntimeError("Twitch live polling credentials are not configured")
+
+    normalized_identifiers = list(dict.fromkeys(account_identifiers))
+    result = {
+        account_identifier: TwitchLiveStatus(is_live=False)
+        for account_identifier in normalized_identifiers
+    }
+
+    access_token = await _get_twitch_app_access_token()
+    payloads: list[dict[str, Any]] = []
+    for attempt in range(2):
+        try:
+            payloads.clear()
+            for index in range(0, len(normalized_identifiers), TWITCH_STREAMS_CHUNK_SIZE):
+                chunk = normalized_identifiers[index : index + TWITCH_STREAMS_CHUNK_SIZE]
+                payloads.extend(
+                    await _fetch_twitch_streams_payload(
+                        chunk,
+                        access_token=access_token,
+                    )
+                )
+            break
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 401 or attempt == 1:
+                raise
+            access_token = await _get_twitch_app_access_token(force_refresh=True)
+
+    for stream in payloads:
+        user_login = stream.get("user_login")
+        if not isinstance(user_login, str) or user_login not in result:
+            continue
+
+        result[user_login] = TwitchLiveStatus(
+            is_live=True,
+            stream_title=stream.get("title") if isinstance(stream.get("title"), str) else None,
+            viewer_count=stream.get("viewer_count")
+            if isinstance(stream.get("viewer_count"), int)
+            else None,
+            preview_image_url=_expand_twitch_thumbnail_url(stream.get("thumbnail_url")),
+            hover_preview_image_url=None,
+            stream_url=f"https://www.twitch.tv/{user_login}",
+            channel_display_name=stream.get("user_name")
+            if isinstance(stream.get("user_name"), str)
+            else None,
+            started_at=_parse_twitch_started_at(stream.get("started_at")),
+        )
+
+    return result
+
+
 async def _fetch_bilibili_live_status_payload(uids: list[int]) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.post(
@@ -190,37 +371,91 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
     if not links:
         return 0
 
+    processed = 0
     bilibili_links = [
         link for link in links if link.platform == PlayerSocialPlatform.BILIBILI
     ]
-    statuses = await check_bilibili_live_status(
-        [int(link.account_identifier) for link in bilibili_links]
-    )
-    checked_at = get_datetime_utc()
-    for link in bilibili_links:
-        status = statuses.get(int(link.account_identifier), BilibiliLiveStatus(False))
-        await crud.upsert_live_stream_state(
-            session=session,
-            social_link_id=link.id,
-            checked_at=checked_at,
-            is_live=status.is_live,
-            stream_url=(
-                status.stream_url
-                or build_player_social_link_url(
-                    platform=link.platform,
-                    account_identifier=link.account_identifier,
+    if bilibili_links:
+        try:
+            statuses = await check_bilibili_live_status(
+                [int(link.account_identifier) for link in bilibili_links]
+            )
+        except Exception:
+            logger.exception("Failed to refresh Bilibili live streams")
+        else:
+            checked_at = get_datetime_utc()
+            for link in bilibili_links:
+                status = statuses.get(
+                    int(link.account_identifier),
+                    BilibiliLiveStatus(False),
                 )
-            ),
-            stream_title=status.stream_title,
-            preview_image_url=status.preview_image_url,
-            hover_preview_image_url=status.hover_preview_image_url,
-            channel_display_name=status.channel_display_name,
-            viewer_count=status.viewer_count,
-            started_at=status.started_at,
-            commit=False,
+                await crud.upsert_live_stream_state(
+                    session=session,
+                    social_link_id=link.id,
+                    checked_at=checked_at,
+                    is_live=status.is_live,
+                    stream_url=(
+                        status.stream_url
+                        or build_player_social_link_url(
+                            platform=link.platform,
+                            account_identifier=link.account_identifier,
+                        )
+                    ),
+                    stream_title=status.stream_title,
+                    preview_image_url=status.preview_image_url,
+                    hover_preview_image_url=status.hover_preview_image_url,
+                    channel_display_name=status.channel_display_name,
+                    viewer_count=status.viewer_count,
+                    started_at=status.started_at,
+                    commit=False,
+                )
+            processed += len(bilibili_links)
+
+    twitch_links = [
+        link for link in links if link.platform == PlayerSocialPlatform.TWITCH
+    ]
+    if twitch_links and not is_twitch_live_stream_polling_enabled():
+        logger.info(
+            "Skipping Twitch live stream refresh because credentials are not configured"
         )
+    elif twitch_links:
+        try:
+            statuses = await check_twitch_live_status(
+                [link.account_identifier for link in twitch_links]
+            )
+        except Exception:
+            logger.exception("Failed to refresh Twitch live streams")
+        else:
+            checked_at = get_datetime_utc()
+            for link in twitch_links:
+                status = statuses.get(
+                    link.account_identifier,
+                    TwitchLiveStatus(False),
+                )
+                await crud.upsert_live_stream_state(
+                    session=session,
+                    social_link_id=link.id,
+                    checked_at=checked_at,
+                    is_live=status.is_live,
+                    stream_url=(
+                        status.stream_url
+                        or build_player_social_link_url(
+                            platform=link.platform,
+                            account_identifier=link.account_identifier,
+                        )
+                    ),
+                    stream_title=status.stream_title,
+                    preview_image_url=status.preview_image_url,
+                    hover_preview_image_url=status.hover_preview_image_url,
+                    channel_display_name=status.channel_display_name,
+                    viewer_count=status.viewer_count,
+                    started_at=status.started_at,
+                    commit=False,
+                )
+            processed += len(twitch_links)
+
     await session.commit()
-    return len(bilibili_links)
+    return processed
 
 
 async def run_live_stream_runner_in_app() -> None:

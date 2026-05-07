@@ -49,6 +49,10 @@ function getPlatformBadgeClass(
     return "border-pink-300/25 bg-pink-500/90 text-white hover:bg-pink-500/90"
   }
 
+  if (platform === "twitch") {
+    return "border-violet-300/25 bg-violet-500/90 text-white hover:bg-violet-500/90"
+  }
+
   return "border-white/15 bg-white/10 text-white hover:bg-white/10"
 }
 
@@ -178,7 +182,7 @@ function LiveCardSkeleton() {
 function EmptyState({ filter }: { filter: StreamFilter }) {
   const message =
     filter === "live"
-      ? "No verified Bilibili streams are live right now."
+      ? "No verified streams are live right now."
       : "No tracked players have streamed yet."
 
   return (

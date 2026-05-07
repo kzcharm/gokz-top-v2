@@ -3,8 +3,30 @@ import { expect, test } from "@playwright/test"
 test.use({ storageState: { cookies: [], origins: [] } })
 
 const livePayload = {
-  count: 1,
+  count: 2,
   data: [
+    {
+      player: {
+        steamid64: "76561198000000003",
+        name: "Twitch Player",
+        alias: null,
+        avatar_hash: null,
+        country: "CA",
+        custom_id: null,
+        is_website_user: false,
+      },
+      selected_platform: "twitch",
+      selected_platform_account_identifier: "twitch-player",
+      is_live: true,
+      stream_url: "https://www.twitch.tv/twitch-player",
+      last_viewer_count: 9123,
+      preview_image_url:
+        "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg",
+      hover_preview_image_url: null,
+      stream_title: "Twitch Session",
+      started_at: "2026-05-07T09:00:00Z",
+      last_streamed_at: "2026-05-07T10:00:00Z",
+    },
     {
       player: {
         steamid64: "76561198000000001",
@@ -86,7 +108,16 @@ test("Live page switches between live and offline streams", async ({
   await expect(page.getByRole("heading", { name: "Live" })).toBeVisible()
   await expect(page.getByRole("button", { name: "Online" })).toBeVisible()
   await expect(page.getByText("Live Alias")).toBeVisible()
+  await expect(page.getByText("Twitch Player")).toBeVisible()
   await expect(page.getByText("145.6K views")).toBeVisible()
+  await expect(page.getByText("9.1K views")).toBeVisible()
+  await expect(
+    page
+      .locator("article")
+      .filter({ hasText: "Twitch Player" })
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: /^Twitch$/ }),
+  ).toBeVisible()
   await expect(
     page.getByText("Verified Bilibili stream link"),
   ).not.toBeVisible()
@@ -101,15 +132,23 @@ test("Live page switches between live and offline streams", async ({
     "src",
     /http:\/\/localhost:8000\/v1\/live\/preview-image\?url=.*live-key-frame/,
   )
+  await expect(
+    page.getByAltText("Twitch Player stream preview"),
+  ).toHaveAttribute(
+    "src",
+    "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg",
+  )
 
   await page.getByRole("button", { name: "Online" }).click()
   await expect(page.getByText("Offline Player")).toBeVisible()
   await expect(page.getByText("4K views")).toBeVisible()
   await expect(page.getByText("Live Alias")).not.toBeVisible()
+  await expect(page.getByText("Twitch Player")).not.toBeVisible()
 
   await page.getByRole("button", { name: "Online" }).click()
   await expect(page.getByText("Live Alias")).toBeVisible()
   await expect(page.getByText("Offline Player")).not.toBeVisible()
+  await expect(page.getByText("Twitch Player")).toBeVisible()
 })
 
 test("Live page shows the empty state when no streams are tracked", async ({
@@ -127,6 +166,6 @@ test("Live page shows the empty state when no streams are tracked", async ({
 
   await expect(page.getByText("Nothing to show")).toBeVisible()
   await expect(
-    page.getByText("No verified Bilibili streams are live right now."),
+    page.getByText("No verified streams are live right now."),
   ).toBeVisible()
 })
