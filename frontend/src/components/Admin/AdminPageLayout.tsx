@@ -41,7 +41,7 @@ export function AdminTableCard({
 }) {
   return (
     <Card className={cn("gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0", className)}>
-      <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
+      <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
         {children}
       </CardContent>
     </Card>
