@@ -203,7 +203,7 @@ export function DataTable<TData, TValue>({
       window.removeEventListener("scroll", updateStickyHeaderPinnedState)
       window.removeEventListener("resize", updateStickyHeaderPinnedState)
     }
-  }, [data.length, stickyHeader, stickyHeaderTopClassName])
+  }, [stickyHeader])
 
   const commitPageInputValue = () => {
     if (!pageInputEnabled) {
@@ -235,7 +235,11 @@ export function DataTable<TData, TValue>({
                 return (
                   <TableHead
                     key={header.id}
-                    ref={header.id === headerGroup.headers[0]?.id ? stickyHeaderCellRef : undefined}
+                    ref={
+                      header.id === headerGroup.headers[0]?.id
+                        ? stickyHeaderCellRef
+                        : undefined
+                    }
                     className={
                       stickyHeader
                         ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted ${
