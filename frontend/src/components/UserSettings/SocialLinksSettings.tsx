@@ -5,6 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { OpenAPI, type PlayerSocialLinkPublic, PlayersService } from "@/client"
 import { Button } from "@/components/ui/button"
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -591,12 +597,10 @@ export default function SocialLinksSettings() {
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <div>
-        <h3 className="py-4 text-lg font-semibold">Social Links</h3>
-      </div>
-      <div className="space-y-3 rounded-lg border p-4">
-        <div className="flex justify-end">
+    <>
+      <Card className="max-w-2xl">
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <CardTitle>Social Links</CardTitle>
           <Button
             type="button"
             onClick={() => {
@@ -607,9 +611,8 @@ export default function SocialLinksSettings() {
             <Plus className="size-4" />
             Add
           </Button>
-        </div>
-
-        <div className="space-y-2">
+        </CardHeader>
+        <CardContent className="space-y-2">
           {isLoading ? (
             <p className="py-4 text-sm text-muted-foreground">
               Loading social links...
@@ -638,8 +641,8 @@ export default function SocialLinksSettings() {
               No social links added yet.
             </p>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <Dialog
         open={dialogState !== null}
@@ -841,6 +844,6 @@ export default function SocialLinksSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
