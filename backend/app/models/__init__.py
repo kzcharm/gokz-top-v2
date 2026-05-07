@@ -144,6 +144,15 @@ from .player_stats import (
     PlayerStatsPublic,
     PlayerStatType,
 )
+from .player_webhook import (
+    PlayerWebhook,
+    PlayerWebhookCreate,
+    PlayerWebhookProvider,
+    PlayerWebhookPublic,
+    PlayerWebhooksPublic,
+    PlayerWebhookUpdate,
+    normalize_discord_webhook_url,
+)
 from .record import (
     KZMode,
     MapCourse,
@@ -373,6 +382,12 @@ __all__ = [
     "PlayerStatCache",
     "PlayerStatType",
     "PlayerStatsPublic",
+    "PlayerWebhook",
+    "PlayerWebhookCreate",
+    "PlayerWebhookProvider",
+    "PlayerWebhookPublic",
+    "PlayerWebhooksPublic",
+    "PlayerWebhookUpdate",
     "PlayerFollow",
     "PlayerFollowListQuery",
     "PlayerFollowSummaryPublic",
@@ -476,6 +491,7 @@ __all__ = [
     "mode_scope_to_id",
     "normalize_kz_mode",
     "normalize_mode_scope",
+    "normalize_discord_webhook_url",
     "normalize_user_roles",
     "seconds_to_time_ms",
     "time_ms_to_seconds",

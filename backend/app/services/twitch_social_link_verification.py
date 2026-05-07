@@ -21,8 +21,9 @@ TWITCH_PENDING_CONFIRM_TTL = timedelta(minutes=10)
 
 class TwitchVerificationStatePayload(BaseModel):
     purpose: str
+    mode: str
     steamid64: int
-    link_id: str
+    link_id: str | None = None
     platform: str
     return_path: str
     exp: int
@@ -53,11 +54,13 @@ def ensure_twitch_verification_configured() -> None:
 def create_twitch_verification_state_token(
     *,
     steamid64: int,
-    link_id: str,
     return_path: str,
+    mode: str,
+    link_id: str | None = None,
 ) -> str:
     payload = TwitchVerificationStatePayload(
         purpose="twitch_social_link_verify_state",
+        mode=mode,
         steamid64=steamid64,
         link_id=link_id,
         platform="twitch",
@@ -197,7 +200,6 @@ def build_twitch_verification_error_return_url(
         frontend_host=frontend_host,
         return_path=return_path,
         params={
-            "tab": "social-links",
             "twitchVerification": "error",
             "message": message,
         },
@@ -213,7 +215,6 @@ def build_twitch_verification_success_return_url(
         frontend_host=frontend_host,
         return_path=return_path,
         params={
-            "tab": "social-links",
             "twitchVerification": "success",
         },
     )
@@ -233,8 +234,8 @@ def build_twitch_verification_mismatch_return_url(
         frontend_host=frontend_host,
         return_path=return_path,
         params={
-            "tab": "social-links",
             "twitchVerification": "mismatch",
+            "twitchAction": "verify",
             "linkId": link_id,
             "currentAccount": current_account_identifier,
             "authenticatedAccount": authenticated_account_identifier,
@@ -253,7 +254,8 @@ def _build_return_url(
     path = return_path if return_path.startswith("/") else "/settings"
     base = frontend_host.rstrip("/")
     query = urlencode(params)
-    return f"{base}{path}?{query}"
+    separator = "&" if "?" in path else "?"
+    return f"{base}{path}{separator}{query}"
 
 
 def _expiry_timestamp(ttl: timedelta) -> int:

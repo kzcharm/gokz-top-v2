@@ -16,6 +16,7 @@ test("Only steam-era tabs are visible", async ({ page }) => {
   await page.goto("/settings")
   await expect(page.getByRole("tab", { name: "My profile" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Appearance" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Webhooks" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Danger zone" })).toHaveCount(0)
   await expect(page.getByRole("tab", { name: "Password" })).toHaveCount(0)
 })
@@ -76,16 +77,82 @@ test.describe("Profile and theme", () => {
 
     await page.goto("/settings")
     await page.getByRole("tab", { name: "Social links" }).click()
+    await page.getByRole("button", { name: "Add" }).click()
     await page
       .getByRole("textbox", { name: "Social profile URL" })
       .fill("https://x.com/settings_user")
-    await page.getByRole("button", { name: "Add" }).click()
+    await page.getByRole("button", { name: "Add link" }).click()
 
     await expect(page.getByText("settings_user")).toBeVisible()
     await expect(page.getByText("Unverified")).toBeVisible()
 
     await page.getByRole("button", { name: "Delete X link" }).click()
     await expect(page.getByText("No social links added yet.")).toBeVisible()
+  })
+
+  test("Twitch quick link opens a popup and success refreshes the list", async ({
+    page,
+  }) => {
+    const steamid64 = randomSteamid64()
+    let links: unknown[] = []
+    await logInUser(page, steamid64)
+    await page.route(
+      new RegExp(`/v1/players/${steamid64}/social-links$`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+    await page.route(
+      new RegExp(`/v1/players/${steamid64}/social-links/add/twitch/start$`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            authorization_url:
+              "https://id.twitch.tv/oauth2/authorize?client_id=test&state=test",
+          }),
+        })
+      },
+    )
+
+    await page.goto("/settings")
+    await page.getByRole("tab", { name: "Social links" }).click()
+    await page.getByRole("button", { name: "Add" }).click()
+
+    const popupPromise = page.waitForEvent("popup")
+    await page.getByRole("button", { name: "Link with Twitch" }).click()
+    await popupPromise
+
+    links = [
+      {
+        id: "019e0000-0000-7000-8000-000000000401",
+        player_steamid64: String(steamid64),
+        platform: "twitch",
+        account_identifier: "linkedstreamer",
+        verified: true,
+        url: "https://www.twitch.tv/linkedstreamer",
+        created_at: "2026-04-01T00:00:00Z",
+        updated_at: "2026-04-01T00:00:00Z",
+      },
+    ]
+
+    await page.evaluate(() => {
+      window.postMessage(
+        {
+          type: "twitch-social-link-verification",
+          status: "success",
+        },
+        window.location.origin,
+      )
+    })
+
+    await expect(page.getByText("Twitch account linked")).toBeVisible()
+    await expect(page.getByText("linkedstreamer")).toBeVisible()
   })
 
   test("Social links tab honors URL state and can confirm Twitch verification mismatch", async ({
@@ -171,6 +238,132 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText("verifiedstreamer")).toBeVisible()
     await expect(page.getByText("Unverified")).toHaveCount(1)
     await expect(page.getByText("oldstreamer")).toHaveCount(0)
+  })
+
+  test("Webhooks tab can add, toggle, test, edit, and delete a webhook", async ({
+    page,
+  }) => {
+    let webhooks = [] as Array<{
+      id: string
+      provider: "discord"
+      url: string
+      enabled: boolean
+      last_tested_at: string | null
+      created_at: string
+      updated_at: string
+    }>
+
+    await logInUser(page, randomSteamid64())
+    await page.route(/\/v1\/players\/me\/webhooks$/, async (route) => {
+      if (route.request().method() === "POST") {
+        const requestBody = route.request().postDataJSON() as { url: string }
+        webhooks = [
+          {
+            id: "019e0000-0000-7000-8000-000000000401",
+            provider: "discord",
+            url: requestBody.url,
+            enabled: true,
+            last_tested_at: null,
+            created_at: "2026-04-01T00:00:00Z",
+            updated_at: "2026-04-01T00:00:00Z",
+          },
+        ]
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: webhooks, count: webhooks.length }),
+      })
+    })
+    await page.route(/\/v1\/players\/me\/webhooks\/[^/]+$/, async (route) => {
+      const webhookId = route.request().url().split("/").pop() ?? ""
+      if (route.request().method() === "PATCH") {
+        const requestBody = route.request().postDataJSON() as {
+          url?: string
+          enabled?: boolean
+        }
+        webhooks = webhooks.map((webhook) =>
+          webhook.id === webhookId
+            ? {
+                ...webhook,
+                url: requestBody.url ?? webhook.url,
+                enabled: requestBody.enabled ?? webhook.enabled,
+                updated_at: "2026-04-02T00:00:00Z",
+              }
+            : webhook,
+        )
+      }
+      if (route.request().method() === "DELETE") {
+        webhooks = webhooks.filter((webhook) => webhook.id !== webhookId)
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: webhooks, count: webhooks.length }),
+      })
+    })
+    await page.route(
+      /\/v1\/players\/me\/webhooks\/[^/]+\/test$/,
+      async (route) => {
+        const parts = route.request().url().split("/")
+        const webhookId = parts[parts.length - 2] ?? ""
+        const updatedWebhook = webhooks.find(
+          (webhook) => webhook.id === webhookId,
+        )
+        if (updatedWebhook) {
+          updatedWebhook.last_tested_at = "2026-04-03T00:00:00Z"
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(updatedWebhook),
+        })
+      },
+    )
+
+    await page.goto("/settings?tab=webhooks")
+    await expect(page.getByRole("tab", { name: "Webhooks" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+
+    await page
+      .getByRole("textbox", { name: "Discord webhook URL" })
+      .fill(
+        "https://discord.com/api/webhooks/123456789012345678/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      )
+    await page.getByRole("button", { name: "Add webhook" }).click()
+
+    await expect(page.getByText("Webhook added")).toBeVisible()
+    await expect(
+      page.getByText("123456789012345678/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+    ).toBeVisible()
+
+    await page.getByRole("switch").click()
+    await expect(page.getByText("Webhook updated")).toBeVisible()
+    await expect(page.getByText("Disabled")).toBeVisible()
+
+    await page.getByRole("button", { name: "Send test" }).click()
+    await expect(page.getByText("Webhook test sent")).toBeVisible()
+    await expect(page.getByText("Last tested:")).toBeVisible()
+
+    await page.getByRole("button", { name: "Edit Discord webhook" }).click()
+    await page
+      .getByRole("textbox", { name: "Edit Discord webhook URL" })
+      .fill(
+        "https://discord.com/api/webhooks/987654321098765432/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      )
+    await page.getByRole("button", { name: "Save" }).click()
+    await expect(page.getByText("Webhook updated")).toBeVisible()
+    await expect(
+      page.getByText("987654321098765432/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Delete Discord webhook" }).click()
+    await expect(page.getByText("Webhook deleted")).toBeVisible()
+    await expect(page.getByText("No webhooks added yet.")).toBeVisible()
   })
 
   test("Theme selected in appearance settings is preserved across sessions", async ({
