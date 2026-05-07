@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import {
-  Activity,
   Clock3,
   Home,
   Link as LinkIcon,
   Map as MapIcon,
+  Radio,
   Server,
   Settings,
   ShieldAlert,
@@ -13,8 +13,9 @@ import {
   User as UserIcon,
   Users,
 } from "lucide-react"
+import { useState } from "react"
 
-import { AdminServersService } from "@/client"
+import { AdminServersService, LiveService } from "@/client"
 import { Logo } from "@/components/Common/Logo"
 import {
   Sidebar,
@@ -33,6 +34,7 @@ const privateItems: Item[] = [
 
 export function AppSidebar() {
   const { user: currentUser } = useAuth()
+  const [hasClickedLive, setHasClickedLive] = useState(false)
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
   const currentUserIsSuperuser = isSuperuser(currentUser)
   const serverAdminAccessQuery = useQuery({
@@ -41,6 +43,16 @@ export function AppSidebar() {
     enabled: Boolean(currentUser) && !currentUserIsSuperuser,
     retry: false,
   })
+  const liveStreamsQuery = useQuery({
+    queryKey: ["live-streams", "sidebar"],
+    queryFn: () => LiveService.readLiveStreams({ online: true }),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+  const showLiveDot =
+    liveStreamsQuery.data !== undefined &&
+    liveStreamsQuery.data.count >= 1 &&
+    !hasClickedLive
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: "Servers", path: "/servers" },
@@ -59,7 +71,13 @@ export function AppSidebar() {
     },
     { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
     { type: "link", icon: MapIcon, title: "Maps", path: "/maps" },
-    { type: "link", icon: Activity, title: "Live", path: "/live" },
+    {
+      type: "link",
+      icon: Radio,
+      title: "Live",
+      path: "/live",
+      showNotificationDot: showLiveDot,
+    },
     { type: "link", icon: ShieldAlert, title: "Bans", path: "/bans" },
   ]
 
@@ -112,7 +130,14 @@ export function AppSidebar() {
         <Logo variant="responsive" />
       </SidebarHeader>
       <SidebarContent>
-        <Main items={items} />
+        <Main
+          items={items}
+          onLinkNavigate={(path) => {
+            if (path === "/live") {
+              setHasClickedLive(true)
+            }
+          }}
+        />
       </SidebarContent>
       <SidebarFooter>
         <User user={currentUser} />

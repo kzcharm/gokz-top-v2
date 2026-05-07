@@ -21,6 +21,7 @@ type LinkItem = {
   title: string
   path: string
   activePrefixes?: string[]
+  showNotificationDot?: boolean
 }
 
 type GroupChildItem = {
@@ -41,6 +42,7 @@ export type Item = LinkItem | GroupItem
 
 interface MainProps {
   items: Item[]
+  onLinkNavigate?: (path: string) => void
 }
 
 function isPathActive(path: string, currentPath: string) {
@@ -65,21 +67,35 @@ function MainMenuLink({
   item,
   currentPath,
   onNavigate,
+  onLinkNavigate,
 }: {
   item: LinkItem
   currentPath: string
   onNavigate: () => void
+  onLinkNavigate?: (path: string) => void
 }) {
+  const isActive = isLinkItemActive(item, currentPath)
+
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton
-        tooltip={item.title}
-        isActive={isLinkItemActive(item, currentPath)}
-        asChild
-      >
-        <RouterLink to={item.path} onClick={onNavigate}>
+      <SidebarMenuButton tooltip={item.title} isActive={isActive} asChild>
+        <RouterLink
+          to={item.path}
+          onClick={() => {
+            onLinkNavigate?.(item.path)
+            onNavigate()
+          }}
+        >
           <item.icon />
-          <span>{item.title}</span>
+          <span className="flex items-center gap-2">
+            <span>{item.title}</span>
+            {item.showNotificationDot && !isActive ? (
+              <span
+                aria-hidden="true"
+                className="size-2 shrink-0 rounded-full bg-red-500 animate-pulse"
+              />
+            ) : null}
+          </span>
         </RouterLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -143,7 +159,7 @@ function MainMenuGroup({
   )
 }
 
-export function Main({ items }: MainProps) {
+export function Main({ items, onLinkNavigate }: MainProps) {
   const { isMobile, setOpenMobile } = useSidebar()
   const router = useRouterState()
   const currentPath = router.location.pathname
@@ -165,6 +181,7 @@ export function Main({ items }: MainProps) {
                 item={item}
                 currentPath={currentPath}
                 onNavigate={handleMenuClick}
+                onLinkNavigate={onLinkNavigate}
               />
             ) : (
               <MainMenuGroup
