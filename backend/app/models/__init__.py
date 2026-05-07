@@ -126,6 +126,7 @@ from .player_social_link import (
     PlayerSocialLinkCreate,
     PlayerSocialLinkPublic,
     PlayerSocialLinksPublic,
+    PlayerSocialLinkVerifyConfirm,
     PlayerSocialLinkUpdate,
     PlayerSocialPlatform,
 )
@@ -349,6 +350,7 @@ __all__ = [
     "PlayerSocialLinkCreate",
     "PlayerSocialLinkPublic",
     "PlayerSocialLinksPublic",
+    "PlayerSocialLinkVerifyConfirm",
     "PlayerSocialLinkUpdate",
     "PlayerSocialPlatform",
     "PlayerPublic",

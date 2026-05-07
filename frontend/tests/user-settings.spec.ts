@@ -88,6 +88,91 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText("No social links added yet.")).toBeVisible()
   })
 
+  test("Social links tab honors URL state and can confirm Twitch verification mismatch", async ({
+    page,
+  }) => {
+    const steamid64 = randomSteamid64()
+    let links = [
+      {
+        id: "019e0000-0000-7000-8000-000000000301",
+        player_steamid64: String(steamid64),
+        platform: "twitch",
+        account_identifier: "oldstreamer",
+        verified: false,
+        url: "https://www.twitch.tv/oldstreamer",
+        created_at: "2026-04-01T00:00:00Z",
+        updated_at: "2026-04-01T00:00:00Z",
+      },
+      {
+        id: "019e0000-0000-7000-8000-000000000302",
+        player_steamid64: String(steamid64),
+        platform: "github",
+        account_identifier: "settings_user",
+        verified: false,
+        url: "https://github.com/settings_user",
+        created_at: "2026-04-01T00:00:00Z",
+        updated_at: "2026-04-01T00:00:00Z",
+      },
+    ]
+
+    await logInUser(page, steamid64)
+    await page.route(
+      new RegExp(`/v1/players/${steamid64}/social-links$`),
+      async (route) => {
+        await route.fulfill({
+          status: route.request().method() === "POST" ? 200 : 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+    await page.route(
+      new RegExp(
+        `/v1/players/${steamid64}/social-links/019e0000-0000-7000-8000-000000000301/verify/twitch/confirm$`,
+      ),
+      async (route) => {
+        links = [
+          {
+            ...links[0],
+            account_identifier: "verifiedstreamer",
+            verified: true,
+            url: "https://www.twitch.tv/verifiedstreamer",
+          },
+          links[1],
+        ]
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+
+    await page.goto(
+      "/settings?tab=social-links&twitchVerification=mismatch&linkId=019e0000-0000-7000-8000-000000000301&currentAccount=oldstreamer&authenticatedAccount=verifiedstreamer&authenticatedDisplayName=VerifiedStreamer&pendingToken=test-pending-token",
+    )
+
+    await expect(
+      page.getByRole("tab", { name: "Social links" }),
+    ).toHaveAttribute("aria-selected", "true")
+    await expect(
+      page.getByRole("button", { name: "Verify" }).first(),
+    ).toBeEnabled()
+    await expect(
+      page.getByRole("button", { name: "Verify" }).nth(1),
+    ).toBeDisabled()
+    await expect(page.getByText("Confirm Twitch account")).toBeVisible()
+    await expect(page.getByText("VerifiedStreamer")).toBeVisible()
+    await expect(page.getByText("oldstreamer")).toBeVisible()
+
+    await page.getByRole("button", { name: "Replace and verify" }).click()
+
+    await expect(page.getByText("Twitch account verified")).toBeVisible()
+    await expect(page.getByText("verifiedstreamer")).toBeVisible()
+    await expect(page.getByText("Unverified")).toHaveCount(1)
+    await expect(page.getByText("oldstreamer")).toHaveCount(0)
+  })
+
   test("Theme selected in appearance settings is preserved across sessions", async ({
     page,
   }) => {

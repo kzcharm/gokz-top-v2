@@ -71,6 +71,10 @@ class PlayerSocialLinkUpdate(SQLModel):
     url: str = Field(min_length=1, max_length=500)
 
 
+class PlayerSocialLinkVerifyConfirm(SQLModel):
+    pending_token: str = Field(min_length=1, max_length=4000)
+
+
 class AdminPlayerSocialLinkCreate(PlayerSocialLinkCreate):
     player_steamid64: str
     verified: bool = False

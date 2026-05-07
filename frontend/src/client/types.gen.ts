@@ -579,6 +579,10 @@ export type PlayerSocialLinkUpdate = {
     url: string;
 };
 
+export type PlayerSocialLinkVerifyConfirm = {
+    pending_token: string;
+};
+
 export type PlayerSocialPlatform = 'bilibili' | 'github' | 'twitch' | 'x' | 'youtube';
 
 export type PlayersPublic = {
@@ -1320,6 +1324,32 @@ export type PlayersDeletePlayerSocialLinkData = {
 };
 
 export type PlayersDeletePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
+
+export type PlayersStartPlayerTwitchSocialLinkVerificationData = {
+    identifier: string;
+    linkId: string;
+};
+
+export type PlayersStartPlayerTwitchSocialLinkVerificationResponse = ({
+    [key: string]: (string);
+});
+
+export type PlayersCompletePlayerTwitchSocialLinkVerificationData = {
+    code?: (string | null);
+    error?: (string | null);
+    errorDescription?: (string | null);
+    state: string;
+};
+
+export type PlayersCompletePlayerTwitchSocialLinkVerificationResponse = (unknown);
+
+export type PlayersConfirmPlayerTwitchSocialLinkVerificationData = {
+    identifier: string;
+    linkId: string;
+    requestBody: PlayerSocialLinkVerifyConfirm;
+};
+
+export type PlayersConfirmPlayerTwitchSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
 
 export type PlayersReadPlayerFollowSummaryData = {
     identifier: string;

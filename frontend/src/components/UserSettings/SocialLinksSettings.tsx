@@ -1,11 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2, Pencil, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { CheckCircle2, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react"
+import { useEffect, useState } from "react"
 
-import { type PlayerSocialLinkPublic, PlayersService } from "@/client"
+import { OpenAPI, type PlayerSocialLinkPublic, PlayersService } from "@/client"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
@@ -14,20 +26,110 @@ import {
   SocialPlatformIcon,
   socialPlatformConfig,
 } from "@/lib/social-links"
-import { handleError } from "@/utils"
+import { extractErrorMessage, handleError } from "@/utils"
+
+type TwitchMismatchState = {
+  authenticatedAccount: string
+  authenticatedDisplayName: string
+  currentAccount: string
+  linkId: string
+  pendingToken: string
+}
+
+type VerificationStartResponse = {
+  authorization_url: string
+}
+
+function getAccessToken() {
+  return localStorage.getItem("access_token") || ""
+}
+
+async function parseJsonResponse(response: Response) {
+  try {
+    return (await response.json()) as unknown
+  } catch {
+    return null
+  }
+}
+
+async function throwResponseError(response: Response): Promise<never> {
+  const body = await parseJsonResponse(response)
+  const detail =
+    typeof body === "object" &&
+    body !== null &&
+    "detail" in body &&
+    typeof body.detail === "string"
+      ? body.detail
+      : `${response.status} ${response.statusText}`.trim()
+  throw new Error(detail || "Something went wrong.")
+}
+
+async function startTwitchVerification(
+  identifier: string,
+  linkId: string,
+): Promise<VerificationStartResponse> {
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/twitch/start`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  return (await response.json()) as VerificationStartResponse
+}
+
+async function confirmTwitchVerification(
+  identifier: string,
+  linkId: string,
+  pendingToken: string,
+) {
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/twitch/confirm`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ pending_token: pendingToken }),
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  return (await response.json()) as Awaited<
+    ReturnType<typeof PlayersService.readPlayerSocialLinks>
+  >
+}
 
 function SocialLinkRow({
   link,
   onEdit,
   onDelete,
+  onVerify,
   deleting,
+  verifying,
 }: {
   link: PlayerSocialLinkPublic
   onEdit: (link: PlayerSocialLinkPublic) => void
   onDelete: (link: PlayerSocialLinkPublic) => void
+  onVerify: (link: PlayerSocialLinkPublic) => void
   deleting: boolean
+  verifying: boolean
 }) {
   const platformLabel = getSocialPlatformLabel(link.platform)
+  const isTwitchVerifyAvailable = link.platform === "twitch" && !link.verified
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2">
@@ -55,6 +157,34 @@ function SocialLinkRow({
         )}
       </a>
       <div className="flex shrink-0 items-center gap-1">
+        {!link.verified ? (
+          isTwitchVerifyAvailable ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={verifying}
+              onClick={() => onVerify(link)}
+            >
+              <ShieldCheck className="size-4" />
+              Verify
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button type="button" variant="ghost" size="sm" disabled>
+                    <ShieldCheck className="size-4" />
+                    Verify
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={6}>
+                Verification is not available for {platformLabel} yet.
+              </TooltipContent>
+            </Tooltip>
+          )
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -87,6 +217,8 @@ export default function SocialLinksSettings() {
   const [editingLink, setEditingLink] = useState<PlayerSocialLinkPublic | null>(
     null,
   )
+  const [mismatchState, setMismatchState] =
+    useState<TwitchMismatchState | null>(null)
   const identifier = String(currentUser?.steamid64 ?? "")
   const queryKey = ["player-social-links", identifier]
 
@@ -151,6 +283,88 @@ export default function SocialLinksSettings() {
     },
   })
 
+  const verifyMutation = useMutation({
+    mutationFn: (linkId: string) => startTwitchVerification(identifier, linkId),
+    onSuccess: ({ authorization_url }) => {
+      window.location.assign(authorization_url)
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+  })
+
+  const confirmVerificationMutation = useMutation({
+    mutationFn: ({
+      linkId,
+      pendingToken,
+    }: {
+      linkId: string
+      pendingToken: string
+    }) => confirmTwitchVerification(identifier, linkId, pendingToken),
+    onSuccess: () => {
+      setMismatchState(null)
+      showSuccessToast("Twitch account verified")
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey })
+      void queryClient.invalidateQueries({
+        queryKey: ["profile-player"],
+      })
+    },
+  })
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const params = url.searchParams
+    const status = params.get("twitchVerification")
+    if (!status) {
+      return
+    }
+
+    if (status === "success") {
+      showSuccessToast("Twitch account verified")
+    } else if (status === "error") {
+      showErrorToast(params.get("message") || "Twitch verification failed")
+    } else if (status === "mismatch") {
+      const pendingToken = params.get("pendingToken")
+      const linkId = params.get("linkId")
+      const currentAccount = params.get("currentAccount")
+      const authenticatedAccount = params.get("authenticatedAccount")
+      const authenticatedDisplayName =
+        params.get("authenticatedDisplayName") || authenticatedAccount
+
+      if (
+        pendingToken &&
+        linkId &&
+        currentAccount &&
+        authenticatedAccount &&
+        authenticatedDisplayName
+      ) {
+        setMismatchState({
+          pendingToken,
+          linkId,
+          currentAccount,
+          authenticatedAccount,
+          authenticatedDisplayName,
+        })
+      } else {
+        showErrorToast("Twitch verification returned incomplete mismatch data")
+      }
+    }
+
+    params.delete("twitchVerification")
+    params.delete("message")
+    params.delete("pendingToken")
+    params.delete("linkId")
+    params.delete("currentAccount")
+    params.delete("authenticatedAccount")
+    params.delete("authenticatedDisplayName")
+    window.history.replaceState({}, "", url)
+  }, [showErrorToast, showSuccessToast])
+
   if (!currentUser) {
     return null
   }
@@ -164,7 +378,9 @@ export default function SocialLinksSettings() {
   const pending =
     createMutation.isPending ||
     updateMutation.isPending ||
-    deleteMutation.isPending
+    deleteMutation.isPending ||
+    verifyMutation.isPending ||
+    confirmVerificationMutation.isPending
 
   const submit = () => {
     const url = urlInput.trim()
@@ -250,12 +466,16 @@ export default function SocialLinksSettings() {
                 key={link.id}
                 link={link}
                 deleting={deleteMutation.isPending}
+                verifying={verifyMutation.isPending}
                 onEdit={(selectedLink) => {
                   setEditingLink(selectedLink)
                   setUrlInput(selectedLink.url)
                 }}
                 onDelete={(selectedLink) =>
                   deleteMutation.mutate(selectedLink.id)
+                }
+                onVerify={(selectedLink) =>
+                  verifyMutation.mutate(selectedLink.id)
                 }
               />
             ))
@@ -266,6 +486,67 @@ export default function SocialLinksSettings() {
           )}
         </div>
       </div>
+      <Dialog
+        open={mismatchState !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMismatchState(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Twitch account</DialogTitle>
+          </DialogHeader>
+          {mismatchState ? (
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                You logged into Twitch as{" "}
+                <span className="font-medium text-foreground">
+                  {mismatchState.authenticatedDisplayName}
+                </span>{" "}
+                (
+                <span className="font-mono text-foreground">
+                  {mismatchState.authenticatedAccount}
+                </span>
+                ).
+              </p>
+              <p>
+                Replace the current linked account{" "}
+                <span className="font-mono text-foreground">
+                  {mismatchState.currentAccount}
+                </span>{" "}
+                and mark it verified?
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={confirmVerificationMutation.isPending}
+              onClick={() => setMismatchState(null)}
+            >
+              Cancel
+            </Button>
+            <LoadingButton
+              loading={confirmVerificationMutation.isPending}
+              type="button"
+              onClick={() => {
+                if (!mismatchState) {
+                  return
+                }
+                confirmVerificationMutation.mutate({
+                  linkId: mismatchState.linkId,
+                  pendingToken: mismatchState.pendingToken,
+                })
+              }}
+            >
+              Replace and verify
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
