@@ -329,12 +329,13 @@ test.describe("Profile and theme", () => {
       "true",
     )
 
+    await page.getByRole("button", { name: /\+?\s*Add/ }).click()
     await page
       .getByRole("textbox", { name: "Discord webhook URL" })
       .fill(
         "https://discord.com/api/webhooks/123456789012345678/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       )
-    await page.getByRole("button", { name: "Add webhook" }).click()
+    await page.getByRole("button", { name: "Save" }).click()
 
     await expect(page.getByText("Webhook added")).toBeVisible()
     await expect(
@@ -347,6 +348,7 @@ test.describe("Profile and theme", () => {
 
     await page.getByRole("button", { name: "Send test" }).click()
     await expect(page.getByText("Webhook test sent")).toBeVisible()
+    await page.getByRole("button", { name: "Close" }).click()
     await expect(page.getByText("Last tested:")).toBeVisible()
 
     await page.getByRole("button", { name: "Edit Discord webhook" }).click()

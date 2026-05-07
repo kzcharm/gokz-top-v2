@@ -17,8 +17,19 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
-from app.models import PlayerSocialPlatform, get_datetime_utc
+from app.models import (
+    LiveStreamState,
+    Player,
+    PlayerSocialLink,
+    PlayerSocialPlatform,
+    get_datetime_utc,
+)
 from app.services.player_social_links import build_player_social_link_url
+from app.services.player_webhooks import (
+    DiscordWebhookStreamEvent,
+    build_discord_embed_payload,
+    send_discord_webhook,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -385,11 +396,15 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
         else:
             checked_at = get_datetime_utc()
             for link in bilibili_links:
+                previous_state = await crud.get_live_stream_state(
+                    session=session,
+                    social_link_id=link.id,
+                )
                 status = statuses.get(
                     int(link.account_identifier),
                     BilibiliLiveStatus(False),
                 )
-                await crud.upsert_live_stream_state(
+                state = await crud.upsert_live_stream_state(
                     session=session,
                     social_link_id=link.id,
                     checked_at=checked_at,
@@ -408,6 +423,13 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     viewer_count=status.viewer_count,
                     started_at=status.started_at,
                     commit=False,
+                )
+                await _notify_stream_started_if_needed(
+                    session=session,
+                    player_steamid64=link.player_steamid64,
+                    link=link,
+                    previous_state=previous_state,
+                    current_state=state,
                 )
             processed += len(bilibili_links)
 
@@ -428,11 +450,15 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
         else:
             checked_at = get_datetime_utc()
             for link in twitch_links:
+                previous_state = await crud.get_live_stream_state(
+                    session=session,
+                    social_link_id=link.id,
+                )
                 status = statuses.get(
                     link.account_identifier,
                     TwitchLiveStatus(False),
                 )
-                await crud.upsert_live_stream_state(
+                state = await crud.upsert_live_stream_state(
                     session=session,
                     social_link_id=link.id,
                     checked_at=checked_at,
@@ -451,6 +477,13 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     viewer_count=status.viewer_count,
                     started_at=status.started_at,
                     commit=False,
+                )
+                await _notify_stream_started_if_needed(
+                    session=session,
+                    player_steamid64=link.player_steamid64,
+                    link=link,
+                    previous_state=previous_state,
+                    current_state=state,
                 )
             processed += len(twitch_links)
 
@@ -500,3 +533,94 @@ async def stop_live_stream_runner(
     task.cancel()
     with suppress(asyncio.CancelledError):
         await task
+
+
+def _is_newly_live_transition(
+    *,
+    previous_state: LiveStreamState | None,
+    current_state: LiveStreamState,
+) -> bool:
+    if current_state.is_live is not True:
+        return False
+    if previous_state is None:
+        return True
+    return previous_state.is_live is not True
+
+
+def _to_stream_event(
+    *,
+    player: Player,
+    link: PlayerSocialLink,
+    current_state: LiveStreamState,
+) -> DiscordWebhookStreamEvent:
+    return DiscordWebhookStreamEvent(
+        player_display_name=player.alias or player.name,
+        player_avatar_hash=player.avatar_hash,
+        platform=link.platform,
+        stream_url=current_state.last_stream_url
+        or build_player_social_link_url(
+            platform=link.platform,
+            account_identifier=link.account_identifier,
+        ),
+        stream_title=current_state.last_stream_title,
+        stream_preview_image_url=(
+            current_state.last_keyframe_image_url or current_state.last_preview_image_url
+        ),
+        channel_display_name=current_state.last_channel_display_name,
+        viewer_count=current_state.last_viewer_count,
+        started_at=current_state.last_live_started_at,
+    )
+
+
+async def _notify_stream_started_if_needed(
+    *,
+    session: AsyncSession,
+    player_steamid64: int,
+    link: PlayerSocialLink,
+    previous_state: LiveStreamState | None,
+    current_state: LiveStreamState,
+) -> None:
+    if not _is_newly_live_transition(
+        previous_state=previous_state,
+        current_state=current_state,
+    ):
+        return
+
+    player = await crud.get_player_by_steamid64(
+        session=session,
+        steamid64=player_steamid64,
+    )
+    if player is None:
+        logger.warning(
+            "Skipping stream webhook delivery because player %s was not found",
+            player_steamid64,
+        )
+        return
+
+    webhooks = await crud.list_enabled_player_webhooks(
+        session=session,
+        user_steamid64=player_steamid64,
+    )
+    if not webhooks:
+        return
+
+    payload = build_discord_embed_payload(
+        event=_to_stream_event(
+            player=player,
+            link=link,
+            current_state=current_state,
+        ),
+        is_test=False,
+    )
+    for webhook in webhooks:
+        try:
+            await send_discord_webhook(webhook_url=webhook.url, payload=payload)
+        except httpx.HTTPError:
+            logger.exception(
+                "Failed to deliver stream-started webhook",
+                extra={
+                    "webhook_id": str(webhook.id),
+                    "player_steamid64": str(player_steamid64),
+                    "platform": link.platform.value,
+                },
+            )
