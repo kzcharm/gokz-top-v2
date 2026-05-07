@@ -27,6 +27,7 @@ import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileTabs } from "./ProfileTabs"
 import { ProfileUnfinishedTab } from "./ProfileUnfinishedTab"
+import { buildProfileRecordDistribution } from "./profile-record-distribution"
 import { getPointsRankLabel } from "./profile-ranks"
 import {
   buildProfileCompletionData,
@@ -359,6 +360,12 @@ export function ProfilePage({
       pro: buildProfileTrophyCounts(proRecordsQuery.data ?? []),
     }
   }, [nubRecordsQuery.data, proRecordsQuery.data])
+  const nubRecordDistribution = useMemo(() => {
+    return buildProfileRecordDistribution(nubRecordsQuery.data ?? [])
+  }, [nubRecordsQuery.data])
+  const proRecordDistribution = useMemo(() => {
+    return buildProfileRecordDistribution(proRecordsQuery.data ?? [])
+  }, [proRecordsQuery.data])
 
   const completionLoading =
     mapsQuery.isLoading ||
@@ -522,6 +529,7 @@ export function ProfilePage({
               activityLoading={playerStatsQuery.isLoading}
               activityStat={playerStatsQuery.data?.daily_activity ?? null}
               canManagePinnedRecords={isOwnProfile}
+              nubRecordDistribution={nubRecordDistribution}
               pinnedRecords={pinnedRecords}
               pinnedRecordsError={
                 pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
@@ -531,6 +539,13 @@ export function ProfilePage({
               }
               pinnedRecordsMutating={
                 pinRecordMutation.isPending || unpinRecordMutation.isPending
+              }
+              proRecordDistribution={proRecordDistribution}
+              recordDistributionError={
+                nubRecordsQuery.isError || proRecordsQuery.isError
+              }
+              recordDistributionLoading={
+                nubRecordsQuery.isLoading || proRecordsQuery.isLoading
               }
               onUnpinRecord={(mapId, type) => {
                 unpinRecordMutation.mutate({ mapId, type })
