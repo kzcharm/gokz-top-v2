@@ -368,6 +368,14 @@ export function PlayerDisplay({
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = getPlayerDisplayName(resolvedPlayer, steamid64)
   const truncatedDisplayName = truncateText(displayName, nameMaxLength)
+  const authenticated = isLoggedIn()
+  const viewerSteamid64 = authenticated
+    ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
+    : null
+  const { user } = useAuth()
+  const isCurrentUser =
+    steamid64Pattern.test(steamid64) &&
+    (viewerSteamid64 === steamid64 || user?.steamid64 === steamid64)
   const effectiveSubline =
     subline ?? (showSteamid ? ({ type: "steamid64" } as const) : null)
   const avatarHash = getPlayerAvatarHash(resolvedPlayer)
@@ -441,6 +449,7 @@ export function PlayerDisplay({
   const content = (
     <div
       data-drag-scroll-ignore
+      data-current-user={isCurrentUser ? "true" : undefined}
       className={cn(
         "flex min-w-0 items-center gap-2.5 transition-colors",
         hasProfileLink &&
