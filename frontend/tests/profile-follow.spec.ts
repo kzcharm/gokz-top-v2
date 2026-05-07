@@ -61,6 +61,16 @@ async function stubLoginRedirect(page: Page) {
   })
 }
 
+async function stubSidebarServerAccess(page: Page) {
+  await page.route(/\/v1\/admin\/servers\/access$/, async (route: Route) => {
+    await route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Forbidden" }),
+    })
+  })
+}
+
 async function installProfileRoutes({
   page,
   currentUser,
@@ -220,7 +230,9 @@ test("Logged-out profile shows the shared player context menu without follow", a
 
   await page.goto(`/profile/${targetSteamid64}`)
 
-  await expect(page.getByText("Target Alias", { exact: true })).toBeVisible()
+  await expect(page.getByTestId("profile-identity-surface")).toContainText(
+    "Target Alias",
+  )
   await expect(page.getByTestId("profile-followers-card")).toContainText("12")
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
   await expect(page.getByTestId("profile-identity-context-menu")).toBeVisible()
@@ -280,6 +292,7 @@ test("Logged-in user can follow another player and sees state update", async ({
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
   }, createAccessToken(currentUserSteamid64))
+  await stubSidebarServerAccess(page)
 
   await installProfileRoutes({
     page,
@@ -346,6 +359,7 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
   }, createAccessToken(currentUserSteamid64))
+  await stubSidebarServerAccess(page)
 
   await installProfileRoutes({
     page,
@@ -407,6 +421,7 @@ test("Own profile keeps the shared player context menu without follow", async ({
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
   }, createAccessToken(targetSteamid64))
+  await stubSidebarServerAccess(page)
 
   await installProfileRoutes({
     page,
@@ -422,7 +437,9 @@ test("Own profile keeps the shared player context menu without follow", async ({
 
   await page.goto(`/profile/${targetSteamid64}`)
 
-  await expect(page.getByText("Target Alias", { exact: true })).toBeVisible()
+  await expect(page.getByTestId("profile-identity-surface")).toContainText(
+    "Target Alias",
+  )
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
   await expect(page.getByTestId("profile-identity-context-menu")).toBeVisible()
   await expect(
@@ -465,6 +482,7 @@ test("Logged-in user can browse social lists and navigate to another profile", a
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
   }, createAccessToken(currentUserSteamid64))
+  await stubSidebarServerAccess(page)
 
   await installProfileRoutes({
     page,

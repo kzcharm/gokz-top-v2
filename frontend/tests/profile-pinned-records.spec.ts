@@ -81,6 +81,14 @@ async function installPinnedRecordRoutes(page: Page) {
     localStorage.setItem("access_token", token)
   }, accessToken)
 
+  await page.route(/\/v1\/admin\/servers\/access$/, async (route: Route) => {
+    await route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Forbidden" }),
+    })
+  })
+
   await page.route(/\/v1\/users\/me$/, async (route: Route) => {
     await route.fulfill({
       status: 200,

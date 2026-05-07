@@ -155,7 +155,7 @@ test.describe("Leaderboards page", () => {
       page.getByRole("button", { name: "Go to first page" }),
     ).toBeDisabled()
     await expect(
-      page.getByRole("textbox", { name: "Current page, 1 total pages" }),
+      page.getByRole("spinbutton", { name: "Current page, 1 total pages" }),
     ).toHaveValue("1")
   })
 

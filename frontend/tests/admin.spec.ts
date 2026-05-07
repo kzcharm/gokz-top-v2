@@ -33,13 +33,25 @@ test.describe("Map admin access", () => {
     await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
 
     await page.goto("/")
-    const adminButton = page.getByRole("button", { name: "Admin" })
+    const adminButton = page.getByRole("button", {
+      name: "Admin",
+      exact: true,
+    })
+    const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
     await adminButton.click()
 
-    await expect(page.getByRole("link", { name: "Maps" })).toBeVisible()
-    await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0)
-    await expect(page.getByRole("link", { name: "Players" })).toHaveCount(0)
-    await expect(page.getByRole("link", { name: "Servers" })).toHaveCount(0)
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Maps", exact: true }),
+    ).toBeVisible()
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Users", exact: true }),
+    ).toHaveCount(0)
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Players", exact: true }),
+    ).toHaveCount(0)
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Servers", exact: true }),
+    ).toHaveCount(0)
   })
 
   test("Map admin cannot access superuser-only admin pages", async ({
@@ -119,13 +131,25 @@ test.describe("Server owner access", () => {
     await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
 
     await page.goto("/")
-    const adminButton = page.getByRole("button", { name: "Admin" })
+    const adminButton = page.getByRole("button", {
+      name: "Admin",
+      exact: true,
+    })
+    const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
     await adminButton.click()
 
-    await expect(page.getByRole("link", { name: "Servers" })).toBeVisible()
-    await expect(page.getByRole("link", { name: "Maps" })).toHaveCount(0)
-    await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0)
-    await expect(page.getByRole("link", { name: "Players" })).toHaveCount(0)
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Servers", exact: true }),
+    ).toBeVisible()
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Maps", exact: true }),
+    ).toHaveCount(0)
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Users", exact: true }),
+    ).toHaveCount(0)
+    await expect(
+      adminSubmenu.getByRole("link", { name: "Players", exact: true }),
+    ).toHaveCount(0)
   })
 })
 
@@ -134,7 +158,10 @@ test("Superuser sidebar groups admin users and players under admin", async ({
 }) => {
   await page.goto("/")
 
-  const adminButton = page.getByRole("button", { name: "Admin" })
+  const adminButton = page.getByRole("button", {
+    name: "Admin",
+    exact: true,
+  })
   const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
   const mapsLink = adminSubmenu.getByRole("link", {
     name: "Maps",
@@ -310,16 +337,20 @@ test.describe("Admin social links", () => {
     ).toBeVisible()
 
     await page.getByRole("button", { name: "Add" }).click()
-    await page.getByLabel("Steam ID64").fill("76561198012345678")
-    await page.getByLabel("URL").fill("https://github.com/social-admin")
-    await page.getByRole("switch", { name: "Verified" }).click()
-    await page.getByRole("button", { name: "Save" }).click()
+    const createDialog = page.getByRole("dialog", { name: "Add Social Link" })
+    await createDialog.getByLabel("Steam ID64").fill("76561198012345678")
+    await createDialog.getByLabel("URL").fill("https://github.com/social-admin")
+    await createDialog.getByRole("switch", { name: "Verified" }).click()
+    await createDialog.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("social-admin")).toBeVisible()
 
     await page.getByRole("button", { name: "Edit social link" }).click()
-    await page.getByLabel("URL").fill("https://github.com/social-admin-updated")
-    await page.getByRole("switch", { name: "Verified" }).click()
-    await page.getByRole("button", { name: "Save" }).click()
+    const editDialog = page.getByRole("dialog", { name: "Edit Social Link" })
+    await editDialog
+      .getByLabel("URL")
+      .fill("https://github.com/social-admin-updated")
+    await editDialog.getByRole("switch", { name: "Verified" }).click()
+    await editDialog.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("social-admin-updated")).toBeVisible()
     await expect(page.getByText("No")).toBeVisible()
 
@@ -465,7 +496,7 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
   await page
     .getByRole("combobox", { name: `Tier for record filter ${recordFilterId}` })
     .click()
-  await page.getByRole("option", { name: "Tier 6" }).click()
+  await page.getByRole("option", { name: "T6" }).click()
   await page.getByRole("button", { name: "Save" }).click()
   await expect(
     page.getByRole("combobox", {
@@ -544,9 +575,10 @@ test("Superuser can edit a user and assign multiple roles", async ({
   await page.getByRole("checkbox", { name: "Server Owner role" }).click()
   await page.getByRole("button", { name: "Save" }).click()
 
-  await expect(page.getByText("Superuser")).toBeVisible()
-  await expect(page.getByText("Map Admin")).toBeVisible()
-  await expect(page.getByText("Server Owner")).toBeVisible()
+  const roleTargetRow = page.getByRole("row", { name: /Role Target/ })
+  await expect(roleTargetRow.getByText("Superuser")).toBeVisible()
+  await expect(roleTargetRow.getByText("Map Admin")).toBeVisible()
+  await expect(roleTargetRow.getByText("Server Owner")).toBeVisible()
 })
 
 function adminMapPayload({
