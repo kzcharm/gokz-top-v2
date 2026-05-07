@@ -485,7 +485,7 @@ export function PlayersLeaderboardTab() {
                     className="pl-9"
                   />
                   {showSearchResults ? (
-                    <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
+                    <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
                       {playerSearchQueryResult.isLoading ? (
                         <div className="px-4 py-3 text-sm text-muted-foreground">
                           Searching players...
