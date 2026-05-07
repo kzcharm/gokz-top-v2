@@ -122,6 +122,9 @@ export function PlayersLeaderboardTab() {
   const [searchInput, setSearchInput] = useState("")
   const [isLocatingPlayer, setIsLocatingPlayer] = useState(false)
   const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [highlightedSteamid64, setHighlightedSteamid64] = useState<
+    string | null
+  >(null)
   const [pendingSpotlightSteamid64, setPendingSpotlightSteamid64] = useState<
     string | null
   >(null)
@@ -390,6 +393,7 @@ export function PlayersLeaderboardTab() {
       }
 
       setSorting([{ id: "rating", desc: true }])
+      setHighlightedSteamid64(spotlightSteamid64)
       setPendingSpotlightSteamid64(spotlightSteamid64)
       setPageIndex(Math.floor((data.rank - 1) / pageSize))
     } catch {
@@ -586,7 +590,6 @@ export function PlayersLeaderboardTab() {
                 </LoadingButton>
               </div>
             </div>
-
           </div>
         </CardContent>
       </Card>
@@ -605,7 +608,8 @@ export function PlayersLeaderboardTab() {
             getRowProps={(row) => ({
               "data-player-steamid64": row.player.steamid64,
               className:
-                row.player.steamid64 === currentUser?.steamid64
+                row.player.steamid64 === currentUser?.steamid64 ||
+                row.player.steamid64 === highlightedSteamid64
                   ? cn(
                       "bg-primary/10 ring-1 ring-inset ring-primary/35",
                       "transition-[background-color,box-shadow,transform] duration-500",
