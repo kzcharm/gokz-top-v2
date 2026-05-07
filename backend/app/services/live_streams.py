@@ -36,6 +36,7 @@ class BilibiliLiveStatus:
     stream_title: str | None = None
     viewer_count: int | None = None
     preview_image_url: str | None = None
+    hover_preview_image_url: str | None = None
     stream_url: str | None = None
     channel_display_name: str | None = None
     started_at: datetime | None = None
@@ -137,7 +138,8 @@ async def check_bilibili_live_status(
             is_live=True,
             stream_title=info.get("title"),
             viewer_count=info.get("online"),
-            preview_image_url=info.get("cover_from_user"),
+            preview_image_url=info.get("cover_from_user") or info.get("keyframe"),
+            hover_preview_image_url=info.get("keyframe") or None,
             stream_url=stream_url,
             channel_display_name=info.get("uname"),
             started_at=_parse_bilibili_started_at(info.get("live_time")),
@@ -211,6 +213,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
             ),
             stream_title=status.stream_title,
             preview_image_url=status.preview_image_url,
+            hover_preview_image_url=status.hover_preview_image_url,
             channel_display_name=status.channel_display_name,
             viewer_count=status.viewer_count,
             started_at=status.started_at,

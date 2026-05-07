@@ -19,6 +19,56 @@ async def test_parse_bilibili_started_at_accepts_epoch_seconds() -> None:
     assert started_at == datetime(2026, 5, 7, 11, 29, 9, tzinfo=UTC)
 
 
+async def test_check_bilibili_live_status_prefers_keyframe_preview(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_fetch(_uids: list[int]) -> dict[str, object]:
+        return {
+            "123456": {
+                "live_status": 1,
+                "room_id": 42,
+                "title": "On air",
+                "online": 88,
+                "keyframe": "https://i0.hdslb.com/bfs/live-key-frame/current.jpg",
+                "cover_from_user": "https://i0.hdslb.com/bfs/live/cover.jpg",
+                "uname": "Streamer CN",
+                "live_time": 1778153349,
+            },
+            "654321": {
+                "live_status": 1,
+                "room_id": 84,
+                "title": "Fallback cover",
+                "online": 44,
+                "keyframe": "",
+                "cover_from_user": "https://i0.hdslb.com/bfs/live/fallback-cover.jpg",
+                "uname": "Fallback Streamer",
+                "live_time": "2026-05-07 12:00:00",
+            },
+        }
+
+    monkeypatch.setattr(
+        live_streams,
+        "_fetch_bilibili_live_status_payload",
+        _fake_fetch,
+    )
+
+    statuses = await live_streams.check_bilibili_live_status([123456, 654321])
+
+    assert (
+        statuses[123456].preview_image_url
+        == "https://i0.hdslb.com/bfs/live/cover.jpg"
+    )
+    assert (
+        statuses[123456].hover_preview_image_url
+        == "https://i0.hdslb.com/bfs/live-key-frame/current.jpg"
+    )
+    assert (
+        statuses[654321].preview_image_url
+        == "https://i0.hdslb.com/bfs/live/fallback-cover.jpg"
+    )
+    assert statuses[654321].hover_preview_image_url is None
+
+
 async def _create_player(
     db: AsyncSession,
     *,
@@ -124,6 +174,7 @@ async def test_refresh_live_streams_uses_only_verified_bilibili_links(
                 stream_title="On air",
                 viewer_count=88,
                 preview_image_url="https://i0.hdslb.com/bfs/live/test-cover.jpg",
+                hover_preview_image_url="https://i0.hdslb.com/bfs/live-key-frame/test.jpg",
                 stream_url="https://live.bilibili.com/42",
                 channel_display_name="Streamer CN",
                 started_at=started_at,
@@ -152,6 +203,10 @@ async def test_refresh_live_streams_uses_only_verified_bilibili_links(
     assert (
         state.last_preview_image_url
         == "https://i0.hdslb.com/bfs/live/test-cover.jpg"
+    )
+    assert (
+        state.last_keyframe_image_url
+        == "https://i0.hdslb.com/bfs/live-key-frame/test.jpg"
     )
 
 

@@ -64,6 +64,9 @@ async def _create_state(
         last_stream_url=stream_url,
         last_stream_title="Session title",
         last_preview_image_url=preview_url,
+        last_keyframe_image_url="https://i0.hdslb.com/bfs/live-key-frame/live-frame.jpg"
+        if is_live
+        else None,
         last_viewer_count=viewer_count,
         updated_at=last_checked_at,
     )
@@ -133,6 +136,10 @@ async def test_read_live_streams_filters_online_and_offline(
     assert (
         online_payload["data"][0]["preview_image_url"]
         == "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive%2Flive-cover.jpg"
+    )
+    assert (
+        online_payload["data"][0]["hover_preview_image_url"]
+        == "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive-key-frame%2Flive-frame.jpg"
     )
     assert online_payload["data"][0]["last_viewer_count"] == 145612
 

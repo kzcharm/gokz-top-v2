@@ -964,6 +964,17 @@ export const LiveStreamCardPublicSchema = {
             ],
             title: 'Preview Image Url'
         },
+        hover_preview_image_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Hover Preview Image Url'
+        },
         stream_title: {
             anyOf: [
                 {

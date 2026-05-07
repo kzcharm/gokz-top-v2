@@ -22,6 +22,8 @@ const livePayload = {
       last_viewer_count: 145612,
       preview_image_url:
         "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive%2Flive-cover.jpg",
+      hover_preview_image_url:
+        "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive-key-frame%2Flive-frame.jpg",
       stream_title: "Live Session",
       started_at: "2026-05-07T10:00:00Z",
       last_streamed_at: "2026-05-07T10:30:00Z",
@@ -48,6 +50,7 @@ const offlinePayload = {
       stream_url: "https://live.bilibili.com/84",
       last_viewer_count: 4012,
       preview_image_url: null,
+      hover_preview_image_url: null,
       stream_title: "Last Session",
       started_at: null,
       last_streamed_at: "2026-05-06T10:30:00Z",
@@ -91,6 +94,12 @@ test("Live page switches between live and offline streams", async ({
   await expect(page.getByAltText("Live Alias stream preview")).toHaveAttribute(
     "src",
     /http:\/\/localhost:8000\/v1\/live\/preview-image\?/,
+  )
+  await expect(
+    page.getByAltText("Live Alias live keyframe preview"),
+  ).toHaveAttribute(
+    "src",
+    /http:\/\/localhost:8000\/v1\/live\/preview-image\?url=.*live-key-frame/,
   )
 
   await page.getByRole("button", { name: "Online" }).click()

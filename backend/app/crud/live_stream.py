@@ -87,6 +87,7 @@ async def upsert_live_stream_state(
     stream_url: str | None = None,
     stream_title: str | None = None,
     preview_image_url: str | None = None,
+    hover_preview_image_url: str | None = None,
     channel_display_name: str | None = None,
     viewer_count: int | None = None,
     started_at: datetime | None = None,
@@ -110,6 +111,8 @@ async def upsert_live_stream_state(
             state.last_stream_title = stream_title
         if preview_image_url is not None:
             state.last_preview_image_url = preview_image_url
+        if hover_preview_image_url is not None:
+            state.last_keyframe_image_url = hover_preview_image_url
         if channel_display_name is not None:
             state.last_channel_display_name = channel_display_name
         if viewer_count is not None:
@@ -260,6 +263,11 @@ def _to_live_stream_card_public(
         preview_image_url=(
             preview_url_resolver(raw_preview_image_url)
             if raw_preview_image_url
+            else None
+        ),
+        hover_preview_image_url=(
+            preview_url_resolver(candidate.state.last_keyframe_image_url)
+            if candidate.is_live and candidate.state.last_keyframe_image_url
             else None
         ),
         stream_title=candidate.state.last_stream_title,
