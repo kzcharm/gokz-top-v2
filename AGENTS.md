@@ -18,6 +18,9 @@
 - `bun run test`: run Playwright end-to-end tests.
 - `bash scripts/generate-client.sh`: regenerate `frontend/src/client/` from the backend OpenAPI schema.
 
+## Docker Data Safety
+Never run `docker compose down -v`, `docker-compose down -v`, or any command that removes Docker volumes for this repository's local stack unless the user explicitly approves destroying local database state first. The local PostgreSQL data lives in the named Compose volume (for example `gokz-top-v2_app-db-data`), and removing volumes will permanently delete the user's local DB data.
+
 ## Coding Style & Naming Conventions
 Use 4-space indentation in Python and explicit type hints; backend code is checked with strict `mypy` and `ruff`. Use `snake_case` for Python modules and functions.
 
