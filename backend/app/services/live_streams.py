@@ -400,6 +400,14 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     session=session,
                     social_link_id=link.id,
                 )
+                previous_is_live = (
+                    previous_state.is_live if previous_state is not None else None
+                )
+                previous_live_started_at = (
+                    previous_state.last_live_started_at
+                    if previous_state is not None
+                    else None
+                )
                 status = statuses.get(
                     int(link.account_identifier),
                     BilibiliLiveStatus(False),
@@ -428,7 +436,8 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     session=session,
                     player_steamid64=link.player_steamid64,
                     link=link,
-                    previous_state=previous_state,
+                    previous_is_live=previous_is_live,
+                    previous_live_started_at=previous_live_started_at,
                     current_state=state,
                 )
             processed += len(bilibili_links)
@@ -453,6 +462,14 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                 previous_state = await crud.get_live_stream_state(
                     session=session,
                     social_link_id=link.id,
+                )
+                previous_is_live = (
+                    previous_state.is_live if previous_state is not None else None
+                )
+                previous_live_started_at = (
+                    previous_state.last_live_started_at
+                    if previous_state is not None
+                    else None
                 )
                 status = statuses.get(
                     link.account_identifier,
@@ -482,7 +499,8 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     session=session,
                     player_steamid64=link.player_steamid64,
                     link=link,
-                    previous_state=previous_state,
+                    previous_is_live=previous_is_live,
+                    previous_live_started_at=previous_live_started_at,
                     current_state=state,
                 )
             processed += len(twitch_links)
@@ -537,14 +555,23 @@ async def stop_live_stream_runner(
 
 def _is_newly_live_transition(
     *,
-    previous_state: LiveStreamState | None,
+    previous_is_live: bool | None,
+    previous_live_started_at: datetime | None,
     current_state: LiveStreamState,
 ) -> bool:
     if current_state.is_live is not True:
         return False
-    if previous_state is None:
+    if previous_is_live is None:
         return True
-    return previous_state.is_live is not True
+    if previous_is_live is not True:
+        return True
+
+    current_started_at = current_state.last_live_started_at
+    return (
+        previous_live_started_at is not None
+        and current_started_at is not None
+        and current_started_at > previous_live_started_at
+    )
 
 
 def _to_stream_event(
@@ -577,11 +604,13 @@ async def _notify_stream_started_if_needed(
     session: AsyncSession,
     player_steamid64: int,
     link: PlayerSocialLink,
-    previous_state: LiveStreamState | None,
+    previous_is_live: bool | None,
+    previous_live_started_at: datetime | None,
     current_state: LiveStreamState,
 ) -> None:
     if not _is_newly_live_transition(
-        previous_state=previous_state,
+        previous_is_live=previous_is_live,
+        previous_live_started_at=previous_live_started_at,
         current_state=current_state,
     ):
         return
