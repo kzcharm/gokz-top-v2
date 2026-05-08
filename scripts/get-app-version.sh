@@ -22,7 +22,7 @@ if [ -n "${exact_tag}" ]; then
 fi
 
 latest_tag="$(
-  git tag --merged HEAD --list 'v*.*.*' --sort=-v:refname \
+  git tag --list 'v*.*.*' --sort=-v:refname \
     | grep -E "${semver_tag_regex}" \
     | head -n 1 \
     || true
