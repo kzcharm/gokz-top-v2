@@ -677,6 +677,10 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
 
     assert processed == 1
     assert len(sent_payloads) == 1
+    assert (
+        sent_payloads[0]["avatar_url"]
+        == "https://r2.axekz.com/img/avatars/sakiko_computer.png"
+    )
     embed = sent_payloads[0]["embeds"][0]
     assert embed["title"] == "Stream started: Webhook Alias on Twitch"
     assert embed["author"]["icon_url"] == f"https://avatars.steamstatic.com/{'a' * 40}_full.jpg"

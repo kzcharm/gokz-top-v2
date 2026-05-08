@@ -8,6 +8,7 @@ import httpx
 from app.models import PlayerSocialPlatform
 
 STEAM_AVATAR_BASE_URL = "https://avatars.steamstatic.com"
+DISCORD_WEBHOOK_AVATAR_URL = "https://r2.axekz.com/img/avatars/sakiko_computer.png"
 TWITCH_EMBED_COLOR = 0x9146FF
 BILIBILI_EMBED_COLOR = 0x00A1D6
 
@@ -62,52 +63,13 @@ def build_discord_embed_payload(
     footer_text = (
         f"Test {platform_label} stream notification"
         if is_test
-        else f"{platform_label} stream started"
+        else platform_label
     )
-
-    fields: list[dict[str, object]] = [
-        {
-            "name": "Platform",
-            "value": platform_label,
-            "inline": True,
-        },
-        {
-            "name": "Player",
-            "value": event.player_display_name,
-            "inline": True,
-        },
-    ]
-    if event.channel_display_name:
-        fields.append(
-            {
-                "name": "Channel",
-                "value": event.channel_display_name,
-                "inline": True,
-            }
-        )
-    if event.viewer_count is not None:
-        fields.append(
-            {
-                "name": "Viewers",
-                "value": str(event.viewer_count),
-                "inline": True,
-            }
-        )
-    if event.started_at is not None:
-        started_at = event.started_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
-        fields.append(
-            {
-                "name": "Started",
-                "value": started_at,
-                "inline": True,
-            }
-        )
 
     embed: dict[str, object] = {
         "title": f"{title_prefix}: {event.player_display_name} on {platform_label}",
         "url": event.stream_url,
         "color": get_webhook_embed_color(event.platform),
-        "fields": fields,
         "footer": {"text": footer_text},
     }
     if event.stream_title:
@@ -125,7 +87,11 @@ def build_discord_embed_payload(
             event.started_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
         )
 
-    return {"embeds": [embed], "allowed_mentions": {"parse": []}}
+    return {
+        "avatar_url": DISCORD_WEBHOOK_AVATAR_URL,
+        "embeds": [embed],
+        "allowed_mentions": {"parse": []},
+    }
 
 
 async def send_discord_webhook(

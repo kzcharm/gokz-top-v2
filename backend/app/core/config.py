@@ -97,7 +97,7 @@ class Settings(BaseSettings):
     RUN_LIVE_STREAM_RUNNER_IN_APP: bool = True
     PLAYER_SESSION_TIMEOUT_SECONDS: int = 60
     PLAYER_SESSION_TIMEOUT_POLL_SECONDS: int = 15
-    LIVE_STREAM_POLL_SECONDS: int = 60
+    LIVE_STREAM_POLL_SECONDS: int = 30
     TWITCH_CLIENT_ID: str | None = None
     TWITCH_CLIENT_SECRET: str | None = None
     LOG_LEVEL: str = "INFO"

@@ -5,6 +5,7 @@ import pytest
 from app.models import PlayerSocialPlatform
 from app.services.player_webhooks import (
     BILIBILI_EMBED_COLOR,
+    DISCORD_WEBHOOK_AVATAR_URL,
     TWITCH_EMBED_COLOR,
     DiscordWebhookStreamEvent,
     build_discord_embed_payload,
@@ -48,14 +49,15 @@ async def test_build_discord_embed_payload_prefers_stream_preview_and_player_ide
     payload = build_discord_embed_payload(event=event, is_test=False)
 
     embed = payload["embeds"][0]
+    assert payload["avatar_url"] == DISCORD_WEBHOOK_AVATAR_URL
     assert embed["color"] == BILIBILI_EMBED_COLOR
     assert embed["url"] == "https://live.bilibili.com/42"
     assert embed["description"] == "Grinding maps"
     assert embed["author"]["name"] == "Streamer"
     assert embed["author"]["icon_url"] == build_player_avatar_url("b" * 40)
     assert embed["image"]["url"] == "https://cdn.example.com/keyframe.jpg"
-    assert embed["footer"]["text"] == "Bilibili stream started"
-    assert any(field["name"] == "Viewers" and field["value"] == "88" for field in embed["fields"])
+    assert embed["footer"]["text"] == "Bilibili"
+    assert "fields" not in embed
 
 
 async def test_build_discord_embed_payload_marks_test_notifications() -> None:
@@ -71,6 +73,7 @@ async def test_build_discord_embed_payload_marks_test_notifications() -> None:
     payload = build_discord_embed_payload(event=event, is_test=True)
 
     embed = payload["embeds"][0]
+    assert payload["avatar_url"] == DISCORD_WEBHOOK_AVATAR_URL
     assert embed["title"] == "Test notification: Streamer on Twitch"
     assert embed["footer"]["text"] == "Test Twitch stream notification"
     assert embed["color"] == TWITCH_EMBED_COLOR
