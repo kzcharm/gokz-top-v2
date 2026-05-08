@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from urllib.parse import quote
 
 import httpx
 
@@ -9,6 +10,7 @@ from app.models import PlayerSocialPlatform
 
 STEAM_AVATAR_BASE_URL = "https://avatars.steamstatic.com"
 DISCORD_WEBHOOK_AVATAR_URL = "https://r2.axekz.com/img/avatars/sakiko_computer.png"
+DISCORD_WEBHOOK_USERNAME = "GOKZ.TOP"
 TWITCH_EMBED_COLOR = 0x9146FF
 BILIBILI_EMBED_COLOR = 0x00A1D6
 
@@ -17,6 +19,7 @@ BILIBILI_EMBED_COLOR = 0x00A1D6
 class DiscordWebhookStreamEvent:
     player_display_name: str
     player_avatar_hash: str | None
+    player_profile_url: str | None
     platform: PlayerSocialPlatform
     stream_url: str
     stream_title: str | None = None
@@ -33,6 +36,10 @@ def build_player_avatar_url(avatar_hash: str | None) -> str | None:
     if not normalized:
         return None
     return f"{STEAM_AVATAR_BASE_URL}/{normalized}_full.jpg"
+
+
+def build_player_profile_url(*, frontend_host: str, player_identifier: str) -> str:
+    return f"{frontend_host.rstrip('/')}/profile/{quote(player_identifier, safe='')}"
 
 
 def get_webhook_embed_color(platform: PlayerSocialPlatform) -> int:
@@ -78,7 +85,7 @@ def build_discord_embed_payload(
         embed["author"] = {
             "name": event.player_display_name,
             "icon_url": avatar_url,
-            "url": event.stream_url,
+            "url": event.player_profile_url or event.stream_url,
         }
     if preview_image_url:
         embed["image"] = {"url": preview_image_url}
@@ -88,6 +95,7 @@ def build_discord_embed_payload(
         )
 
     return {
+        "username": DISCORD_WEBHOOK_USERNAME,
         "avatar_url": DISCORD_WEBHOOK_AVATAR_URL,
         "embeds": [embed],
         "allowed_mentions": {"parse": []},

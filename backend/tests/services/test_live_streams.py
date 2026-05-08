@@ -681,9 +681,11 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
         sent_payloads[0]["avatar_url"]
         == "https://r2.axekz.com/img/avatars/sakiko_computer.png"
     )
+    assert sent_payloads[0]["username"] == "GOKZ.TOP"
     embed = sent_payloads[0]["embeds"][0]
     assert embed["title"] == "Stream started: Webhook Alias on Twitch"
     assert embed["author"]["icon_url"] == f"https://avatars.steamstatic.com/{'a' * 40}_full.jpg"
+    assert embed["author"]["url"] == f"{live_streams.settings.FRONTEND_HOST}/profile/{player.steamid64}"
     assert embed["image"]["url"] == (
         "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
     )

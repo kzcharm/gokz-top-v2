@@ -27,6 +27,7 @@ from app.models import (
 from app.services.player_social_links import build_player_social_link_url
 from app.services.player_webhooks import (
     DiscordWebhookStreamEvent,
+    build_player_profile_url,
     build_discord_embed_payload,
     send_discord_webhook,
 )
@@ -580,9 +581,14 @@ def _to_stream_event(
     link: PlayerSocialLink,
     current_state: LiveStreamState,
 ) -> DiscordWebhookStreamEvent:
+    player_identifier = player.custom_id or str(player.steamid64)
     return DiscordWebhookStreamEvent(
         player_display_name=player.alias or player.name,
         player_avatar_hash=player.avatar_hash,
+        player_profile_url=build_player_profile_url(
+            frontend_host=settings.FRONTEND_HOST,
+            player_identifier=player_identifier,
+        ),
         platform=link.platform,
         stream_url=current_state.last_stream_url
         or build_player_social_link_url(

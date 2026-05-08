@@ -72,6 +72,7 @@ from app.services.player_steam_profile import (
 )
 from app.services.player_webhooks import (
     DiscordWebhookStreamEvent,
+    build_player_profile_url,
     build_discord_embed_payload,
     send_discord_webhook,
 )
@@ -194,6 +195,7 @@ async def _build_test_webhook_event(
     session: SessionDep,
     player: Player,
 ) -> DiscordWebhookStreamEvent:
+    player_identifier = player.custom_id or str(player.steamid64)
     links = await crud.list_player_social_links(
         session=session,
         player_steamid64=player.steamid64,
@@ -229,6 +231,10 @@ async def _build_test_webhook_event(
         return DiscordWebhookStreamEvent(
             player_display_name=player.alias or player.name,
             player_avatar_hash=player.avatar_hash,
+            player_profile_url=build_player_profile_url(
+                frontend_host=settings.FRONTEND_HOST,
+                player_identifier=player_identifier,
+            ),
             platform=best_link.platform,
             stream_url=(
                 best_state.last_stream_url
@@ -260,6 +266,10 @@ async def _build_test_webhook_event(
     return DiscordWebhookStreamEvent(
         player_display_name=player.alias or player.name,
         player_avatar_hash=player.avatar_hash,
+        player_profile_url=build_player_profile_url(
+            frontend_host=settings.FRONTEND_HOST,
+            player_identifier=player_identifier,
+        ),
         platform=PlayerSocialPlatform.TWITCH,
         stream_url="https://www.twitch.tv/directory/category/kz-climb",
         stream_title="Webhook test notification",
