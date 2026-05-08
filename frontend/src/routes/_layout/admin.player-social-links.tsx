@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import type { ColumnDef } from "@tanstack/react-table"
-import { CheckCircle2, Pencil, Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import {
@@ -192,17 +192,19 @@ function LinkDialog({
               onChange={(event) => setUrl(event.target.value)}
             />
           </div>
-          <label
-            className="flex items-center gap-3 text-sm font-medium"
-            htmlFor="social-verified"
-          >
-            <Switch
-              id="social-verified"
-              checked={verified}
-              onCheckedChange={setVerified}
-            />
-            Verified
-          </label>
+          {state.mode === "create" ? (
+            <label
+              className="flex items-center gap-3 text-sm font-medium"
+              htmlFor="social-verified"
+            >
+              <Switch
+                id="social-verified"
+                checked={verified}
+                onCheckedChange={setVerified}
+              />
+              Verified
+            </label>
+          ) : null}
         </div>
         <DialogFooter>
           <DialogClose asChild>
@@ -265,6 +267,28 @@ function AdminPlayerSocialLinks() {
     },
   })
 
+  const toggleVerifiedMutation = useMutation({
+    mutationFn: ({
+      linkId,
+      verified,
+    }: {
+      linkId: string
+      verified: boolean
+    }) =>
+      AdminPlayerSocialLinksService.updateAdminPlayerSocialLink({
+        linkId,
+        requestBody: { verified },
+      }),
+    onSuccess: () => {
+      showSuccessToast("Verification updated")
+    },
+    onError: handleError.bind(showErrorToast),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-social-links"] })
+      void queryClient.invalidateQueries({ queryKey: ["player-social-links"] })
+    },
+  })
+
   const columns = useMemo<ColumnDef<AdminPlayerSocialLinkPublic>[]>(
     () => [
       {
@@ -307,12 +331,25 @@ function AdminPlayerSocialLinks() {
       {
         accessorKey: "verified",
         header: "Verified",
-        cell: ({ row }) =>
-          row.original.verified ? (
-            <CheckCircle2 className="size-4 text-green-600" />
-          ) : (
-            <span className="text-sm text-muted-foreground">No</span>
-          ),
+        cell: ({ row }) => {
+          const isPending =
+            toggleVerifiedMutation.isPending &&
+            toggleVerifiedMutation.variables?.linkId === row.original.id
+
+          return (
+            <Switch
+              checked={row.original.verified}
+              disabled={isPending}
+              onCheckedChange={(nextVerified) => {
+                toggleVerifiedMutation.mutate({
+                  linkId: row.original.id,
+                  verified: nextVerified,
+                })
+              }}
+              aria-label={`Toggle verification for ${row.original.account_identifier}`}
+            />
+          )
+        },
       },
       {
         id: "actions",
@@ -335,6 +372,7 @@ function AdminPlayerSocialLinks() {
               type="button"
               variant="ghost"
               size="icon"
+              className="text-destructive hover:text-destructive"
               disabled={deleteMutation.isPending}
               onClick={() => deleteMutation.mutate(row.original.id)}
               aria-label="Delete social link"
@@ -345,7 +383,7 @@ function AdminPlayerSocialLinks() {
         ),
       },
     ],
-    [deleteMutation],
+    [deleteMutation, toggleVerifiedMutation],
   )
 
   return (

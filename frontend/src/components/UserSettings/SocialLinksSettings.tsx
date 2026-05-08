@@ -330,6 +330,7 @@ function SocialLinkRow({
           type="button"
           variant="ghost"
           size="icon"
+          className="text-destructive hover:text-destructive"
           disabled={deleting}
           onClick={() => onDelete(link)}
           aria-label={`Delete ${platformLabel} link`}

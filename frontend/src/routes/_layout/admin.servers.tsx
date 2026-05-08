@@ -599,6 +599,7 @@ function PublicServersTab({
             type="button"
             variant="ghost"
             size="icon-sm"
+            className="text-destructive hover:text-destructive"
             aria-label="Delete public server"
             disabled={deleteMutation.isPending}
             onClick={() => deleteMutation.mutate(row.original.id)}
@@ -815,6 +816,7 @@ function ServerGroupsTab({ groups }: { groups: AdminServerGroupPublic[] }) {
               type="button"
               variant="ghost"
               size="icon-sm"
+              className="text-destructive hover:text-destructive"
               aria-label="Delete server group"
               disabled={deleteMutation.isPending}
               onClick={() => deleteMutation.mutate(row.original.id)}
