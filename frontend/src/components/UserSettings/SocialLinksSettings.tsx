@@ -1021,41 +1021,55 @@ export default function SocialLinksSettings() {
                   signature, then confirm verification.
                 </p>
               )}
-              <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <code className="text-sm font-semibold">
-                    {activeBilibiliVerification.verificationCode}
-                  </code>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label="Copy verification code"
-                    title="Copy verification code"
-                    onClick={async () => {
-                      const success = await copyCode(
-                        activeBilibiliVerification.verificationCode,
-                      )
-                      if (success) {
-                        showSuccessToast("Verification code copied")
-                      } else {
-                        showErrorToast("Failed to copy verification code")
-                      }
-                    }}
-                  >
-                    <Copy className="size-4" />
-                  </Button>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Verification code</p>
+                <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <code className="text-sm font-semibold">
+                      {activeBilibiliVerification.verificationCode}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Copy verification code"
+                      title="Copy verification code"
+                      onClick={async () => {
+                        const success = await copyCode(
+                          activeBilibiliVerification.verificationCode,
+                        )
+                        if (success) {
+                          showSuccessToast("Verification code copied")
+                        } else {
+                          showErrorToast("Failed to copy verification code")
+                        }
+                      }}
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">
                   Current public profile text
                 </p>
-                <div className="rounded-lg border border-border/70 bg-background p-3 text-muted-foreground">
-                  <div className="mb-3 flex justify-end">
+                <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      {activeBilibiliVerification.currentProfileText ? (
+                        <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground">
+                          {activeBilibiliVerification.currentProfileText}
+                        </pre>
+                      ) : (
+                        <p className="text-sm text-foreground">
+                          No public profile text detected.
+                        </p>
+                      )}
+                    </div>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="icon"
                       aria-label="Copy current public profile text"
                       title="Copy current public profile text"
@@ -1077,13 +1091,6 @@ export default function SocialLinksSettings() {
                       <Copy className="size-4" />
                     </Button>
                   </div>
-                  {activeBilibiliVerification.currentProfileText ? (
-                    <pre className="whitespace-pre-wrap break-words font-sans text-sm">
-                      {activeBilibiliVerification.currentProfileText}
-                    </pre>
-                  ) : (
-                    <p className="text-sm">No public profile text detected.</p>
-                  )}
                 </div>
               </div>
               <div className="space-y-2 text-muted-foreground">
@@ -1100,9 +1107,10 @@ export default function SocialLinksSettings() {
                   </a>
                 </p>
                 <p>
-                  Code expires at{" "}
+                  Code expires{" "}
                   <FormattedDateTime
                     value={activeBilibiliVerification.expiresAt}
+                    display="relative"
                     fallback="-"
                   />
                   .
