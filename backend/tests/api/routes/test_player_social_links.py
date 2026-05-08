@@ -1,3 +1,4 @@
+import uuid
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -8,6 +9,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.v1 import players as players_routes
 from app.core.config import settings
 from app.models import Player
+from app.services.bilibili_social_link_verification import (
+    create_bilibili_pending_confirmation_token,
+)
 from app.services.twitch_social_link_verification import (
     TwitchAuthenticatedUser,
     create_twitch_pending_confirmation_token,
@@ -291,6 +295,141 @@ async def test_player_social_link_verified_partial_unique_allows_unverified_dupl
     assert count_row[0] == 2
 
 
+async def test_player_bilibili_social_link_verify_start_returns_code_and_token(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Bilibili Verify")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://space.bilibili.com/123456",
+    )
+
+    async def _fake_fetch_profile_text(**_: object) -> str:
+        return "current profile text"
+
+    monkeypatch.setattr(
+        players_routes,
+        "fetch_bilibili_profile_text",
+        _fake_fetch_profile_text,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/start",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["profile_url"] == "https://space.bilibili.com/123456"
+    assert str(uuid.UUID(payload["verification_code"])) == payload["verification_code"]
+    assert payload["pending_token"]
+    assert payload["current_profile_text"] == "current profile text"
+
+
+async def test_player_bilibili_social_link_verify_start_rejects_invalid_cases(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    owner_steamid64 = random_steamid64()
+    other_steamid64 = random_steamid64()
+    await _create_player(db, steamid64=owner_steamid64, name="Owner")
+    await _create_player(db, steamid64=other_steamid64, name="Other")
+    owner_headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=owner_steamid64,
+        db=db,
+    )
+    other_headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=other_steamid64,
+        db=db,
+    )
+    bilibili_link = await _create_social_link(
+        client,
+        steamid64=owner_steamid64,
+        headers=owner_headers,
+        url="https://space.bilibili.com/123456",
+    )
+    github_link = await _create_social_link(
+        client,
+        steamid64=owner_steamid64,
+        headers=owner_headers,
+        url="https://github.com/cinyan10",
+    )
+
+    forbidden = await client.post(
+        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{bilibili_link['id']}/verify/bilibili/start",
+        headers=other_headers,
+    )
+    assert forbidden.status_code == 403
+
+    non_bilibili = await client.post(
+        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{github_link['id']}/verify/bilibili/start",
+        headers=owner_headers,
+    )
+    assert non_bilibili.status_code == 422
+
+    admin_headers = await get_superuser_token_headers(client)
+    verified_update = await client.patch(
+        f"{settings.API_V1_STR}/admin/player-social-links/{bilibili_link['id']}",
+        headers=admin_headers,
+        json={"verified": True},
+    )
+    assert verified_update.status_code == 200
+    verified = await client.post(
+        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{bilibili_link['id']}/verify/bilibili/start",
+        headers=owner_headers,
+    )
+    assert verified.status_code == 409
+
+
+async def test_player_bilibili_social_link_verify_start_rejects_profile_fetch_failure(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Bilibili Fetch Failure")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://space.bilibili.com/123456",
+    )
+
+    async def _failing_fetch(**_: object) -> str:
+        raise players_routes.BilibiliProfileFetchError(
+            "Failed to read the Bilibili profile text. Try again later."
+        )
+
+    monkeypatch.setattr(
+        players_routes,
+        "fetch_bilibili_profile_text",
+        _failing_fetch,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/start",
+        headers=headers,
+    )
+    assert response.status_code == 503
+
+
 async def test_player_twitch_social_link_verify_start_returns_authorization_url(
     client: AsyncClient,
     db: AsyncSession,
@@ -333,6 +472,246 @@ async def test_player_twitch_social_link_verify_start_returns_authorization_url(
     assert state.steamid64 == steamid64
     assert state.link_id == link["id"]
     assert state.return_path == "/settings?tab=social-links"
+
+
+async def test_player_bilibili_social_link_confirm_verifies_matching_profile(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Bilibili Confirm")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://space.bilibili.com/123456",
+    )
+    pending_token, verification_code, _expires_at = (
+        create_bilibili_pending_confirmation_token(
+            steamid64=steamid64,
+            link_id=str(link["id"]),
+            current_account_identifier="123456",
+        )
+    )
+
+    async def _fake_verify(**_: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        players_routes,
+        "verify_bilibili_profile_contains_code",
+        _fake_verify,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/confirm",
+        headers=headers,
+        json={"pending_token": pending_token},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["verified"] is True
+    assert payload["data"][0]["account_identifier"] == "123456"
+    assert str(uuid.UUID(verification_code)) == verification_code
+
+
+async def test_player_bilibili_social_link_confirm_rejects_invalid_token_and_conflict(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_steamid64 = random_steamid64()
+    second_steamid64 = random_steamid64()
+    await _create_player(db, steamid64=first_steamid64, name="First")
+    await _create_player(db, steamid64=second_steamid64, name="Second")
+    first_headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=first_steamid64,
+        db=db,
+    )
+    first_link = await _create_social_link(
+        client,
+        steamid64=first_steamid64,
+        headers=first_headers,
+        url="https://space.bilibili.com/123456",
+    )
+    admin_headers = await get_superuser_token_headers(client)
+    verified_create = await client.post(
+        f"{settings.API_V1_STR}/admin/player-social-links",
+        headers=admin_headers,
+        json={
+            "player_steamid64": str(second_steamid64),
+            "url": "https://space.bilibili.com/123456",
+            "verified": True,
+        },
+    )
+    assert verified_create.status_code == 200
+
+    async def _fake_verify(**_: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        players_routes,
+        "verify_bilibili_profile_contains_code",
+        _fake_verify,
+    )
+
+    invalid = await client.post(
+        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/bilibili/confirm",
+        headers=first_headers,
+        json={"pending_token": "not-a-token"},
+    )
+    assert invalid.status_code == 400
+
+    wrong_owner_token, _, _ = create_bilibili_pending_confirmation_token(
+        steamid64=second_steamid64,
+        link_id=str(first_link["id"]),
+        current_account_identifier="123456",
+    )
+    wrong_owner = await client.post(
+        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/bilibili/confirm",
+        headers=first_headers,
+        json={"pending_token": wrong_owner_token},
+    )
+    assert wrong_owner.status_code == 400
+
+    conflict_token, _, _ = create_bilibili_pending_confirmation_token(
+        steamid64=first_steamid64,
+        link_id=str(first_link["id"]),
+        current_account_identifier="123456",
+    )
+    conflict = await client.post(
+        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/bilibili/confirm",
+        headers=first_headers,
+        json={"pending_token": conflict_token},
+    )
+    assert conflict.status_code == 409
+
+
+async def test_player_bilibili_social_link_confirm_rejects_changed_link_and_missing_code(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Bilibili Changed")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://space.bilibili.com/123456",
+    )
+    pending_token, _, _ = create_bilibili_pending_confirmation_token(
+        steamid64=steamid64,
+        link_id=str(link["id"]),
+        current_account_identifier="123456",
+    )
+
+    update_response = await client.patch(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}",
+        headers=headers,
+        json={"url": "https://space.bilibili.com/654321"},
+    )
+    assert update_response.status_code == 200
+
+    changed = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/confirm",
+        headers=headers,
+        json={"pending_token": pending_token},
+    )
+    assert changed.status_code == 409
+
+    delete_response = await client.delete(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}",
+        headers=headers,
+    )
+    assert delete_response.status_code == 200
+
+    bilibili_create = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        headers=headers,
+        json={"url": "https://space.bilibili.com/123456"},
+    )
+    assert bilibili_create.status_code == 200
+    recreated_link = bilibili_create.json()["data"][0]
+    recreated_token, _, _ = create_bilibili_pending_confirmation_token(
+        steamid64=steamid64,
+        link_id=recreated_link["id"],
+        current_account_identifier="123456",
+    )
+
+    async def _missing_code(**_: object) -> None:
+        raise players_routes.BilibiliProfileVerificationCodeMissingError(
+            "Verification code not found in the public Bilibili profile text."
+        )
+
+    monkeypatch.setattr(
+        players_routes,
+        "verify_bilibili_profile_contains_code",
+        _missing_code,
+    )
+
+    missing_code = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{recreated_link['id']}/verify/bilibili/confirm",
+        headers=headers,
+        json={"pending_token": recreated_token},
+    )
+    assert missing_code.status_code == 422
+
+
+async def test_player_bilibili_social_link_confirm_rejects_upstream_fetch_failure(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Bilibili Fetch Error")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://space.bilibili.com/123456",
+    )
+    pending_token, _, _ = create_bilibili_pending_confirmation_token(
+        steamid64=steamid64,
+        link_id=str(link["id"]),
+        current_account_identifier="123456",
+    )
+
+    async def _fetch_error(**_: object) -> None:
+        raise players_routes.BilibiliProfileFetchError(
+            "Failed to fetch the Bilibili profile page. Try again later."
+        )
+
+    monkeypatch.setattr(
+        players_routes,
+        "verify_bilibili_profile_contains_code",
+        _fetch_error,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/confirm",
+        headers=headers,
+        json={"pending_token": pending_token},
+    )
+    assert response.status_code == 503
 
 
 async def test_player_twitch_social_link_verify_start_rejects_invalid_cases(

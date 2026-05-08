@@ -11,13 +11,6 @@ from .ban import (
     BanType,
 )
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
-from .live_stream import (
-    LiveStreamCardPublic,
-    LiveStreamListQuery,
-    LiveStreamPlayerPublic,
-    LiveStreamsPublic,
-    LiveStreamState,
-)
 from .leaderboard_player import (
     LeaderboardPlayer,
     LeaderboardPlayerCount,
@@ -25,6 +18,13 @@ from .leaderboard_player import (
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
     PlayerLeaderboardsPublic,
+)
+from .live_stream import (
+    LiveStreamCardPublic,
+    LiveStreamListQuery,
+    LiveStreamPlayerPublic,
+    LiveStreamsPublic,
+    LiveStreamState,
 )
 from .map import (
     AdminMapListQuery,
@@ -123,11 +123,12 @@ from .player_social_link import (
     AdminPlayerSocialLinksPublic,
     AdminPlayerSocialLinkUpdate,
     PlayerSocialLink,
+    PlayerSocialLinkBilibiliVerificationStart,
     PlayerSocialLinkCreate,
     PlayerSocialLinkPublic,
     PlayerSocialLinksPublic,
-    PlayerSocialLinkVerifyConfirm,
     PlayerSocialLinkUpdate,
+    PlayerSocialLinkVerifyConfirm,
     PlayerSocialPlatform,
 )
 from .player_stats import (
@@ -355,6 +356,7 @@ __all__ = [
     "PlayerSessionDisconnect",
     "PlayerSessionHeartbeat",
     "PlayerSessionPublic",
+    "PlayerSocialLinkBilibiliVerificationStart",
     "PlayerSocialLink",
     "PlayerSocialLinkCreate",
     "PlayerSocialLinkPublic",

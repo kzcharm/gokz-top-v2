@@ -75,6 +75,14 @@ class PlayerSocialLinkVerifyConfirm(SQLModel):
     pending_token: str = Field(min_length=1, max_length=4000)
 
 
+class PlayerSocialLinkBilibiliVerificationStart(SQLModel):
+    pending_token: str = Field(min_length=1, max_length=4000)
+    verification_code: str = Field(min_length=1, max_length=128)
+    profile_url: str = Field(min_length=1, max_length=500)
+    current_profile_text: str = Field(max_length=2000)
+    expires_at: datetime
+
+
 class AdminPlayerSocialLinkCreate(PlayerSocialLinkCreate):
     player_steamid64: str
     verified: bool = False

@@ -555,6 +555,14 @@ export type PlayerSettingsUpdate = {
     country?: (string | null);
 };
 
+export type PlayerSocialLinkBilibiliVerificationStart = {
+    pending_token: string;
+    verification_code: string;
+    profile_url: string;
+    current_profile_text: string;
+    expires_at: string;
+};
+
 export type PlayerSocialLinkCreate = {
     url: string;
 };
@@ -1384,6 +1392,21 @@ export type PlayersConfirmPlayerTwitchSocialLinkVerificationData = {
 };
 
 export type PlayersConfirmPlayerTwitchSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
+
+export type PlayersStartPlayerBilibiliSocialLinkVerificationData = {
+    identifier: string;
+    linkId: string;
+};
+
+export type PlayersStartPlayerBilibiliSocialLinkVerificationResponse = (PlayerSocialLinkBilibiliVerificationStart);
+
+export type PlayersConfirmPlayerBilibiliSocialLinkVerificationData = {
+    identifier: string;
+    linkId: string;
+    requestBody: PlayerSocialLinkVerifyConfirm;
+};
+
+export type PlayersConfirmPlayerBilibiliSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
 
 export type PlayersReadPlayerFollowSummaryData = {
     identifier: string;

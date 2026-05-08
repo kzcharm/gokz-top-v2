@@ -1,15 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react"
+import {
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  Pencil,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { OpenAPI, type PlayerSocialLinkPublic, PlayersService } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -25,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import {
   detectSocialPlatformFromUrl,
@@ -47,6 +53,17 @@ type SocialLinkDialogState =
   | { mode: "add" }
   | { mode: "edit"; link: PlayerSocialLinkPublic }
 
+type BilibiliVerificationState = {
+  accountIdentifier: string
+  currentProfileText: string
+  expiresAt: string
+  linkId: string
+  pendingToken: string
+  profileUrl: string
+  verified: boolean
+  verificationCode: string
+}
+
 type TwitchVerificationMessage =
   | {
       type: "twitch-social-link-verification"
@@ -66,6 +83,14 @@ type TwitchVerificationMessage =
       authenticatedAccount: string
       authenticatedDisplayName: string
     }
+
+type BilibiliVerificationStartResponse = {
+  current_profile_text: string
+  expires_at: string
+  pending_token: string
+  profile_url: string
+  verification_code: string
+}
 
 function getAccessToken() {
   return localStorage.getItem("access_token") || ""
@@ -169,6 +194,55 @@ async function confirmTwitchVerification(
   >
 }
 
+async function startBilibiliVerification(
+  identifier: string,
+  linkId: string,
+): Promise<BilibiliVerificationStartResponse> {
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/bilibili/start`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  return (await response.json()) as BilibiliVerificationStartResponse
+}
+
+async function confirmBilibiliVerification(
+  identifier: string,
+  linkId: string,
+  pendingToken: string,
+) {
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/bilibili/confirm`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ pending_token: pendingToken }),
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  return (await response.json()) as Awaited<
+    ReturnType<typeof PlayersService.readPlayerSocialLinks>
+  >
+}
+
 function SocialLinkRow({
   link,
   onEdit,
@@ -185,7 +259,9 @@ function SocialLinkRow({
   verifying: boolean
 }) {
   const platformLabel = getSocialPlatformLabel(link.platform)
-  const isTwitchVerifyAvailable = link.platform === "twitch" && !link.verified
+  const isVerifyAvailable =
+    (link.platform === "twitch" || link.platform === "bilibili") &&
+    !link.verified
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2">
@@ -214,7 +290,7 @@ function SocialLinkRow({
       </a>
       <div className="flex shrink-0 items-center gap-1">
         {!link.verified ? (
-          isTwitchVerifyAvailable ? (
+          isVerifyAvailable ? (
             <Button
               type="button"
               variant="ghost"
@@ -275,6 +351,10 @@ export default function SocialLinksSettings() {
   const [draftUrl, setDraftUrl] = useState("")
   const [mismatchState, setMismatchState] =
     useState<TwitchMismatchState | null>(null)
+  const [bilibiliVerificationState, setBilibiliVerificationState] =
+    useState<BilibiliVerificationState | null>(null)
+  const [_copiedCode, copyCode] = useCopyToClipboard()
+  const [_copiedProfileText, copyProfileText] = useCopyToClipboard()
   const identifier = String(currentUser?.steamid64 ?? "")
   const queryKey = useMemo(
     () => ["player-social-links", identifier],
@@ -291,6 +371,7 @@ export default function SocialLinksSettings() {
   })
 
   const links = data?.data ?? []
+  const bilibiliLinked = links.some((link) => link.platform === "bilibili")
   const twitchLinked = links.some((link) => link.platform === "twitch")
 
   const refreshLinks = useCallback(() => {
@@ -522,6 +603,78 @@ export default function SocialLinksSettings() {
     },
   })
 
+  const bilibiliStartMutation = useMutation({
+    mutationFn: async ({
+      linkId,
+      accountIdentifier,
+    }: {
+      linkId: string
+      accountIdentifier: string
+    }) => {
+      const result = await startBilibiliVerification(identifier, linkId)
+      return {
+        accountIdentifier,
+        currentProfileText: result.current_profile_text,
+        expiresAt: result.expires_at,
+        linkId,
+        pendingToken: result.pending_token,
+        profileUrl: result.profile_url,
+        verified: false,
+        verificationCode: result.verification_code,
+      } satisfies BilibiliVerificationState
+    },
+    onSuccess: (result) => {
+      setDialogState(null)
+      setBilibiliVerificationState((current) => ({
+        ...result,
+        currentProfileText:
+          current?.linkId === result.linkId
+            ? current.currentProfileText
+            : result.currentProfileText,
+      }))
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+  })
+
+  const bilibiliQuickLinkMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const created = await PlayersService.createPlayerSocialLink({
+        identifier,
+        requestBody: { url },
+      })
+      const link = created.data.find(
+        (candidate) => candidate.platform === "bilibili",
+      )
+      if (!link) {
+        throw new Error("Bilibili social link was not created")
+      }
+      const result = await startBilibiliVerification(identifier, link.id)
+      return {
+        accountIdentifier: link.account_identifier,
+        currentProfileText: result.current_profile_text,
+        expiresAt: result.expires_at,
+        linkId: link.id,
+        pendingToken: result.pending_token,
+        profileUrl: result.profile_url,
+        verified: false,
+        verificationCode: result.verification_code,
+      } satisfies BilibiliVerificationState
+    },
+    onSuccess: (result) => {
+      setDraftUrl("")
+      setDialogState(null)
+      setBilibiliVerificationState(result)
+      showSuccessToast("Bilibili link added")
+      refreshLinks()
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+      refreshLinks()
+    },
+  })
+
   const addTwitchMutation = useMutation({
     mutationFn: async () => {
       const authorizationUrl = await startTwitchAdd(identifier)
@@ -556,6 +709,26 @@ export default function SocialLinksSettings() {
     onSettled: refreshLinks,
   })
 
+  const bilibiliConfirmMutation = useMutation({
+    mutationFn: ({
+      linkId,
+      pendingToken,
+    }: {
+      linkId: string
+      pendingToken: string
+    }) => confirmBilibiliVerification(identifier, linkId, pendingToken),
+    onSuccess: () => {
+      setBilibiliVerificationState((current) =>
+        current === null ? null : { ...current, verified: true },
+      )
+      showSuccessToast("Bilibili account verified")
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+    onSettled: refreshLinks,
+  })
+
   if (!currentUser) {
     return null
   }
@@ -570,8 +743,11 @@ export default function SocialLinksSettings() {
     updateMutation.isPending ||
     deleteMutation.isPending ||
     verifyMutation.isPending ||
+    bilibiliStartMutation.isPending ||
+    bilibiliQuickLinkMutation.isPending ||
     addTwitchMutation.isPending ||
-    confirmVerificationMutation.isPending
+    confirmVerificationMutation.isPending ||
+    bilibiliConfirmMutation.isPending
 
   const submitDialog = () => {
     const url = draftUrl.trim()
@@ -595,6 +771,21 @@ export default function SocialLinksSettings() {
       verifyMutation.mutate(dialogState.link.id)
     }
   }
+
+  const launchBilibiliQuickLink = () => {
+    const url = draftUrl.trim()
+    if (!url) {
+      showErrorToast("Enter a Bilibili profile URL")
+      return
+    }
+    if (detectSocialPlatformFromUrl(url) !== "bilibili") {
+      showErrorToast("Enter a valid Bilibili profile URL")
+      return
+    }
+    bilibiliQuickLinkMutation.mutate(url)
+  }
+
+  const activeBilibiliVerification = bilibiliVerificationState
 
   return (
     <>
@@ -631,9 +822,18 @@ export default function SocialLinksSettings() {
                 onDelete={(selectedLink) =>
                   deleteMutation.mutate(selectedLink.id)
                 }
-                onVerify={(selectedLink) =>
-                  verifyMutation.mutate(selectedLink.id)
-                }
+                onVerify={(selectedLink) => {
+                  if (selectedLink.platform === "twitch") {
+                    verifyMutation.mutate(selectedLink.id)
+                    return
+                  }
+                  if (selectedLink.platform === "bilibili") {
+                    bilibiliStartMutation.mutate({
+                      linkId: selectedLink.id,
+                      accountIdentifier: selectedLink.account_identifier,
+                    })
+                  }
+                }}
               />
             ))
           ) : (
@@ -696,12 +896,21 @@ export default function SocialLinksSettings() {
                 <div className="grid gap-2 sm:grid-cols-2">
                   {socialPlatformOrder.map((platform) => {
                     const isTwitch = platform === "twitch"
-                    const disabled = !isTwitch || twitchLinked
+                    const isBilibili = platform === "bilibili"
+                    const disabled = isTwitch
+                      ? twitchLinked
+                      : isBilibili
+                        ? bilibiliLinked
+                        : true
                     const label = isTwitch
                       ? twitchLinked
                         ? "Twitch already linked"
                         : "Link with Twitch"
-                      : `${getSocialPlatformLabel(platform)} coming soon`
+                      : isBilibili
+                        ? bilibiliLinked
+                          ? "Bilibili already linked"
+                          : "Add and verify with your Bilibili profile URL"
+                        : `${getSocialPlatformLabel(platform)} coming soon`
 
                     return (
                       <Tooltip key={platform}>
@@ -715,6 +924,10 @@ export default function SocialLinksSettings() {
                               onClick={() => {
                                 if (isTwitch && !twitchLinked) {
                                   launchTwitchLogin()
+                                  return
+                                }
+                                if (isBilibili && !bilibiliLinked) {
+                                  launchBilibiliQuickLink()
                                 }
                               }}
                             >
@@ -778,6 +991,169 @@ export default function SocialLinksSettings() {
                   Add link
                 </LoadingButton>
               </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={activeBilibiliVerification !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBilibiliVerificationState(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Verify Bilibili account</DialogTitle>
+          </DialogHeader>
+          {activeBilibiliVerification ? (
+            <div className="space-y-4 text-sm">
+              {activeBilibiliVerification.verified ? (
+                <p className="text-muted-foreground">
+                  Verification succeeded. You can copy your original public
+                  profile text back if you want to restore it now.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Add this exact code to your public Bilibili profile text or
+                  signature, then confirm verification.
+                </p>
+              )}
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <code className="text-sm font-semibold">
+                    {activeBilibiliVerification.verificationCode}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Copy verification code"
+                    title="Copy verification code"
+                    onClick={async () => {
+                      const success = await copyCode(
+                        activeBilibiliVerification.verificationCode,
+                      )
+                      if (success) {
+                        showSuccessToast("Verification code copied")
+                      } else {
+                        showErrorToast("Failed to copy verification code")
+                      }
+                    }}
+                  >
+                    <Copy className="size-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  Current public profile text
+                </p>
+                <div className="rounded-lg border border-border/70 bg-background p-3 text-muted-foreground">
+                  <div className="mb-3 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="Copy current public profile text"
+                      title="Copy current public profile text"
+                      disabled={
+                        activeBilibiliVerification.currentProfileText.length ===
+                        0
+                      }
+                      onClick={async () => {
+                        const success = await copyProfileText(
+                          activeBilibiliVerification.currentProfileText,
+                        )
+                        if (success) {
+                          showSuccessToast("Current profile text copied")
+                        } else {
+                          showErrorToast("Failed to copy current profile text")
+                        }
+                      }}
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                  </div>
+                  {activeBilibiliVerification.currentProfileText ? (
+                    <pre className="whitespace-pre-wrap break-words font-sans text-sm">
+                      {activeBilibiliVerification.currentProfileText}
+                    </pre>
+                  ) : (
+                    <p className="text-sm">No public profile text detected.</p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2 text-muted-foreground">
+                <p>
+                  Profile:{" "}
+                  <a
+                    className="inline-flex items-center gap-1 text-foreground underline underline-offset-4"
+                    href={activeBilibiliVerification.profileUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {activeBilibiliVerification.accountIdentifier}
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </p>
+                <p>
+                  Code expires at{" "}
+                  <FormattedDateTime
+                    value={activeBilibiliVerification.expiresAt}
+                    fallback="-"
+                  />
+                  .
+                </p>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant={
+                activeBilibiliVerification?.verified ? "default" : "outline"
+              }
+              disabled={bilibiliStartMutation.isPending}
+              onClick={() => {
+                if (activeBilibiliVerification?.verified) {
+                  setBilibiliVerificationState(null)
+                  return
+                }
+                bilibiliStartMutation.mutate({
+                  linkId: activeBilibiliVerification!.linkId,
+                  accountIdentifier:
+                    activeBilibiliVerification!.accountIdentifier,
+                })
+              }}
+            >
+              {activeBilibiliVerification?.verified ? (
+                "Close"
+              ) : (
+                <>
+                  <RefreshCw className="size-4" />
+                  Regenerate code
+                </>
+              )}
+            </Button>
+            {activeBilibiliVerification?.verified ? null : (
+              <LoadingButton
+                loading={bilibiliConfirmMutation.isPending}
+                type="button"
+                onClick={() => {
+                  if (!activeBilibiliVerification) {
+                    return
+                  }
+                  bilibiliConfirmMutation.mutate({
+                    linkId: activeBilibiliVerification.linkId,
+                    pendingToken: activeBilibiliVerification.pendingToken,
+                  })
+                }}
+              >
+                Verify now
+              </LoadingButton>
             )}
           </DialogFooter>
         </DialogContent>

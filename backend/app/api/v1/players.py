@@ -35,6 +35,7 @@ from app.models import (
     PlayerSettingsUpdate,
     PlayersListQuery,
     PlayerSocialLink,
+    PlayerSocialLinkBilibiliVerificationStart,
     PlayerSocialLinkCreate,
     PlayerSocialLinksPublic,
     PlayerSocialLinkUpdate,
@@ -50,6 +51,15 @@ from app.models import (
     PlayerWebhookUpdate,
     RecordType,
     User,
+)
+from app.services.bilibili_social_link_verification import (
+    BilibiliProfileFetchError,
+    BilibiliProfileVerificationCodeMissingError,
+    build_bilibili_profile_url,
+    create_bilibili_pending_confirmation_token,
+    decode_bilibili_pending_confirmation_token,
+    fetch_bilibili_profile_text,
+    verify_bilibili_profile_contains_code,
 )
 from app.services.globalapi_ban_sync import (
     GlobalApiBanSyncError,
@@ -277,6 +287,16 @@ def _ensure_link_is_twitch_and_unverified(*, link: Any) -> None:
         raise HTTPException(
             status_code=422,
             detail="Only Twitch links can be verified with this flow",
+        )
+    if link.verified:
+        raise HTTPException(status_code=409, detail="Social link is already verified")
+
+
+def _ensure_link_is_bilibili_and_unverified(*, link: Any) -> None:
+    if link.platform != PlayerSocialPlatform.BILIBILI:
+        raise HTTPException(
+            status_code=422,
+            detail="Only Bilibili links can be verified with this flow",
         )
     if link.verified:
         raise HTTPException(status_code=409, detail="Social link is already verified")
@@ -821,6 +841,122 @@ async def confirm_player_twitch_social_link_verification(
             session=session,
             link=link,
             url=f"https://www.twitch.tv/{pending.authenticated_account_identifier}",
+            verified=True,
+        )
+    except crud.PlayerSocialLinkConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    links = await crud.list_player_social_links(
+        session=session,
+        player_steamid64=player.steamid64,
+    )
+    return PlayerSocialLinksPublic(
+        data=crud.to_player_social_link_publics(links=links),
+        count=len(links),
+    )
+
+
+@router.post(
+    "/{identifier:path}/social-links/{link_id}/verify/bilibili/start",
+    response_model=PlayerSocialLinkBilibiliVerificationStart,
+)
+async def start_player_bilibili_social_link_verification(
+    identifier: str,
+    link_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerSocialLinkBilibiliVerificationStart:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_social_link(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+    link = await crud.get_player_social_link(session=session, id=link_id)
+    if link is None or link.player_steamid64 != player.steamid64:
+        raise HTTPException(status_code=404, detail="Social link not found")
+    _ensure_link_is_bilibili_and_unverified(link=link)
+
+    pending_token, verification_code, expires_at = (
+        create_bilibili_pending_confirmation_token(
+            steamid64=player.steamid64,
+            link_id=str(link.id),
+            current_account_identifier=link.account_identifier,
+        )
+    )
+    try:
+        current_profile_text = await fetch_bilibili_profile_text(
+            account_identifier=link.account_identifier
+        )
+    except BilibiliProfileFetchError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return PlayerSocialLinkBilibiliVerificationStart(
+        pending_token=pending_token,
+        verification_code=verification_code,
+        profile_url=build_bilibili_profile_url(
+            account_identifier=link.account_identifier
+        ),
+        current_profile_text=current_profile_text,
+        expires_at=expires_at,
+    )
+
+
+@router.post(
+    "/{identifier:path}/social-links/{link_id}/verify/bilibili/confirm",
+    response_model=PlayerSocialLinksPublic,
+)
+async def confirm_player_bilibili_social_link_verification(
+    identifier: str,
+    link_id: uuid.UUID,
+    body: PlayerSocialLinkVerifyConfirm,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerSocialLinksPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_owns_social_link(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+    link = await crud.get_player_social_link(session=session, id=link_id)
+    if link is None or link.player_steamid64 != player.steamid64:
+        raise HTTPException(status_code=404, detail="Social link not found")
+    _ensure_link_is_bilibili_and_unverified(link=link)
+
+    try:
+        pending = decode_bilibili_pending_confirmation_token(body.pending_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if (
+        pending.steamid64 != player.steamid64
+        or pending.link_id != str(link.id)
+        or pending.platform != "bilibili"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Bilibili verification confirmation does not match this social link",
+        )
+
+    if link.account_identifier != pending.current_account_identifier:
+        raise HTTPException(
+            status_code=409,
+            detail="Social link changed during Bilibili verification; start again",
+        )
+
+    try:
+        await verify_bilibili_profile_contains_code(
+            account_identifier=link.account_identifier,
+            verification_code=pending.verification_code,
+        )
+    except BilibiliProfileVerificationCodeMissingError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except BilibiliProfileFetchError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    try:
+        await crud.update_player_social_link(
+            session=session,
+            link=link,
             verified=True,
         )
     except crud.PlayerSocialLinkConflictError as exc:

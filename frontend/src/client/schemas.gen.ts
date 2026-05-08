@@ -2675,6 +2675,42 @@ export const PlayerSettingsUpdateSchema = {
     title: 'PlayerSettingsUpdate'
 } as const;
 
+export const PlayerSocialLinkBilibiliVerificationStartSchema = {
+    properties: {
+        pending_token: {
+            type: 'string',
+            maxLength: 4000,
+            minLength: 1,
+            title: 'Pending Token'
+        },
+        verification_code: {
+            type: 'string',
+            maxLength: 128,
+            minLength: 1,
+            title: 'Verification Code'
+        },
+        profile_url: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Profile Url'
+        },
+        current_profile_text: {
+            type: 'string',
+            maxLength: 2000,
+            title: 'Current Profile Text'
+        },
+        expires_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Expires At'
+        }
+    },
+    type: 'object',
+    required: ['pending_token', 'verification_code', 'profile_url', 'current_profile_text', 'expires_at'],
+    title: 'PlayerSocialLinkBilibiliVerificationStart'
+} as const;
+
 export const PlayerSocialLinkCreateSchema = {
     properties: {
         url: {
