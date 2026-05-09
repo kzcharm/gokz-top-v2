@@ -27,8 +27,8 @@ from app.models import (
 from app.services.player_social_links import build_player_social_link_url
 from app.services.player_webhooks import (
     DiscordWebhookStreamEvent,
-    build_player_profile_url,
     build_discord_embed_payload,
+    build_player_profile_url,
     send_discord_webhook,
 )
 
@@ -632,10 +632,7 @@ async def _notify_stream_started_if_needed(
         )
         return
 
-    webhooks = await crud.list_enabled_player_webhooks(
-        session=session,
-        user_steamid64=player_steamid64,
-    )
+    webhooks = await crud.list_all_enabled_player_webhooks(session=session)
     if not webhooks:
         return
 

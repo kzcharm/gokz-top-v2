@@ -691,6 +691,101 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
     )
 
 
+async def test_refresh_live_streams_broadcasts_new_live_transition_to_all_enabled_webhooks(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    streamed_player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Streamed Player",
+        alias="Broadcasted",
+    )
+    watcher_player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Watcher Player",
+    )
+    await _create_social_link(
+        db,
+        player_steamid64=streamed_player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="broadcast-streamer",
+        verified=True,
+    )
+    await _create_player_webhook(
+        db,
+        user_steamid64=streamed_player.steamid64,
+        url=(
+            "https://discord.com/api/webhooks/623456789012345678/"
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ),
+    )
+    await _create_player_webhook(
+        db,
+        user_steamid64=watcher_player.steamid64,
+        url=(
+            "https://discord.com/api/webhooks/723456789012345678/"
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ),
+    )
+
+    async def _fake_check_twitch_live_status(
+        account_identifiers: list[str],
+    ) -> dict[str, TwitchLiveStatus]:
+        assert account_identifiers == ["broadcast-streamer"]
+        return {
+            "broadcast-streamer": TwitchLiveStatus(
+                is_live=True,
+                stream_title="Everyone should get this",
+                viewer_count=456,
+                preview_image_url=(
+                    "https://static-cdn.jtvnw.net/previews-ttv/"
+                    "live_user_broadcast-streamer-640x360.jpg"
+                ),
+                hover_preview_image_url=None,
+                stream_url="https://www.twitch.tv/broadcast-streamer",
+                channel_display_name="BroadcastStreamer",
+                started_at=datetime(2026, 5, 7, 10, 0, tzinfo=UTC),
+            )
+        }
+
+    attempted_urls: list[str] = []
+
+    async def _fake_send_discord_webhook(
+        *, webhook_url: str, payload: dict[str, object]
+    ) -> None:
+        del payload
+        attempted_urls.append(webhook_url)
+
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setattr(
+        live_streams,
+        "check_twitch_live_status",
+        _fake_check_twitch_live_status,
+    )
+    monkeypatch.setattr(
+        live_streams,
+        "send_discord_webhook",
+        _fake_send_discord_webhook,
+    )
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 1
+    assert attempted_urls == [
+        (
+            "https://discord.com/api/webhooks/623456789012345678/"
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ),
+        (
+            "https://discord.com/api/webhooks/723456789012345678/"
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ),
+    ]
+
+
 async def test_refresh_live_streams_does_not_resend_webhook_while_already_live(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,

@@ -55,6 +55,21 @@ async def list_enabled_player_webhooks(
     return list((await session.exec(statement)).all())
 
 
+async def list_all_enabled_player_webhooks(
+    *,
+    session: AsyncSession,
+) -> list[PlayerWebhook]:
+    statement = (
+        select(PlayerWebhook)
+        .where(col(PlayerWebhook.enabled).is_(True))
+        .order_by(
+            col(PlayerWebhook.created_at).asc(),
+            col(PlayerWebhook.id).asc(),
+        )
+    )
+    return list((await session.exec(statement)).all())
+
+
 async def create_player_webhook(
     *,
     session: AsyncSession,
