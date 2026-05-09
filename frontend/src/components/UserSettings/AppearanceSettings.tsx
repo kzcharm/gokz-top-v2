@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { type Theme, useTheme } from "@/components/theme-provider"
@@ -17,74 +18,82 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  DATE_TIME_PRESET_OPTIONS,
   type DateTimePreset,
+  getDateTimePresetOptions,
   getDateTimePresetPreview,
-  HOUR_CYCLE_OPTIONS,
+  getHourCycleOptions,
   type HourCyclePreference,
 } from "@/lib/date-time"
-
-const THEME_OPTIONS: Array<{
-  value: Theme
-  label: string
-  description: string
-}> = [
-  {
-    value: "light",
-    label: "Light",
-    description: "Always use the light theme.",
-  },
-  {
-    value: "dark",
-    label: "Dark",
-    description: "Always use the dark theme.",
-  },
-  {
-    value: "system",
-    label: "System",
-    description: "Follow your device theme automatically.",
-  },
-]
 
 const PREVIEW_SAMPLE = new Date(2026, 2, 22, 14, 5, 9)
 
 export default function AppearanceSettings() {
+  const { t } = useTranslation()
   const { formatDateTime, hourCycle, preset, setHourCycle, setPreset } =
     useDateTimeFormat()
   const { resolvedTheme, setTheme, theme } = useTheme()
+  const themeOptions = useMemo<
+    Array<{
+      value: Theme
+      label: string
+      description: string
+    }>
+  >(
+    () => [
+      {
+        value: "light",
+        label: t("theme.light"),
+        description: t("settings.appearance.themeDescriptions.light"),
+      },
+      {
+        value: "dark",
+        label: t("theme.dark"),
+        description: t("settings.appearance.themeDescriptions.dark"),
+      },
+      {
+        value: "system",
+        label: t("theme.system"),
+        description: t("settings.appearance.themeDescriptions.system"),
+      },
+    ],
+    [t],
+  )
+  const dateTimePresetOptions = getDateTimePresetOptions()
+  const hourCycleOptions = getHourCycleOptions()
 
   const selectedPreset = useMemo(
     () =>
-      DATE_TIME_PRESET_OPTIONS.find((option) => option.value === preset) ??
-      DATE_TIME_PRESET_OPTIONS[0],
-    [preset],
+      dateTimePresetOptions.find((option) => option.value === preset) ??
+      dateTimePresetOptions[0],
+    [dateTimePresetOptions, preset],
   )
 
   const selectedTheme = useMemo(
     () =>
-      THEME_OPTIONS.find((option) => option.value === theme) ??
-      THEME_OPTIONS[0],
-    [theme],
+      themeOptions.find((option) => option.value === theme) ?? themeOptions[0],
+    [theme, themeOptions],
   )
   const selectedHourCycle = useMemo(
     () =>
-      HOUR_CYCLE_OPTIONS.find((option) => option.value === hourCycle) ??
-      HOUR_CYCLE_OPTIONS[0],
-    [hourCycle],
+      hourCycleOptions.find((option) => option.value === hourCycle) ??
+      hourCycleOptions[0],
+    [hourCycle, hourCycleOptions],
   )
 
   return (
     <div className="grid gap-6 max-w-3xl">
       <Card>
         <CardHeader>
-          <CardTitle>Theme</CardTitle>
+          <CardTitle>{t("settings.appearance.themeTitle")}</CardTitle>
           <CardDescription>
-            Choose how the application should look on this browser.
+            {t("settings.appearance.themeDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <p className="text-sm font-medium">Color theme</p>
+            <p className="text-sm font-medium">
+              {t("settings.appearance.colorTheme")}
+            </p>
             <Select
               value={theme}
               onValueChange={(value) => setTheme(value as Theme)}
@@ -93,10 +102,12 @@ export default function AppearanceSettings() {
                 className="w-full sm:w-72"
                 data-testid="appearance-theme-select"
               >
-                <SelectValue placeholder="Select theme" />
+                <SelectValue
+                  placeholder={t("settings.appearance.selectTheme")}
+                />
               </SelectTrigger>
               <SelectContent>
-                {THEME_OPTIONS.map((option) => (
+                {themeOptions.map((option) => (
                   <SelectItem
                     key={option.value}
                     value={option.value}
@@ -111,7 +122,7 @@ export default function AppearanceSettings() {
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>{selectedTheme.description}</p>
             <p>
-              Active theme:{" "}
+              {t("settings.appearance.activeTheme")}:{" "}
               <span className="font-medium text-foreground capitalize">
                 {resolvedTheme}
               </span>
@@ -122,15 +133,16 @@ export default function AppearanceSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Date and time</CardTitle>
+          <CardTitle>{t("settings.appearance.dateTimeTitle")}</CardTitle>
           <CardDescription>
-            Control the default timestamp style for this browser. Seconds and
-            relative time remain per-view decisions.
+            {t("settings.appearance.dateTimeDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <p className="text-sm font-medium">Datetime formatter</p>
+            <p className="text-sm font-medium">
+              {t("settings.appearance.formatter")}
+            </p>
             <Select
               value={preset}
               onValueChange={(value) => setPreset(value as DateTimePreset)}
@@ -139,7 +151,9 @@ export default function AppearanceSettings() {
                 className="w-full sm:w-72"
                 data-testid="appearance-datetime-preset-select"
               >
-                <SelectValue placeholder="Select datetime format">
+                <SelectValue
+                  placeholder={t("settings.appearance.selectDateTimeFormat")}
+                >
                   <span className="flex items-center justify-between gap-4 w-full">
                     <span>{selectedPreset.label}</span>
                     <span className="text-xs text-muted-foreground">
@@ -151,7 +165,7 @@ export default function AppearanceSettings() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {DATE_TIME_PRESET_OPTIONS.map((option) => (
+                {dateTimePresetOptions.map((option) => (
                   <SelectItem
                     key={option.value}
                     value={option.value}
@@ -169,7 +183,9 @@ export default function AppearanceSettings() {
             </Select>
           </div>
           <div className="space-y-2">
-            <p className="text-sm font-medium">Time format</p>
+            <p className="text-sm font-medium">
+              {t("settings.appearance.timeFormat")}
+            </p>
             <Select
               value={hourCycle}
               onValueChange={(value) =>
@@ -180,7 +196,9 @@ export default function AppearanceSettings() {
                 className="w-full sm:w-72"
                 data-testid="appearance-hour-cycle-select"
               >
-                <SelectValue placeholder="Select time format">
+                <SelectValue
+                  placeholder={t("settings.appearance.selectTimeFormat")}
+                >
                   <span className="flex items-center justify-between gap-4 w-full">
                     <span>{selectedHourCycle.label}</span>
                     <span className="text-xs text-muted-foreground">
@@ -192,7 +210,7 @@ export default function AppearanceSettings() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {HOUR_CYCLE_OPTIONS.map((option) => (
+                {hourCycleOptions.map((option) => (
                   <SelectItem
                     key={option.value}
                     value={option.value}
@@ -215,13 +233,13 @@ export default function AppearanceSettings() {
             <p>{selectedPreset.description}</p>
             <p>{selectedHourCycle.description}</p>
             <p data-testid="appearance-datetime-preview-default">
-              Record timestamp:{" "}
+              {t("settings.appearance.recordTimestamp")}:{" "}
               <span className="font-medium text-foreground">
                 {formatDateTime(PREVIEW_SAMPLE, { fallback: "-" })}
               </span>
             </p>
             <p data-testid="appearance-datetime-preview-seconds">
-              Update timestamp:{" "}
+              {t("settings.appearance.updateTimestamp")}:{" "}
               <span className="font-medium text-foreground">
                 {formatDateTime(PREVIEW_SAMPLE, {
                   fallback: "-",
@@ -230,7 +248,7 @@ export default function AppearanceSettings() {
               </span>
             </p>
             <p data-testid="appearance-datetime-preview-relative">
-              Relative timestamp:{" "}
+              {t("settings.appearance.relativeTimestamp")}:{" "}
               <span className="font-medium text-foreground">
                 {formatDateTime(new Date(Date.now() - 65 * 60 * 1000), {
                   display: "relative",

@@ -1,4 +1,5 @@
 import { ChevronDown } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,7 @@ export function getScopeTone(scope: AppScope) {
 }
 
 export function ScopeSelector() {
+  const { t } = useTranslation()
   const { scope, setScope } = useScope()
 
   return (
@@ -57,7 +59,7 @@ export function ScopeSelector() {
             "h-9 min-w-20 gap-2 rounded-full px-3 font-mono font-semibold tracking-[0.16em] shadow-xs",
             getScopeTone(scope),
           )}
-          aria-label="Select record scope"
+          aria-label={t("scope.select")}
         >
           <span>{scope}</span>
           <ChevronDown className="size-3.5 opacity-75" />

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ReactNode } from "react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { type MapPublic, MapsService } from "@/client"
 import { CountryPicker } from "@/components/Common/CountryPicker"
@@ -25,6 +26,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatNumber } from "@/i18n/locale"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapReviewsTable } from "./MapReviewsTable"
@@ -74,10 +76,11 @@ function MapMetaItem({
 }
 
 function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
+  const { t } = useTranslation()
   const imageUrl = getMapImageUrl(map.name)
   const authorsList = map.authors ?? []
   const authors =
-    authorsList.length > 0 ? authorsList.join(", ") : "Unknown author"
+    authorsList.length > 0 ? authorsList.join(", ") : t("maps.unknownAuthor")
 
   return (
     <section className="overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm">
@@ -114,7 +117,7 @@ function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
             {map.workshop_url ? (
               <Button asChild variant="outline" className="rounded-full">
                 <a href={map.workshop_url} target="_blank" rel="noreferrer">
-                  Open workshop
+                  {t("maps.openWorkshop")}
                 </a>
               </Button>
             ) : null}
@@ -122,25 +125,29 @@ function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
 
           <dl className="grid gap-4 sm:grid-cols-2">
             <MapMetaItem
-              label="Authors"
+              label={t("maps.authors")}
               value={authors}
               labelClassName="text-muted-foreground"
               valueClassName="text-foreground"
             />
             <MapMetaItem
-              label="Workshop ID"
-              value={map.workshop_id?.toLocaleString("en-US") ?? "-"}
+              label={t("maps.workshopId")}
+              value={
+                map.workshop_id !== null && map.workshop_id !== undefined
+                  ? formatNumber(map.workshop_id)
+                  : "-"
+              }
               labelClassName="text-muted-foreground"
               valueClassName="text-foreground"
             />
             <MapMetaItem
-              label="Created"
+              label={t("maps.created")}
               value={<FormattedDateTime value={map.created_on} fallback="-" />}
               labelClassName="text-muted-foreground"
               valueClassName="text-foreground"
             />
             <MapMetaItem
-              label="Updated"
+              label={t("maps.updated")}
               value={<FormattedDateTime value={map.updated_on} fallback="-" />}
               labelClassName="text-muted-foreground"
               valueClassName="text-foreground"
@@ -153,6 +160,7 @@ function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
 }
 
 export function MapDetailPage({ mapName }: { mapName: string }) {
+  const { t } = useTranslation()
   const { scope } = useScope()
   const [isProOnly, setIsProOnly] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
@@ -229,8 +237,10 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
           <CardContent className="flex flex-col gap-4 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <TabsList className="w-fit">
-                <TabsTrigger value="top">Map Top</TabsTrigger>
-                <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                <TabsTrigger value="top">{t("maps.tabs.top")}</TabsTrigger>
+                <TabsTrigger value="reviews">
+                  {t("maps.tabs.reviews")}
+                </TabsTrigger>
               </TabsList>
 
               {activeTab === "top" ? (
@@ -245,8 +255,8 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                             setSelectedRegion(null)
                           }
                         }}
-                        placeholder="country"
-                        clearLabel="country"
+                        placeholder={t("maps.filters.country")}
+                        clearLabel={t("maps.filters.country")}
                       />
                     </div>
 
@@ -267,11 +277,15 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                             regionName={selectedRegionOption.name}
                           />
                         ) : (
-                          <span className="text-muted-foreground">region</span>
+                          <span className="text-muted-foreground">
+                            {t("maps.filters.region")}
+                          </span>
                         )}
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">region</SelectItem>
+                        <SelectItem value="all">
+                          {t("maps.filters.region")}
+                        </SelectItem>
                         {(regionsQuery.data ?? []).map((region) => (
                           <SelectItem key={region.code} value={region.code}>
                             <RegionBadge
@@ -293,7 +307,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                       checked={isProOnly}
                       onCheckedChange={setIsProOnly}
                     />
-                    <span>Pro only</span>
+                    <span>{t("maps.filters.proOnly")}</span>
                   </Label>
                 </div>
               ) : (
@@ -303,7 +317,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                   onClick={() => setReviewDialogOpen(true)}
                   data-testid="map-add-review-button"
                 >
-                  Add Review
+                  {t("maps.addReview")}
                 </Button>
               )}
             </div>
@@ -313,10 +327,8 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
         <TabsContent value="top" className="space-y-6">
           {recordsQuery.isError ? (
             <Alert variant="destructive">
-              <AlertTitle>Unable to load map leaderboard</AlertTitle>
-              <AlertDescription>
-                Reload the page and try again.
-              </AlertDescription>
+              <AlertTitle>{t("errors.mapLeaderboardFailed")}</AlertTitle>
+              <AlertDescription>{t("common.refresh")}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -333,9 +345,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
             <MapTopTable
               records={recordsQuery.data ?? []}
               emptyMessage={
-                isProOnly
-                  ? "No stage 0 pro records found for this map in the selected scope."
-                  : "No stage 0 records found for this map in the selected scope."
+                isProOnly ? t("maps.emptyTopPro") : t("maps.emptyTop")
               }
             />
           )}
@@ -344,10 +354,8 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
         <TabsContent value="reviews" className="space-y-6">
           {reviewsQuery.isError ? (
             <Alert variant="destructive">
-              <AlertTitle>Unable to load map reviews</AlertTitle>
-              <AlertDescription>
-                Reload the page and try again.
-              </AlertDescription>
+              <AlertTitle>{t("errors.mapReviewsFailed")}</AlertTitle>
+              <AlertDescription>{t("common.refresh")}</AlertDescription>
             </Alert>
           ) : null}
 

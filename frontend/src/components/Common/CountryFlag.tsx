@@ -1,5 +1,6 @@
 import * as Flags from "country-flag-icons/react/3x2"
 import type { ComponentType, SVGProps } from "react"
+import { useTranslation } from "react-i18next"
 
 import noneFlagSrc from "@/assets/flags/none.svg"
 import {
@@ -7,40 +8,44 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { compareLocaleText, getLocale } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
-
-const countryNameFormatter =
-  typeof Intl !== "undefined" && "DisplayNames" in Intl
-    ? new Intl.DisplayNames(["en"], { type: "region" })
-    : null
 
 const flagComponents = Flags as Record<
   string,
   ComponentType<SVGProps<SVGSVGElement>>
 >
 
-function resolveCountryName(countryCode: string | null) {
+function resolveCountryName(
+  countryCode: string | null,
+  locale: string = getLocale(),
+) {
   if (!countryCode) {
     return null
   }
 
-  if (!countryNameFormatter) {
+  if (typeof Intl === "undefined" || !("DisplayNames" in Intl)) {
     return countryCode
   }
 
   try {
-    return countryNameFormatter.of(countryCode) || countryCode
+    return (
+      new Intl.DisplayNames([locale], { type: "region" }).of(countryCode) ||
+      countryCode
+    )
   } catch {
     return countryCode
   }
 }
 
-export const countryOptions = Object.keys(flagComponents)
-  .map((countryCode) => ({
-    countryCode,
-    name: resolveCountryName(countryCode) || countryCode,
-  }))
-  .sort((left, right) => left.name.localeCompare(right.name))
+export function getCountryOptions(locale: string = getLocale()) {
+  return Object.keys(flagComponents)
+    .map((countryCode) => ({
+      countryCode,
+      name: resolveCountryName(countryCode, locale) || countryCode,
+    }))
+    .sort((left, right) => compareLocaleText(left.name, right.name, {}, locale))
+}
 
 interface CountryFlagProps {
   countryCode?: string | null
@@ -49,13 +54,18 @@ interface CountryFlagProps {
   showTooltip?: boolean
 }
 
-export function getCountryName(countryCode?: string | null) {
+export function getCountryName(
+  countryCode?: string | null,
+  locale: string = getLocale(),
+) {
   if (!countryCode) {
     return null
   }
 
   const normalizedCountryCode = countryCode.toUpperCase()
-  return resolveCountryName(normalizedCountryCode) || normalizedCountryCode
+  return (
+    resolveCountryName(normalizedCountryCode, locale) || normalizedCountryCode
+  )
 }
 
 export function CountryFlag({
@@ -64,22 +74,26 @@ export function CountryFlag({
   fallbackClassName,
   showTooltip = true,
 }: CountryFlagProps) {
+  const { t, i18n } = useTranslation()
   const normalizedCountryCode = countryCode?.toUpperCase() || null
   const FlagComponent = normalizedCountryCode
     ? flagComponents[normalizedCountryCode]
     : null
-  const countryName = getCountryName(normalizedCountryCode)
+  const countryName = getCountryName(
+    normalizedCountryCode,
+    i18n.resolvedLanguage,
+  )
 
   if (!FlagComponent) {
     return (
       <img
         src={noneFlagSrc}
-        alt="Unknown country"
+        alt={t("common.unknownCountry")}
         className={cn(
           "h-4 w-6 shrink-0 rounded-[2px] border border-border/80",
           fallbackClassName,
         )}
-        title="Unknown country"
+        title={t("common.unknownCountry")}
       />
     )
   }
@@ -87,7 +101,9 @@ export function CountryFlag({
   const content = (
     <FlagComponent
       role="img"
-      aria-label={countryName || normalizedCountryCode || "Unknown country"}
+      aria-label={
+        countryName || normalizedCountryCode || t("common.unknownCountry")
+      }
       className={cn("h-4 w-6 shrink-0", className)}
     />
   )

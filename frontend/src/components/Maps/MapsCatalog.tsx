@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 
 import { type MapPublic, MapsService, type MapWrPublic } from "@/client"
 import {
@@ -26,26 +27,27 @@ import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { compareLocaleText, formatNumber } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 24
 
 const MAP_SORT_OPTIONS = [
-  { label: "Name", value: "name" },
-  { label: "Tier", value: "tier" },
-  { label: "Created", value: "created" },
-  { label: "Updated", value: "updated" },
-  { label: "WR", value: "wr" },
-  { label: "Review", value: "review" },
-  { label: "Skill", value: "skill" },
+  { labelKey: "maps.sortOptions.name", value: "name" },
+  { labelKey: "maps.sortOptions.tier", value: "tier" },
+  { labelKey: "maps.sortOptions.created", value: "created" },
+  { labelKey: "maps.sortOptions.updated", value: "updated" },
+  { labelKey: "maps.sortOptions.wr", value: "wr" },
+  { labelKey: "maps.sortOptions.review", value: "review" },
+  { labelKey: "maps.sortOptions.skill", value: "skill" },
 ] as const
 
 const REVIEW_SORT_OPTIONS = [
-  { label: "Overall", value: "overall" },
-  { label: "Gameplay", value: "gameplay" },
-  { label: "Visuals", value: "visuals" },
-  { label: "Review Count", value: "reviewCount" },
-  { label: "Comments Count", value: "commentsCount" },
+  { labelKey: "maps.sortOptions.overall", value: "overall" },
+  { labelKey: "maps.sortOptions.gameplay", value: "gameplay" },
+  { labelKey: "maps.sortOptions.visuals", value: "visuals" },
+  { labelKey: "maps.sortOptions.reviewCount", value: "reviewCount" },
+  { labelKey: "maps.sortOptions.commentsCount", value: "commentsCount" },
 ] as const
 
 type MapsSortOption = (typeof MAP_SORT_OPTIONS)[number]["value"]
@@ -192,7 +194,7 @@ function sortMaps(
           getMapSkillPercentage(right.name, selectedSkill)
         break
       default:
-        comparison = left.name.localeCompare(right.name)
+        comparison = compareLocaleText(left.name, right.name)
         break
     }
 
@@ -232,7 +234,7 @@ function sortMaps(
     }
 
     if (comparison === 0) {
-      comparison = left.name.localeCompare(right.name)
+      comparison = compareLocaleText(left.name, right.name)
     }
 
     if (
@@ -279,6 +281,7 @@ function getPageNumbers(currentPage: number, totalPages: number) {
 }
 
 export function MapsCatalog() {
+  const { t } = useTranslation()
   const { scope } = useScope()
   const [searchInput, setSearchInput] = useState("")
   const deferredSearch = useDeferredValue(searchInput)
@@ -420,9 +423,9 @@ export function MapsCatalog() {
   if (mapsQuery.isError) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Unable to load maps</AlertTitle>
+        <AlertTitle>{t("errors.mapsFailed")}</AlertTitle>
         <AlertDescription className="gap-3">
-          <p>The catalog request failed. Try reloading the maps list.</p>
+          <p>{t("maps.requestFailed")}</p>
           <Button
             type="button"
             variant="outline"
@@ -430,7 +433,7 @@ export function MapsCatalog() {
               void mapsQuery.refetch()
             }}
           >
-            Retry
+            {t("common.retry")}
           </Button>
         </AlertDescription>
       </Alert>
@@ -513,19 +516,23 @@ export function MapsCatalog() {
   return (
     <div ref={keyboardPaginationRef} className="space-y-8">
       <section className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Maps</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {t("maps.title")}
+        </h1>
 
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <span>{totalMaps.toLocaleString()} maps loaded</span>
-          <span aria-hidden="true" className="text-border">
-            /
-          </span>
-          <span>{sortedMaps.length.toLocaleString()} maps visible</span>
+          <span>{t("maps.loaded", { count: formatNumber(totalMaps) })}</span>
           <span aria-hidden="true" className="text-border">
             /
           </span>
           <span>
-            Page {page} of {totalPages}
+            {t("maps.visible", { count: formatNumber(sortedMaps.length) })}
+          </span>
+          <span aria-hidden="true" className="text-border">
+            /
+          </span>
+          <span>
+            {t("pagination.page")} {page} {t("pagination.of")} {totalPages}
           </span>
         </div>
       </section>
@@ -543,8 +550,8 @@ export function MapsCatalog() {
                     setSearchInput(nextValue)
                   })
                 }}
-                placeholder="Search maps..."
-                aria-label="Search maps by name"
+                placeholder={t("maps.searchPlaceholder")}
+                aria-label={t("maps.searchAria")}
                 className="pl-9"
               />
             </div>
@@ -557,12 +564,12 @@ export function MapsCatalog() {
                 })
               }}
               triggerClassName="w-auto"
-              ariaLabel="Filter maps by tier"
+              ariaLabel={t("maps.filterTier")}
             />
           </div>
 
           <fieldset className="min-w-0 border-0 p-0">
-            <legend className="sr-only">Sort maps</legend>
+            <legend className="sr-only">{t("maps.sortMaps")}</legend>
             <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
               {MAP_SORT_OPTIONS.map((option) => {
                 const isReviewOption = option.value === "review"
@@ -581,7 +588,7 @@ export function MapsCatalog() {
                     key={option.value}
                     active={isActive}
                     direction={isActive ? activeDirection : undefined}
-                    label={option.label}
+                    label={t(option.labelKey)}
                     onClick={() => {
                       handleSortChange(option.value)
                     }}
@@ -593,7 +600,7 @@ export function MapsCatalog() {
 
           {isReviewSortField(sortField) ? (
             <fieldset className="min-w-0 border-0 p-0">
-              <legend className="sr-only">Sort maps by review</legend>
+              <legend className="sr-only">{t("maps.sortMapsByReview")}</legend>
               <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
                 {REVIEW_SORT_OPTIONS.map((option) => (
                   <SortableMapOption
@@ -602,7 +609,7 @@ export function MapsCatalog() {
                     direction={
                       sortField === option.value ? sortDirection : undefined
                     }
-                    label={option.label}
+                    label={t(option.labelKey)}
                     onClick={() => {
                       handleReviewSortSelection(option.value)
                     }}
@@ -614,7 +621,7 @@ export function MapsCatalog() {
 
           {sortField === "skill" ? (
             <fieldset className="min-w-0 border-0 p-0">
-              <legend className="sr-only">Sort maps by skill</legend>
+              <legend className="sr-only">{t("maps.sortMapsBySkill")}</legend>
               <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
                 {MAP_SORTABLE_SKILLS.map((skill) => {
                   const isActive = skill.key === selectedSkill
@@ -650,9 +657,9 @@ export function MapsCatalog() {
 
       {visibleMaps.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
-          <h2 className="text-lg font-semibold">No maps match this search</h2>
+          <h2 className="text-lg font-semibold">{t("maps.noResultsTitle")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Try a different name filter to widen the catalog results.
+            {t("maps.noResultsBody")}
           </p>
         </div>
       ) : (
@@ -671,7 +678,7 @@ export function MapsCatalog() {
 
           {totalPages > 1 ? (
             <nav
-              aria-label="Maps pages"
+              aria-label={t("maps.pagesAria")}
               className="flex flex-wrap items-center justify-center gap-2"
             >
               <Button
@@ -685,7 +692,7 @@ export function MapsCatalog() {
                 disabled={page === 1}
               >
                 <ArrowLeft />
-                Previous
+                {t("maps.previous")}
               </Button>
 
               {pageNumbers.map((pageNumber, index) => {
@@ -709,7 +716,7 @@ export function MapsCatalog() {
                       variant={pageNumber === page ? "default" : "outline"}
                       className="min-w-9 px-3"
                       aria-current={pageNumber === page ? "page" : undefined}
-                      aria-label={`Go to page ${pageNumber}`}
+                      aria-label={t("maps.goToPage", { page: pageNumber })}
                       onClick={() => {
                         startTransition(() => {
                           setPage(pageNumber)
@@ -734,7 +741,7 @@ export function MapsCatalog() {
                 }}
                 disabled={page === totalPages}
               >
-                Next
+                {t("maps.next")}
                 <ArrowRight />
               </Button>
             </nav>

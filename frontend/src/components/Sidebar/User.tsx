@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link as RouterLink } from "@tanstack/react-router"
 import { ChevronsUpDown, LogIn, LogOut } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { PlayersService } from "@/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -53,6 +54,7 @@ function UserInfo({ name, steamid64, avatarHash }: UserInfoProps) {
 }
 
 export function User({ user }: { user: any }) {
+  const { t } = useTranslation()
   const { logout } = useAuth()
   const { isMobile, setOpenMobile } = useSidebar()
   const playerQuery = useQuery({
@@ -77,13 +79,13 @@ export function User({ user }: { user: any }) {
         <SidebarMenuItem>
           <SidebarMenuButton
             size="lg"
-            tooltip="Login"
+            tooltip={t("auth.login")}
             asChild
             data-testid="sidebar-login-button"
           >
             <RouterLink to="/login" onClick={handleMenuClick}>
               <LogIn />
-              <span>Login</span>
+              <span>{t("auth.login")}</span>
             </RouterLink>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -131,7 +133,7 @@ export function User({ user }: { user: any }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut />
-              Log Out
+              {t("auth.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

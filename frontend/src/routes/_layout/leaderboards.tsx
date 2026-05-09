@@ -5,16 +5,33 @@ import {
   redirect,
   useRouterState,
 } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getPageTitle } from "@/lib/site"
 
 const LEADERBOARD_TAB_OPTIONS = [
-  { value: "players", label: "Players", to: "/leaderboards/players" },
-  { value: "pow", label: "POW", to: "/leaderboards/pow" },
-  { value: "jumpstats", label: "Jumpstats", to: "/leaderboards/jumpstats" },
-  { value: "servers", label: "Servers", to: "/leaderboards/servers" },
-  { value: "maps", label: "Maps", to: "/leaderboards/maps" },
+  {
+    value: "players",
+    labelKey: "leaderboards.tabs.players",
+    to: "/leaderboards/players",
+  },
+  { value: "pow", labelKey: "leaderboards.tabs.pow", to: "/leaderboards/pow" },
+  {
+    value: "jumpstats",
+    labelKey: "leaderboards.tabs.jumpstats",
+    to: "/leaderboards/jumpstats",
+  },
+  {
+    value: "servers",
+    labelKey: "leaderboards.tabs.servers",
+    to: "/leaderboards/servers",
+  },
+  {
+    value: "maps",
+    labelKey: "leaderboards.tabs.maps",
+    to: "/leaderboards/maps",
+  },
 ] as const
 
 export const Route = createFileRoute("/_layout/leaderboards")({
@@ -36,6 +53,7 @@ export const Route = createFileRoute("/_layout/leaderboards")({
 })
 
 function LeaderboardsLayout() {
+  const { t } = useTranslation()
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -49,7 +67,7 @@ function LeaderboardsLayout() {
       <TabsList className="w-fit border border-border bg-background/60">
         {LEADERBOARD_TAB_OPTIONS.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value} asChild>
-            <Link to={tab.to}>{tab.label}</Link>
+            <Link to={tab.to}>{t(tab.labelKey)}</Link>
           </TabsTrigger>
         ))}
       </TabsList>

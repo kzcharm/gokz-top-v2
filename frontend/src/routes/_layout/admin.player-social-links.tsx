@@ -268,13 +268,7 @@ function AdminPlayerSocialLinks() {
   })
 
   const toggleVerifiedMutation = useMutation({
-    mutationFn: ({
-      linkId,
-      verified,
-    }: {
-      linkId: string
-      verified: boolean
-    }) =>
+    mutationFn: ({ linkId, verified }: { linkId: string; verified: boolean }) =>
       AdminPlayerSocialLinksService.updateAdminPlayerSocialLink({
         linkId,
         requestBody: { verified },

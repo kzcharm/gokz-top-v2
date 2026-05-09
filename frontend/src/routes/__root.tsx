@@ -3,11 +3,13 @@ import { createRootRoute, HeadContent, Outlet } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import NotFound from "@/components/Common/NotFound"
+import { DocumentTitleSync } from "@/i18n/document-title"
 
 export const Route = createRootRoute({
   component: () => (
     <>
       <HeadContent />
+      <DocumentTitleSync />
       <Outlet />
       <TanStackRouterDevtools position="bottom-right" />
       <ReactQueryDevtools initialIsOpen={false} />

@@ -96,6 +96,7 @@
   - tailwind-merge
 - UI helpers:
   - next-themes
+  - i18next + react-i18next with app-level locale persistence in `localStorage` (`gokz-language`)
   - sonner
   - lucide-react
   - react-icons

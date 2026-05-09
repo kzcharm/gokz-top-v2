@@ -1,3 +1,5 @@
+import { getLocale, translate } from "@/i18n/locale"
+
 export type DateTimePreset = "iso" | "us" | "euro" | "long"
 
 export type DateTimeDisplay = "absolute" | "relative" | "contextual-relative"
@@ -19,11 +21,7 @@ export const HOUR_CYCLE_STORAGE_KEY = "gokz-hour-cycle"
 const PREVIEW_SAMPLE = new Date(2026, 2, 22, 14, 5, 9)
 
 export function getBrowserLocale() {
-  if (typeof navigator === "undefined" || !navigator.language) {
-    return "en-US"
-  }
-
-  return navigator.language
+  return getLocale()
 }
 
 export function isDateTimePreset(
@@ -40,49 +38,53 @@ export function isHourCyclePreference(
   return value === "24h" || value === "12h"
 }
 
-export const DATE_TIME_PRESET_OPTIONS: Array<{
+export function getDateTimePresetOptions(): Array<{
   value: DateTimePreset
   label: string
   description: string
-}> = [
-  {
-    value: "iso",
-    label: "ISO-like",
-    description: "Year-first layout for the clearest sortable timestamp shape.",
-  },
-  {
-    value: "us",
-    label: "US",
-    description: "Compact month/day layout.",
-  },
-  {
-    value: "euro",
-    label: "Euro",
-    description: "Compact day-first layout.",
-  },
-  {
-    value: "long",
-    label: "Long",
-    description: "Readable month-name layout.",
-  },
-]
+}> {
+  return [
+    {
+      value: "iso",
+      label: translate("dateTime.presets.iso.label"),
+      description: translate("dateTime.presets.iso.description"),
+    },
+    {
+      value: "us",
+      label: translate("dateTime.presets.us.label"),
+      description: translate("dateTime.presets.us.description"),
+    },
+    {
+      value: "euro",
+      label: translate("dateTime.presets.euro.label"),
+      description: translate("dateTime.presets.euro.description"),
+    },
+    {
+      value: "long",
+      label: translate("dateTime.presets.long.label"),
+      description: translate("dateTime.presets.long.description"),
+    },
+  ]
+}
 
-export const HOUR_CYCLE_OPTIONS: Array<{
+export function getHourCycleOptions(): Array<{
   value: HourCyclePreference
   label: string
   description: string
-}> = [
-  {
-    value: "24h",
-    label: "24-hour",
-    description: "Shows times like 14:05.",
-  },
-  {
-    value: "12h",
-    label: "12-hour",
-    description: "Shows times like 2:05 PM.",
-  },
-]
+}> {
+  return [
+    {
+      value: "24h",
+      label: translate("dateTime.hourCycle.h24.label"),
+      description: translate("dateTime.hourCycle.h24.description"),
+    },
+    {
+      value: "12h",
+      label: translate("dateTime.hourCycle.h12.label"),
+      description: translate("dateTime.hourCycle.h12.description"),
+    },
+  ]
+}
 
 const SECOND_IN_MS = 1000
 const MINUTE_IN_MS = 60 * SECOND_IN_MS
@@ -267,24 +269,16 @@ function getRelativeUnit(diffInMs: number) {
   }
 }
 
-function formatEnglishRelativeTime(
+function formatRelativeTimeTranslationKey(
   value: number,
   unit: SupportedRelativeUnit,
   isPast: boolean,
 ) {
-  const labels: Record<SupportedRelativeUnit, { one: string; other: string }> =
-    {
-      year: { one: "year", other: "years" },
-      month: { one: "month", other: "months" },
-      week: { one: "week", other: "weeks" },
-      day: { one: "day", other: "days" },
-      hour: { one: "hour", other: "hours" },
-      minute: { one: "min", other: "min" },
-      second: { one: "second", other: "seconds" },
-    }
+  const key = isPast
+    ? `dateTime.relative.${unit}`
+    : `dateTime.relative.in${unit[0].toUpperCase()}${unit.slice(1)}`
 
-  const label = value === 1 ? labels[unit].one : labels[unit].other
-  return isPast ? `${value} ${label} ago` : `in ${value} ${label}`
+  return translate(key, { count: value })
 }
 
 function formatRelativeDateTime(date: Date, locale: string) {
@@ -293,7 +287,7 @@ function formatRelativeDateTime(date: Date, locale: string) {
   const { unit, value } = getRelativeUnit(diffInMs)
 
   if (locale.toLowerCase().startsWith("en")) {
-    return formatEnglishRelativeTime(value, unit, isPast)
+    return formatRelativeTimeTranslationKey(value, unit, isPast)
   }
 
   const formatter = new Intl.RelativeTimeFormat(locale, {
@@ -332,17 +326,17 @@ function formatContextualRelativeDateTime({
 
   if (diffInMs < MINUTE_IN_MS) {
     const seconds = Math.max(1, Math.floor(diffInMs / SECOND_IN_MS))
-    return `${seconds} seconds ago`
+    return translate("dateTime.relative.second", { count: seconds })
   }
 
   if (diffInMs < HOUR_IN_MS) {
     const minutes = Math.floor(diffInMs / MINUTE_IN_MS)
-    return `${minutes} min ago`
+    return translate("dateTime.relative.minute", { count: minutes })
   }
 
   if (diffInMs < 2 * HOUR_IN_MS) {
     const minutes = Math.floor((diffInMs - HOUR_IN_MS) / MINUTE_IN_MS)
-    return `1 hour ${minutes} min ago`
+    return translate("dateTime.relative.oneHourMinutesAgo", { minutes })
   }
 
   const yesterday = new Date(now)
@@ -355,11 +349,11 @@ function formatContextualRelativeDateTime({
   })
 
   if (isSameLocalDay(date, now)) {
-    return `Today at ${formattedTime}`
+    return translate("dateTime.relative.todayAt", { time: formattedTime })
   }
 
   if (isSameLocalDay(date, yesterday)) {
-    return `Yesterday at ${formattedTime}`
+    return translate("dateTime.relative.yesterdayAt", { time: formattedTime })
   }
 
   return formatAbsoluteDateTime({
@@ -380,7 +374,7 @@ export function formatDateTimeWithPreset(
     includeSeconds = false,
     dateOnly = false,
     display = "absolute",
-    fallback = "Unknown",
+    fallback = translate("common.unknown"),
     locale,
   }: DateTimeFormatOptions & {
     preset: DateTimePreset

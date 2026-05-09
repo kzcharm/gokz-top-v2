@@ -1,4 +1,5 @@
 import { ChevronDownIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
@@ -62,15 +63,19 @@ function TierSelectorValueContent({
 export function TierSelector({
   value,
   onValueChange,
-  allLabel = "Tier",
-  noneLabel = "None",
+  allLabel,
+  noneLabel,
   includeAll = true,
   includeNone = false,
   disabled = false,
   className,
   triggerClassName,
-  ariaLabel = "Filter by tier",
+  ariaLabel,
 }: TierSelectorProps) {
+  const { t } = useTranslation()
+  const resolvedAllLabel = allLabel ?? t("common.tier")
+  const resolvedNoneLabel = noneLabel ?? t("common.none")
+  const resolvedAriaLabel = ariaLabel ?? t("maps.filterTier")
   const isAllSelected = includeAll && value === "all"
 
   return (
@@ -82,7 +87,7 @@ export function TierSelector({
       }
     >
       <SelectTrigger
-        aria-label={ariaLabel}
+        aria-label={resolvedAriaLabel}
         className={cn(
           "h-8 w-11 min-w-11 justify-center px-1 text-[11px]",
           triggerClassName,
@@ -92,12 +97,19 @@ export function TierSelector({
         {isAllSelected ? (
           <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
         ) : (
-          <TierSelectorValueContent value={value} noneLabel={noneLabel} />
+          <TierSelectorValueContent
+            value={value}
+            noneLabel={resolvedNoneLabel}
+          />
         )}
       </SelectTrigger>
       <SelectContent className={className} align="start">
-        {includeAll ? <SelectItem value="all">{allLabel}</SelectItem> : null}
-        {includeNone ? <SelectItem value="none">{noneLabel}</SelectItem> : null}
+        {includeAll ? (
+          <SelectItem value="all">{resolvedAllLabel}</SelectItem>
+        ) : null}
+        {includeNone ? (
+          <SelectItem value="none">{resolvedNoneLabel}</SelectItem>
+        ) : null}
         {TIER_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             <TierBadge

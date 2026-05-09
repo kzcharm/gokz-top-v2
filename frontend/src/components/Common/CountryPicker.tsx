@@ -1,5 +1,6 @@
 import { Check, ChevronDown, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { CountryFlag, countryOptions, getCountryName } from "./CountryFlag"
+import { CountryFlag, getCountryName, getCountryOptions } from "./CountryFlag"
 
 interface CountryPickerProps {
   value: string | null
@@ -28,9 +29,14 @@ export function CountryPicker({
   triggerClassName,
   disabled = false,
 }: CountryPickerProps) {
+  const { t, i18n } = useTranslation()
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement | null>(null)
+  const countryOptions = useMemo(
+    () => getCountryOptions(i18n.resolvedLanguage),
+    [i18n.resolvedLanguage],
+  )
 
   useEffect(() => {
     if (!open) {
@@ -56,7 +62,7 @@ export function CountryPicker({
         option.name.toLowerCase().includes(normalizedQuery)
       )
     })
-  }, [query])
+  }, [query, countryOptions])
 
   return (
     <DropdownMenu
@@ -81,7 +87,7 @@ export function CountryPicker({
               <>
                 <CountryFlag countryCode={value} showTooltip={false} />
                 <span className="truncate">
-                  {getCountryName(value) || value}
+                  {getCountryName(value, i18n.resolvedLanguage) || value}
                 </span>
               </>
             ) : (
@@ -108,7 +114,7 @@ export function CountryPicker({
             maxLength={50}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => event.stopPropagation()}
-            placeholder="Search a place"
+            placeholder={t("common.search")}
           />
         </div>
         <div className="max-h-72 overflow-y-auto py-1">
@@ -151,7 +157,7 @@ export function CountryPicker({
           })}
           {filteredCountries.length === 0 ? (
             <div className="text-muted-foreground px-3 py-6 text-sm">
-              No matches found.
+              {t("common.noMatches")}
             </div>
           ) : null}
         </div>

@@ -5,20 +5,33 @@ import {
   redirect,
   useRouterState,
 } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
 
 const SETTINGS_TAB_OPTIONS = [
-  { value: "profile", label: "Profile", to: "/settings/profile" },
+  {
+    value: "profile",
+    labelKey: "settings.tabs.profile",
+    to: "/settings/profile",
+  },
   {
     value: "social-links",
-    label: "Social Links",
+    labelKey: "settings.tabs.socialLinks",
     to: "/settings/social-links",
   },
-  { value: "webhooks", label: "Webhooks", to: "/settings/webhooks" },
-  { value: "appearance", label: "Appearance", to: "/settings/appearance" },
+  {
+    value: "webhooks",
+    labelKey: "settings.tabs.webhooks",
+    to: "/settings/webhooks",
+  },
+  {
+    value: "appearance",
+    labelKey: "settings.tabs.appearance",
+    to: "/settings/appearance",
+  },
 ] as const
 
 export const Route = createFileRoute("/_layout/settings")({
@@ -51,6 +64,7 @@ export const Route = createFileRoute("/_layout/settings")({
 })
 
 function UserSettingsLayout() {
+  const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
@@ -67,12 +81,14 @@ function UserSettingsLayout() {
   return (
     <Tabs value={activeTab} className="flex flex-col gap-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {t("settings.title")}
+        </h1>
       </div>
       <TabsList className="w-fit border border-border bg-background/60">
         {SETTINGS_TAB_OPTIONS.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value} asChild>
-            <Link to={tab.to}>{tab.label}</Link>
+            <Link to={tab.to}>{t(tab.labelKey)}</Link>
           </TabsTrigger>
         ))}
       </TabsList>

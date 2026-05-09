@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { AdminServersService, LiveService } from "@/client"
 import { Logo } from "@/components/Common/Logo"
@@ -28,11 +29,8 @@ import { hasRole, isSuperuser } from "@/lib/user-roles"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
 
-const privateItems: Item[] = [
-  { type: "link", icon: Settings, title: "Settings", path: "/settings" },
-]
-
 export function AppSidebar() {
+  const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [hasClickedLive, setHasClickedLive] = useState(false)
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
@@ -54,56 +52,65 @@ export function AppSidebar() {
     liveStreamsQuery.data.count >= 1 &&
     !hasClickedLive
 
+  const privateItems: Item[] = [
+    {
+      type: "link",
+      icon: Settings,
+      title: t("nav.settings"),
+      path: "/settings",
+    },
+  ]
+
   const publicItems: Item[] = [
-    { type: "link", icon: Server, title: "Servers", path: "/servers" },
+    { type: "link", icon: Server, title: t("nav.servers"), path: "/servers" },
     {
       type: "link",
       icon: UserCircle2,
-      title: "Profile",
+      title: t("nav.profile"),
       path: `/profile/${profileSteamid64}`,
       activePrefixes: ["/profile"],
     },
     {
       type: "link",
       icon: Trophy,
-      title: "Leaderboards",
+      title: t("nav.leaderboards"),
       path: "/leaderboards",
     },
-    { type: "link", icon: Home, title: "Dashboard", path: "/dashboard" },
-    { type: "link", icon: MapIcon, title: "Maps", path: "/maps" },
+    { type: "link", icon: Home, title: t("nav.dashboard"), path: "/dashboard" },
+    { type: "link", icon: MapIcon, title: t("nav.maps"), path: "/maps" },
     {
       type: "link",
       icon: Radio,
-      title: "Live",
+      title: t("nav.live"),
       path: "/live",
       showNotificationDot: showLiveDot,
     },
-    { type: "link", icon: ShieldAlert, title: "Bans", path: "/bans" },
+    { type: "link", icon: ShieldAlert, title: t("nav.bans"), path: "/bans" },
   ]
 
   const adminChildren = currentUserIsSuperuser
     ? [
-        { title: "Users", path: "/admin/users", icon: Users },
-        { title: "Players", path: "/admin/players", icon: UserIcon },
+        { title: t("nav.users"), path: "/admin/users", icon: Users },
+        { title: t("nav.players"), path: "/admin/players", icon: UserIcon },
         {
-          title: "Social Links",
+          title: t("nav.socialLinks"),
           path: "/admin/player-social-links",
           icon: LinkIcon,
         },
         {
-          title: "Player Sessions",
+          title: t("nav.playerSessions"),
           path: "/admin/player-sessions",
           icon: Clock3,
         },
-        { title: "Maps", path: "/admin/maps", icon: MapIcon },
-        { title: "Servers", path: "/admin/servers", icon: Server },
+        { title: t("nav.maps"), path: "/admin/maps", icon: MapIcon },
+        { title: t("nav.servers"), path: "/admin/servers", icon: Server },
       ]
     : [
         ...(hasRole(currentUser, "map_admin")
-          ? [{ title: "Maps", path: "/admin/maps", icon: MapIcon }]
+          ? [{ title: t("nav.maps"), path: "/admin/maps", icon: MapIcon }]
           : []),
         ...(serverAdminAccessQuery.data
-          ? [{ title: "Servers", path: "/admin/servers", icon: Server }]
+          ? [{ title: t("nav.servers"), path: "/admin/servers", icon: Server }]
           : []),
       ]
 
@@ -112,7 +119,7 @@ export function AppSidebar() {
       ? {
           type: "group",
           icon: Users,
-          title: "Admin",
+          title: t("nav.admin"),
           pathPrefix: "/admin",
           children: adminChildren,
         }

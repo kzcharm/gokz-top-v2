@@ -5,6 +5,7 @@ import {
   redirect,
   useRouterState,
 } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getPageTitle } from "@/lib/site"
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_layout/dashboard")({
 })
 
 function DashboardLayout() {
+  const { t } = useTranslation()
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -39,10 +41,10 @@ function DashboardLayout() {
     <Tabs value={tabValue} className="flex flex-col gap-4">
       <TabsList className="w-fit">
         <TabsTrigger value="records" asChild>
-          <Link to="/dashboard/records">Records</Link>
+          <Link to="/dashboard/records">{t("dashboard.records")}</Link>
         </TabsTrigger>
         <TabsTrigger value="reviews" asChild>
-          <Link to="/dashboard/reviews">Reviews</Link>
+          <Link to="/dashboard/reviews">{t("dashboard.reviews")}</Link>
         </TabsTrigger>
       </TabsList>
       <Outlet />

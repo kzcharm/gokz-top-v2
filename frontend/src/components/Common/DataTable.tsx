@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -94,6 +95,7 @@ export function DataTable<TData, TValue>({
   serverPagination,
   sorting,
 }: DataTableProps<TData, TValue>) {
+  const { t } = useTranslation()
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const stickyHeaderCellRef = useRef<HTMLTableCellElement | null>(null)
   const [isStickyHeaderPinned, setIsStickyHeaderPinned] = useState(false)
@@ -322,16 +324,18 @@ export function DataTable<TData, TValue>({
             <div className="text-sm text-muted-foreground">
               {footerSummary ?? (
                 <>
-                  Total{" "}
+                  {t("pagination.total")}{" "}
                   <span className="font-medium text-foreground">
                     {totalCount}
                   </span>{" "}
-                  entries
+                  {t("pagination.entries")}
                 </>
               )}
             </div>
             <div className="flex items-center gap-x-2">
-              <p className="text-sm text-muted-foreground">Rows per page</p>
+              <p className="text-sm text-muted-foreground">
+                {t("pagination.rowsPerPage")}
+              </p>
               <Select
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => {
@@ -357,7 +361,7 @@ export function DataTable<TData, TValue>({
 
           <div className="flex items-center gap-x-6">
             <div className="flex items-center gap-x-1 text-sm text-muted-foreground">
-              <span>Page</span>
+              <span>{t("pagination.page")}</span>
               {pageInputEnabled ? (
                 <Input
                   type="number"
@@ -376,14 +380,14 @@ export function DataTable<TData, TValue>({
                     }
                   }}
                   className="h-8 w-20 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  aria-label="Current page"
+                  aria-label={t("pagination.currentPageShort")}
                 />
               ) : (
                 <span className="font-medium text-foreground">
                   {pageIndex + 1}
                 </span>
               )}
-              <span>of</span>
+              <span>{t("pagination.of")}</span>
               <span className="font-medium text-foreground">{pageCount}</span>
             </div>
 
@@ -395,7 +399,7 @@ export function DataTable<TData, TValue>({
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
-                <span className="sr-only">Go to first page</span>
+                <span className="sr-only">{t("pagination.first")}</span>
                 <ChevronsLeft className="h-4 w-4" />
               </Button>
               <Button
@@ -405,7 +409,7 @@ export function DataTable<TData, TValue>({
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
-                <span className="sr-only">Go to previous page</span>
+                <span className="sr-only">{t("pagination.previous")}</span>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
@@ -415,7 +419,7 @@ export function DataTable<TData, TValue>({
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
-                <span className="sr-only">Go to next page</span>
+                <span className="sr-only">{t("pagination.next")}</span>
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <Button
@@ -425,7 +429,7 @@ export function DataTable<TData, TValue>({
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
-                <span className="sr-only">Go to last page</span>
+                <span className="sr-only">{t("pagination.last")}</span>
                 <ChevronsRight className="h-4 w-4" />
               </Button>
             </div>

@@ -9,7 +9,7 @@ export const Route = createFileRoute("/maps")({
   head: () => ({
     meta: [
       {
-        title: getPageTitle("Maps"),
+        title: getPageTitle(),
       },
     ],
   }),

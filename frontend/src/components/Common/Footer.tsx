@@ -1,8 +1,11 @@
+import { useTranslation } from "react-i18next"
 import { FaDiscord } from "react-icons/fa"
 
 import { getCopyrightYearRange, SITE_NAME } from "@/lib/site"
 
 export function Footer() {
+  const { t } = useTranslation()
+
   return (
     <footer className="shrink-0 border-t px-6 py-3">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-center text-center text-sm text-muted-foreground">
@@ -14,10 +17,10 @@ export function Footer() {
             href="https://discord.gg/RmkKqq9GBk"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Join us on Discord"
+            aria-label={t("footer.joinDiscord")}
             className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
           >
-            <span>Join us on Discord</span>
+            <span>{t("footer.joinDiscord")}</span>
             <FaDiscord className="h-4 w-4" />
           </a>
         </div>

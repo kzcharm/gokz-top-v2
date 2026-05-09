@@ -6,6 +6,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { formatNumber } from "@/i18n/locale"
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
 
@@ -47,6 +49,7 @@ export function TablePaginationFooter({
   isTotalCountLoading = false,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
 }: TablePaginationFooterProps) {
+  const { t } = useTranslation()
   const [pageInputValue, setPageInputValue] = useState(
     `${Math.min(pageIndex + 1, pageCount)}`,
   )
@@ -82,20 +85,20 @@ export function TablePaginationFooter({
     <div className="flex flex-col gap-4 border-t border-border/70 px-6 py-4 text-sm text-muted-foreground sm:px-8 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <span>
-          Total{" "}
+          {t("pagination.total")}{" "}
           <span className="font-medium text-foreground">
-            {new Intl.NumberFormat("en-US").format(totalCount)}
+            {formatNumber(totalCount)}
           </span>{" "}
           {totalLabel}
         </span>
         {!hasExactCount || isTotalCountLoading ? (
           <span className="inline-flex items-center gap-1 text-xs">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            loading total
+            {t("common.loadingTotal")}
           </span>
         ) : null}
         <div className="flex items-center gap-x-2">
-          <span>Rows per page</span>
+          <span>{t("pagination.rowsPerPage")}</span>
           <Select
             value={`${pageSize}`}
             onValueChange={(value) => {
@@ -128,7 +131,7 @@ export function TablePaginationFooter({
             onClick={() => onPageIndexChange(0)}
             disabled={pageIndex === 0}
           >
-            <span className="sr-only">Go to first page</span>
+            <span className="sr-only">{t("pagination.first")}</span>
             <ChevronsLeft className="h-4 w-4" />
           </Button>
           <Button
@@ -138,7 +141,7 @@ export function TablePaginationFooter({
             onClick={() => onPageIndexChange(Math.max(0, pageIndex - 1))}
             disabled={pageIndex === 0}
           >
-            <span className="sr-only">Go to previous page</span>
+            <span className="sr-only">{t("pagination.previous")}</span>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Input
@@ -158,7 +161,10 @@ export function TablePaginationFooter({
               }
             }}
             className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            aria-label={`Current page, ${pageCount} total pages`}
+            aria-label={t("pagination.currentPage", {
+              page: pageIndex + 1,
+              pageCount,
+            })}
           />
           <Button
             variant="outline"
@@ -169,7 +175,7 @@ export function TablePaginationFooter({
             }
             disabled={!hasNextPage && pageIndex >= pageCount - 1}
           >
-            <span className="sr-only">Go to next page</span>
+            <span className="sr-only">{t("pagination.next")}</span>
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button
@@ -179,7 +185,7 @@ export function TablePaginationFooter({
             onClick={() => onPageIndexChange(pageCount - 1)}
             disabled={!hasExactCount || pageIndex >= pageCount - 1}
           >
-            <span className="sr-only">Go to last page</span>
+            <span className="sr-only">{t("pagination.last")}</span>
             <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
