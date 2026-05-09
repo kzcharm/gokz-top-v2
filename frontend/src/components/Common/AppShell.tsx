@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 
 import { Appearance } from "@/components/Common/Appearance"
 import { Footer } from "@/components/Common/Footer"
+import { LanguageSelector } from "@/components/Common/LanguageSelector"
 import { ScopeSelector } from "@/components/Common/ScopeSelector"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
 import {
@@ -30,6 +31,7 @@ export function AppShell({
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           <div className="ml-auto flex items-center gap-2">
             <Appearance />
+            <LanguageSelector />
             <ScopeSelector />
           </div>
         </header>
