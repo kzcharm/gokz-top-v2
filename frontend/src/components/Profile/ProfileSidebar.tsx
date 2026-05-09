@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { type PlayerPublic, PlayersService } from "@/client"
@@ -78,6 +79,7 @@ function ProfileIdentityCard({
   openContextMenu: boolean
   player: ProfilePlayer
 }) {
+  const { t } = useTranslation()
   const avatarUrl = getAvatarUrl(player)
   const showWebsiteUserRing = player.is_website_user === true
   const alias = player.alias?.trim() ?? ""
@@ -101,10 +103,11 @@ function ProfileIdentityCard({
     staleTime: 60_000,
   })
   const socialLinks = socialLinksQuery.data?.data ?? []
-  const regionalStandingPrefix = profileSummary.region ?? "Region"
+  const regionalStandingPrefix =
+    profileSummary.region ?? t("profile.regionFallback")
   const regionalStandingLabel =
     profileSummary.regionalStanding === null
-      ? "Unranked"
+      ? t("profile.unranked")
       : `${regionalStandingPrefix} #${formatNumber(profileSummary.regionalStanding)}`
 
   const handleIdentityContextMenu = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -156,12 +159,14 @@ function ProfileIdentityCard({
                         showWebsiteUserRing &&
                           "ring-4 ring-pink-400/90 ring-offset-4 ring-offset-card",
                       )}
-                      aria-label={`Zoom avatar for ${player.name}`}
+                      aria-label={t("profile.zoomAvatar", {
+                        name: player.name,
+                      })}
                     >
                       {avatarUrl ? (
                         <img
                           src={avatarUrl}
-                          alt={`${player.name} avatar`}
+                          alt={t("profile.avatarAlt", { name: player.name })}
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -179,7 +184,9 @@ function ProfileIdentityCard({
                       {avatarUrl ? (
                         <img
                           src={avatarUrl}
-                          alt={`${player.name} avatar enlarged`}
+                          alt={t("profile.avatarAltEnlarged", {
+                            name: player.name,
+                          })}
                           className="max-h-[80vh] w-full object-cover"
                         />
                       ) : (
@@ -215,7 +222,9 @@ function ProfileIdentityCard({
                           href={steamProfileUrl}
                           target="_blank"
                           rel="noreferrer"
-                          aria-label={`Open Steam profile for ${primaryName}`}
+                          aria-label={t("profile.openSteamProfile", {
+                            name: primaryName,
+                          })}
                           data-testid="profile-identity-surface"
                           className="rounded-[8px] text-3xl font-semibold tracking-tight transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
                           onContextMenu={handleIdentityContextMenu}
@@ -268,7 +277,9 @@ function ProfileIdentityCard({
                             </TooltipTrigger>
                             <TooltipContent sideOffset={6}>
                               {platformLabel}
-                              {link.verified ? "" : " · unverified"}
+                              {link.verified
+                                ? ""
+                                : ` · ${t("profile.socialUnverified")}`}
                             </TooltipContent>
                           </Tooltip>
                         )
@@ -282,27 +293,29 @@ function ProfileIdentityCard({
             <div className="flex flex-wrap justify-center gap-2 pt-2">
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
                 {profileSummaryLoading
-                  ? "Points ..."
+                  ? `${t("labels.points")} ...`
                   : `${profileSummary.rankLabel} ${formatNumber(profileSummary.totalPoints)}`}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                Rating{" "}
+                {t("profile.summary.rating")}{" "}
                 {profileSummaryLoading
                   ? "..."
                   : profileSummary.rating === null
-                    ? "Unranked"
+                    ? t("profile.unranked")
                     : formatRating(profileSummary.rating)}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                Global{" "}
+                {t("profile.summary.global")}{" "}
                 {profileSummaryLoading
                   ? "..."
                   : profileSummary.globalStanding === null
-                    ? "Unranked"
+                    ? t("profile.unranked")
                     : `#${formatNumber(profileSummary.globalStanding)}`}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                {profileSummaryLoading ? "Regional ..." : regionalStandingLabel}
+                {profileSummaryLoading
+                  ? `${t("profile.summary.regional")} ...`
+                  : regionalStandingLabel}
               </span>
             </div>
           </div>
@@ -377,6 +390,7 @@ function getSteamIdConversions(steamid64: string) {
 }
 
 function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
+  const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [, copyToClipboard] = useCopyToClipboard()
   const conversions = getSteamIdConversions(steamid64)
@@ -389,13 +403,13 @@ function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
     const didCopy = await copyToClipboard(value)
 
     if (didCopy) {
-      toast.success(`${label} copied`, {
+      toast.success(t("common.copied", { label }), {
         description: value,
       })
       return
     }
 
-    toast.error(`Failed to copy ${label}`, {
+    toast.error(t("common.copyFailed", { label }), {
       description: value,
     })
   }
@@ -527,10 +541,22 @@ function SummaryMiniCard({
 }
 
 function SkillRadar() {
+  const { t } = useTranslation()
   const size = 220
   const center = size / 2
   const radius = 74
-  const labels = profileHomePlaceholder.skills
+  const labels = profileHomePlaceholder.skills.map((skill) => ({
+    ...skill,
+    label: t(
+      `profile.skillRadar.${skill.label.toLowerCase()}` as
+        | "profile.skillRadar.route"
+        | "profile.skillRadar.strafe"
+        | "profile.skillRadar.bhop"
+        | "profile.skillRadar.micro"
+        | "profile.skillRadar.ladder"
+        | "profile.skillRadar.slide",
+    ),
+  }))
 
   const polygon = labels
     .map((skill, index) => {
@@ -549,7 +575,7 @@ function SkillRadar() {
           viewBox={`0 0 ${size} ${size}`}
           className="h-[220px] w-[220px] overflow-visible"
           role="img"
-          aria-label="Placeholder skill radar"
+          aria-label={t("profile.skillRadar.ariaLabel")}
         >
           {[0.25, 0.5, 0.75, 1].map((step) => (
             <polygon
@@ -638,6 +664,7 @@ export function ProfileSidebar({
   summary: ProfileSummaryData
   summaryLoading: boolean
 }) {
+  const { t } = useTranslation()
   const authenticated = isLoggedIn()
   const navigate = useNavigate()
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
@@ -715,7 +742,7 @@ export function ProfileSidebar({
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                aria-label="Search players"
+                aria-label={t("profile.searchAria")}
                 value={searchInput}
                 onChange={(event) => {
                   if (searchBlurTimeoutRef.current !== null) {
@@ -744,7 +771,7 @@ export function ProfileSidebar({
                     setIsSearchFocused(false)
                   }
                 }}
-                placeholder="Search player ..."
+                placeholder={t("profile.searchPlaceholder")}
                 className="pr-10 pl-9"
               />
               {searchInput.length > 0 ? (
@@ -755,7 +782,7 @@ export function ProfileSidebar({
                     setSearchInput("")
                     setIsSearchFocused(false)
                   }}
-                  aria-label="Clear player search"
+                  aria-label={t("profile.clearSearch")}
                 >
                   <X className="size-4" />
                 </button>
@@ -764,15 +791,15 @@ export function ProfileSidebar({
                 <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
                   {playerSearchQueryResult.isLoading ? (
                     <div className="px-4 py-3 text-sm text-muted-foreground">
-                      Searching players...
+                      {t("profile.searchingPlayers")}
                     </div>
                   ) : playerSearchQueryResult.isError ? (
                     <div className="px-4 py-3 text-sm text-destructive">
-                      Unable to search players right now.
+                      {t("profile.searchUnavailable")}
                     </div>
                   ) : searchResults.length === 0 ? (
                     <div className="px-4 py-3 text-sm text-muted-foreground">
-                      No players found.
+                      {t("profile.noPlayers")}
                     </div>
                   ) : (
                     <div className="py-1">
@@ -801,36 +828,36 @@ export function ProfileSidebar({
 
             <div className="space-y-0.5">
               <DetailRow
-                label="SteamID64"
+                label={t("profile.summary.steamId64")}
                 value={<SteamIdContextValue steamid64={player.steamid64} />}
               />
               <DetailRow
-                label="Date Joined"
+                label={t("profile.summary.dateJoined")}
                 value={
                   <FormattedDateTime
                     value={player.created_at}
                     display="relative"
-                    fallback="Unknown"
+                    fallback={t("common.unknown")}
                   />
                 }
               />
               <DetailRow
-                label="Last Played"
+                label={t("profile.summary.lastPlayed")}
                 value={
                   <FormattedDateTime
                     value={player.last_played_at}
                     display="relative"
-                    fallback="Unknown"
+                    fallback={t("common.unknown")}
                   />
                 }
               />
               <DetailRow
-                label="Playtime"
+                label={t("profile.summary.playtime")}
                 value={
                   playtimeLoading ? (
                     <Skeleton className="h-4 w-16" />
                   ) : playtimeError ? (
-                    "Unavailable"
+                    t("profile.unavailable")
                   ) : (
                     formatSecondsAsHours(playtimeSeconds ?? 0)
                   )
@@ -841,11 +868,11 @@ export function ProfileSidebar({
             <div className="grid grid-cols-2 gap-3">
               <SummaryMiniCard
                 dataTestId="profile-profile-views-card"
-                label="Profile Views"
+                label={t("profile.summary.profileViews")}
                 value={formatNumber(player.profile_views ?? 0)}
               />
               <SummaryMiniCard
-                label="Followers"
+                label={t("profile.summary.followers")}
                 dataTestId="profile-followers-card"
                 onClick={() => handleOpenSocial("followers")}
                 value={formatNumber(followerCount)}
@@ -858,7 +885,7 @@ export function ProfileSidebar({
           <CardContent className="space-y-5 p-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Skill radar
+                {t("profile.skillRadar.title")}
               </p>
             </div>
             <SkillRadar />

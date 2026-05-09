@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import type { TFunction } from "i18next"
 import { ArrowDown } from "lucide-react"
 
 import type { PlayerLeaderboardEntryPublic } from "@/client"
@@ -14,13 +15,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { formatNumber } from "@/i18n/locale"
 
 export type LeaderboardTableRow = PlayerLeaderboardEntryPublic & {
   playerData: PlayerDisplayPlayer
 }
 
 function formatMetric(value: number) {
-  return new Intl.NumberFormat("en-US").format(value)
+  return formatNumber(value)
 }
 
 function formatLeaderboardMetric(
@@ -95,13 +97,13 @@ function metricColumn(
     | "records_900_plus"
     | "records_800_plus"
     | "unique_map_finishes",
-  title: string,
+  title: () => string,
   align: "center" | "right" = "center",
 ): ColumnDef<LeaderboardTableRow> {
   return {
     accessorKey,
     header: ({ column }) => (
-      <SortableHeader title={title} column={column} align={align} />
+      <SortableHeader title={title()} column={column} align={align} />
     ),
     cell: ({ row }) => (
       <div
@@ -138,43 +140,53 @@ function metricColumn(
   }
 }
 
-export const columns: ColumnDef<LeaderboardTableRow>[] = [
-  {
-    accessorKey: "rank",
-    header: () => <div className="flex w-full justify-center">#</div>,
-    cell: ({ row }) => (
-      <div className="flex w-full justify-center">
-        <span className="font-semibold tabular-nums">{row.original.rank}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "player",
-    header: "Player",
-    cell: ({ row }) => <PlayerDisplay player={row.original.playerData} />,
-  },
-  metricColumn("rating", "Rating"),
-  metricColumn("rating_easy", "Rating.E"),
-  metricColumn("rating_hard", "Rating.H"),
-  metricColumn("points", "Points", "right"),
-  metricColumn("wrs_nub", "NUB WRs"),
-  metricColumn("wrs_pro", "PRO WRs"),
-  metricColumn("records_900_plus", "900+"),
-  metricColumn("records_800_plus", "800+"),
-  metricColumn("unique_map_finishes", "Maps"),
-  {
-    id: "last_played",
-    header: () => <div className="flex w-full justify-center">Last Played</div>,
-    enableSorting: false,
-    cell: ({ row }) => (
-      <div className="flex w-full justify-center">
-        <FormattedDateTime
-          className="text-muted-foreground"
-          value={row.original.playerData.lastPlayedAt}
-          display="relative"
-          fallback="N/A"
-        />
-      </div>
-    ),
-  },
-]
+export function getLeaderboardColumns(
+  t: TFunction,
+): ColumnDef<LeaderboardTableRow>[] {
+  return [
+    {
+      accessorKey: "rank",
+      header: () => <div className="flex w-full justify-center">#</div>,
+      cell: ({ row }) => (
+        <div className="flex w-full justify-center">
+          <span className="font-semibold tabular-nums">
+            {row.original.rank}
+          </span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "player",
+      header: () => t("labels.player"),
+      cell: ({ row }) => <PlayerDisplay player={row.original.playerData} />,
+    },
+    metricColumn("rating", () => "Rating"),
+    metricColumn("rating_easy", () => "Rating.E"),
+    metricColumn("rating_hard", () => "Rating.H"),
+    metricColumn("points", () => t("labels.points"), "right"),
+    metricColumn("wrs_nub", () => "NUB WRs"),
+    metricColumn("wrs_pro", () => "PRO WRs"),
+    metricColumn("records_900_plus", () => "900+"),
+    metricColumn("records_800_plus", () => "800+"),
+    metricColumn("unique_map_finishes", () => t("labels.maps")),
+    {
+      id: "last_played",
+      header: () => (
+        <div className="flex w-full justify-center">
+          {t("labels.lastPlayed")}
+        </div>
+      ),
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex w-full justify-center">
+          <FormattedDateTime
+            className="text-muted-foreground"
+            value={row.original.playerData.lastPlayedAt}
+            display="relative"
+            fallback="N/A"
+          />
+        </div>
+      ),
+    },
+  ]
+}

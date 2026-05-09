@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -7,21 +8,29 @@ import type { ProfileTab } from "./profile-utils"
 
 const tabDefinitions: Array<{
   key: ProfileTab
-  label: string
+  labelKey: string
   to:
     | "/profile/$identifier"
     | "/profile/$identifier/records"
     | "/profile/$identifier/unfinished"
     | "/profile/$identifier/stats"
 }> = [
-  { key: "home", label: "Home", to: "/profile/$identifier" },
-  { key: "records", label: "Records", to: "/profile/$identifier/records" },
+  { key: "home", labelKey: "profile.tabs.home", to: "/profile/$identifier" },
+  {
+    key: "records",
+    labelKey: "profile.tabs.records",
+    to: "/profile/$identifier/records",
+  },
   {
     key: "unfinished",
-    label: "Unfinished",
+    labelKey: "profile.tabs.unfinished",
     to: "/profile/$identifier/unfinished",
   },
-  { key: "stats", label: "Stats", to: "/profile/$identifier/stats" },
+  {
+    key: "stats",
+    labelKey: "profile.tabs.stats",
+    to: "/profile/$identifier/stats",
+  },
 ]
 
 export function ProfileTabs({
@@ -33,6 +42,8 @@ export function ProfileTabs({
   identifier: string
   trailingContent?: ReactNode
 }) {
+  const { t } = useTranslation()
+
   return (
     <Tabs value={activeTab} className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -40,7 +51,7 @@ export function ProfileTabs({
           {tabDefinitions.map((tab) => (
             <TabsTrigger key={tab.key} value={tab.key} asChild>
               <Link to={tab.to} params={{ identifier }}>
-                {tab.label}
+                {t(tab.labelKey)}
               </Link>
             </TabsTrigger>
           ))}

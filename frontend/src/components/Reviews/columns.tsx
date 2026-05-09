@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import type { TFunction } from "i18next"
 import { Star } from "lucide-react"
 
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -34,7 +35,7 @@ type ReviewColumnsOptions = {
 const COMMENT_WIDTH_CLASS =
   "w-[18rem] max-w-[18rem] xl:w-[22rem] xl:max-w-[22rem]"
 
-function ScoreStars({ value }: { value: number | null }) {
+function ScoreStars({ t, value }: { t: TFunction; value: number | null }) {
   const filledStars = value ?? 0
 
   return (
@@ -43,8 +44,8 @@ function ScoreStars({ value }: { value: number | null }) {
       role="img"
       aria-label={
         value === null
-          ? "No rating provided, 0 out of 5 stars"
-          : `${value} out of 5 stars`
+          ? t("reviews.noRatingAria")
+          : t("reviews.ratingAria", { count: value })
       }
     >
       {Array.from({ length: 5 }, (_, index) => (
@@ -63,10 +64,12 @@ function ScoreStars({ value }: { value: number | null }) {
 }
 
 function RatingsStack({
+  t,
   overall,
   gameplay,
   visuals,
 }: {
+  t: TFunction
   overall: number
   gameplay: number | null
   visuals: number | null
@@ -75,21 +78,21 @@ function RatingsStack({
     <div className="flex min-w-[8.5rem] flex-col gap-1 whitespace-normal">
       <div className="flex items-center gap-2">
         <span className="w-14 text-xs font-medium text-muted-foreground">
-          Overall
+          {t("labels.overall")}
         </span>
-        <ScoreStars value={overall} />
+        <ScoreStars t={t} value={overall} />
       </div>
       <div className="flex items-center gap-2">
         <span className="w-14 text-xs font-medium text-muted-foreground">
-          Gameplay
+          {t("labels.gameplay")}
         </span>
-        <ScoreStars value={gameplay} />
+        <ScoreStars t={t} value={gameplay} />
       </div>
       <div className="flex items-center gap-2">
         <span className="w-14 text-xs font-medium text-muted-foreground">
-          Visuals
+          {t("labels.visuals")}
         </span>
-        <ScoreStars value={visuals} />
+        <ScoreStars t={t} value={visuals} />
       </div>
     </div>
   )
@@ -152,16 +155,17 @@ function CommentPreview({
 export function getReviewColumns({
   expandedReviewId,
   onToggleComment,
-}: ReviewColumnsOptions): ColumnDef<ReviewTableRow>[] {
+  t,
+}: ReviewColumnsOptions & { t: TFunction }): ColumnDef<ReviewTableRow>[] {
   return [
     {
       accessorKey: "map",
-      header: "Map",
+      header: t("labels.map"),
       cell: ({ row }) => <MapDisplay mapName={row.original.map.name} />,
     },
     {
       accessorKey: "player",
-      header: "Player",
+      header: t("labels.player"),
       cell: ({ row }) => (
         <PlayerDisplay
           player={{
@@ -180,9 +184,10 @@ export function getReviewColumns({
     },
     {
       id: "ratings",
-      header: "Ratings",
+      header: t("labels.ratings"),
       cell: ({ row }) => (
         <RatingsStack
+          t={t}
           overall={row.original.overall}
           gameplay={row.original.gameplay}
           visuals={row.original.visuals}
@@ -191,7 +196,7 @@ export function getReviewColumns({
     },
     {
       accessorKey: "comment",
-      header: "Comment",
+      header: t("labels.comment"),
       cell: ({ row }) => (
         <CommentPreview
           reviewId={row.original.id}
@@ -204,7 +209,7 @@ export function getReviewColumns({
     },
     {
       accessorKey: "updated_at",
-      header: "Updated",
+      header: t("labels.updated"),
       cell: ({ row }) => (
         <div className="whitespace-nowrap">
           <FormattedDateTime

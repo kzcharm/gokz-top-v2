@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 
 import type { MapPublic, RecordPublic } from "@/client"
 import { MapDisplay } from "@/components/Common/MapDisplay"
@@ -172,9 +173,10 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
   type: ProfileUnfinishedType
   onSortChange: (column: ProfileUnfinishedSortColumn) => void
 }) {
+  const { t } = useTranslation()
   return (
     <section
-      aria-label={`${title} unfinished`}
+      aria-label={t("profile.unfinished.ariaLabel", { type: title })}
       className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
       data-testid={`profile-unfinished-column-${type.toLowerCase()}`}
     >
@@ -184,7 +186,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
             {title}
           </h3>
           <span className="text-xs text-muted-foreground">
-            {rows.length} maps
+            {t("profile.unfinished.mapsCount", { count: rows.length })}
           </span>
         </div>
       </div>
@@ -195,7 +197,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
               <TableHead className="min-w-60 normal-case tracking-normal text-foreground/80">
                 <SortableHeader
                   column="map"
-                  label="Map"
+                  label={t("labels.map")}
                   sort={sort}
                   onSortChange={onSortChange}
                   className="normal-case tracking-normal text-foreground/80"
@@ -204,7 +206,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
               <TableHead className="min-w-16 normal-case tracking-normal text-foreground/80">
                 <SortableHeader
                   column="tier"
-                  label="Tier"
+                  label={t("labels.tier")}
                   sort={sort}
                   onSortChange={onSortChange}
                   className="normal-case tracking-normal text-foreground/80"
@@ -213,7 +215,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
               <TableHead className="min-w-28 text-right normal-case tracking-normal text-foreground/80">
                 <SortableHeader
                   column="wrTime"
-                  label="WR Time"
+                  label={t("labels.wrTime")}
                   sort={sort}
                   onSortChange={onSortChange}
                   className="justify-end normal-case tracking-normal text-foreground/80"
@@ -257,7 +259,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
           ref={loadMoreRef}
           className="flex h-14 items-center justify-center text-sm text-muted-foreground"
         >
-          Loading more maps...
+          {t("profile.unfinished.loadMore")}
         </div>
       ) : null}
     </section>
@@ -289,6 +291,7 @@ export function ProfileUnfinishedTab({
   proRecordsError: boolean
   proRecordsLoading: boolean
 }) {
+  const { t } = useTranslation()
   const { scope } = useScope()
   const [isSplitLayout, setIsSplitLayout] = useState(false)
   const [mapSearch, setMapSearch] = useState("")
@@ -528,7 +531,8 @@ export function ProfileUnfinishedTab({
     return (
       <Alert variant="destructive">
         <AlertDescription>
-          Failed to load unfinished maps. Reload the page and try again.
+          {t("profile.unfinished.loadFailed")}{" "}
+          {t("profile.unfinished.loadFailedBody")}
         </AlertDescription>
       </Alert>
     )
@@ -544,13 +548,13 @@ export function ProfileUnfinishedTab({
     return <ProfileUnfinishedTableSkeleton />
   }
 
-  const nubEmptyMessage =
-    "No unfinished maps found for this player in the selected scope."
-  const proEmptyMessage =
-    "No unfinished pro maps found for this player in the selected scope."
+  const nubEmptyMessage = t("profile.unfinished.emptyNub")
+  const proEmptyMessage = t("profile.unfinished.emptyPro")
 
   const selectedType: ProfileUnfinishedType = isProOnly ? "PRO" : "NUB"
-  const selectedTitle = isProOnly ? "PRO" : "NUB"
+  const selectedTitle = isProOnly
+    ? t("profile.unfinished.typePro")
+    : t("profile.unfinished.typeNub")
   const selectedEmptyMessage = isProOnly ? proEmptyMessage : nubEmptyMessage
   const selectedSort = isProOnly ? proSort : nubSort
 
@@ -559,18 +563,18 @@ export function ProfileUnfinishedTab({
       <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/60 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           <Input
-            aria-label="Search unfinished map name"
+            aria-label={t("profile.unfinished.mapSearchAria")}
             value={mapSearch}
             onChange={(event) => setMapSearch(event.target.value)}
-            placeholder="Search map"
+            placeholder={t("profile.unfinished.mapSearchPlaceholder")}
             className="h-9 w-full border-border/70 bg-background/80 text-sm font-normal sm:max-w-xs"
           />
           <TierSelector
             value={selectedTier}
             onValueChange={setSelectedTier}
-            allLabel="Tier"
+            allLabel={t("labels.tier")}
             triggerClassName="h-9 w-full justify-between border-border/70 bg-background/80 px-3 text-sm sm:w-32"
-            ariaLabel="Filter unfinished maps by tier"
+            ariaLabel={t("profile.unfinished.filterTierAria")}
           />
         </div>
         {!isSplitLayout ? (
@@ -584,7 +588,7 @@ export function ProfileUnfinishedTab({
               onCheckedChange={onIsProOnlyChange}
               className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
             />
-            <span>{isProOnly ? "Pro" : "Nub"}</span>
+            <span>{isProOnly ? "PRO" : "NUB"}</span>
           </Label>
         ) : null}
       </div>

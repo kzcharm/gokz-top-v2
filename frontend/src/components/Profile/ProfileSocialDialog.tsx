@@ -1,4 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import type { PlayerPublic } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Button } from "@/components/ui/button"
@@ -44,6 +45,7 @@ function SocialList({
   players: PlayerPublic[]
   onLoadMore: () => void
 }) {
+  const { t } = useTranslation()
   if (!active) {
     return null
   }
@@ -64,7 +66,7 @@ function SocialList({
   if (isError) {
     return (
       <div className="rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 px-4 py-6 text-sm text-muted-foreground">
-        Failed to load this list.
+        {t("profile.socialDialog.loadFailed")}
       </div>
     )
   }
@@ -99,7 +101,9 @@ function SocialList({
           onClick={onLoadMore}
           disabled={isFetchingNextPage}
         >
-          {isFetchingNextPage ? "Loading..." : "Load more"}
+          {isFetchingNextPage
+            ? t("common.loading")
+            : t("profile.socialDialog.loadMore")}
         </Button>
       ) : null}
     </div>
@@ -151,6 +155,7 @@ export function ProfileSocialDialog({
   tab: ProfileSocialTab
   onTabChange: (tab: ProfileSocialTab) => void
 }) {
+  const { t } = useTranslation()
   const followersQuery = useSocialList({
     enabled: open && tab === "followers",
     identifier,
@@ -174,9 +179,9 @@ export function ProfileSocialDialog({
         data-testid="profile-social-dialog"
       >
         <DialogHeader>
-          <DialogTitle>Profile Connections</DialogTitle>
+          <DialogTitle>{t("profile.socialDialog.title")}</DialogTitle>
           <DialogDescription>
-            Browse who follows this player and who they follow.
+            {t("profile.socialDialog.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -187,17 +192,21 @@ export function ProfileSocialDialog({
         >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="followers">
-              Followers {formatNumber(followerCount)}
+              {t("profile.socialDialog.followersTab", {
+                count: formatNumber(followerCount),
+              })}
             </TabsTrigger>
             <TabsTrigger value="following">
-              Following {formatNumber(followingCount)}
+              {t("profile.socialDialog.followingTab", {
+                count: formatNumber(followingCount),
+              })}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="followers" className="space-y-4">
             <SocialList
               active={tab === "followers"}
-              emptyLabel="No followers yet."
+              emptyLabel={t("profile.socialDialog.emptyFollowers")}
               hasMore={followersQuery.hasNextPage ?? false}
               isError={followersQuery.isError}
               isFetchingNextPage={followersQuery.isFetchingNextPage}
@@ -212,7 +221,7 @@ export function ProfileSocialDialog({
           <TabsContent value="following" className="space-y-4">
             <SocialList
               active={tab === "following"}
-              emptyLabel="This player is not following anyone yet."
+              emptyLabel={t("profile.socialDialog.emptyFollowing")}
               hasMore={followingQuery.hasNextPage ?? false}
               isError={followingQuery.isError}
               isFetchingNextPage={followingQuery.isFetchingNextPage}
@@ -226,8 +235,9 @@ export function ProfileSocialDialog({
         </Tabs>
 
         <p className="text-xs text-muted-foreground">
-          Showing up to {PROFILE_SOCIAL_PAGE_LIMIT} players per page. Click any
-          entry to open that profile.
+          {t("profile.socialDialog.pageHint", {
+            count: PROFILE_SOCIAL_PAGE_LIMIT,
+          })}
         </p>
       </DialogContent>
     </Dialog>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
@@ -23,6 +24,7 @@ interface RecentRecordsTableProps {
 }
 
 export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
+  const { t } = useTranslation()
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
 
   return (
@@ -32,36 +34,36 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className={`min-w-56 ${tableHeadClassName}`}>
-                Player
+                {t("labels.player")}
               </TableHead>
               <TableHead className={`min-w-60 ${tableHeadClassName}`}>
-                Map
+                {t("labels.map")}
               </TableHead>
               <TableHead className={`min-w-20 ${tableHeadClassName}`}>
-                Mode
+                {t("labels.mode")}
               </TableHead>
               <TableHead className={`min-w-28 ${tableHeadClassName}`}>
                 Stage
               </TableHead>
               <TableHead className={`min-w-20 ${tableHeadClassName}`}>
-                Tier
+                {t("labels.tier")}
               </TableHead>
               <TableHead className={`min-w-20 ${tableHeadClassName}`}>
-                TPs
+                {t("labels.tps")}
               </TableHead>
               <TableHead
                 className={`min-w-24 text-right ${tableHeadClassName}`}
               >
-                Time
+                {t("labels.time")}
               </TableHead>
               <TableHead className={`min-w-24 ${tableHeadClassName}`}>
-                Points
+                {t("labels.points")}
               </TableHead>
               <TableHead className={`min-w-44 ${tableHeadClassName}`}>
-                Server
+                {t("labels.server")}
               </TableHead>
               <TableHead className={`min-w-32 ${tableHeadClassName}`}>
-                Datetime
+                {t("labels.datetime")}
               </TableHead>
             </TableRow>
           </TableHeader>

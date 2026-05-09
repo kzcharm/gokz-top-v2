@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-table"
 import { LocateFixed, Search } from "lucide-react"
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { LeaderboardsService } from "@/client"
@@ -21,7 +22,7 @@ import {
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
-  columns,
+  getLeaderboardColumns,
   type LeaderboardTableRow,
 } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
@@ -101,6 +102,7 @@ async function fetchLeaderboardPage(
 }
 
 export function PlayersLeaderboardTab() {
+  const { t } = useTranslation()
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
   const [pageIndex, setPageIndex] = useState(0)
@@ -271,6 +273,7 @@ export function PlayersLeaderboardTab() {
       }),
     [leaderboardPlayersBySteamid64, visibleLeaderboardEntries],
   )
+  const columns = useMemo(() => getLeaderboardColumns(t), [t])
 
   useEffect(() => {
     return () => {

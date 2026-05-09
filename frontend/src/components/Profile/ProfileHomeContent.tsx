@@ -3,6 +3,7 @@ import * as echarts from "echarts"
 import { PinOff } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { PlayerDailyActivityPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PointsBadge } from "@/components/Records/PointsBadge"
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useHorizontalDragScroll } from "@/hooks/useHorizontalDragScroll"
 import { useMediaQuery } from "@/hooks/useMobile"
+import { getLocale } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
 import type { ProfileRecordDistributionBin } from "./profile-record-distribution"
 import {
@@ -49,29 +51,6 @@ const TROPHY_ASSETS = {
 } as const
 const PROFILE_COMPLETION_TWO_COLUMN_MIN_WIDTH = 960
 const ROLLING_ACTIVITY_WINDOW_ID = "last-365-days"
-const CONTRIBUTION_DAY_LABELS = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
-]
-const CONTRIBUTION_MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const
 const PROFILE_DISTRIBUTION_TWO_COLUMN_MIN_WIDTH = 1080
 
 type ActivityCell = {
@@ -82,7 +61,7 @@ type ActivityCell = {
 }
 
 type ActivityMonthLabel = {
-  month: (typeof CONTRIBUTION_MONTH_LABELS)[number]
+  month: string
   weekIndex: number
 }
 
@@ -112,6 +91,7 @@ function CompletionCard({
   }>
   trophies: ProfileTrophyCounts
 }) {
+  const { t } = useTranslation()
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="p-6">
@@ -126,7 +106,9 @@ function CompletionCard({
                   <div key={trophy} className="flex items-center gap-2">
                     <img
                       src={TROPHY_ASSETS[trophy]}
-                      alt={`${trophy} trophy`}
+                      alt={t("profile.completion.trophyAlt", {
+                        trophy: t(`profile.completion.trophies.${trophy}`),
+                      })}
                       className="h-7 w-7 object-contain"
                     />
                     <span className="text-2xl font-semibold tracking-tight">
@@ -149,7 +131,7 @@ function CompletionCard({
                   className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[80px_minmax(0,1fr)_58px] sm:gap-3"
                 >
                   <span className="text-right text-[11px] font-semibold leading-4 text-muted-foreground sm:text-xs">
-                    {tier.label} (avg{" "}
+                    {tier.label} ({t("profile.completion.averageShort")}{" "}
                     <PaddedAverageNumber value={tier.averagePoints} />)
                   </span>
                   <div className="h-5 overflow-hidden rounded-full bg-muted">
@@ -212,6 +194,26 @@ function getCurrentUtcDate() {
   )
 }
 
+function getWeekdayLabels(locale: string) {
+  const formatter = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    timeZone: "UTC",
+  })
+
+  return Array.from({ length: 7 }, (_, index) =>
+    formatter.format(new Date(Date.UTC(2026, 0, 4 + index))),
+  )
+}
+
+function formatActivityDate(date: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`))
+}
+
 function getActivityLevel(count: number) {
   if (count <= 0) {
     return 0
@@ -236,13 +238,19 @@ function buildActivityCalendar({
   days,
   start,
   end,
+  locale,
 }: {
   days: Array<{ date: string; count: number }>
   start: Date
   end: Date
+  locale: string
 }) {
   const startDate = new Date(start)
   const endDate = new Date(end)
+  const monthFormatter = new Intl.DateTimeFormat(locale, {
+    month: "short",
+    timeZone: "UTC",
+  })
   const countsByDate = new Map(
     days
       .filter((day) => {
@@ -310,7 +318,7 @@ function buildActivityCalendar({
     const monthIndex = new Date(`${firstRealDay.date}T00:00:00Z`).getUTCMonth()
     if (monthIndex !== lastMonth) {
       monthLabels.push({
-        month: CONTRIBUTION_MONTH_LABELS[monthIndex],
+        month: monthFormatter.format(new Date(Date.UTC(2026, monthIndex, 1))),
         weekIndex,
       })
       lastMonth = monthIndex
@@ -333,9 +341,12 @@ function ActivityCard({
   activityLoading: boolean
   activityStat: PlayerDailyActivityPublic | null
 }) {
+  const { t, i18n } = useTranslation()
   const activityScrollRef = useHorizontalDragScroll<HTMLDivElement>()
   const allDays = activityStat?.days ?? []
   const fallbackYear = getCurrentUtcYear()
+  const locale = i18n.resolvedLanguage ?? i18n.language ?? getLocale()
+  const weekdayLabels = useMemo(() => getWeekdayLabels(locale), [locale])
   const availableYears = useMemo(() => {
     const years = Array.from(
       new Set(allDays.map((day) => day.date.slice(0, 4))),
@@ -347,7 +358,7 @@ function ActivityCard({
     () => [
       {
         id: ROLLING_ACTIVITY_WINDOW_ID,
-        label: "Latest",
+        label: t("profile.activity.latest"),
       },
       ...(availableYears.length > 0 ? availableYears : [fallbackYear]).map(
         (year) => ({
@@ -356,7 +367,7 @@ function ActivityCard({
         }),
       ),
     ],
-    [availableYears, fallbackYear],
+    [availableYears, fallbackYear, t],
   )
   const [activeView, setActiveView] = useState(
     selectableViews[0]?.id ?? ROLLING_ACTIVITY_WINDOW_ID,
@@ -382,8 +393,9 @@ function ActivityCard({
             days: allDays,
             start,
             end,
+            locale,
           }),
-          emptyStateLabel: "the latest 365 days",
+          emptyStateLabel: t("profile.activity.latestRange"),
           rangeKey: ROLLING_ACTIVITY_WINDOW_ID,
         }
       }
@@ -397,11 +409,12 @@ function ActivityCard({
           days: allDays,
           start,
           end,
+          locale,
         }),
         emptyStateLabel: activeView,
         rangeKey: activeView,
       }
-    }, [activeView, allDays])
+    }, [activeView, allDays, locale, t])
 
   if (activityLoading) {
     return (
@@ -410,7 +423,7 @@ function ActivityCard({
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Activity
+                {t("profile.activity.title")}
               </p>
               <Skeleton className="h-4 w-40" />
             </div>
@@ -428,7 +441,7 @@ function ActivityCard({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Activity
+              {t("profile.activity.title")}
             </p>
           </div>
           <div className="inline-flex rounded-full border border-border/70 bg-background/75 p-1">
@@ -453,7 +466,7 @@ function ActivityCard({
 
         {activityError ? (
           <p className="text-sm text-destructive">
-            Unable to load daily activity right now.
+            {t("profile.activity.loadFailed")}
           </p>
         ) : null}
 
@@ -478,11 +491,8 @@ function ActivityCard({
               <div className="mt-2 flex gap-2">
                 <div className="flex flex-col justify-around pt-px text-[11px] leading-[10px] text-muted-foreground">
                   {[1, 3, 5].map((dayIndex) => (
-                    <span
-                      key={CONTRIBUTION_DAY_LABELS[dayIndex]}
-                      className="h-[23px]"
-                    >
-                      {CONTRIBUTION_DAY_LABELS[dayIndex]}
+                    <span key={weekdayLabels[dayIndex]} className="h-[23px]">
+                      {weekdayLabels[dayIndex]}
                     </span>
                   ))}
                 </div>
@@ -521,9 +531,10 @@ function ActivityCard({
                               sideOffset={6}
                               className="rounded-sm border border-border bg-background px-2 py-1 font-normal text-foreground shadow-md"
                             >
-                              {day.count}{" "}
-                              {day.count === 1 ? "record" : "records"} on{" "}
-                              {day.date} UTC
+                              {t("profile.activity.cellTooltip", {
+                                count: day.count,
+                                date: formatActivityDate(day.date, locale),
+                              })}
                             </TooltipContent>
                           </Tooltip>
                         ),
@@ -538,12 +549,12 @@ function ActivityCard({
 
         {!activityError && !hasActivity ? (
           <p className="text-sm text-muted-foreground">
-            No record submissions found in {emptyStateLabel}.
+            {t("profile.activity.emptyState", { range: emptyStateLabel })}
           </p>
         ) : null}
 
         <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-          <span>Less</span>
+          <span>{t("profile.activity.less")}</span>
           {activityToneClasses.map((tone, index) => (
             <span
               key={index}
@@ -553,7 +564,7 @@ function ActivityCard({
               )}
             />
           ))}
-          <span>More</span>
+          <span>{t("profile.activity.more")}</span>
         </div>
       </CardContent>
     </Card>
@@ -599,6 +610,7 @@ function ProfileDistributionChart({
   title: string
   color: string
 }) {
+  const { t } = useTranslation()
   const chartRef = useRef<HTMLDivElement | null>(null)
   const { resolvedTheme } = useTheme()
   const isNarrowViewport = useMediaQuery("(max-width: 1439px)")
@@ -657,7 +669,7 @@ ${hoveredBin.hasMoreMapNames ? "<div>...</div>" : ""}
 
           return `<div>
 <div style="font-weight:600;">${escapeHtml(String(entry.name ?? ""))}</div>
-<div style="margin-top:4px;">${formatNumber(value)} records</div>
+<div style="margin-top:4px;">${escapeHtml(t("profile.distribution.tooltipCount", { count: value }))}</div>
 ${mapNamesMarkup}
 </div>`
         },
@@ -726,7 +738,7 @@ ${mapNamesMarkup}
       resizeObserver.disconnect()
       chart.dispose()
     }
-  }, [bins, color, isNarrowViewport, resolvedTheme])
+  }, [bins, color, isNarrowViewport, resolvedTheme, t])
 
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
@@ -758,6 +770,7 @@ function RecordDistributionSection({
   recordDistributionError: boolean
   recordDistributionLoading: boolean
 }) {
+  const { t } = useTranslation()
   const contentRef = useRef<HTMLDivElement | null>(null)
   const [contentWidth, setContentWidth] = useState(0)
 
@@ -790,8 +803,10 @@ function RecordDistributionSection({
     <div ref={contentRef} className="min-w-0">
       {recordDistributionError ? (
         <Alert variant="destructive">
-          <AlertTitle>Unable to load record distributions</AlertTitle>
-          <AlertDescription>Reload the page and try again.</AlertDescription>
+          <AlertTitle>{t("profile.distribution.loadFailedTitle")}</AlertTitle>
+          <AlertDescription>
+            {t("profile.distribution.loadFailedBody")}
+          </AlertDescription>
         </Alert>
       ) : recordDistributionLoading ? (
         <DistributionCardsSkeleton twoColumns={showTwoColumns} />
@@ -799,12 +814,12 @@ function RecordDistributionSection({
         <div className={cn("grid gap-6", showTwoColumns && "xl:grid-cols-2")}>
           <ProfileDistributionChart
             bins={nubRecordDistribution}
-            title="NUB Points Distribution"
+            title={t("profile.distribution.nubTitle")}
             color="#f3c40f"
           />
           <ProfileDistributionChart
             bins={proRecordDistribution}
-            title="PRO Points Distribution"
+            title={t("profile.distribution.proTitle")}
             color="#3598db"
           />
         </div>
@@ -826,17 +841,18 @@ function PinnedRecordsCard({
   mutating: boolean
   onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
 }) {
+  const { t } = useTranslation()
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Pinned records
+              {t("profile.pinned.title")}
             </p>
           </div>
           <p className="text-sm text-muted-foreground">
-            {pinnedRecords.length} of 6
+            {t("profile.pinned.count", { count: pinnedRecords.length })}
           </p>
         </div>
 
@@ -857,7 +873,7 @@ function PinnedRecordsCard({
                   <p className="mt-1 text-xs text-muted-foreground">
                     {record.mode} ·{" "}
                     {rank === null
-                      ? "Rank unavailable"
+                      ? t("profile.pinned.rankUnavailable")
                       : totalCount === null
                         ? `#${formatNumber(rank)}`
                         : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
@@ -895,7 +911,7 @@ function PinnedRecordsCard({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No pinned records found for this scope.
+            {t("profile.pinned.empty")}
           </p>
         )}
       </CardContent>
@@ -912,6 +928,7 @@ function ManagedPinnedRecordCard({
   disabled: boolean
   onUnpin: () => void
 }) {
+  const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const contextMenuRequestedRef = useRef(false)
 
@@ -965,7 +982,7 @@ function ManagedPinnedRecordCard({
           }}
         >
           <PinOff />
-          Unpin this record
+          {t("profile.pinned.unpin")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -1001,6 +1018,7 @@ export function ProfileHomeContent({
   onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
   canManagePinnedRecords: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="min-w-0 space-y-6">
       <ActivityCard
@@ -1016,8 +1034,10 @@ export function ProfileHomeContent({
       />
       {pinnedRecordsError ? (
         <Alert variant="destructive">
-          <AlertTitle>Unable to load pinned record ranks</AlertTitle>
-          <AlertDescription>Reload the page and try again.</AlertDescription>
+          <AlertTitle>{t("profile.pinned.loadFailedTitle")}</AlertTitle>
+          <AlertDescription>
+            {t("profile.pinned.loadFailedBody")}
+          </AlertDescription>
         </Alert>
       ) : null}
       <PinnedRecordsCard
@@ -1045,6 +1065,7 @@ export function ProfileCompletionSection({
     pro: ProfileTrophyCounts
   }
 }) {
+  const { t } = useTranslation()
   const contentRef = useRef<HTMLDivElement | null>(null)
   const [contentWidth, setContentWidth] = useState(0)
 
@@ -1077,10 +1098,9 @@ export function ProfileCompletionSection({
     <div ref={contentRef} className="min-w-0 space-y-6">
       {completionError ? (
         <Alert variant="destructive">
-          <AlertTitle>Unable to load completion progress</AlertTitle>
+          <AlertTitle>{t("profile.completion.loadFailedTitle")}</AlertTitle>
           <AlertDescription>
-            The profile completion bars could not be loaded. Reload the page and
-            try again.
+            {t("profile.completion.loadFailedBody")}
           </AlertDescription>
         </Alert>
       ) : completionLoading ? (
@@ -1093,14 +1113,14 @@ export function ProfileCompletionSection({
           )}
         >
           <CompletionCard
-            title="NUB completion"
+            title={t("profile.completion.nubTitle")}
             completed={completion.nub.completed}
             total={completion.nub.total}
             tiers={completion.nub.tiers}
             trophies={completionTrophies.nub}
           />
           <CompletionCard
-            title="PRO completion"
+            title={t("profile.completion.proTitle")}
             completed={completion.pro.completed}
             total={completion.pro.total}
             tiers={completion.pro.tiers}

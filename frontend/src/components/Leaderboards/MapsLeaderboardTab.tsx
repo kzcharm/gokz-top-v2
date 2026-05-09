@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-table"
 import { Filter, SearchX } from "lucide-react"
 import { startTransition, useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { LeaderboardsService, type MapLeaderboardEntryPublic } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
@@ -15,9 +16,9 @@ import {
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
 import {
+  getMapLeaderboardColumns,
   type MapLeaderboardSortField,
   type MapLeaderboardTableRow,
-  mapLeaderboardColumns,
 } from "@/components/Leaderboards/map-columns"
 import type { AppScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -112,6 +113,7 @@ function sortMaps(
 }
 
 export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
+  const { t } = useTranslation()
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
   const [minUniqueFinishes, setMinUniqueFinishes] = useState("")
   const [maxUniqueFinishes, setMaxUniqueFinishes] = useState("")
@@ -201,6 +203,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
     () => sortedRows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
     [pageIndex, pageSize, sortedRows],
   )
+  const columns = useMemo(() => getMapLeaderboardColumns(t), [t])
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
 
   useEffect(() => {
@@ -338,7 +341,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
-            columns={mapLeaderboardColumns}
+            columns={columns}
             data={visibleRows}
             isLoading={mapsQuery.isLoading}
             emptyText="No maps matched the current filters."

@@ -36,6 +36,21 @@
 - Keep UX copy concise and interface-appropriate.
 - When a branded or technical term reads better in English inside a translated sentence, keep the term in English and localize the surrounding wording naturally.
 
+## Confirmed UI Label Preferences
+- Preferred Simplified Chinese mappings confirmed by the user:
+  - `Map` -> `地图`
+  - `Mode` -> `模式`
+  - `Tier` -> `难度`
+  - `TPs` -> `TPs`
+  - `Time` -> `用时`
+  - `Points` -> `分数`
+  - `Server` -> `服务器`
+  - `Datetime` -> `日期`
+  - `Home` -> `主页`
+  - `Records` -> `记录`
+  - `Unfinished` -> `未完成`
+  - `Stats` -> `数据`
+
 ## Error Localization Scope
 - Localize frontend-owned UI copy, labels, placeholders, empty states, toasts, dialogs, and generic error wrappers.
 - Do not translate raw backend error detail strings in the frontend unless they are explicitly mapped to a frontend-owned message.

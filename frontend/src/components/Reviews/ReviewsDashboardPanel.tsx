@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { startTransition, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { type MapReviewPublic, MapsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
@@ -42,6 +43,7 @@ function mapReviewRow(review: MapReviewPublic): ReviewTableRow {
 }
 
 export function ReviewsDashboardPanel() {
+  const { t } = useTranslation()
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null)
@@ -81,8 +83,9 @@ export function ReviewsDashboardPanel() {
             currentId === reviewId ? null : reviewId,
           )
         },
+        t,
       }),
-    [expandedReviewId],
+    [expandedReviewId, t],
   )
 
   const handleCommentsOnlyChange = (checked: boolean) => {
@@ -106,13 +109,13 @@ export function ReviewsDashboardPanel() {
 
   const emptyText =
     withCommentsOnly || languagePreset !== "all"
-      ? "No reviews match the current filters."
-      : "No reviews found."
+      ? t("reviews.emptyFiltered")
+      : t("reviews.empty")
 
   if (reviewsQuery.isError) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Unable to load reviews</AlertTitle>
+        <AlertTitle>{t("reviews.loadFailed")}</AlertTitle>
         <AlertDescription>
           {extractErrorMessage(reviewsQuery.error)}
         </AlertDescription>
@@ -124,7 +127,7 @@ export function ReviewsDashboardPanel() {
     <Card>
       <CardHeader className="gap-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <CardTitle className="text-xl">Reviews</CardTitle>
+          <CardTitle className="text-xl">{t("reviews.title")}</CardTitle>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Label
               htmlFor="dashboard-reviews-comments-only"
@@ -135,7 +138,7 @@ export function ReviewsDashboardPanel() {
                 checked={withCommentsOnly}
                 onCheckedChange={handleCommentsOnlyChange}
               />
-              With comments only
+              {t("reviews.withCommentsOnly")}
             </Label>
             <Select
               value={languagePreset}
@@ -144,13 +147,15 @@ export function ReviewsDashboardPanel() {
               }
             >
               <SelectTrigger className="h-9 min-w-44 border-border/70 bg-background/80">
-                <SelectValue placeholder="All languages" />
+                <SelectValue placeholder={t("reviews.allLanguages")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All languages</SelectItem>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="zh">Chinese</SelectItem>
-                <SelectItem value="ru">Russian</SelectItem>
+                <SelectItem value="all">
+                  {t("reviews.languages.all")}
+                </SelectItem>
+                <SelectItem value="en">{t("reviews.languages.en")}</SelectItem>
+                <SelectItem value="zh">{t("reviews.languages.zh")}</SelectItem>
+                <SelectItem value="ru">{t("reviews.languages.ru")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
@@ -22,6 +23,8 @@ export function MapTopTable({
   records: RecordPublic[]
   emptyMessage: string
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
       <div className="overflow-x-auto">
@@ -29,28 +32,28 @@ export function MapTopTable({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="min-w-20 normal-case tracking-normal text-foreground/80">
-                Rank
+                {t("labels.rank")}
               </TableHead>
               <TableHead className="min-w-56 normal-case tracking-normal text-foreground/80">
-                Player
+                {t("labels.player")}
               </TableHead>
               <TableHead className="min-w-20 normal-case tracking-normal text-foreground/80">
-                Mode
+                {t("labels.mode")}
               </TableHead>
               <TableHead className="min-w-20 normal-case tracking-normal text-foreground/80">
-                TPs
+                {t("labels.tps")}
               </TableHead>
               <TableHead className="min-w-24 text-right normal-case tracking-normal text-foreground/80">
-                Time
+                {t("labels.time")}
               </TableHead>
               <TableHead className="min-w-24 normal-case tracking-normal text-foreground/80">
-                Points
+                {t("labels.points")}
               </TableHead>
               <TableHead className="min-w-44 normal-case tracking-normal text-foreground/80">
-                Server
+                {t("labels.server")}
               </TableHead>
               <TableHead className="min-w-32 normal-case tracking-normal text-foreground/80">
-                Datetime
+                {t("labels.datetime")}
               </TableHead>
             </TableRow>
           </TableHeader>

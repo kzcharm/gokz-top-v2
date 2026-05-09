@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -237,6 +238,7 @@ export function PbRecordsTable({
   getRowContextMenu,
   getMapContextMenu,
 }: PbRecordsTableProps) {
+  const { t } = useTranslation()
   const visibleColumns = new Set(columns)
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
   const colSpan = columns.length
@@ -254,7 +256,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-56 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="player"
-                    label="Player"
+                    label={t("labels.player")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -265,7 +267,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-60 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="map"
-                    label="Map"
+                    label={t("labels.map")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -276,7 +278,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-14 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="mode"
-                    label="Mode"
+                    label={t("labels.mode")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -287,7 +289,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-14 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="tier"
-                    label="Tier"
+                    label={t("labels.tier")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -298,7 +300,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-14 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="tps"
-                    label="TPs"
+                    label={t("labels.tps")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -311,7 +313,7 @@ export function PbRecordsTable({
                 >
                   <SortableHeader
                     column="time"
-                    label="Time"
+                    label={t("labels.time")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={`justify-end ${tableHeadClassName}`}
@@ -322,7 +324,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-24 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="points"
-                    label="Points"
+                    label={t("labels.points")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -333,7 +335,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-44 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="server"
-                    label="Server"
+                    label={t("labels.server")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -344,7 +346,7 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-32 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="datetime"
-                    label="Datetime"
+                    label={t("labels.datetime")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}

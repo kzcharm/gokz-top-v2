@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { type PlayerPublic, PlayersService } from "@/client"
 import ErrorComponent from "@/components/Common/ErrorComponent"
@@ -78,6 +79,7 @@ export function ProfilePage({
   identifier: string
   activeTab: ProfileTab
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { scope } = useScope()
@@ -265,10 +267,10 @@ export function ProfilePage({
     },
     onSuccess: async () => {
       await invalidatePinnedRecords()
-      toast.success("Record pinned")
+      toast.success(t("profile.ban.recordPinned"))
     },
     onError: () => {
-      toast.error("Failed to pin record")
+      toast.error(t("profile.ban.pinFailed"))
     },
   })
   const unpinRecordMutation = useMutation({
@@ -291,10 +293,10 @@ export function ProfilePage({
     },
     onSuccess: async () => {
       await invalidatePinnedRecords()
-      toast.success("Record unpinned")
+      toast.success(t("profile.ban.recordUnpinned"))
     },
     onError: () => {
-      toast.error("Failed to unpin record")
+      toast.error(t("profile.ban.unpinFailed"))
     },
   })
   const unbanCheckMutation = useMutation({
@@ -312,24 +314,26 @@ export function ProfilePage({
       })
 
       if (result.remaining_active_ban_count === 0) {
-        toast.success("Ban status updated", {
+        toast.success(t("profile.ban.statusUpdated"), {
           description:
             result.cleared_ban_count > 0
-              ? "Your profile is no longer marked as actively banned."
+              ? t("profile.ban.noLongerBanned")
               : result.message,
         })
         return
       }
 
-      toast.info("Ban status checked", {
+      toast.info(t("profile.ban.statusChecked"), {
         description:
           result.cleared_ban_count > 0
-            ? `${result.message} ${result.remaining_active_ban_count} active ban(s) remain.`
+            ? `${result.message} ${t("profile.ban.activeRemain", {
+                count: result.remaining_active_ban_count,
+              })}`
             : result.message,
       })
     },
     onError: (error) => {
-      toast.error("Failed to check ban status", {
+      toast.error(t("profile.ban.statusCheckFailed"), {
         description: extractErrorMessage(error),
       })
     },
@@ -413,7 +417,7 @@ export function ProfilePage({
           onCheckedChange={setIsProOnly}
           className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
         />
-        <span>{isProOnly ? "Pro" : "Nub"}</span>
+        <span>{isProOnly ? "PRO" : "NUB"}</span>
       </Label>
     ) : null
 
@@ -430,7 +434,7 @@ export function ProfilePage({
           )}
         >
           <TriangleAlertIcon />
-          <AlertTitle>This player has been banned</AlertTitle>
+          <AlertTitle>{t("profile.ban.warningTitle")}</AlertTitle>
           <AlertDescription
             className={cn(
               "gap-3",
@@ -456,8 +460,8 @@ export function ProfilePage({
                     }}
                   >
                     {unbanCheckMutation.isPending
-                      ? "Checking..."
-                      : "Check unban status"}
+                      ? t("profile.ban.checking")
+                      : t("profile.ban.checkUnbanStatus")}
                   </Button>
                 </div>
               ) : null}
@@ -477,15 +481,17 @@ export function ProfilePage({
                     <FormattedDateTime
                       value={ban.created_on}
                       display="absolute"
-                      fallback="Unknown date"
+                      fallback={t("profile.unknownDate")}
                     />
                     <span className="text-muted-foreground">•</span>
                     <span>
-                      {ban.expires_on == null ? "Permanent" : "Temporary"}
+                      {ban.expires_on == null
+                        ? t("profile.ban.permanent")
+                        : t("profile.ban.temporary")}
                     </span>
                   </div>
                   <p className="mt-2 text-sm">
-                    {ban.notes?.trim() ? ban.notes : "No notes provided."}
+                    {ban.notes?.trim() ? ban.notes : t("profile.ban.noNotes")}
                   </p>
                 </div>
               ))}
