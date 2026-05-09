@@ -270,7 +270,7 @@ export const ru = {
         "Не удалось загрузить полосы прогресса профиля. Обновите страницу и попробуйте снова.",
       nubTitle: "Прогресс NUB",
       proTitle: "Прогресс PRO",
-      averageShort: "ср.",
+      averageShort: "avg",
       trophies: {
         gold: "золотой",
         silver: "серебряный",

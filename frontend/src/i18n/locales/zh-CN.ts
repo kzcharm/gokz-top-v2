@@ -215,11 +215,11 @@ export const zhCN = {
       title: "技能雷达",
       ariaLabel: "个人主页技能雷达图",
       route: "路线",
-      strafe: "转向",
+      strafe: "加速",
       bhop: "Bhop",
-      micro: "微操",
+      micro: "Micro",
       ladder: "梯子",
-      slide: "滑行",
+      slide: "滑坡",
     },
     socialDialog: {
       title: "社交关系",
@@ -266,7 +266,7 @@ export const zhCN = {
       loadFailedBody: "无法加载个人主页完成进度条，请刷新页面后重试。",
       nubTitle: "NUB 完成进度",
       proTitle: "PRO 完成进度",
-      averageShort: "均值",
+      averageShort: "avg",
       trophies: {
         gold: "金",
         silver: "银",

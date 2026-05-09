@@ -50,6 +50,10 @@
   - `Records` -> `记录`
   - `Unfinished` -> `未完成`
   - `Stats` -> `数据`
+  - `Strafe` -> `加速`
+  - `Slide` -> `滑坡`
+  - `Micro` stays `Micro`
+  - Profile progression-bar `avg` stays `avg`
 
 ## Error Localization Scope
 - Localize frontend-owned UI copy, labels, placeholders, empty states, toasts, dialogs, and generic error wrappers.
