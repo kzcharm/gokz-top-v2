@@ -128,20 +128,22 @@ function ProfileStatsPieCard({ stat }: { stat: PlayerMostPlayedServerPublic }) {
     () => getViewEntry(stat, activeViewId),
     [activeViewId, stat],
   )
+  const activePeriodEntries = activePeriod.entries ?? []
+  const totalSeconds = activePeriod.total_seconds ?? 0
   const chartData = useMemo(
     () =>
-      (activePeriod.entries ?? []).map((entry) => ({
+      activePeriodEntries.map((entry) => ({
         id: entry.key,
         name: entry.label,
-        value: entry.total_seconds,
+        value: entry.total_seconds ?? 0,
         key: entry.key,
         serverCount: entry.server_count,
         percentage:
-          activePeriod.total_seconds > 0
-            ? (entry.total_seconds / activePeriod.total_seconds) * 100
+          totalSeconds > 0
+            ? ((entry.total_seconds ?? 0) / totalSeconds) * 100
             : 0,
       })),
-    [activePeriod.entries, activePeriod.total_seconds],
+    [activePeriodEntries, totalSeconds],
   )
   const colorByKey = useMemo(() => {
     const palette = buildChartColorPalette()
@@ -153,7 +155,6 @@ function ProfileStatsPieCard({ stat }: { stat: PlayerMostPlayedServerPublic }) {
 
     return byKey
   }, [stat.all_time?.entries])
-  const totalSeconds = activePeriod.total_seconds ?? 0
   const hasChartData = chartData.length > 0 && totalSeconds > 0
   const totalLabel = formatSecondsAsHours(totalSeconds)
   const activeLabel =
@@ -279,7 +280,6 @@ ${serverCountLabel}
           center: isNarrowViewport ? ["50%", "42%"] : ["56%", "52%"],
           avoidLabelOverlap: true,
           minAngle: 3,
-          hoverAnimation: false,
           universalTransition: true,
           itemStyle: {
             borderColor: isNarrowViewport
@@ -293,17 +293,17 @@ ${serverCountLabel}
           emphasis: {
             scale: false,
             focus: "none",
-            label: {
-              show: true,
-              color: textColor,
-              fontWeight: 600,
-              formatter: (params: {
-                name?: string
-                value?: number | string
-              }) => {
-                const value = Number(params.value ?? 0)
-                const percentage =
-                  activeTotalSeconds > 0
+              label: {
+                show: true,
+                color: textColor,
+                fontWeight: 600,
+                formatter: (params: {
+                  name?: string
+                  value?: unknown
+                }) => {
+                  const value = Number(params.value ?? 0)
+                  const percentage =
+                    activeTotalSeconds > 0
                     ? ((value / activeTotalSeconds) * 100).toFixed(1)
                     : "0.0"
                 return `${String(params.name ?? "")}\n${percentage}%`
@@ -339,7 +339,7 @@ ${serverCountLabel}
                 fontWeight: 600,
                 formatter: (params: {
                   name?: string
-                  value?: number | string
+                  value?: unknown
                 }) => {
                   const value = Number(params.value ?? 0)
                   const percentage =
