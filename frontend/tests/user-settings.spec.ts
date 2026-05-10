@@ -223,9 +223,7 @@ test.describe("Profile and theme", () => {
     await expect(
       page.getByRole("button", { name: "Verify" }).first(),
     ).toBeEnabled()
-    await expect(
-      page.getByRole("button", { name: "Verify" }).nth(1),
-    ).toBeDisabled()
+    await expect(page.getByRole("button", { name: "Verify" })).toHaveCount(1)
     await expect(page.getByText("Confirm Twitch account")).toBeVisible()
     await expect(page.getByText("VerifiedStreamer")).toBeVisible()
     await expect(page.getByText("oldstreamer")).toBeVisible()
@@ -337,14 +335,14 @@ test.describe("Profile and theme", () => {
       page.getByText("Discord webhook • aaaa...", { exact: true }),
     ).toBeVisible()
 
-    await page.getByRole("switch").click()
-    await expect(page.getByText("Webhook updated")).toBeVisible()
-    await expect(page.getByText("Disabled")).toBeVisible()
-
     await page.getByRole("button", { name: "Send test" }).click()
     await expect(page.getByText("Webhook test sent")).toBeVisible()
     await page.getByRole("button", { name: "Close" }).click()
     await expect(page.getByText("Last tested:")).toBeVisible()
+
+    await page.getByRole("switch").click()
+    await expect(page.getByText("Webhook updated")).toBeVisible()
+    await expect(page.getByText("Disabled")).toBeVisible()
 
     await page.getByRole("button", { name: "Edit Discord webhook" }).click()
     await page

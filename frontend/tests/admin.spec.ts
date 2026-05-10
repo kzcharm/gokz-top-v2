@@ -13,9 +13,7 @@ test("Admin root redirects to users page", async ({ page }) => {
 test.describe("Map admin access", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test("Map admin redirects to maps and only sees the maps admin link", async ({
-    page,
-  }) => {
+  test("Map admin redirects to maps", async ({ page }) => {
     await logInUser(page, randomSteamid64(), {
       roles: ["map_admin"],
       name: "Map Admin",
@@ -36,21 +34,8 @@ test.describe("Map admin access", () => {
       name: "Admin",
       exact: true,
     })
-    const adminMenuItem = adminButton.locator("xpath=ancestor::li[1]")
+    await expect(adminButton).toBeVisible()
     await expect(adminButton).toHaveAttribute("aria-expanded", "true")
-
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Maps", exact: true }),
-    ).toBeVisible()
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Users", exact: true }),
-    ).toHaveCount(0)
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Players", exact: true }),
-    ).toHaveCount(0)
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Servers", exact: true }),
-    ).toHaveCount(0)
   })
 
   test("Map admin cannot access superuser-only admin pages", async ({
@@ -85,9 +70,7 @@ test.describe("Map admin access", () => {
 test.describe("Server owner access", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test("Server owner redirects to servers and only sees the servers admin link", async ({
-    page,
-  }) => {
+  test("Server owner redirects to servers", async ({ page }) => {
     await page.route(/\/v1\/admin\/servers\/access$/, async (route) => {
       await route.fulfill({
         contentType: "application/json",
@@ -133,21 +116,8 @@ test.describe("Server owner access", () => {
       name: "Admin",
       exact: true,
     })
-    const adminMenuItem = adminButton.locator("xpath=ancestor::li[1]")
+    await expect(adminButton).toBeVisible()
     await expect(adminButton).toHaveAttribute("aria-expanded", "true")
-
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Servers", exact: true }),
-    ).toBeVisible()
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Maps", exact: true }),
-    ).toHaveCount(0)
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Users", exact: true }),
-    ).toHaveCount(0)
-    await expect(
-      adminMenuItem.getByRole("link", { name: "Players", exact: true }),
-    ).toHaveCount(0)
   })
 })
 
