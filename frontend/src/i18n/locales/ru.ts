@@ -155,6 +155,43 @@ export const ru = {
       webhooks: "Webhooks",
       appearance: "Оформление",
     },
+    profile: {
+      title: "Профиль",
+      aliasInfo:
+        "Задайте псевдоним, чтобы имя в таблице лидеров оставалось одинаковым, даже если имя Steam изменится. Так другим будет легче вас узнавать.",
+      aliasInfoAria: "Информация о псевдониме",
+      available: "Доступно",
+      soon: "скоро",
+      clearCountry: "Очистить страну",
+      actions: {
+        edit: "Редактировать",
+        save: "Сохранить",
+        cancel: "Отмена",
+      },
+      fields: {
+        steamName: "Имя Steam",
+        steamId64: "SteamID64",
+        alias: "Псевдоним",
+        customId: "Custom ID",
+        countryRegion: "Страна / регион",
+      },
+      placeholders: {
+        alias: "Псевдоним",
+        customId: "custom-id",
+        country: "Выберите страну",
+      },
+      fallbacks: {
+        notSet: "Не задано",
+      },
+      errors: {
+        aliasBlank: "Псевдоним не может быть пустым.",
+        customIdBlank: "Custom ID не может быть пустым.",
+        countryCleared: "Страну нельзя очистить.",
+      },
+      toast: {
+        updated: "Настройки профиля обновлены.",
+      },
+    },
     appearance: {
       themeTitle: "Тема",
       themeDescription:

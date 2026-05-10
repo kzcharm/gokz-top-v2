@@ -150,9 +150,46 @@ export const en = {
     title: "Settings",
     tabs: {
       profile: "My profile",
-      socialLinks: "Social links",
+      socialLinks: "Social Links",
       webhooks: "Webhooks",
       appearance: "Appearance",
+    },
+    profile: {
+      title: "Profile",
+      aliasInfo:
+        "Set an alias to keep your name consistent on the leaderboard, regardless of Steam name changes. This helps others recognize you.",
+      aliasInfoAria: "Alias information",
+      available: "Available",
+      soon: "soon",
+      clearCountry: "Clear country",
+      actions: {
+        edit: "Edit",
+        save: "Save",
+        cancel: "Cancel",
+      },
+      fields: {
+        steamName: "Steam Name",
+        steamId64: "SteamID64",
+        alias: "Alias",
+        customId: "Custom ID",
+        countryRegion: "Country / Region",
+      },
+      placeholders: {
+        alias: "Alias",
+        customId: "custom-id",
+        country: "Select a country",
+      },
+      fallbacks: {
+        notSet: "Not set",
+      },
+      errors: {
+        aliasBlank: "Alias cannot be blank.",
+        customIdBlank: "Custom ID cannot be blank.",
+        countryCleared: "Country cannot be cleared.",
+      },
+      toast: {
+        updated: "Profile settings updated.",
+      },
     },
     appearance: {
       themeTitle: "Theme",

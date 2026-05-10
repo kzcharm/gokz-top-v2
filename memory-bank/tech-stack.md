@@ -130,3 +130,4 @@
 - Keep compatibility behavior under `/v0` stable; project-native changes should go to `/v1`.
 - Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
 - Frontend destructive actions should use the destructive red visual treatment consistently, including icon-only delete buttons in tables and settings surfaces.
+- Short frontend field titles and settings/tab labels should use title case in English copy, capitalizing the first letter of each word (for example `Steam Name`, `Social Links`, `Country / Region`).

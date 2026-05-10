@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { OpenAPI, type PlayerSocialLinkPublic, PlayersService } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -343,6 +344,7 @@ function SocialLinkRow({
 }
 
 export default function SocialLinksSettings() {
+  const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
@@ -792,7 +794,7 @@ export default function SocialLinksSettings() {
     <>
       <Card className="max-w-2xl">
         <CardHeader className="flex flex-row items-start justify-between gap-3">
-          <CardTitle>Social Links</CardTitle>
+          <CardTitle>{t("settings.tabs.socialLinks")}</CardTitle>
           <Button
             type="button"
             onClick={() => {

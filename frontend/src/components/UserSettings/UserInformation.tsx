@@ -1,14 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Pencil, Save } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { CircleHelp, Pencil, Save } from "lucide-react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { type PlayerSettingsPublic, PlayersService } from "@/client"
+import { CountryFlag, getCountryName } from "@/components/Common/CountryFlag"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { extractErrorMessage } from "@/utils"
@@ -18,9 +25,13 @@ type FieldStatus = PlayerSettingsPublic["alias"]
 function FieldHint({
   status,
   locked,
+  availableLabel,
+  soonFallback,
 }: {
   status: FieldStatus
   locked?: boolean
+  availableLabel: string
+  soonFallback: string
 }) {
   if (locked) {
     return null
@@ -29,11 +40,11 @@ function FieldHint({
   if (!status.can_change && status.next_available_at) {
     return (
       <p className="text-xs text-muted-foreground">
-        Available{" "}
+        {availableLabel}{" "}
         <FormattedDateTime
           value={status.next_available_at}
           display="contextual-relative"
-          fallback="soon"
+          fallback={soonFallback}
         />
       </p>
     )
@@ -44,7 +55,77 @@ function FieldHint({
 
 const settingsQueryKey = ["player-settings"]
 
+function AliasLabel({
+  label,
+  tooltip,
+  ariaLabel,
+}: {
+  label: string
+  tooltip: string
+  ariaLabel: string
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{label}</span>
+      <Tooltip delayDuration={150}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={ariaLabel}
+          >
+            <CircleHelp className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent sideOffset={8} className="max-w-64">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  )
+}
+
+function ReadonlyField({
+  label,
+  labelNode,
+  value,
+  valueClassName,
+}: {
+  label: string
+  labelNode?: ReactNode
+  value: string
+  valueClassName?: string
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-sm text-muted-foreground">{labelNode ?? label}</p>
+      <p className={valueClassName ?? "font-medium"}>{value}</p>
+    </div>
+  )
+}
+
+function ReadonlyCountryField({
+  label,
+  countryCode,
+  countryName,
+}: {
+  label: string
+  countryCode: string | null
+  countryName: string
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <div className="flex items-center gap-2 font-medium">
+        <CountryFlag countryCode={countryCode} showTooltip={false} />
+        <span>{countryName}</span>
+      </div>
+    </div>
+  )
+}
+
 const UserInformation = () => {
+  const { t, i18n } = useTranslation()
   const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
@@ -100,21 +181,21 @@ const UserInformation = () => {
 
       if (aliasInput !== initialValues.alias) {
         if (!alias) {
-          throw new Error("Alias cannot be blank.")
+          throw new Error(t("settings.profile.errors.aliasBlank"))
         }
         requestBody.alias = alias
       }
 
       if (customIdInput !== initialValues.customId) {
         if (!customId) {
-          throw new Error("Custom ID cannot be blank.")
+          throw new Error(t("settings.profile.errors.customIdBlank"))
         }
         requestBody.custom_id = customId
       }
 
       if (countryInput !== initialValues.country) {
         if (!countryInput) {
-          throw new Error("Country cannot be cleared.")
+          throw new Error(t("settings.profile.errors.countryCleared"))
         }
         requestBody.country = countryInput
       }
@@ -124,7 +205,7 @@ const UserInformation = () => {
     onSuccess: (data) => {
       queryClient.setQueryData(settingsQueryKey, data)
       setIsEditing(false)
-      showSuccessToast("Profile settings updated.")
+      showSuccessToast(t("settings.profile.toast.updated"))
     },
     onError: (error) => {
       showErrorToast(extractErrorMessage(error))
@@ -149,11 +230,14 @@ const UserInformation = () => {
   const customIdDisabled =
     !isEditing || settings?.custom_id.can_change === false || mutation.isPending
   const countryDisabled = !isEditing || mutation.isPending
+  const countryDisplayName =
+    getCountryName(countryInput, i18n.resolvedLanguage) ??
+    t("common.unknownCountry")
 
   return (
     <Card className="max-w-2xl">
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <CardTitle>Profile</CardTitle>
+        <CardTitle>{t("settings.profile.title")}</CardTitle>
         {isEditing ? (
           <div className="flex items-center gap-2">
             <Button
@@ -167,7 +251,7 @@ const UserInformation = () => {
                 setIsEditing(false)
               }}
             >
-              Cancel
+              {t("settings.profile.actions.cancel")}
             </Button>
             <LoadingButton
               type="submit"
@@ -176,7 +260,7 @@ const UserInformation = () => {
               disabled={!dirty || settingsQuery.isLoading}
             >
               <Save className="size-4" />
-              Save
+              {t("settings.profile.actions.save")}
             </LoadingButton>
           </div>
         ) : (
@@ -187,7 +271,7 @@ const UserInformation = () => {
             onClick={() => setIsEditing(true)}
           >
             <Pencil className="size-4" />
-            Edit
+            {t("settings.profile.actions.edit")}
           </Button>
         )}
       </CardHeader>
@@ -202,68 +286,130 @@ const UserInformation = () => {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm text-muted-foreground">Steam name</p>
-              <p className="font-medium">{player?.name ?? "Unknown"}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("settings.profile.fields.steamName")}
+              </p>
+              <p className="font-medium">
+                {player?.name ?? t("settings.profile.fallbacks.notSet")}
+              </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Steam ID64</p>
+              <p className="text-sm text-muted-foreground">
+                {t("settings.profile.fields.steamId64")}
+              </p>
               <p className="font-mono text-sm">{currentUser.steamid64}</p>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label htmlFor="settings-alias" className="text-sm font-medium">
-                Alias
-              </label>
-              <Input
-                id="settings-alias"
-                value={aliasInput}
-                maxLength={25}
-                disabled={aliasDisabled}
-                placeholder="Alias"
-                onChange={(event) => setAliasInput(event.target.value)}
-              />
-              {settings ? <FieldHint status={settings.alias} /> : null}
-            </div>
+          {isEditing ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="settings-alias"
+                    className="inline-flex items-center text-sm font-medium"
+                  >
+                    <AliasLabel
+                      label={t("settings.profile.fields.alias")}
+                      tooltip={t("settings.profile.aliasInfo")}
+                      ariaLabel={t("settings.profile.aliasInfoAria")}
+                    />
+                  </label>
+                  <Input
+                    id="settings-alias"
+                    value={aliasInput}
+                    maxLength={25}
+                    disabled={aliasDisabled}
+                    placeholder={t("settings.profile.placeholders.alias")}
+                    onChange={(event) => setAliasInput(event.target.value)}
+                  />
+                  {settings ? (
+                    <FieldHint
+                      status={settings.alias}
+                      availableLabel={t("settings.profile.available")}
+                      soonFallback={t("settings.profile.soon")}
+                    />
+                  ) : null}
+                </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="settings-custom-id"
-                className="text-sm font-medium"
-              >
-                Custom ID
-              </label>
-              <Input
-                id="settings-custom-id"
-                value={customIdInput}
-                maxLength={25}
-                disabled={customIdDisabled}
-                placeholder="custom-id"
-                onChange={(event) => setCustomIdInput(event.target.value)}
-              />
-              {settings ? <FieldHint status={settings.custom_id} /> : null}
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="settings-custom-id"
+                    className="text-sm font-medium"
+                  >
+                    {t("settings.profile.fields.customId")}
+                  </label>
+                  <Input
+                    id="settings-custom-id"
+                    value={customIdInput}
+                    maxLength={25}
+                    disabled={customIdDisabled}
+                    placeholder={t("settings.profile.placeholders.customId")}
+                    onChange={(event) => setCustomIdInput(event.target.value)}
+                  />
+                  {settings ? (
+                    <FieldHint
+                      status={settings.custom_id}
+                      availableLabel={t("settings.profile.available")}
+                      soonFallback={t("settings.profile.soon")}
+                    />
+                  ) : null}
+                </div>
+              </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Country</span>
-              <CountryPicker
-                value={countryInput}
-                onChange={setCountryInput}
-                placeholder="Select a country"
-                clearLabel="Clear country"
-                disabled={countryDisabled}
-              />
-              {settings ? (
-                <FieldHint
-                  status={settings.country}
-                  locked={settings.country_locked}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">
+                    {t("settings.profile.fields.countryRegion")}
+                  </span>
+                  <CountryPicker
+                    value={countryInput}
+                    onChange={setCountryInput}
+                    placeholder={t("settings.profile.placeholders.country")}
+                    clearLabel={t("settings.profile.clearCountry")}
+                    disabled={countryDisabled}
+                  />
+                  {settings ? (
+                    <FieldHint
+                      status={settings.country}
+                      locked={settings.country_locked}
+                      availableLabel={t("settings.profile.available")}
+                      soonFallback={t("settings.profile.soon")}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ReadonlyField
+                  value={aliasInput || t("settings.profile.fallbacks.notSet")}
+                  label={t("settings.profile.fields.alias")}
+                  labelNode={
+                    <AliasLabel
+                      label={t("settings.profile.fields.alias")}
+                      tooltip={t("settings.profile.aliasInfo")}
+                      ariaLabel={t("settings.profile.aliasInfoAria")}
+                    />
+                  }
                 />
-              ) : null}
+                <ReadonlyField
+                  value={
+                    customIdInput || t("settings.profile.fallbacks.notSet")
+                  }
+                  label={t("settings.profile.fields.customId")}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ReadonlyCountryField
+                  label={t("settings.profile.fields.countryRegion")}
+                  countryCode={countryInput}
+                  countryName={countryDisplayName}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </form>
       </CardContent>
     </Card>

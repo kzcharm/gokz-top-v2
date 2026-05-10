@@ -154,6 +154,43 @@ export const zhCN = {
       webhooks: "Webhooks",
       appearance: "外观",
     },
+    profile: {
+      title: "个人资料",
+      aliasInfo:
+        "设置别名后，即使 Steam 名称发生变化，排行榜上也能保持名称一致。这也能帮助其他人更容易认出你。",
+      aliasInfoAria: "别名说明",
+      available: "可再次修改于",
+      soon: "即将",
+      clearCountry: "清除国家/地区",
+      actions: {
+        edit: "编辑",
+        save: "保存",
+        cancel: "取消",
+      },
+      fields: {
+        steamName: "Steam 名称",
+        steamId64: "SteamID64",
+        alias: "别名",
+        customId: "自定义 ID",
+        countryRegion: "国家 / 地区",
+      },
+      placeholders: {
+        alias: "别名",
+        customId: "custom-id",
+        country: "选择国家/地区",
+      },
+      fallbacks: {
+        notSet: "未设置",
+      },
+      errors: {
+        aliasBlank: "别名不能为空。",
+        customIdBlank: "自定义 ID 不能为空。",
+        countryCleared: "国家/地区不能为空。",
+      },
+      toast: {
+        updated: "个人资料设置已更新。",
+      },
+    },
     appearance: {
       themeTitle: "主题",
       themeDescription: "选择此浏览器中网站的显示方式。",
