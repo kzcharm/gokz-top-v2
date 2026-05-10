@@ -232,8 +232,8 @@ test.describe("Profile and theme", () => {
 
     await page.getByRole("button", { name: "Replace and verify" }).click()
 
-    await expect(page.getByText("Twitch account verified")).toBeVisible()
-    await expect(page.getByText("verifiedstreamer")).toBeVisible()
+    await expect(page.getByText("Confirm Twitch account")).toHaveCount(0)
+    await expect(page.getByText(/^verifiedstreamer$/)).toBeVisible()
     await expect(page.getByText("Unverified")).toHaveCount(1)
     await expect(page.getByText("oldstreamer")).toHaveCount(0)
   })
