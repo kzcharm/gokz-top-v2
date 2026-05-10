@@ -279,15 +279,14 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
 
-  await page.evaluate(() => {
-    localStorage.setItem("gokz-app-scope", "OVR")
-  })
   await page.reload()
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.locator('[data-testid="map-card-kz_alpha"] h2')).toHaveCSS(
     "user-select",
     "text",
   )
+  await page.getByRole("button", { name: "Select record scope" }).click()
+  await page.getByRole("menuitemradio", { name: "OVR" }).click()
 
   await page
     .getByTestId("map-card-kz_alpha")
