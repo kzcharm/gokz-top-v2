@@ -287,6 +287,11 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   )
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "OVR" }).click()
+  await expect(
+    page.getByRole("button", { name: "Select record scope" }),
+  ).toContainText("OVR")
+  await page.reload()
+  await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
 
   await page
     .getByTestId("map-card-kz_alpha")
