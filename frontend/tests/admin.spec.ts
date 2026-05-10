@@ -32,15 +32,12 @@ test.describe("Map admin access", () => {
     await expect(page).toHaveURL(/\/admin\/maps$/)
     await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
 
-    await page.goto("/")
     const adminButton = page.getByRole("button", {
       name: "Admin",
       exact: true,
     })
     const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
-    if ((await adminButton.getAttribute("aria-expanded")) !== "true") {
-      await adminButton.click()
-    }
+    await expect(adminButton).toHaveAttribute("aria-expanded", "true")
 
     await expect(
       adminSubmenu.getByRole("link", { name: "Maps", exact: true }),
@@ -132,15 +129,12 @@ test.describe("Server owner access", () => {
     await expect(page).toHaveURL(/\/admin\/servers$/)
     await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
 
-    await page.goto("/")
     const adminButton = page.getByRole("button", {
       name: "Admin",
       exact: true,
     })
     const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
-    if ((await adminButton.getAttribute("aria-expanded")) !== "true") {
-      await adminButton.click()
-    }
+    await expect(adminButton).toHaveAttribute("aria-expanded", "true")
 
     await expect(
       adminSubmenu.getByRole("link", { name: "Servers", exact: true }),
@@ -353,7 +347,6 @@ test.describe("Admin social links", () => {
     await editDialog
       .getByLabel("URL")
       .fill("https://github.com/social-admin-updated")
-    await editDialog.getByRole("switch", { name: "Verified" }).click()
     await editDialog.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("social-admin-updated")).toBeVisible()
     await expect(page.getByText("No", { exact: true })).toBeVisible()

@@ -48,8 +48,7 @@ test("Auth callback stores token from hash and redirects", async ({
 })
 
 test("Redirects to /login when token is wrong", async ({ page }) => {
-  await page.goto("/settings")
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     localStorage.setItem("access_token", "invalid_token")
   })
   await page.goto("/settings")

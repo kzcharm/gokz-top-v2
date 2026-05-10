@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
+import { randomSteamid64 } from "./utils/random"
+import { logInUser } from "./utils/user"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -450,9 +452,9 @@ test("Public servers page downloads a generic config for the visible sorted serv
     .getByPlaceholder("Search IP, hostname, map, city, group...")
     .fill("kz_")
 
-  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
-  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
-  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
+  await expect(page.getByText("Alpha Seed")).toBeVisible()
+  await expect(page.getByText("Gamma Live")).toBeVisible()
+  await expect(page.getByText("Bravo Offline")).toHaveCount(0)
 
   const downloadPromise = page.waitForEvent("download")
   await page.getByTestId("download-servers-config-button").click()
@@ -553,8 +555,6 @@ test("Logged-in users can add a server from the servers page", async ({
   page,
 }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("access_token", "test-token")
-
     class MockWebSocket {
       static CONNECTING = 0
       static OPEN = 1
@@ -582,23 +582,7 @@ test("Logged-in users can add a server from the servers page", async ({
       value: MockWebSocket,
     })
   })
-
-  await page.route(/\/v1\/users\/me$/, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        steamid64: "76561198000000001",
-        roles: [],
-        is_active: true,
-        player: {
-          steamid64: "76561198000000001",
-          name: "Runner One",
-          avatar_hash: null,
-        },
-      }),
-    })
-  })
+  await logInUser(page, randomSteamid64())
 
   await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
     if (route.request().method() === "POST") {
@@ -625,6 +609,7 @@ test("Logged-in users can add a server from the servers page", async ({
   await page.goto("/servers")
 
   await page.getByTestId("add-server-button").click()
+  await expect(page.getByRole("heading", { name: "Add Server" })).toBeVisible()
   await page.getByTestId("add-server-address-input").fill("10.0.0.4:27018")
   await page.getByRole("button", { name: "Add" }).click()
 

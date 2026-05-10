@@ -125,7 +125,7 @@ test.describe("Profile and theme", () => {
     await page.getByRole("button", { name: "Add" }).click()
 
     const popupPromise = page.waitForEvent("popup")
-    await page.getByRole("button", { name: "Link with Twitch" }).click()
+    await page.getByRole("button", { name: "Twitch" }).click()
     await popupPromise
 
     links = [
@@ -338,9 +338,8 @@ test.describe("Profile and theme", () => {
     await page.getByRole("button", { name: "Save" }).click()
 
     await expect(page.getByText("Webhook added")).toBeVisible()
-    await expect(
-      page.getByText("123456789012345678/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-    ).toBeVisible()
+    await expect(page.getByText("Discord webhook")).toBeVisible()
+    await expect(page.getByText("aaaa...")).toBeVisible()
 
     await page.getByRole("switch").click()
     await expect(page.getByText("Webhook updated")).toBeVisible()
@@ -359,9 +358,7 @@ test.describe("Profile and theme", () => {
       )
     await page.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("Webhook updated")).toBeVisible()
-    await expect(
-      page.getByText("987654321098765432/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
-    ).toBeVisible()
+    await expect(page.getByText("bbbb...")).toBeVisible()
 
     await page.getByRole("button", { name: "Delete Discord webhook" }).click()
     await expect(page.getByText("Webhook deleted")).toBeVisible()

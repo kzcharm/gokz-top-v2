@@ -124,13 +124,13 @@ test("Live page switches between live and offline streams", async ({
   await expect(page.getByText("Live now")).not.toBeVisible()
   await expect(page.getByAltText("Live Alias stream preview")).toHaveAttribute(
     "src",
-    /http:\/\/localhost:8000\/v1\/live\/preview-image\?/,
+    /http:\/\/(?:localhost|backend):8000\/v1\/live\/preview-image\?/,
   )
   await expect(
     page.getByAltText("Live Alias live keyframe preview"),
   ).toHaveAttribute(
     "src",
-    /http:\/\/localhost:8000\/v1\/live\/preview-image\?url=.*live-key-frame/,
+    /http:\/\/(?:localhost|backend):8000\/v1\/live\/preview-image\?url=.*live-key-frame/,
   )
   await expect(
     page.getByAltText("Twitch Player stream preview"),

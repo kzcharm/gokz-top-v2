@@ -393,7 +393,15 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
     })
   })
 
+  const followSummaryResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return (
+      response.request().method() === "GET" &&
+      /\/v1\/players\/[^/]+\/follow-summary$/.test(url.pathname)
+    )
+  })
   await page.goto(`/profile/${targetSteamid64}`)
+  await followSummaryResponsePromise
 
   await expect(page.getByTestId("profile-followers-card")).toContainText("5")
   await page.getByTestId("profile-identity-surface").click({ button: "right" })

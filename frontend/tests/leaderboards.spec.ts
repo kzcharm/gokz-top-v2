@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
+import { issueSessionToken } from "./utils/privateApi"
 
 type GraphqlPlayer = {
   steamid64: string
@@ -404,11 +405,17 @@ test.describe("Leaderboards page", () => {
 
   test("find me jumps to the signed-in player's leaderboard page", async ({
     page,
+    request,
   }) => {
-    await page.addInitScript(() => {
-      localStorage.clear()
-      localStorage.setItem("access_token", "header.payload.signature")
+    const { accessToken } = await issueSessionToken({
+      request,
+      steamid64: 76561198000000042,
+      name: "Find Me Player",
     })
+    await page.addInitScript((token) => {
+      localStorage.clear()
+      localStorage.setItem("access_token", token)
+    }, accessToken)
     await stubRegions(page)
     await stubPlayerGraphql(page, {
       playersBySteamid64: {
@@ -526,6 +533,7 @@ test.describe("Leaderboards page", () => {
 
   test("country and region filters are mutually exclusive and affect requests", async ({
     page,
+    request,
   }) => {
     const leaderboardRequests: Array<{
       country: string | null
@@ -536,10 +544,15 @@ test.describe("Leaderboards page", () => {
       region: string | null
     }> = []
 
-    await page.addInitScript(() => {
-      localStorage.clear()
-      localStorage.setItem("access_token", "header.payload.signature")
+    const { accessToken } = await issueSessionToken({
+      request,
+      steamid64: 76561198000000042,
+      name: "Find Me Player",
     })
+    await page.addInitScript((token) => {
+      localStorage.clear()
+      localStorage.setItem("access_token", token)
+    }, accessToken)
     await stubRegions(page)
     await stubPlayerGraphql(page, {
       playersBySteamid64: {
@@ -748,7 +761,7 @@ test.describe("Leaderboards page", () => {
       page.getByRole("button", { name: "Go to first page" }),
     ).toBeVisible()
     await expect(
-      page.getByRole("textbox", { name: "Current page, 1 total pages" }),
+      page.getByRole("spinbutton", { name: "Current page, 1 total pages" }),
     ).toHaveValue("1")
 
     await page.getByRole("button", { name: "Ratings" }).click()

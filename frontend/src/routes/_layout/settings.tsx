@@ -44,13 +44,18 @@ export const Route = createFileRoute("/_layout/settings")({
     }
 
     if (location.pathname === "/settings") {
-      const requestedTab = new URLSearchParams(location.search).get("tab")
+      const searchParams = new URLSearchParams(location.search)
+      const requestedTab = searchParams.get("tab")
       const targetTab = SETTINGS_TAB_OPTIONS.find(
         (tab) => tab.value === requestedTab,
       )
+      searchParams.delete("tab")
+      const nextSearch = searchParams.toString()
 
       throw redirect({
-        to: targetTab?.to ?? "/settings/profile",
+        href: `${targetTab?.to ?? "/settings/profile"}${
+          nextSearch ? `?${nextSearch}` : ""
+        }`,
       })
     }
   },

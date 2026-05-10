@@ -1,10 +1,10 @@
 import { expect, type Page, type Route, test } from "@playwright/test"
+import { issueSessionToken } from "./utils/privateApi"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
 const currentUserSteamid64 = "76561198000000001"
 const otherUserSteamid64 = "76561198000000022"
-const accessToken = "test-review-token"
 const mapId = 980200
 const mapName = "kz_alpha"
 
@@ -168,10 +168,6 @@ async function installMapReviewRoutes(page: Page) {
       },
     },
   ]
-
-  await page.addInitScript((token) => {
-    localStorage.setItem("access_token", token)
-  }, accessToken)
 
   await stubRegions(page)
 
@@ -489,7 +485,16 @@ async function installProfileReviewRoutes(
 
 test("Map detail review dialog prefills latest review, saves website review, and deletes comments", async ({
   page,
+  request,
 }) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: Number(currentUserSteamid64),
+    name: "Review Runner",
+  })
+  await page.addInitScript((token) => {
+    localStorage.setItem("access_token", token)
+  }, accessToken)
   await installMapReviewRoutes(page)
 
   await page.goto(`/maps/${mapName}`)
@@ -520,7 +525,15 @@ test("Map detail review dialog prefills latest review, saves website review, and
   )
 })
 
-test("Own profile map context menu includes Add review", async ({ page }) => {
+test("Own profile map context menu includes Add review", async ({
+  page,
+  request,
+}) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: Number(currentUserSteamid64),
+    name: "Review Runner",
+  })
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
   }, accessToken)
@@ -536,7 +549,13 @@ test("Own profile map context menu includes Add review", async ({ page }) => {
 
 test("Other player profile map context menu omits Add review", async ({
   page,
+  request,
 }) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: Number(currentUserSteamid64),
+    name: "Review Runner",
+  })
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
   }, accessToken)
