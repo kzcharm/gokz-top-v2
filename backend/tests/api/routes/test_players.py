@@ -23,7 +23,11 @@ from app.models import (
 )
 from app.services import globalapi_ban_sync, player_steam_profile
 from tests.utils.user import authentication_token_from_steamid
-from tests.utils.utils import get_user_token_headers, random_steamid64
+from tests.utils.utils import (
+    get_superuser_token_headers,
+    get_user_token_headers,
+    random_steamid64,
+)
 
 
 async def _create_player(
@@ -1204,6 +1208,102 @@ async def test_update_current_player_settings_enforces_custom_id_cooldown(
 
 
 @pytest.mark.asyncio
+async def test_update_current_player_settings_allows_superuser_to_bypass_cooldowns(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = settings.SUPER_USER_STEAMID64
+    player = await db.get(Player, steamid64)
+    if player is None:
+        player = await _create_player(
+            db=db,
+            steamid64=steamid64,
+            name="Superuser Settings",
+            custom_id="superuser-settings",
+        )
+    else:
+        player.name = "Superuser Settings"
+        player.custom_id = "superuser-settings"
+        db.add(player)
+        await db.commit()
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.ALIAS,
+        changed_at=datetime.now(UTC),
+    )
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.CUSTOM_ID,
+        changed_at=datetime.now(UTC),
+    )
+    headers = await get_superuser_token_headers(client)
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"alias": "Super Alias", "custom_id": "super-bypass"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player"]["alias"] == "Super Alias"
+    assert payload["player"]["custom_id"] == "super-bypass"
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.alias == "Super Alias"
+    assert refreshed.custom_id == "super-bypass"
+
+
+@pytest.mark.asyncio
+async def test_read_current_player_settings_hides_cooldowns_for_superuser(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = settings.SUPER_USER_STEAMID64
+    player = await db.get(Player, steamid64)
+    if player is None:
+        player = await _create_player(
+            db=db,
+            steamid64=steamid64,
+            name="Superuser Settings Read",
+            custom_id="superuser-settings-read",
+        )
+    else:
+        player.name = "Superuser Settings Read"
+        player.custom_id = "superuser-settings-read"
+        db.add(player)
+        await db.commit()
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.ALIAS,
+        changed_at=datetime.now(UTC),
+    )
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.CUSTOM_ID,
+        changed_at=datetime.now(UTC),
+    )
+    headers = await get_superuser_token_headers(client)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["alias"]["can_change"] is True
+    assert payload["alias"]["next_available_at"] is None
+    assert payload["custom_id"]["can_change"] is True
+    assert payload["custom_id"]["next_available_at"] is None
+
+
+@pytest.mark.asyncio
 async def test_update_current_player_settings_rejects_custom_id_conflict(
     client: AsyncClient,
     db: AsyncSession,
@@ -1230,6 +1330,57 @@ async def test_update_current_player_settings_rejects_custom_id_conflict(
 
     assert response.status_code == 409
     assert response.json()["detail"] == "custom_id is already in use"
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_rejects_alias_with_non_english_characters(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db=db, steamid64=steamid64, name="Alias Validation")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"alias": "赛发东方"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == (
+        "Value error, alias can only use English letters, numbers, spaces, '-' or '_'"
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_rejects_custom_id_with_spaces(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db=db, steamid64=steamid64, name="Custom ID Validation")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"custom_id": "bad id"},
+    )
+
+    assert response.status_code == 422
+    assert (
+        response.json()["detail"][0]["msg"]
+        == "Value error, custom_id can only use English letters, numbers, '-' or '_'"
+    )
 
 
 @pytest.mark.asyncio

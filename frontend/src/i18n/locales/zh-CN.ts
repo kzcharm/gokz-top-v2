@@ -184,7 +184,10 @@ export const zhCN = {
       },
       errors: {
         aliasBlank: "别名不能为空。",
+        aliasInvalidChars: "别名只能使用英文字母、数字、空格、'-' 和 '_'。",
         customIdBlank: "自定义 ID 不能为空。",
+        customIdInvalidChars: "自定义 ID 只能使用英文字母、数字、'-' 和 '_'。",
+        customIdMissingLetter: "自定义 ID 必须至少包含一个英文字母。",
         countryCleared: "国家/地区不能为空。",
       },
       toast: {

@@ -14,6 +14,7 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
     get_current_user,
+    user_has_role,
 )
 from app.core.config import settings
 from app.crud import player as player_crud
@@ -51,6 +52,7 @@ from app.models import (
     PlayerWebhookUpdate,
     RecordType,
     User,
+    UserRole,
 )
 from app.services.bilibili_social_link_verification import (
     BilibiliProfileFetchError,
@@ -72,8 +74,8 @@ from app.services.player_steam_profile import (
 )
 from app.services.player_webhooks import (
     DiscordWebhookStreamEvent,
-    build_player_profile_url,
     build_discord_embed_payload,
+    build_player_profile_url,
     send_discord_webhook,
 )
 from app.services.twitch_social_link_verification import (
@@ -1238,7 +1240,11 @@ async def read_current_player_settings(
     )
     if player is None:
         raise HTTPException(status_code=404, detail="Player not found")
-    return await crud.get_player_settings(session=session, player=player)
+    return await crud.get_player_settings(
+        session=session,
+        player=player,
+        bypass_rate_limits=user_has_role(current_user, UserRole.SUPERUSER),
+    )
 
 
 @router.get("/me/webhooks", response_model=PlayerWebhooksPublic)
@@ -1387,6 +1393,7 @@ async def update_current_player_settings(
             session=session,
             player=player,
             settings_in=body,
+            bypass_rate_limits=user_has_role(current_user, UserRole.SUPERUSER),
         )
     except crud.PlayerSettingsConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

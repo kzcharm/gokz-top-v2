@@ -10,6 +10,8 @@ from sqlmodel import Field, SQLModel
 from .utils import get_datetime_utc
 
 MAX_PLAYER_CUSTOM_ID_LENGTH = 25
+PLAYER_ALIAS_PATTERN = re.compile(r"^[A-Za-z0-9 _-]+$")
+PLAYER_CUSTOM_ID_ALLOWED_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 PLAYER_CUSTOM_ID_PATTERN = re.compile(r"^[a-z0-9_-]*[a-z][a-z0-9_-]*$")
 
 
@@ -24,9 +26,13 @@ def validate_player_custom_id(custom_id: str | None) -> str | None:
         raise ValueError(
             f"custom_id must be at most {MAX_PLAYER_CUSTOM_ID_LENGTH} characters"
         )
+    if not PLAYER_CUSTOM_ID_ALLOWED_PATTERN.fullmatch(normalized):
+        raise ValueError(
+            "custom_id can only use English letters, numbers, '-' or '_'"
+        )
     if not PLAYER_CUSTOM_ID_PATTERN.fullmatch(normalized):
         raise ValueError(
-            "custom_id must contain at least one letter and only use letters, numbers, '-' or '_'"
+            "custom_id must contain at least one English letter"
         )
     return normalized
 
@@ -37,6 +43,17 @@ def normalize_player_alias(alias: str | None) -> str | None:
 
     normalized = alias.strip()
     return normalized or None
+
+
+def validate_player_settings_alias(alias: str | None) -> str | None:
+    normalized = normalize_player_alias(alias)
+    if normalized is None:
+        return None
+    if not PLAYER_ALIAS_PATTERN.fullmatch(normalized):
+        raise ValueError(
+            "alias can only use English letters, numbers, spaces, '-' or '_'"
+        )
+    return normalized
 
 
 def normalize_player_country(country: str | None) -> str | None:

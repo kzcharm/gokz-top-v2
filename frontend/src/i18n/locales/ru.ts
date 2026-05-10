@@ -185,7 +185,13 @@ export const ru = {
       },
       errors: {
         aliasBlank: "Псевдоним не может быть пустым.",
+        aliasInvalidChars:
+          "Псевдоним может содержать только английские буквы, цифры, пробелы, '-' и '_'.",
         customIdBlank: "Custom ID не может быть пустым.",
+        customIdInvalidChars:
+          "Custom ID может содержать только английские буквы, цифры, '-' и '_'.",
+        customIdMissingLetter:
+          "Custom ID должен содержать хотя бы одну английскую букву.",
         countryCleared: "Страну нельзя очистить.",
       },
       toast: {

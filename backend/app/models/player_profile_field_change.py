@@ -9,9 +9,9 @@ from sqlmodel import Field, SQLModel
 from .player import (
     MAX_PLAYER_CUSTOM_ID_LENGTH,
     PlayerPublic,
-    normalize_player_alias,
     normalize_player_country,
     validate_player_custom_id,
+    validate_player_settings_alias,
 )
 from .utils import get_datetime_utc
 
@@ -76,7 +76,7 @@ class PlayerSettingsUpdate(SQLModel):
     @field_validator("alias", mode="after")
     @classmethod
     def normalize_alias(cls, value: str | None) -> str | None:
-        return normalize_player_alias(value)
+        return validate_player_settings_alias(value)
 
     @field_validator("custom_id", mode="after")
     @classmethod

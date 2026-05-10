@@ -834,7 +834,11 @@ async def update_player(
 
 
 async def get_player_settings(
-    *, session: AsyncSession, player: Player, now: datetime | None = None
+    *,
+    session: AsyncSession,
+    player: Player,
+    now: datetime | None = None,
+    bypass_rate_limits: bool = False,
 ) -> PlayerSettingsPublic:
     resolved_now = now or datetime.now(UTC)
     changes = await get_player_profile_field_changes(
@@ -845,16 +849,23 @@ async def get_player_settings(
     custom_id_changed_at = changes.get(PlayerProfileField.CUSTOM_ID)
     country_changed_at = changes.get(PlayerProfileField.COUNTRY)
     country_locked = country_changed_at is not None
+    alias_status = build_player_profile_field_status(
+        changed_at=alias_changed_at.changed_at if alias_changed_at else None,
+        now=resolved_now,
+    )
+    custom_id_status = build_player_profile_field_status(
+        changed_at=custom_id_changed_at.changed_at if custom_id_changed_at else None,
+        now=resolved_now,
+    )
+    if bypass_rate_limits:
+        alias_status.can_change = True
+        alias_status.next_available_at = None
+        custom_id_status.can_change = True
+        custom_id_status.next_available_at = None
     return PlayerSettingsPublic(
         player=to_player_public(player=player),
-        alias=build_player_profile_field_status(
-            changed_at=alias_changed_at.changed_at if alias_changed_at else None,
-            now=resolved_now,
-        ),
-        custom_id=build_player_profile_field_status(
-            changed_at=custom_id_changed_at.changed_at if custom_id_changed_at else None,
-            now=resolved_now,
-        ),
+        alias=alias_status,
+        custom_id=custom_id_status,
         country=PlayerProfileFieldStatus(
             last_changed_at=country_changed_at.changed_at if country_changed_at else None,
             next_available_at=None,
@@ -886,10 +897,16 @@ async def update_player_settings(
     session: AsyncSession,
     player: Player,
     settings_in: PlayerSettingsUpdate,
+    bypass_rate_limits: bool = False,
 ) -> PlayerSettingsPublic:
     now = datetime.now(UTC)
     player_data = settings_in.model_dump(exclude_unset=True)
-    current_settings = await get_player_settings(session=session, player=player, now=now)
+    current_settings = await get_player_settings(
+        session=session,
+        player=player,
+        now=now,
+        bypass_rate_limits=bypass_rate_limits,
+    )
     changed_fields: list[PlayerProfileField] = []
 
     if "alias" in player_data:
@@ -898,10 +915,11 @@ async def update_player_settings(
             value=settings_in.alias,
         )
         if alias != player.alias:
-            _ensure_can_change_field(
-                field_name=PlayerProfileField.ALIAS.value,
-                status=current_settings.alias,
-            )
+            if not bypass_rate_limits:
+                _ensure_can_change_field(
+                    field_name=PlayerProfileField.ALIAS.value,
+                    status=current_settings.alias,
+                )
             player.alias = alias
             changed_fields.append(PlayerProfileField.ALIAS)
 
@@ -911,10 +929,11 @@ async def update_player_settings(
             value=settings_in.custom_id,
         )
         if custom_id != player.custom_id:
-            _ensure_can_change_field(
-                field_name=PlayerProfileField.CUSTOM_ID.value,
-                status=current_settings.custom_id,
-            )
+            if not bypass_rate_limits:
+                _ensure_can_change_field(
+                    field_name=PlayerProfileField.CUSTOM_ID.value,
+                    status=current_settings.custom_id,
+                )
             existing_player = await _get_player_by_custom_id(
                 session=session,
                 custom_id=custom_id,
@@ -949,7 +968,12 @@ async def update_player_settings(
         await session.commit()
         await session.refresh(player)
 
-    return await get_player_settings(session=session, player=player, now=now)
+    return await get_player_settings(
+        session=session,
+        player=player,
+        now=now,
+        bypass_rate_limits=bypass_rate_limits,
+    )
 
 
 async def load_website_user_steamid64s(

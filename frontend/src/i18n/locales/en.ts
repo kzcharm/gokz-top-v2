@@ -184,7 +184,13 @@ export const en = {
       },
       errors: {
         aliasBlank: "Alias cannot be blank.",
+        aliasInvalidChars:
+          "Alias can only use English letters, numbers, spaces, '-' or '_'.",
         customIdBlank: "Custom ID cannot be blank.",
+        customIdInvalidChars:
+          "Custom ID can only use English letters, numbers, '-' or '_'.",
+        customIdMissingLetter:
+          "Custom ID must contain at least one English letter.",
         countryCleared: "Country cannot be cleared.",
       },
       toast: {

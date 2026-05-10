@@ -22,6 +22,36 @@ import { extractErrorMessage } from "@/utils"
 
 type FieldStatus = PlayerSettingsPublic["alias"]
 
+const aliasPattern = /^[A-Za-z0-9 _-]+$/
+const customIdAllowedPattern = /^[A-Za-z0-9_-]+$/
+const customIdLetterPattern = /[A-Za-z]/
+
+function validateAliasInput(
+  alias: string,
+  t: (key: string) => string,
+): string | null {
+  if (!aliasPattern.test(alias)) {
+    return t("settings.profile.errors.aliasInvalidChars")
+  }
+
+  return null
+}
+
+function validateCustomIdInput(
+  customId: string,
+  t: (key: string) => string,
+): string | null {
+  if (!customIdAllowedPattern.test(customId)) {
+    return t("settings.profile.errors.customIdInvalidChars")
+  }
+
+  if (!customIdLetterPattern.test(customId)) {
+    return t("settings.profile.errors.customIdMissingLetter")
+  }
+
+  return null
+}
+
 function FieldHint({
   status,
   locked,
@@ -183,12 +213,20 @@ const UserInformation = () => {
         if (!alias) {
           throw new Error(t("settings.profile.errors.aliasBlank"))
         }
+        const aliasValidationError = validateAliasInput(alias, t)
+        if (aliasValidationError) {
+          throw new Error(aliasValidationError)
+        }
         requestBody.alias = alias
       }
 
       if (customIdInput !== initialValues.customId) {
         if (!customId) {
           throw new Error(t("settings.profile.errors.customIdBlank"))
+        }
+        const customIdValidationError = validateCustomIdInput(customId, t)
+        if (customIdValidationError) {
+          throw new Error(customIdValidationError)
         }
         requestBody.custom_id = customId
       }
