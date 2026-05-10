@@ -431,22 +431,14 @@ test("Public servers page downloads a generic config for the visible sorted serv
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(seedServers),
+      body: JSON.stringify({
+        count: snapshotServers.servers.length,
+        data: snapshotServers.servers,
+      }),
     })
   })
 
   await page.goto("/servers")
-
-  await page.waitForFunction(() => {
-    return (
-      Array.isArray((window as any).__mockServerSockets) &&
-      (window as any).__mockServerSockets.length > 0
-    )
-  })
-
-  await page.evaluate((payload) => {
-    ;(window as any).__dispatchServerMessage(payload)
-  }, snapshotServers)
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
 
   await page
