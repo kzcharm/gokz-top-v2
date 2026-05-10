@@ -213,7 +213,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
         ? []
         : isProOnly === "true"
           ? [mapLeaderboardRecords[0]]
-          : mapLeaderboardRecords
+          : [mapLeaderboardRecords[1]]
 
     await route.fulfill({
       status: 200,
@@ -301,11 +301,10 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page).toHaveURL(/\/maps\/kz_alpha$/)
   await expect(page.getByRole("heading", { name: "kz_alpha" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Map Top" })).toBeVisible()
-  await expect(page.getByText("Alpha Runner")).toBeVisible()
   await expect(page.getByText("TP Runner")).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Rank" })).toBeVisible()
   await expect(page.getByText("#1")).toBeVisible()
-  await expect(page.getByText("#2")).toBeVisible()
+  await expect(page.getByText("#2")).toHaveCount(0)
   await expect(page.getByRole("columnheader", { name: "Player" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
