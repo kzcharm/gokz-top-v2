@@ -293,17 +293,14 @@ ${serverCountLabel}
           emphasis: {
             scale: false,
             focus: "none",
-              label: {
-                show: true,
-                color: textColor,
-                fontWeight: 600,
-                formatter: (params: {
-                  name?: string
-                  value?: unknown
-                }) => {
-                  const value = Number(params.value ?? 0)
-                  const percentage =
-                    activeTotalSeconds > 0
+            label: {
+              show: true,
+              color: textColor,
+              fontWeight: 600,
+              formatter: (params: { name?: string; value?: unknown }) => {
+                const value = Number(params.value ?? 0)
+                const percentage =
+                  activeTotalSeconds > 0
                     ? ((value / activeTotalSeconds) * 100).toFixed(1)
                     : "0.0"
                 return `${String(params.name ?? "")}\n${percentage}%`
@@ -337,10 +334,7 @@ ${serverCountLabel}
                 show: shouldShowLabel,
                 color: textColor,
                 fontWeight: 600,
-                formatter: (params: {
-                  name?: string
-                  value?: unknown
-                }) => {
+                formatter: (params: { name?: string; value?: unknown }) => {
                   const value = Number(params.value ?? 0)
                   const percentage =
                     activeTotalSeconds > 0
