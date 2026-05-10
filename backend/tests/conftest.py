@@ -15,9 +15,14 @@ os.environ["ENABLE_TEST_AUTH_HELPERS"] = "true"
 
 from app.api.deps import get_db
 from app.core.config import settings
-from app.core.db import async_engine, engine, init_db
+from app.core.db import (
+    LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
+    async_engine,
+    engine,
+    init_db,
+)
 from app.main import app
-from app.models import PlayerProfileView, User
+from app.models import PlayerProfileView, PlayerWebhook, User
 from app.services.server_status import maintain_server_heartbeat_partitions
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_superuser_token_headers, random_steamid64
@@ -85,6 +90,11 @@ async def db() -> AsyncGenerator[AsyncSession]:
             join_transaction_mode="create_savepoint",
         ) as session:
             try:
+                await session.exec(
+                    delete(PlayerWebhook).where(
+                        PlayerWebhook.url == LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL
+                    )
+                )
                 yield session
             finally:
                 await session.close()
