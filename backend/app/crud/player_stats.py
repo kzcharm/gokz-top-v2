@@ -1,4 +1,5 @@
-from datetime import UTC, date, datetime, time
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -13,6 +14,11 @@ from app.models import (
     PlayerDailyActivityDayPublic,
     PlayerDailyActivityPublic,
     PlayerDailyActivityStatPublic,
+    PlayerMostPlayedServerContentPublic,
+    PlayerMostPlayedServerEntryPublic,
+    PlayerMostPlayedServerPeriodPublic,
+    PlayerMostPlayedServerPublic,
+    PlayerMostPlayedServerStatPublic,
     PlayerPlaytimeCacheContent,
     PlayerPlaytimeContentPublic,
     PlayerPlaytimeCursor,
@@ -22,6 +28,8 @@ from app.models import (
     PlayerStatsPublic,
     PlayerStatType,
     Record,
+    ServerGlobalapi,
+    ServerGroup,
     get_datetime_utc,
 )
 
@@ -44,6 +52,10 @@ def _start_datetime_for_utc_date(value: date) -> datetime:
 
 def _quantize_seconds(value: Decimal | float | int | str) -> float:
     return float(Decimal(str(value)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP))
+
+
+def _to_utc_datetime(value: datetime) -> datetime:
+    return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 def _normalize_daily_activity_content(content: Any) -> PlayerDailyActivityContentPublic:
@@ -72,6 +84,21 @@ def _serialize_playtime_cache_content(
     return content.model_dump(mode="json", exclude_none=True)
 
 
+def _normalize_most_played_server_content(
+    content: Any,
+) -> PlayerMostPlayedServerContentPublic:
+    try:
+        return PlayerMostPlayedServerContentPublic.model_validate(content)
+    except ValidationError:
+        return PlayerMostPlayedServerContentPublic()
+
+
+def _serialize_most_played_server_content(
+    content: PlayerMostPlayedServerContentPublic,
+) -> dict[str, Any]:
+    return content.model_dump(mode="json", exclude_none=True)
+
+
 def _to_player_daily_activity_stat_public(
     cache_row: PlayerStatCache,
 ) -> PlayerDailyActivityStatPublic:
@@ -92,6 +119,56 @@ def _to_player_playtime_stat_public(
         type=cache_row.type,
         updated_at=cache_row.updated_at,
         content=PlayerPlaytimeContentPublic(total_seconds=content.total_seconds),
+    )
+
+
+def _to_player_most_played_server_stat_public(
+    cache_row: PlayerStatCache,
+) -> PlayerMostPlayedServerStatPublic:
+    return PlayerMostPlayedServerStatPublic(
+        steamid64=str(cache_row.steamid64),
+        type=cache_row.type,
+        updated_at=cache_row.updated_at,
+        content=_normalize_most_played_server_content(cache_row.content),
+    )
+
+
+@dataclass(slots=True)
+class _MostPlayedServerBucket:
+    key: str
+    label: str
+    group_id: str | None
+    server_ids: set[int]
+    total_seconds: Decimal
+
+
+def _bucket_sort_key(bucket: _MostPlayedServerBucket) -> tuple[Decimal, str, str]:
+    return (-bucket.total_seconds, bucket.label.casefold(), bucket.key)
+
+
+def _build_most_played_server_entry(
+    bucket: _MostPlayedServerBucket,
+) -> PlayerMostPlayedServerEntryPublic:
+    return PlayerMostPlayedServerEntryPublic(
+        key=bucket.key,
+        label=bucket.label,
+        total_seconds=_quantize_seconds(bucket.total_seconds),
+        server_count=len(bucket.server_ids),
+        server_ids=sorted(bucket.server_ids),
+        group_id=bucket.group_id,
+    )
+
+
+def _build_most_played_server_period_public(
+    buckets: dict[str, _MostPlayedServerBucket],
+) -> PlayerMostPlayedServerPeriodPublic:
+    ordered_buckets = sorted(buckets.values(), key=_bucket_sort_key)
+    total_seconds = sum(
+        (bucket.total_seconds for bucket in ordered_buckets), Decimal("0")
+    )
+    return PlayerMostPlayedServerPeriodPublic(
+        total_seconds=_quantize_seconds(total_seconds),
+        entries=[_build_most_played_server_entry(bucket) for bucket in ordered_buckets],
     )
 
 
@@ -270,6 +347,151 @@ async def rebuild_player_playtime_stat(
     return _to_player_playtime_stat_public(persisted)
 
 
+async def _load_most_played_server_rows(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+) -> list[tuple[datetime, Decimal, int, str | None, Any, str | None]]:
+    statement = (
+        select(
+            col(Record.created_at),
+            col(Record.time),
+            col(ServerGlobalapi.id),
+            col(ServerGlobalapi.name),
+            col(ServerGlobalapi.group_id),
+            col(ServerGroup.name),
+        )
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .where(col(Record.steamid64) == steamid64)
+        .order_by(col(Record.created_at).asc(), col(Record.id).asc())
+    )
+    rows = (await session.exec(statement)).all()
+    return [
+        (
+            row[0],
+            Decimal(row[1]),
+            int(row[2]),
+            row[3],
+            row[4],
+            row[5],
+        )
+        for row in rows
+    ]
+
+
+async def rebuild_player_most_played_server_stat(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    now: datetime | None = None,
+) -> PlayerMostPlayedServerStatPublic:
+    current_now = _to_utc_datetime(now or get_datetime_utc())
+    rows = await _load_most_played_server_rows(
+        session=session,
+        steamid64=steamid64,
+    )
+
+    first_year = _to_utc_datetime(rows[0][0]).year if rows else None
+    current_year = current_now.year
+    years = list(range(first_year, current_year + 1)) if first_year is not None else []
+    rolling_start = current_now - timedelta(days=365)
+
+    all_time_buckets: dict[str, _MostPlayedServerBucket] = {}
+    last_365_days_buckets: dict[str, _MostPlayedServerBucket] = {}
+    yearly_buckets: dict[int, dict[str, _MostPlayedServerBucket]] = {
+        year: {} for year in years
+    }
+
+    def add_bucket(
+        bucket_map: dict[str, _MostPlayedServerBucket],
+        *,
+        bucket_key: str,
+        label: str,
+        group_id: str | None,
+        server_id: int,
+        total_seconds: Decimal,
+    ) -> None:
+        bucket = bucket_map.get(bucket_key)
+        if bucket is None:
+            bucket_map[bucket_key] = _MostPlayedServerBucket(
+                key=bucket_key,
+                label=label,
+                group_id=group_id,
+                server_ids={server_id},
+                total_seconds=total_seconds,
+            )
+            return
+
+        bucket.server_ids.add(server_id)
+        bucket.total_seconds += total_seconds
+
+    for (
+        created_at,
+        record_time,
+        server_id,
+        server_name,
+        raw_group_id,
+        group_name,
+    ) in rows:
+        record_at = _to_utc_datetime(created_at)
+        group_id = str(raw_group_id) if raw_group_id is not None else None
+        bucket_key = f"group:{group_id}" if group_id is not None else f"server:{server_id}"
+        label = (
+            group_name
+            or server_name
+            or (f"Server Group {group_id}" if group_id is not None else f"Server #{server_id}")
+        )
+        total_seconds = Decimal(str(record_time))
+
+        add_bucket(
+            all_time_buckets,
+            bucket_key=bucket_key,
+            label=label,
+            group_id=group_id,
+            server_id=server_id,
+            total_seconds=total_seconds,
+        )
+        if record_at >= rolling_start:
+            add_bucket(
+                last_365_days_buckets,
+                bucket_key=bucket_key,
+                label=label,
+                group_id=group_id,
+                server_id=server_id,
+                total_seconds=total_seconds,
+            )
+        if record_at.year in yearly_buckets:
+            add_bucket(
+                yearly_buckets[record_at.year],
+                bucket_key=bucket_key,
+                label=label,
+                group_id=group_id,
+                server_id=server_id,
+                total_seconds=total_seconds,
+            )
+
+    content = PlayerMostPlayedServerContentPublic(
+        first_year=first_year,
+        current_year=current_year if first_year is not None else None,
+        years=years,
+        all_time=_build_most_played_server_period_public(all_time_buckets),
+        last_365_days=_build_most_played_server_period_public(last_365_days_buckets),
+        yearly={
+            str(year): _build_most_played_server_period_public(yearly_buckets[year])
+            for year in years
+        },
+    )
+    persisted = await _upsert_player_stat_cache(
+        session=session,
+        steamid64=steamid64,
+        stat_type=PlayerStatType.MOST_PLAYED_SERVER,
+        content=_serialize_most_played_server_content(content),
+        updated_at=current_now,
+    )
+    return _to_player_most_played_server_stat_public(persisted)
+
+
 async def get_or_rebuild_player_daily_activity_stat(
     *,
     session: AsyncSession,
@@ -316,6 +538,29 @@ async def get_or_rebuild_player_playtime_stat(
     )
 
 
+async def get_or_rebuild_player_most_played_server_stat(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    now: datetime | None = None,
+) -> PlayerMostPlayedServerStatPublic:
+    current_now = now or get_datetime_utc()
+    cache_row = await session.get(
+        PlayerStatCache,
+        (steamid64, PlayerStatType.MOST_PLAYED_SERVER),
+    )
+    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(
+        now=current_now
+    ):
+        return _to_player_most_played_server_stat_public(cache_row)
+
+    return await rebuild_player_most_played_server_stat(
+        session=session,
+        steamid64=steamid64,
+        now=current_now,
+    )
+
+
 async def get_or_rebuild_player_stats(
     *,
     session: AsyncSession,
@@ -347,6 +592,17 @@ async def get_or_rebuild_player_stats(
         payload.playtime = PlayerPlaytimePublic(
             updated_at=playtime.updated_at,
             total_seconds=playtime.content.total_seconds,
+        )
+
+    if PlayerStatType.MOST_PLAYED_SERVER in requested_types:
+        most_played_server = await get_or_rebuild_player_most_played_server_stat(
+            session=session,
+            steamid64=steamid64,
+            now=current_now,
+        )
+        payload.most_played_server = PlayerMostPlayedServerPublic(
+            updated_at=most_played_server.updated_at,
+            **most_played_server.content.model_dump(),
         )
 
     return payload

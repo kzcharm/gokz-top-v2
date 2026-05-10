@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-05-07
+- Last Updated: 2026-05-10
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -82,7 +82,7 @@ Scope model:
 - `/live` lists player-centric verified stream cards sourced from verified Bilibili and Twitch links, with filters for live versus previously streamed players.
 - Offline `/live` cards must show the most recently observed stream across a player's enabled platforms, so future multi-platform support can prefer the newest Twitch/YouTube/Bilibili activity rather than a fixed platform order.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).
-- Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity and total playtime available on the profile.
+- Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity, total playtime, and most-played-server breakdowns available on the profile.
 - Shareable, fast-loading profile UI with clear information hierarchy.
 
 ### 5.5 Servers and Live Status

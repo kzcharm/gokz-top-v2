@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-05-07
+- Last Updated: 2026-05-10
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -22,7 +22,7 @@
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by a single midnight-UTC rank pipeline plus repair/backfill CLIs
   - The maps leaderboard is materialized in `cache.map_leaderboard`, keyed by `(map_id, scope)`, derived from raw valid stage-0 `record` rows, and joined with scoped map tiers plus map review summaries at read time
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
-  - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity plus total playtime aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry
+  - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity, total playtime, and a grouped most-played-server breakdown aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
   - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds
   - Player sessions snapshot GeoIP country/region/city at ingest time for admin-only shared-IP traversal across exact IP, `/24`, and `/16 + city` buckets

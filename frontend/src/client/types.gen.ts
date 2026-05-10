@@ -446,6 +446,32 @@ export type PlayerLeaderboardsPublic = {
     count: number;
 };
 
+export type PlayerMostPlayedServerEntryPublic = {
+    key: string;
+    label: string;
+    total_seconds?: number;
+    server_count?: number;
+    server_ids?: Array<(number)>;
+    group_id?: (string | null);
+};
+
+export type PlayerMostPlayedServerPeriodPublic = {
+    total_seconds?: number;
+    entries?: Array<PlayerMostPlayedServerEntryPublic>;
+};
+
+export type PlayerMostPlayedServerPublic = {
+    first_year?: (number | null);
+    current_year?: (number | null);
+    years?: Array<(number)>;
+    all_time?: PlayerMostPlayedServerPeriodPublic;
+    last_365_days?: PlayerMostPlayedServerPeriodPublic;
+    yearly?: {
+        [key: string]: PlayerMostPlayedServerPeriodPublic;
+    };
+    updated_at: string;
+};
+
 export type PlayerPinnedRecordPublic = {
     id: string;
     player_steamid64: string;
@@ -602,9 +628,10 @@ export type PlayerStatsPublic = {
     steamid64: string;
     daily_activity?: (PlayerDailyActivityPublic | null);
     playtime?: (PlayerPlaytimePublic | null);
+    most_played_server?: (PlayerMostPlayedServerPublic | null);
 };
 
-export type PlayerStatType = 'daily_activity' | 'playtime';
+export type PlayerStatType = 'daily_activity' | 'playtime' | 'most_played_server';
 
 export type PlayerUpdate = {
     alias?: (string | null);

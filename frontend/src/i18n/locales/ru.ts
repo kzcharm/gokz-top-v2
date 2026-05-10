@@ -281,7 +281,7 @@ export const ru = {
     },
     activity: {
       title: "Активность",
-      latest: "Последнее",
+      latest: "Недавнее",
       latestRange: "последние 365 дней",
       loadFailed: "Сейчас не удаётся загрузить дневную активность.",
       emptyState: "В период {{range}} не найдено отправленных рекордов.",
@@ -355,6 +355,24 @@ export const ru = {
       permanent: "Постоянный",
       temporary: "Временный",
       noNotes: "Заметки отсутствуют.",
+    },
+    stats: {
+      title: "Самый играемый сервер",
+      subtitle:
+        "Доля времени на рекордах по группе серверов или отдельному серверу.",
+      allTime: "За всё время",
+      last365Days: "Недавнее",
+      play: "Воспроизвести",
+      pause: "Пауза",
+      totalPlaytime: "Всего {{total}}",
+      empty: "Для этого представления не найдено времени на рекордах.",
+      loadFailed: "Не удалось загрузить статистику.",
+      ariaLabel: "Диаграмма самых играемых серверов для {{view}}",
+      tooltipHours: "Время игры: {{hours}} {{percent}}%",
+      tooltipServers_one: "{{count}} сервер",
+      tooltipServers_few: "{{count}} сервера",
+      tooltipServers_many: "{{count}} серверов",
+      tooltipServers_other: "{{count}} сервера",
     },
     placeholder: {
       badge: "Скоро",

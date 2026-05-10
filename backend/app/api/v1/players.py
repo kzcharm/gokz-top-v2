@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app import crud
 from app.api.deps import (
@@ -23,10 +23,13 @@ from app.models import (
     ModeScope,
     Player,
     PlayerBanStatusCheckPublic,
+    PlayerDailyActivityPublic,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
+    PlayerMostPlayedServerPublic,
     PlayerPinnedRecordsPublic,
     PlayerPinnedRecordUpsert,
+    PlayerPlaytimePublic,
     PlayerProfileViewsPublic,
     PlayerPublic,
     PlayersBatchPublic,
@@ -112,6 +115,37 @@ async def _get_player_or_404(*, session: SessionDep, identifier: str) -> Player:
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     return player
+
+
+def _drop_null_group_ids(payload: dict[str, Any]) -> None:
+    most_played_server = payload.get("most_played_server")
+    if not isinstance(most_played_server, dict):
+        return
+
+    for period_key in ("all_time", "last_365_days"):
+        period = most_played_server.get(period_key)
+        if not isinstance(period, dict):
+            continue
+        entries = period.get("entries")
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("group_id") is None:
+                entry.pop("group_id", None)
+
+    yearly = most_played_server.get("yearly")
+    if not isinstance(yearly, dict):
+        return
+
+    for period in yearly.values():
+        if not isinstance(period, dict):
+            continue
+        entries = period.get("entries")
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("group_id") is None:
+                entry.pop("group_id", None)
 
 
 async def _resolve_player_identifier_to_steamid64_or_404(
@@ -423,19 +457,59 @@ async def read_player_pinned_records(
 @router.get(
     "/{identifier:path}/stats",
     response_model=PlayerStatsPublic,
-    response_model_exclude_none=True,
+    response_model_exclude_none=False,
 )
 async def read_player_stats(
     identifier: str,
     session: SessionDep,
     type: Annotated[PlayerStatType | None, Query()] = None,
-) -> PlayerStatsPublic:
+) -> JSONResponse:
     player = await _get_player_or_404(session=session, identifier=identifier)
-    return await crud.get_or_rebuild_player_stats(
+    if type is not None:
+        if type == PlayerStatType.DAILY_ACTIVITY:
+            daily_activity = await crud.get_or_rebuild_player_daily_activity_stat(
+                session=session,
+                steamid64=player.steamid64,
+            )
+            payload = PlayerDailyActivityPublic(
+                updated_at=daily_activity.updated_at,
+                **daily_activity.content.model_dump(mode="json"),
+            )
+        elif type == PlayerStatType.PLAYTIME:
+            playtime = await crud.get_or_rebuild_player_playtime_stat(
+                session=session,
+                steamid64=player.steamid64,
+            )
+            payload = PlayerPlaytimePublic(
+                updated_at=playtime.updated_at,
+                **playtime.content.model_dump(mode="json"),
+            )
+        else:
+            most_played_server = (
+                await crud.get_or_rebuild_player_most_played_server_stat(
+                    session=session,
+                    steamid64=player.steamid64,
+                )
+            )
+            payload = PlayerMostPlayedServerPublic(
+                updated_at=most_played_server.updated_at,
+                **most_played_server.content.model_dump(mode="json"),
+            )
+        response_payload = {
+            "steamid64": str(player.steamid64),
+            type.value: payload.model_dump(mode="json"),
+        }
+        _drop_null_group_ids(response_payload)
+        return JSONResponse(content=response_payload)
+
+    stats = await crud.get_or_rebuild_player_stats(
         session=session,
         steamid64=player.steamid64,
         stat_type=type,
     )
+    response_payload = stats.model_dump(mode="json")
+    _drop_null_group_ids(response_payload)
+    return JSONResponse(content=response_payload)
 
 
 @router.get(

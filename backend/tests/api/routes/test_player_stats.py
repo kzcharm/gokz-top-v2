@@ -17,6 +17,7 @@ from app.models import (
     RecordPb,
     ServerGlobalapi,
 )
+from tests.utils.server import create_server_group as create_test_server_group
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -45,7 +46,13 @@ async def _create_map(db: AsyncSession, *, id: int, name: str) -> None:
     await db.commit()
 
 
-async def _create_server(db: AsyncSession, *, id: int, name: str) -> None:
+async def _create_server(
+    db: AsyncSession,
+    *,
+    id: int,
+    name: str,
+    group_id=None,
+) -> None:
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
     db.add(
@@ -54,6 +61,7 @@ async def _create_server(db: AsyncSession, *, id: int, name: str) -> None:
             port=27015,
             ip=f"203.0.113.{id % 255}",
             name=name,
+            group_id=group_id,
             owner_steamid64=76561198000000010,
             approval_status=1,
             approved_by_steamid64=76561198000000020,
@@ -180,6 +188,50 @@ async def test_read_player_stats_builds_cache_on_first_read(
             "updated_at": _json_datetime(now),
             "total_seconds": 30.0,
         },
+        "most_played_server": {
+            "updated_at": _json_datetime(now),
+            "first_year": 2026,
+            "current_year": 2026,
+            "years": [2026],
+            "all_time": {
+                "total_seconds": 30.0,
+                "entries": [
+                    {
+                        "key": "server:982100",
+                        "label": "Activity Server",
+                        "total_seconds": 30.0,
+                        "server_count": 1,
+                        "server_ids": [982100],
+                    }
+                ],
+            },
+            "last_365_days": {
+                "total_seconds": 30.0,
+                "entries": [
+                    {
+                        "key": "server:982100",
+                        "label": "Activity Server",
+                        "total_seconds": 30.0,
+                        "server_count": 1,
+                        "server_ids": [982100],
+                    }
+                ],
+            },
+            "yearly": {
+                "2026": {
+                    "total_seconds": 30.0,
+                    "entries": [
+                        {
+                            "key": "server:982100",
+                            "label": "Activity Server",
+                            "total_seconds": 30.0,
+                            "server_count": 1,
+                            "server_ids": [982100],
+                        }
+                    ],
+                }
+            },
+        },
     }
 
     daily_activity_cache = await db.get(
@@ -219,6 +271,121 @@ async def test_read_player_stats_supports_type_filter(
         "playtime": {
             "updated_at": _json_datetime(now),
             "total_seconds": 15.25,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_player_stats_supports_most_played_server_type_filter(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 2, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Grouped Filter Runner")
+    await _create_map(db, id=981130, name="kz_group_filter")
+    server_group, _ = await create_test_server_group(
+        db,
+        name=f"House of Climb EU GOKZ VIP {steamid64}",
+    )
+    await _create_server(
+        db,
+        id=982130,
+        name="House of Climb EU GOKZ VIP #1",
+        group_id=server_group.id,
+    )
+    await _create_server(
+        db,
+        id=982131,
+        name="House of Climb EU GOKZ VIP #2",
+        group_id=server_group.id,
+    )
+    await _create_record(
+        db,
+        id=983130,
+        steamid64=steamid64,
+        map_id=981130,
+        server_id=982130,
+        created_on=datetime(2025, 8, 1, 8, 0, tzinfo=UTC),
+        time_seconds="10.000",
+    )
+    await _create_record(
+        db,
+        id=983131,
+        steamid64=steamid64,
+        map_id=981130,
+        server_id=982131,
+        created_on=datetime(2026, 2, 1, 8, 0, tzinfo=UTC),
+        time_seconds="15.000",
+    )
+
+    monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: now)
+
+    response = await client.get(_stats_url(steamid64, "most_played_server"))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "steamid64": str(steamid64),
+        "most_played_server": {
+            "updated_at": _json_datetime(now),
+            "first_year": 2025,
+            "current_year": 2026,
+            "years": [2025, 2026],
+            "all_time": {
+                "total_seconds": 25.0,
+                "entries": [
+                    {
+                        "key": f"group:{server_group.id}",
+                        "label": server_group.name,
+                        "total_seconds": 25.0,
+                        "server_count": 2,
+                        "server_ids": [982130, 982131],
+                        "group_id": str(server_group.id),
+                    }
+                ],
+            },
+            "last_365_days": {
+                "total_seconds": 25.0,
+                "entries": [
+                    {
+                        "key": f"group:{server_group.id}",
+                        "label": server_group.name,
+                        "total_seconds": 25.0,
+                        "server_count": 2,
+                        "server_ids": [982130, 982131],
+                        "group_id": str(server_group.id),
+                    }
+                ],
+            },
+            "yearly": {
+                "2025": {
+                    "total_seconds": 10.0,
+                    "entries": [
+                        {
+                            "key": f"group:{server_group.id}",
+                            "label": server_group.name,
+                            "total_seconds": 10.0,
+                            "server_count": 1,
+                            "server_ids": [982130],
+                            "group_id": str(server_group.id),
+                        }
+                    ],
+                },
+                "2026": {
+                    "total_seconds": 15.0,
+                    "entries": [
+                        {
+                            "key": f"group:{server_group.id}",
+                            "label": server_group.name,
+                            "total_seconds": 15.0,
+                            "server_count": 1,
+                            "server_ids": [982131],
+                            "group_id": str(server_group.id),
+                        }
+                    ],
+                },
+            },
         },
     }
 
@@ -343,6 +510,50 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
             "updated_at": _json_datetime(refresh_now),
             "total_seconds": 36.0,
         },
+        "most_played_server": {
+            "updated_at": _json_datetime(refresh_now),
+            "first_year": 2026,
+            "current_year": 2026,
+            "years": [2026],
+            "all_time": {
+                "total_seconds": 36.0,
+                "entries": [
+                    {
+                        "key": "server:982100",
+                        "label": "Activity Server",
+                        "total_seconds": 36.0,
+                        "server_count": 1,
+                        "server_ids": [982100],
+                    }
+                ],
+            },
+            "last_365_days": {
+                "total_seconds": 36.0,
+                "entries": [
+                    {
+                        "key": "server:982100",
+                        "label": "Activity Server",
+                        "total_seconds": 36.0,
+                        "server_count": 1,
+                        "server_ids": [982100],
+                    }
+                ],
+            },
+            "yearly": {
+                "2026": {
+                    "total_seconds": 36.0,
+                    "entries": [
+                        {
+                            "key": "server:982100",
+                            "label": "Activity Server",
+                            "total_seconds": 36.0,
+                            "server_count": 1,
+                            "server_ids": [982100],
+                        }
+                    ],
+                }
+            },
+        },
     }
 
     daily_activity_cache = await db.get(
@@ -378,6 +589,21 @@ async def test_read_player_stats_returns_empty_payload_and_writes_cache(
         "playtime": {
             "updated_at": _json_datetime(now),
             "total_seconds": 0.0,
+        },
+        "most_played_server": {
+            "updated_at": _json_datetime(now),
+            "first_year": None,
+            "current_year": None,
+            "years": [],
+            "all_time": {
+                "total_seconds": 0.0,
+                "entries": [],
+            },
+            "last_365_days": {
+                "total_seconds": 0.0,
+                "entries": [],
+            },
+            "yearly": {},
         },
     }
 

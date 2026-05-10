@@ -23,9 +23,9 @@ import {
   ProfileCompletionSection,
   ProfileHomeContent,
 } from "./ProfileHomeContent"
-import { ProfilePlaceholderPanel } from "./ProfilePlaceholderPanel"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
+import { ProfileStatsContent } from "./ProfileStatsContent"
 import { ProfileTabs } from "./ProfileTabs"
 import { ProfileUnfinishedTab } from "./ProfileUnfinishedTab"
 import { getPointsRankLabel } from "./profile-ranks"
@@ -101,7 +101,7 @@ export function ProfilePage({
   const playerStatsQuery = useQuery({
     ...getProfileStatsQueryOptions(
       canonicalIdentifier,
-      activeTab === "home" ? null : "playtime",
+      activeTab === "records" || activeTab === "unfinished" ? "playtime" : null,
     ),
     enabled: canonicalIdentifier !== null,
   })
@@ -588,7 +588,13 @@ export function ProfilePage({
               proRecordsError={proRecordsQuery.isError}
             />
           ) : (
-            <ProfilePlaceholderPanel player={player} activeTab="stats" />
+            <ProfileStatsContent
+              error={playerStatsQuery.isError}
+              loading={playerStatsQuery.isLoading}
+              mostPlayedServer={
+                playerStatsQuery.data?.most_played_server ?? null
+              }
+            />
           )}
         </section>
       </div>

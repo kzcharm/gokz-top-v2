@@ -16,6 +16,7 @@ from app.models import (
     RecordPb,
     ServerGlobalapi,
 )
+from tests.utils.server import create_server_group as create_test_server_group
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -44,7 +45,13 @@ async def _create_map(db: AsyncSession, *, id: int, name: str) -> None:
     await db.commit()
 
 
-async def _create_server(db: AsyncSession, *, id: int, name: str) -> None:
+async def _create_server(
+    db: AsyncSession,
+    *,
+    id: int,
+    name: str,
+    group_id=None,
+) -> None:
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
     db.add(
@@ -53,6 +60,7 @@ async def _create_server(db: AsyncSession, *, id: int, name: str) -> None:
             port=27015,
             ip=f"203.0.113.{id % 255}",
             name=name,
+            group_id=group_id,
             owner_steamid64=76561198000000010,
             approval_status=1,
             approved_by_steamid64=76561198000000020,
@@ -249,6 +257,97 @@ async def test_rebuild_player_playtime_stat_upserts_existing_cache_row(
             "total_before_latest_day": 20.0,
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_rebuild_player_most_played_server_stat_groups_by_server_group(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 4, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Grouped Runner")
+    await _create_map(db, id=981230, name="kz_grouped")
+    grouped_server_group, _ = await create_test_server_group(
+        db,
+        name=f"FemboyKZ | EU | Public | 128t VNL Global {steamid64}",
+    )
+    solo_server_group, _ = await create_test_server_group(
+        db,
+        name=f"House of Climb NA GOKZ #1 {steamid64}",
+    )
+    await _create_server(
+        db,
+        id=982230,
+        name="FemboyKZ | EU | Public | 128t VNL Global #1",
+        group_id=grouped_server_group.id,
+    )
+    await _create_server(
+        db,
+        id=982231,
+        name="FemboyKZ | EU | Public | 128t VNL Global #2",
+        group_id=grouped_server_group.id,
+    )
+    await _create_server(
+        db,
+        id=982232,
+        name="House of Climb NA GOKZ #1",
+        group_id=solo_server_group.id,
+    )
+    await _create_record(
+        db,
+        id=983230,
+        steamid64=steamid64,
+        map_id=981230,
+        server_id=982230,
+        created_on=datetime(2024, 1, 15, 8, 0, tzinfo=UTC),
+        time_seconds="10.000",
+    )
+    await _create_record(
+        db,
+        id=983231,
+        steamid64=steamid64,
+        map_id=981230,
+        server_id=982231,
+        created_on=datetime(2025, 2, 15, 8, 0, tzinfo=UTC),
+        time_seconds="15.000",
+    )
+    await _create_record(
+        db,
+        id=983232,
+        steamid64=steamid64,
+        map_id=981230,
+        server_id=982232,
+        created_on=datetime(2025, 11, 15, 8, 0, tzinfo=UTC),
+        time_seconds="20.000",
+    )
+    await _create_record(
+        db,
+        id=983233,
+        steamid64=steamid64,
+        map_id=981230,
+        server_id=982230,
+        created_on=datetime(2026, 3, 15, 8, 0, tzinfo=UTC),
+        time_seconds="5.000",
+    )
+
+    stat = await crud.rebuild_player_most_played_server_stat(
+        session=db,
+        steamid64=steamid64,
+        now=now,
+    )
+
+    assert stat.content.first_year == 2024
+    assert stat.content.current_year == 2026
+    assert stat.content.years == [2024, 2025, 2026]
+    assert stat.content.all_time.total_seconds == 50.0
+    assert stat.content.last_365_days.total_seconds == 25.0
+    assert stat.content.yearly["2024"].total_seconds == 10.0
+    assert stat.content.yearly["2025"].total_seconds == 35.0
+    assert stat.content.yearly["2026"].total_seconds == 5.0
+    assert stat.content.all_time.entries[0].label == grouped_server_group.name
+    assert stat.content.all_time.entries[0].server_count == 2
+    assert stat.content.all_time.entries[0].server_ids == [982230, 982231]
+    assert stat.content.all_time.entries[1].label == solo_server_group.name
 
 
 @pytest.mark.asyncio

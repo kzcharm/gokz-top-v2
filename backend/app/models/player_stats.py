@@ -17,6 +17,7 @@ def _enum_values(enum_class: type[StrEnum]) -> list[str]:
 class PlayerStatType(StrEnum):
     DAILY_ACTIVITY = "daily_activity"
     PLAYTIME = "playtime"
+    MOST_PLAYED_SERVER = "most_played_server"
 
 
 class PlayerStatCache(SQLModel, table=True):
@@ -86,6 +87,46 @@ class PlayerPlaytimeStatPublic(SQLModel):
     content: PlayerPlaytimeContentPublic
 
 
+class PlayerMostPlayedServerEntryPublic(SQLModel):
+    key: str
+    label: str
+    total_seconds: float = Field(default=0, ge=0)
+    server_count: int = Field(default=0, ge=0)
+    server_ids: list[int] = Field(default_factory=list)
+    group_id: str | None = None
+
+
+class PlayerMostPlayedServerPeriodPublic(SQLModel):
+    total_seconds: float = Field(default=0, ge=0)
+    entries: list[PlayerMostPlayedServerEntryPublic] = Field(default_factory=list)
+
+
+class PlayerMostPlayedServerContentPublic(SQLModel):
+    first_year: int | None = None
+    current_year: int | None = None
+    years: list[int] = Field(default_factory=list)
+    all_time: PlayerMostPlayedServerPeriodPublic = Field(
+        default_factory=PlayerMostPlayedServerPeriodPublic
+    )
+    last_365_days: PlayerMostPlayedServerPeriodPublic = Field(
+        default_factory=PlayerMostPlayedServerPeriodPublic
+    )
+    yearly: dict[str, PlayerMostPlayedServerPeriodPublic] = Field(
+        default_factory=dict
+    )
+
+
+class PlayerMostPlayedServerStatPublic(SQLModel):
+    steamid64: str
+    type: PlayerStatType
+    updated_at: datetime
+    content: PlayerMostPlayedServerContentPublic
+
+
+class PlayerMostPlayedServerPublic(PlayerMostPlayedServerContentPublic):
+    updated_at: datetime
+
+
 class PlayerDailyActivityPublic(SQLModel):
     updated_at: datetime
     days: list[PlayerDailyActivityDayPublic] = Field(default_factory=list)
@@ -100,3 +141,4 @@ class PlayerStatsPublic(SQLModel):
     steamid64: str
     daily_activity: PlayerDailyActivityPublic | None = None
     playtime: PlayerPlaytimePublic | None = None
+    most_played_server: PlayerMostPlayedServerPublic | None = None

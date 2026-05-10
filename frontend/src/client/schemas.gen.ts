@@ -2203,6 +2203,127 @@ export const PlayerLeaderboardsPublicSchema = {
     title: 'PlayerLeaderboardsPublic'
 } as const;
 
+export const PlayerMostPlayedServerEntryPublicSchema = {
+    properties: {
+        key: {
+            type: 'string',
+            title: 'Key'
+        },
+        label: {
+            type: 'string',
+            title: 'Label'
+        },
+        total_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Seconds',
+            default: 0
+        },
+        server_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Server Count',
+            default: 0
+        },
+        server_ids: {
+            items: {
+                type: 'integer'
+            },
+            type: 'array',
+            title: 'Server Ids'
+        },
+        group_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Group Id'
+        }
+    },
+    type: 'object',
+    required: ['key', 'label'],
+    title: 'PlayerMostPlayedServerEntryPublic'
+} as const;
+
+export const PlayerMostPlayedServerPeriodPublicSchema = {
+    properties: {
+        total_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Seconds',
+            default: 0
+        },
+        entries: {
+            items: {
+                '$ref': '#/components/schemas/PlayerMostPlayedServerEntryPublic'
+            },
+            type: 'array',
+            title: 'Entries'
+        }
+    },
+    type: 'object',
+    title: 'PlayerMostPlayedServerPeriodPublic'
+} as const;
+
+export const PlayerMostPlayedServerPublicSchema = {
+    properties: {
+        first_year: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'First Year'
+        },
+        current_year: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current Year'
+        },
+        years: {
+            items: {
+                type: 'integer'
+            },
+            type: 'array',
+            title: 'Years'
+        },
+        all_time: {
+            '$ref': '#/components/schemas/PlayerMostPlayedServerPeriodPublic'
+        },
+        last_365_days: {
+            '$ref': '#/components/schemas/PlayerMostPlayedServerPeriodPublic'
+        },
+        yearly: {
+            additionalProperties: {
+                '$ref': '#/components/schemas/PlayerMostPlayedServerPeriodPublic'
+            },
+            type: 'object',
+            title: 'Yearly'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['updated_at'],
+    title: 'PlayerMostPlayedServerPublic'
+} as const;
+
 export const PlayerPinnedRecordPublicSchema = {
     properties: {
         id: {
@@ -2822,7 +2943,7 @@ export const PlayerSocialPlatformSchema = {
 
 export const PlayerStatTypeSchema = {
     type: 'string',
-    enum: ['daily_activity', 'playtime'],
+    enum: ['daily_activity', 'playtime', 'most_played_server'],
     title: 'PlayerStatType'
 } as const;
 
@@ -2846,6 +2967,16 @@ export const PlayerStatsPublicSchema = {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/PlayerPlaytimePublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        most_played_server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerMostPlayedServerPublic'
                 },
                 {
                     type: 'null'
