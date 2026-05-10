@@ -288,7 +288,9 @@ test("Profile stats renders the most played server pie chart with timeline playb
   ).toHaveAttribute("aria-label", /All time/)
 
   await page.getByTestId("profile-stats-playback-button").click()
-  await expect(page.getByText("Pause")).toBeVisible()
+  await expect(
+    page.getByTestId("profile-stats-playback-button"),
+  ).toHaveAttribute("aria-label", "Pause")
   await page.waitForTimeout(1800)
 
   await expect(page.getByTestId("profile-stats-view-2024")).toHaveClass(

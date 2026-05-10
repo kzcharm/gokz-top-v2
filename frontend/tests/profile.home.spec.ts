@@ -582,7 +582,7 @@ test("Profile home activity card shows empty-year message for players without ac
     page.getByText("No record submissions found in the latest 365 days."),
   ).toBeVisible()
   await expect(
-    page.getByTestId(/profile-activity-cell-.*-empty-0-0/),
+    page.getByTestId(/profile-activity-cell-.+/).first(),
   ).toHaveAttribute("data-activity-level", "0")
 })
 
