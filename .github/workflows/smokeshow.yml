@@ -21,12 +21,19 @@ jobs:
           python-version: "3.14"
       - run: pip install smokeshow
       - uses: actions/download-artifact@v7
+        id: coverage_artifact
+        continue-on-error: true
         with:
           name: coverage-html
           path: backend/htmlcov
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-      - run: smokeshow upload backend/htmlcov
+      - run: |
+          if test -f backend/htmlcov/index.html; then
+            smokeshow upload backend/htmlcov
+          else
+            echo "Coverage artifact unavailable; skipping Smokeshow upload."
+          fi
         env:
           SMOKESHOW_GITHUB_STATUS_DESCRIPTION: Coverage {coverage-percentage}
           SMOKESHOW_GITHUB_COVERAGE_THRESHOLD: 90

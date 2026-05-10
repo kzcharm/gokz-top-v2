@@ -77,6 +77,7 @@ jobs:
     - run: docker compose down -v --remove-orphans
     - name: Upload blob report to GitHub Actions Artifacts
       if: ${{ !cancelled() }}
+      continue-on-error: true
       uses: actions/upload-artifact@v6
       with:
         name: blob-report-${{ matrix.shardIndex }}
@@ -97,15 +98,27 @@ jobs:
     - name: Install dependencies
       run: bun ci
     - name: Download blob reports from GitHub Actions Artifacts
+      continue-on-error: true
       uses: actions/download-artifact@v7
       with:
         path: frontend/all-blob-reports
         pattern: blob-report-*
         merge-multiple: true
+    - name: Detect blob reports
+      id: blob_reports
+      run: |
+        if find frontend/all-blob-reports -type f | grep -q .; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+        fi
     - name: Merge into HTML Report
+      if: ${{ steps.blob_reports.outputs.found == 'true' }}
       run: bunx playwright merge-reports --reporter html ./all-blob-reports
       working-directory: frontend
     - name: Upload HTML report
+      if: ${{ steps.blob_reports.outputs.found == 'true' }}
+      continue-on-error: true
       uses: actions/upload-artifact@v6
       with:
         name: html-report--attempt-${{ github.run_attempt }}
