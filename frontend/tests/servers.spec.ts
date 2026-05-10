@@ -452,9 +452,9 @@ test("Public servers page downloads a generic config for the visible sorted serv
     .getByPlaceholder("Search IP, hostname, map, city, group...")
     .fill("kz_")
 
-  await expect(page.getByText("Alpha Seed")).toBeVisible()
-  await expect(page.getByText("Gamma Live")).toBeVisible()
-  await expect(page.getByText("Bravo Offline")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
 
   const downloadPromise = page.waitForEvent("download")
   await page.getByTestId("download-servers-config-button").click()

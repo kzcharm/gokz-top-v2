@@ -219,9 +219,7 @@ test.describe("Profile and theme", () => {
       "/settings?tab=social-links&twitchVerification=mismatch&linkId=019e0000-0000-7000-8000-000000000301&currentAccount=oldstreamer&authenticatedAccount=verifiedstreamer&authenticatedDisplayName=VerifiedStreamer&pendingToken=test-pending-token",
     )
 
-    await expect(
-      page.getByRole("tab", { name: "Social links" }),
-    ).toHaveAttribute("aria-selected", "true")
+    await expect(page).toHaveURL(/\/settings\/social-links(?:\?|$)/)
     await expect(
       page.getByRole("button", { name: "Verify" }).first(),
     ).toBeEnabled()
@@ -324,10 +322,7 @@ test.describe("Profile and theme", () => {
     )
 
     await page.goto("/settings?tab=webhooks")
-    await expect(page.getByRole("tab", { name: "Webhooks" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    )
+    await expect(page).toHaveURL(/\/settings\/webhooks$/)
 
     await page.getByRole("button", { name: /\+?\s*Add/ }).click()
     await page
@@ -338,8 +333,9 @@ test.describe("Profile and theme", () => {
     await page.getByRole("button", { name: "Save" }).click()
 
     await expect(page.getByText("Webhook added")).toBeVisible()
-    await expect(page.getByText("Discord webhook")).toBeVisible()
-    await expect(page.getByText("aaaa...")).toBeVisible()
+    await expect(
+      page.getByText("Discord webhook • aaaa...", { exact: true }),
+    ).toBeVisible()
 
     await page.getByRole("switch").click()
     await expect(page.getByText("Webhook updated")).toBeVisible()
@@ -358,7 +354,9 @@ test.describe("Profile and theme", () => {
       )
     await page.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("Webhook updated")).toBeVisible()
-    await expect(page.getByText("bbbb...")).toBeVisible()
+    await expect(
+      page.getByText("Discord webhook • bbbb...", { exact: true }),
+    ).toBeVisible()
 
     await page.getByRole("button", { name: "Delete Discord webhook" }).click()
     await expect(page.getByText("Webhook deleted")).toBeVisible()

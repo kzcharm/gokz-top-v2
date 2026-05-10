@@ -36,20 +36,20 @@ test.describe("Map admin access", () => {
       name: "Admin",
       exact: true,
     })
-    const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
+    const adminMenuItem = adminButton.locator("xpath=ancestor::li[1]")
     await expect(adminButton).toHaveAttribute("aria-expanded", "true")
 
     await expect(
-      adminSubmenu.getByRole("link", { name: "Maps", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Maps", exact: true }),
     ).toBeVisible()
     await expect(
-      adminSubmenu.getByRole("link", { name: "Users", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Users", exact: true }),
     ).toHaveCount(0)
     await expect(
-      adminSubmenu.getByRole("link", { name: "Players", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Players", exact: true }),
     ).toHaveCount(0)
     await expect(
-      adminSubmenu.getByRole("link", { name: "Servers", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Servers", exact: true }),
     ).toHaveCount(0)
   })
 
@@ -133,20 +133,20 @@ test.describe("Server owner access", () => {
       name: "Admin",
       exact: true,
     })
-    const adminSubmenu = page.locator('[data-sidebar="menu-sub"]')
+    const adminMenuItem = adminButton.locator("xpath=ancestor::li[1]")
     await expect(adminButton).toHaveAttribute("aria-expanded", "true")
 
     await expect(
-      adminSubmenu.getByRole("link", { name: "Servers", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Servers", exact: true }),
     ).toBeVisible()
     await expect(
-      adminSubmenu.getByRole("link", { name: "Maps", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Maps", exact: true }),
     ).toHaveCount(0)
     await expect(
-      adminSubmenu.getByRole("link", { name: "Users", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Users", exact: true }),
     ).toHaveCount(0)
     await expect(
-      adminSubmenu.getByRole("link", { name: "Players", exact: true }),
+      adminMenuItem.getByRole("link", { name: "Players", exact: true }),
     ).toHaveCount(0)
   })
 })
@@ -349,7 +349,11 @@ test.describe("Admin social links", () => {
       .fill("https://github.com/social-admin-updated")
     await editDialog.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("social-admin-updated")).toBeVisible()
-    await expect(page.getByText("No", { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole("switch", {
+        name: "Toggle verification for social-admin-updated",
+      }),
+    ).toHaveAttribute("aria-checked", "false")
 
     await page.getByRole("button", { name: "Delete social link" }).click()
     await expect(page.getByText("No social links found.")).toBeVisible()
