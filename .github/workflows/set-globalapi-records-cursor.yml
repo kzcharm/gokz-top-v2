@@ -100,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend python - <<'PY'
+          docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T -e CURSOR="${CURSOR}" backend python - <<'PY'
           import asyncio
           import os
 
