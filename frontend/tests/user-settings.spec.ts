@@ -225,7 +225,7 @@ test.describe("Profile and theme", () => {
     ).toBeEnabled()
     await expect(page.getByRole("button", { name: "Verify" })).toHaveCount(1)
     await expect(page.getByText("Confirm Twitch account")).toBeVisible()
-    await expect(page.getByText("VerifiedStreamer")).toBeVisible()
+    await expect(page.getByText(/^VerifiedStreamer$/)).toBeVisible()
     await expect(page.getByText("oldstreamer")).toBeVisible()
 
     await page.getByRole("button", { name: "Replace and verify" }).click()
@@ -337,7 +337,7 @@ test.describe("Profile and theme", () => {
 
     await page.getByRole("button", { name: "Send test" }).click()
     await expect(page.getByText("Webhook test sent")).toBeVisible()
-    await page.getByRole("button", { name: "Close" }).click()
+    await page.getByRole("dialog").locator('[data-slot="dialog-close"]').click()
     await expect(page.getByText("Last tested:")).toBeVisible()
 
     await page.getByRole("switch").click()

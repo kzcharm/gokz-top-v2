@@ -310,7 +310,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
 
   await page.getByRole("switch", { name: "Pro only" }).click()
-  await expect(page.getByText("Alpha Runner")).toBeVisible()
+  await expect
+    .poll(() => pbRequests.at(-1))
+    .toMatchObject({
+      mapId: `${seededMaps[0].id}`,
+      scope: "OVR",
+      isProOnly: "true",
+      country: null,
+      region: null,
+    })
   await expect(page.getByText("TP Runner")).toHaveCount(0)
 
   await page.getByRole("button", { name: /^(All countries|country)$/ }).click()

@@ -447,6 +447,7 @@ test("Public servers page downloads a generic config for the visible sorted serv
   await page.evaluate((payload) => {
     ;(window as any).__dispatchServerMessage(payload)
   }, snapshotServers)
+  await expect(page.getByText("Gamma Live").first()).toBeVisible()
 
   await page
     .getByPlaceholder("Search IP, hostname, map, city, group...")
