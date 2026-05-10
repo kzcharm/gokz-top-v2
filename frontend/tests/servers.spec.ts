@@ -347,7 +347,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
     .poll(() => new URL(page.url()).searchParams.get("dir"))
     .toBeNull()
   await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBeNull()
-  await expect(page.getByText("Gamma Live").first()).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
   await expect(
     page.getByRole("columnheader", { name: "Duration" }),
   ).toBeVisible()

@@ -226,7 +226,9 @@ test.describe("Profile and theme", () => {
     await expect(page.getByRole("button", { name: "Verify" })).toHaveCount(1)
     await expect(page.getByText("Confirm Twitch account")).toBeVisible()
     await expect(page.getByText(/^VerifiedStreamer$/)).toBeVisible()
-    await expect(page.getByText("oldstreamer")).toBeVisible()
+    await expect(
+      page.getByLabel("Confirm Twitch account").getByText(/^oldstreamer$/),
+    ).toBeVisible()
 
     await page.getByRole("button", { name: "Replace and verify" }).click()
 
@@ -341,7 +343,7 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText("Last tested:")).toBeVisible()
 
     await page.getByRole("switch").click()
-    await expect(page.getByText("Webhook updated")).toBeVisible()
+    await expect(page.getByText("Webhook updated").first()).toBeVisible()
     await expect(page.getByText("Disabled")).toBeVisible()
 
     await page.getByRole("button", { name: "Edit Discord webhook" }).click()
@@ -351,7 +353,7 @@ test.describe("Profile and theme", () => {
         "https://discord.com/api/webhooks/987654321098765432/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       )
     await page.getByRole("button", { name: "Save" }).click()
-    await expect(page.getByText("Webhook updated")).toBeVisible()
+    await expect(page.getByText("Webhook updated").first()).toBeVisible()
     await expect(
       page.getByText("Discord webhook • bbbb...", { exact: true }),
     ).toBeVisible()
