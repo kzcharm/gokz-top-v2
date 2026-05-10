@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.api.v1 import players as players_routes
 from app.core.config import settings
 from app.models import Player
@@ -42,7 +43,18 @@ async def _create_social_link(
         json={"url": url},
     )
     assert response.status_code == 200
-    return response.json()["data"][0]
+    platform, account_identifier = crud.parse_social_link_or_raise(url)
+    created_link = next(
+        (
+            link
+            for link in response.json()["data"]
+            if link["platform"] == platform.value
+            and link["account_identifier"] == account_identifier
+        ),
+        None,
+    )
+    assert created_link is not None
+    return created_link
 
 
 async def test_player_social_links_parse_supported_platforms_and_sort_alpha(

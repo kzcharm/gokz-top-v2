@@ -610,7 +610,7 @@ async def test_server_group_models_normalize_metadata() -> None:
     assert update_in.custom_id is None
     assert update_in.website == "https://example.com"
 
-    with pytest.raises(ValueError, match="must contain at least one letter"):
+    with pytest.raises(ValueError, match="must contain at least one English letter"):
         ServerGroupCreate(name="Invalid Group", custom_id="1234")
 
 

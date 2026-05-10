@@ -14,7 +14,13 @@ COPY frontend/package.json /app/frontend/
 
 WORKDIR /app/frontend
 
-RUN bun install
+RUN for attempt in 1 2 3; do \
+      bun ci && exit 0; \
+      if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+      bun pm cache rm || true; \
+      rm -rf /app/node_modules /app/frontend/node_modules; \
+      sleep 3; \
+    done
 
 COPY ./frontend /app/frontend
 
