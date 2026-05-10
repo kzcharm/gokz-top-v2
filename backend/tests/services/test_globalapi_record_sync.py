@@ -243,7 +243,7 @@ async def test_sync_records_from_globalapi_skips_existing_ids_even_with_stale_st
     assert state.cursor == 981221
 
 
-async def test_sync_records_from_globalapi_backfills_delayed_gap_after_cursor_reset(
+async def test_sync_records_from_globalapi_backfills_delayed_gap_via_pending_backfill_cursor(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -341,10 +341,10 @@ async def test_sync_records_from_globalapi_backfills_delayed_gap_after_cursor_re
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
     assert state.cursor == delayed_record_id + 2
+    assert state.pending_backfill_cursor == delayed_record_id
 
     delayed_is_visible = True
     requested_ids.clear()
-    await _set_records_cursor(db, delayed_record_id)
     second_result = await record_sync.sync_records_from_globalapi(session=db)
 
     assert requested_ids[0] == delayed_record_id
@@ -358,6 +358,7 @@ async def test_sync_records_from_globalapi_backfills_delayed_gap_after_cursor_re
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
     assert state.cursor == delayed_record_id + 2
+    assert state.pending_backfill_cursor is None
 
 
 async def test_sync_records_from_globalapi_uses_stored_cursor_when_ahead_of_local_max(

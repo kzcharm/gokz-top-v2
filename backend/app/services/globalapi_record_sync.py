@@ -196,9 +196,9 @@ async def _find_due_missing_record_ids_in_db_range(
     start_id: int,
     end_id: int,
     limit: int,
-) -> list[int]:
+) -> tuple[list[int], bool]:
     if limit <= 0:
-        return []
+        return ([], False)
 
     now = get_datetime_utc()
     _prune_missing_record_retry_cache(now=now)
@@ -209,6 +209,9 @@ async def _find_due_missing_record_ids_in_db_range(
         end_id=end_id,
         limit=query_limit,
     )
+    if not missing_ids:
+        return ([], False)
+
     due_missing_ids: list[int] = []
     for record_id in missing_ids:
         retry_after = _missing_record_retry_after.get(record_id)
@@ -217,7 +220,7 @@ async def _find_due_missing_record_ids_in_db_range(
         due_missing_ids.append(record_id)
         if len(due_missing_ids) >= limit:
             break
-    return due_missing_ids
+    return due_missing_ids, True
 
 
 async def _advance_records_cursor(
@@ -235,9 +238,10 @@ async def _set_records_cursor_to_local_tip(
     *,
     session: AsyncSession,
     state: GlobalApiSyncState,
+    current_cursor: int,
     max_record_id: int,
 ) -> int:
-    cursor = max(max_record_id + 1, DEFAULT_RECORD_START_ID)
+    cursor = max(current_cursor, max_record_id + 1, DEFAULT_RECORD_START_ID)
     await _advance_records_cursor(session=session, state=state, cursor=cursor)
     return cursor
 
@@ -612,21 +616,32 @@ async def _backfill_missing_records_in_db_range(
     warnings = 0
     cursor = max(start_cursor, DEFAULT_RECORD_START_ID)
     attempts = 0
+    encountered_unresolved_gap = False
 
     while cursor <= max_record_id and attempts < MISSING_ID_ATTEMPT_LIMIT:
-        missing_record_ids = await _find_due_missing_record_ids_in_db_range(
-            session=session,
-            start_id=cursor,
-            end_id=max_record_id,
-            limit=min(
-                MISSING_IDS_BATCH_SIZE,
-                MISSING_ID_ATTEMPT_LIMIT - attempts,
-            ),
+        missing_record_ids, has_missing_record_ids = (
+            await _find_due_missing_record_ids_in_db_range(
+                session=session,
+                start_id=cursor,
+                end_id=max_record_id,
+                limit=min(
+                    MISSING_IDS_BATCH_SIZE,
+                    MISSING_ID_ATTEMPT_LIMIT - attempts,
+                ),
+            )
         )
         if not missing_record_ids:
+            if not has_missing_record_ids and (
+                state.pending_backfill_cursor is not None
+                and state.pending_backfill_cursor <= max_record_id
+            ):
+                state.pending_backfill_cursor = None
+                session.add(state)
+                await session.commit()
             cursor = await _set_records_cursor_to_local_tip(
                 session=session,
                 state=state,
+                current_cursor=cursor,
                 max_record_id=max_record_id,
             )
             return (
@@ -657,10 +672,17 @@ async def _backfill_missing_records_in_db_range(
             cursor = record_id + 1
             if fetch_result.kind != "record":
                 warnings += 1
+                encountered_unresolved_gap = True
                 _defer_missing_record_retry(
                     record_id=record_id,
                     now=get_datetime_utc(),
                 )
+                if (
+                    state.pending_backfill_cursor is None
+                    or record_id < state.pending_backfill_cursor
+                ):
+                    state.pending_backfill_cursor = record_id
+                    session.add(state)
                 await _advance_records_cursor(
                     session=session,
                     state=state,
@@ -684,10 +706,17 @@ async def _backfill_missing_records_in_db_range(
                     exc,
                 )
                 errors += 1
+                encountered_unresolved_gap = True
                 _defer_missing_record_retry(
                     record_id=record_id,
                     now=get_datetime_utc(),
                 )
+                if (
+                    state.pending_backfill_cursor is None
+                    or record_id < state.pending_backfill_cursor
+                ):
+                    state.pending_backfill_cursor = record_id
+                    session.add(state)
                 await _advance_records_cursor(
                     session=session,
                     state=state,
@@ -714,6 +743,16 @@ async def _backfill_missing_records_in_db_range(
             )
             await session.commit()
 
+    if (
+        cursor > max_record_id
+        and not encountered_unresolved_gap
+        and state.pending_backfill_cursor is not None
+        and state.pending_backfill_cursor <= max_record_id
+    ):
+        state.pending_backfill_cursor = None
+        session.add(state)
+        await session.commit()
+
     return (
         GlobalApiSyncResult(
             processed=processed,
@@ -723,7 +762,7 @@ async def _backfill_missing_records_in_db_range(
             warnings=warnings,
         ),
         cursor,
-        cursor > max_record_id,
+        cursor > max_record_id and not encountered_unresolved_gap,
     )
 
 
@@ -731,6 +770,10 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
     state = await _get_or_create_records_sync_state(session=session)
     max_record_id = await crud.get_max_record_globalapi_id(session=session)
     cursor = max(state.cursor or DEFAULT_RECORD_START_ID, DEFAULT_RECORD_START_ID)
+    backfill_cursor = max(
+        min(state.pending_backfill_cursor or cursor, cursor),
+        DEFAULT_RECORD_START_ID,
+    )
 
     processed = 0
     created = 0
@@ -739,9 +782,10 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
     warnings = 0
 
     logger.info(
-        "Starting GlobalAPI records sync from cursor=%s (stored_cursor=%s, local_max_record_id=%s)",
+        "Starting GlobalAPI records sync from cursor=%s (stored_cursor=%s, pending_backfill_cursor=%s, local_max_record_id=%s)",
         cursor,
         state.cursor,
+        state.pending_backfill_cursor,
         max_record_id,
     )
 
@@ -749,11 +793,12 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
         timeout=settings.GLOBALAPI_TIMEOUT_SECONDS,
         trust_env=settings.GLOBALAPI_HTTPX_TRUST_ENV,
     ) as client:
-        if max_record_id is not None and cursor <= max_record_id:
+        if max_record_id is not None and backfill_cursor <= max_record_id:
             if MISSING_ID_ATTEMPT_LIMIT <= 0:
                 cursor = await _set_records_cursor_to_local_tip(
                     session=session,
                     state=state,
+                    current_cursor=cursor,
                     max_record_id=max_record_id,
                 )
             else:
@@ -762,7 +807,7 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                         session=session,
                         client=client,
                         state=state,
-                        start_cursor=cursor,
+                        start_cursor=backfill_cursor,
                         max_record_id=max_record_id,
                     )
                 )
@@ -875,6 +920,12 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                         exc,
                     )
                     errors += 1
+                    if (
+                        state.pending_backfill_cursor is None
+                        or cursor < state.pending_backfill_cursor
+                    ):
+                        state.pending_backfill_cursor = cursor
+                        session.add(state)
                     state.cursor = probe_id + 1
                     session.add(state)
                     await session.commit()
@@ -886,6 +937,11 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 created += int(row_created)
                 updated += int(row_updated)
                 sync_action = "created" if row_created else "updated"
+                if (
+                    state.pending_backfill_cursor is None
+                    or cursor < state.pending_backfill_cursor
+                ):
+                    state.pending_backfill_cursor = cursor
                 logger.debug(
                     "Synced probed GlobalAPI record record_id=%s action=%s steamid64=%s map_id=%s server_id=%s points=%s uuid=%s",
                     hydrated_payload.get("id"),

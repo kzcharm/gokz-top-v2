@@ -33,6 +33,7 @@ class GlobalApiSyncState(SQLModel, table=True):
         sa_column=Column(Text, nullable=True),
     )
     cursor: int | None = None
+    pending_backfill_cursor: int | None = None
     last_processed: int = 0
     last_created: int = 0
     last_updated: int = 0
