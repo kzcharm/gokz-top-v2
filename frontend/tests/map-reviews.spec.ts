@@ -489,7 +489,7 @@ test("Map detail review dialog prefills latest review, saves website review, and
 }) => {
   const { accessToken } = await issueSessionToken({
     request,
-    steamid64: Number(currentUserSteamid64),
+    steamid64: currentUserSteamid64,
     name: "Review Runner",
   })
   await page.addInitScript((token) => {
@@ -531,7 +531,7 @@ test("Own profile map context menu includes Add review", async ({
 }) => {
   const { accessToken } = await issueSessionToken({
     request,
-    steamid64: Number(currentUserSteamid64),
+    steamid64: currentUserSteamid64,
     name: "Review Runner",
   })
   await page.addInitScript((token) => {
@@ -553,7 +553,7 @@ test("Other player profile map context menu omits Add review", async ({
 }) => {
   const { accessToken } = await issueSessionToken({
     request,
-    steamid64: Number(currentUserSteamid64),
+    steamid64: currentUserSteamid64,
     name: "Review Runner",
   })
   await page.addInitScript((token) => {

@@ -3,7 +3,7 @@ import { issueSessionToken } from "./privateApi"
 
 export async function logInUser(
   page: Page,
-  steamid64?: number,
+  steamid64?: string | number,
   opts?: { name?: string; roles?: string[] },
 ) {
   const { accessToken } = await issueSessionToken({

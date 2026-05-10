@@ -8,7 +8,7 @@ export const issueSessionToken = async ({
   name = "Test User",
 }: {
   request: any
-  steamid64?: number
+  steamid64?: string | number
   roles?: string[]
   name?: string
 }) => {

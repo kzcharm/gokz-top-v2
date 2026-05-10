@@ -15,7 +15,7 @@ function getEnvVar(name: string): string {
   return value
 }
 
-export const superUserSteamid64 = Number(getEnvVar("SUPER_USER_STEAMID64"))
+export const superUserSteamid64 = getEnvVar("SUPER_USER_STEAMID64")
 export const apiUrl = process.env.VITE_API_URL || "http://localhost:8000"
 export const testAuthHelpersEnabled =
   process.env.ENABLE_TEST_AUTH_HELPERS === "true"

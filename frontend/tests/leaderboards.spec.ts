@@ -409,7 +409,7 @@ test.describe("Leaderboards page", () => {
   }) => {
     const { accessToken } = await issueSessionToken({
       request,
-      steamid64: 76561198000000042,
+      steamid64: "76561198000000042",
       name: "Find Me Player",
     })
     await page.addInitScript((token) => {
@@ -546,7 +546,7 @@ test.describe("Leaderboards page", () => {
 
     const { accessToken } = await issueSessionToken({
       request,
-      steamid64: 76561198000000042,
+      steamid64: "76561198000000042",
       name: "Find Me Player",
     })
     await page.addInitScript((token) => {
