@@ -1,12 +1,13 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-05-10
+- Last Updated: 2026-05-11
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
 - Monorepo with:
   - FastAPI backend in `backend/`
   - React + TypeScript frontend in `frontend/`
+  - SourceMod plugin code tracked in the `sourcemod/` git submodule (`kzcharm/gokz-top-plugins-v2`)
 - API surfaces:
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
