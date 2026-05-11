@@ -2,6 +2,7 @@ import { Copy, LoaderCircle, Play } from "lucide-react"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { ServerPlayerList } from "@/components/Servers/ServerPlayerList"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import {
+  getServerLastSuccessfulQueryAt,
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
@@ -47,6 +49,9 @@ export function ServerDetailSheet({
   const mapName = server ? getServerMapName(server) : null
   const mapImageUrl = getServerMapImageUrl(mapName)
   const isRefreshing = server ? isServerStatusRefreshing(server) : false
+  const lastSuccessfulQueryAt = server
+    ? getServerLastSuccessfulQueryAt(server)
+    : null
   const subtitleParts = server
     ? [
         getServerAddress(server),
@@ -86,53 +91,80 @@ export function ServerDetailSheet({
                   </span>
                 ) : null}
               </DialogTitle>
-              <DialogDescription>{subtitleParts.join(" | ")}</DialogDescription>
+              <DialogDescription className="flex flex-col gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <span>{subtitleParts.join(" | ")}</span>
+                {lastSuccessfulQueryAt ? (
+                  <span className="shrink-0 text-xs">
+                    Updated{" "}
+                    <FormattedDateTime
+                      value={lastSuccessfulQueryAt}
+                      display="relative"
+                    />
+                  </span>
+                ) : null}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6">
               {mapName ? (
                 <div className="space-y-4">
                   <div className="flex justify-center">
-                    <div className="relative aspect-video w-full max-w-xl overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800">
+                    <div className="group relative aspect-video w-full max-w-xl overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
                       {mapImageUrl ? (
-                        <img
-                          src={mapImageUrl}
-                          alt={mapName}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                          onError={(event) => {
-                            event.currentTarget.style.display = "none"
-                          }}
+                        <div
+                          className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                          style={{ backgroundImage: `url(${mapImageUrl})` }}
                         />
                       ) : null}
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.0) 40%, rgba(0,0,0,0.65) 100%)",
+                        }}
+                      />
+                      <div className="absolute right-2 top-2 z-10 flex gap-1">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => onCopyAddress(server)}
+                          className="h-8 w-8 bg-transparent text-white hover:bg-white/10"
+                          aria-label="Copy server address"
+                          title="Copy server address"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => onSteamConnect(server)}
+                          disabled={!isServerOnline(server)}
+                          className="h-8 w-8 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
+                          aria-label="Connect via Steam"
+                          title="Connect via Steam"
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="absolute inset-x-2 top-2 flex items-center gap-1 pr-20">
+                        <span
+                          className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
+                          title={mapName}
+                        >
+                          {mapName}
+                        </span>
+                        <TierBadge
+                          tier={server.map_tier}
+                          hideWhenUnknown
+                          className="shrink-0 rounded-md px-2 py-1 text-xs font-bold"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-lg font-semibold">{mapName}</span>
-                    <TierBadge tier={server.map_tier} />
                   </div>
                 </div>
               ) : null}
-
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onCopyAddress(server)}
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy IP
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => onSteamConnect(server)}
-                  disabled={!isServerOnline(server)}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Connect
-                </Button>
-              </div>
 
               <ServerPlayerList players={getServerPlayers(server)} />
             </div>

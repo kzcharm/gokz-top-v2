@@ -134,10 +134,6 @@ export function getPlayerDisplayName(
   fallbackSteamid64?: string,
 ): string {
   const steamid64 = player?.steamid64 || fallbackSteamid64
-  if (isUnknownSteamid64(steamid64)) {
-    return "Unknown"
-  }
-
   const displayName =
     player?.displayName?.trim() || player?.display_name?.trim()
   if (displayName) {
@@ -154,7 +150,11 @@ export function getPlayerDisplayName(
     return name
   }
 
-  return fallbackSteamid64 || "N/A"
+  if (isUnknownSteamid64(steamid64)) {
+    return "Unknown"
+  }
+
+  return "Unknown"
 }
 
 function getPlayerAvatarHash(

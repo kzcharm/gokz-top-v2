@@ -177,6 +177,10 @@ export function isServerStatusRefreshing(server: ServerPublic) {
   return Date.parse(lastA2SSeenAt) > Date.parse(lastSuccessfulSeenAt)
 }
 
+export function getServerLastSuccessfulQueryAt(server: ServerPublic) {
+  return server.live_status?.state?.last_successful_seen_at ?? null
+}
+
 export function getServerLocation(server: ServerPublic) {
   return [server.city, server.country].filter(Boolean).join(", ")
 }

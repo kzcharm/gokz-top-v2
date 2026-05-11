@@ -1,7 +1,6 @@
 import { Pause } from "lucide-react"
 
-import { CountryFlag } from "@/components/Common/CountryFlag"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -12,11 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
-import { getInitials } from "@/utils"
 
 import {
   formatTimerTime,
-  getPlayerAvatarUrl,
   getPlayerBooleanValue,
   getPlayerNumberValue,
   getPlayerProgressPercent,
@@ -41,17 +38,18 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
   const visibleColumnCount =
     2 +
     (showTimerColumn ? 1 : 0) +
-    1 +
     (showProgressColumn ? 1 : 0) +
     (showStatusColumn ? 1 : 0)
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-md border">
-        <Table>
+      <div className="overflow-hidden rounded-[20px] border border-border/70 bg-card shadow-sm">
+        <Table
+          containerClassName="rounded-none border-0 bg-card"
+          className="bg-card"
+        >
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10" />
               <TableHead>Player</TableHead>
               {showTimerColumn ? <TableHead>Timer</TableHead> : null}
               <TableHead>Duration</TableHead>
@@ -74,8 +72,6 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                 const name =
                   getPlayerStringValue(player, "name") || `Player ${index + 1}`
                 const steamid64 = getPlayerStringValue(player, "steamid64")
-                const country = getPlayerStringValue(player, "country")
-                const mode = getPlayerStringValue(player, "mode")
                 const timerTime = getPlayerNumberValue(player, "timer_time")
                 const durationSeconds = getPlayerNumberValue(
                   player,
@@ -89,30 +85,18 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                 return (
                   <TableRow key={rowKey}>
                     <TableCell>
-                      <div className="flex justify-center">
-                        <CountryFlag
-                          countryCode={country}
-                          showTooltip={false}
-                          fallbackClassName="h-4 w-4 rounded-full"
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage
-                            src={getPlayerAvatarUrl(player) || undefined}
-                            alt={name}
-                          />
-                          <AvatarFallback className="bg-zinc-600 text-[10px] text-white">
-                            {getInitials(name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="truncate">
-                          {mode ? `[${mode}] ` : ""}
-                          {name}
-                        </span>
-                      </div>
+                      <PlayerDisplay
+                        player={{
+                          steamid64: steamid64 || "",
+                          name,
+                          avatar_hash: getPlayerStringValue(player, "avatar_hash"),
+                          country: getPlayerStringValue(player, "country"),
+                        }}
+                        fallbackSteamid64={steamid64 || undefined}
+                        className="max-w-[18rem]"
+                        nameMaxLength={28}
+                        disableProfileLink={!steamid64}
+                      />
                     </TableCell>
                     {showTimerColumn ? (
                       <TableCell>
