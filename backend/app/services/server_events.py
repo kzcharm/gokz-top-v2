@@ -9,7 +9,7 @@ from fastapi import WebSocket
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
-from app.models import ServerListQuery, ServerSnapshotEvent, ServerUpdateEvent
+from app.models import Server, ServerListQuery, ServerSnapshotEvent, ServerUpdateEvent
 
 
 class ServerEventHub:
@@ -77,6 +77,14 @@ async def build_server_update_event(server_id: str) -> ServerUpdateEvent | None:
         type="server.updated",
         server=crud.to_server_public(server=server),
     )
+
+
+async def broadcast_server_update(server: Server) -> None:
+    event = ServerUpdateEvent(
+        type="server.updated",
+        server=crud.to_server_public(server=server),
+    )
+    await server_event_hub.broadcast_json(event.model_dump(mode="json"))
 
 
 def _psycopg_database_uri() -> str:

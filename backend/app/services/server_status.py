@@ -19,6 +19,7 @@ from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import ServerGroupStatus, ServerStatus, ServerStatusPut
+from app.services.server_query import A2SInfoResult, ServerQueryError
 
 SERVER_PLUGIN_FRESH_SECONDS = 5
 SERVER_A2S_POLL_SECONDS = 10
@@ -66,24 +67,6 @@ class SteamServerListCandidate:
     map_name: str
     player_count: int
     max_players: int
-
-
-class ServerQueryError(RuntimeError):
-    pass
-
-
-@dataclass(slots=True)
-class A2SInfoResult:
-    hostname: str
-    map_name: str
-    player_count: int
-    max_players: int
-    players: list[dict[str, Any]]
-    observed_at: datetime
-    game_directory: str | None = None
-    game_name: str | None = None
-    app_id: int | None = None
-
 
 def is_supported_kz_map_name(map_name: str) -> bool:
     normalized_map_name = map_name.strip().casefold()

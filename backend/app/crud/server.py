@@ -575,6 +575,7 @@ async def create_server(
     queried_player_count: int,
     queried_max_players: int,
     queried_players: list[dict[str, Any]],
+    notify: bool = True,
 ) -> Server:
     await _validate_group_id(session=session, group_id=server_in.group_id)
 
@@ -617,7 +618,11 @@ async def create_server(
             is_online=True,
         )
         existing_server.status = ServerStatus.ENABLED
-        await notify_server_status_updated(session=session, server_id=existing_server.id)
+        if notify:
+            await notify_server_status_updated(
+                session=session,
+                server_id=existing_server.id,
+            )
         await session.commit()
         await session.refresh(existing_server)
         return (
@@ -661,7 +666,8 @@ async def create_server(
         players=queried_players,
         is_online=True,
     )
-    await notify_server_status_updated(session=session, server_id=server.id)
+    if notify:
+        await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     await session.refresh(server)
     return await get_server_by_id(session=session, server_id=server.id) or server
@@ -710,6 +716,7 @@ async def upsert_discovered_server(
     players: list[dict[str, Any]],
     observed_at: datetime,
     commit: bool = True,
+    notify: bool = True,
 ) -> Server:
     server = await get_server_by_endpoint(
         session=session,
@@ -763,7 +770,8 @@ async def upsert_discovered_server(
         players=players,
         is_online=True,
     )
-    await notify_server_status_updated(session=session, server_id=server.id)
+    if notify:
+        await notify_server_status_updated(session=session, server_id=server.id)
     if commit:
         await session.commit()
         await session.refresh(server)
@@ -777,6 +785,7 @@ async def record_plugin_heartbeat(
     group: ServerGroup | None = None,
     server: Server,
     payload: ServerStatusPut,
+    notify: bool = True,
 ) -> Server:
     await _record_server_status(
         session=session,
@@ -794,7 +803,8 @@ async def record_plugin_heartbeat(
         group.status = ServerGroupStatus.VALIDATED
         group.updated_at = payload.observed_at
         session.add(group)
-    await notify_server_status_updated(session=session, server_id=server.id)
+    if notify:
+        await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server
 
@@ -809,6 +819,7 @@ async def record_a2s_success(
     player_count: int,
     max_players: int,
     players: list[dict[str, Any]],
+    notify: bool = True,
 ) -> Server:
     await _record_server_status(
         session=session,
@@ -822,7 +833,8 @@ async def record_a2s_success(
         players=players,
         is_online=True,
     )
-    await notify_server_status_updated(session=session, server_id=server.id)
+    if notify:
+        await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server
 
@@ -832,6 +844,8 @@ async def record_a2s_failure(
     session: AsyncSession,
     server: Server,
     observed_at: datetime,
+    offline_after_failures: int = SERVER_A2S_FAILURES_BEFORE_OFFLINE,
+    notify: bool = True,
 ) -> Server:
     status = await _get_server_live_status(session=session, server=server)
     if status is None:
@@ -844,7 +858,7 @@ async def record_a2s_failure(
     state.timeout_count += 1
     _set_live_status_state(status, state)
     session.add(status)
-    mark_offline = state.timeout_count >= SERVER_A2S_FAILURES_BEFORE_OFFLINE
+    mark_offline = state.timeout_count >= offline_after_failures
 
     if not status.is_online:
         next_status = _evaluate_server_status(
@@ -856,7 +870,8 @@ async def record_a2s_failure(
             server.status = next_status
         server.updated_at = observed_at
         session.add(server)
-        await notify_server_status_updated(session=session, server_id=server.id)
+        if notify:
+            await notify_server_status_updated(session=session, server_id=server.id)
         await session.commit()
         return await get_server_by_id(session=session, server_id=server.id) or server
 
@@ -867,19 +882,6 @@ async def record_a2s_failure(
         status.updated_at = observed_at
         session.add(status)
 
-        heartbeat = ServerHeartbeatRaw(
-            server_id=server.id,
-            source=ServerHeartbeatSource.OFFLINE_MARK,
-            observed_at=observed_at,
-            hostname=status.hostname,
-            map=status.map,
-            player_count=0,
-            max_players=status.max_players,
-            players=[],
-            is_online=False,
-        )
-        session.add(heartbeat)
-
     next_status = _evaluate_server_status(
         current_status=server.status,
         live_status=status,
@@ -889,7 +891,8 @@ async def record_a2s_failure(
         server.status = next_status
         server.updated_at = observed_at
         session.add(server)
-    await notify_server_status_updated(session=session, server_id=server.id)
+    if notify:
+        await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server
 
@@ -899,6 +902,7 @@ async def record_offline_mark(
     session: AsyncSession,
     server: Server,
     observed_at: datetime,
+    notify: bool = True,
 ) -> Server:
     status = await _get_server_live_status(session=session, server=server)
     if status is None:
@@ -924,19 +928,8 @@ async def record_offline_mark(
         server.updated_at = observed_at
         session.add(server)
 
-    heartbeat = ServerHeartbeatRaw(
-        server_id=server.id,
-        source=ServerHeartbeatSource.OFFLINE_MARK,
-        observed_at=observed_at,
-        hostname=status.hostname,
-        map=status.map,
-        player_count=0,
-        max_players=status.max_players,
-        players=[],
-        is_online=False,
-    )
-    session.add(heartbeat)
-    await notify_server_status_updated(session=session, server_id=server.id)
+    if notify:
+        await notify_server_status_updated(session=session, server_id=server.id)
     await session.commit()
     return await get_server_by_id(session=session, server_id=server.id) or server
 
@@ -1095,18 +1088,8 @@ async def _record_server_status(
         session.add(server)
 
     session.add(status)
-    heartbeat = ServerHeartbeatRaw(
-        server_id=server.id,
-        source=source,
-        observed_at=observed_at,
-        hostname=hostname,
-        map=map_name,
-        player_count=player_count,
-        max_players=max_players,
-        players=players,
-        is_online=is_online,
-    )
-    session.add(heartbeat)
+    # Temporary simplification: live status updates no longer persist raw
+    # heartbeat history while the historical pipeline is being rewritten.
 
 
 def server_status_is_valid(*, map_name: str) -> bool:

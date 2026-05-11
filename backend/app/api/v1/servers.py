@@ -14,18 +14,20 @@ from app.models import (
     ServerHistoryQuery,
     ServerListQuery,
     ServerPublic,
-    ServerStatus,
     ServersPublic,
+    ServerStatus,
     ServerStatusPut,
     ServerUpdate,
     User,
 )
-from app.services.server_status import (
-    SERVER_DISCOVERY_ENABLED,
+from app.services.server_query import (
     ServerQueryError,
     query_server_a2s_info,
-    run_server_discovery_cycle,
     validate_server_addition_info,
+)
+from app.services.server_status import (
+    SERVER_DISCOVERY_ENABLED,
+    run_server_discovery_cycle,
 )
 
 router = APIRouter(prefix="/servers", tags=["servers"])

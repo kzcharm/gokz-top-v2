@@ -13,7 +13,6 @@ from app.models import (
     Map,
     ServerGroup,
     ServerGroupStatus,
-    ServerHeartbeatRaw,
     ServerStatus,
     ServerStatusPut,
 )
@@ -769,7 +768,7 @@ async def test_read_server_returns_null_map_tier_for_unknown_map(
     assert payload["map_tier"] is None
 
 
-async def test_server_history_returns_bucketed_rows(
+async def test_server_history_returns_no_new_rows_when_raw_heartbeat_writes_are_disabled(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -834,17 +833,5 @@ async def test_server_history_returns_bucketed_rows(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] == 2
-    assert payload["data"][0]["heartbeat_count"] == 2
-    assert payload["data"][1]["heartbeat_count"] == 1
-
-    rows = list(
-        (
-            await db.exec(
-                select(ServerHeartbeatRaw).where(
-                    ServerHeartbeatRaw.server_id == server.id
-                )
-            )
-        ).all()
-    )
-    assert len(rows) >= 4
+    assert payload["count"] == 0
+    assert payload["data"] == []

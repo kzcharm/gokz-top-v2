@@ -38,11 +38,11 @@ from app.services.record_events import (
 from app.services.record_events import (
     stop_listener as stop_record_listener,
 )
-from app.services.server_events import listen_for_server_updates, stop_listener
-from app.services.server_status import (
-    run_server_status_collector_in_app,
+from app.services.server_collector import (
+    run_server_query_collector_in_app,
     stop_collector,
 )
+from app.services.server_events import listen_for_server_updates, stop_listener
 
 configure_app_logging(settings.LOG_LEVEL)
 
@@ -67,7 +67,7 @@ async def lifespan(_: FastAPI):
     player_session_timeout_task: asyncio.Task[None] | None = None
     live_stream_task: asyncio.Task[None] | None = None
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
-        collector_task = asyncio.create_task(run_server_status_collector_in_app())
+        collector_task = asyncio.create_task(run_server_query_collector_in_app())
     if settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP:
         globalapi_sync_task = asyncio.create_task(run_globalapi_sync_runner_in_app())
     if settings.RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP:
