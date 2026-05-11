@@ -249,3 +249,65 @@ async def test_run_server_query_collector_never_queries_same_server_concurrently
 
     assert query_count >= 1
     assert max_concurrent == 1
+
+
+async def test_wait_for_tick_deadline_applies_outcome_before_tick_expires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = server_collector.CollectorTarget(
+        server_id=uuid.uuid4(),
+        ip="127.0.0.1",
+        port=27015,
+        stable_id="server-1",
+    )
+    observed_at = datetime.now(UTC)
+    outcome = server_collector.CollectorQueryOutcome(
+        server_id=target.server_id,
+        success=True,
+        info=A2SInfoResult(
+            hostname="Immediate Host",
+            map_name="kz_now",
+            player_count=0,
+            max_players=16,
+            players=[],
+            observed_at=observed_at,
+        ),
+        observed_at=observed_at,
+    )
+    completed_queue: asyncio.Queue[server_collector.CollectorQueryOutcome] = (
+        asyncio.Queue()
+    )
+    pending_by_id = {target.server_id: target}
+    applied: list[float] = []
+    loop = asyncio.get_running_loop()
+
+    async def _fake_apply_query_outcome(
+        incoming: server_collector.CollectorQueryOutcome,
+    ) -> None:
+        assert incoming is outcome
+        applied.append(loop.time())
+
+    monkeypatch.setattr(
+        server_collector,
+        "_apply_query_outcome",
+        _fake_apply_query_outcome,
+    )
+
+    async def _push_outcome() -> None:
+        await asyncio.sleep(0.01)
+        await completed_queue.put(outcome)
+
+    start = loop.time()
+    tick_deadline = start + 0.2
+    push_task = asyncio.create_task(_push_outcome())
+    await server_collector._wait_for_tick_deadline(
+        tick_deadline=tick_deadline,
+        completed_queue=completed_queue,
+        pending_by_id=pending_by_id,
+        sleep=asyncio.sleep,
+    )
+    await push_task
+
+    assert applied
+    assert applied[0] - start < 0.1
+    assert target.server_id not in pending_by_id

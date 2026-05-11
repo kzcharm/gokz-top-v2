@@ -218,6 +218,54 @@ def _drain_completed_outcomes(
     return outcomes
 
 
+async def _wait_for_tick_deadline(
+    *,
+    tick_deadline: float,
+    completed_queue: asyncio.Queue[CollectorQueryOutcome],
+    pending_by_id: dict[uuid.UUID, CollectorTarget],
+    sleep: Callable[[float], Awaitable[None]],
+) -> None:
+    loop = asyncio.get_running_loop()
+
+    while True:
+        for outcome in _drain_completed_outcomes(
+            completed_queue=completed_queue,
+            pending_by_id=pending_by_id,
+        ):
+            await _apply_query_outcome(outcome)
+
+        remaining = tick_deadline - loop.time()
+        if remaining <= 0:
+            return
+
+        sleep_task = asyncio.create_task(sleep(remaining))
+        outcome_task = asyncio.create_task(completed_queue.get())
+        done, pending = await asyncio.wait(
+            {sleep_task, outcome_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        if outcome_task in done:
+            sleep_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await sleep_task
+            outcome = outcome_task.result()
+            pending_by_id.pop(outcome.server_id, None)
+            await _apply_query_outcome(outcome)
+            continue
+
+        outcome_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await outcome_task
+
+        for task in pending:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        await sleep_task
+        return
+
+
 async def run_server_query_collector(
     *,
     query_fn: Callable[..., Awaitable[A2SInfoResult]] = query_server_a2s_info,
@@ -262,12 +310,13 @@ async def run_server_query_collector(
                     live_tasks.add(task)
                     task.add_done_callback(_on_task_done)
 
-                await sleep(tick_spacing)
-                for outcome in _drain_completed_outcomes(
+                tick_deadline = asyncio.get_running_loop().time() + tick_spacing
+                await _wait_for_tick_deadline(
+                    tick_deadline=tick_deadline,
                     completed_queue=completed_queue,
                     pending_by_id=pending_by_id,
-                ):
-                    await _apply_query_outcome(outcome)
+                    sleep=sleep,
+                )
                 cursor_index = (cursor_index + 1) % len(ring)
     finally:
         for task in live_tasks:
