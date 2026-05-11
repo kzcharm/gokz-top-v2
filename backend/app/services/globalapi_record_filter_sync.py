@@ -246,7 +246,7 @@ async def sync_record_filters_from_globalapi(
                         "tickrate": insert_statement.excluded.tickrate,
                         "has_teleports": insert_statement.excluded.has_teleports,
                         "tier": func.coalesce(
-                            insert_statement.excluded.tier, table.c.tier
+                            table.c.tier, insert_statement.excluded.tier
                         ),
                         "created_at": insert_statement.excluded.created_at,
                         "updated_at": insert_statement.excluded.updated_at,

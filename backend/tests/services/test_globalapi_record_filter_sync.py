@@ -177,6 +177,76 @@ async def test_sync_record_filters_from_globalapi_derives_main_course_tier_from_
     assert low_tick.tier is None
 
 
+async def test_sync_record_filters_from_globalapi_backfills_existing_null_tier(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_map(db, id=981208, difficulty=8)
+    await _create_local_record_filter(
+        db,
+        id=981608,
+        map_id=981208,
+        stage=0,
+        mode_id=200,
+        tier=None,
+    )
+
+    async def _fake_fetch(
+        *,
+        client: object | None = None,
+        offset: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        del client, limit
+        if offset > 0:
+            return []
+        return [_payload(id=981608, map_id=981208, stage=0, mode_id=200)]
+
+    monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
+
+    result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
+
+    assert result.processed == 1
+    synced = await db.get(RecordFilter, 981608)
+    assert synced is not None
+    assert synced.tier == 8
+
+
+async def test_sync_record_filters_from_globalapi_preserves_existing_non_null_tier(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_map(db, id=981209, difficulty=7)
+    await _create_local_record_filter(
+        db,
+        id=981609,
+        map_id=981209,
+        stage=0,
+        mode_id=200,
+        tier=8,
+    )
+
+    async def _fake_fetch(
+        *,
+        client: object | None = None,
+        offset: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        del client, limit
+        if offset > 0:
+            return []
+        return [_payload(id=981609, map_id=981209, stage=0, mode_id=200)]
+
+    monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
+
+    result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
+
+    assert result.processed == 1
+    synced = await db.get(RecordFilter, 981609)
+    assert synced is not None
+    assert synced.tier == 8
+
+
 async def test_sync_record_filters_from_globalapi_updates_existing_rows(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
