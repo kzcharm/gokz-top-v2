@@ -31,6 +31,7 @@ interface ServerTableProps {
   selectedAddress: string | null
   sortKey: ServerSortKey
   sortDirection: ServerSortDirection
+  headerSurfaceClassName?: string
   onSortChange: (sortKey: ServerSortKey) => void
   onSelect: (server: ServerPublic) => void
   onCopyAddress: (server: ServerPublic) => void
@@ -71,20 +72,26 @@ export function ServerTable({
   selectedAddress,
   sortKey,
   sortDirection,
+  headerSurfaceClassName,
   onSortChange,
   onSelect,
   onCopyAddress,
   onSteamConnect,
 }: ServerTableProps) {
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
+    <div>
+      <Table containerClassName="rounded-none border-0" className="table-fixed">
+        <TableHeader className="bg-transparent">
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-12">
+            <TableHead
+              className={cn(
+                "w-12 first:rounded-tl-[27px]",
+                headerSurfaceClassName,
+              )}
+            >
               <span className="sr-only">Country</span>
             </TableHead>
-            <TableHead className="w-[28%]">
+            <TableHead className={cn("w-[28%]", headerSurfaceClassName)}>
               <SortButton
                 active={sortKey === "hostname"}
                 direction={sortDirection}
@@ -92,7 +99,7 @@ export function ServerTable({
                 onClick={() => onSortChange("hostname")}
               />
             </TableHead>
-            <TableHead className="w-[24%]">
+            <TableHead className={cn("w-[24%]", headerSurfaceClassName)}>
               <SortButton
                 active={sortKey === "map"}
                 direction={sortDirection}
@@ -100,7 +107,7 @@ export function ServerTable({
                 onClick={() => onSortChange("map")}
               />
             </TableHead>
-            <TableHead className="w-[12%]">
+            <TableHead className={cn("w-[12%]", headerSurfaceClassName)}>
               <SortButton
                 active={sortKey === "tier"}
                 direction={sortDirection}
@@ -108,7 +115,7 @@ export function ServerTable({
                 onClick={() => onSortChange("tier")}
               />
             </TableHead>
-            <TableHead className="w-[12%]">
+            <TableHead className={cn("w-[12%]", headerSurfaceClassName)}>
               <SortButton
                 active={sortKey === "players"}
                 direction={sortDirection}
@@ -116,7 +123,12 @@ export function ServerTable({
                 onClick={() => onSortChange("players")}
               />
             </TableHead>
-            <TableHead className="w-[12%] text-right">
+            <TableHead
+              className={cn(
+                "w-[12%] text-right last:rounded-tr-[27px]",
+                headerSurfaceClassName,
+              )}
+            >
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>
@@ -150,25 +162,26 @@ export function ServerTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex min-w-0 items-center gap-2">
                         {!isServerOnline(server) ? (
                           <div
-                            className="h-2 w-2 rounded-full bg-gray-400"
+                            className="h-2 w-2 shrink-0 rounded-full bg-gray-400"
                             title="Offline"
                           />
                         ) : null}
                         <span
                           className={cn(
-                            "font-medium",
+                            "min-w-0 truncate font-medium",
                             !isServerOnline(server) && "text-muted-foreground",
                           )}
+                          title={getServerHostname(server)}
                         >
                           {getServerHostname(server)}
                         </span>
                         {isRefreshing ? (
                           <span
-                            className="inline-flex items-center text-muted-foreground"
+                            className="inline-flex shrink-0 items-center text-muted-foreground"
                             title="Refreshing server status"
                           >
                             <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -186,10 +199,10 @@ export function ServerTable({
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <MapDisplay mapName={mapName} />
+                  <TableCell className="pr-5">
+                    <MapDisplay mapName={mapName} className="w-full max-w-56" />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="pl-1">
                     {server.map_tier === null ||
                     server.map_tier === undefined ? (
                       <span className="text-muted-foreground">-</span>

@@ -29,6 +29,7 @@ import { ServerTable } from "@/components/Servers/ServerTable"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,11 @@ interface ServerBrowserProps {
 }
 
 type ConnectionState = "connecting" | "live" | "disconnected"
+
+const SERVER_BROWSER_CARD_CLASS_NAME =
+  "gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0"
+const SERVER_BROWSER_CARD_CONTENT_CLASS_NAME = "p-6 sm:px-8 sm:pt-8 sm:pb-6"
+const SERVER_BROWSER_HEADER_SURFACE_CLASS = "bg-muted"
 
 function SortControl({
   active,
@@ -278,15 +284,16 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     () => getRegionCounts(servers, search.status),
     [search.status, servers],
   )
-  const onlinePlayerCount = useMemo(
-    () => countOnlinePlayers(servers),
-    [servers],
-  )
-  const onlineServerCount = useMemo(
+  const totalOnlineServerCount = useMemo(
     () => countOnlineServers(servers),
     [servers],
   )
-  const offlineServerCount = servers.length - onlineServerCount
+  const totalOfflineServerCount = servers.length - totalOnlineServerCount
+  const filteredPlayerCount = useMemo(
+    () => countOnlinePlayers(filteredServers),
+    [filteredServers],
+  )
+  const filteredServerCount = filteredServers.length
 
   const handleSearchPatch = (patch: Partial<ServersSearchState>) => {
     startTransition(() => {
@@ -398,7 +405,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-6">
+      <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Servers</h1>
@@ -422,10 +429,10 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                   : "Disconnected"}
             </Badge>
             <Badge className="bg-orange-500 text-white">
-              {onlinePlayerCount} Players
+              {filteredPlayerCount} Players
             </Badge>
             <Badge className="bg-blue-600 text-white hover:bg-blue-600/90">
-              {onlineServerCount} Servers
+              {filteredServerCount} Servers
             </Badge>
             <div className="flex gap-1">
               <Button
@@ -448,139 +455,158 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search IP, hostname, map, city, group..."
-              className="pl-9"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className={cn(
-                "flex h-8 items-center gap-2 rounded-md border px-2.5 shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                search.status === "online" &&
-                  "border-green-600/30 bg-green-600/5",
-              )}
-              onClick={() =>
-                handleSearchPatch({
-                  status: search.status === "online" ? "offline" : "online",
-                })
-              }
-              title="Click to switch between online and offline servers"
-            >
-              <Switch
-                aria-hidden="true"
-                checked={search.status === "online"}
-                className="pointer-events-none"
-                tabIndex={-1}
-              />
-              <span
-                className={cn(
-                  "text-xs font-medium",
-                  search.status === "online" &&
-                    "text-green-700 dark:text-green-400",
-                )}
-              >
-                Online
-              </span>
-            </button>
-            <AddServerButton onServerAdded={handleServerAdded} />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={handleDownloadConfig}
-              disabled={sortedServers.length === 0}
-              aria-label="Download server config"
-              title="Download server config"
-              data-testid="download-servers-config-button"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={handleCopyShareLink}
-              aria-label="Copy share link"
-              title="Copy share link"
-              data-testid="share-servers-button"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {regionOptions.length > 0 ? (
-          <div className="rounded-md border px-6 py-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant={search.region === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleSearchPatch({ region: "all" })}
-              >
-                <div className="flex items-center gap-2 whitespace-nowrap">
-                  <span>All</span>
-                  <span className="text-xs opacity-80">
-                    (
-                    {search.status === "online"
-                      ? onlineServerCount
-                      : offlineServerCount}
-                    )
-                  </span>
+        <Card className={SERVER_BROWSER_CARD_CLASS_NAME}>
+          <CardContent className={SERVER_BROWSER_CARD_CONTENT_CLASS_NAME}>
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="relative w-full max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search IP, hostname, map, city, group..."
+                    className="pl-9"
+                  />
                 </div>
-              </Button>
-              {regionOptions.map(([regionCode, count]) => {
-                const region =
-                  regionsQuery.data?.find(
-                    (option) => option.code === regionCode,
-                  ) ?? null
-                return (
-                  <Button
-                    key={regionCode}
-                    variant={
-                      search.region === regionCode ? "default" : "outline"
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex h-8 items-center gap-2 rounded-md border px-2.5 shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      search.status === "online" &&
+                        "border-green-600/30 bg-green-600/5",
+                    )}
+                    onClick={() =>
+                      handleSearchPatch({
+                        status:
+                          search.status === "online" ? "offline" : "online",
+                      })
                     }
+                    title="Click to switch between online and offline servers"
+                  >
+                    <Switch
+                      aria-hidden="true"
+                      checked={search.status === "online"}
+                      className="pointer-events-none"
+                      tabIndex={-1}
+                    />
+                    <span
+                      className={cn(
+                        "text-xs font-medium",
+                        search.status === "online" &&
+                          "text-green-700 dark:text-green-400",
+                      )}
+                    >
+                      Online
+                    </span>
+                  </button>
+                  <AddServerButton onServerAdded={handleServerAdded} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={handleDownloadConfig}
+                    disabled={sortedServers.length === 0}
+                    aria-label="Download server config"
+                    title="Download server config"
+                    data-testid="download-servers-config-button"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={handleCopyShareLink}
+                    aria-label="Copy share link"
+                    title="Copy share link"
+                    data-testid="share-servers-button"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {regionOptions.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={search.region === "all" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => handleSearchPatch({ region: regionCode })}
+                    onClick={() => handleSearchPatch({ region: "all" })}
                   >
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      <RegionBadge
-                        regionCode={regionCode}
-                        regionName={region?.name}
-                      />
-                      <span className="text-xs opacity-80">({count})</span>
+                      <span>All</span>
+                      <span className="text-xs opacity-80">
+                        (
+                        {search.status === "online"
+                          ? totalOnlineServerCount
+                          : totalOfflineServerCount}
+                        )
+                      </span>
                     </div>
                   </Button>
-                )
-              })}
+                  {regionOptions.map(([regionCode, count]) => {
+                    const region =
+                      regionsQuery.data?.find(
+                        (option) => option.code === regionCode,
+                      ) ?? null
+                    return (
+                      <Button
+                        key={regionCode}
+                        variant={
+                          search.region === regionCode ? "default" : "outline"
+                        }
+                        size="sm"
+                        onClick={() =>
+                          handleSearchPatch({ region: regionCode })
+                        }
+                      >
+                        <div className="flex items-center gap-2 whitespace-nowrap">
+                          <RegionBadge
+                            regionCode={regionCode}
+                            regionName={region?.name}
+                          />
+                          <span className="text-xs opacity-80">({count})</span>
+                        </div>
+                      </Button>
+                    )
+                  })}
+                </div>
+              ) : null}
             </div>
-          </div>
-        ) : null}
+          </CardContent>
+        </Card>
 
         {sortedServers.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground">
-            No servers match the current filters.
-          </div>
+          <Card className={SERVER_BROWSER_CARD_CLASS_NAME}>
+            <CardContent className="px-6 py-16 text-center text-muted-foreground">
+              No servers match the current filters.
+            </CardContent>
+          </Card>
         ) : search.view === "table" ? (
-          <ServerTable
-            servers={sortedServers}
-            selectedAddress={selectedAddress}
-            sortKey={search.sort}
-            sortDirection={search.dir}
-            onSortChange={handleSortChange}
-            onSelect={handleSelectServer}
-            onCopyAddress={handleCopyAddress}
-            onSteamConnect={handleSteamConnect}
-          />
+          <Card className={SERVER_BROWSER_CARD_CLASS_NAME}>
+            <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
+              <ServerTable
+                servers={sortedServers}
+                selectedAddress={selectedAddress}
+                sortKey={search.sort}
+                sortDirection={search.dir}
+                onSortChange={handleSortChange}
+                onSelect={handleSelectServer}
+                onCopyAddress={handleCopyAddress}
+                onSteamConnect={handleSteamConnect}
+                headerSurfaceClassName={SERVER_BROWSER_HEADER_SURFACE_CLASS}
+              />
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-md border bg-muted/20 px-6 py-3">
+            <div
+              className={cn(
+                "rounded-[20px] border border-border/70 bg-muted/95 px-6 py-3 shadow-sm",
+                SERVER_BROWSER_HEADER_SURFACE_CLASS,
+              )}
+            >
               <div className="flex flex-wrap gap-4">
                 <SortControl
                   active={search.sort === "hostname"}
