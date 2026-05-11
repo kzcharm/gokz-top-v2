@@ -243,45 +243,27 @@ async def test_sync_records_from_globalapi_skips_existing_ids_even_with_stale_st
     assert state.cursor == 981221
 
 
-async def test_sync_records_from_globalapi_skips_historical_null_holes_without_pending_backfill(
+async def test_find_missing_record_ids_in_db_range_skips_existing_local_ids(
     db: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await _reset_records_sync_state(db)
-    steamid64 = random_steamid64()
-    await _create_local_record(
-        db,
-        record_id=206,
-        steamid64=steamid64,
-        map_id=206001,
-        server_id=206101,
+    for record_id in (201, 203, 205):
+        steamid64 = random_steamid64()
+        await _create_local_record(
+            db,
+            record_id=record_id,
+            steamid64=steamid64,
+            map_id=record_id + 1000,
+            server_id=record_id + 2000,
+        )
+    missing_ids = await record_sync._find_missing_record_ids_in_db_range(
+        session=db,
+        start_id=200,
+        end_id=205,
+        limit=10,
     )
-    db.add(GlobalApiSyncState(task_name="records", cursor=200))
-    await db.commit()
 
-    requested_ids: list[int] = []
-
-    async def _fake_fetch(
-        *, client: object, record_id: int
-    ) -> record_sync.RecordFetchResult:
-        del client
-        requested_ids.append(record_id)
-        return record_sync.RecordFetchResult(kind="null")
-
-    async def _no_sleep(_: float) -> None:
-        return None
-
-    monkeypatch.setattr(record_sync, "MISSING_ID_ATTEMPT_LIMIT", 3)
-    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
-    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
-
-    await record_sync.sync_records_from_globalapi(session=db)
-
-    assert requested_ids[:6] == [200, 201, 202, 203, 204, 205]
-    state = await db.get(GlobalApiSyncState, "records")
-    assert state is not None
-    assert state.cursor == 207
-    assert state.pending_backfill_cursor is None
+    assert missing_ids == [200, 202, 204]
 
 
 async def test_sync_records_from_globalapi_backfills_delayed_gap_via_pending_backfill_cursor(
