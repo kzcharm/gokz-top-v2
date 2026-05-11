@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import {
   Tooltip,
@@ -9,18 +10,36 @@ import { cn } from "@/lib/utils"
 
 interface FormattedDateTimeProps extends DateTimeFormatOptions {
   className?: string
+  tickerMs?: number
   value: string | Date | null | undefined
 }
 
 export function FormattedDateTime({
   className,
+  tickerMs = 1000,
   value,
   ...options
 }: FormattedDateTimeProps) {
   const { formatDateTime } = useDateTimeFormat()
-  const formattedValue = formatDateTime(value, options)
   const isRelativeDisplay =
     options.display === "relative" || options.display === "contextual-relative"
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    if (!isRelativeDisplay || tickerMs <= 0 || !value) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setTick((currentTick) => currentTick + 1)
+    }, tickerMs)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isRelativeDisplay, tickerMs, value])
+
+  const formattedValue = formatDateTime(value, options)
   const hoverValue = formatDateTime(value, {
     ...options,
     display: isRelativeDisplay ? "absolute" : "relative",
