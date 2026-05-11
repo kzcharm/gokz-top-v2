@@ -93,6 +93,31 @@ async def test_connect_creates_player_session_and_placeholder_player(
     assert player.name == str(steamid64)
 
 
+async def test_connect_accepts_bearer_server_group_key(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    steamid64 = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    session_id = str(generate_uuid7(timestamp=connected_at))
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/player-sessions/connect",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json=_connect_payload(
+            session_id=session_id,
+            steamid64=steamid64,
+            connected_at=connected_at,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == session_id
+    assert payload["server_group_id"] == str(group.id)
+
+
 async def test_connect_sets_placeholder_player_country_from_geoip(
     client: AsyncClient,
     db: AsyncSession,

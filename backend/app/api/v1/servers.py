@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.v1.player_sessions import _resolve_server_group_api_key
 from app.models import (
     Message,
     ServerCreate,
@@ -43,13 +44,18 @@ async def put_server_status(
     x_server_group_key: Annotated[
         str | None, Header(alias="X-Server-Group-Key")
     ] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> Any:
-    if not x_server_group_key:
+    api_key = _resolve_server_group_api_key(
+        x_server_group_key=x_server_group_key,
+        authorization=authorization,
+    )
+    if not api_key:
         raise HTTPException(status_code=401, detail="Missing server group API key")
 
     group = await crud.get_server_group_by_api_key(
         session=session,
-        api_key=x_server_group_key,
+        api_key=api_key,
     )
     if group is None:
         raise HTTPException(status_code=401, detail="Invalid server group API key")

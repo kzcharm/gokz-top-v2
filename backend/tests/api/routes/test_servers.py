@@ -667,6 +667,34 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert refreshed_group.status == ServerGroupStatus.VALIDATED
 
 
+async def test_put_server_status_accepts_bearer_server_group_key(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    server = await create_server(db, group_id=group.id)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": datetime.now(UTC).isoformat(),
+            "hostname": "Plugin Host",
+            "map": "kz_plugin",
+            "player_count": 9,
+            "max_players": 24,
+            "players": [_plugin_player()],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["live_status"]["hostname"] == "Plugin Host"
+    assert payload["live_status"]["players"][0]["name"] == "Player One"
+
+
 async def test_put_server_status_rejects_invalidated_group(
     client: AsyncClient,
     db: AsyncSession,
