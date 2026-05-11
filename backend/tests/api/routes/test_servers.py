@@ -2,7 +2,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
@@ -56,6 +55,27 @@ async def _create_map(
     await db.commit()
     await db.refresh(map_obj)
     return map_obj
+
+
+def _plugin_player(
+    *,
+    name: str = "Player One",
+    steamid64: str = "76561198000000001",
+    status: str = "in_progress",
+) -> dict[str, object]:
+    return {
+        "tag": "RANK 1",
+        "mode": "KZT",
+        "name": name,
+        "score": 7,
+        "status": status,
+        "duration_seconds": 125.5,
+        "is_paused": False,
+        "steamid64": steamid64,
+        "teleports": 3,
+        "timer_time": 32.75,
+        "stage": 0,
+    }
 
 
 async def test_create_server_requires_successful_a2s_query(
@@ -594,7 +614,7 @@ async def test_put_server_status_requires_matching_group_key(
             "map": "kz_plugin",
             "player_count": 9,
             "max_players": 24,
-            "players": [{"steamid64": "76561198000000001", "name": "Player One"}],
+            "players": [_plugin_player()],
         },
     )
 
@@ -621,7 +641,7 @@ async def test_put_server_status_updates_live_status_from_plugin(
             "map": "kz_plugin",
             "player_count": 9,
             "max_players": 24,
-            "players": [{"steamid64": "76561198000000001", "name": "Player One"}],
+            "players": [_plugin_player()],
         },
     )
 
@@ -631,6 +651,8 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert payload["live_status"]["map"] == "kz_plugin"
     assert payload["live_status"]["player_count"] == 9
     assert payload["live_status"]["players"][0]["name"] == "Player One"
+    assert payload["live_status"]["players"][0]["status"] == "in_progress"
+    assert payload["live_status"]["players"][0]["teleports"] == 3
     assert (
         datetime.fromisoformat(
             payload["live_status"]["state"]["last_plugin_seen_at"].replace(
@@ -663,7 +685,7 @@ async def test_put_server_status_rejects_invalidated_group(
             "map": "kz_plugin",
             "player_count": 9,
             "max_players": 24,
-            "players": [{"steamid64": "76561198000000001", "name": "Player One"}],
+            "players": [_plugin_player()],
         },
     )
 
@@ -707,7 +729,7 @@ async def test_offline_mark_preserves_identity_and_zeroes_player_state(
             map="kz_offline",
             player_count=4,
             max_players=20,
-            players=[{"steamid64": "76561198000000001", "name": "Player One"}],
+            players=[_plugin_player()],
         ),
     )
     server = await crud.record_offline_mark(
@@ -766,6 +788,45 @@ async def test_read_server_returns_null_map_tier_for_unknown_map(
     payload = response.json()
     assert payload["live_status"]["map"] == "kz_missing_tier"
     assert payload["map_tier"] is None
+
+
+async def test_read_server_normalizes_legacy_player_status_rows(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    server = await create_server(db, hostname="Legacy Player Host")
+    assert server.live_status is not None
+    server.live_status.players = [
+        {
+            "name": "Legacy Player",
+            "score": 4,
+            "status": "paused",
+            "duration_seconds": 12.5,
+        }
+    ]
+    db.add(server.live_status)
+    await db.commit()
+
+    response = await client.get(f"{settings.API_V1_STR}/servers/{server.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["live_status"]["players"] == [
+        {
+            "name": "Legacy Player",
+            "score": 4,
+            "status": None,
+            "duration_seconds": 12.5,
+            "tag": None,
+            "mode": None,
+            "is_paused": None,
+            "steamid64": None,
+            "teleports": None,
+            "timer_time": None,
+            "stage": None,
+            "index": None,
+        }
+    ]
 
 
 async def test_server_history_returns_no_new_rows_when_raw_heartbeat_writes_are_disabled(

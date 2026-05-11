@@ -8,7 +8,10 @@ export type ServerStatusFilter = "online" | "offline"
 export type ServerViewMode = "grid" | "table"
 export type ServerSortKey = "players" | "hostname" | "map" | "tier"
 export type ServerSortDirection = "asc" | "desc"
-export type ServerPlayer = Record<string, unknown>
+export type ServerPlayer = NonNullable<
+  NonNullable<ServerPublic["live_status"]>["players"]
+>[number] &
+  Record<string, unknown>
 
 export interface ServersSearchState {
   q: string
@@ -417,8 +420,6 @@ export function getPlayerStatusLabel(player: ServerPlayer) {
       return "In progress"
     case "finished":
       return "Finished"
-    case "paused":
-      return "Paused"
     case "aborted":
       return "Aborted"
     default:
@@ -429,6 +430,14 @@ export function getPlayerStatusLabel(player: ServerPlayer) {
 export function getPlayerStatusSurfaceClass(player: ServerPlayer) {
   const status = getPlayerStringValue(player, "status")
   const teleports = getPlayerNumberValue(player, "teleports") || 0
+  const isPaused = getPlayerBooleanValue(player, "is_paused") || false
+
+  if (status === "in_progress" && isPaused) {
+    return {
+      backgroundClassName: "bg-orange-200 dark:bg-orange-900/60",
+      badgeClassName: "bg-orange-600 text-white",
+    }
+  }
 
   switch (status) {
     case "not_started":
@@ -450,11 +459,6 @@ export function getPlayerStatusSurfaceClass(player: ServerPlayer) {
       return {
         backgroundClassName: "bg-green-200 dark:bg-green-900/60",
         badgeClassName: "bg-green-600 text-white",
-      }
-    case "paused":
-      return {
-        backgroundClassName: "bg-orange-200 dark:bg-orange-900/60",
-        badgeClassName: "bg-orange-600 text-white",
       }
     case "aborted":
       return {

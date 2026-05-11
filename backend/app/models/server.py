@@ -40,6 +40,13 @@ class ServerGroupStatus(StrEnum):
     INVALIDATED = "invalidated"
 
 
+class ServerPlayerRunStatus(StrEnum):
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    FINISHED = "finished"
+    ABORTED = "aborted"
+
+
 class ServerGroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
@@ -230,6 +237,70 @@ class ServerLiveStatusBase(SQLModel):
     )
 
 
+class ServerStatusPlayerPut(SQLModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tag: str | None = Field(default=None, max_length=64)
+    mode: str = Field(min_length=1, max_length=16)
+    name: str = Field(min_length=1, max_length=255)
+    score: int
+    status: ServerPlayerRunStatus
+    duration_seconds: float = Field(ge=0)
+    is_paused: bool
+    steamid64: str = Field(min_length=1, max_length=32)
+    teleports: int = Field(ge=0)
+    timer_time: float | None = Field(default=None, ge=0)
+    stage: int | None = Field(default=None, ge=0)
+
+    @field_validator("tag", mode="after")
+    @classmethod
+    def _normalize_optional_tag(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class ServerPlayerPublic(SQLModel):
+    model_config = ConfigDict(extra="allow")
+
+    tag: str | None = Field(default=None, max_length=64)
+    mode: str | None = Field(default=None, max_length=16)
+    name: str | None = Field(default=None, max_length=255)
+    score: int | None = None
+    status: ServerPlayerRunStatus | None = None
+    duration_seconds: float | None = Field(default=None, ge=0)
+    is_paused: bool | None = None
+    steamid64: str | None = Field(default=None, max_length=32)
+    teleports: int | None = Field(default=None, ge=0)
+    timer_time: float | None = Field(default=None, ge=0)
+    stage: int | None = Field(default=None, ge=0)
+    index: int | None = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _normalize_optional_status(
+        cls, value: ServerPlayerRunStatus | str | None
+    ) -> ServerPlayerRunStatus | None:
+        if value is None or isinstance(value, ServerPlayerRunStatus):
+            return value
+        normalized = value.strip()
+        if not normalized:
+            return None
+        try:
+            return ServerPlayerRunStatus(normalized)
+        except ValueError:
+            return None
+
+    @field_validator("tag", "mode", "name", "steamid64", mode="after")
+    @classmethod
+    def _normalize_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
 class ServerLiveStatus(ServerLiveStatusBase, table=True):
     __tablename__ = "server_live_status"  # type: ignore[assignment]
     __table_args__ = (
@@ -309,7 +380,7 @@ class ServerLiveStatusPublic(SQLModel):
     map: str | None = None
     player_count: int = Field(default=0, ge=0)
     max_players: int = Field(default=0, ge=0)
-    players: list[dict[str, Any]] = Field(default_factory=list)
+    players: list[ServerPlayerPublic] = Field(default_factory=list)
     is_online: bool = False
     state: ServerLiveStatusStatePublic = Field(
         default_factory=ServerLiveStatusStatePublic
@@ -414,7 +485,7 @@ class ServerHistoryBucketPublic(SQLModel):
     map: str | None = None
     player_count: int
     max_players: int
-    players: list[dict[str, Any]] = Field(default_factory=list)
+    players: list[ServerPlayerPublic] = Field(default_factory=list)
     is_online: bool
 
 
@@ -439,7 +510,7 @@ class ServerStatusPut(SQLModel):
     map: str = Field(min_length=1, max_length=255)
     player_count: int = Field(ge=0)
     max_players: int = Field(ge=0)
-    players: list[dict[str, Any]] = Field(default_factory=list)
+    players: list[ServerStatusPlayerPut] = Field(default_factory=list)
 
 
 class ServerUpdateEvent(BaseModel):
@@ -493,10 +564,13 @@ __all__ = [
     "ServerLiveStatusBase",
     "ServerLiveStatusPublic",
     "ServerLiveStatusStatePublic",
+    "ServerPlayerPublic",
+    "ServerPlayerRunStatus",
     "ServerPublic",
     "ServerSnapshotEvent",
     "ServersPublic",
     "ServerStatus",
+    "ServerStatusPlayerPut",
     "ServerSource",
     "ServerStatusPut",
     "ServerUpdate",

@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-05-10
+- Last Updated: 2026-05-11
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -93,6 +93,8 @@ Scope model:
 - Server group support and filterable browsing.
 - Cached live status must be served from PostgreSQL-backed cache rows, not live upstream queries on page load.
 - Support richer plugin heartbeats keyed by server-group API keys, with A2S polling and Steam server-list discovery as collector-side inputs.
+- The primary SourceMod live-status publisher is `gokz-top-servers`, which reuses `gokz-top-core` server-group auth config and caches its resolved public IPv4 locally before pushing `/v1/servers/status`.
+- Plugin heartbeat player payloads must preserve richer run state than A2S can provide, including clan tag, movement mode, timer status, pause state, teleports, timer time, stage, and connection duration.
 - SourceMod plugins can submit player connection sessions via authenticated `/v1/player-sessions` connect, heartbeat, and disconnect events for playtime, activity, map-time, and shared-IP analytics.
 - Open player sessions are closed automatically after heartbeat timeout using the last known heartbeat as the disconnect timestamp.
 - Preserve last-known server identity fields when a server goes offline so players can still see which server is down.

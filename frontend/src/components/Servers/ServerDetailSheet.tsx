@@ -17,10 +17,10 @@ import {
 import { cn } from "@/lib/utils"
 
 import {
-  getServerLastSuccessfulQueryAt,
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
+  getServerLastSuccessfulQueryAt,
   getServerMapImageUrl,
   getServerMapName,
   getServerPlayerCount,

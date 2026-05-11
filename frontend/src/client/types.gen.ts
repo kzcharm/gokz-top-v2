@@ -855,9 +855,7 @@ export type ServerHistoryBucketPublic = {
     map?: (string | null);
     player_count: number;
     max_players: number;
-    players?: Array<{
-        [key: string]: unknown;
-    }>;
+    players?: Array<ServerPlayerPublic>;
     is_online: boolean;
 };
 
@@ -871,9 +869,7 @@ export type ServerLiveStatusPublic = {
     map?: (string | null);
     player_count?: number;
     max_players?: number;
-    players?: Array<{
-        [key: string]: unknown;
-    }>;
+    players?: Array<ServerPlayerPublic>;
     is_online?: boolean;
     state?: ServerLiveStatusStatePublic;
     updated_at: string;
@@ -887,6 +883,24 @@ export type ServerLiveStatusStatePublic = {
     invalid_count?: number;
     timeout_count?: number;
 };
+
+export type ServerPlayerPublic = {
+    tag?: (string | null);
+    mode?: (string | null);
+    name?: (string | null);
+    score?: (number | null);
+    status?: (ServerPlayerRunStatus | null);
+    duration_seconds?: (number | null);
+    is_paused?: (boolean | null);
+    steamid64?: (string | null);
+    teleports?: (number | null);
+    timer_time?: (number | null);
+    stage?: (number | null);
+    index?: (number | null);
+    [key: string]: unknown;
+};
+
+export type ServerPlayerRunStatus = 'not_started' | 'in_progress' | 'finished' | 'aborted';
 
 export type ServerPublic = {
     ip: string;
@@ -917,6 +931,20 @@ export type ServersPublic = {
 
 export type ServerStatus = 'enabled' | 'invalid' | 'disabled';
 
+export type ServerStatusPlayerPut = {
+    tag?: (string | null);
+    mode: string;
+    name: string;
+    score: number;
+    status: ServerPlayerRunStatus;
+    duration_seconds: number;
+    is_paused: boolean;
+    steamid64: string;
+    teleports: number;
+    timer_time?: (number | null);
+    stage?: (number | null);
+};
+
 export type ServerStatusPut = {
     ip: string;
     port: number;
@@ -925,9 +953,7 @@ export type ServerStatusPut = {
     map: string;
     player_count: number;
     max_players: number;
-    players?: Array<{
-        [key: string]: unknown;
-    }>;
+    players?: Array<ServerStatusPlayerPut>;
 };
 
 export type ServerUpdate = {

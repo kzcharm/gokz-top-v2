@@ -4140,8 +4140,7 @@ export const ServerHistoryBucketPublicSchema = {
         },
         players: {
             items: {
-                additionalProperties: true,
-                type: 'object'
+                '$ref': '#/components/schemas/ServerPlayerPublic'
             },
             type: 'array',
             title: 'Players'
@@ -4213,8 +4212,7 @@ export const ServerLiveStatusPublicSchema = {
         },
         players: {
             items: {
-                additionalProperties: true,
-                type: 'object'
+                '$ref': '#/components/schemas/ServerPlayerPublic'
             },
             type: 'array',
             title: 'Players'
@@ -4303,6 +4301,159 @@ export const ServerLiveStatusStatePublicSchema = {
     },
     type: 'object',
     title: 'ServerLiveStatusStatePublic'
+} as const;
+
+export const ServerPlayerPublicSchema = {
+    properties: {
+        tag: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 64
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tag'
+        },
+        mode: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 16
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Mode'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        score: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Score'
+        },
+        status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerPlayerRunStatus'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        duration_seconds: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Duration Seconds'
+        },
+        is_paused: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Paused'
+        },
+        steamid64: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 32
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steamid64'
+        },
+        teleports: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Teleports'
+        },
+        timer_time: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Timer Time'
+        },
+        stage: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stage'
+        },
+        index: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Index'
+        }
+    },
+    additionalProperties: true,
+    type: 'object',
+    title: 'ServerPlayerPublic'
+} as const;
+
+export const ServerPlayerRunStatusSchema = {
+    type: 'string',
+    enum: ['not_started', 'in_progress', 'finished', 'aborted'],
+    title: 'ServerPlayerRunStatus'
 } as const;
 
 export const ServerPublicSchema = {
@@ -4451,6 +4602,90 @@ export const ServerStatusSchema = {
     title: 'ServerStatus'
 } as const;
 
+export const ServerStatusPlayerPutSchema = {
+    properties: {
+        tag: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 64
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Tag'
+        },
+        mode: {
+            type: 'string',
+            maxLength: 16,
+            minLength: 1,
+            title: 'Mode'
+        },
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        score: {
+            type: 'integer',
+            title: 'Score'
+        },
+        status: {
+            '$ref': '#/components/schemas/ServerPlayerRunStatus'
+        },
+        duration_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Duration Seconds'
+        },
+        is_paused: {
+            type: 'boolean',
+            title: 'Is Paused'
+        },
+        steamid64: {
+            type: 'string',
+            maxLength: 32,
+            minLength: 1,
+            title: 'Steamid64'
+        },
+        teleports: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Teleports'
+        },
+        timer_time: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Timer Time'
+        },
+        stage: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stage'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['mode', 'name', 'score', 'status', 'duration_seconds', 'is_paused', 'steamid64', 'teleports'],
+    title: 'ServerStatusPlayerPut'
+} as const;
+
 export const ServerStatusPutSchema = {
     properties: {
         ip: {
@@ -4494,8 +4729,7 @@ export const ServerStatusPutSchema = {
         },
         players: {
             items: {
-                additionalProperties: true,
-                type: 'object'
+                '$ref': '#/components/schemas/ServerStatusPlayerPut'
             },
             type: 'array',
             title: 'Players'

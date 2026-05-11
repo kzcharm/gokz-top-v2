@@ -26,6 +26,27 @@ def _json_datetime(value: datetime) -> str:
     return value.isoformat().replace("+00:00", "Z")
 
 
+def _plugin_player(
+    *,
+    name: str = "Player One",
+    steamid64: str = "76561198000000001",
+    status: str = "in_progress",
+) -> dict[str, object]:
+    return {
+        "tag": "RANK 1",
+        "mode": "KZT",
+        "name": name,
+        "score": 7,
+        "status": status,
+        "duration_seconds": 125.5,
+        "is_paused": False,
+        "steamid64": steamid64,
+        "teleports": 3,
+        "timer_time": 32.75,
+        "stage": 0,
+    }
+
+
 @pytest.fixture(autouse=True)
 def reset_server_status_runtime_state() -> Generator[None]:
     server_status._server_a2s_in_flight_until.clear()
@@ -143,7 +164,7 @@ async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
             map="kz_fresh",
             player_count=5,
             max_players=16,
-            players=[],
+            players=[_plugin_player()],
         ),
     )
     stale_server = await crud.record_plugin_heartbeat(
@@ -157,7 +178,7 @@ async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
             map="kz_stale",
             player_count=5,
             max_players=16,
-            players=[],
+            players=[_plugin_player(status="finished")],
         ),
     )
     assert stale_server.live_status is not None

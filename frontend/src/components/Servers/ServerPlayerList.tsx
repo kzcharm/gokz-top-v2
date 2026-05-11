@@ -89,7 +89,10 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                         player={{
                           steamid64: steamid64 || "",
                           name,
-                          avatar_hash: getPlayerStringValue(player, "avatar_hash"),
+                          avatar_hash: getPlayerStringValue(
+                            player,
+                            "avatar_hash",
+                          ),
                           country: getPlayerStringValue(player, "country"),
                         }}
                         fallbackSteamid64={steamid64 || undefined}

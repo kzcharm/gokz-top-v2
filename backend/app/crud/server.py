@@ -6,6 +6,7 @@ from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
@@ -35,6 +36,7 @@ from app.models import (
     ServerLiveStatus,
     ServerLiveStatusPublic,
     ServerLiveStatusStatePublic,
+    ServerPlayerPublic,
     ServerPublic,
     ServerSource,
     ServerStatus,
@@ -91,11 +93,28 @@ def _build_server_live_status_public(
         map=status.map,
         player_count=status.player_count,
         max_players=status.max_players,
-        players=status.players,
+        players=_build_server_player_public_list(status.players),
         is_online=status.is_online,
         state=state,
         updated_at=status.updated_at,
     )
+
+
+def _build_server_player_public_list(
+    raw_players: list[dict[str, Any]] | Any,
+) -> list[ServerPlayerPublic]:
+    if not isinstance(raw_players, list):
+        return []
+
+    players: list[ServerPlayerPublic] = []
+    for raw_player in raw_players:
+        if not isinstance(raw_player, dict):
+            continue
+        try:
+            players.append(ServerPlayerPublic.model_validate(raw_player))
+        except ValidationError:
+            continue
+    return players
 
 
 def _get_live_status_state(status: ServerLiveStatus) -> ServerLiveStatusStatePublic:
@@ -796,7 +815,7 @@ async def record_plugin_heartbeat(
         map_name=payload.map,
         player_count=payload.player_count,
         max_players=payload.max_players,
-        players=payload.players,
+        players=[player.model_dump(mode="json") for player in payload.players],
         is_online=True,
     )
     if _should_auto_validate_server_group(group=group, server=server) and group is not None:
@@ -1000,7 +1019,7 @@ async def read_server_history(
                 map=row.map,
                 player_count=row.player_count,
                 max_players=row.max_players,
-                players=row.players,
+                players=_build_server_player_public_list(row.players),
                 is_online=row.is_online,
             )
             buckets[bucket_start] = bucket
