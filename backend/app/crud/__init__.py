@@ -137,13 +137,13 @@ from .player_social_link import (
 )
 from .player_stats import (
     get_or_rebuild_player_daily_activity_stat,
-    get_or_rebuild_player_playtime_stat,
     get_or_rebuild_player_most_played_server_stat,
+    get_or_rebuild_player_playtime_stat,
     get_or_rebuild_player_stats,
     get_utc_midnight,
     rebuild_player_daily_activity_stat,
-    rebuild_player_playtime_stat,
     rebuild_player_most_played_server_stat,
+    rebuild_player_playtime_stat,
 )
 from .player_webhook import (
     PlayerWebhookConflictError,
@@ -223,6 +223,7 @@ from .server import (
     update_server,
     update_server_group,
     upsert_discovered_server,
+    upsert_server_from_plugin_heartbeat,
 )
 from .server_globalapi import (
     get_server_globalapi_by_id,
@@ -437,6 +438,7 @@ __all__ = [
     "get_top_records_v0",
     "is_player_following",
     "upsert_discovered_server",
+    "upsert_server_from_plugin_heartbeat",
     "upsert_map_review",
     "get_map_review_by_context",
     "normalize_map_review_content",

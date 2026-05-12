@@ -18,7 +18,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
-from app.models import ServerGroupStatus, ServerStatus, ServerStatusPut
+from app.models import ServerGroupStatus, ServerStatusPut
 from app.services.server_query import A2SInfoResult, ServerQueryError
 
 SERVER_PLUGIN_FRESH_SECONDS = 5
@@ -656,24 +656,14 @@ async def put_server_status_from_plugin(
         if group.status == ServerGroupStatus.INVALIDATED:
             raise ServerQueryError("Server group is invalidated")
 
-        server = await crud.get_server_by_endpoint(
-            session=session,
-            ip=payload.ip,
-            port=payload.port,
-        )
-        if server is None:
-            raise ServerQueryError("Server not found")
-        if server.status != ServerStatus.ENABLED:
-            raise ServerQueryError("Server is not enabled")
-        if server.group_id != group.id:
-            raise ServerQueryError("Server does not belong to this group")
-
-        await crud.record_plugin_heartbeat(
-            session=session,
-            group=group,
-            server=server,
-            payload=payload,
-        )
+        try:
+            await crud.upsert_server_from_plugin_heartbeat(
+                session=session,
+                group=group,
+                payload=payload,
+            )
+        except ValueError as exc:
+            raise ServerQueryError(str(exc)) from exc
 
 
 def main() -> None:

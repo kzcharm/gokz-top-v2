@@ -250,6 +250,17 @@ def build_manual_server_source(*, steamid64: int | str) -> dict[str, str]:
     }
 
 
+def build_plugin_server_source(*, group: ServerGroup) -> dict[str, str]:
+    source: dict[str, str] = {
+        "type": ServerSource.MANUAL.value,
+        "origin": "plugin",
+        "server_group_id": str(group.id),
+    }
+    if group.owner_steamid64 is not None:
+        source["steamid64"] = str(group.owner_steamid64)
+    return source
+
+
 def build_steam_master_server_source() -> dict[str, str]:
     return {"type": ServerSource.STEAM_MASTER.value}
 
@@ -690,6 +701,89 @@ async def create_server(
     await session.commit()
     await session.refresh(server)
     return await get_server_by_id(session=session, server_id=server.id) or server
+
+
+async def upsert_server_from_plugin_heartbeat(
+    *,
+    session: AsyncSession,
+    group: ServerGroup,
+    payload: ServerStatusPut,
+) -> Server:
+    server = await get_server_by_endpoint(
+        session=session,
+        ip=payload.ip,
+        port=payload.port,
+    )
+    now = get_datetime_utc()
+
+    if server is None:
+        resolved_country, resolved_city = _resolve_server_location(
+            ip=payload.ip,
+            country=None,
+            city=None,
+        )
+        server = Server(
+            group_id=group.id,
+            ip=payload.ip,
+            port=payload.port,
+            status=ServerStatus.ENABLED,
+            country=resolved_country,
+            city=resolved_city,
+            source=build_plugin_server_source(group=group),
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(server)
+        try:
+            await session.flush()
+        except IntegrityError as exc:
+            await session.rollback()
+            server = await get_server_by_endpoint(
+                session=session,
+                ip=payload.ip,
+                port=payload.port,
+            )
+            if server is None:
+                raise ValueError("Server already exists") from exc
+
+            if server.status == ServerStatus.DISABLED:
+                raise ValueError("Server is disabled") from exc
+            if server.group_id is not None and server.group_id != group.id:
+                raise ValueError("Server does not belong to this server group") from exc
+
+            server.group_id = group.id
+            server.status = ServerStatus.ENABLED
+            server.country, server.city = _resolve_server_location(
+                ip=payload.ip,
+                country=server.country,
+                city=server.city,
+            )
+            server.source = build_plugin_server_source(group=group)
+            server.updated_at = now
+            session.add(server)
+    else:
+        if server.status == ServerStatus.DISABLED:
+            raise ValueError("Server is disabled")
+        if server.group_id is not None and server.group_id != group.id:
+            raise ValueError("Server does not belong to this server group")
+
+        server.group_id = group.id
+        server.status = ServerStatus.ENABLED
+        server.country, server.city = _resolve_server_location(
+            ip=payload.ip,
+            country=server.country,
+            city=server.city,
+        )
+        server.source = build_plugin_server_source(group=group)
+        server.updated_at = now
+        session.add(server)
+
+    return await record_plugin_heartbeat(
+        session=session,
+        group=group,
+        server=server,
+        payload=payload,
+    )
 
 
 async def update_server(

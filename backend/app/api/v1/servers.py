@@ -16,7 +16,6 @@ from app.models import (
     ServerListQuery,
     ServerPublic,
     ServersPublic,
-    ServerStatus,
     ServerStatusPut,
     ServerUpdate,
     User,
@@ -62,27 +61,21 @@ async def put_server_status(
     if group.status == ServerGroupStatus.INVALIDATED:
         raise HTTPException(status_code=403, detail="Server group is invalidated")
 
-    server = await crud.get_server_by_endpoint(
-        session=session,
-        ip=payload.ip,
-        port=payload.port,
-    )
-    if server is None:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.status != ServerStatus.ENABLED:
-        raise HTTPException(status_code=403, detail="Server is not enabled")
-    if server.group_id != group.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Server does not belong to this server group",
+    try:
+        server = await crud.upsert_server_from_plugin_heartbeat(
+            session=session,
+            group=group,
+            payload=payload,
         )
-
-    server = await crud.record_plugin_heartbeat(
-        session=session,
-        group=group,
-        server=server,
-        payload=payload,
-    )
+    except ValueError as exc:
+        if str(exc) == "Server is disabled":
+            raise HTTPException(status_code=403, detail="Server is not enabled") from exc
+        if str(exc) == "Server does not belong to this server group":
+            raise HTTPException(
+                status_code=403,
+                detail="Server does not belong to this server group",
+            ) from exc
+        raise
     return crud.to_server_public(server=server)
 
 

@@ -667,6 +667,91 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert refreshed_group.status == ServerGroupStatus.VALIDATED
 
 
+async def test_put_server_status_auto_creates_missing_server_for_group(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    group, api_key = await create_server_group(db)
+    ip = random_server_ip()
+    port = random_server_port()
+    observed_at = datetime.now(UTC)
+
+    monkeypatch.setattr(
+        server_crud,
+        "lookup_geoip_city",
+        lambda ip: GeoIPLocation(country_code="DE", city_name="Berlin"),
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": ip,
+            "port": port,
+            "observed_at": observed_at.isoformat(),
+            "hostname": "Plugin Bootstrap Host",
+            "map": "kz_bootstrap",
+            "player_count": 1,
+            "max_players": 24,
+            "players": [_plugin_player()],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["group_id"] == str(group.id)
+    assert payload["ip"] == ip
+    assert payload["port"] == port
+    assert payload["status"] == "enabled"
+    assert payload["country"] == "DE"
+    assert payload["city"] == "Berlin"
+    assert payload["source"]["type"] == "manual"
+    assert payload["source"]["origin"] == "plugin"
+    assert payload["source"]["server_group_id"] == str(group.id)
+    assert payload["live_status"]["hostname"] == "Plugin Bootstrap Host"
+    assert payload["live_status"]["map"] == "kz_bootstrap"
+
+    refreshed_group = await db.get(ServerGroup, group.id)
+    assert refreshed_group is not None
+    assert refreshed_group.status == ServerGroupStatus.VALIDATED
+
+
+async def test_put_server_status_claims_unassigned_server_for_group(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    server = await create_server(db, group_id=None)
+    server.group_id = None
+    server.source = {"type": "steam_master"}
+    db.add(server)
+    await db.commit()
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": datetime.now(UTC).isoformat(),
+            "hostname": "Claimed Host",
+            "map": "kz_claimed",
+            "player_count": 2,
+            "max_players": 24,
+            "players": [_plugin_player()],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["group_id"] == str(group.id)
+    assert payload["source"]["type"] == "manual"
+    assert payload["source"]["origin"] == "plugin"
+    assert payload["live_status"]["hostname"] == "Claimed Host"
+    assert payload["live_status"]["map"] == "kz_claimed"
+
+
 async def test_put_server_status_accepts_bearer_server_group_key(
     client: AsyncClient,
     db: AsyncSession,
