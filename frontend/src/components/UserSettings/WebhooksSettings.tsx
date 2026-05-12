@@ -58,10 +58,10 @@ function WebhookRow({
             {summarizeWebhookUrl(webhook.url)}
           </p>
           <p className="text-xs text-muted-foreground">
-            Last tested:{" "}
-            {webhook.last_tested_at ? (
+            Last used:{" "}
+            {webhook.last_used_at ? (
               <FormattedDateTime
-                value={webhook.last_tested_at}
+                value={webhook.last_used_at}
                 display="contextual-relative"
               />
             ) : (
@@ -393,7 +393,7 @@ export default function WebhooksSettings() {
             <Button
               type="button"
               variant="outline"
-              disabled={updateMutation.isPending}
+              disabled={updateMutation.isPending || testMutation.isPending}
               onClick={() => {
                 setEditingWebhook(null)
                 setEditingUrl("")
@@ -401,10 +401,25 @@ export default function WebhooksSettings() {
             >
               Cancel
             </Button>
+            {editingWebhook ? (
+              <LoadingButton
+                type="button"
+                loading={
+                  testMutation.isPending &&
+                  testMutation.variables === editingWebhook.id
+                }
+                disabled={updateMutation.isPending}
+                onClick={() => testMutation.mutate(editingWebhook.id)}
+              >
+                <Send className="size-4" />
+                Send test
+              </LoadingButton>
+            ) : null}
             <LoadingButton
               type="submit"
               form="edit-webhook-form"
               loading={updateMutation.isPending}
+              disabled={testMutation.isPending}
             >
               Save
             </LoadingButton>

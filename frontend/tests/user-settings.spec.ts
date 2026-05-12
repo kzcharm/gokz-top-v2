@@ -246,7 +246,7 @@ test.describe("Profile and theme", () => {
       provider: "discord"
       url: string
       enabled: boolean
-      last_tested_at: string | null
+      last_used_at: string | null
       created_at: string
       updated_at: string
     }>
@@ -261,7 +261,7 @@ test.describe("Profile and theme", () => {
             provider: "discord",
             url: requestBody.url,
             enabled: true,
-            last_tested_at: null,
+            last_used_at: null,
             created_at: "2026-04-01T00:00:00Z",
             updated_at: "2026-04-01T00:00:00Z",
           },
@@ -311,7 +311,7 @@ test.describe("Profile and theme", () => {
           (webhook) => webhook.id === webhookId,
         )
         if (updatedWebhook) {
-          updatedWebhook.last_tested_at = "2026-04-03T00:00:00Z"
+          updatedWebhook.last_used_at = "2026-04-03T00:00:00Z"
         }
         await route.fulfill({
           status: 200,
@@ -340,15 +340,15 @@ test.describe("Profile and theme", () => {
     await page.getByRole("button", { name: "Send test" }).click()
     await expect(page.getByText("Webhook test sent")).toBeVisible()
     await page.getByRole("dialog").locator('[data-slot="dialog-close"]').click()
-    await expect(page.getByText("Last tested:")).toBeVisible()
+    await expect(page.getByText("Last used:")).toBeVisible()
 
     await page.getByRole("switch").click()
     await expect(page.getByText("Webhook updated").first()).toBeVisible()
     await expect(page.getByText("Disabled")).toBeVisible()
 
-    await page
-      .getByRole("button", { name: "Edit Discord webhook" })
-      .click()
+    await page.getByRole("button", { name: "Edit Discord webhook" }).click()
+    await page.getByRole("button", { name: "Send test" }).click()
+    await expect(page.getByText("Webhook test sent")).toBeVisible()
     await page
       .getByRole("textbox", { name: "Edit Discord webhook URL" })
       .fill(
@@ -360,9 +360,7 @@ test.describe("Profile and theme", () => {
       page.getByText("Discord webhook • bbbb...", { exact: true }),
     ).toBeVisible()
 
-    await page
-      .getByRole("button", { name: "Delete Discord webhook" })
-      .click()
+    await page.getByRole("button", { name: "Delete Discord webhook" }).click()
     await expect(page.getByText("Webhook deleted")).toBeVisible()
     await expect(page.getByText("No webhooks added yet.")).toBeVisible()
   })
