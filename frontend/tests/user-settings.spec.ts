@@ -326,7 +326,7 @@ test.describe("Profile and theme", () => {
 
     await page.getByRole("button", { name: /\+?\s*Add/ }).click()
     await page
-      .getByRole("textbox", { name: "Discord-compatible webhook URL" })
+      .getByRole("textbox", { name: "Discord webhook URL" })
       .fill(
         "https://discord.com/api/webhooks/123456789012345678/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       )
@@ -334,7 +334,7 @@ test.describe("Profile and theme", () => {
 
     await expect(page.getByText("Webhook added")).toBeVisible()
     await expect(
-      page.getByText("Discord-compatible webhook • aaaa...", { exact: true }),
+      page.getByText("Discord webhook • aaaa...", { exact: true }),
     ).toBeVisible()
 
     await page.getByRole("button", { name: "Send test" }).click()
@@ -347,21 +347,21 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText("Disabled")).toBeVisible()
 
     await page
-      .getByRole("button", { name: "Edit Discord-compatible webhook" })
+      .getByRole("button", { name: "Edit Discord webhook" })
       .click()
     await page
-      .getByRole("textbox", { name: "Edit Discord-compatible webhook URL" })
+      .getByRole("textbox", { name: "Edit Discord webhook URL" })
       .fill(
         "https://discord.com/api/webhooks/987654321098765432/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       )
     await page.getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("Webhook updated").first()).toBeVisible()
     await expect(
-      page.getByText("Discord-compatible webhook • bbbb...", { exact: true }),
+      page.getByText("Discord webhook • bbbb...", { exact: true }),
     ).toBeVisible()
 
     await page
-      .getByRole("button", { name: "Delete Discord-compatible webhook" })
+      .getByRole("button", { name: "Delete Discord webhook" })
       .click()
     await expect(page.getByText("Webhook deleted")).toBeVisible()
     await expect(page.getByText("No webhooks added yet.")).toBeVisible()
