@@ -625,7 +625,7 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
         account_identifier="streamer",
         verified=True,
     )
-    await _create_player_webhook(
+    webhook = await _create_player_webhook(
         db,
         user_steamid64=player.steamid64,
         url=(
@@ -689,6 +689,8 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
     assert embed["image"]["url"] == (
         "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
     )
+    await db.refresh(webhook)
+    assert webhook.last_used_at is not None
 
 
 async def test_refresh_live_streams_broadcasts_new_live_transition_to_all_enabled_webhooks(
@@ -713,7 +715,7 @@ async def test_refresh_live_streams_broadcasts_new_live_transition_to_all_enable
         account_identifier="broadcast-streamer",
         verified=True,
     )
-    await _create_player_webhook(
+    streamed_webhook = await _create_player_webhook(
         db,
         user_steamid64=streamed_player.steamid64,
         url=(
@@ -721,7 +723,7 @@ async def test_refresh_live_streams_broadcasts_new_live_transition_to_all_enable
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         ),
     )
-    await _create_player_webhook(
+    watcher_webhook = await _create_player_webhook(
         db,
         user_steamid64=watcher_player.steamid64,
         url=(
@@ -784,6 +786,10 @@ async def test_refresh_live_streams_broadcasts_new_live_transition_to_all_enable
             "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         ),
     ]
+    await db.refresh(streamed_webhook)
+    await db.refresh(watcher_webhook)
+    assert streamed_webhook.last_used_at is not None
+    assert watcher_webhook.last_used_at is not None
 
 
 async def test_refresh_live_streams_does_not_resend_webhook_while_already_live(
@@ -808,7 +814,7 @@ async def test_refresh_live_streams_does_not_resend_webhook_while_already_live(
         last_live_started_at=checked_at,
         last_stream_url="https://www.twitch.tv/streamer",
     )
-    await _create_player_webhook(
+    failing_webhook = await _create_player_webhook(
         db,
         user_steamid64=player.steamid64,
         url=(
@@ -879,7 +885,7 @@ async def test_refresh_live_streams_sends_webhook_when_existing_state_turns_live
         last_live_seen_at=None,
         last_live_started_at=None,
     )
-    await _create_player_webhook(
+    successful_webhook = await _create_player_webhook(
         db,
         user_steamid64=player.steamid64,
         url=(
@@ -963,7 +969,7 @@ async def test_refresh_live_streams_sends_webhook_for_new_session_while_state_wa
         last_live_started_at=previous_started_at,
         last_stream_url="https://live.bilibili.com/42",
     )
-    await _create_player_webhook(
+    disabled_webhook = await _create_player_webhook(
         db,
         user_steamid64=player.steamid64,
         url=(
@@ -1027,7 +1033,7 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
         account_identifier="123456",
         verified=True,
     )
-    await _create_player_webhook(
+    failing_webhook = await _create_player_webhook(
         db,
         user_steamid64=player.steamid64,
         url=(
@@ -1036,7 +1042,7 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
         ),
         enabled=True,
     )
-    await _create_player_webhook(
+    successful_webhook = await _create_player_webhook(
         db,
         user_steamid64=player.steamid64,
         url=(
@@ -1045,7 +1051,7 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
         ),
         enabled=True,
     )
-    await _create_player_webhook(
+    disabled_webhook = await _create_player_webhook(
         db,
         user_steamid64=player.steamid64,
         url=(
@@ -1093,6 +1099,12 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
     assert state is not None
     assert state.is_live is True
     assert state.last_stream_url == "https://live.bilibili.com/42"
+    await db.refresh(failing_webhook)
+    await db.refresh(successful_webhook)
+    await db.refresh(disabled_webhook)
+    assert failing_webhook.last_used_at is None
+    assert successful_webhook.last_used_at is not None
+    assert disabled_webhook.last_used_at is None
 
 
 async def test_read_live_stream_cards_prefers_most_recent_platform_for_offline_player(

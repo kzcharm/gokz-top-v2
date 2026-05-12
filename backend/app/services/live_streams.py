@@ -656,3 +656,10 @@ async def _notify_stream_started_if_needed(
                     "platform": link.platform.value,
                 },
             )
+            continue
+
+        await crud.mark_player_webhook_used(
+            session=session,
+            webhook=webhook,
+            used_at=datetime.now(UTC),
+        )

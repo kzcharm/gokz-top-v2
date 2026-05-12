@@ -112,7 +112,7 @@ Scope model:
 - Authenticated players can manually set `country` from `/settings`; manual country changes disable later automatic GeoIP/Steam overwrites but do not block later manual country edits.
 - `name` remains read-only in settings because it is synced from Steam rather than edited locally.
 - Authenticated players can manage their own social links from settings; Twitch links support self-serve OAuth verification, Bilibili links support self-serve profile-code verification, and superusers can still view, add, edit, delete, and verify player social links from admin.
-- Authenticated players can manage Discord webhooks from `/settings`; enabled webhooks currently receive all supported stream-start events for the player's verified Twitch and Bilibili links, and players can send a test notification on demand.
+- Authenticated players can manage Discord webhooks from `/settings`; enabled webhooks currently receive all supported stream-start events for the player's verified Twitch and Bilibili links, and each webhook shows its last-used time based on successful test sends or real deliveries.
 
 ## 6) Compatibility Strategy (Mirror + Extend)
 

@@ -116,14 +116,14 @@ async def update_player_webhook(
     return webhook
 
 
-async def mark_player_webhook_tested(
+async def mark_player_webhook_used(
     *,
     session: AsyncSession,
     webhook: PlayerWebhook,
-    tested_at: datetime,
+    used_at: datetime,
 ) -> PlayerWebhook:
-    webhook.last_tested_at = tested_at
-    webhook.updated_at = tested_at
+    webhook.last_used_at = used_at
+    webhook.updated_at = used_at
     session.add(webhook)
     await session.commit()
     await session.refresh(webhook)
@@ -143,7 +143,7 @@ def to_player_webhook_public(*, webhook: PlayerWebhook) -> PlayerWebhookPublic:
         provider=webhook.provider,
         url=webhook.url,
         enabled=webhook.enabled,
-        last_tested_at=webhook.last_tested_at,
+        last_used_at=webhook.last_used_at,
         created_at=webhook.created_at,
         updated_at=webhook.updated_at,
     )

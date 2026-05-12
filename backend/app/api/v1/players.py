@@ -1441,10 +1441,10 @@ async def test_current_player_webhook(
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Failed to send webhook: {exc}") from exc
 
-    tested = await crud.mark_player_webhook_tested(
+    tested = await crud.mark_player_webhook_used(
         session=session,
         webhook=webhook,
-        tested_at=datetime.now(UTC),
+        used_at=datetime.now(UTC),
     )
     return crud.to_player_webhook_public(webhook=tested)
 

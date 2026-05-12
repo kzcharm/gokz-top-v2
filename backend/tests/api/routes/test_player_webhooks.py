@@ -160,7 +160,7 @@ async def test_current_player_webhooks_hide_other_users_webhooks(
         assert response.status_code == 404
 
 
-async def test_current_player_webhook_test_updates_last_tested_at(
+async def test_current_player_webhook_test_updates_last_used_at(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -198,11 +198,11 @@ async def test_current_player_webhook_test_updates_last_tested_at(
     assert response.status_code == 200
     payload = response.json()
     assert payload["id"] == webhook_id
-    assert payload["last_tested_at"] is not None
+    assert payload["last_used_at"] is not None
 
     webhook = await db.get(PlayerWebhook, webhook_id)
     assert webhook is not None
-    assert webhook.last_tested_at is not None
+    assert webhook.last_used_at is not None
 
 
 async def test_current_player_webhook_test_returns_502_on_delivery_failure(
@@ -245,4 +245,4 @@ async def test_current_player_webhook_test_returns_502_on_delivery_failure(
 
     webhook = await db.get(PlayerWebhook, webhook_id)
     assert webhook is not None
-    assert webhook.last_tested_at is None
+    assert webhook.last_used_at is None

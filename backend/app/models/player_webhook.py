@@ -97,7 +97,7 @@ class PlayerWebhook(SQLModel, table=True):
     )
     url: str = Field(max_length=500, nullable=False)
     enabled: bool = Field(default=True, nullable=False)
-    last_tested_at: datetime | None = Field(
+    last_used_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
@@ -141,7 +141,7 @@ class PlayerWebhookPublic(SQLModel):
     provider: PlayerWebhookProvider
     url: str
     enabled: bool
-    last_tested_at: datetime | None = None
+    last_used_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

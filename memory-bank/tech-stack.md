@@ -30,7 +30,7 @@
   - Player self-service profile edits are tracked in `player_profile_field_change`, keyed by `(player_steamid64, field)`, with 30-day cooldown rows for `alias` and `custom_id` plus a `country` row that disables automatic country refreshes after a manual country change
   - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_profile_field_change(country)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
-  - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-test timestamps
+  - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes

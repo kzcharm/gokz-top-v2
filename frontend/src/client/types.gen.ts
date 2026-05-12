@@ -649,7 +649,7 @@ export type PlayerWebhookPublic = {
     provider: PlayerWebhookProvider;
     url: string;
     enabled: boolean;
-    last_tested_at?: (string | null);
+    last_used_at?: (string | null);
     created_at: string;
     updated_at: string;
 };

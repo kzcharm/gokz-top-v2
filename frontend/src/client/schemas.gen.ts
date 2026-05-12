@@ -3059,7 +3059,7 @@ export const PlayerWebhookPublicSchema = {
             type: 'boolean',
             title: 'Enabled'
         },
-        last_tested_at: {
+        last_used_at: {
             anyOf: [
                 {
                     type: 'string',
@@ -3069,7 +3069,7 @@ export const PlayerWebhookPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Last Tested At'
+            title: 'Last Used At'
         },
         created_at: {
             type: 'string',
