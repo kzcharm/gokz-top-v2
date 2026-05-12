@@ -135,7 +135,7 @@ export default function WebhooksSettings() {
       }),
     onSuccess: (data) => {
       queryClient.setQueryData(webhooksQueryKey, data)
-      const createdWebhook = data.data.at(-1) ?? null
+      const createdWebhook = data.data[data.data.length - 1] ?? null
       setNewWebhook(createdWebhook ?? null)
       showSuccessToast("Webhook added")
     },
