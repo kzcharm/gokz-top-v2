@@ -2,14 +2,6 @@ import { AxiosError } from "axios"
 import type { ApiError } from "./client"
 
 export function extractErrorMessage(err: ApiError | Error | unknown): string {
-  if (err instanceof Error && !(err instanceof AxiosError)) {
-    return err.message || "Something went wrong."
-  }
-
-  if (err instanceof AxiosError) {
-    return err.message
-  }
-
   const apiError = err as Partial<ApiError> | undefined
   const errBody = apiError?.body
   const errDetail =
@@ -18,11 +10,19 @@ export function extractErrorMessage(err: ApiError | Error | unknown): string {
       : undefined
 
   if (Array.isArray(errDetail) && errDetail.length > 0) {
-    return errDetail[0]?.msg || "Something went wrong."
+    return errDetail[0]?.msg || apiError?.message || "Something went wrong."
   }
 
   if (typeof errDetail === "string") {
     return errDetail
+  }
+
+  if (err instanceof Error && !(err instanceof AxiosError)) {
+    return err.message || "Something went wrong."
+  }
+
+  if (err instanceof AxiosError) {
+    return err.message
   }
 
   return "Something went wrong."

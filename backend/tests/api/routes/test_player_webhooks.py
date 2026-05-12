@@ -81,6 +81,43 @@ async def test_current_player_webhooks_reject_invalid_url(
     )
 
     assert response.status_code == 422
+    assert (
+        response.json()["detail"][0]["msg"]
+        == "Value error, Webhook URL must use the Discord-compatible "
+        "/api/webhooks/<id>/<token> format"
+    )
+
+
+async def test_current_player_webhooks_accept_discord_compatible_host(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/me/webhooks",
+        headers=headers,
+        json={
+            "url": (
+                "https://qqbot.axekz.com/api/webhooks/188099455/"
+                "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert (
+        payload["data"][0]["url"]
+        == "https://qqbot.axekz.com/api/webhooks/188099455/"
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    )
 
 
 async def test_current_player_webhooks_hide_other_users_webhooks(

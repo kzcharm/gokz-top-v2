@@ -26,7 +26,7 @@ const webhooksQueryKey = ["player-webhooks"]
 function summarizeWebhookUrl(url: string) {
   const token = url.split("/").pop() ?? ""
   const tokenPreview = token.slice(0, 4) || "unknown"
-  return `Discord webhook • ${tokenPreview}...`
+  return `Discord-compatible webhook • ${tokenPreview}...`
 }
 
 function WebhookRow({
@@ -51,7 +51,7 @@ function WebhookRow({
               <FaDiscord className="size-4" />
             </span>
             <div>
-              <p className="text-sm font-medium">Discord webhook</p>
+              <p className="text-sm font-medium">Discord-compatible webhook</p>
             </div>
           </div>
           <p className="font-mono text-xs text-muted-foreground">
@@ -89,7 +89,7 @@ function WebhookRow({
               size="icon"
               disabled={busy}
               onClick={() => onEdit(webhook)}
-              aria-label="Edit Discord webhook"
+              aria-label="Edit Discord-compatible webhook"
             >
               <Pencil className="size-4" />
             </Button>
@@ -100,7 +100,7 @@ function WebhookRow({
               className="text-destructive hover:text-destructive"
               disabled={busy}
               onClick={() => onDelete(webhook)}
-              aria-label="Delete Discord webhook"
+              aria-label="Delete Discord-compatible webhook"
             >
               <Trash2 className="size-4" />
             </Button>
@@ -135,9 +135,7 @@ export default function WebhooksSettings() {
       }),
     onSuccess: (data) => {
       queryClient.setQueryData(webhooksQueryKey, data)
-      const createdWebhook = data.data.find(
-        (webhook) => webhook.url === newWebhookUrl.trim(),
-      )
+      const createdWebhook = data.data.at(-1) ?? null
       setNewWebhook(createdWebhook ?? null)
       showSuccessToast("Webhook added")
     },
@@ -233,7 +231,7 @@ export default function WebhooksSettings() {
     <div className="max-w-3xl space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-3">
-          <CardTitle>Discord webhooks</CardTitle>
+          <CardTitle>Discord-compatible webhooks</CardTitle>
           <Button
             type="button"
             disabled={query.isLoading}
@@ -289,7 +287,7 @@ export default function WebhooksSettings() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Discord webhook</DialogTitle>
+            <DialogTitle>Add Discord-compatible webhook</DialogTitle>
           </DialogHeader>
           <form
             id="add-webhook-form"
@@ -307,13 +305,18 @@ export default function WebhooksSettings() {
             <Input
               value={newWebhookUrl}
               placeholder={urlPlaceholder}
-              aria-label="Discord webhook URL"
+              aria-label="Discord-compatible webhook URL"
               disabled={createMutation.isPending}
               onChange={(event) => setNewWebhookUrl(event.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              Supports Discord webhooks and other endpoints that accept the same
+              `/api/webhooks/&lt;id&gt;/&lt;token&gt;` format.
+            </p>
             {newWebhook ? (
               <p className="text-xs text-muted-foreground">
-                Webhook created. Use Send test to preview the Discord embed.
+                Webhook created. Use Send test to preview the Discord-style
+                embed.
               </p>
             ) : null}
           </form>
@@ -362,7 +365,7 @@ export default function WebhooksSettings() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Discord webhook</DialogTitle>
+            <DialogTitle>Edit Discord-compatible webhook</DialogTitle>
           </DialogHeader>
           <form
             id="edit-webhook-form"
@@ -386,7 +389,7 @@ export default function WebhooksSettings() {
             <Input
               value={editingUrl}
               placeholder={urlPlaceholder}
-              aria-label="Edit Discord webhook URL"
+              aria-label="Edit Discord-compatible webhook URL"
               disabled={updateMutation.isPending}
               onChange={(event) => setEditingUrl(event.target.value)}
             />

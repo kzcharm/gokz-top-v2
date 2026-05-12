@@ -21,22 +21,41 @@ def normalize_discord_webhook_url(url: str) -> str:
         raise ValueError("Webhook URL cannot be blank")
 
     parsed = urlsplit(normalized)
-    host = parsed.netloc.split(":", maxsplit=1)[0].lower()
     path = parsed.path.rstrip("/")
     if parsed.scheme != "https":
         raise ValueError("Webhook URL must use https")
-    if host not in {"discord.com", "www.discord.com", "discordapp.com"}:
-        raise ValueError("Only Discord webhook URLs are supported")
     if not path.startswith("/api/webhooks/"):
-        raise ValueError("Invalid Discord webhook URL")
+        raise ValueError(
+            "Webhook URL must use the Discord-compatible "
+            "/api/webhooks/<id>/<token> format"
+        )
 
     segments = [segment for segment in path.split("/") if segment]
     if len(segments) != 4 or segments[0] != "api" or segments[1] != "webhooks":
-        raise ValueError("Invalid Discord webhook URL")
+        raise ValueError(
+            "Webhook URL must use the Discord-compatible "
+            "/api/webhooks/<id>/<token> format"
+        )
     if not segments[2].isdigit() or not segments[3]:
-        raise ValueError("Invalid Discord webhook URL")
+        raise ValueError(
+            "Webhook URL must use the Discord-compatible "
+            "/api/webhooks/<id>/<token> format"
+        )
 
-    return f"https://discord.com/api/webhooks/{segments[2]}/{segments[3]}"
+    if not parsed.hostname:
+        raise ValueError("Webhook URL must include a host")
+
+    normalized_host = parsed.hostname.lower()
+    normalized_netloc = normalized_host
+    if parsed.port is not None:
+        normalized_netloc = f"{normalized_netloc}:{parsed.port}"
+
+    normalized_url = (
+        f"https://{normalized_netloc}/api/webhooks/{segments[2]}/{segments[3]}"
+    )
+    if parsed.query:
+        normalized_url = f"{normalized_url}?{parsed.query}"
+    return normalized_url
 
 
 class PlayerWebhookProvider(StrEnum):
