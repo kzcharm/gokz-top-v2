@@ -84,7 +84,7 @@ git remote add upstream git@github.com:fastapi/full-stack-fastapi-template.git
 - Push the code to your new repository:
 
 ```bash
-git push -u origin master
+git push -u origin main
 ```
 
 ### Update From the Original Template
