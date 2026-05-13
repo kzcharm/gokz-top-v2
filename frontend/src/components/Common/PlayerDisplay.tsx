@@ -69,6 +69,8 @@ export type PlayerDisplayPlayer = {
   displayName?: string | null
   display_name?: string | null
   name?: string | null
+  clanTag?: string | null
+  clan_tag?: string | null
   alias?: string | null
   customId?: string | null
   custom_id?: string | null
@@ -107,6 +109,7 @@ interface PlayerDisplayProps {
   className?: string
   nameMaxLength?: number
   disableProfileLink?: boolean
+  hideAvatarWithoutSteamid64?: boolean
 }
 
 type PlayerContextMenuItemsProps = {
@@ -161,6 +164,13 @@ function getPlayerAvatarHash(
   player?: PlayerDisplayPlayer | null,
 ): string | null {
   return player?.avatarHash ?? player?.avatar_hash ?? null
+}
+
+function getPlayerClanTag(
+  player?: PlayerDisplayPlayer | null,
+): string | null {
+  const clanTag = player?.clanTag?.trim() ?? player?.clan_tag?.trim()
+  return clanTag ? clanTag : null
 }
 
 function shouldHydratePlayer(player?: PlayerDisplayPlayer | null): boolean {
@@ -353,6 +363,7 @@ export function PlayerDisplay({
   className,
   nameMaxLength,
   disableProfileLink = false,
+  hideAvatarWithoutSteamid64 = false,
 }: PlayerDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
@@ -378,6 +389,8 @@ export function PlayerDisplay({
     (viewerSteamid64 === steamid64 || user?.steamid64 === steamid64)
   const effectiveSubline =
     subline ?? (showSteamid ? ({ type: "steamid64" } as const) : null)
+  const clanTag = getPlayerClanTag(resolvedPlayer)
+  const fullDisplayLabel = clanTag ? `${clanTag}${displayName}` : displayName
   const avatarHash = getPlayerAvatarHash(resolvedPlayer)
   const steamAvatarSrc = avatarHash
     ? `https://avatars.steamstatic.com/${avatarHash}_full.jpg`
@@ -389,6 +402,7 @@ export function PlayerDisplay({
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${steamid64}`
     : null
+  const showAvatar = !hideAvatarWithoutSteamid64 || steamid64Pattern.test(steamid64)
 
   const countryCode = resolvedPlayer?.country?.toUpperCase() || null
   const FlagComponent = countryCode ? flagComponents[countryCode] : null
@@ -422,7 +436,7 @@ export function PlayerDisplay({
 
   useEffect(() => {
     setAvatarLoadFailed(false)
-  }, [])
+  }, [steamAvatarSrc])
 
   let sublineContent: string | null = null
   if (effectiveSubline?.type === "steamid64") {
@@ -485,41 +499,46 @@ export function PlayerDisplay({
           )
         ) : null}
 
-        <Avatar
-          data-testid={
-            showWebsiteUserRing ? `player-avatar-ring-${steamid64}` : undefined
-          }
-          className={cn(
-            "size-8 rounded-lg transition-transform duration-200",
-            showWebsiteUserRing &&
-              "ring-2 ring-pink-400/90 ring-offset-2 ring-offset-background",
-            hasProfileLink &&
-              "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
-          )}
-        >
-          <AvatarImage
-            src={avatarSrc}
-            alt={`${displayName} avatar`}
-            onError={() => {
-              setAvatarLoadFailed(true)
-            }}
-          />
-          <AvatarFallback className="rounded-lg bg-zinc-600 text-white">
-            {getInitials(displayName)}
-          </AvatarFallback>
-        </Avatar>
+        {showAvatar ? (
+          <Avatar
+            data-testid={
+              showWebsiteUserRing ? `player-avatar-ring-${steamid64}` : undefined
+            }
+            className={cn(
+              "size-8 rounded-lg transition-transform duration-200",
+              showWebsiteUserRing &&
+                "ring-2 ring-pink-400/90 ring-offset-2 ring-offset-background",
+              hasProfileLink &&
+                "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
+            )}
+          >
+            <AvatarImage
+              src={avatarSrc}
+              alt={`${displayName} avatar`}
+              onError={() => {
+                setAvatarLoadFailed(true)
+              }}
+            />
+            <AvatarFallback className="rounded-lg bg-zinc-600 text-white">
+              {getInitials(displayName)}
+            </AvatarFallback>
+          </Avatar>
+        ) : null}
       </div>
 
       <div className="min-w-0">
         <p
           className={cn(
-            "w-full truncate text-sm font-medium transition-colors",
+            "flex w-full min-w-0 items-baseline gap-1 text-sm font-medium transition-colors",
             hasProfileLink &&
               "group-hover:text-accent-foreground group-focus-visible:text-accent-foreground",
           )}
-          title={displayName}
+          title={fullDisplayLabel}
         >
-          {truncatedDisplayName}
+          {clanTag ? (
+            <span className="shrink-0 whitespace-pre">{clanTag}</span>
+          ) : null}
+          <span className="truncate">{truncatedDisplayName}</span>
         </p>
         {sublineContent ? (
           <p

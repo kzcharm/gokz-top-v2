@@ -88,6 +88,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                       <PlayerDisplay
                         player={{
                           steamid64: steamid64 || "",
+                          clan_tag: getPlayerStringValue(player, "clan_tag"),
                           name,
                           avatar_hash: getPlayerStringValue(
                             player,

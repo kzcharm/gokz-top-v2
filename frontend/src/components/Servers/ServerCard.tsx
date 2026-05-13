@@ -1,5 +1,6 @@
+import { useQuery } from "@tanstack/react-query"
 import { Copy, LoaderCircle, Pause, Play } from "lucide-react"
-import { memo, useMemo } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -7,6 +8,7 @@ import { TierBadge } from "@/components/Servers/TierBadge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { loadPlayerForDisplay } from "@/lib/player-graphql"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -26,8 +28,90 @@ import {
   getServerSurfaceClass,
   isServerOnline,
   isServerStatusRefreshing,
+  type ServerPlayer,
   sortPlayersByProgress,
 } from "./utils"
+
+function ServerCardPlayerChip({
+  player,
+  index,
+}: {
+  player: ServerPlayer
+  index: number
+}) {
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const name = getPlayerStringValue(player, "name") || `Player ${index + 1}`
+  const steamid64 = getPlayerStringValue(player, "steamid64")
+  const clanTag = getPlayerStringValue(player, "clan_tag")
+  const mode = getPlayerStringValue(player, "mode")
+  const progress = getPlayerProgressPercent(player)
+  const isPaused = getPlayerBooleanValue(player, "is_paused")
+  const timerLabel = formatTimerTime(getPlayerNumberValue(player, "timer_time"))
+  const inlineAvatarUrl = getPlayerAvatarUrl(player)
+  const { backgroundClassName } = getPlayerStatusSurfaceClass(player)
+  const hydrationQuery = useQuery({
+    queryKey: ["graphql", "player", steamid64],
+    enabled: Boolean(steamid64) && !inlineAvatarUrl,
+    queryFn: async () => await loadPlayerForDisplay(steamid64 as string),
+    staleTime: 60_000,
+  })
+  const hydratedAvatarHash = hydrationQuery.data?.avatarHash ?? null
+  const hydratedAvatarUrl = hydratedAvatarHash
+    ? `https://avatars.steamstatic.com/${hydratedAvatarHash}_full.jpg`
+    : null
+  const avatarSrc = inlineAvatarUrl ?? hydratedAvatarUrl
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+  }, [avatarSrc])
+
+  return (
+    <div
+      className={cn(
+        "relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs",
+        backgroundClassName,
+      )}
+    >
+      {progress !== null ? (
+        <div
+          className="absolute inset-y-0 left-0 rounded-md bg-blue-500/15 dark:bg-blue-400/15"
+          style={{ width: `${progress}%` }}
+        />
+      ) : null}
+      {steamid64 ? (
+        <Avatar className="relative z-10 h-4 w-4">
+          <AvatarImage
+            src={!avatarLoadFailed ? avatarSrc || undefined : undefined}
+            alt={name}
+            onError={() => {
+              setAvatarLoadFailed(true)
+            }}
+          />
+          <AvatarFallback className="bg-zinc-600 text-[9px] text-white">
+            {getInitials(name)}
+          </AvatarFallback>
+        </Avatar>
+      ) : null}
+      <span className="relative z-10 flex min-w-0 items-baseline gap-1">
+        {clanTag ? (
+          <span className="shrink-0 whitespace-pre">{clanTag}</span>
+        ) : null}
+        <span className="min-w-0 truncate">
+          {mode ? <span className="mr-1 text-gray-500">[{mode}]</span> : null}
+          {name}
+          {timerLabel !== "-" ? (
+            <span className="ml-1 text-gray-500">
+              - {timerLabel}
+              {isPaused ? (
+                <Pause className="ml-1 inline h-3 w-3 align-middle" />
+              ) : null}
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </div>
+  )
+}
 
 interface ServerCardProps {
   server: ServerPublic
@@ -172,54 +256,13 @@ export const ServerCard = memo(function ServerCard({
               {sortedPlayers.map((player, index) => {
                 const name =
                   getPlayerStringValue(player, "name") || `Player ${index + 1}`
-                const steamid64 = getPlayerStringValue(player, "steamid64")
-                const mode = getPlayerStringValue(player, "mode")
-                const progress = getPlayerProgressPercent(player)
-                const isPaused = getPlayerBooleanValue(player, "is_paused")
-                const timerLabel = formatTimerTime(
-                  getPlayerNumberValue(player, "timer_time"),
-                )
-                const avatarUrl = getPlayerAvatarUrl(player)
-                const { backgroundClassName } =
-                  getPlayerStatusSurfaceClass(player)
 
                 return (
-                  <div
+                  <ServerCardPlayerChip
                     key={`${name}-${index}`}
-                    className={cn(
-                      "relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs",
-                      backgroundClassName,
-                    )}
-                  >
-                    {progress !== null ? (
-                      <div
-                        className="absolute inset-y-0 left-0 rounded-md bg-blue-500/15 dark:bg-blue-400/15"
-                        style={{ width: `${progress}%` }}
-                      />
-                    ) : null}
-                    {steamid64 ? (
-                      <Avatar className="relative z-10 h-4 w-4">
-                        <AvatarImage src={avatarUrl || undefined} alt={name} />
-                        <AvatarFallback className="bg-zinc-600 text-[9px] text-white">
-                          {getInitials(name)}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : null}
-                    <span className="relative z-10 min-w-0 truncate">
-                      {mode ? (
-                        <span className="mr-1 text-gray-500">[{mode}]</span>
-                      ) : null}
-                      {name}
-                      {timerLabel !== "-" ? (
-                        <span className="ml-1 text-gray-500">
-                          - {timerLabel}
-                          {isPaused ? (
-                            <Pause className="ml-1 inline h-3 w-3 align-middle" />
-                          ) : null}
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
+                    player={player}
+                    index={index}
+                  />
                 )
               })}
             </div>
