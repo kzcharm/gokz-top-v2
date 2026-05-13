@@ -69,6 +69,7 @@ export type PlayerDisplayPlayer = {
   displayName?: string | null
   display_name?: string | null
   name?: string | null
+  tag?: string | null
   clanTag?: string | null
   clan_tag?: string | null
   alias?: string | null
@@ -169,7 +170,8 @@ function getPlayerAvatarHash(
 function getPlayerClanTag(
   player?: PlayerDisplayPlayer | null,
 ): string | null {
-  const clanTag = player?.clanTag?.trim() ?? player?.clan_tag?.trim()
+  const clanTag =
+    player?.clanTag?.trim() ?? player?.clan_tag?.trim() ?? player?.tag?.trim()
   return clanTag ? clanTag : null
 }
 
@@ -374,7 +376,14 @@ export function PlayerDisplay({
     queryFn: () => loadPlayerForDisplay(steamid64),
     staleTime: 60_000,
   })
-  const resolvedPlayer = hydrationQuery.data ?? player
+  const resolvedPlayer: PlayerDisplayPlayer | undefined =
+    hydrationQuery.data || player
+      ? {
+          steamid64,
+          ...player,
+          ...hydrationQuery.data,
+        }
+      : undefined
   const showWebsiteUserRing = hasWebsiteUserAvatarRing(resolvedPlayer)
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = getPlayerDisplayName(resolvedPlayer, steamid64)
@@ -536,7 +545,9 @@ export function PlayerDisplay({
           title={fullDisplayLabel}
         >
           {clanTag ? (
-            <span className="shrink-0 whitespace-pre">{clanTag}</span>
+            <span className="shrink-0 whitespace-pre text-muted-foreground">
+              {clanTag}
+            </span>
           ) : null}
           <span className="truncate">{truncatedDisplayName}</span>
         </p>

@@ -480,23 +480,29 @@ export function getPlayerAvatarUrl(player: ServerPlayer) {
     : null
 }
 
-export function formatTimerTime(seconds: number | null) {
+export function formatTimerTime(
+  seconds: number | null,
+  options?: { showDecimals?: boolean },
+) {
   if (seconds === null) {
     return "-"
   }
 
+  const { showDecimals = false } = options ?? {}
   const totalSeconds = Math.floor(seconds)
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const secs = totalSeconds % 60
+  const wholeSeconds = hours > 0 ? totalSeconds % 60 : seconds % 60
+  const formattedSeconds = showDecimals
+    ? wholeSeconds.toFixed(3).padStart(6, "0")
+    : secs.toString().padStart(2, "0")
 
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${formattedSeconds}`
   }
 
-  return `${minutes}:${secs.toString().padStart(2, "0")}`
+  return `${minutes}:${formattedSeconds}`
 }
 
 export function getPlayerProgressPercent(player: ServerPlayer) {

@@ -46,6 +46,7 @@ function ServerCardPlayerChip({
   const mode = getPlayerStringValue(player, "mode")
   const progress = getPlayerProgressPercent(player)
   const isPaused = getPlayerBooleanValue(player, "is_paused")
+  const stage = getPlayerNumberValue(player, "stage")
   const timerLabel = formatTimerTime(getPlayerNumberValue(player, "timer_time"))
   const inlineAvatarUrl = getPlayerAvatarUrl(player)
   const { backgroundClassName } = getPlayerStatusSurfaceClass(player)
@@ -102,6 +103,7 @@ function ServerCardPlayerChip({
           {timerLabel !== "-" ? (
             <span className="ml-1 text-gray-500">
               - {timerLabel}
+              {stage !== null && stage > 0 ? "*" : null}
               {isPaused ? (
                 <Pause className="ml-1 inline h-3 w-3 align-middle" />
               ) : null}
