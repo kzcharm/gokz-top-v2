@@ -49,6 +49,11 @@ class Settings(BaseSettings):
             self.FRONTEND_HOST
         ]
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def cors_allow_origin_regex(self) -> str | None:
+        return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
     POSTGRES_SERVER: str
