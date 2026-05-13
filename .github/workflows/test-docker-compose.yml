@@ -3,6 +3,7 @@ name: Test Docker Compose
 on:
   push:
     branches:
+      - dev
       - main
   pull_request:
     types:

@@ -1,0 +1,88 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy-staging:
+    if: github.repository_owner != 'fastapi'
+    runs-on: self-hosted
+    env:
+      ENVIRONMENT: staging
+      DOMAIN: ${{ secrets.DOMAIN_STAGING }}
+      API_HOST_STAGING: ${{ secrets.API_HOST_STAGING }}
+      ADMINER_HOST_STAGING: ${{ secrets.ADMINER_HOST_STAGING }}
+      STACK_NAME: ${{ secrets.STACK_NAME_STAGING }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      SUPER_USER_STEAMID64: ${{ secrets.SUPER_USER_STEAMID64 }}
+      STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+      TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+      TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      GEOIPUPDATE_ACCOUNT_ID: ${{ secrets.GEOIPUPDATE_ACCOUNT_ID }}
+      GEOIPUPDATE_LICENSE_KEY: ${{ secrets.GEOIPUPDATE_LICENSE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          clean: false
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - name: Resolve app version
+        id: version
+        run: echo "app_version=$(bash scripts/get-app-version.sh)" >> "${GITHUB_OUTPUT}"
+      - name: Write deployment env file
+        env:
+          VITE_APP_VERSION: ${{ steps.version.outputs.app_version }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
+          api_host="${API_HOST_STAGING:-api.${DOMAIN}}"
+          adminer_host="${ADMINER_HOST_STAGING:-adminer.${DOMAIN}}"
+          frontend_host_rule="Host(\`${DOMAIN}\`)"
+          cat > .env <<EOF
+          DOMAIN=${DOMAIN}
+          API_HOST=${api_host}
+          FRONTEND_HOSTNAME=${DOMAIN}
+          FRONTEND_HOST_RULE=${frontend_host_rule}
+          FRONTEND_HOST=https://${DOMAIN}
+          ADMINER_HOST=${adminer_host}
+          ENVIRONMENT=${ENVIRONMENT}
+          PROJECT_NAME=GOKZ.TOP
+          STACK_NAME=${STACK_NAME}
+          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://${api_host}
+          SECRET_KEY=${SECRET_KEY}
+          SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
+          STEAM_API_KEY=${STEAM_API_KEY}
+          TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+          TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+          POSTGRES_PORT=5432
+          POSTGRES_DB=app
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          SENTRY_DSN=${SENTRY_DSN}
+          GEOIP_DATA_DIR=${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}
+          GEOIPUPDATE_ACCOUNT_ID=${GEOIPUPDATE_ACCOUNT_ID}
+          GEOIPUPDATE_LICENSE_KEY=${GEOIPUPDATE_LICENSE_KEY}
+          DOCKER_IMAGE_BACKEND=${STACK_NAME}-backend
+          DOCKER_IMAGE_FRONTEND=${STACK_NAME}-frontend
+          VITE_APP_VERSION=${VITE_APP_VERSION}
+          EOF
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d
+      - name: Verify staging frontend and API
+        run: |
+          set -euo pipefail
+          curl -fsS "https://${DOMAIN}" > /dev/null
+          for _ in $(seq 1 20); do
+            if docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
+              curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
