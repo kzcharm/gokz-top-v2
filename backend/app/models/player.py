@@ -1,9 +1,11 @@
 import re
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import ConfigDict, field_validator
 from sqlalchemy import BigInteger, Column, Computed, DateTime, Index, text
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
 
@@ -13,6 +15,16 @@ MAX_PLAYER_CUSTOM_ID_LENGTH = 25
 PLAYER_ALIAS_PATTERN = re.compile(r"^[A-Za-z0-9 _-]+$")
 PLAYER_CUSTOM_ID_ALLOWED_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 PLAYER_CUSTOM_ID_PATTERN = re.compile(r"^[a-z0-9_-]*[a-z][a-z0-9_-]*$")
+
+
+def _enum_values(enum_class: type[StrEnum]) -> list[str]:
+    return [member.value for member in enum_class]
+
+
+class PlayerFriendsVisibility(StrEnum):
+    PUBLIC = "public"
+    PRIVATE_PROFILE = "private_profile"
+    PRIVATE_FRIENDS = "private_friends"
 
 
 def validate_player_custom_id(custom_id: str | None) -> str | None:
@@ -134,6 +146,21 @@ class Player(PlayerBase, table=True):
 
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)
     steam_profile_synced_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    friends_visibility: PlayerFriendsVisibility | None = Field(
+        default=None,
+        sa_column=Column(
+            SqlEnum(
+                PlayerFriendsVisibility,
+                name="player_friends_visibility",
+                values_callable=_enum_values,
+            ),
+            nullable=True,
+        ),
+    )
+    friends_visibility_checked_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
     )

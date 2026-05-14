@@ -12,6 +12,7 @@ from app.models import (
     Map,
     ModeScopeId,
     Player,
+    PlayerFriendSyncResult,
     Record,
     RecordPb,
     RecordType,
@@ -356,6 +357,22 @@ async def test_run_daily_rank_pipeline_runs_steps_in_sequence(
             skipped=0,
         )
 
+    async def _refresh_friends(
+        *,
+        session: AsyncSession,
+        steamid64s: list[int],
+    ) -> daily_rank_pipeline_task.FriendRefreshResult:
+        del session
+        assert steamid64s == selection.steamid64s
+        order.append("friends")
+        return daily_rank_pipeline_task.FriendRefreshResult(
+            processed=1,
+            synced=1,
+            rate_limited=0,
+            private=0,
+            failed=0,
+        )
+
     monkeypatch.setattr(
         daily_rank_pipeline_task, "load_daily_rank_selection", _load_selection
     )
@@ -377,16 +394,21 @@ async def test_run_daily_rank_pipeline_runs_steps_in_sequence(
         "refresh_daily_rank_player_profiles",
         _refresh_profiles,
     )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "refresh_daily_rank_player_friends",
+        _refresh_friends,
+    )
 
     result = await daily_rank_pipeline_task.run_daily_rank_pipeline_task(
         only_stale=False
     )
 
-    assert order == ["select", "points", "leaderboard", "maps", "steam"]
+    assert order == ["select", "points", "leaderboard", "maps", "steam", "friends"]
     assert result is not None
     assert result.processed == 3
     assert result.created == 3
-    assert result.updated == 17
+    assert result.updated == 18
     assert result.warnings == 0
 
 
@@ -479,3 +501,42 @@ async def test_run_daily_rank_pipeline_skips_after_success_for_current_day(
     )
 
     assert result is None
+
+
+async def test_refresh_daily_rank_player_friends_invokes_sync_service(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _create_player(db, steamid64=first_player, name="First")
+    await _create_player(db, steamid64=second_player, name="Second")
+
+    calls: list[int] = []
+
+    async def _fake_sync_player_friends(
+        *,
+        session: AsyncSession,
+        player: Player,
+    ) -> PlayerFriendSyncResult:
+        del session
+        calls.append(player.steamid64)
+        return PlayerFriendSyncResult(kind="success", synced_count=1)
+
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "sync_player_friends",
+        _fake_sync_player_friends,
+    )
+
+    result = await daily_rank_pipeline_task.refresh_daily_rank_player_friends(
+        session=db,
+        steamid64s=[first_player, second_player],
+    )
+
+    assert calls == [first_player, second_player]
+    assert result.processed == 2
+    assert result.synced == 2
+    assert result.rate_limited == 0
+    assert result.private == 0
+    assert result.failed == 0

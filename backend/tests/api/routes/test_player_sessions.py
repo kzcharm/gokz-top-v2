@@ -8,8 +8,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.models import (
     Player,
-    PlayerProfileField,
-    PlayerProfileFieldChange,
+    PlayerAction,
+    PlayerActionTimestamp,
     PlayerSession,
     ServerGroupStatus,
     generate_uuid7,
@@ -200,10 +200,10 @@ async def test_connect_does_not_update_locked_player_country_from_geoip(
     )
     db.add(player)
     db.add(
-        PlayerProfileFieldChange(
+        PlayerActionTimestamp(
             player_steamid64=steamid64,
-            field=PlayerProfileField.COUNTRY,
-            changed_at=datetime.now(UTC),
+            action=PlayerAction.COUNTRY_MANUAL_OVERRIDE,
+            recorded_at=datetime.now(UTC),
         )
     )
     await db.commit()

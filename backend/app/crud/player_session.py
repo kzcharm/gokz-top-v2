@@ -17,8 +17,8 @@ from app.models import (
     AdminPlayerSessionIpLinksPublic,
     AdminPlayerSessionPublic,
     Player,
-    PlayerProfileField,
-    PlayerProfileFieldChange,
+    PlayerAction,
+    PlayerActionTimestamp,
     PlayerSession,
     PlayerSessionConnect,
     PlayerSessionDisconnect,
@@ -481,7 +481,7 @@ async def _ensure_player_for_session(
 ) -> None:
     country = location.country_code if location is not None else None
     player_table = Player.__table__  # type: ignore[attr-defined]
-    field_change_table = PlayerProfileFieldChange.__table__  # type: ignore[attr-defined]
+    field_change_table = PlayerActionTimestamp.__table__  # type: ignore[attr-defined]
     insert_statement = pg_insert(player_table).values(
         steamid64=steamid64,
         name=str(steamid64),
@@ -503,7 +503,7 @@ async def _ensure_player_for_session(
             where=~select(field_change_table.c.player_steamid64)
             .where(
                 field_change_table.c.player_steamid64 == player_table.c.steamid64,
-                field_change_table.c.field == PlayerProfileField.COUNTRY,
+                field_change_table.c.action == PlayerAction.COUNTRY_MANUAL_OVERRIDE,
             )
             .exists(),
         )

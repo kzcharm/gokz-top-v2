@@ -21,6 +21,7 @@ from app.models import (
     ScheduledTaskState,
     get_datetime_utc,
 )
+from app.services.player_friends import sync_player_friends
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,15 @@ class SteamRefreshResult:
     created: int = 0
     updated: int = 0
     skipped: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class FriendRefreshResult:
+    processed: int = 0
+    synced: int = 0
+    rate_limited: int = 0
+    private: int = 0
+    failed: int = 0
 
 
 def _current_day_window(now: datetime) -> tuple[datetime, datetime]:
@@ -271,6 +281,44 @@ async def refresh_daily_rank_player_profiles(
     )
 
 
+async def refresh_daily_rank_player_friends(
+    *,
+    session: AsyncSession,
+    steamid64s: Sequence[int],
+) -> FriendRefreshResult:
+    if not steamid64s:
+        return FriendRefreshResult()
+
+    synced = 0
+    rate_limited = 0
+    private = 0
+    failed = 0
+
+    for steamid64 in steamid64s:
+        player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)
+        if player is None:
+            failed += 1
+            continue
+
+        result = await sync_player_friends(session=session, player=player)
+        if result.kind == "success":
+            synced += 1
+        elif result.kind == "rate_limited":
+            rate_limited += 1
+        elif result.kind in {"private_profile", "private_friends"}:
+            private += 1
+        else:
+            failed += 1
+
+    return FriendRefreshResult(
+        processed=len(steamid64s),
+        synced=synced,
+        rate_limited=rate_limited,
+        private=private,
+        failed=failed,
+    )
+
+
 async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResult | None:
     if _daily_rank_pipeline_run_lock.locked():
         logger.info("Skipping daily rank pipeline because another run is in progress")
@@ -334,6 +382,18 @@ async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResu
                     steam_result.updated,
                     steam_result.skipped,
                 )
+                friend_result = await refresh_daily_rank_player_friends(
+                    session=session,
+                    steamid64s=selection.steamid64s,
+                )
+                logger.info(
+                    "Daily rank pipeline refreshed player friends processed=%s synced=%s rate_limited=%s private=%s failed=%s",
+                    friend_result.processed,
+                    friend_result.synced,
+                    friend_result.rate_limited,
+                    friend_result.private,
+                    friend_result.failed,
+                )
         except Exception as exc:
             logger.exception("Daily rank pipeline failed")
             await _mark_task_finished(result=None, error=exc)
@@ -347,9 +407,15 @@ async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResu
                 + leaderboard_updated
                 + map_leaderboards_rebuilt
                 + steam_result.updated
+                + friend_result.synced
             ),
             errors=0,
-            warnings=steam_result.skipped,
+            warnings=(
+                steam_result.skipped
+                + friend_result.rate_limited
+                + friend_result.private
+                + friend_result.failed
+            ),
         )
         await _mark_task_finished(result=result, error=None)
         return result

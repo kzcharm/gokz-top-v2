@@ -18,7 +18,7 @@ import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records
 import { getTierColor, normalizeTierValue } from "@/components/Servers/tier"
 import type { AppScope } from "@/components/scope-provider"
 
-export type ProfileTab = "home" | "records" | "unfinished" | "stats"
+export type ProfileTab = "home" | "records" | "unfinished" | "stats" | "friends"
 
 export const PROFILE_QUERY_LIMIT = 10_000
 export const PROFILE_SOCIAL_PAGE_LIMIT = 20
@@ -69,6 +69,24 @@ export type ProfileBanStatusCheckResult = {
   message: string
   cleared_ban_count: number
   remaining_active_ban_count: number
+}
+
+export type ProfileFriendsVisibility =
+  | "public"
+  | "private_profile"
+  | "private_friends"
+
+export type ProfileFriendSync = {
+  visibility: ProfileFriendsVisibility | null
+  last_checked_at: string | null
+  last_attempted_at: string | null
+  next_allowed_at: string | null
+}
+
+export type ProfileFriendsResult = {
+  data: PlayerPublic[]
+  count: number
+  sync: ProfileFriendSync
 }
 
 export function getProfileActiveBanQueryOptions(steamid64: string | null) {
@@ -161,6 +179,60 @@ export function getProfileFollowSummaryQueryOptions(identifier: string) {
     retry: false,
     staleTime: 30_000,
   })
+}
+
+export function getProfileFriendsQueryOptions(identifier: string | null) {
+  return queryOptions({
+    queryKey: ["profile-friends", identifier],
+    queryFn: async (): Promise<ProfileFriendsResult | null> => {
+      if (!identifier) {
+        return null
+      }
+
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/friends`,
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load friends")
+      }
+      return (await response.json()) as ProfileFriendsResult
+    },
+    enabled: identifier !== null,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+export async function syncProfileFriends({
+  identifier,
+}: {
+  identifier: string
+}): Promise<ProfileFriendsResult> {
+  const accessToken = localStorage.getItem("access_token")
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/friends/sync`,
+    {
+      method: "POST",
+      credentials: OpenAPI.CREDENTIALS,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
+  )
+  const payload = (await response.json().catch(() => null)) as
+    | ProfileFriendsResult
+    | { detail?: string }
+    | null
+  if (!response.ok) {
+    throw new Error(
+      payload && typeof payload === "object" && "detail" in payload
+        ? (payload.detail ?? "Failed to sync friends")
+        : "Failed to sync friends",
+    )
+  }
+
+  if (!payload || typeof payload !== "object" || !("data" in payload)) {
+    throw new Error("Failed to sync friends")
+  }
+  return payload as ProfileFriendsResult
 }
 
 export function getProfileStatsQueryOptions(

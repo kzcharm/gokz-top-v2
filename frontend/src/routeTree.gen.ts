@@ -45,6 +45,7 @@ import { Route as LayoutProfileIdentifierIndexRouteImport } from './routes/_layo
 import { Route as LayoutProfileIdentifierUnfinishedRouteImport } from './routes/_layout/profile.$identifier.unfinished'
 import { Route as LayoutProfileIdentifierStatsRouteImport } from './routes/_layout/profile.$identifier.stats'
 import { Route as LayoutProfileIdentifierRecordsRouteImport } from './routes/_layout/profile.$identifier.records'
+import { Route as LayoutProfileIdentifierFriendsRouteImport } from './routes/_layout/profile.$identifier.friends'
 
 const ServersRoute = ServersRouteImport.update({
   id: '/servers',
@@ -236,6 +237,12 @@ const LayoutProfileIdentifierRecordsRoute =
     path: '/records',
     getParentRoute: () => LayoutProfileIdentifierRoute,
   } as any)
+const LayoutProfileIdentifierFriendsRoute =
+  LayoutProfileIdentifierFriendsRouteImport.update({
+    id: '/friends',
+    path: '/friends',
+    getParentRoute: () => LayoutProfileIdentifierRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -305,6 +313,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -344,6 +353,7 @@ export interface FileRoutesById {
   '/_layout/settings/profile': typeof LayoutSettingsProfileRoute
   '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/_layout/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/_layout/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/_layout/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/_layout/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -383,6 +393,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/social-links'
     | '/settings/webhooks'
+    | '/profile/$identifier/friends'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -419,6 +430,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/social-links'
     | '/settings/webhooks'
+    | '/profile/$identifier/friends'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -457,6 +469,7 @@ export interface FileRouteTypes {
     | '/_layout/settings/profile'
     | '/_layout/settings/social-links'
     | '/_layout/settings/webhooks'
+    | '/_layout/profile/$identifier/friends'
     | '/_layout/profile/$identifier/records'
     | '/_layout/profile/$identifier/stats'
     | '/_layout/profile/$identifier/unfinished'
@@ -725,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierRecordsRouteImport
       parentRoute: typeof LayoutProfileIdentifierRoute
     }
+    '/_layout/profile/$identifier/friends': {
+      id: '/_layout/profile/$identifier/friends'
+      path: '/friends'
+      fullPath: '/profile/$identifier/friends'
+      preLoaderRoute: typeof LayoutProfileIdentifierFriendsRouteImport
+      parentRoute: typeof LayoutProfileIdentifierRoute
+    }
   }
 }
 
@@ -802,6 +822,7 @@ const LayoutSettingsRouteWithChildren = LayoutSettingsRoute._addFileChildren(
 )
 
 interface LayoutProfileIdentifierRouteChildren {
+  LayoutProfileIdentifierFriendsRoute: typeof LayoutProfileIdentifierFriendsRoute
   LayoutProfileIdentifierRecordsRoute: typeof LayoutProfileIdentifierRecordsRoute
   LayoutProfileIdentifierStatsRoute: typeof LayoutProfileIdentifierStatsRoute
   LayoutProfileIdentifierUnfinishedRoute: typeof LayoutProfileIdentifierUnfinishedRoute
@@ -810,6 +831,7 @@ interface LayoutProfileIdentifierRouteChildren {
 
 const LayoutProfileIdentifierRouteChildren: LayoutProfileIdentifierRouteChildren =
   {
+    LayoutProfileIdentifierFriendsRoute: LayoutProfileIdentifierFriendsRoute,
     LayoutProfileIdentifierRecordsRoute: LayoutProfileIdentifierRecordsRoute,
     LayoutProfileIdentifierStatsRoute: LayoutProfileIdentifierStatsRoute,
     LayoutProfileIdentifierUnfinishedRoute:

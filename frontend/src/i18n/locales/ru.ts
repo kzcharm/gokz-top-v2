@@ -228,6 +228,7 @@ export const ru = {
       records: "Рекорды",
       unfinished: "Незавершённые",
       stats: "Статистика",
+      friends: "Друзья",
     },
     searchAria: "Поиск игроков",
     searchPlaceholder: "Искать игрока ...",
@@ -278,6 +279,21 @@ export const ru = {
       loadMore: "Загрузить ещё",
       pageHint:
         "Показывается до {{count}} игроков на страницу. Нажмите на любую строку, чтобы открыть профиль.",
+    },
+    friends: {
+      syncButton: "Синхронизировать друзей",
+      syncing: "Синхронизация...",
+      synced: "Друзья синхронизированы",
+      syncFailed: "Не удалось синхронизировать друзей",
+      loadFailedTitle: "Не удалось загрузить друзей",
+      loadFailedBody: "Обновите страницу и попробуйте снова.",
+      empty: "Для этого игрока не найдено друзей KZ.",
+      privateProfileTitle: "Профиль Steam закрыт",
+      privateProfileBody:
+        "Профиль Steam этого игрока не является публичным, поэтому список друзей нельзя синхронизировать.",
+      privateFriendsTitle: "Список друзей Steam скрыт",
+      privateFriendsBody:
+        "Список друзей Steam этого игрока скрыт, поэтому друзей нельзя синхронизировать.",
     },
     activity: {
       title: "Активность",

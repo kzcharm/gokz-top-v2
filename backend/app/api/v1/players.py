@@ -26,6 +26,7 @@ from app.models import (
     PlayerDailyActivityPublic,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
+    PlayerFriendsPublic,
     PlayerMostPlayedServerPublic,
     PlayerPinnedRecordsPublic,
     PlayerPinnedRecordUpsert,
@@ -70,6 +71,7 @@ from app.services.globalapi_ban_sync import (
     GlobalApiBanSyncError,
     sync_player_bans_from_globalapi,
 )
+from app.services.player_friends import read_player_friends_public, sync_player_friends
 from app.services.player_social_links import build_player_social_link_url
 from app.services.player_steam_profile import (
     is_player_steam_profile_sync_due,
@@ -188,6 +190,19 @@ def _ensure_current_user_can_check_own_ban_status(
             status_code=403,
             detail="You cannot check another player's ban status",
         )
+
+
+def _ensure_current_user_can_sync_own_friends(
+    *, current_user: CurrentUser, target_steamid64: int
+) -> None:
+    if current_user.steamid64 == target_steamid64:
+        return
+    if user_has_role(current_user, UserRole.SUPERUSER):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="You cannot sync another player's friends list",
+    )
 
 
 async def _get_current_user_player_or_404(
@@ -1334,6 +1349,38 @@ async def read_current_player_webhooks(
         data=crud.to_player_webhook_publics(webhooks=webhooks),
         count=len(webhooks),
     )
+
+
+@router.get("/{identifier:path}/friends", response_model=PlayerFriendsPublic)
+async def read_player_friends(
+    identifier: str,
+    session: SessionDep,
+    current_user: OptionalCurrentUser,
+) -> PlayerFriendsPublic:
+    del current_user
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    return await read_player_friends_public(session=session, player=player)
+
+
+@router.post("/{identifier:path}/friends/sync", response_model=PlayerFriendsPublic)
+async def sync_player_friends_route(
+    identifier: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerFriendsPublic:
+    player = await _get_player_or_404(session=session, identifier=identifier)
+    _ensure_current_user_can_sync_own_friends(
+        current_user=current_user,
+        target_steamid64=player.steamid64,
+    )
+
+    result = await sync_player_friends(session=session, player=player)
+    if result.kind == "rate_limited":
+        raise HTTPException(status_code=429, detail="Friends sync is rate limited")
+    if result.kind == "failed":
+        raise HTTPException(status_code=502, detail="Friends sync failed")
+
+    return await read_player_friends_public(session=session, player=player)
 
 
 @router.post("/me/webhooks", response_model=PlayerWebhooksPublic)

@@ -18,7 +18,7 @@ import useAuth from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
-
+import { ProfileFriendsTab } from "./ProfileFriendsTab"
 import {
   ProfileCompletionSection,
   ProfileHomeContent,
@@ -37,6 +37,7 @@ import {
   checkProfileUnbanStatus,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
+  getProfileFriendsQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
@@ -46,6 +47,7 @@ import {
   getProfileValidatedMapsQueryOptions,
   type ProfileTab,
   pinProfileRecord,
+  syncProfileFriends,
   unpinProfileRecord,
 } from "./profile-utils"
 
@@ -85,6 +87,7 @@ export function ProfilePage({
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
   const recordedProfileViewsRef = useRef<Set<string>>(new Set())
+  const autoSyncedFriendsRef = useRef<Set<string>>(new Set())
   const [isProOnly, setIsProOnly] = useState(false)
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],
@@ -104,6 +107,10 @@ export function ProfilePage({
       activeTab === "records" || activeTab === "unfinished" ? "playtime" : null,
     ),
     enabled: canonicalIdentifier !== null,
+  })
+  const friendsQuery = useQuery({
+    ...getProfileFriendsQueryOptions(canonicalIdentifier),
+    enabled: canonicalIdentifier !== null && activeTab === "friends",
   })
   const nubRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
@@ -135,7 +142,9 @@ export function ProfilePage({
         ? "/profile/$identifier/unfinished"
         : activeTab === "stats"
           ? "/profile/$identifier/stats"
-          : "/profile/$identifier"
+          : activeTab === "friends"
+            ? "/profile/$identifier/friends"
+            : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {
@@ -338,6 +347,32 @@ export function ProfilePage({
       })
     },
   })
+  const syncFriendsMutation = useMutation({
+    mutationFn: async () => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      return await syncProfileFriends({
+        identifier: playerSteamid64,
+      })
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["profile-friends", canonicalIdentifier],
+      })
+      if (result.sync.visibility === "public") {
+        toast.success(t("profile.friends.synced"))
+      }
+    },
+    onError: async (error) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["profile-friends", canonicalIdentifier],
+      })
+      toast.error(t("profile.friends.syncFailed"), {
+        description: extractErrorMessage(error),
+      })
+    },
+  })
   const summary = useMemo(() => {
     const totalPoints = buildProfileTotalPoints({
       nubRecords: nubRecordsQuery.data ?? [],
@@ -382,6 +417,39 @@ export function ProfilePage({
   const completionError =
     mapsQuery.isError || nubRecordsQuery.isError || proRecordsQuery.isError
 
+  useEffect(() => {
+    if (
+      activeTab !== "friends" ||
+      !isOwnProfile ||
+      !playerSteamid64 ||
+      friendsQuery.isLoading ||
+      friendsQuery.isError ||
+      !friendsQuery.data
+    ) {
+      return
+    }
+    if (friendsQuery.data.sync.last_attempted_at !== null) {
+      return
+    }
+    if (autoSyncedFriendsRef.current.has(playerSteamid64)) {
+      return
+    }
+    if (syncFriendsMutation.isPending) {
+      return
+    }
+
+    autoSyncedFriendsRef.current.add(playerSteamid64)
+    void syncFriendsMutation.mutateAsync()
+  }, [
+    activeTab,
+    friendsQuery.data,
+    friendsQuery.isError,
+    friendsQuery.isLoading,
+    isOwnProfile,
+    playerSteamid64,
+    syncFriendsMutation,
+  ])
+
   if (playerQuery.isLoading) {
     return <ProfileSkeleton />
   }
@@ -419,6 +487,24 @@ export function ProfilePage({
         />
         <span>{isProOnly ? "PRO" : "NUB"}</span>
       </Label>
+    ) : activeTab === "friends" && isOwnProfile ? (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        data-testid="profile-friends-sync-button"
+        disabled={syncFriendsMutation.isPending}
+        onClick={() => {
+          if (syncFriendsMutation.isPending) {
+            return
+          }
+          void syncFriendsMutation.mutateAsync()
+        }}
+      >
+        {syncFriendsMutation.isPending
+          ? t("profile.friends.syncing")
+          : t("profile.friends.syncButton")}
+      </Button>
     ) : null
 
   return (
@@ -586,6 +672,13 @@ export function ProfilePage({
               proRecords={proRecordsQuery.data ?? []}
               proRecordsLoading={proRecordsQuery.isLoading}
               proRecordsError={proRecordsQuery.isError}
+            />
+          ) : activeTab === "friends" ? (
+            <ProfileFriendsTab
+              friends={friendsQuery.data?.data ?? []}
+              sync={friendsQuery.data?.sync ?? null}
+              loading={friendsQuery.isLoading}
+              error={friendsQuery.isError}
             />
           ) : (
             <ProfileStatsContent

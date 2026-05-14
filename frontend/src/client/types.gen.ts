@@ -409,6 +409,21 @@ export type PlayerFollowSummaryPublic = {
     viewer_is_self?: boolean;
 };
 
+export type PlayerFriendsPublic = {
+    data: Array<PlayerPublic>;
+    count: number;
+    sync: PlayerFriendSyncPublic;
+};
+
+export type PlayerFriendsVisibility = 'public' | 'private_profile' | 'private_friends';
+
+export type PlayerFriendSyncPublic = {
+    visibility?: (PlayerFriendsVisibility | null);
+    last_checked_at?: (string | null);
+    last_attempted_at?: (string | null);
+    next_allowed_at?: (string | null);
+};
+
 export type PlayerLeaderboardEntryPublic = {
     rank: number;
     player: PlayerRefPublic;
@@ -1517,6 +1532,18 @@ export type PlayersCreateCurrentPlayerWebhookData = {
 
 export type PlayersCreateCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
 
+export type PlayersReadPlayerFriendsData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerFriendsResponse = (PlayerFriendsPublic);
+
+export type PlayersSyncPlayerFriendsRouteData = {
+    identifier: string;
+};
+
+export type PlayersSyncPlayerFriendsRouteResponse = (PlayerFriendsPublic);
+
 export type PlayersUpdateCurrentPlayerWebhookData = {
     requestBody: PlayerWebhookUpdate;
     webhookId: string;
@@ -1556,6 +1583,7 @@ export type PlayersUpsertPlayerFromSteamData = {
 export type PlayersUpsertPlayerFromSteamResponse = (PlayerPublic);
 
 export type PlayerSessionsConnectPlayerSessionData = {
+    authorization?: (string | null);
     requestBody: PlayerSessionConnect;
     xServerGroupKey?: (string | null);
 };
@@ -1563,6 +1591,7 @@ export type PlayerSessionsConnectPlayerSessionData = {
 export type PlayerSessionsConnectPlayerSessionResponse = (PlayerSessionPublic);
 
 export type PlayerSessionsHeartbeatPlayerSessionData = {
+    authorization?: (string | null);
     requestBody: PlayerSessionHeartbeat;
     xServerGroupKey?: (string | null);
 };
@@ -1570,6 +1599,7 @@ export type PlayerSessionsHeartbeatPlayerSessionData = {
 export type PlayerSessionsHeartbeatPlayerSessionResponse = (PlayerSessionPublic);
 
 export type PlayerSessionsDisconnectPlayerSessionData = {
+    authorization?: (string | null);
     requestBody: PlayerSessionDisconnect;
     xServerGroupKey?: (string | null);
 };
@@ -1677,6 +1707,7 @@ export type ServerGroupsRotateServerGroupApiKeyData = {
 export type ServerGroupsRotateServerGroupApiKeyResponse = (ServerGroupApiKeyPublic);
 
 export type ServersPutServerStatusData = {
+    authorization?: (string | null);
     requestBody: ServerStatusPut;
     xServerGroupKey?: (string | null);
 };

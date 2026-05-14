@@ -223,6 +223,7 @@ export const zhCN = {
       records: "记录",
       unfinished: "未完成",
       stats: "数据",
+      friends: "好友",
     },
     searchAria: "搜索玩家",
     searchPlaceholder: "搜索玩家 ...",
@@ -272,6 +273,20 @@ export const zhCN = {
       loadMore: "加载更多",
       pageHint:
         "每页最多显示 {{count}} 位玩家。点击任意条目即可打开该玩家主页。",
+    },
+    friends: {
+      syncButton: "同步好友",
+      syncing: "同步中...",
+      synced: "好友已同步",
+      syncFailed: "同步好友失败",
+      loadFailedTitle: "无法加载好友",
+      loadFailedBody: "请刷新页面后重试。",
+      empty: "没有找到该玩家的 KZ 好友。",
+      privateProfileTitle: "Steam 个人资料为私密",
+      privateProfileBody:
+        "该玩家的 Steam 个人资料不是公开状态，因此无法同步其好友列表。",
+      privateFriendsTitle: "Steam 好友列表为私密",
+      privateFriendsBody: "该玩家的 Steam 好友列表被隐藏，因此无法同步其好友。",
     },
     activity: {
       title: "活动",

@@ -850,11 +850,11 @@ async def get_player_settings(
     country_changed_at = changes.get(PlayerProfileField.COUNTRY)
     country_locked = country_changed_at is not None
     alias_status = build_player_profile_field_status(
-        changed_at=alias_changed_at.changed_at if alias_changed_at else None,
+        changed_at=alias_changed_at.recorded_at if alias_changed_at else None,
         now=resolved_now,
     )
     custom_id_status = build_player_profile_field_status(
-        changed_at=custom_id_changed_at.changed_at if custom_id_changed_at else None,
+        changed_at=custom_id_changed_at.recorded_at if custom_id_changed_at else None,
         now=resolved_now,
     )
     if bypass_rate_limits:
@@ -867,7 +867,7 @@ async def get_player_settings(
         alias=alias_status,
         custom_id=custom_id_status,
         country=PlayerProfileFieldStatus(
-            last_changed_at=country_changed_at.changed_at if country_changed_at else None,
+            last_changed_at=country_changed_at.recorded_at if country_changed_at else None,
             next_available_at=None,
             can_change=True,
         ),

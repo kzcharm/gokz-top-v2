@@ -20,14 +20,28 @@ def _enum_values(enum_class: type[StrEnum]) -> list[str]:
     return [member.value for member in enum_class]
 
 
+class PlayerAction(StrEnum):
+    ALIAS_CHANGE = "alias_change"
+    CUSTOM_ID_CHANGE = "custom_id_change"
+    COUNTRY_MANUAL_OVERRIDE = "country_manual_override"
+    FRIENDS_SYNC = "friends_sync"
+
+
 class PlayerProfileField(StrEnum):
     ALIAS = "alias"
     CUSTOM_ID = "custom_id"
     COUNTRY = "country"
 
 
-class PlayerProfileFieldChange(SQLModel, table=True):
-    __tablename__ = "player_profile_field_change"
+PLAYER_PROFILE_FIELD_ACTION_MAP = {
+    PlayerProfileField.ALIAS: PlayerAction.ALIAS_CHANGE,
+    PlayerProfileField.CUSTOM_ID: PlayerAction.CUSTOM_ID_CHANGE,
+    PlayerProfileField.COUNTRY: PlayerAction.COUNTRY_MANUAL_OVERRIDE,
+}
+
+
+class PlayerActionTimestamp(SQLModel, table=True):
+    __tablename__ = "player_action_timestamp"
 
     player_steamid64: int = Field(
         sa_column=Column(
@@ -36,17 +50,17 @@ class PlayerProfileFieldChange(SQLModel, table=True):
             primary_key=True,
         )
     )
-    field: PlayerProfileField = Field(
+    action: PlayerAction = Field(
         sa_column=Column(
             SqlEnum(
-                PlayerProfileField,
-                name="player_profile_field",
+                PlayerAction,
+                name="player_action",
                 values_callable=_enum_values,
             ),
             primary_key=True,
         )
     )
-    changed_at: datetime = Field(
+    recorded_at: datetime = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )

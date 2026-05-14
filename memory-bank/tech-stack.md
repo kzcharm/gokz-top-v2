@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-05-11
+- Last Updated: 2026-05-13
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -27,8 +27,10 @@
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
   - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds
   - Player sessions snapshot GeoIP country/region/city at ingest time for admin-only shared-IP traversal across exact IP, `/24`, and `/16 + city` buckets
-  - Player self-service profile edits are tracked in `player_profile_field_change`, keyed by `(player_steamid64, field)`, with 30-day cooldown rows for `alias` and `custom_id` plus a `country` row that disables automatic country refreshes after a manual country change
-  - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_profile_field_change(country)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
+  - Player self-service profile edits and rate-limited sync actions are tracked in `player_action_timestamp`, keyed by `(player_steamid64, action)`, with 30-day cooldown rows for `alias_change` and `custom_id_change`, a `country_manual_override` row that disables automatic country refreshes after a manual country change, and a one-minute `friends_sync` action used by the player friends sync flow
+  - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_action_timestamp(country_manual_override)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
+  - KZ-only player friendships are stored in `player_friend` as directed edges, with sync flows maintaining both directions for active friendships and deleting stale edges only after a successful Steam friends fetch
+  - `player` now persists Steam friends visibility state through `friends_visibility` and `friends_visibility_checked_at`, allowing public profile reads to explain whether a Steam profile or friends list is private without storing generic sync-failure state
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
@@ -49,7 +51,7 @@
   - WebSocket updates are delivered from `/v1/ws/servers` after cache updates, using PostgreSQL `LISTEN/NOTIFY` to fan out change events from the backend
 - Scheduled background maintenance:
   - Continuous GlobalAPI sync remains responsible for ingesting mirrored upstream records and other mirrored entities
-  - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, rebuilds touched maps leaderboard rows selected from `Record.updated_at`, and refreshes touched player Steam profiles
+  - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, rebuilds touched maps leaderboard rows selected from `Record.updated_at`, refreshes touched player Steam profiles, and then attempts KZ-only friends sync for those same players
   - An advisory-locked in-app player-session timeout runner closes open sessions after the configured heartbeat timeout by setting `disconnect_at` to the last heartbeat timestamp
   - An advisory-locked in-app live-stream runner polls verified Bilibili and Twitch social links on a fixed interval, caches Twitch app tokens in-process, and updates `live_stream_state` without clearing live rows on transport failures
   - The midnight rank pipeline preserves `record_pb.updated_on` during point recalculation so same-day retries keep the same selection window

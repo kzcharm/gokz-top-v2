@@ -18,7 +18,6 @@ from app.models import (
     Player,
     PlayerFollow,
     PlayerProfileField,
-    PlayerProfileFieldChange,
     User,
 )
 from app.services import globalapi_ban_sync, player_steam_profile
@@ -62,16 +61,14 @@ async def _create_profile_field_change(
     steamid64: int,
     field: PlayerProfileField,
     changed_at: datetime,
-) -> PlayerProfileFieldChange:
-    change = PlayerProfileFieldChange(
+) -> None:
+    await crud.upsert_player_profile_field_change(
+        session=db,
         player_steamid64=steamid64,
         field=field,
         changed_at=changed_at,
     )
-    db.add(change)
     await db.commit()
-    await db.refresh(change)
-    return change
 
 
 async def _set_ovr_rating(*, db: AsyncSession, steamid64: int, rating: int) -> None:
