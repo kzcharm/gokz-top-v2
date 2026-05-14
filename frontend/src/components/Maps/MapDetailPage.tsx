@@ -19,7 +19,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -27,7 +26,6 @@ import {
   SelectTrigger,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
 import { formatNumber, getLocale } from "@/i18n/locale"
@@ -80,7 +78,12 @@ function MapMetaItem({
   )
 }
 
-function formatRankShare(rank: number | null, total: number, unavailableLabel: string) {
+function formatRankShare(
+  rank: number | null,
+  total: number,
+  unavailableLabel: string,
+  topLabel: string,
+) {
   if (rank === null || rank <= 0 || total <= 0) {
     return `${unavailableLabel} / ${formatNumber(total)}`
   }
@@ -90,7 +93,7 @@ function formatRankShare(rank: number | null, total: number, unavailableLabel: s
     maximumFractionDigits: 1,
   }).format((rank / total) * 100)
 
-  return `${formatNumber(rank)} / ${formatNumber(total)} ${percentage}%`
+  return `${formatNumber(rank)} / ${formatNumber(total)} (${topLabel} ${percentage}%)`
 }
 
 type MapPbLeaderboardResponse = {
@@ -505,27 +508,29 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
         leaderboardSummary={
           !leaderboardQuery.isError ? (
             <>
-              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+              <div className="space-y-1">
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   NUB
                 </div>
-                <div className="mt-2 text-sm font-semibold text-foreground">
+                <div className="text-sm font-semibold text-foreground">
                   {formatRankShare(
                     currentUserSteamid64 ? nubRank : null,
                     leaderboardQuery.data?.unique_nub_finishes ?? 0,
                     t("common.notAvailable"),
+                    t("maps.topPercentPrefix"),
                   )}
                 </div>
               </div>
-              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+              <div className="space-y-1">
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   PRO
                 </div>
-                <div className="mt-2 text-sm font-semibold text-foreground">
+                <div className="text-sm font-semibold text-foreground">
                   {formatRankShare(
                     currentUserSteamid64 ? proRank : null,
                     leaderboardQuery.data?.unique_pro_finishes ?? 0,
                     t("common.notAvailable"),
+                    t("maps.topPercentPrefix"),
                   )}
                 </div>
               </div>
@@ -546,7 +551,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
               </TabsList>
 
               {activeTab === "top" ? (
-                <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-3 lg:flex-1 lg:flex-row lg:items-center lg:justify-end">
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <div className="w-full sm:w-[176px]">
                       <CountryPicker
@@ -603,67 +608,71 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <Label
-                    htmlFor="map-records-pro-only"
-                    className="flex items-center gap-3 rounded-full border border-border/70 bg-background/70 px-3 py-2"
-                  >
-                    <Switch
-                      id="map-records-pro-only"
-                      checked={isProOnly}
-                      onCheckedChange={(checked) => {
-                        setIsProOnly(checked)
-                        setPendingSpotlightSteamid64(null)
-                      }}
-                    />
-                    <span>{t("maps.filters.proOnly")}</span>
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-pressed={isFriendsOnly}
-                    className={cn(
-                      "border-border/70 bg-background/80",
-                      isFriendsOnly &&
-                        "border-amber-500/50 bg-amber-500/12 text-amber-950 hover:bg-amber-500/18 dark:text-amber-100",
-                    )}
-                    onClick={() => {
-                      if (!currentUser?.steamid64) {
-                        toast.warning(
-                          t("leaderboards.players.friends.loginRequiredTitle"),
-                          {
-                            description: t(
-                              "leaderboards.players.friends.loginRequiredDescription",
-                            ),
-                          },
-                        )
-                        return
-                      }
-
-                      const nextValue = !isFriendsOnly
-                      setIsFriendsOnly(nextValue)
-                      if (nextValue) {
-                        setSelectedCountry(null)
-                        setSelectedRegion(null)
-                      }
-                      setPendingSpotlightSteamid64(null)
-                      setTopPageIndex(0)
-                    }}
-                  >
-                    <Users />
-                    {t("leaderboards.players.friends.label")}
-                  </Button>
-                  {currentUserSteamid64 ? (
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={handleFindMe}
-                      disabled={leaderboardQuery.isLoading}
+                      aria-pressed={isFriendsOnly}
+                      className={cn(
+                        "border-border/70 bg-background/80",
+                        isFriendsOnly &&
+                          "border-amber-500/50 bg-amber-500/12 text-amber-950 hover:bg-amber-500/18 dark:text-amber-100",
+                      )}
+                      onClick={() => {
+                        if (!currentUser?.steamid64) {
+                          toast.warning(
+                            t("leaderboards.players.friends.loginRequiredTitle"),
+                            {
+                              description: t(
+                                "leaderboards.players.friends.loginRequiredDescription",
+                              ),
+                            },
+                          )
+                          return
+                        }
+
+                        const nextValue = !isFriendsOnly
+                        setIsFriendsOnly(nextValue)
+                        if (nextValue) {
+                          setSelectedCountry(null)
+                          setSelectedRegion(null)
+                        }
+                        setPendingSpotlightSteamid64(null)
+                        setTopPageIndex(0)
+                      }}
                     >
-                      <LocateFixed />
-                      {t("maps.findMe")}
+                      <Users />
+                      {t("leaderboards.players.friends.label")}
                     </Button>
-                  ) : null}
+                    {currentUserSteamid64 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleFindMe}
+                        disabled={leaderboardQuery.isLoading}
+                      >
+                        <LocateFixed />
+                        {t("maps.findMe")}
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={isProOnly}
+                      className={cn(
+                        "border-border/70 bg-background/80",
+                        isProOnly
+                          ? "border-[#3598db] bg-[#3598db] text-white hover:bg-[#2c84bf] hover:text-white dark:border-[#3598db] dark:bg-[#3598db] dark:text-white"
+                          : "border-[#f3c40f] bg-[#f3c40f] text-white hover:bg-[#d8ad0d] hover:text-white dark:border-[#f3c40f] dark:bg-[#f3c40f] dark:text-white",
+                      )}
+                      onClick={() => {
+                        setIsProOnly((currentValue) => !currentValue)
+                        setPendingSpotlightSteamid64(null)
+                      }}
+                    >
+                      {isProOnly ? "PRO" : "NUB"}
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <Button

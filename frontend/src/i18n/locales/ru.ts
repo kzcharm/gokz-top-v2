@@ -580,11 +580,11 @@ export const ru = {
     filters: {
       country: "страна",
       region: "регион",
-      proOnly: "Только PRO",
     },
     addReview: "Добавить отзыв",
     nubFinishers: "Финишировавших NUB",
     proFinishers: "Финишировавших PRO",
+    topPercentPrefix: "Топ",
     myRank: "Мой ранг",
     findMe: "Найти меня",
     findMeNotRankedTitle: "У вас нет ранкнутого финиша здесь",

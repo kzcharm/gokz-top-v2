@@ -562,11 +562,11 @@ export const zhCN = {
     filters: {
       country: "国家",
       region: "地区",
-      proOnly: "仅 PRO",
     },
     addReview: "添加评论",
     nubFinishers: "NUB 完成人数",
     proFinishers: "PRO 完成人数",
+    topPercentPrefix: "前",
     myRank: "我的排名",
     findMe: "找我",
     findMeNotRankedTitle: "你在这里还没有可排名的完成记录",

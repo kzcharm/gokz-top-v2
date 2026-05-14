@@ -573,11 +573,11 @@ export const en = {
     filters: {
       country: "country",
       region: "region",
-      proOnly: "Pro only",
     },
     addReview: "Add Review",
     nubFinishers: "NUB finishers",
     proFinishers: "PRO finishers",
+    topPercentPrefix: "Top",
     myRank: "My rank",
     findMe: "Find Me",
     findMeNotRankedTitle: "You do not have a ranked finish here",
