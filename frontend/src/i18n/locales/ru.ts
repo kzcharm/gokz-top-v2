@@ -291,6 +291,7 @@ export const ru = {
         name: "Имя",
         steamid64: "Steam ID64",
         country: "Страна",
+        rating: "Рейтинг",
         lastPlayed: "Последняя игра",
       },
       loadFailedTitle: "Не удалось загрузить друзей",

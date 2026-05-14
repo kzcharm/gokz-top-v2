@@ -285,6 +285,7 @@ export const zhCN = {
         name: "名称",
         steamid64: "Steam ID64",
         country: "国家",
+        rating: "Rating",
         lastPlayed: "最近游玩",
       },
       loadFailedTitle: "无法加载好友",

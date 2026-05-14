@@ -29,6 +29,113 @@ const friend = {
   profile_views: 0,
 }
 
+const sortableFriends = [
+  {
+    name: "Zulu",
+    alias: null,
+    custom_id: null,
+    avatar_hash: null,
+    country: "US",
+    created_at: "2026-03-02T12:00:00Z",
+    last_played_at: "2026-03-05T12:00:00Z",
+    updated_at: "2026-03-05T12:00:00Z",
+    steamid64: "76561198000000003",
+    profile_views: 0,
+  },
+  {
+    name: "Alpha",
+    alias: null,
+    custom_id: null,
+    avatar_hash: null,
+    country: "CA",
+    created_at: "2026-03-02T12:00:00Z",
+    last_played_at: "2026-03-10T12:00:00Z",
+    updated_at: "2026-03-10T12:00:00Z",
+    steamid64: "76561198000000001",
+    profile_views: 0,
+  },
+  {
+    name: "Bravo",
+    alias: null,
+    custom_id: null,
+    avatar_hash: null,
+    country: "DE",
+    created_at: "2026-03-02T12:00:00Z",
+    last_played_at: null,
+    updated_at: "2026-03-02T12:00:00Z",
+    steamid64: "76561198000000002",
+    profile_views: 0,
+  },
+]
+
+const graphqlPlayersBySteamid64 = {
+  [steamid64]: {
+    steamid64,
+    displayName: "Owner Alias",
+    name: "Owner",
+    alias: "Owner Alias",
+    customId: null,
+    avatarHash: null,
+    country: "DE",
+    primaryScope: "OVR",
+    rating: 1500,
+    isWebsiteUser: false,
+    lastPlayedAt: "2026-03-31T12:00:00Z",
+  },
+  [friendSteamid64]: {
+    steamid64: friendSteamid64,
+    displayName: "Friend Alias",
+    name: "Friend",
+    alias: "Friend Alias",
+    customId: null,
+    avatarHash: null,
+    country: "SE",
+    primaryScope: "OVR",
+    rating: 1100,
+    isWebsiteUser: false,
+    lastPlayedAt: "2026-03-30T12:00:00Z",
+  },
+  "76561198000000003": {
+    steamid64: "76561198000000003",
+    displayName: "Zulu",
+    name: "Zulu",
+    alias: null,
+    customId: null,
+    avatarHash: null,
+    country: "US",
+    primaryScope: "OVR",
+    rating: 1000,
+    isWebsiteUser: false,
+    lastPlayedAt: "2026-03-05T12:00:00Z",
+  },
+  "76561198000000001": {
+    steamid64: "76561198000000001",
+    displayName: "Alpha",
+    name: "Alpha",
+    alias: null,
+    customId: null,
+    avatarHash: null,
+    country: "CA",
+    primaryScope: "OVR",
+    rating: 2000,
+    isWebsiteUser: false,
+    lastPlayedAt: "2026-03-10T12:00:00Z",
+  },
+  "76561198000000002": {
+    steamid64: "76561198000000002",
+    displayName: "Bravo",
+    name: "Bravo",
+    alias: null,
+    customId: null,
+    avatarHash: null,
+    country: "DE",
+    primaryScope: "OVR",
+    rating: 500,
+    isWebsiteUser: false,
+    lastPlayedAt: null,
+  },
+} as const
+
 async function installProfileShellRoutes(
   page: Page,
   {
@@ -123,6 +230,45 @@ async function installProfileShellRoutes(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(onSync ? onSync() : friendsPayload()),
+    })
+  })
+
+  await page.route(/\/v1\/graphql$/, async (route) => {
+    const request = route.request()
+    const body = request.postDataJSON() as {
+      query?: string
+      variables?: { steamid64s?: string[]; identifier?: string }
+    } | null
+
+    if (body?.query?.includes("players(")) {
+      const players = (body.variables?.steamid64s ?? []).map(
+        (requestedSteamid64) => graphqlPlayersBySteamid64[requestedSteamid64] ?? null,
+      )
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { players } }),
+      })
+      return
+    }
+
+    if (body?.query?.includes("player(identifier:")) {
+      const playerData =
+        (body.variables?.identifier
+          ? graphqlPlayersBySteamid64[body.variables.identifier]
+          : null) ?? null
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { player: playerData } }),
+      })
+      return
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: {} }),
     })
   })
 
@@ -225,7 +371,9 @@ test("Own friends tab auto-syncs once and supports manual sync", async ({
   )
   await expect(page.getByTestId("profile-friends-list")).toBeVisible()
   await expect(page.getByText("Friend Alias")).toBeVisible()
-  await expect(page.getByText("Last Played")).toBeVisible()
+  await expect(page.getByTestId("profile-friends-list")).not.toContainText(
+    "Last Played",
+  )
   await expect(
     page.getByTestId(`profile-friends-row-${friendSteamid64}`),
   ).not.toContainText(friendSteamid64)
@@ -256,4 +404,49 @@ test("Public visitor sees privacy warning and no sync button", async ({
 
   await expect(page.getByTestId("profile-friends-warning")).toBeVisible()
   await expect(page.getByTestId("profile-friends-sync-button")).toHaveCount(0)
+})
+
+test("Friends tab supports client-side sorting fields and directions", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page, {
+    currentUserSteamid64: null,
+    friendsPayload: () => ({
+      data: sortableFriends,
+      count: sortableFriends.length,
+      sync: {
+        visibility: "public",
+        last_checked_at: "2026-05-13T12:00:00Z",
+        last_attempted_at: "2026-05-13T12:00:00Z",
+        next_allowed_at: null,
+      },
+    }),
+  })
+
+  await page.goto(`/profile/${steamid64}/friends`)
+
+  const rows = page.locator('[data-testid^="profile-friends-row-"]')
+  await expect(page.getByTestId("profile-friends-sort-bar")).toBeVisible()
+  await expect(rows.first()).toContainText("Alpha")
+
+  await page.getByTestId("profile-friends-sort-name").click()
+  await expect(rows.first()).toContainText("Zulu")
+
+  await page.getByTestId("profile-friends-sort-name").click()
+  await expect(rows.first()).toContainText("Alpha")
+
+  await page.getByTestId("profile-friends-sort-country").click()
+  await expect(rows.first()).toContainText("Alpha")
+
+  await page.getByTestId("profile-friends-sort-rating").click()
+  await expect(rows.first()).toContainText("Alpha")
+
+  await page.getByTestId("profile-friends-sort-rating").click()
+  await expect(rows.first()).toContainText("Bravo")
+
+  await page.getByTestId("profile-friends-sort-steamid64").click()
+  await expect(rows.first()).toContainText("Alpha")
+
+  await page.getByTestId("profile-friends-sort-steamid64").click()
+  await expect(rows.first()).toContainText("Zulu")
 })

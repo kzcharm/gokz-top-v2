@@ -289,6 +289,7 @@ export const en = {
         name: "Name",
         steamid64: "Steam ID64",
         country: "Country",
+        rating: "Rating",
         lastPlayed: "Last played",
       },
       loadFailedTitle: "Unable to load friends",
