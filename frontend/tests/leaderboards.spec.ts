@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
+import type { ModeScope } from "@/client"
 import { issueSessionToken } from "./utils/privateApi"
 
 type GraphqlPlayer = {
@@ -9,6 +10,8 @@ type GraphqlPlayer = {
   customId: string | null
   avatarHash: string | null
   country: string | null
+  primaryScope: ModeScope
+  rating: number
   isWebsiteUser: boolean
   lastPlayedAt: string | null
 }
@@ -25,11 +28,15 @@ function buildGraphqlPlayer({
   displayName,
   customId = null,
   country = null,
+  primaryScope = "OVR",
+  rating = 0,
 }: {
   steamid64: string
   displayName: string
   customId?: string | null
   country?: string | null
+  primaryScope?: ModeScope
+  rating?: number
 }): GraphqlPlayer {
   return {
     steamid64,
@@ -39,6 +46,8 @@ function buildGraphqlPlayer({
     customId,
     avatarHash: null,
     country,
+    primaryScope,
+    rating,
     isWebsiteUser: false,
     lastPlayedAt: null,
   }

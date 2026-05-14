@@ -174,11 +174,13 @@ export const ru = {
         alias: "Псевдоним",
         customId: "Custom ID",
         countryRegion: "Страна / регион",
+        primaryScope: "Основной scope",
       },
       placeholders: {
         alias: "Псевдоним",
         customId: "custom-id",
         country: "Выберите страну",
+        primaryScope: "Выберите основной scope",
       },
       fallbacks: {
         notSet: "Не задано",
@@ -285,6 +287,12 @@ export const ru = {
       syncing: "Синхронизация...",
       synced: "Друзья синхронизированы",
       syncFailed: "Не удалось синхронизировать друзей",
+      sortFields: {
+        name: "Имя",
+        steamid64: "Steam ID64",
+        country: "Страна",
+        lastPlayed: "Последняя игра",
+      },
       loadFailedTitle: "Не удалось загрузить друзей",
       loadFailedBody: "Обновите страницу и попробуйте снова.",
       empty: "Для этого игрока не найдено друзей KZ.",

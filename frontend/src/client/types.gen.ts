@@ -530,6 +530,7 @@ export type PlayerPublic = {
     custom_id?: (string | null);
     avatar_hash?: (string | null);
     country?: (string | null);
+    primary_scope?: ModeScope;
     created_at?: (string | null);
     last_played_at?: (string | null);
     updated_at?: (string | null);
@@ -594,6 +595,7 @@ export type PlayerSettingsUpdate = {
     alias?: (string | null);
     custom_id?: (string | null);
     country?: (string | null);
+    primary_scope?: (ModeScope | null);
 };
 
 export type PlayerSocialLinkBilibiliVerificationStart = {
@@ -651,6 +653,7 @@ export type PlayerStatType = 'daily_activity' | 'playtime' | 'most_played_server
 export type PlayerUpdate = {
     alias?: (string | null);
     country?: (string | null);
+    primary_scope?: (ModeScope | null);
 };
 
 export type PlayerWebhookCreate = {

@@ -908,6 +908,7 @@ async def update_player_settings(
         bypass_rate_limits=bypass_rate_limits,
     )
     changed_fields: list[PlayerProfileField] = []
+    player_updated = False
 
     if "alias" in player_data:
         alias = _ensure_profile_text_value(
@@ -922,6 +923,7 @@ async def update_player_settings(
                 )
             player.alias = alias
             changed_fields.append(PlayerProfileField.ALIAS)
+            player_updated = True
 
     if "custom_id" in player_data:
         custom_id = _ensure_profile_text_value(
@@ -945,6 +947,7 @@ async def update_player_settings(
                 raise PlayerSettingsConflictError("custom_id is already in use")
             player.custom_id = custom_id
             changed_fields.append(PlayerProfileField.CUSTOM_ID)
+            player_updated = True
 
     if "country" in player_data:
         country = _ensure_profile_text_value(
@@ -954,8 +957,15 @@ async def update_player_settings(
         if country != player.country:
             player.country = country
             changed_fields.append(PlayerProfileField.COUNTRY)
+            player_updated = True
 
-    if changed_fields:
+    if "primary_scope" in player_data:
+        primary_scope = settings_in.primary_scope
+        if primary_scope is not None and primary_scope != player.primary_scope:
+            player.primary_scope = primary_scope
+            player_updated = True
+
+    if player_updated:
         player.updated_at = now
         session.add(player)
         for field in changed_fields:
@@ -1013,6 +1023,7 @@ def to_player_public(
         custom_id=normalize_custom_id(player.custom_id),
         avatar_hash=player.avatar_hash,
         country=player.country,
+        primary_scope=player.primary_scope,
         created_at=player.created_at,
         last_played_at=player.last_played_at,
         updated_at=player.updated_at,

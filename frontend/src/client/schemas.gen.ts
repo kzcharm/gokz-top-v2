@@ -2604,6 +2604,10 @@ export const PlayerPublicSchema = {
             ],
             title: 'Country'
         },
+        primary_scope: {
+            '$ref': '#/components/schemas/ModeScope',
+            default: 'OVR'
+        },
         created_at: {
             anyOf: [
                 {
@@ -2870,6 +2874,16 @@ export const PlayerSettingsUpdateSchema = {
                 }
             ],
             title: 'Country'
+        },
+        primary_scope: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ModeScope'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     additionalProperties: false,
@@ -3095,6 +3109,16 @@ export const PlayerUpdateSchema = {
                 }
             ],
             title: 'Country'
+        },
+        primary_scope: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ModeScope'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',

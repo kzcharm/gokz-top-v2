@@ -13,6 +13,7 @@ from .player import (
     validate_player_custom_id,
     validate_player_settings_alias,
 )
+from .mode_scope import ModeScope
 from .utils import get_datetime_utc
 
 
@@ -86,6 +87,7 @@ class PlayerSettingsUpdate(SQLModel):
     alias: str | None = Field(default=None, max_length=25)
     custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
     country: str | None = Field(default=None, max_length=2)
+    primary_scope: ModeScope | None = None
 
     @field_validator("alias", mode="after")
     @classmethod

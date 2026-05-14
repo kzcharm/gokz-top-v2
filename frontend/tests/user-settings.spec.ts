@@ -33,6 +33,21 @@ test.describe("Profile and theme", () => {
     )
   })
 
+  test("Profile can update primary scope", async ({ page }) => {
+    const steamid64 = randomSteamid64()
+    await logInUser(page, steamid64)
+    await page.goto("/settings")
+
+    await expect(page.getByText("OVR", { exact: true })).toBeVisible()
+    await page.getByRole("button", { name: "Edit" }).click()
+    await page.getByRole("combobox").last().click()
+    await page.getByText("VNL", { exact: true }).click()
+    await page.getByRole("button", { name: "Save" }).click()
+
+    await expect(page.getByText("Profile settings updated.")).toBeVisible()
+    await expect(page.getByText("VNL", { exact: true })).toBeVisible()
+  })
+
   test("Social links tab can add and delete a link", async ({ page }) => {
     const steamid64 = randomSteamid64()
     let links: unknown[] = []

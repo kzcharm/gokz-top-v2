@@ -173,11 +173,13 @@ export const zhCN = {
         alias: "别名",
         customId: "自定义 ID",
         countryRegion: "国家 / 地区",
+        primaryScope: "主要 Scope",
       },
       placeholders: {
         alias: "别名",
         customId: "custom-id",
         country: "选择国家/地区",
+        primaryScope: "选择主要 Scope",
       },
       fallbacks: {
         notSet: "未设置",
@@ -279,6 +281,12 @@ export const zhCN = {
       syncing: "同步中...",
       synced: "好友已同步",
       syncFailed: "同步好友失败",
+      sortFields: {
+        name: "名称",
+        steamid64: "Steam ID64",
+        country: "国家",
+        lastPlayed: "最近游玩",
+      },
       loadFailedTitle: "无法加载好友",
       loadFailedBody: "请刷新页面后重试。",
       empty: "没有找到该玩家的 KZ 好友。",

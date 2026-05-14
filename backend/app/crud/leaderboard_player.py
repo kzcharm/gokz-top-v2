@@ -41,6 +41,30 @@ from .ban import not_active_ban_exists_split_clause
 ELIGIBLE_UNIQUE_MAP_FINISHES = 10
 DEFAULT_LOOKBACK = timedelta(hours=24)
 
+
+async def load_player_ratings_by_scope(
+    *,
+    session: AsyncSession,
+    steamid64s: Sequence[int],
+) -> dict[int, dict[ModeScope, int]]:
+    unique_steamid64s = tuple(dict.fromkeys(steamid64s))
+    if not unique_steamid64s:
+        return {}
+
+    rows = (
+        await session.exec(
+            select(
+                LeaderboardPlayer.steamid64,
+                LeaderboardPlayer.scope,
+                LeaderboardPlayer.rating,
+            ).where(col(LeaderboardPlayer.steamid64).in_(unique_steamid64s))
+        )
+    ).all()
+    ratings_by_player: dict[int, dict[ModeScope, int]] = defaultdict(dict)
+    for steamid64, scope, rating in rows:
+        ratings_by_player[int(steamid64)][scope] = rating
+    return dict(ratings_by_player)
+
 def _scope_ids_for_mode_id(mode_id: int) -> tuple[int, ...]:
     return tuple(
         mode_scope_to_id(scope)

@@ -3,14 +3,26 @@ import { CircleHelp, Pencil, Save } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { type PlayerSettingsPublic, PlayersService } from "@/client"
+import {
+  type ModeScope,
+  type PlayerSettingsPublic,
+  PlayersService,
+} from "@/client"
 import { CountryFlag, getCountryName } from "@/components/Common/CountryFlag"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { getScopeTone, SCOPE_OPTIONS } from "@/components/Common/ScopeSelector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +30,7 @@ import {
 } from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
 type FieldStatus = PlayerSettingsPublic["alias"]
@@ -162,6 +175,7 @@ const UserInformation = () => {
   const [aliasInput, setAliasInput] = useState("")
   const [customIdInput, setCustomIdInput] = useState("")
   const [countryInput, setCountryInput] = useState<string | null>(null)
+  const [primaryScopeInput, setPrimaryScopeInput] = useState<ModeScope>("OVR")
   const [isEditing, setIsEditing] = useState(false)
 
   const settingsQuery = useQuery({
@@ -182,6 +196,7 @@ const UserInformation = () => {
     setAliasInput(player.alias ?? "")
     setCustomIdInput(player.custom_id ?? "")
     setCountryInput(player.country ?? null)
+    setPrimaryScopeInput(player.primary_scope ?? "OVR")
     setIsEditing(false)
   }, [player])
 
@@ -190,6 +205,7 @@ const UserInformation = () => {
       alias: player?.alias ?? "",
       customId: player?.custom_id ?? "",
       country: player?.country ?? null,
+      primaryScope: player?.primary_scope ?? "OVR",
     }),
     [player],
   )
@@ -197,7 +213,8 @@ const UserInformation = () => {
   const dirty =
     aliasInput !== initialValues.alias ||
     customIdInput !== initialValues.customId ||
-    countryInput !== initialValues.country
+    countryInput !== initialValues.country ||
+    primaryScopeInput !== initialValues.primaryScope
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -205,6 +222,7 @@ const UserInformation = () => {
         alias?: string
         custom_id?: string
         country?: string
+        primary_scope?: ModeScope
       } = {}
       const alias = aliasInput.trim()
       const customId = customIdInput.trim()
@@ -238,6 +256,10 @@ const UserInformation = () => {
         requestBody.country = countryInput
       }
 
+      if (primaryScopeInput !== initialValues.primaryScope) {
+        requestBody.primary_scope = primaryScopeInput
+      }
+
       return PlayersService.updateCurrentPlayerSettings({ requestBody })
     },
     onSuccess: (data) => {
@@ -253,6 +275,7 @@ const UserInformation = () => {
       void queryClient.invalidateQueries({ queryKey: ["currentUser"] })
       void queryClient.invalidateQueries({ queryKey: ["sidebar-user-player"] })
       void queryClient.invalidateQueries({ queryKey: ["profile-player"] })
+      void queryClient.invalidateQueries({ queryKey: ["graphql", "player"] })
       void queryClient.invalidateQueries({
         queryKey: ["leaderboards", "players"],
       })
@@ -268,9 +291,13 @@ const UserInformation = () => {
   const customIdDisabled =
     !isEditing || settings?.custom_id.can_change === false || mutation.isPending
   const countryDisabled = !isEditing || mutation.isPending
+  const primaryScopeDisabled = !isEditing || mutation.isPending
   const countryDisplayName =
     getCountryName(countryInput, i18n.resolvedLanguage) ??
     t("common.unknownCountry")
+  const selectedPrimaryScope =
+    SCOPE_OPTIONS.find((option) => option.value === primaryScopeInput) ??
+    SCOPE_OPTIONS[0]
 
   return (
     <Card className="max-w-2xl">
@@ -286,6 +313,7 @@ const UserInformation = () => {
                 setAliasInput(initialValues.alias)
                 setCustomIdInput(initialValues.customId)
                 setCountryInput(initialValues.country)
+                setPrimaryScopeInput(initialValues.primaryScope)
                 setIsEditing(false)
               }}
             >
@@ -416,6 +444,44 @@ const UserInformation = () => {
                     />
                   ) : null}
                 </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">
+                    {t("settings.profile.fields.primaryScope")}
+                  </span>
+                  <Select
+                    value={primaryScopeInput}
+                    onValueChange={(value) =>
+                      setPrimaryScopeInput(value as ModeScope)
+                    }
+                    disabled={primaryScopeDisabled}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue
+                        placeholder={t(
+                          "settings.profile.placeholders.primaryScope",
+                        )}
+                      >
+                        <span
+                          className={`inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em] ${getScopeTone(selectedPrimaryScope.value)}`}
+                        >
+                          {selectedPrimaryScope.value}
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCOPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <span
+                            className={`inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em] ${option.toneClassName}`}
+                          >
+                            {option.value}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </>
           ) : (
@@ -444,6 +510,14 @@ const UserInformation = () => {
                   label={t("settings.profile.fields.countryRegion")}
                   countryCode={countryInput}
                   countryName={countryDisplayName}
+                />
+                <ReadonlyField
+                  value={primaryScopeInput}
+                  label={t("settings.profile.fields.primaryScope")}
+                  valueClassName={cn(
+                    "inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em]",
+                    getScopeTone(primaryScopeInput),
+                  )}
                 />
               </div>
             </div>

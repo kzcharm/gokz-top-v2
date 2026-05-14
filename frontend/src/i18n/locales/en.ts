@@ -173,11 +173,13 @@ export const en = {
         alias: "Alias",
         customId: "Custom ID",
         countryRegion: "Country / Region",
+        primaryScope: "Primary Scope",
       },
       placeholders: {
         alias: "Alias",
         customId: "custom-id",
         country: "Select a country",
+        primaryScope: "Select a primary scope",
       },
       fallbacks: {
         notSet: "Not set",
@@ -283,6 +285,12 @@ export const en = {
       syncing: "Syncing...",
       synced: "Friends synced",
       syncFailed: "Failed to sync friends",
+      sortFields: {
+        name: "Name",
+        steamid64: "Steam ID64",
+        country: "Country",
+        lastPlayed: "Last played",
+      },
       loadFailedTitle: "Unable to load friends",
       loadFailedBody: "Reload the page and try again.",
       empty: "No KZ friends found for this player.",

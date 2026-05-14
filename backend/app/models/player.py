@@ -9,6 +9,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
 
+from .mode_scope import ModeScope
 from .utils import get_datetime_utc
 
 MAX_PLAYER_CUSTOM_ID_LENGTH = 25
@@ -84,6 +85,14 @@ class PlayerBase(SQLModel):
     custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
     avatar_hash: str | None = Field(default=None, max_length=255)
     country: str | None = Field(default=None, max_length=2)
+    primary_scope: ModeScope = Field(
+        default=ModeScope.OVR,
+        sa_column=Column(
+            SqlEnum(ModeScope, name="mode_scope"),
+            nullable=False,
+            server_default=ModeScope.OVR.value,
+        ),
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -246,6 +255,7 @@ class PlayerProfileViewCreate(SQLModel):
 class PlayerUpdate(SQLModel):
     alias: str | None = Field(default=None, max_length=25)
     country: str | None = Field(default=None, max_length=2)
+    primary_scope: ModeScope | None = None
 
     @field_validator("alias", mode="after")
     @classmethod

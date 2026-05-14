@@ -169,12 +169,19 @@ from .player_webhook import (
     PlayerWebhookUpdate,
     normalize_discord_webhook_url,
 )
+from .mode_scope import (
+    ModeScope,
+    ModeScopeId,
+    mode_scope_from_id,
+    mode_scope_mode_ids,
+    mode_scope_modes,
+    mode_scope_to_id,
+    normalize_mode_scope,
+)
 from .record import (
     KZMode,
     MapCourse,
     MapWrPublic,
-    ModeScope,
-    ModeScopeId,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
     RecentRecordMapPublic,
@@ -199,12 +206,7 @@ from .record import (
     WorldRecordCountCompatPublicV0,
     kz_mode_to_legacy_mode_id,
     legacy_mode_id_to_kz_mode,
-    mode_scope_from_id,
-    mode_scope_mode_ids,
-    mode_scope_modes,
-    mode_scope_to_id,
     normalize_kz_mode,
-    normalize_mode_scope,
     seconds_to_time_ms,
     time_ms_to_seconds,
 )
