@@ -101,6 +101,22 @@ async def _auth_user(
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
+async def _create_friendship(
+    db: AsyncSession,
+    *,
+    player_steamid64: int,
+    friend_steamid64: int,
+) -> None:
+    await crud.upsert_player_friend_edges(
+        session=db,
+        edges=[
+            (player_steamid64, friend_steamid64, None),
+            (friend_steamid64, player_steamid64, None),
+        ],
+    )
+    await db.commit()
+
+
 async def _create_review(
     db: AsyncSession,
     *,
@@ -200,6 +216,63 @@ async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None
     await db.commit()
 
 
+async def _create_player_with_country(
+    db: AsyncSession,
+    *,
+    steamid64: int,
+    name: str,
+    country: str | None,
+) -> None:
+    db.add(Player(steamid64=steamid64, name=name, country=country))
+    await db.commit()
+
+
+async def _create_map_record(
+    db: AsyncSession,
+    *,
+    record_id: int,
+    steamid64: int,
+    map_id: int,
+    time_seconds: str,
+    teleports: int,
+    mode_id: int = 200,
+    server_id: int | None = None,
+) -> None:
+    resolved_server_id = server_id or map_id + 1_000_000
+    if await db.get(ServerGlobalapi, resolved_server_id) is None:
+        db.add(
+            ServerGlobalapi(
+                id=resolved_server_id,
+                port=27015,
+                ip=f"203.0.113.{record_id % 200 + 1}",
+                name=f"Leaderboard Server {record_id}",
+                owner_steamid64=0,
+                approval_status=1,
+                approved_by_steamid64=0,
+            )
+        )
+        await db.commit()
+
+    await crud.upsert_record(
+        session=db,
+        record_id=record_id,
+        record_uuid=None,
+        steamid64=steamid64,
+        server_id=resolved_server_id,
+        mode_id=mode_id,
+        map_id=map_id,
+        stage=0,
+        time_seconds=Decimal(time_seconds),
+        teleports=teleports,
+        points=0,
+        created_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_on=datetime(2099, 1, 1, tzinfo=UTC),
+        updated_by=steamid64,
+        replay_id=None,
+        is_valid=True,
+    )
+
+
 @pytest.mark.asyncio
 async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> None:
     await _create_map(db, id=930200)
@@ -229,6 +302,256 @@ async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["id"] == 930201
+
+
+@pytest.mark.asyncio
+async def test_read_map_pb_leaderboard_v1_returns_counts_pagination_and_viewer_rank(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930202)
+    await _create_record_filter(
+        db,
+        id=9302020,
+        map_id=map_obj.id,
+        stage=0,
+        mode_id=200,
+        tier=4,
+        has_teleports=False,
+    )
+
+    viewer = random_steamid64()
+    de_pro = random_steamid64()
+    de_nub = random_steamid64()
+    fr_pro = random_steamid64()
+
+    await _create_player_with_country(
+        db,
+        steamid64=viewer,
+        name="Viewer Runner",
+        country="US",
+    )
+    await _create_player_with_country(
+        db,
+        steamid64=de_pro,
+        name="Berlin Pro",
+        country="DE",
+    )
+    await _create_player_with_country(
+        db,
+        steamid64=de_nub,
+        name="Berlin Nub",
+        country="DE",
+    )
+    await _create_player_with_country(
+        db,
+        steamid64=fr_pro,
+        name="Paris Pro",
+        country="FR",
+    )
+
+    await _create_map_record(
+        db,
+        record_id=9302021,
+        steamid64=viewer,
+        map_id=map_obj.id,
+        time_seconds="31.000",
+        teleports=0,
+    )
+    await _create_map_record(
+        db,
+        record_id=9302022,
+        steamid64=viewer,
+        map_id=map_obj.id,
+        time_seconds="32.500",
+        teleports=3,
+    )
+    await _create_map_record(
+        db,
+        record_id=9302023,
+        steamid64=de_pro,
+        map_id=map_obj.id,
+        time_seconds="29.000",
+        teleports=0,
+    )
+    await _create_map_record(
+        db,
+        record_id=9302024,
+        steamid64=de_nub,
+        map_id=map_obj.id,
+        time_seconds="30.500",
+        teleports=4,
+    )
+    await _create_map_record(
+        db,
+        record_id=9302025,
+        steamid64=fr_pro,
+        map_id=map_obj.id,
+        time_seconds="28.000",
+        teleports=0,
+    )
+
+    auth_headers = await _auth_user(
+        client,
+        steamid64=viewer,
+        name="Viewer Runner",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/{map_obj.id}/leaderboard",
+        headers=auth_headers,
+        params=[
+            ("scope", "OVR"),
+            ("type", "PRO"),
+            ("offset", 0),
+            ("limit", 2),
+        ],
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 3
+    assert payload["unique_nub_finishes"] == 4
+    assert payload["unique_pro_finishes"] == 3
+    assert payload["current_user_rank"] == 3
+    assert [row["player"]["display_name"] for row in payload["data"]] == [
+        "Paris Pro",
+        "Berlin Pro",
+    ]
+
+    filtered_response = await client.get(
+        f"{settings.API_V1_STR}/maps/{map_obj.id}/leaderboard",
+        headers=auth_headers,
+        params=[
+            ("scope", "OVR"),
+            ("type", "PRO"),
+            ("country", "DE"),
+        ],
+    )
+    assert filtered_response.status_code == 200
+    filtered_payload = filtered_response.json()
+    assert filtered_payload["count"] == 1
+    assert filtered_payload["unique_nub_finishes"] == 2
+    assert filtered_payload["unique_pro_finishes"] == 1
+    assert filtered_payload["current_user_rank"] is None
+    assert [row["player"]["display_name"] for row in filtered_payload["data"]] == [
+        "Berlin Pro"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_read_map_pb_leaderboard_v1_friends_only_filters_to_authenticated_users_friends(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930210)
+    viewer = random_steamid64()
+    friend = random_steamid64()
+    stranger = random_steamid64()
+    await _create_player(db, steamid64=viewer, name="Viewer Runner")
+    await _create_player(db, steamid64=friend, name="Friend Runner")
+    await _create_player(db, steamid64=stranger, name="Stranger Runner")
+    await _create_friendship(
+        db,
+        player_steamid64=viewer,
+        friend_steamid64=friend,
+    )
+
+    await _create_map_record(
+        db,
+        record_id=9302101,
+        steamid64=viewer,
+        map_id=map_obj.id,
+        time_seconds="30.000",
+        teleports=1,
+    )
+    await _create_map_record(
+        db,
+        record_id=9302102,
+        steamid64=friend,
+        map_id=map_obj.id,
+        time_seconds="31.000",
+        teleports=3,
+    )
+    await _create_map_record(
+        db,
+        record_id=9302103,
+        steamid64=stranger,
+        map_id=map_obj.id,
+        time_seconds="32.500",
+        teleports=2,
+    )
+
+    auth_headers = await _auth_user(
+        client,
+        steamid64=viewer,
+        name="Viewer Runner",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/{map_obj.id}/leaderboard",
+        headers=auth_headers,
+        params=[
+            ("scope", "OVR"),
+            ("type", "NUB"),
+            ("friends_only", "true"),
+        ],
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert payload["unique_nub_finishes"] == 2
+    assert payload["unique_pro_finishes"] == 0
+    assert payload["current_user_rank"] == 1
+    assert payload["current_user_steamid64"] == str(viewer)
+    assert [row["player"]["display_name"] for row in payload["data"]] == [
+        "Viewer Runner",
+        "Friend Runner"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_read_map_pb_leaderboard_v1_friends_only_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930212)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/{map_obj.id}/leaderboard",
+        params={"scope": "OVR", "friends_only": "true"},
+    )
+
+    assert response.status_code == 403
+    assert "friends-only leaderboard" in response.text
+
+
+@pytest.mark.asyncio
+async def test_read_map_pb_leaderboard_v1_friends_only_rejects_geography_filters(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930213)
+    viewer = random_steamid64()
+    await _create_player(db, steamid64=viewer, name="Viewer Runner")
+    auth_headers = await _auth_user(
+        client,
+        steamid64=viewer,
+        name="Viewer Runner",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/{map_obj.id}/leaderboard",
+        headers=auth_headers,
+        params={
+            "scope": "OVR",
+            "friends_only": "true",
+            "country": "DE",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "friends_only" in response.text
 
 
 @pytest.mark.asyncio

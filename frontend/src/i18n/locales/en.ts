@@ -428,6 +428,14 @@ export const en = {
       servers: "Servers",
       maps: "Maps",
     },
+    players: {
+      friends: {
+        label: "Friends",
+        loginRequiredTitle: "Login required",
+        loginRequiredDescription:
+          "Log in first to view your friends leaderboard.",
+      },
+    },
     mapColumns: {
       playtime: "Playtime",
       averagePlaytime: "Avg Playtime",
@@ -527,6 +535,9 @@ export const en = {
     workshopId: "Workshop ID",
     created: "Created",
     updated: "Updated",
+    zoomImage: "Zoom map image for {{mapName}}",
+    imageAlt: "{{mapName}} preview image",
+    imageAltEnlarged: "{{mapName}} preview image enlarged",
     unknownAuthor: "Unknown author",
     requestFailed: "The catalog request failed. Try reloading the maps list.",
     noResultsTitle: "No maps match this search",
@@ -562,9 +573,16 @@ export const en = {
     filters: {
       country: "country",
       region: "region",
-      proOnly: "Pro only",
     },
     addReview: "Add Review",
+    nubFinishers: "NUB finishers",
+    proFinishers: "PRO finishers",
+    topPercentPrefix: "Top",
+    myRank: "My rank",
+    findMe: "Find Me",
+    findMeNotRankedTitle: "You do not have a ranked finish here",
+    findMeNotRankedDescription:
+      "Try another scope, filter, or the other NUB / PRO view.",
     emptyTopPro:
       "No stage 0 PRO records found for this map in the selected scope.",
     emptyTop: "No stage 0 records found for this map in the selected scope.",

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import and_, bindparam, case, exists, func, text, true, update
+from sqlalchemy import and_, bindparam, case, exists, func, or_, text, true, update
 from sqlalchemy.orm import aliased
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,10 +15,12 @@ from app.models import (
     Ban,
     Map,
     MapCourse,
+    MapPbLeaderboardPublic,
     MapWrPublic,
     Mode,
     ModeScope,
     Player,
+    PlayerFriend,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
     RecentRecordMapPublic,
@@ -115,6 +117,18 @@ def _not_active_ban_exists_split_clause(*, steamid64_column):
             select(Ban.id).where(
                 col(Ban.steamid64) == steamid64_column,
                 col(Ban.expires_on) >= func.now(),
+            )
+        ),
+    )
+
+
+def _friend_or_self_clause(*, steamid64_column, viewer_steamid64: int):
+    return or_(
+        steamid64_column == viewer_steamid64,
+        exists(
+            select(PlayerFriend.friend_steamid64).where(
+                col(PlayerFriend.player_steamid64) == viewer_steamid64,
+                col(PlayerFriend.friend_steamid64) == steamid64_column,
             )
         ),
     )
@@ -2002,6 +2016,291 @@ async def get_pb_record_publics(
             is_valid,
         ) in rows
     ]
+
+
+async def read_map_pb_leaderboard(
+    *,
+    session: AsyncSession,
+    map_id: int,
+    stage: int,
+    scope: ModeScope,
+    record_type: RecordType,
+    country: str | None = None,
+    region: str | None = None,
+    exclude_cheaters: bool = True,
+    offset: int = 0,
+    limit: int = 100,
+    viewer_steamid64: int | None = None,
+    friends_viewer_steamid64: int | None = None,
+) -> MapPbLeaderboardPublic:
+    course = await _get_map_course_by_map_stage(
+        session=session,
+        map_id=map_id,
+        stage=stage,
+    )
+    if course is None or course.id is None:
+        return MapPbLeaderboardPublic(
+            data=[],
+            count=0,
+            unique_nub_finishes=0,
+            unique_pro_finishes=0,
+            current_user_rank=None,
+            current_user_steamid64=str(viewer_steamid64) if viewer_steamid64 is not None else None,
+        )
+
+    geography_country_codes = (
+        (country,) if country is not None else get_region_country_codes(region)
+    )
+    is_pro_only = _is_pro_only_from_record_type(record_type)
+
+    counts_statement = (
+        select(
+            RecordPb.is_pro_only.label("is_pro_only"),
+            func.count().label("count"),
+        )
+        .select_from(RecordPb)
+        .where(
+            col(RecordPb.scope) == scope,
+            col(RecordPb.course_id) == course.id,
+        )
+        .group_by(RecordPb.is_pro_only)
+    )
+    if geography_country_codes is not None:
+        counts_statement = counts_statement.join(
+            Player,
+            col(Player.steamid64) == col(RecordPb.steamid64),
+        ).where(col(Player.country).in_(list(geography_country_codes)))
+    if friends_viewer_steamid64 is not None:
+        counts_statement = counts_statement.where(
+            _friend_or_self_clause(
+                steamid64_column=col(RecordPb.steamid64),
+                viewer_steamid64=friends_viewer_steamid64,
+            )
+        )
+    if exclude_cheaters:
+        counts_statement = counts_statement.where(
+            _not_active_ban_exists_split_clause(steamid64_column=col(RecordPb.steamid64))
+        )
+
+    counts_by_type = {
+        bool(result_is_pro_only): int(result_count or 0)
+        for result_is_pro_only, result_count in (await session.exec(counts_statement)).all()
+    }
+    unique_nub_finishes = counts_by_type.get(False, 0)
+    unique_pro_finishes = counts_by_type.get(True, 0)
+    total_count = counts_by_type.get(is_pro_only, 0)
+
+    anchor_pb = aliased(RecordPb)
+    pro_pb = aliased(RecordPb)
+    ovr_pb = aliased(RecordPb)
+    scoped_points = (
+        pro_pb.points if is_pro_only else func.coalesce(ovr_pb.points, 0)
+    )
+
+    statement = (
+        select(
+            Record.uuid,
+            Record.id,
+            Record.steamid64,
+            Player.name,
+            Player.avatar_hash,
+            Record.server_id,
+            ServerGlobalapi.name.label("server_name"),
+            Record.map_id,
+            Map.name.label("map_name"),
+            Map.difficulty,
+            Record.mode,
+            Mode.name_short,
+            Record.stage,
+            Record.time,
+            Record.teleports,
+            scoped_points.label("points"),
+            Record.created_at,
+            Record.updated_at,
+            Record.updated_by,
+            Record.replay_id,
+            Record.is_valid,
+        )
+        .select_from(Record)
+        .join(anchor_pb, anchor_pb.record_uuid == Record.uuid)
+        .join(Player, col(Record.steamid64) == col(Player.steamid64))
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .join(Map, col(Record.map_id) == col(Map.id))
+        .join(Mode, col(Record.mode) == col(Mode.name_short))
+        .outerjoin(
+            pro_pb,
+            and_(
+                pro_pb.record_uuid == Record.uuid,
+                pro_pb.scope == scope,
+                pro_pb.is_pro_only.is_(True),
+            ),
+        )
+        .outerjoin(
+            ovr_pb,
+            and_(
+                ovr_pb.record_uuid == Record.uuid,
+                ovr_pb.scope == scope,
+                ovr_pb.is_pro_only.is_(False),
+            ),
+        )
+        .where(
+            anchor_pb.scope == scope,
+            anchor_pb.course_id == course.id,
+            anchor_pb.is_pro_only.is_(is_pro_only),
+        )
+        .order_by(Record.time.asc(), Record.uuid.asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    if geography_country_codes is not None:
+        statement = statement.where(col(Player.country).in_(list(geography_country_codes)))
+    if friends_viewer_steamid64 is not None:
+        statement = statement.where(
+            _friend_or_self_clause(
+                steamid64_column=col(Record.steamid64),
+                viewer_steamid64=friends_viewer_steamid64,
+            )
+        )
+    if exclude_cheaters:
+        statement = statement.where(
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+        )
+
+    rows = (await session.exec(statement)).all()
+    tiers_by_course = await _load_scoped_record_tiers(
+        session=session,
+        record_courses=[
+            (record_map_id, record_stage)
+            for (
+                _record_uuid,
+                _record_id,
+                _record_steamid64,
+                _player_name,
+                _player_avatar_hash,
+                _server_id,
+                _server_name,
+                record_map_id,
+                _map_name,
+                _map_tier,
+                _record_mode_id,
+                _mode_name,
+                record_stage,
+                _record_time,
+                _record_teleports,
+                _points,
+                _created_on,
+                _updated_on,
+                _updated_by,
+                _replay_id,
+                _is_valid,
+            ) in rows
+        ],
+        scope=scope,
+    )
+    data = [
+        RecordPublic(
+            uuid=record_uuid,
+            id=record_id,
+            player={
+                "steamid64": str(record_steamid64),
+                "display_name": player_name,
+            },
+            steam_id=None,
+            server_id=server_id,
+            server_name=server_name or "",
+            map_id=record_map_id,
+            map_name=map_name,
+            map_tier=tiers_by_course[(record_map_id, record_stage)],
+            mode_id=record_mode.mode_id,
+            mode=mode_name.value,
+            stage=record_stage,
+            tickrate=128,
+            time=float(record_time),
+            teleports=record_teleports,
+            points=points,
+            created_on=created_on,
+            updated_on=updated_on,
+            updated_by=str(updated_by),
+            replay_id=replay_id,
+            is_valid=is_valid,
+        )
+        for (
+            record_uuid,
+            record_id,
+            record_steamid64,
+            player_name,
+            player_avatar_hash,
+            server_id,
+            server_name,
+            record_map_id,
+            map_name,
+            map_tier,
+            record_mode,
+            mode_name,
+            record_stage,
+            record_time,
+            record_teleports,
+            points,
+            created_on,
+            updated_on,
+            updated_by,
+            replay_id,
+            is_valid,
+        ) in rows
+    ]
+
+    current_user_rank: int | None = None
+    if viewer_steamid64 is not None and total_count > 0:
+        rank_subquery = (
+            select(
+                RecordPb.steamid64.label("steamid64"),
+                func.row_number()
+                .over(order_by=(Record.time.asc(), Record.uuid.asc()))
+                .label("rank"),
+            )
+            .select_from(RecordPb)
+            .join(Record, Record.uuid == RecordPb.record_uuid)
+            .where(
+                col(RecordPb.scope) == scope,
+                col(RecordPb.course_id) == course.id,
+                col(RecordPb.is_pro_only).is_(is_pro_only),
+            )
+        )
+        if geography_country_codes is not None:
+            rank_subquery = rank_subquery.join(
+                Player,
+                col(Player.steamid64) == col(RecordPb.steamid64),
+            ).where(col(Player.country).in_(list(geography_country_codes)))
+        if friends_viewer_steamid64 is not None:
+            rank_subquery = rank_subquery.where(
+                _friend_or_self_clause(
+                    steamid64_column=col(RecordPb.steamid64),
+                    viewer_steamid64=friends_viewer_steamid64,
+                )
+            )
+        if exclude_cheaters:
+            rank_subquery = rank_subquery.where(
+                _not_active_ban_exists_split_clause(
+                    steamid64_column=col(RecordPb.steamid64)
+                )
+            )
+        ranked_rows = rank_subquery.subquery()
+        current_user_rank = (
+            await session.exec(
+                select(ranked_rows.c.rank).where(
+                    ranked_rows.c.steamid64 == viewer_steamid64
+                )
+            )
+        ).first()
+
+    return MapPbLeaderboardPublic(
+        data=data,
+        count=total_count,
+        unique_nub_finishes=unique_nub_finishes,
+        unique_pro_finishes=unique_pro_finishes,
+        current_user_rank=current_user_rank,
+        current_user_steamid64=str(viewer_steamid64) if viewer_steamid64 is not None else None,
+    )
 
 
 async def read_record_ranks(

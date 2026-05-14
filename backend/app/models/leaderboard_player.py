@@ -295,6 +295,7 @@ class LeaderboardPlayerCount(LegacyDatetimeNamesMixin, table=True):
 
 class PlayerLeaderboardEntryPublic(SQLModel):
     rank: int
+    global_rank: int | None = None
     player: PlayerRefPublic
     rating: float | None
     raw_rating: int | None
@@ -315,6 +316,7 @@ class PlayerLeaderboardEntryPublic(SQLModel):
 class PlayerLeaderboardRankPublic(SQLModel):
     scope: ModeScope
     rank: int | None = None
+    global_rank: int | None = None
     rank_regional: int | None = None
     region: str | None = None
     player: PlayerRefPublic
@@ -345,3 +347,4 @@ class PlayerLeaderboardListQuery(GeographyFilterMixin):
     sort_by: LeaderboardPlayerSortBy = "rating"
     sort_order: Literal["desc"] = "desc"
     include_count: bool = True
+    friends_only: bool = False

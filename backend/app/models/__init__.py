@@ -181,6 +181,7 @@ from .mode_scope import (
 from .record import (
     KZMode,
     MapCourse,
+    MapPbLeaderboardPublic,
     MapWrPublic,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
@@ -335,6 +336,7 @@ __all__ = [
     "MapLeaderboardCache",
     "MapLeaderboardEntryPublic",
     "MapLeaderboardsPublic",
+    "MapPbLeaderboardPublic",
     "MapWrPublic",
     "MapPublic",
     "MapRefPublic",

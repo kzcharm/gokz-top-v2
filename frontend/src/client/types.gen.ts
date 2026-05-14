@@ -426,6 +426,7 @@ export type PlayerFriendSyncPublic = {
 
 export type PlayerLeaderboardEntryPublic = {
     rank: number;
+    global_rank?: (number | null);
     player: PlayerRefPublic;
     rating: (number | null);
     raw_rating: (number | null);
@@ -442,6 +443,7 @@ export type PlayerLeaderboardEntryPublic = {
 export type PlayerLeaderboardRankPublic = {
     scope: ModeScope;
     rank?: (number | null);
+    global_rank?: (number | null);
     rank_regional?: (number | null);
     region?: (string | null);
     player: PlayerRefPublic;
@@ -1209,6 +1211,7 @@ export type HandleHttpPostResponse = (unknown);
 
 export type LeaderboardsReadPlayerLeaderboardData = {
     country?: (string | null);
+    friendsOnly?: boolean;
     includeCount?: boolean;
     limit?: number;
     offset?: number;
@@ -1222,6 +1225,7 @@ export type LeaderboardsReadPlayerLeaderboardResponse = (PlayerLeaderboardsPubli
 
 export type LeaderboardsReadPlayerLeaderboardRankData = {
     country?: (string | null);
+    friendsOnly?: boolean;
     identifier: string;
     region?: (string | null);
     scope?: ModeScope;

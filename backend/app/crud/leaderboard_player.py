@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, localcontext
 from typing import Any, Literal
 
-from sqlalchemy import func, or_
+from sqlalchemy import exists, func, or_
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -23,6 +23,7 @@ from app.models import (
     MapCourse,
     ModeScope,
     Player,
+    PlayerFriend,
     PlayerLeaderboardEntryPublic,
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
@@ -150,6 +151,39 @@ def _leaderboard_order_expressions(
     )
 
 
+def _apply_player_leaderboard_filters(
+    *,
+    statement: Any,
+    scope: ModeScope,
+    geography_country_codes: Sequence[str] | None = None,
+    friends_viewer_steamid64: int | None = None,
+) -> Any:
+    statement = statement.where(
+        col(LeaderboardPlayer.scope) == scope,
+        _not_banned_clause(),
+    )
+    if geography_country_codes is not None:
+        statement = statement.join(
+            Player,
+            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
+        ).where(col(Player.country).in_(list(geography_country_codes)))
+    if friends_viewer_steamid64 is not None:
+        statement = statement.where(
+            or_(
+                col(LeaderboardPlayer.steamid64) == friends_viewer_steamid64,
+                exists(
+                    select(PlayerFriend.friend_steamid64).where(
+                        col(PlayerFriend.player_steamid64)
+                        == friends_viewer_steamid64,
+                        col(PlayerFriend.friend_steamid64)
+                        == col(LeaderboardPlayer.steamid64),
+                    )
+                ),
+            )
+        )
+    return statement
+
+
 async def _read_cached_scope_count(
     *,
     session: AsyncSession,
@@ -247,10 +281,12 @@ def _build_player_leaderboard_entry_public(
     *,
     player: Player,
     rank: int,
+    global_rank: int | None,
     leaderboard_row: LeaderboardPlayer,
 ) -> PlayerLeaderboardEntryPublic:
     return PlayerLeaderboardEntryPublic(
         rank=rank,
+        global_rank=global_rank,
         player=to_player_ref_public(player=player),
         rating=leaderboard_row.rating,
         raw_rating=leaderboard_row.rating,
@@ -597,41 +633,36 @@ async def read_player_leaderboard(
     *,
     session: AsyncSession,
     query: PlayerLeaderboardListQuery,
+    friends_viewer_steamid64: int | None = None,
 ) -> tuple[list[PlayerLeaderboardEntryPublic], int]:
     base_order_expressions = _leaderboard_order_expressions(
         sort_by=query.sort_by,
         columns=LeaderboardPlayer,
     )
-    filtered_statement = (
-        select(
-            col(LeaderboardPlayer.scope).label("scope"),
-            col(LeaderboardPlayer.steamid64).label("steamid64"),
-            col(LeaderboardPlayer.rating).label("rating"),
-            col(LeaderboardPlayer.rating_easy).label("rating_easy"),
-            col(LeaderboardPlayer.rating_hard).label("rating_hard"),
-            col(LeaderboardPlayer.points).label("points"),
-            col(LeaderboardPlayer.wrs_nub).label("wrs_nub"),
-            col(LeaderboardPlayer.wrs_pro).label("wrs_pro"),
-            col(LeaderboardPlayer.records_900_plus).label("records_900_plus"),
-            col(LeaderboardPlayer.records_800_plus).label("records_800_plus"),
-            col(LeaderboardPlayer.unique_map_finishes).label("unique_map_finishes"),
-        )
-        .select_from(LeaderboardPlayer)
-        .where(
-            col(LeaderboardPlayer.scope) == query.scope,
-            _not_banned_clause(),
-        )
+    filtered_statement = _apply_player_leaderboard_filters(
+        statement=(
+            select(
+                col(LeaderboardPlayer.scope).label("scope"),
+                col(LeaderboardPlayer.steamid64).label("steamid64"),
+                col(LeaderboardPlayer.rating).label("rating"),
+                col(LeaderboardPlayer.rating_easy).label("rating_easy"),
+                col(LeaderboardPlayer.rating_hard).label("rating_hard"),
+                col(LeaderboardPlayer.points).label("points"),
+                col(LeaderboardPlayer.wrs_nub).label("wrs_nub"),
+                col(LeaderboardPlayer.wrs_pro).label("wrs_pro"),
+                col(LeaderboardPlayer.records_900_plus).label("records_900_plus"),
+                col(LeaderboardPlayer.records_800_plus).label("records_800_plus"),
+                col(LeaderboardPlayer.unique_map_finishes).label("unique_map_finishes"),
+            )
+            .select_from(LeaderboardPlayer)
+        ),
+        scope=query.scope,
+        geography_country_codes=_country_codes_for_geography(
+            country=query.country,
+            region=query.region,
+        ),
+        friends_viewer_steamid64=friends_viewer_steamid64,
     )
-    geography_country_codes = _country_codes_for_geography(
-        country=query.country,
-        region=query.region,
-    )
-    if geography_country_codes is not None:
-        filtered_statement = filtered_statement.join(
-            Player,
-            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
-        ).where(col(Player.country).in_(list(geography_country_codes)))
-
     page_subquery = (
         filtered_statement.order_by(*base_order_expressions)
         .offset(query.offset)
@@ -642,11 +673,30 @@ async def read_player_leaderboard(
         sort_by=query.sort_by,
         columns=page_subquery.c,
     )
+    global_rank_subquery = (
+        select(
+            col(LeaderboardPlayer.steamid64).label("steamid64"),
+            func.row_number()
+            .over(
+                order_by=_leaderboard_order_expressions(
+                    sort_by="rating",
+                    columns=LeaderboardPlayer,
+                )
+            )
+            .label("global_rank"),
+        )
+        .select_from(LeaderboardPlayer)
+        .where(
+            col(LeaderboardPlayer.scope) == query.scope,
+            _not_banned_clause(),
+        )
+        .subquery()
+    )
 
     count = -1
     if query.include_count:
-        scope = query.scope
-        if geography_country_codes is None:
+        if query.country is None and query.region is None and friends_viewer_steamid64 is None:
+            scope = query.scope
             cached_total = await _read_cached_scope_count(
                 session=session,
                 scope=scope,
@@ -677,17 +727,7 @@ async def read_player_leaderboard(
             count = int(
                 (
                     await session.exec(
-                        select(func.count())
-                        .select_from(LeaderboardPlayer)
-                        .join(
-                            Player,
-                            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
-                        )
-                        .where(
-                            col(LeaderboardPlayer.scope) == scope,
-                            _not_banned_clause(),
-                            col(Player.country).in_(list(geography_country_codes)),
-                        )
+                        select(func.count()).select_from(filtered_statement.subquery())
                     )
                 ).one()
             )
@@ -705,8 +745,13 @@ async def read_player_leaderboard(
             page_subquery.c.records_900_plus,
             page_subquery.c.records_800_plus,
             page_subquery.c.unique_map_finishes,
+            global_rank_subquery.c.global_rank,
         )
         .join(Player, col(Player.steamid64) == page_subquery.c.steamid64)
+        .join(
+            global_rank_subquery,
+            global_rank_subquery.c.steamid64 == page_subquery.c.steamid64,
+        )
         .order_by(*page_order_expressions)
     )
     rows = (await session.execute(statement)).all()
@@ -716,6 +761,7 @@ async def read_player_leaderboard(
             _build_player_leaderboard_entry_public(
                 player=player,
                 rank=query.offset + index,
+                global_rank=global_rank,
                 leaderboard_row=LeaderboardPlayer(
                     scope=query.scope,
                     steamid64=player.steamid64,
@@ -741,6 +787,7 @@ async def read_player_leaderboard(
                 records_900_plus,
                 records_800_plus,
                 unique_map_finishes,
+                global_rank,
             ) in enumerate(rows, start=1)
         ],
         count,
@@ -756,40 +803,36 @@ async def _read_metric_rank(
     metric_value: int,
     country: str | None = None,
     region: str | None = None,
+    friends_viewer_steamid64: int | None = None,
 ) -> int | None:
     if metric_value <= 0:
         return None
 
     metric_column = col(getattr(LeaderboardPlayer, metric_name))
     geography_country_codes = _country_codes_for_geography(country=country, region=region)
-    higher_count_statement = (
-        select(func.count())
-        .select_from(LeaderboardPlayer)
-        .where(
-            col(LeaderboardPlayer.scope) == scope,
-            metric_column > metric_value,
-            _not_banned_clause(),
-        )
+    higher_count_statement = _apply_player_leaderboard_filters(
+        statement=(
+            select(func.count())
+            .select_from(LeaderboardPlayer)
+            .where(metric_column > metric_value)
+        ),
+        scope=scope,
+        geography_country_codes=geography_country_codes,
+        friends_viewer_steamid64=friends_viewer_steamid64,
     )
-    player_in_scope_statement = (
-        select(func.count())
-        .select_from(LeaderboardPlayer)
-        .where(
-            col(LeaderboardPlayer.scope) == scope,
-            col(LeaderboardPlayer.steamid64) == steamid64,
-            metric_column > 0,
-            _not_banned_clause(),
-        )
+    player_in_scope_statement = _apply_player_leaderboard_filters(
+        statement=(
+            select(func.count())
+            .select_from(LeaderboardPlayer)
+            .where(
+                col(LeaderboardPlayer.steamid64) == steamid64,
+                metric_column > 0,
+            )
+        ),
+        scope=scope,
+        geography_country_codes=geography_country_codes,
+        friends_viewer_steamid64=friends_viewer_steamid64,
     )
-    if geography_country_codes is not None:
-        higher_count_statement = higher_count_statement.join(
-            Player,
-            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
-        ).where(col(Player.country).in_(list(geography_country_codes)))
-        player_in_scope_statement = player_in_scope_statement.join(
-            Player,
-            col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
-        ).where(col(Player.country).in_(list(geography_country_codes)))
 
     higher_count = (await session.exec(higher_count_statement)).one()
     player_in_scope = (await session.exec(player_in_scope_statement)).one()
@@ -806,6 +849,7 @@ async def read_player_leaderboard_rank(
     scope: ModeScope,
     country: str | None = None,
     region: str | None = None,
+    friends_viewer_steamid64: int | None = None,
 ) -> PlayerLeaderboardRankPublic:
     leaderboard_row = await session.get(
         LeaderboardPlayer,
@@ -823,8 +867,18 @@ async def read_player_leaderboard_rank(
             metric_value=leaderboard_row.rating,
             country=country,
             region=region,
+            friends_viewer_steamid64=friends_viewer_steamid64,
         )
     home_region = get_region_code_for_country(player.country)
+    global_rank: int | None = None
+    if leaderboard_row is not None:
+        global_rank = await _read_metric_rank(
+            session=session,
+            scope=scope,
+            steamid64=player.steamid64,
+            metric_name="rating",
+            metric_value=leaderboard_row.rating,
+        )
     rank_regional: int | None = None
     if leaderboard_row is not None and home_region is not None:
         rank_regional = await _read_metric_rank(
@@ -839,6 +893,7 @@ async def read_player_leaderboard_rank(
     return PlayerLeaderboardRankPublic(
         scope=scope,
         rank=rank,
+        global_rank=global_rank,
         rank_regional=rank_regional,
         region=home_region,
         player=to_player_ref_public(player=player),

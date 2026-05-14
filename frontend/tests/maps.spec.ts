@@ -47,6 +47,7 @@ function createMap(index: number) {
 const seededMaps = Array.from({ length: 30 }, (_, index) =>
   createMap(index + 1),
 )
+const currentUserSteamid64 = "76561198009999999"
 
 seededMaps[0] = {
   ...seededMaps[0],
@@ -84,71 +85,160 @@ seededMaps[2] = {
   updated_on: "2026-03-15T12:00:00Z",
 }
 
-const mapLeaderboardRecords = [
-  {
-    uuid: "019e1111-1111-7111-8111-111111111111",
-    id: 980900,
-    player: {
-      steamid64: "76561198000000001",
-      display_name: "Alpha Runner",
+function createLeaderboardRecord({
+  index,
+  steamid64,
+  displayName,
+  country,
+  teleports,
+  time,
+}: {
+  index: number
+  steamid64: string
+  displayName: string
+  country: string
+  teleports: number
+  time: number
+}) {
+  return {
+    country,
+    record: {
+      uuid: `019e${`${index}`.padStart(4, "0")}-${`${index}`.padStart(4, "0")}-7${`${index}`.padStart(3, "0")}-8${`${index}`.padStart(3, "0")}-${`${index}`.padStart(12, "0")}`,
+      id: 980900 + index,
+      player: {
+        steamid64,
+        display_name: displayName,
+      },
+      steam_id: null,
+      server_id: 980300 + index,
+      server_name: `Server ${index}`,
+      map_id: seededMaps[0].id,
+      map_name: seededMaps[0].name,
+      map_tier: seededMaps[0].tiers.OVR,
+      mode_id: teleports === 0 ? 200 : 201,
+      mode: teleports === 0 ? "KZT" : "SKZ",
+      stage: 0,
+      tickrate: 128,
+      time,
+      teleports,
+      points: 500 - index * 10,
+      created_on: `2026-03-${`${(index % 28) + 1}`.padStart(2, "0")}T12:00:00Z`,
+      updated_on: `2026-03-${`${(index % 28) + 1}`.padStart(2, "0")}T12:00:00Z`,
+      updated_by: steamid64,
+      replay_id: null,
+      is_valid: true,
     },
-    steam_id: null,
-    server_id: 980300,
-    server_name: "Alpha Server",
-    map_id: seededMaps[0].id,
-    map_name: seededMaps[0].name,
-    map_tier: seededMaps[0].tiers.OVR,
-    mode_id: 200,
-    mode: "KZT",
-    stage: 0,
-    tickrate: 128,
-    time: 41.123,
+  }
+}
+
+const mapLeaderboardSeedRows = [
+  createLeaderboardRecord({
+    index: 1,
+    steamid64: "76561198000000001",
+    displayName: "Alpha Runner",
+    country: "DE",
     teleports: 0,
-    points: 415,
-    created_on: "2026-03-31T12:00:00Z",
-    updated_on: "2026-03-31T12:00:00Z",
-    updated_by: "76561198000000001",
-    replay_id: null,
-    is_valid: true,
-  },
-  {
-    uuid: "019e2222-2222-7222-8222-222222222222",
-    id: 980901,
-    player: {
-      steamid64: "76561198000000002",
-      display_name: "TP Runner",
-    },
-    steam_id: null,
-    server_id: 980301,
-    server_name: "Teleport Server",
-    map_id: seededMaps[0].id,
-    map_name: seededMaps[0].name,
-    map_tier: seededMaps[0].tiers.OVR,
-    mode_id: 201,
-    mode: "SKZ",
-    stage: 0,
-    tickrate: 128,
-    time: 44.456,
+    time: 41.123,
+  }),
+  createLeaderboardRecord({
+    index: 2,
+    steamid64: "76561198000000002",
+    displayName: "Bravo Runner",
+    country: "FR",
+    teleports: 0,
+    time: 42.456,
+  }),
+  createLeaderboardRecord({
+    index: 3,
+    steamid64: "76561198000000003",
+    displayName: "Charlie Runner",
+    country: "US",
+    teleports: 0,
+    time: 43.789,
+  }),
+  createLeaderboardRecord({
+    index: 4,
+    steamid64: "76561198000000004",
+    displayName: "Delta Runner",
+    country: "DE",
+    teleports: 2,
+    time: 44.111,
+  }),
+  createLeaderboardRecord({
+    index: 5,
+    steamid64: "76561198000000005",
+    displayName: "Echo Runner",
+    country: "FR",
+    teleports: 0,
+    time: 45.222,
+  }),
+  createLeaderboardRecord({
+    index: 6,
+    steamid64: "76561198000000006",
+    displayName: "Foxtrot Runner",
+    country: "US",
     teleports: 3,
-    points: 320,
-    created_on: "2026-03-30T12:00:00Z",
-    updated_on: "2026-03-30T12:00:00Z",
-    updated_by: "76561198000000002",
-    replay_id: null,
-    is_valid: true,
-  },
+    time: 46.333,
+  }),
+  createLeaderboardRecord({
+    index: 7,
+    steamid64: "76561198000000007",
+    displayName: "Golf Runner",
+    country: "DE",
+    teleports: 0,
+    time: 47.444,
+  }),
+  createLeaderboardRecord({
+    index: 8,
+    steamid64: "76561198000000008",
+    displayName: "Hotel Runner",
+    country: "FR",
+    teleports: 2,
+    time: 48.555,
+  }),
+  createLeaderboardRecord({
+    index: 9,
+    steamid64: "76561198000000009",
+    displayName: "India Runner",
+    country: "US",
+    teleports: 0,
+    time: 49.666,
+  }),
+  createLeaderboardRecord({
+    index: 10,
+    steamid64: "76561198000000010",
+    displayName: "Juliet Runner",
+    country: "DE",
+    teleports: 1,
+    time: 50.777,
+  }),
+  createLeaderboardRecord({
+    index: 11,
+    steamid64: currentUserSteamid64,
+    displayName: "My Runner",
+    country: "US",
+    teleports: 2,
+    time: 51.888,
+  }),
+  createLeaderboardRecord({
+    index: 12,
+    steamid64: "76561198000000012",
+    displayName: "Kilo Runner",
+    country: "FR",
+    teleports: 4,
+    time: 52.999,
+  }),
 ]
 
 test("Maps catalog supports search, sorting, pagination, and map detail navigation", async ({
   page,
 }) => {
   let mapsRequestUrl = ""
-  const pbRequests: Array<{
-    isProOnly: string | null
+  const leaderboardRequests: Array<{
+    type: string | null
     limit: string | null
-    mapId: string | null
+    offset: string | null
     scope: string | null
-    stage: string | null
     country: string | null
     region: string | null
   }> = []
@@ -189,36 +279,89 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     })
   })
 
-  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, async (route) => {
     const url = new URL(route.request().url())
-    const recordType = url.searchParams.get("type")
-    const isProOnly =
-      url.searchParams.get("is_pro_only") ??
-      (recordType === "PRO" ? "true" : recordType === "NUB" ? "false" : null)
     const scope = url.searchParams.get("scope")
-    const mapId = url.searchParams.get("map_id")
+    const type = url.searchParams.get("type")
+    const country = url.searchParams.get("country")
+    const region = url.searchParams.get("region")
+    const offset = Number(url.searchParams.get("offset") ?? "0")
+    const limit = Number(url.searchParams.get("limit") ?? "20")
 
-    pbRequests.push({
+    leaderboardRequests.push({
       scope,
-      isProOnly,
+      type,
       limit: url.searchParams.get("limit"),
-      stage: url.searchParams.get("stage"),
-      mapId,
-      country: url.searchParams.get("country"),
-      region: url.searchParams.get("region"),
+      offset: url.searchParams.get("offset"),
+      country,
+      region,
     })
 
-    const payload =
-      scope === "SKZ"
-        ? []
-        : isProOnly === "true"
-          ? [mapLeaderboardRecords[0]]
-          : [mapLeaderboardRecords[1]]
+    if (scope === "SKZ") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          count: 0,
+          unique_nub_finishes: 0,
+          unique_pro_finishes: 0,
+          current_user_rank: null,
+          current_user_steamid64: null,
+        }),
+      })
+      return
+    }
+
+    const filteredRows = mapLeaderboardSeedRows.filter((row) => {
+      if (type === "PRO" && row.record.teleports !== 0) {
+        return false
+      }
+      if (country && row.country !== country) {
+        return false
+      }
+      if (region === "EU" && !["DE", "FR"].includes(row.country)) {
+        return false
+      }
+      return true
+    })
+    const currentUserRank =
+      filteredRows.findIndex(
+        (row) => row.record.player.steamid64 === currentUserSteamid64,
+      ) + 1
+    const proCount = mapLeaderboardSeedRows.filter((row) => {
+      if (row.record.teleports !== 0) {
+        return false
+      }
+      if (country && row.country !== country) {
+        return false
+      }
+      if (region === "EU" && !["DE", "FR"].includes(row.country)) {
+        return false
+      }
+      return true
+    }).length
+    const nubCount = mapLeaderboardSeedRows.filter((row) => {
+      if (country && row.country !== country) {
+        return false
+      }
+      if (region === "EU" && !["DE", "FR"].includes(row.country)) {
+        return false
+      }
+      return true
+    }).length
 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        data: filteredRows.slice(offset, offset + limit).map((row) => row.record),
+        count: filteredRows.length,
+        unique_nub_finishes: nubCount,
+        unique_pro_finishes: proCount,
+        current_user_rank: currentUserRank > 0 ? currentUserRank : null,
+        current_user_steamid64: currentUserSteamid64,
+      }),
     })
   })
 
@@ -292,7 +435,6 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   ).toContainText("OVR")
   await page.reload()
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
-
   await page
     .getByTestId("map-card-kz_alpha")
     .getByRole("link", { name: "Open kz_alpha" })
@@ -301,49 +443,91 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page).toHaveURL(/\/maps\/kz_alpha$/)
   await expect(page.getByRole("heading", { name: "kz_alpha" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Map Top" })).toBeVisible()
-  await expect(page.getByText("TP Runner")).toBeVisible()
+  await expect(page.getByText("Alpha Runner")).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Rank" })).toBeVisible()
-  await expect(page.getByText("#1")).toBeVisible()
-  await expect(page.getByText("#2")).toHaveCount(0)
+  await expect(page.getByText("#1", { exact: true })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Player" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
+  await expect(page.locator("div").filter({ hasText: /^NUB$/ }).first()).toBeVisible()
+  await expect(page.getByText(/11 \/ 12 91\.7%/)).toBeVisible()
+  await expect(page.locator("div").filter({ hasText: /^PRO$/ }).first()).toBeVisible()
+  await expect(page.getByText(/N\/A \/ 6/)).toBeVisible()
+
+  await page
+    .getByRole("button", { name: "Zoom map image for kz_alpha" })
+    .click()
+  await expect(
+    page.getByRole("img", { name: "kz_alpha preview image enlarged" }),
+  ).toBeVisible()
+  await page.keyboard.press("Escape")
+
+  await page.getByRole("combobox").last().click()
+  await page.getByRole("option", { name: "10", exact: true }).click()
+  await page.getByRole("button", { name: "Find Me" }).click()
+  await expect
+    .poll(() =>
+      leaderboardRequests.some(
+        (request) =>
+          request.scope === "OVR" &&
+          request.type === "NUB" &&
+          request.limit === "10" &&
+          request.offset === "10" &&
+          request.country === null &&
+          request.region === null,
+      ),
+    )
+    .toBe(true)
+  await expect(page.getByText("My Runner")).toBeVisible()
 
   await page.getByRole("switch", { name: "Pro only" }).click()
   await expect
-    .poll(() => pbRequests.at(-1))
-    .toMatchObject({
-      mapId: `${seededMaps[0].id}`,
-      scope: "OVR",
-      isProOnly: "true",
-      country: null,
-      region: null,
-    })
-  await expect(page.getByText("TP Runner")).toHaveCount(0)
+    .poll(() =>
+      leaderboardRequests.some(
+        (request) =>
+          request.scope === "OVR" &&
+          request.type === "PRO" &&
+          request.limit === "10" &&
+          request.offset === "0" &&
+          request.country === null &&
+          request.region === null,
+      ),
+    )
+    .toBe(true)
+  await expect(page.getByText("Delta Runner")).toHaveCount(0)
+  await expect(page.getByText(/N\/A \/ 6/)).toBeVisible()
 
   await page.getByRole("button", { name: /^(All countries|country)$/ }).click()
   await page.getByRole("button", { name: "Germany" }).click()
   await expect
-    .poll(() => pbRequests.at(-1))
-    .toMatchObject({
-      mapId: `${seededMaps[0].id}`,
-      scope: "OVR",
-      isProOnly: "true",
-      country: "DE",
-      region: null,
-    })
+    .poll(() =>
+      leaderboardRequests.some(
+        (request) =>
+          request.scope === "OVR" &&
+          request.type === "PRO" &&
+          request.limit === "10" &&
+          request.offset === "0" &&
+          request.country === "DE" &&
+          request.region === null,
+      ),
+    )
+    .toBe(true)
 
-  await page.getByRole("combobox").click()
+  await page.getByRole("combobox").first().click()
   await page.getByRole("option", { name: /^EU$/ }).click()
   await expect
-    .poll(() => pbRequests.at(-1))
-    .toMatchObject({
-      mapId: `${seededMaps[0].id}`,
-      scope: "OVR",
-      isProOnly: "true",
-      country: null,
-      region: "EU",
-    })
+    .poll(() =>
+      leaderboardRequests.some(
+        (request) =>
+          request.scope === "OVR" &&
+          request.type === "PRO" &&
+          request.limit === "10" &&
+          request.offset === "0" &&
+          request.country === null &&
+          request.region === "EU",
+      ),
+    )
+    .toBe(true)
 
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
@@ -353,52 +537,55 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     ),
   ).toBeVisible()
 
-  expect(pbRequests).toEqual(
+  expect(leaderboardRequests).toEqual(
     expect.arrayContaining([
       {
         scope: "OVR",
-        isProOnly: "false",
-        limit: "100",
-        stage: "0",
-        mapId: `${seededMaps[0].id}`,
+        type: "NUB",
+        limit: "20",
+        offset: "0",
         country: null,
         region: null,
       },
       {
         scope: "OVR",
-        isProOnly: "true",
-        limit: "100",
-        stage: "0",
-        mapId: `${seededMaps[0].id}`,
+        type: "PRO",
+        limit: "10",
+        offset: "0",
         country: null,
         region: null,
       },
       {
         scope: "OVR",
-        isProOnly: "true",
-        limit: "100",
-        stage: "0",
-        mapId: `${seededMaps[0].id}`,
+        type: "PRO",
+        limit: "10",
+        offset: "0",
         country: "DE",
         region: null,
       },
       {
         scope: "OVR",
-        isProOnly: "true",
-        limit: "100",
-        stage: "0",
-        mapId: `${seededMaps[0].id}`,
+        type: "PRO",
+        limit: "10",
+        offset: "0",
         country: null,
         region: "EU",
       },
       {
         scope: "SKZ",
-        isProOnly: "true",
-        limit: "100",
-        stage: "0",
-        mapId: `${seededMaps[0].id}`,
+        type: "PRO",
+        limit: "10",
+        offset: "0",
         country: null,
         region: "EU",
+      },
+      {
+        scope: "OVR",
+        type: "NUB",
+        limit: "10",
+        offset: "10",
+        country: null,
+        region: null,
       },
     ]),
   )
@@ -431,7 +618,7 @@ test("Map detail shows leaderboard error state when PB loading fails", async ({
     })
   })
 
-  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 500,
       contentType: "application/json",

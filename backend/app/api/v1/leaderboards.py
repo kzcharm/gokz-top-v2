@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import OptionalCurrentUser, SessionDep, get_current_active_superuser
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.models import (
@@ -18,7 +18,17 @@ from app.models import (
 
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
 
-def _validate_geography_filters(*, country: str | None, region: str | None) -> None:
+def _validate_geography_filters(
+    *,
+    country: str | None,
+    region: str | None,
+    friends_only: bool = False,
+) -> None:
+    if friends_only and (country is not None or region is not None):
+        raise HTTPException(
+            status_code=422,
+            detail="friends_only cannot be combined with country or region filters.",
+        )
     if country is not None and region is not None:
         raise HTTPException(
             status_code=422,
@@ -38,13 +48,40 @@ async def _get_player_or_404(*, session: SessionDep, identifier: str):
     return player
 
 
+def _get_friends_only_viewer_steamid64(
+    *,
+    friends_only: bool,
+    current_user: OptionalCurrentUser,
+) -> int | None:
+    if not friends_only:
+        return None
+    if current_user is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Login is required to view a friends-only leaderboard.",
+        )
+    return current_user.steamid64
+
+
 @router.get("/players", response_model=PlayerLeaderboardsPublic)
 async def read_player_leaderboard(
     session: SessionDep,
     query: Annotated[PlayerLeaderboardListQuery, Query()],
+    current_user: OptionalCurrentUser,
 ) -> PlayerLeaderboardsPublic:
-    _validate_geography_filters(country=query.country, region=query.region)
-    data, count = await crud.read_player_leaderboard(session=session, query=query)
+    _validate_geography_filters(
+        country=query.country,
+        region=query.region,
+        friends_only=query.friends_only,
+    )
+    data, count = await crud.read_player_leaderboard(
+        session=session,
+        query=query,
+        friends_viewer_steamid64=_get_friends_only_viewer_steamid64(
+            friends_only=query.friends_only,
+            current_user=current_user,
+        ),
+    )
     return PlayerLeaderboardsPublic(data=data, count=count)
 
 
@@ -52,11 +89,17 @@ async def read_player_leaderboard(
 async def read_player_leaderboard_rank(
     identifier: str,
     session: SessionDep,
+    current_user: OptionalCurrentUser,
     scope: ModeScope = Query(default=ModeScope.OVR),
     country: Annotated[str | None, Query(max_length=2)] = None,
     region: Annotated[str | None, Query(max_length=3)] = None,
+    friends_only: bool = Query(default=False),
 ) -> PlayerLeaderboardRankPublic:
-    _validate_geography_filters(country=country, region=region)
+    _validate_geography_filters(
+        country=country,
+        region=region,
+        friends_only=friends_only,
+    )
     player = await _get_player_or_404(session=session, identifier=identifier)
     return await crud.read_player_leaderboard_rank(
         session=session,
@@ -64,6 +107,10 @@ async def read_player_leaderboard_rank(
         scope=scope,
         country=country.strip().upper() if country is not None and country.strip() else None,
         region=region.strip().upper() if region is not None and region.strip() else None,
+        friends_viewer_steamid64=_get_friends_only_viewer_steamid64(
+            friends_only=friends_only,
+            current_user=current_user,
+        ),
     )
 
 

@@ -156,6 +156,11 @@ test.describe("Leaderboards page", () => {
     await expect(
       page.getByRole("button", { name: "Find Me", exact: true }),
     ).toBeDisabled()
+    await page.getByRole("button", { name: "Friends" }).click()
+    await expect(page.getByText("Login required")).toBeVisible()
+    await expect(
+      page.getByText("Log in first to view your friends leaderboard."),
+    ).toBeVisible()
     await expect(
       page.getByRole("button", { name: "Select record scope" }),
     ).toContainText("OVR")
@@ -538,6 +543,140 @@ test.describe("Leaderboards page", () => {
     await expect(
       page.getByRole("row", { name: /41.*Find Me Player/ }),
     ).toHaveClass(/leaderboard-self-spotlight/)
+  })
+
+  test("friends only clears geography filters and sends viewer-scoped requests", async ({
+    page,
+    request,
+  }) => {
+    const leaderboardRequests: Array<{
+      friendsOnly: string | null
+      country: string | null
+      region: string | null
+    }> = []
+    const rankRequests: Array<{
+      friendsOnly: string | null
+      country: string | null
+      region: string | null
+    }> = []
+
+    const { accessToken } = await issueSessionToken({
+      request,
+      steamid64: "76561198000000042",
+      name: "Find Me Player",
+    })
+    await page.addInitScript((token) => {
+      localStorage.clear()
+      localStorage.setItem("access_token", token)
+    }, accessToken)
+    await stubRegions(page)
+    await stubPlayerGraphql(page, {
+      playersBySteamid64: {
+        "76561198000000042": buildGraphqlPlayer({
+          steamid64: "76561198000000042",
+          displayName: "Find Me Player",
+          country: "DE",
+        }),
+      },
+    })
+
+    await page.route("**/v1/users/me", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          steamid64: "76561198000000042",
+          roles: [],
+          player: {
+            steamid64: "76561198000000042",
+            name: "Find Me Player",
+            alias: null,
+            custom_id: null,
+            avatar_hash: null,
+            country: "DE",
+            created_at: null,
+            last_played_at: null,
+            updated_at: null,
+            profile_views: 0,
+          },
+        }),
+      })
+    })
+
+    await page.route(
+      "**/v1/leaderboards/players/76561198000000042*",
+      async (route) => {
+        const url = new URL(route.request().url())
+        rankRequests.push({
+          friendsOnly: url.searchParams.get("friends_only"),
+          country: url.searchParams.get("country"),
+          region: url.searchParams.get("region"),
+        })
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            rank: 1,
+            global_rank: 41,
+            rank_regional: 1,
+            rating: 1100,
+          }),
+        })
+      },
+    )
+
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      const url = new URL(route.request().url())
+      leaderboardRequests.push({
+        friendsOnly: url.searchParams.get("friends_only"),
+        country: url.searchParams.get("country"),
+        region: url.searchParams.get("region"),
+      })
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              global_rank: 41,
+              player: buildPlayerRef("76561198000000042", "Find Me Player"),
+              rating: 1100,
+              rating_easy: 550,
+              rating_hard: 550,
+              points: 2000,
+              wrs_nub: 0,
+              wrs_pro: 0,
+              records_900_plus: 0,
+              records_800_plus: 0,
+              unique_map_finishes: 25,
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards")
+
+    await page.getByRole("button", { name: "country" }).click()
+    await page.getByRole("button", { name: "Germany" }).click()
+    await expect
+      .poll(() => leaderboardRequests.at(-1))
+      .toEqual({ friendsOnly: null, country: "DE", region: null })
+
+    await page.getByRole("button", { name: "Friends" }).click()
+    await expect
+      .poll(() => leaderboardRequests.at(-1))
+      .toEqual({ friendsOnly: "true", country: null, region: null })
+
+    await expect(page.getByRole("combobox")).toBeDisabled()
+    await expect(page.getByRole("button", { name: "country" })).toBeDisabled()
+    await expect(
+      page.getByRole("row", { name: /1 \(41\).*Find Me Player/ }),
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Find Me", exact: true }).click()
+    await expect
+      .poll(() => rankRequests.at(-1))
+      .toEqual({ friendsOnly: "true", country: null, region: null })
   })
 
   test("country and region filters are mutually exclusive and affect requests", async ({

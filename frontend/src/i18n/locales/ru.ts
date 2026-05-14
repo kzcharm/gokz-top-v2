@@ -433,6 +433,14 @@ export const ru = {
       servers: "Серверы",
       maps: "Карты",
     },
+    players: {
+      friends: {
+        label: "Друзья",
+        loginRequiredTitle: "Требуется вход",
+        loginRequiredDescription:
+          "Сначала войдите в аккаунт, чтобы видеть таблицу лидеров друзей.",
+      },
+    },
     mapColumns: {
       playtime: "Время в игре",
       averagePlaytime: "Среднее время",
@@ -532,6 +540,9 @@ export const ru = {
     workshopId: "Workshop ID",
     created: "Создано",
     updated: "Обновлено",
+    zoomImage: "Увеличить изображение карты {{mapName}}",
+    imageAlt: "Превью карты {{mapName}}",
+    imageAltEnlarged: "Увеличенное превью карты {{mapName}}",
     unknownAuthor: "Автор неизвестен",
     requestFailed:
       "Не удалось загрузить каталог карт. Обновите список и попробуйте снова.",
@@ -569,9 +580,16 @@ export const ru = {
     filters: {
       country: "страна",
       region: "регион",
-      proOnly: "Только PRO",
     },
     addReview: "Добавить отзыв",
+    nubFinishers: "Финишировавших NUB",
+    proFinishers: "Финишировавших PRO",
+    topPercentPrefix: "Топ",
+    myRank: "Мой ранг",
+    findMe: "Найти меня",
+    findMeNotRankedTitle: "У вас нет ранкнутого финиша здесь",
+    findMeNotRankedDescription:
+      "Попробуйте другую область, фильтр или другой режим NUB / PRO.",
     emptyTopPro: "Для этой карты нет Stage 0 записей PRO в выбранной области.",
     emptyTop: "Для этой карты нет Stage 0 записей в выбранной области.",
   },
