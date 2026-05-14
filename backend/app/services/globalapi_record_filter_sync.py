@@ -4,12 +4,20 @@ from datetime import UTC, datetime
 from typing import Any, Mapping
 
 import httpx
+from sqlalchemy import case
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import GlobalApiSyncResult, Map, RecordFilter, legacy_mode_id_to_kz_mode
+from app.models import (
+    GlobalApiSyncResult,
+    KZMode,
+    Map,
+    RecordFilter,
+    legacy_mode_id_to_kz_mode,
+)
+from app.services.vanilla_tier import VanillaTierEntry, load_vanilla_tiers_by_map_id
 
 RECORD_FILTER_DATETIME_FALLBACK = "2018-07-10T21:02:51"
 _RECORD_FILTER_DATETIME_FALLBACK_VALUE = datetime.fromisoformat(
@@ -69,11 +77,19 @@ def _derive_record_filter_tier(
     *,
     map_id: int,
     stage: int,
+    mode: KZMode,
     tickrate: int,
+    has_teleports: bool,
     map_difficulty_by_id: Mapping[int, int],
+    vanilla_tiers_by_map_id: Mapping[int, VanillaTierEntry],
 ) -> int | None:
     if map_id < 0 or stage != 0 or tickrate != 128:
         return None
+    if mode is KZMode.VNL:
+        vanilla_tier = vanilla_tiers_by_map_id.get(map_id)
+        if vanilla_tier is None:
+            return None
+        return vanilla_tier.tp_tier if has_teleports else vanilla_tier.pro_tier
     return map_difficulty_by_id.get(map_id)
 
 
@@ -81,28 +97,35 @@ def _record_filter_values_from_globalapi(
     payload: dict[str, Any],
     *,
     map_difficulty_by_id: Mapping[int, int],
+    vanilla_tiers_by_map_id: Mapping[int, VanillaTierEntry],
 ) -> dict[str, Any] | None:
     record_filter_id = _parse_int(payload.get("id"), default=-1)
     map_id = _parse_int(payload.get("map_id"), default=-2)
     mode_id = _parse_int(payload.get("mode_id"), default=-1)
     stage = _parse_int(payload.get("stage", 0), default=0)
     tickrate = _parse_int(payload.get("tickrate"), default=0)
+    has_teleports = _parse_bool(payload.get("has_teleports"), default=False)
 
     if record_filter_id < 0 or mode_id < 0 or tickrate <= 0 or map_id < -1:
         return None
+
+    mode = legacy_mode_id_to_kz_mode(mode_id)
 
     return {
         "id": record_filter_id,
         "map_id": map_id,
         "stage": stage,
-        "mode": legacy_mode_id_to_kz_mode(mode_id),
+        "mode": mode,
         "tickrate": tickrate,
-        "has_teleports": _parse_bool(payload.get("has_teleports"), default=False),
+        "has_teleports": has_teleports,
         "tier": _derive_record_filter_tier(
             map_id=map_id,
             stage=stage,
+            mode=mode,
             tickrate=tickrate,
+            has_teleports=has_teleports,
             map_difficulty_by_id=map_difficulty_by_id,
+            vanilla_tiers_by_map_id=vanilla_tiers_by_map_id,
         ),
         "created_at": _normalize_datetime(payload.get("created_on")),
         "updated_at": _normalize_datetime(payload.get("updated_on")),
@@ -117,7 +140,10 @@ async def fetch_record_filters_from_globalapi(
     limit: int,
 ) -> list[dict[str, Any]]:
     close_client = client is None
-    resolved_client = client or httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS)
+    resolved_client = client or httpx.AsyncClient(
+        timeout=settings.GLOBALAPI_TIMEOUT_SECONDS,
+        trust_env=settings.GLOBALAPI_HTTPX_TRUST_ENV,
+    )
     try:
         response = await resolved_client.get(
             f"{settings.GLOBALAPI_BASE_URL}/record_filters",
@@ -161,7 +187,14 @@ async def sync_record_filters_from_globalapi(
     # GlobalAPI record filters are treated as append/update-only metadata for now.
     # If upstream ever starts deleting filters, revisit this assumption and add a
     # stale-row policy instead of silently removing local rows.
-    async with httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS) as client:
+    async with httpx.AsyncClient(
+        timeout=settings.GLOBALAPI_TIMEOUT_SECONDS,
+        trust_env=settings.GLOBALAPI_HTTPX_TRUST_ENV,
+    ) as client:
+        vanilla_tiers_by_map_id = await load_vanilla_tiers_by_map_id(
+            session=session,
+            client=client,
+        )
         offset = 0
         while True:
             payloads = await fetch_record_filters_from_globalapi(
@@ -207,6 +240,7 @@ async def sync_record_filters_from_globalapi(
                 row = _record_filter_values_from_globalapi(
                     payload,
                     map_difficulty_by_id=map_difficulty_by_id,
+                    vanilla_tiers_by_map_id=vanilla_tiers_by_map_id,
                 )
                 if row is None:
                     errors += 1
@@ -245,8 +279,14 @@ async def sync_record_filters_from_globalapi(
                         "mode": insert_statement.excluded.mode,
                         "tickrate": insert_statement.excluded.tickrate,
                         "has_teleports": insert_statement.excluded.has_teleports,
-                        "tier": func.coalesce(
-                            table.c.tier, insert_statement.excluded.tier
+                        "tier": case(
+                            (
+                                insert_statement.excluded.mode == KZMode.VNL,
+                                insert_statement.excluded.tier,
+                            ),
+                            else_=func.coalesce(
+                                table.c.tier, insert_statement.excluded.tier
+                            ),
                         ),
                         "created_at": insert_statement.excluded.created_at,
                         "updated_at": insert_statement.excluded.updated_at,
