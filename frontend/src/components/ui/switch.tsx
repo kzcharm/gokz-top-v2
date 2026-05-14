@@ -43,7 +43,7 @@ function Switch({
       data-state={isChecked ? "checked" : "unchecked"}
       aria-checked={isChecked}
       className={cn(
-        "inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-transparent bg-muted shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 data-[state=checked]:bg-green-600 data-[state=checked]:shadow-green-600/25 dark:data-[state=checked]:bg-green-500",
+        "inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-border bg-muted shadow-xs transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-80 data-[state=checked]:border-green-600/70 data-[state=checked]:bg-green-600 data-[state=checked]:shadow-green-600/25 dark:data-[state=checked]:bg-green-500",
         className,
       )}
       disabled={disabled}
@@ -55,7 +55,7 @@ function Switch({
       <span
         aria-hidden="true"
         className={cn(
-          "block size-4 rounded-full bg-background shadow-sm ring-1 ring-black/5 transition-transform",
+          "block size-4 rounded-full bg-background shadow-sm ring-1 ring-border/80 transition-transform",
           isChecked ? "translate-x-4" : "translate-x-0.5",
         )}
       />
