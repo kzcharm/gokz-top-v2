@@ -487,23 +487,6 @@ export function ProfilePage({
         />
         <span>{isProOnly ? "PRO" : "NUB"}</span>
       </Label>
-    ) : activeTab === "friends" && isOwnProfile ? (
-      <Button
-        type="button"
-        size="sm"
-        data-testid="profile-friends-sync-button"
-        disabled={syncFriendsMutation.isPending}
-        onClick={() => {
-          if (syncFriendsMutation.isPending) {
-            return
-          }
-          void syncFriendsMutation.mutateAsync()
-        }}
-      >
-        {syncFriendsMutation.isPending
-          ? t("profile.friends.syncing")
-          : t("profile.friends.syncButton")}
-      </Button>
     ) : null
 
   return (
@@ -678,6 +661,26 @@ export function ProfilePage({
               sync={friendsQuery.data?.sync ?? null}
               loading={friendsQuery.isLoading}
               error={friendsQuery.isError}
+              actions={
+                isOwnProfile ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="profile-friends-sync-button"
+                    disabled={syncFriendsMutation.isPending}
+                    onClick={() => {
+                      if (syncFriendsMutation.isPending) {
+                        return
+                      }
+                      void syncFriendsMutation.mutateAsync()
+                    }}
+                  >
+                    {syncFriendsMutation.isPending
+                      ? t("profile.friends.syncing")
+                      : t("profile.friends.syncButton")}
+                  </Button>
+                ) : null
+              }
             />
           ) : (
             <ProfileStatsContent

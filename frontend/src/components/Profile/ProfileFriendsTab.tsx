@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { ArrowDown, ArrowUp } from "lucide-react"
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { PlayerPublic } from "@/client"
 import { getCountryName } from "@/components/Common/CountryFlag"
@@ -104,11 +104,13 @@ export function ProfileFriendsTab({
   sync,
   loading,
   error,
+  actions,
 }: {
   friends: PlayerPublic[]
   sync: ProfileFriendSync | null
   loading: boolean
   error: boolean
+  actions?: ReactNode
 }) {
   const { t, i18n } = useTranslation()
   const [sortField, setSortField] = useState<FriendSortField>("last_played")
@@ -304,6 +306,8 @@ export function ProfileFriendsTab({
             />
           </div>
         </div>
+
+        {actions ? <div className="flex justify-start sm:justify-end">{actions}</div> : null}
       </div>
 
       <div
