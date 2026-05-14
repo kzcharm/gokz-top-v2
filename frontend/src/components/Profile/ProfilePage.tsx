@@ -490,7 +490,6 @@ export function ProfilePage({
     ) : activeTab === "friends" && isOwnProfile ? (
       <Button
         type="button"
-        variant="outline"
         size="sm"
         data-testid="profile-friends-sync-button"
         disabled={syncFriendsMutation.isPending}

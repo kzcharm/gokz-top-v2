@@ -220,8 +220,15 @@ test("Own friends tab auto-syncs once and supports manual sync", async ({
     "data-state",
     "active",
   )
+  await expect(page.getByTestId("profile-friends-sync-button")).toHaveText(
+    "Sync",
+  )
   await expect(page.getByTestId("profile-friends-list")).toBeVisible()
   await expect(page.getByText("Friend Alias")).toBeVisible()
+  await expect(page.getByText("Last Played")).toBeVisible()
+  await expect(
+    page.getByTestId(`profile-friends-row-${friendSteamid64}`),
+  ).not.toContainText(friendSteamid64)
   await expect.poll(() => syncCalls).toBe(1)
 
   await page.getByTestId("profile-friends-sync-button").click()

@@ -279,7 +279,7 @@ export const en = {
         "Showing up to {{count}} players per page. Click any entry to open that profile.",
     },
     friends: {
-      syncButton: "Sync Friends",
+      syncButton: "Sync",
       syncing: "Syncing...",
       synced: "Friends synced",
       syncFailed: "Failed to sync friends",

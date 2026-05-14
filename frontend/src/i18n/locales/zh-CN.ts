@@ -275,7 +275,7 @@ export const zhCN = {
         "每页最多显示 {{count}} 位玩家。点击任意条目即可打开该玩家主页。",
     },
     friends: {
-      syncButton: "同步好友",
+      syncButton: "同步",
       syncing: "同步中...",
       synced: "好友已同步",
       syncFailed: "同步好友失败",

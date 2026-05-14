@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 import type { PlayerPublic } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -8,15 +9,46 @@ import type { ProfileFriendSync } from "./profile-utils"
 
 function FriendsListSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3 lg:grid-cols-2">
       {Array.from({ length: 4 }, (_, index) => (
         <div
           key={index}
           className="rounded-2xl border border-border/70 bg-card/70 p-4"
         >
-          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-16 w-full" />
         </div>
       ))}
+    </div>
+  )
+}
+
+function FriendCard({ friend }: { friend: PlayerPublic }) {
+  const { t } = useTranslation()
+
+  return (
+    <div
+      className="rounded-2xl border border-border/70 bg-card/70 p-4"
+      data-testid={`profile-friends-row-${friend.steamid64}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PlayerDisplay player={friend} className="min-w-0 flex-1" />
+        <div className="min-w-[8rem] space-y-1 text-left lg:text-right">
+          <p className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+            {t("profile.summary.lastPlayed")}
+          </p>
+          {friend.last_played_at ? (
+            <FormattedDateTime
+              value={friend.last_played_at}
+              display="relative"
+              className="text-sm font-medium text-foreground"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("profile.unavailable")}
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -83,14 +115,12 @@ export function ProfileFriendsTab({
   }
 
   return (
-    <div className="space-y-3" data-testid="profile-friends-list">
+    <div
+      className="grid gap-3 lg:grid-cols-2"
+      data-testid="profile-friends-list"
+    >
       {friends.map((friend) => (
-        <div
-          key={friend.steamid64}
-          className="rounded-2xl border border-border/70 bg-card/70 p-4"
-        >
-          <PlayerDisplay player={friend} showSteamid />
-        </div>
+        <FriendCard key={friend.steamid64} friend={friend} />
       ))}
     </div>
   )
