@@ -539,10 +539,15 @@ async def test_read_player_leaderboard_friends_only_filters_to_authenticated_use
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] == 1
+    assert payload["count"] == 2
+    assert [row["player"]["steamid64"] for row in payload["data"]] == [
+        str(players["alpha"]),
+        str(players["beta"]),
+    ]
     assert payload["data"][0]["rank"] == 1
-    assert payload["data"][0]["global_rank"] == 2
-    assert payload["data"][0]["player"]["steamid64"] == str(players["beta"])
+    assert payload["data"][0]["global_rank"] == 1
+    assert payload["data"][1]["rank"] == 2
+    assert payload["data"][1]["global_rank"] == 2
 
 
 async def test_read_player_leaderboard_friends_only_requires_authentication(
@@ -794,7 +799,7 @@ async def test_read_player_leaderboard_rank_friends_only_returns_slice_and_globa
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["rank"] == 1
+    assert payload["rank"] == 2
     assert payload["global_rank"] == 2
     assert payload["rank_regional"] == 2
     assert payload["player"]["steamid64"] == str(players["beta"])

@@ -12,8 +12,10 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
 )
+from app.core.regions import is_valid_region_code
 from app.models import (
     MapPublic,
+    MapPbLeaderboardPublic,
     MapReviewListQuery,
     MapReviewPublic,
     MapReviewsPublic,
@@ -41,6 +43,45 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return parsed if parsed.year >= 1900 else None
     except ValueError:
         return None
+
+
+def _validate_geography_filters(*, country: str | None, region: str | None) -> None:
+    if country is not None and region is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="country and region filters are mutually exclusive. Please provide only one.",
+        )
+    if region is not None and not is_valid_region_code(region):
+        raise HTTPException(status_code=422, detail="Invalid region")
+
+
+def _validate_map_leaderboard_filters(
+    *,
+    country: str | None,
+    region: str | None,
+    friends_only: bool,
+) -> None:
+    if friends_only and (country is not None or region is not None):
+        raise HTTPException(
+            status_code=422,
+            detail="friends_only cannot be combined with country or region filters.",
+        )
+    _validate_geography_filters(country=country, region=region)
+
+
+def _get_friends_only_viewer_steamid64(
+    *,
+    friends_only: bool,
+    current_user: OptionalCurrentUser,
+) -> int | None:
+    if not friends_only:
+        return None
+    if current_user is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Login is required to view a friends-only leaderboard.",
+        )
+    return current_user.steamid64
 
 
 @router.get("", response_model=list[MapPublic])
@@ -80,6 +121,50 @@ async def read_map_by_name(
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
     return (await crud.to_map_publics(session=session, maps=[map_obj]))[0]
+
+
+@router.get("/{id:int}/leaderboard", response_model=MapPbLeaderboardPublic)
+async def read_map_pb_leaderboard(
+    session: SessionDep,
+    id: int,
+    current_user: OptionalCurrentUser,
+    scope: ModeScope = ModeScope.OVR,
+    type: RecordType = RecordType.NUB,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    stage: Annotated[int, Query(ge=0)] = 0,
+    country: Annotated[str | None, Query(max_length=2)] = None,
+    region: Annotated[str | None, Query(max_length=3)] = None,
+    friends_only: bool = Query(default=False),
+) -> MapPbLeaderboardPublic:
+    map_obj = await crud.get_map_by_id(session=session, id=id)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    normalized_country = country.strip().upper() if country is not None and country.strip() else None
+    normalized_region = region.strip().upper() if region is not None and region.strip() else None
+    _validate_map_leaderboard_filters(
+        country=normalized_country,
+        region=normalized_region,
+        friends_only=friends_only,
+    )
+
+    return await crud.read_map_pb_leaderboard(
+        session=session,
+        map_id=map_obj.id,
+        stage=stage,
+        scope=scope,
+        record_type=type,
+        country=normalized_country,
+        region=normalized_region,
+        offset=offset,
+        limit=limit,
+        viewer_steamid64=current_user.steamid64 if current_user is not None else None,
+        friends_viewer_steamid64=_get_friends_only_viewer_steamid64(
+            friends_only=friends_only,
+            current_user=current_user,
+        ),
+    )
 
 
 @router.get("/wrs", response_model=list[MapWrPublic])

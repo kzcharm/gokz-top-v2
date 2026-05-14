@@ -479,6 +479,15 @@ class RecordRanksPublic(SQLModel):
     count: int
 
 
+class MapPbLeaderboardPublic(SQLModel):
+    data: list[RecordPublic]
+    count: int
+    unique_nub_finishes: int
+    unique_pro_finishes: int
+    current_user_rank: int | None = None
+    current_user_steamid64: str | None = None
+
+
 class MapWrPublic(SQLModel):
     record_uuid: uuid.UUID
     map_id: int

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, localcontext
 from typing import Any, Literal
 
-from sqlalchemy import func, or_
+from sqlalchemy import exists, func, or_
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -168,10 +168,19 @@ def _apply_player_leaderboard_filters(
             col(Player.steamid64) == col(LeaderboardPlayer.steamid64),
         ).where(col(Player.country).in_(list(geography_country_codes)))
     if friends_viewer_steamid64 is not None:
-        statement = statement.join(
-            PlayerFriend,
-            col(PlayerFriend.friend_steamid64) == col(LeaderboardPlayer.steamid64),
-        ).where(col(PlayerFriend.player_steamid64) == friends_viewer_steamid64)
+        statement = statement.where(
+            or_(
+                col(LeaderboardPlayer.steamid64) == friends_viewer_steamid64,
+                exists(
+                    select(PlayerFriend.friend_steamid64).where(
+                        col(PlayerFriend.player_steamid64)
+                        == friends_viewer_steamid64,
+                        col(PlayerFriend.friend_steamid64)
+                        == col(LeaderboardPlayer.steamid64),
+                    )
+                ),
+            )
+        )
     return statement
 
 

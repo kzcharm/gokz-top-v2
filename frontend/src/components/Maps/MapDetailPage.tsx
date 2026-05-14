@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { LocateFixed, Users } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -28,8 +29,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import useAuth from "@/hooks/useAuth"
 import { formatNumber, getLocale } from "@/i18n/locale"
 import { getRegionsQueryOptions } from "@/lib/regions"
+import { cn } from "@/lib/utils"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapTopTable } from "./MapTopTable"
@@ -107,6 +110,7 @@ async function fetchMapPbLeaderboardPage({
   region,
   offset,
   limit,
+  friendsOnly,
 }: {
   mapId: number
   scope: string
@@ -115,6 +119,7 @@ async function fetchMapPbLeaderboardPage({
   region: string | null
   offset: number
   limit: number
+  friendsOnly: boolean
 }): Promise<MapPbLeaderboardResponse> {
   const accessToken =
     typeof window === "undefined"
@@ -133,6 +138,9 @@ async function fetchMapPbLeaderboardPage({
   }
   if (region) {
     searchParams.set("region", region)
+  }
+  if (friendsOnly) {
+    searchParams.set("friends_only", "true")
   }
 
   const response = await fetch(
@@ -273,9 +281,11 @@ function MapHero({
 export function MapDetailPage({ mapName }: { mapName: string }) {
   const { t } = useTranslation()
   const { scope } = useScope()
+  const { user: currentUser } = useAuth()
   const [isProOnly, setIsProOnly] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [isFriendsOnly, setIsFriendsOnly] = useState(false)
   const [activeTab, setActiveTab] = useState("top")
   const [topPageIndex, setTopPageIndex] = useState(0)
   const [topPageSize, setTopPageSize] = useState(20)
@@ -303,6 +313,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
       isProOnly,
       selectedCountry,
       selectedRegion,
+      isFriendsOnly,
       topPageIndex,
       topPageSize,
     ],
@@ -315,6 +326,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
         region: selectedRegion,
         offset: topPageIndex * topPageSize,
         limit: topPageSize,
+        friendsOnly: isFriendsOnly,
       }),
     enabled: mapQuery.data !== undefined,
     staleTime: 30_000,
@@ -330,6 +342,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
       isProOnly,
       selectedCountry,
       selectedRegion,
+      isFriendsOnly,
       leaderboardQuery.data?.current_user_steamid64 ?? null,
     ],
     queryFn: () =>
@@ -341,6 +354,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
         region: selectedRegion,
         offset: 0,
         limit: 1,
+        friendsOnly: isFriendsOnly,
       }),
     enabled:
       mapQuery.data !== undefined &&
@@ -370,7 +384,14 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
 
   useEffect(() => {
     setTopPageIndex(0)
-  }, [mapQuery.data?.id, scope, isProOnly, selectedCountry, selectedRegion])
+  }, [
+    mapQuery.data?.id,
+    scope,
+    isProOnly,
+    selectedCountry,
+    selectedRegion,
+    isFriendsOnly,
+  ])
 
   useEffect(() => {
     return () => {
@@ -530,6 +551,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                     <div className="w-full sm:w-[176px]">
                       <CountryPicker
                         value={selectedCountry}
+                        disabled={isFriendsOnly}
                         onChange={(value) => {
                           setSelectedCountry(value)
                           if (value !== null) {
@@ -543,6 +565,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                     </div>
 
                     <Select
+                      disabled={isFriendsOnly}
                       value={selectedRegion ?? "all"}
                       onValueChange={(value) => {
                         const nextRegion = value === "all" ? null : value
@@ -595,6 +618,41 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                     />
                     <span>{t("maps.filters.proOnly")}</span>
                   </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-pressed={isFriendsOnly}
+                    className={cn(
+                      "border-border/70 bg-background/80",
+                      isFriendsOnly &&
+                        "border-amber-500/50 bg-amber-500/12 text-amber-950 hover:bg-amber-500/18 dark:text-amber-100",
+                    )}
+                    onClick={() => {
+                      if (!currentUser?.steamid64) {
+                        toast.warning(
+                          t("leaderboards.players.friends.loginRequiredTitle"),
+                          {
+                            description: t(
+                              "leaderboards.players.friends.loginRequiredDescription",
+                            ),
+                          },
+                        )
+                        return
+                      }
+
+                      const nextValue = !isFriendsOnly
+                      setIsFriendsOnly(nextValue)
+                      if (nextValue) {
+                        setSelectedCountry(null)
+                        setSelectedRegion(null)
+                      }
+                      setPendingSpotlightSteamid64(null)
+                      setTopPageIndex(0)
+                    }}
+                  >
+                    <Users />
+                    {t("leaderboards.players.friends.label")}
+                  </Button>
                   {currentUserSteamid64 ? (
                     <Button
                       type="button"
@@ -602,6 +660,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                       onClick={handleFindMe}
                       disabled={leaderboardQuery.isLoading}
                     >
+                      <LocateFixed />
                       {t("maps.findMe")}
                     </Button>
                   ) : null}
