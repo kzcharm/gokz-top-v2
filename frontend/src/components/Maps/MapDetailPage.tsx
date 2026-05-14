@@ -1,21 +1,23 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
-import { type MapPublic, MapsService } from "@/client"
+import { type MapPublic, MapsService, type RecordPublic } from "@/client"
+import { OpenAPI } from "@/client/core/OpenAPI"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { getMapImageUrl } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
 import { RegionBadge } from "@/components/Common/RegionFlag"
-import { getMapPbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -26,7 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatNumber } from "@/i18n/locale"
+import { formatNumber, getLocale } from "@/i18n/locale"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapReviewsTable } from "./MapReviewsTable"
@@ -75,7 +77,88 @@ function MapMetaItem({
   )
 }
 
-function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
+function formatRankShare(rank: number | null, total: number, unavailableLabel: string) {
+  if (rank === null || rank <= 0 || total <= 0) {
+    return `${unavailableLabel} / ${formatNumber(total)}`
+  }
+
+  const percentage = new Intl.NumberFormat(getLocale(), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format((rank / total) * 100)
+
+  return `${formatNumber(rank)} / ${formatNumber(total)} ${percentage}%`
+}
+
+type MapPbLeaderboardResponse = {
+  data: RecordPublic[]
+  count: number
+  unique_nub_finishes: number
+  unique_pro_finishes: number
+  current_user_rank: number | null
+  current_user_steamid64: string | null
+}
+
+async function fetchMapPbLeaderboardPage({
+  mapId,
+  scope,
+  isProOnly,
+  country,
+  region,
+  offset,
+  limit,
+}: {
+  mapId: number
+  scope: string
+  isProOnly: boolean
+  country: string | null
+  region: string | null
+  offset: number
+  limit: number
+}): Promise<MapPbLeaderboardResponse> {
+  const accessToken =
+    typeof window === "undefined"
+      ? null
+      : window.localStorage.getItem("access_token")
+  const searchParams = new URLSearchParams({
+    scope,
+    type: isProOnly ? "PRO" : "NUB",
+    stage: "0",
+    offset: `${offset}`,
+    limit: `${limit}`,
+  })
+
+  if (country) {
+    searchParams.set("country", country)
+  }
+  if (region) {
+    searchParams.set("region", region)
+  }
+
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/maps/${mapId}/leaderboard?${searchParams.toString()}`,
+    {
+      credentials: "include",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error("Failed to load map leaderboard")
+  }
+
+  return (await response.json()) as MapPbLeaderboardResponse
+}
+
+function MapHero({
+  map,
+  tier,
+  leaderboardSummary,
+}: {
+  map: MapPublic
+  tier: number | null
+  leaderboardSummary?: ReactNode
+}) {
   const { t } = useTranslation()
   const imageUrl = getMapImageUrl(map.name)
   const authorsList = map.authors ?? []
@@ -86,17 +169,41 @@ function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
     <section className="overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm">
       <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(280px,0.76fr)_minmax(380px,1.24fr)] lg:items-start">
         <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted">
-          <div className="relative aspect-video">
-            {imageUrl ? (
-              <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${imageUrl})` }}
-              />
-            ) : (
+          {imageUrl ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="relative aspect-video w-full cursor-zoom-in overflow-hidden"
+                  aria-label={t("maps.zoomImage", { mapName: map.name })}
+                >
+                  <img
+                    src={imageUrl}
+                    alt={t("maps.imageAlt", { mapName: map.name })}
+                    className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.02]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+                </button>
+              </DialogTrigger>
+              <DialogContent
+                className="max-w-[min(96vw,72rem)] border-border/70 bg-card/98 p-3 sm:p-4"
+                showCloseButton={false}
+              >
+                <div className="overflow-hidden rounded-[24px]">
+                  <img
+                    src={imageUrl}
+                    alt={t("maps.imageAltEnlarged", { mapName: map.name })}
+                    className="max-h-[85vh] w-full object-contain"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <div className="relative aspect-video">
               <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
-          </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -153,6 +260,10 @@ function MapHero({ map, tier }: { map: MapPublic; tier: number | null }) {
               valueClassName="text-foreground"
             />
           </dl>
+
+          {leaderboardSummary ? (
+            <div className="grid gap-3 sm:grid-cols-2">{leaderboardSummary}</div>
+          ) : null}
         </div>
       </div>
     </section>
@@ -166,9 +277,16 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("top")
+  const [topPageIndex, setTopPageIndex] = useState(0)
+  const [topPageSize, setTopPageSize] = useState(20)
   const [reviewsPageIndex, setReviewsPageIndex] = useState(0)
   const [reviewsPageSize, setReviewsPageSize] = useState(20)
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [pendingSpotlightSteamid64, setPendingSpotlightSteamid64] = useState<
+    string | null
+  >(null)
+  const spotlightTimeoutRef = useRef<number | null>(null)
+  const spotlightStartTimeoutRef = useRef<number | null>(null)
 
   const mapQuery = useQuery({
     queryKey: ["map", mapName],
@@ -176,15 +294,59 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
     retry: false,
   })
 
-  const recordsQuery = useQuery({
-    ...getMapPbRecordsQueryOptions({
-      mapId: mapQuery.data?.id ?? null,
+  const leaderboardQuery = useQuery({
+    queryKey: [
+      "map",
+      "leaderboard",
+      mapQuery.data?.id ?? null,
       scope,
       isProOnly,
-      country: selectedCountry,
-      region: selectedRegion,
-    }),
+      selectedCountry,
+      selectedRegion,
+      topPageIndex,
+      topPageSize,
+    ],
+    queryFn: () =>
+      fetchMapPbLeaderboardPage({
+        mapId: mapQuery.data!.id,
+        scope,
+        isProOnly,
+        country: selectedCountry,
+        region: selectedRegion,
+        offset: topPageIndex * topPageSize,
+        limit: topPageSize,
+      }),
     enabled: mapQuery.data !== undefined,
+    staleTime: 30_000,
+    retry: false,
+  })
+  const oppositeLeaderboardQuery = useQuery({
+    queryKey: [
+      "map",
+      "leaderboard",
+      "opposite",
+      mapQuery.data?.id ?? null,
+      scope,
+      isProOnly,
+      selectedCountry,
+      selectedRegion,
+      leaderboardQuery.data?.current_user_steamid64 ?? null,
+    ],
+    queryFn: () =>
+      fetchMapPbLeaderboardPage({
+        mapId: mapQuery.data!.id,
+        scope,
+        isProOnly: !isProOnly,
+        country: selectedCountry,
+        region: selectedRegion,
+        offset: 0,
+        limit: 1,
+      }),
+    enabled:
+      mapQuery.data !== undefined &&
+      leaderboardQuery.data?.current_user_steamid64 !== null,
+    staleTime: 30_000,
+    retry: false,
   })
   const regionsQuery = useQuery(getRegionsQueryOptions())
   const reviewsQuery = useQuery({
@@ -205,6 +367,62 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
     enabled: mapQuery.data !== undefined,
     staleTime: 30_000,
   })
+
+  useEffect(() => {
+    setTopPageIndex(0)
+  }, [mapQuery.data?.id, scope, isProOnly, selectedCountry, selectedRegion])
+
+  useEffect(() => {
+    return () => {
+      if (spotlightStartTimeoutRef.current !== null) {
+        window.clearTimeout(spotlightStartTimeoutRef.current)
+      }
+      if (spotlightTimeoutRef.current !== null) {
+        window.clearTimeout(spotlightTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!pendingSpotlightSteamid64) {
+      return
+    }
+
+    const row = document.querySelector<HTMLTableRowElement>(
+      `[data-player-steamid64="${pendingSpotlightSteamid64}"]`,
+    )
+    if (!row) {
+      return
+    }
+
+    row.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest",
+    })
+
+    if (spotlightStartTimeoutRef.current !== null) {
+      window.clearTimeout(spotlightStartTimeoutRef.current)
+    }
+    if (spotlightTimeoutRef.current !== null) {
+      window.clearTimeout(spotlightTimeoutRef.current)
+    }
+
+    spotlightStartTimeoutRef.current = window.setTimeout(() => {
+      row.classList.remove("leaderboard-self-spotlight")
+      void row.getBoundingClientRect()
+      row.classList.add("leaderboard-self-spotlight")
+
+      spotlightTimeoutRef.current = window.setTimeout(() => {
+        row.classList.remove("leaderboard-self-spotlight")
+        spotlightTimeoutRef.current = null
+      }, 1800)
+
+      spotlightStartTimeoutRef.current = null
+    }, 350)
+
+    setPendingSpotlightSteamid64(null)
+  }, [leaderboardQuery.data?.data, pendingSpotlightSteamid64])
 
   if (mapQuery.isLoading) {
     return <MapDetailSkeleton />
@@ -228,9 +446,72 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
   const activeTier = map.tiers[scope]
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
+  const currentUserSteamid64 =
+    leaderboardQuery.data?.current_user_steamid64 ?? null
+  const nubRank =
+    isProOnly === false
+      ? leaderboardQuery.data?.current_user_rank ?? null
+      : oppositeLeaderboardQuery.data?.current_user_rank ?? null
+  const proRank =
+    isProOnly === true
+      ? leaderboardQuery.data?.current_user_rank ?? null
+      : oppositeLeaderboardQuery.data?.current_user_rank ?? null
+
+  const handleFindMe = () => {
+    const viewerSteamid64 =
+      leaderboardQuery.data?.current_user_steamid64 ?? null
+    if (!viewerSteamid64) {
+      return
+    }
+
+    const rank = leaderboardQuery.data?.current_user_rank ?? null
+    if (!rank) {
+      toast.error(t("maps.findMeNotRankedTitle"), {
+        description: t("maps.findMeNotRankedDescription"),
+      })
+      return
+    }
+
+    setPendingSpotlightSteamid64(viewerSteamid64)
+    setTopPageIndex(Math.floor((rank - 1) / topPageSize))
+  }
+
   return (
     <div className="space-y-6">
-      <MapHero map={map} tier={activeTier} />
+      <MapHero
+        map={map}
+        tier={activeTier}
+        leaderboardSummary={
+          !leaderboardQuery.isError ? (
+            <>
+              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  NUB
+                </div>
+                <div className="mt-2 text-sm font-semibold text-foreground">
+                  {formatRankShare(
+                    currentUserSteamid64 ? nubRank : null,
+                    leaderboardQuery.data?.unique_nub_finishes ?? 0,
+                    t("common.notAvailable"),
+                  )}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  PRO
+                </div>
+                <div className="mt-2 text-sm font-semibold text-foreground">
+                  {formatRankShare(
+                    currentUserSteamid64 ? proRank : null,
+                    leaderboardQuery.data?.unique_pro_finishes ?? 0,
+                    t("common.notAvailable"),
+                  )}
+                </div>
+              </div>
+            </>
+          ) : null
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
         <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
@@ -254,6 +535,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                           if (value !== null) {
                             setSelectedRegion(null)
                           }
+                          setPendingSpotlightSteamid64(null)
                         }}
                         placeholder={t("maps.filters.country")}
                         clearLabel={t("maps.filters.country")}
@@ -268,6 +550,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                         if (nextRegion !== null) {
                           setSelectedCountry(null)
                         }
+                        setPendingSpotlightSteamid64(null)
                       }}
                     >
                       <SelectTrigger className="w-full sm:w-[144px]">
@@ -305,10 +588,23 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                     <Switch
                       id="map-records-pro-only"
                       checked={isProOnly}
-                      onCheckedChange={setIsProOnly}
+                      onCheckedChange={(checked) => {
+                        setIsProOnly(checked)
+                        setPendingSpotlightSteamid64(null)
+                      }}
                     />
                     <span>{t("maps.filters.proOnly")}</span>
                   </Label>
+                  {currentUserSteamid64 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleFindMe}
+                      disabled={leaderboardQuery.isLoading}
+                    >
+                      {t("maps.findMe")}
+                    </Button>
+                  ) : null}
                 </div>
               ) : (
                 <Button
@@ -321,18 +617,19 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                 </Button>
               )}
             </div>
+
           </CardContent>
         </Card>
 
         <TabsContent value="top" className="space-y-6">
-          {recordsQuery.isError ? (
+          {leaderboardQuery.isError ? (
             <Alert variant="destructive">
               <AlertTitle>{t("errors.mapLeaderboardFailed")}</AlertTitle>
               <AlertDescription>{t("common.refresh")}</AlertDescription>
             </Alert>
           ) : null}
 
-          {recordsQuery.isLoading ? (
+          {leaderboardQuery.isLoading ? (
             <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
               <div className="space-y-3 p-6">
                 <Skeleton className="h-6 w-72" />
@@ -343,9 +640,18 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
             </div>
           ) : (
             <MapTopTable
-              records={recordsQuery.data ?? []}
+              records={leaderboardQuery.data?.data ?? []}
               emptyMessage={
                 isProOnly ? t("maps.emptyTopPro") : t("maps.emptyTop")
+              }
+              isLoading={leaderboardQuery.isLoading}
+              pageIndex={topPageIndex}
+              pageSize={topPageSize}
+              totalCount={leaderboardQuery.data?.count ?? 0}
+              onPageChange={setTopPageIndex}
+              onPageSizeChange={setTopPageSize}
+              currentUserSteamid64={
+                leaderboardQuery.data?.current_user_steamid64 ?? null
               }
             />
           )}
