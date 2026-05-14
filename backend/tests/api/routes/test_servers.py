@@ -625,10 +625,21 @@ async def test_put_server_status_requires_matching_group_key(
 async def test_put_server_status_updates_live_status_from_plugin(
     client: AsyncClient,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     group, api_key = await create_server_group(db)
     server = await create_server(db, group_id=group.id)
     observed_at = datetime.now(UTC)
+    broadcasted_server_ids: list[str] = []
+
+    async def _fake_broadcast_server_update(server: object) -> None:
+        broadcasted_server_ids.append(str(getattr(server, "id")))
+
+    monkeypatch.setattr(
+        servers_route,
+        "broadcast_server_update",
+        _fake_broadcast_server_update,
+    )
 
     response = await client.put(
         f"{settings.API_V1_STR}/servers/status",
@@ -661,6 +672,7 @@ async def test_put_server_status_updates_live_status_from_plugin(
         )
         == observed_at
     )
+    assert broadcasted_server_ids == [str(server.id)]
 
     refreshed_group = await db.get(ServerGroup, group.id)
     assert refreshed_group is not None

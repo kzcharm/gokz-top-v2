@@ -25,6 +25,7 @@ from app.services.server_query import (
     query_server_a2s_info,
     validate_server_addition_info,
 )
+from app.services.server_events import broadcast_server_update
 from app.services.server_status import (
     SERVER_DISCOVERY_ENABLED,
     run_server_discovery_cycle,
@@ -61,6 +62,17 @@ async def put_server_status(
     if group.status == ServerGroupStatus.INVALIDATED:
         raise HTTPException(status_code=403, detail="Server group is invalidated")
 
+    existing_server = await crud.get_server_by_endpoint(
+        session=session,
+        ip=payload.ip,
+        port=payload.port,
+    )
+    previous_public = (
+        crud.to_server_public(server=existing_server).model_dump(mode="json")
+        if existing_server is not None
+        else None
+    )
+
     try:
         server = await crud.upsert_server_from_plugin_heartbeat(
             session=session,
@@ -76,6 +88,9 @@ async def put_server_status(
                 detail="Server does not belong to this server group",
             ) from exc
         raise
+    next_public = crud.to_server_public(server=server).model_dump(mode="json")
+    if previous_public != next_public:
+        await broadcast_server_update(server)
     return crud.to_server_public(server=server)
 
 

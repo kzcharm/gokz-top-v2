@@ -49,6 +49,11 @@ class Settings(BaseSettings):
             self.FRONTEND_HOST
         ]
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def cors_allow_origin_regex(self) -> str | None:
+        return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
     POSTGRES_SERVER: str
@@ -90,6 +95,9 @@ class Settings(BaseSettings):
     GLOBALAPI_BANS_INCREMENTAL_LIMIT: int = 10
     GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS: int = 5
     GLOBALAPI_RECORD_FILTERS_LIMIT: int = 1_000
+    VANILLATIER_SPREADSHEET_ID: str = "1avMaSsZ5h7u21LpRz04kk6cn-PPHucA95T745Jj21MM"
+    VANILLATIER_MAP_TIERS_SHEET_NAME: str = "Map Tiers"
+    VANILLATIER_UNCOMPLETED_MAPS_SHEET_NAME: str = "Uncompleted Maps"
     RUN_SERVER_STATUS_COLLECTOR_IN_APP: bool = True
     RUN_GLOBALAPI_SYNC_RUNNER_IN_APP: bool = True
     RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP: bool = True

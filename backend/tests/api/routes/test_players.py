@@ -18,7 +18,6 @@ from app.models import (
     Player,
     PlayerFollow,
     PlayerProfileField,
-    PlayerProfileFieldChange,
     User,
 )
 from app.services import globalapi_ban_sync, player_steam_profile
@@ -62,16 +61,14 @@ async def _create_profile_field_change(
     steamid64: int,
     field: PlayerProfileField,
     changed_at: datetime,
-) -> PlayerProfileFieldChange:
-    change = PlayerProfileFieldChange(
+) -> None:
+    await crud.upsert_player_profile_field_change(
+        session=db,
         player_steamid64=steamid64,
         field=field,
         changed_at=changed_at,
     )
-    db.add(change)
     await db.commit()
-    await db.refresh(change)
-    return change
 
 
 async def _set_ovr_rating(*, db: AsyncSession, steamid64: int, rating: int) -> None:
@@ -1085,6 +1082,7 @@ async def test_read_current_player_settings_returns_edit_status(
     payload = response.json()
     assert payload["player"]["steamid64"] == str(steamid64)
     assert payload["player"]["name"] == "Test User"
+    assert payload["player"]["primary_scope"] == "OVR"
     assert payload["alias"]["can_change"] is True
     assert payload["custom_id"]["can_change"] is True
     assert payload["country"]["can_change"] is True
@@ -1111,6 +1109,7 @@ async def test_update_current_player_settings_persists_changes_and_locks_country
             "alias": "Saved Alias",
             "custom_id": "Saved_Custom",
             "country": "de",
+            "primary_scope": "SKZ",
         },
     )
 
@@ -1119,6 +1118,7 @@ async def test_update_current_player_settings_persists_changes_and_locks_country
     assert payload["player"]["alias"] == "Saved Alias"
     assert payload["player"]["custom_id"] == "saved_custom"
     assert payload["player"]["country"] == "DE"
+    assert payload["player"]["primary_scope"] == "SKZ"
     assert payload["country_locked"] is True
     assert payload["country"]["can_change"] is True
     db.expire_all()
@@ -1127,6 +1127,7 @@ async def test_update_current_player_settings_persists_changes_and_locks_country
     assert refreshed.alias == "Saved Alias"
     assert refreshed.custom_id == "saved_custom"
     assert refreshed.country == "DE"
+    assert refreshed.primary_scope == ModeScope.SKZ
     for field in (
         PlayerProfileField.ALIAS,
         PlayerProfileField.CUSTOM_ID,
@@ -1460,6 +1461,45 @@ async def test_update_current_player_settings_allows_country_changes_after_lock(
     refreshed = await db.get(Player, steamid64)
     assert refreshed is not None
     assert refreshed.country == "DE"
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_updates_primary_scope_without_cooldown(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="Primary Scope",
+        custom_id="primary-scope",
+    )
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.ALIAS,
+        changed_at=datetime.now(UTC),
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/players/me/settings",
+        headers=headers,
+        json={"primary_scope": "VNL"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["player"]["primary_scope"] == "VNL"
+
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.primary_scope == ModeScope.VNL
 
 
 @pytest.mark.asyncio

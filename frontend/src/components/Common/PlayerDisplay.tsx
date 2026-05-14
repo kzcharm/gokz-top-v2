@@ -27,6 +27,10 @@ import {
   type RecordType,
 } from "@/client"
 import EditPlayer from "@/components/AdminPlayers/EditPlayer"
+import {
+  getPlayerRatingBadgeIcon,
+  getPlayerRatingLevel,
+} from "@/components/Common/player-rating"
 import { formatRecordTime } from "@/components/Records/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -69,12 +73,18 @@ export type PlayerDisplayPlayer = {
   displayName?: string | null
   display_name?: string | null
   name?: string | null
+  tag?: string | null
+  clanTag?: string | null
+  clan_tag?: string | null
   alias?: string | null
   customId?: string | null
   custom_id?: string | null
   avatarHash?: string | null
   avatar_hash?: string | null
   country?: string | null
+  primaryScope?: ModeScope | null
+  primary_scope?: ModeScope | null
+  rating?: number | null
   isWebsiteUser?: boolean
   is_website_user?: boolean
   lastPlayedAt?: string | null
@@ -107,6 +117,8 @@ interface PlayerDisplayProps {
   className?: string
   nameMaxLength?: number
   disableProfileLink?: boolean
+  hideAvatarWithoutSteamid64?: boolean
+  scope?: ModeScope
 }
 
 type PlayerContextMenuItemsProps = {
@@ -163,7 +175,20 @@ function getPlayerAvatarHash(
   return player?.avatarHash ?? player?.avatar_hash ?? null
 }
 
-function shouldHydratePlayer(player?: PlayerDisplayPlayer | null): boolean {
+function getPlayerClanTag(player?: PlayerDisplayPlayer | null): string | null {
+  const clanTag =
+    player?.clanTag?.trim() ?? player?.clan_tag?.trim() ?? player?.tag?.trim()
+  return clanTag ? clanTag : null
+}
+
+function shouldHydratePlayer(
+  player?: PlayerDisplayPlayer | null,
+  scope?: ModeScope,
+): boolean {
+  if (scope) {
+    return true
+  }
+
   if (!player) {
     return true
   }
@@ -177,9 +202,17 @@ function shouldHydratePlayer(player?: PlayerDisplayPlayer | null): boolean {
   const hasAvatarHash = Boolean(getPlayerAvatarHash(player))
   const hasWebsiteUserState =
     player.isWebsiteUser !== undefined || player.is_website_user !== undefined
+  const hasPrimaryScope =
+    player.primaryScope !== undefined || player.primary_scope !== undefined
+  const hasRating = player.rating !== undefined && player.rating !== null
 
   return (
-    !hasDisplayName || !hasCountry || !hasAvatarHash || !hasWebsiteUserState
+    !hasDisplayName ||
+    !hasCountry ||
+    !hasAvatarHash ||
+    !hasWebsiteUserState ||
+    !hasPrimaryScope ||
+    !hasRating
   )
 }
 
@@ -353,17 +386,27 @@ export function PlayerDisplay({
   className,
   nameMaxLength,
   disableProfileLink = false,
+  hideAvatarWithoutSteamid64 = false,
+  scope,
 }: PlayerDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
   const hydrationQuery = useQuery({
-    queryKey: ["graphql", "player", steamid64],
-    enabled: steamid64Pattern.test(steamid64) && shouldHydratePlayer(player),
-    queryFn: () => loadPlayerForDisplay(steamid64),
+    queryKey: ["graphql", "player", steamid64, scope ?? "PRIMARY"],
+    enabled:
+      steamid64Pattern.test(steamid64) && shouldHydratePlayer(player, scope),
+    queryFn: () => loadPlayerForDisplay(steamid64, scope),
     staleTime: 60_000,
   })
-  const resolvedPlayer = hydrationQuery.data ?? player
+  const resolvedPlayer: PlayerDisplayPlayer | undefined =
+    hydrationQuery.data || player
+      ? {
+          steamid64,
+          ...player,
+          ...hydrationQuery.data,
+        }
+      : undefined
   const showWebsiteUserRing = hasWebsiteUserAvatarRing(resolvedPlayer)
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = getPlayerDisplayName(resolvedPlayer, steamid64)
@@ -378,6 +421,8 @@ export function PlayerDisplay({
     (viewerSteamid64 === steamid64 || user?.steamid64 === steamid64)
   const effectiveSubline =
     subline ?? (showSteamid ? ({ type: "steamid64" } as const) : null)
+  const clanTag = getPlayerClanTag(resolvedPlayer)
+  const fullDisplayLabel = clanTag ? `${clanTag}${displayName}` : displayName
   const avatarHash = getPlayerAvatarHash(resolvedPlayer)
   const steamAvatarSrc = avatarHash
     ? `https://avatars.steamstatic.com/${avatarHash}_full.jpg`
@@ -389,6 +434,8 @@ export function PlayerDisplay({
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${steamid64}`
     : null
+  const showAvatar =
+    !hideAvatarWithoutSteamid64 || steamid64Pattern.test(steamid64)
 
   const countryCode = resolvedPlayer?.country?.toUpperCase() || null
   const FlagComponent = countryCode ? flagComponents[countryCode] : null
@@ -396,6 +443,11 @@ export function PlayerDisplay({
     countryCode && countryNameFormatter
       ? countryNameFormatter.of(countryCode) || countryCode
       : countryCode
+  const rating = resolvedPlayer?.rating
+  const showRatingBadge = rating !== undefined && rating !== null
+  const ratingLevel = showRatingBadge ? getPlayerRatingLevel(rating) : null
+  const ratingBadgeSrc =
+    ratingLevel !== null ? getPlayerRatingBadgeIcon(ratingLevel) : null
   const wrSublineQuery = useQuery({
     queryKey: [
       "player-display",
@@ -458,68 +510,92 @@ export function PlayerDisplay({
       )}
     >
       <div className="flex items-center gap-2">
-        {showCountryFlag ? (
-          FlagComponent ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className="inline-flex"
-                  data-testid={`country-flag-${steamid64}`}
-                  role="img"
-                  aria-label={countryName || countryCode || "Unknown country"}
-                >
-                  <FlagComponent className="h-4 w-6 shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={8}>
-                {countryName || countryCode}
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <img
-              src={noneFlagSrc}
-              alt="Unknown country"
-              className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
-              title="Unknown country"
-            />
-          )
-        ) : null}
+        <div className="flex items-center gap-1">
+          {showCountryFlag ? (
+            FlagComponent ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex"
+                    data-testid={`country-flag-${steamid64}`}
+                    role="img"
+                    aria-label={countryName || countryCode || "Unknown country"}
+                  >
+                    <FlagComponent className="h-4 w-6 shrink-0" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={8}>
+                  {countryName || countryCode}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <img
+                src={noneFlagSrc}
+                alt="Unknown country"
+                className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
+                title="Unknown country"
+              />
+            )
+          ) : null}
 
-        <Avatar
-          data-testid={
-            showWebsiteUserRing ? `player-avatar-ring-${steamid64}` : undefined
-          }
-          className={cn(
-            "size-8 rounded-lg transition-transform duration-200",
-            showWebsiteUserRing &&
-              "ring-2 ring-pink-400/90 ring-offset-2 ring-offset-background",
-            hasProfileLink &&
-              "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
-          )}
-        >
-          <AvatarImage
-            src={avatarSrc}
-            alt={`${displayName} avatar`}
-            onError={() => {
-              setAvatarLoadFailed(true)
-            }}
-          />
-          <AvatarFallback className="rounded-lg bg-zinc-600 text-white">
-            {getInitials(displayName)}
-          </AvatarFallback>
-        </Avatar>
+          <span
+            className="inline-flex h-5 w-5 shrink-0 items-center justify-center"
+            aria-hidden={showRatingBadge ? undefined : "true"}
+          >
+            {ratingBadgeSrc ? (
+              <img
+                src={ratingBadgeSrc}
+                alt={`Rating level ${ratingLevel}`}
+                className="h-5 w-5 shrink-0"
+              />
+            ) : null}
+          </span>
+        </div>
+
+        {showAvatar ? (
+          <Avatar
+            data-testid={
+              showWebsiteUserRing
+                ? `player-avatar-ring-${steamid64}`
+                : undefined
+            }
+            className={cn(
+              "size-8 rounded-lg transition-transform duration-200",
+              showWebsiteUserRing &&
+                "ring-2 ring-pink-400/90 ring-offset-2 ring-offset-background",
+              hasProfileLink &&
+                "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
+            )}
+          >
+            <AvatarImage
+              src={avatarSrc}
+              alt={`${displayName} avatar`}
+              onError={() => {
+                setAvatarLoadFailed(true)
+              }}
+            />
+            <AvatarFallback className="rounded-lg bg-zinc-600 text-white">
+              {getInitials(displayName)}
+            </AvatarFallback>
+          </Avatar>
+        ) : null}
       </div>
 
       <div className="min-w-0">
         <p
           className={cn(
-            "w-full truncate text-sm font-medium transition-colors",
+            "flex w-full min-w-0 items-baseline gap-1 text-sm font-medium transition-colors",
             hasProfileLink &&
               "group-hover:text-accent-foreground group-focus-visible:text-accent-foreground",
           )}
-          title={displayName}
+          title={fullDisplayLabel}
         >
-          {truncatedDisplayName}
+          {clanTag ? (
+            <span className="shrink-0 whitespace-pre text-muted-foreground">
+              {clanTag}
+            </span>
+          ) : null}
+          <span className="truncate">{truncatedDisplayName}</span>
         </p>
         {sublineContent ? (
           <p

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
-from enum import IntEnum, StrEnum
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import model_validator
@@ -18,6 +18,12 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
+from .mode_scope import (
+    ModeScope,
+    mode_scope_mode_ids,
+    mode_scope_to_id,
+    normalize_mode_scope,
+)
 from .player import PlayerRefPublic
 from .server_globalapi import ServerGlobalapiCompatPublicV0
 from .utils import LegacyDatetimeNamesMixin, generate_uuid7, get_datetime_utc
@@ -27,17 +33,6 @@ class TeleportsType(StrEnum):
     PRO = "PRO"
     NUB = "NUB"
     OVR = "OVR"
-
-
-class ModeScope(StrEnum):
-    OVR = "OVR"
-    KZT = "KZT"
-    SKZ = "SKZ"
-    VNL = "VNL"
-
-    @property
-    def scope_id(self) -> int:
-        return MODE_SCOPE_ID_BY_SCOPE[self]
 
 
 class KZMode(StrEnum):
@@ -60,13 +55,6 @@ class RecordType(StrEnum):
         return self is RecordType.PRO
 
 
-class ModeScopeId(IntEnum):
-    OVR = 0
-    KZT = 1
-    SKZ = 2
-    VNL = 3
-
-
 LEGACY_MODE_ID_BY_KZ_MODE: dict[KZMode, int] = {
     KZMode.KZT: 200,
     KZMode.SKZ: 201,
@@ -78,30 +66,10 @@ KZ_MODE_BY_LEGACY_MODE_ID: dict[int, KZMode] = {
     legacy_id: mode for mode, legacy_id in LEGACY_MODE_ID_BY_KZ_MODE.items()
 }
 
-MODE_SCOPE_ID_BY_SCOPE: dict[ModeScope, int] = {
-    ModeScope.OVR: ModeScopeId.OVR,
-    ModeScope.KZT: ModeScopeId.KZT,
-    ModeScope.SKZ: ModeScopeId.SKZ,
-    ModeScope.VNL: ModeScopeId.VNL,
+MODE_SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
+    mode_scope_to_id(scope): mode_scope_mode_ids(mode_scope_to_id(scope))
+    for scope in ModeScope
 }
-
-MODE_SCOPE_MODES: dict[ModeScope, tuple[KZMode, ...]] = {
-    ModeScope.OVR: (KZMode.KZT, KZMode.SKZ, KZMode.VNL, KZMode.NKZ),
-    ModeScope.KZT: (KZMode.KZT, KZMode.NKZ),
-    ModeScope.SKZ: (KZMode.SKZ,),
-    ModeScope.VNL: (KZMode.VNL,),
-}
-
-
-def mode_scope_to_id(scope: ModeScope) -> int:
-    return int(MODE_SCOPE_ID_BY_SCOPE[scope])
-
-
-def mode_scope_from_id(scope_id: ModeScope | int) -> ModeScope:
-    if isinstance(scope_id, ModeScope):
-        return scope_id
-    return ModeScope[ModeScopeId(scope_id).name]
-
 
 def legacy_mode_id_to_kz_mode(mode_id: int) -> KZMode:
     return KZ_MODE_BY_LEGACY_MODE_ID[mode_id]
@@ -109,23 +77,6 @@ def legacy_mode_id_to_kz_mode(mode_id: int) -> KZMode:
 
 def kz_mode_to_legacy_mode_id(mode: KZMode) -> int:
     return LEGACY_MODE_ID_BY_KZ_MODE[mode]
-
-
-def mode_scope_modes(scope: ModeScope) -> tuple[KZMode, ...]:
-    return MODE_SCOPE_MODES[scope]
-
-
-def mode_scope_mode_ids(scope_id: int) -> tuple[int, ...]:
-    return tuple(
-        kz_mode_to_legacy_mode_id(mode)
-        for mode in mode_scope_modes(mode_scope_from_id(scope_id))
-    )
-
-
-MODE_SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
-    mode_scope_to_id(scope): mode_scope_mode_ids(mode_scope_to_id(scope))
-    for scope in ModeScope
-}
 
 
 def _normalize_record_payload(data: dict[str, object]) -> dict[str, object]:
@@ -150,14 +101,6 @@ def normalize_kz_mode(value: KZMode | str | int) -> KZMode:
     if isinstance(value, int):
         return legacy_mode_id_to_kz_mode(value)
     return KZMode(value)
-
-
-def normalize_mode_scope(value: ModeScope | str | int) -> ModeScope:
-    if isinstance(value, ModeScope):
-        return value
-    if isinstance(value, int):
-        return mode_scope_from_id(value)
-    return ModeScope(value)
 
 
 def seconds_to_time_ms(value: Decimal | float | int | str) -> int:

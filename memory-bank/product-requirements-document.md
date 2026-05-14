@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-05-11
+- Last Updated: 2026-05-13
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -46,7 +46,7 @@ Build the long-term platform for the GOKZ ecosystem:
 - Public maps leaderboard is now available inside the `/leaderboards` page `Maps` tab, backed by `/v1/leaderboards/maps`, with scope switching, full validated-map reads, and client-side sorting/filtering for record-derived map metrics plus review summary fields.
 - Global and filtered leaderboards (scope, geography, and period when applicable).
 - Rank lookup support for profile and map contexts.
-- Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched maps leaderboard rows selected from `Record.updated_at`, then touched Steam-backed player profiles.
+- Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched maps leaderboard rows selected from `Record.updated_at`, then touched Steam-backed player profiles, then attempting KZ-only friends sync for those same players.
 - Current leaderboard eligibility rule:
   - players only remain in `leaderboard_player` after 10 unique validated main-map finishes in the selected scope
   - actively banned players are removed from `leaderboard_player`
@@ -79,6 +79,9 @@ Scope model:
 ### 5.4 Player Profile Experience
 - Rich profile overview (identity, ranking highlights, competitive summary).
 - Player profiles show linked X, Bilibili, YouTube, GitHub, and Twitch accounts from v2-native social-link records, with unverified links visible but marked.
+- Player profiles now expose a dedicated Friends tab at `/profile/{identifier}/friends`, showing only mutual website-known KZ players from the target player's Steam friends list.
+- Owners should auto-attempt one friends sync the first time they open their Friends tab if no earlier `friends_sync` action has been recorded, while still retaining a manual Sync button for later refreshes.
+- Friends-tab reads must show a public privacy warning when the player's Steam profile or Steam friends list is private, because that Steam visibility state is itself public.
 - `/live` lists player-centric verified stream cards sourced from verified Bilibili and Twitch links, with filters for live versus previously streamed players.
 - Offline `/live` cards must show the most recently observed stream across a player's enabled platforms, so future multi-platform support can prefer the newest Twitch/YouTube/Bilibili activity rather than a fixed platform order.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).

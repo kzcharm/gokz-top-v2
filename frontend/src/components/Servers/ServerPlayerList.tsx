@@ -1,6 +1,7 @@
 import { Pause } from "lucide-react"
 
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { StageBadge } from "@/components/Records/StageBadge"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -32,6 +33,9 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
   const showProgressColumn = sortedPlayers.some(
     (player) => getPlayerProgressPercent(player) !== null,
   )
+  const showStageColumn = sortedPlayers.some(
+    (player) => getPlayerNumberValue(player, "stage") !== null,
+  )
   const showStatusColumn = sortedPlayers.some(
     (player) => getPlayerStringValue(player, "status") !== null,
   )
@@ -39,6 +43,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
     2 +
     (showTimerColumn ? 1 : 0) +
     (showProgressColumn ? 1 : 0) +
+    (showStageColumn ? 1 : 0) +
     (showStatusColumn ? 1 : 0)
 
   return (
@@ -51,8 +56,9 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Player</TableHead>
-              {showTimerColumn ? <TableHead>Timer</TableHead> : null}
               <TableHead>Duration</TableHead>
+              {showStageColumn ? <TableHead>Stage</TableHead> : null}
+              {showTimerColumn ? <TableHead>Timer</TableHead> : null}
               {showProgressColumn ? <TableHead>Progress</TableHead> : null}
               {showStatusColumn ? <TableHead>Status</TableHead> : null}
             </TableRow>
@@ -78,6 +84,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                   "duration_seconds",
                 )
                 const progress = getPlayerProgressPercent(player)
+                const stage = getPlayerNumberValue(player, "stage")
                 const isPaused = getPlayerBooleanValue(player, "is_paused")
                 const { badgeClassName } = getPlayerStatusSurfaceClass(player)
                 const rowKey = steamid64 || `${name}-${index}`
@@ -88,6 +95,9 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                       <PlayerDisplay
                         player={{
                           steamid64: steamid64 || "",
+                          clan_tag:
+                            getPlayerStringValue(player, "clan_tag") ??
+                            getPlayerStringValue(player, "tag"),
                           name,
                           avatar_hash: getPlayerStringValue(
                             player,
@@ -101,15 +111,24 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                         disableProfileLink={!steamid64}
                       />
                     </TableCell>
+                    <TableCell>{formatTimerTime(durationSeconds)}</TableCell>
+                    {showStageColumn ? (
+                      <TableCell>
+                        {stage !== null ? (
+                          <StageBadge stage={stage} />
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    ) : null}
                     {showTimerColumn ? (
                       <TableCell>
-                        {formatTimerTime(timerTime)}
+                        {formatTimerTime(timerTime, { showDecimals: true })}
                         {isPaused ? (
                           <Pause className="ml-1 inline h-3 w-3 align-middle text-muted-foreground" />
                         ) : null}
                       </TableCell>
                     ) : null}
-                    <TableCell>{formatTimerTime(durationSeconds)}</TableCell>
                     {showProgressColumn ? (
                       <TableCell>
                         {progress !== null ? (

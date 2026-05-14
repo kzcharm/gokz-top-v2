@@ -312,8 +312,11 @@ The current Github Actions workflows expect these secrets:
 
 There are GitHub Action workflows in the `.github/workflows` directory already configured for deploying to the environments (GitHub Actions runners with the labels):
 
-* `staging`: after pushing (or merging) to the branch `main`.
-* `production`: after publishing a release.
+* `deploy-staging.yml`: deploys `staging` after every push to the branch `dev`.
+* `release-version.yml`: creates the semver tag and GitHub release after every push to the branch `main`.
+* `deploy-production.yml`: deploys `production` after `release-version.yml` completes successfully for `main`.
+
+The intended release flow is to merge `dev` into `main` locally, for example with `git checkout main && git merge --ff-only dev && git push origin main`, so production deploys the exact commit that already passed through staging.
 
 If you need to add extra environments you could use those as a starting point.
 

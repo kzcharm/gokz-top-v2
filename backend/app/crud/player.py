@@ -850,11 +850,11 @@ async def get_player_settings(
     country_changed_at = changes.get(PlayerProfileField.COUNTRY)
     country_locked = country_changed_at is not None
     alias_status = build_player_profile_field_status(
-        changed_at=alias_changed_at.changed_at if alias_changed_at else None,
+        changed_at=alias_changed_at.recorded_at if alias_changed_at else None,
         now=resolved_now,
     )
     custom_id_status = build_player_profile_field_status(
-        changed_at=custom_id_changed_at.changed_at if custom_id_changed_at else None,
+        changed_at=custom_id_changed_at.recorded_at if custom_id_changed_at else None,
         now=resolved_now,
     )
     if bypass_rate_limits:
@@ -867,7 +867,7 @@ async def get_player_settings(
         alias=alias_status,
         custom_id=custom_id_status,
         country=PlayerProfileFieldStatus(
-            last_changed_at=country_changed_at.changed_at if country_changed_at else None,
+            last_changed_at=country_changed_at.recorded_at if country_changed_at else None,
             next_available_at=None,
             can_change=True,
         ),
@@ -908,6 +908,7 @@ async def update_player_settings(
         bypass_rate_limits=bypass_rate_limits,
     )
     changed_fields: list[PlayerProfileField] = []
+    player_updated = False
 
     if "alias" in player_data:
         alias = _ensure_profile_text_value(
@@ -922,6 +923,7 @@ async def update_player_settings(
                 )
             player.alias = alias
             changed_fields.append(PlayerProfileField.ALIAS)
+            player_updated = True
 
     if "custom_id" in player_data:
         custom_id = _ensure_profile_text_value(
@@ -945,6 +947,7 @@ async def update_player_settings(
                 raise PlayerSettingsConflictError("custom_id is already in use")
             player.custom_id = custom_id
             changed_fields.append(PlayerProfileField.CUSTOM_ID)
+            player_updated = True
 
     if "country" in player_data:
         country = _ensure_profile_text_value(
@@ -954,8 +957,15 @@ async def update_player_settings(
         if country != player.country:
             player.country = country
             changed_fields.append(PlayerProfileField.COUNTRY)
+            player_updated = True
 
-    if changed_fields:
+    if "primary_scope" in player_data:
+        primary_scope = settings_in.primary_scope
+        if primary_scope is not None and primary_scope != player.primary_scope:
+            player.primary_scope = primary_scope
+            player_updated = True
+
+    if player_updated:
         player.updated_at = now
         session.add(player)
         for field in changed_fields:
@@ -1013,6 +1023,7 @@ def to_player_public(
         custom_id=normalize_custom_id(player.custom_id),
         avatar_hash=player.avatar_hash,
         country=player.country,
+        primary_scope=player.primary_scope,
         created_at=player.created_at,
         last_played_at=player.last_played_at,
         updated_at=player.updated_at,

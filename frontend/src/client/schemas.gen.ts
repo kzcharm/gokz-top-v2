@@ -1997,6 +1997,87 @@ export const PlayerFollowSummaryPublicSchema = {
     title: 'PlayerFollowSummaryPublic'
 } as const;
 
+export const PlayerFriendSyncPublicSchema = {
+    properties: {
+        visibility: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerFriendsVisibility'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        last_checked_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Checked At'
+        },
+        last_attempted_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Attempted At'
+        },
+        next_allowed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Next Allowed At'
+        }
+    },
+    type: 'object',
+    title: 'PlayerFriendSyncPublic'
+} as const;
+
+export const PlayerFriendsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        sync: {
+            '$ref': '#/components/schemas/PlayerFriendSyncPublic'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count', 'sync'],
+    title: 'PlayerFriendsPublic'
+} as const;
+
+export const PlayerFriendsVisibilitySchema = {
+    type: 'string',
+    enum: ['public', 'private_profile', 'private_friends'],
+    title: 'PlayerFriendsVisibility'
+} as const;
+
 export const PlayerLeaderboardEntryPublicSchema = {
     properties: {
         rank: {
@@ -2523,6 +2604,10 @@ export const PlayerPublicSchema = {
             ],
             title: 'Country'
         },
+        primary_scope: {
+            '$ref': '#/components/schemas/ModeScope',
+            default: 'OVR'
+        },
         created_at: {
             anyOf: [
                 {
@@ -2789,6 +2874,16 @@ export const PlayerSettingsUpdateSchema = {
                 }
             ],
             title: 'Country'
+        },
+        primary_scope: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ModeScope'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     additionalProperties: false,
@@ -3014,6 +3109,16 @@ export const PlayerUpdateSchema = {
                 }
             ],
             title: 'Country'
+        },
+        primary_scope: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ModeScope'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',

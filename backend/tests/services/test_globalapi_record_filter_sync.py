@@ -7,8 +7,21 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import Map, RecordFilter
 from app.services import globalapi_record_filter_sync as record_filter_sync
+from app.services.vanilla_tier import VanillaTierEntry
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture(autouse=True)
+def _stub_vanilla_tier_sync(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _empty_vanilla_tiers(**_: object) -> dict[int, VanillaTierEntry]:
+        return {}
+
+    monkeypatch.setattr(
+        record_filter_sync,
+        "load_vanilla_tiers_by_map_id",
+        _empty_vanilla_tiers,
+    )
 
 
 async def _create_map(
@@ -245,6 +258,148 @@ async def test_sync_record_filters_from_globalapi_preserves_existing_non_null_ti
     synced = await db.get(RecordFilter, 981609)
     assert synced is not None
     assert synced.tier == 8
+
+
+async def test_sync_record_filters_from_globalapi_uses_vanilla_tiers_for_vnl_tp_and_pro(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_map(db, id=981260, difficulty=8)
+
+    async def _fake_fetch(
+        *,
+        client: object | None = None,
+        offset: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        del client, limit
+        if offset > 0:
+            return []
+        return [
+            _payload(
+                id=981660,
+                map_id=981260,
+                stage=0,
+                mode_id=202,
+                has_teleports=True,
+            ),
+            _payload(
+                id=981661,
+                map_id=981260,
+                stage=0,
+                mode_id=202,
+                has_teleports=False,
+            ),
+        ]
+
+    async def _fake_vanilla_tiers(**_: object) -> dict[int, VanillaTierEntry]:
+        return {
+            981260: VanillaTierEntry(tp_tier=3, pro_tier=6),
+        }
+
+    monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
+    monkeypatch.setattr(record_filter_sync, "load_vanilla_tiers_by_map_id", _fake_vanilla_tiers)
+
+    result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
+
+    assert result.processed == 2
+    tp_filter = await db.get(RecordFilter, 981660)
+    assert tp_filter is not None
+    assert tp_filter.tier == 3
+    pro_filter = await db.get(RecordFilter, 981661)
+    assert pro_filter is not None
+    assert pro_filter.tier == 6
+
+
+async def test_sync_record_filters_from_globalapi_sets_zero_tier_for_vnl_status_maps(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_map(db, id=981261, difficulty=7)
+
+    async def _fake_fetch(
+        *,
+        client: object | None = None,
+        offset: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        del client, limit
+        if offset > 0:
+            return []
+        return [
+            _payload(
+                id=981662,
+                map_id=981261,
+                stage=0,
+                mode_id=202,
+                has_teleports=False,
+            )
+        ]
+
+    async def _fake_vanilla_tiers(**_: object) -> dict[int, VanillaTierEntry]:
+        return {
+            981261: VanillaTierEntry(tp_tier=0, pro_tier=0),
+        }
+
+    monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
+    monkeypatch.setattr(record_filter_sync, "load_vanilla_tiers_by_map_id", _fake_vanilla_tiers)
+
+    result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
+
+    assert result.processed == 1
+    synced = await db.get(RecordFilter, 981662)
+    assert synced is not None
+    assert synced.tier == 0
+
+
+async def test_sync_record_filters_from_globalapi_overrides_existing_vnl_tier(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_map(db, id=981262, difficulty=4)
+    await _create_local_record_filter(
+        db,
+        id=981663,
+        map_id=981262,
+        stage=0,
+        mode_id=202,
+        has_teleports=False,
+        tier=8,
+    )
+
+    async def _fake_fetch(
+        *,
+        client: object | None = None,
+        offset: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        del client, limit
+        if offset > 0:
+            return []
+        return [
+            _payload(
+                id=981663,
+                map_id=981262,
+                stage=0,
+                mode_id=202,
+                has_teleports=False,
+            )
+        ]
+
+    async def _fake_vanilla_tiers(**_: object) -> dict[int, VanillaTierEntry]:
+        return {
+            981262: VanillaTierEntry(tp_tier=2, pro_tier=5),
+        }
+
+    monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
+    monkeypatch.setattr(record_filter_sync, "load_vanilla_tiers_by_map_id", _fake_vanilla_tiers)
+
+    result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
+
+    assert result.processed == 1
+    synced = await db.get(RecordFilter, 981663)
+    assert synced is not None
+    assert synced.tier == 5
 
 
 async def test_sync_record_filters_from_globalapi_updates_existing_rows(

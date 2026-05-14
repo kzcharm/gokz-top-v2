@@ -55,8 +55,8 @@ export function ServerDetailSheet({
   const subtitleParts = server
     ? [
         getServerAddress(server),
-        server.group?.name || null,
         server.city || null,
+        server.group?.name || null,
       ].filter(Boolean)
     : []
 

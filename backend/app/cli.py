@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from app.models import ModeScope
+from app.tasks import friends as friends_task
 from app.tasks.build import maps as maps_task
 from app.tasks.build import pb as pb_task
 from app.tasks.build import points as points_task
@@ -356,6 +357,51 @@ def _sync_profiles_impl(
     )
 
 
+def _sync_friends_impl(
+    *,
+    steamid64s: list[int] | None = None,
+    leaderboard: str | None = None,
+    limit: int | None = None,
+) -> None:
+    leaderboard_scope: ModeScope | None = None
+    if leaderboard is not None:
+        parsed_scopes = _parse_scopes([leaderboard])
+        leaderboard_scope = parsed_scopes[0]
+
+    try:
+        result = _run_async(
+            friends_task.sync_player_friends_for_players(
+                steamid64s=steamid64s,
+                leaderboard_scope=leaderboard_scope,
+                limit=limit,
+            )
+        )
+    except friends_task.SyncPlayerFriendsInterruptedError as exc:
+        result = exc.result
+        _render_summary(
+            "Friends Sync Interrupted",
+            [
+                ("Players selected", str(result.selected)),
+                ("Players synced", str(result.synced)),
+                ("Rate limited", str(result.rate_limited)),
+                ("Private", str(result.private)),
+                ("Failed", str(result.failed)),
+            ],
+        )
+        raise typer.Exit(code=130) from exc
+
+    _render_summary(
+        "Friends Sync Complete",
+        [
+            ("Players selected", str(result.selected)),
+            ("Players synced", str(result.synced)),
+            ("Rate limited", str(result.rate_limited)),
+            ("Private", str(result.private)),
+            ("Failed", str(result.failed)),
+        ],
+    )
+
+
 @sync_app.command("profiles")
 def sync_profiles(
     steamid64s: SteamIdOption = None,
@@ -388,6 +434,25 @@ def sync_profiles(
         missing_avatar=missing_avatar,
         leaderboard=leaderboard,
         stale_days=stale_days,
+        limit=limit,
+    )
+
+
+@sync_app.command("friends")
+def sync_friends(
+    steamid64s: SteamIdOption = None,
+    leaderboard: Annotated[
+        str | None,
+        typer.Option("--leaderboard", help="Select all players on a leaderboard scope."),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(help="Optional limit on selected players."),
+    ] = None,
+) -> None:
+    _sync_friends_impl(
+        steamid64s=steamid64s,
+        leaderboard=leaderboard,
         limit=limit,
     )
 

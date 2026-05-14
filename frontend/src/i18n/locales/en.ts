@@ -173,11 +173,13 @@ export const en = {
         alias: "Alias",
         customId: "Custom ID",
         countryRegion: "Country / Region",
+        primaryScope: "Primary Scope",
       },
       placeholders: {
         alias: "Alias",
         customId: "custom-id",
         country: "Select a country",
+        primaryScope: "Select a primary scope",
       },
       fallbacks: {
         notSet: "Not set",
@@ -227,6 +229,7 @@ export const en = {
       records: "Records",
       unfinished: "Unfinished",
       stats: "Stats",
+      friends: "Friends",
     },
     searchAria: "Search players",
     searchPlaceholder: "Search player ...",
@@ -276,6 +279,28 @@ export const en = {
       loadMore: "Load more",
       pageHint:
         "Showing up to {{count}} players per page. Click any entry to open that profile.",
+    },
+    friends: {
+      syncButton: "Sync",
+      syncing: "Syncing...",
+      synced: "Friends synced",
+      syncFailed: "Failed to sync friends",
+      sortFields: {
+        name: "Name",
+        steamid64: "Steam ID64",
+        country: "Country",
+        rating: "Rating",
+        lastPlayed: "Last played",
+      },
+      loadFailedTitle: "Unable to load friends",
+      loadFailedBody: "Reload the page and try again.",
+      empty: "No KZ friends found for this player.",
+      privateProfileTitle: "Steam profile is private",
+      privateProfileBody:
+        "This player's Steam profile is not public, so their friends list cannot be synced.",
+      privateFriendsTitle: "Steam friends list is private",
+      privateFriendsBody:
+        "This player's Steam friends list is hidden, so their friends cannot be synced.",
     },
     activity: {
       title: "Activity",

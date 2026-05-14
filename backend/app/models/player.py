@@ -1,18 +1,31 @@
 import re
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import ConfigDict, field_validator
 from sqlalchemy import BigInteger, Column, Computed, DateTime, Index, text
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
 
+from .mode_scope import ModeScope
 from .utils import get_datetime_utc
 
 MAX_PLAYER_CUSTOM_ID_LENGTH = 25
 PLAYER_ALIAS_PATTERN = re.compile(r"^[A-Za-z0-9 _-]+$")
 PLAYER_CUSTOM_ID_ALLOWED_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 PLAYER_CUSTOM_ID_PATTERN = re.compile(r"^[a-z0-9_-]*[a-z][a-z0-9_-]*$")
+
+
+def _enum_values(enum_class: type[StrEnum]) -> list[str]:
+    return [member.value for member in enum_class]
+
+
+class PlayerFriendsVisibility(StrEnum):
+    PUBLIC = "public"
+    PRIVATE_PROFILE = "private_profile"
+    PRIVATE_FRIENDS = "private_friends"
 
 
 def validate_player_custom_id(custom_id: str | None) -> str | None:
@@ -72,6 +85,14 @@ class PlayerBase(SQLModel):
     custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
     avatar_hash: str | None = Field(default=None, max_length=255)
     country: str | None = Field(default=None, max_length=2)
+    primary_scope: ModeScope = Field(
+        default=ModeScope.OVR,
+        sa_column=Column(
+            SqlEnum(ModeScope, name="mode_scope"),
+            nullable=False,
+            server_default=ModeScope.OVR.value,
+        ),
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -134,6 +155,21 @@ class Player(PlayerBase, table=True):
 
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)
     steam_profile_synced_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    friends_visibility: PlayerFriendsVisibility | None = Field(
+        default=None,
+        sa_column=Column(
+            SqlEnum(
+                PlayerFriendsVisibility,
+                name="player_friends_visibility",
+                values_callable=_enum_values,
+            ),
+            nullable=True,
+        ),
+    )
+    friends_visibility_checked_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
@@ -219,6 +255,7 @@ class PlayerProfileViewCreate(SQLModel):
 class PlayerUpdate(SQLModel):
     alias: str | None = Field(default=None, max_length=25)
     country: str | None = Field(default=None, max_length=2)
+    primary_scope: ModeScope | None = None
 
     @field_validator("alias", mode="after")
     @classmethod

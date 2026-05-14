@@ -35,6 +35,15 @@ class _ProfileResult:
     skipped: int
 
 
+@dataclass(frozen=True, slots=True)
+class _FriendsResult:
+    selected: int
+    synced: int
+    rate_limited: int
+    private: int
+    failed: int
+
+
 def test_cli_root_help() -> None:
     runner = CliRunner()
 
@@ -164,6 +173,55 @@ def test_cli_sync_profiles_rejects_multiple_selection_filters() -> None:
     output = _plain_output(result.output)
     assert "Use only one of --missing-avatar, --stale-days, or" in output
     assert "--leaderboard." in output
+
+
+def test_cli_sync_friends_help() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli.app,
+        ["sync", "friends", "--help"],
+        terminal_width=160,
+    )
+
+    assert result.exit_code == 0
+    output = _plain_output(result.output)
+    assert "--steamid64" in output
+    assert "--leaderboard" in output
+
+
+def test_cli_sync_friends_dispatches_filters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    async def _fake_sync_player_friends_for_players(
+        **kwargs: object,
+    ) -> _FriendsResult:
+        captured.update(kwargs)
+        return _FriendsResult(
+            selected=2,
+            synced=1,
+            rate_limited=0,
+            private=1,
+            failed=0,
+        )
+
+    monkeypatch.setattr(
+        "app.cli.friends_task.sync_player_friends_for_players",
+        _fake_sync_player_friends_for_players,
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ["sync", "friends", "--leaderboard", "kzt", "--limit", "5"],
+    )
+
+    assert result.exit_code == 0
+    assert captured["leaderboard_scope"] == cli.ModeScope.KZT
+    assert captured["limit"] == 5
+    assert "Friends Sync Complete" in result.output
 
 
 def test_cli_rating_help() -> None:

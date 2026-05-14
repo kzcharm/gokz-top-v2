@@ -10,8 +10,12 @@ from strawberry.fastapi import GraphQLRouter
 
 from app.api.deps import get_db
 from app.crud import player as player_crud
+from app.crud.leaderboard_player import load_player_ratings_by_scope
 from app.crud.player_profile_view import count_player_profile_views_batch
-from app.models import Player
+from app.models import ModeScope, Player
+from app.models.leaderboard_player import scale_public_rating
+
+strawberry.enum(ModeScope, name="ModeScope")
 
 
 @strawberry.type
@@ -23,11 +27,19 @@ class PlayerGQL:
     custom_id: str | None
     avatar_hash: str | None
     country: str | None
+    primary_scope: ModeScope
     is_website_user: bool
     last_played_at: str | None
     created_at: str | None
     updated_at: str | None
     profile_views: int
+    ratings_by_scope: strawberry.Private[dict[ModeScope, int]]
+
+    @strawberry.field
+    def rating(self, scope: ModeScope | None = None) -> float:
+        effective_scope = scope or self.primary_scope
+        raw_rating = self.ratings_by_scope.get(effective_scope, 0)
+        return scale_public_rating(raw_rating) or 0
 
 
 @strawberry.type
@@ -62,6 +74,10 @@ async def _to_graphql_players(
         session=session,
         target_steamid64s=steamid64s,
     )
+    ratings_by_steamid64 = await load_player_ratings_by_scope(
+        session=session,
+        steamid64s=steamid64s,
+    )
 
     graphql_players_by_steamid64 = {
         player.steamid64: PlayerGQL(
@@ -72,11 +88,13 @@ async def _to_graphql_players(
             custom_id=player_crud.normalize_custom_id(player.custom_id),
             avatar_hash=player.avatar_hash,
             country=player.country,
+            primary_scope=player.primary_scope,
             is_website_user=player.steamid64 in website_user_steamid64s,
             last_played_at=_serialize_datetime(player.last_played_at),
             created_at=_serialize_datetime(player.created_at),
             updated_at=_serialize_datetime(player.updated_at),
             profile_views=profile_views_by_steamid64.get(player.steamid64, 0),
+            ratings_by_scope=ratings_by_steamid64.get(player.steamid64, {}),
         )
         for player in existing_players
     }
