@@ -38,6 +38,17 @@ def test_backfill_country_locks_creates_country_field_change_rows() -> None:
         try:
             session.exec(
                 text(
+                    """
+                    CREATE TYPE player_profile_field AS ENUM (
+                        'alias',
+                        'custom_id',
+                        'country'
+                    )
+                    """
+                )
+            )
+            session.exec(
+                text(
                     f"""
                     CREATE TABLE "{player_table}" (
                         steamid64 BIGINT PRIMARY KEY,
@@ -119,10 +130,11 @@ def test_backfill_country_locks_creates_country_field_change_rows() -> None:
         finally:
             session.exec(text(f'DROP TABLE IF EXISTS "{field_change_table}"'))
             session.exec(text(f'DROP TABLE IF EXISTS "{player_table}"'))
+            session.exec(text("DROP TYPE IF EXISTS player_profile_field"))
             session.commit()
 
 
-def test_player_country_lock_column_is_removed_after_migration() -> None:
+def test_player_country_lock_column_is_removed_after_later_migrations() -> None:
     with Session(engine) as session:
         removed_column = session.exec(
             text(
@@ -145,6 +157,17 @@ def test_player_country_lock_column_is_removed_after_migration() -> None:
                 """
             )
         ).first()
+        action_timestamp_table = session.exec(
+            text(
+                """
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name = 'player_action_timestamp'
+                """
+            )
+        ).first()
 
     assert removed_column is None
-    assert field_change_table is not None
+    assert field_change_table is None
+    assert action_timestamp_table is not None
