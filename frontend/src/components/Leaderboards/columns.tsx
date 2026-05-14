@@ -143,18 +143,35 @@ function metricColumn(
 export function getLeaderboardColumns(
   t: TFunction,
   scope?: ModeScope,
+  friendsOnly = false,
 ): ColumnDef<LeaderboardTableRow>[] {
   return [
     {
       accessorKey: "rank",
       header: () => <div className="flex w-full justify-center">#</div>,
-      cell: ({ row }) => (
-        <div className="flex w-full justify-center">
-          <span className="font-semibold tabular-nums">
-            {row.original.rank}
-          </span>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const globalRank =
+          typeof row.original.global_rank === "number"
+            ? row.original.global_rank
+            : null
+
+        return (
+          <div className="flex w-full justify-center">
+            {friendsOnly && globalRank !== null ? (
+              <span className="font-semibold tabular-nums">
+                {formatMetric(row.original.rank)}{" "}
+                <span className="text-muted-foreground">
+                  ({formatMetric(globalRank)})
+                </span>
+              </span>
+            ) : (
+              <span className="font-semibold tabular-nums">
+                {formatMetric(row.original.rank)}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       accessorKey: "player",

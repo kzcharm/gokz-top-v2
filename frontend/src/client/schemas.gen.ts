@@ -2084,6 +2084,17 @@ export const PlayerLeaderboardEntryPublicSchema = {
             type: 'integer',
             title: 'Rank'
         },
+        global_rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Global Rank'
+        },
         player: {
             '$ref': '#/components/schemas/PlayerRefPublic'
         },
@@ -2176,6 +2187,17 @@ export const PlayerLeaderboardRankPublicSchema = {
                 }
             ],
             title: 'Rank'
+        },
+        global_rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Global Rank'
         },
         rank_regional: {
             anyOf: [

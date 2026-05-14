@@ -419,6 +419,13 @@ export const zhCN = {
       servers: "服务器",
       maps: "地图",
     },
+    players: {
+      friends: {
+        label: "好友",
+        loginRequiredTitle: "需要登录",
+        loginRequiredDescription: "请先登录，再查看好友排行榜。",
+      },
+    },
     mapColumns: {
       playtime: "游玩时长",
       averagePlaytime: "平均时长",

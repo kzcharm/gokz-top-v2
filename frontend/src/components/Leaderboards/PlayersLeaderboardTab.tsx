@@ -4,7 +4,7 @@ import {
   type OnChangeFn,
   type SortingState,
 } from "@tanstack/react-table"
-import { LocateFixed, Search } from "lucide-react"
+import { LocateFixed, Search, Users } from "lucide-react"
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -27,6 +27,7 @@ import {
 } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
@@ -56,12 +57,17 @@ type LeaderboardFetchParams = {
   sortOrder: "desc"
   country?: string
   region?: string
+  friendsOnly?: boolean
   includeCount: boolean
 }
 
 async function fetchLeaderboardPage(
   params: LeaderboardFetchParams,
 ): Promise<PlayerLeaderboardsPublic> {
+  const accessToken =
+    typeof window === "undefined"
+      ? null
+      : window.localStorage.getItem("access_token")
   const searchParams = new URLSearchParams({
     scope: params.scope,
     offset: `${params.offset}`,
@@ -77,10 +83,16 @@ async function fetchLeaderboardPage(
   if (params.region) {
     searchParams.set("region", params.region)
   }
+  if (params.friendsOnly) {
+    searchParams.set("friends_only", "true")
+  }
 
   const response = await fetch(
     `${OpenAPI.BASE}/v1/leaderboards/players?${searchParams.toString()}`,
-    { credentials: "include" },
+    {
+      credentials: "include",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
   )
 
   if (!response.ok) {
@@ -140,6 +152,7 @@ export function PlayersLeaderboardTab() {
   const playerSearchQuery = deferredSearchInput.trim()
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [isFriendsOnly, setIsFriendsOnly] = useState(false)
 
   const sortBy =
     sorting[0]?.id === "rating_easy" ||
@@ -164,6 +177,7 @@ export function PlayersLeaderboardTab() {
       sortBy,
       selectedCountry,
       selectedRegion,
+      isFriendsOnly,
     ],
     queryFn: () =>
       fetchLeaderboardPage({
@@ -174,6 +188,7 @@ export function PlayersLeaderboardTab() {
         sortOrder: "desc",
         country: selectedCountry ?? undefined,
         region: selectedRegion ?? undefined,
+        friendsOnly: isFriendsOnly,
         includeCount: false,
       }),
     staleTime: 30_000,
@@ -187,6 +202,7 @@ export function PlayersLeaderboardTab() {
       sortBy,
       selectedCountry,
       selectedRegion,
+      isFriendsOnly,
     ],
     queryFn: () =>
       LeaderboardsService.readPlayerLeaderboard({
@@ -197,6 +213,7 @@ export function PlayersLeaderboardTab() {
         sortOrder: "desc",
         country: selectedCountry ?? undefined,
         region: selectedRegion ?? undefined,
+        friendsOnly: isFriendsOnly,
       }),
     staleTime: 30_000,
   })
@@ -274,7 +291,10 @@ export function PlayersLeaderboardTab() {
       }),
     [leaderboardPlayersBySteamid64, visibleLeaderboardEntries],
   )
-  const columns = useMemo(() => getLeaderboardColumns(t, scope), [scope, t])
+  const columns = useMemo(
+    () => getLeaderboardColumns(t, scope, isFriendsOnly),
+    [isFriendsOnly, scope, t],
+  )
 
   useEffect(() => {
     return () => {
@@ -378,6 +398,9 @@ export function PlayersLeaderboardTab() {
       }
       if (selectedRegion) {
         params.set("region", selectedRegion)
+      }
+      if (isFriendsOnly) {
+        params.set("friends_only", "true")
       }
       const response = await fetch(
         `${OpenAPI.BASE}/v1/leaderboards/players/${encodeURIComponent(identifier)}?${params.toString()}`,
@@ -534,6 +557,7 @@ export function PlayersLeaderboardTab() {
 
               <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
                 <Select
+                  disabled={isFriendsOnly}
                   value={selectedRegion ?? "all"}
                   onValueChange={(value) => {
                     const nextRegion = value === "all" ? null : value
@@ -570,6 +594,7 @@ export function PlayersLeaderboardTab() {
                 <div className="w-full sm:w-[176px]">
                   <CountryPicker
                     value={selectedCountry}
+                    disabled={isFriendsOnly}
                     onChange={(value) => {
                       setSelectedCountry(value)
                       if (value !== null) {
@@ -581,6 +606,41 @@ export function PlayersLeaderboardTab() {
                     clearLabel="country"
                   />
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={isFriendsOnly}
+                  className={cn(
+                    "border-border/70 bg-background/80",
+                    isFriendsOnly &&
+                      "border-amber-500/50 bg-amber-500/12 text-amber-950 hover:bg-amber-500/18 dark:text-amber-100",
+                  )}
+                  onClick={() => {
+                    if (!currentUser?.steamid64) {
+                      toast.warning(
+                        t("leaderboards.players.friends.loginRequiredTitle"),
+                        {
+                          description: t(
+                            "leaderboards.players.friends.loginRequiredDescription",
+                          ),
+                        },
+                      )
+                      return
+                    }
+
+                    const nextValue = !isFriendsOnly
+                    setIsFriendsOnly(nextValue)
+                    if (nextValue) {
+                      setSelectedCountry(null)
+                      setSelectedRegion(null)
+                    }
+                    setPageIndex(0)
+                  }}
+                >
+                  <Users />
+                  {t("leaderboards.players.friends.label")}
+                </Button>
 
                 <LoadingButton
                   type="button"

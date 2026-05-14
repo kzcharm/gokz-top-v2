@@ -21,6 +21,7 @@ from app.models import (
     ServerGlobalapi,
 )
 from app.models.leaderboard_player import scale_public_rating
+from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -174,6 +175,22 @@ async def _create_ban(
             created_on=datetime(2099, 1, 2, tzinfo=UTC),
             updated_on=datetime(2099, 1, 2, tzinfo=UTC),
         )
+    )
+    await db.flush()
+
+
+async def _create_friendship(
+    db: AsyncSession,
+    *,
+    player_steamid64: int,
+    friend_steamid64: int,
+) -> None:
+    await crud.upsert_player_friend_edges(
+        session=db,
+        edges=[
+            (player_steamid64, friend_steamid64, None),
+            (friend_steamid64, player_steamid64, None),
+        ],
     )
     await db.flush()
 
@@ -498,6 +515,76 @@ async def test_read_player_leaderboard_rejects_invalid_region(
     assert "Invalid region" in response.text
 
 
+async def test_read_player_leaderboard_friends_only_filters_to_authenticated_users_friends(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _create_friendship(
+        db,
+        player_steamid64=players["alpha"],
+        friend_steamid64=players["beta"],
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=players["alpha"],
+        db=db,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "friends_only": "true"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["rank"] == 1
+    assert payload["data"][0]["global_rank"] == 2
+    assert payload["data"][0]["player"]["steamid64"] == str(players["beta"])
+
+
+async def test_read_player_leaderboard_friends_only_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _seed_leaderboard_data(db)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "friends_only": "true"},
+    )
+
+    assert response.status_code == 403
+    assert "friends-only leaderboard" in response.text
+
+
+async def test_read_player_leaderboard_friends_only_rejects_geography_filters(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=players["alpha"],
+        db=db,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={
+            "scope": "KZT",
+            "friends_only": "true",
+            "country": "DE",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert "friends_only" in response.text
+
+
 async def test_read_player_leaderboard_rejects_asc_sort_order(
     client: AsyncClient,
     db: AsyncSession,
@@ -680,6 +767,36 @@ async def test_read_player_leaderboard_rank_filters_by_region(
     assert payload["rank"] == 2
     assert payload["rank_regional"] == 2
     assert payload["region"] == "EU"
+    assert payload["player"]["steamid64"] == str(players["beta"])
+
+
+async def test_read_player_leaderboard_rank_friends_only_returns_slice_and_global_rank(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _create_friendship(
+        db,
+        player_steamid64=players["alpha"],
+        friend_steamid64=players["beta"],
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=players["alpha"],
+        db=db,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/{players['beta']}",
+        params={"scope": "KZT", "friends_only": "true"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["rank"] == 1
+    assert payload["global_rank"] == 2
+    assert payload["rank_regional"] == 2
     assert payload["player"]["steamid64"] == str(players["beta"])
 
 

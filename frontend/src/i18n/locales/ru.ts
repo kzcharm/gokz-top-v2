@@ -433,6 +433,14 @@ export const ru = {
       servers: "Серверы",
       maps: "Карты",
     },
+    players: {
+      friends: {
+        label: "Друзья",
+        loginRequiredTitle: "Требуется вход",
+        loginRequiredDescription:
+          "Сначала войдите в аккаунт, чтобы видеть таблицу лидеров друзей.",
+      },
+    },
     mapColumns: {
       playtime: "Время в игре",
       averagePlaytime: "Среднее время",

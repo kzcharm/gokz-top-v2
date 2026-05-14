@@ -428,6 +428,14 @@ export const en = {
       servers: "Servers",
       maps: "Maps",
     },
+    players: {
+      friends: {
+        label: "Friends",
+        loginRequiredTitle: "Login required",
+        loginRequiredDescription:
+          "Log in first to view your friends leaderboard.",
+      },
+    },
     mapColumns: {
       playtime: "Playtime",
       averagePlaytime: "Avg Playtime",

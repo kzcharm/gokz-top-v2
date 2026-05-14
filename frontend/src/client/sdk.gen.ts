@@ -630,6 +630,7 @@ export class LeaderboardsService {
      * @param data.sortBy
      * @param data.sortOrder
      * @param data.includeCount
+     * @param data.friendsOnly
      * @returns PlayerLeaderboardsPublic Successful Response
      * @throws ApiError
      */
@@ -645,7 +646,8 @@ export class LeaderboardsService {
                 limit: data.limit,
                 sort_by: data.sortBy,
                 sort_order: data.sortOrder,
-                include_count: data.includeCount
+                include_count: data.includeCount,
+                friends_only: data.friendsOnly
             },
             errors: {
                 422: 'Validation Error'
@@ -660,6 +662,7 @@ export class LeaderboardsService {
      * @param data.scope
      * @param data.country
      * @param data.region
+     * @param data.friendsOnly
      * @returns PlayerLeaderboardRankPublic Successful Response
      * @throws ApiError
      */
@@ -673,7 +676,8 @@ export class LeaderboardsService {
             query: {
                 scope: data.scope,
                 country: data.country,
-                region: data.region
+                region: data.region,
+                friends_only: data.friendsOnly
             },
             errors: {
                 422: 'Validation Error'
