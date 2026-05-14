@@ -218,10 +218,11 @@ export function PlayersLeaderboardTab() {
       "graphql",
       "players",
       "leaderboard",
+      scope,
       leaderboardPlayerSteamid64s,
     ],
     enabled: leaderboardPlayerSteamid64s.length > 0,
-    queryFn: () => fetchPlayersForDisplay(leaderboardPlayerSteamid64s),
+    queryFn: () => fetchPlayersForDisplay(leaderboardPlayerSteamid64s, scope),
     staleTime: 30_000,
   })
   const regionsQuery = useQuery(getRegionsQueryOptions())
@@ -273,7 +274,7 @@ export function PlayersLeaderboardTab() {
       }),
     [leaderboardPlayersBySteamid64, visibleLeaderboardEntries],
   )
-  const columns = useMemo(() => getLeaderboardColumns(t), [t])
+  const columns = useMemo(() => getLeaderboardColumns(t, scope), [scope, t])
 
   useEffect(() => {
     return () => {

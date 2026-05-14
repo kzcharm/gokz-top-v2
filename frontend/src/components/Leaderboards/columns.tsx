@@ -2,7 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { TFunction } from "i18next"
 import { ArrowDown } from "lucide-react"
 
-import type { PlayerLeaderboardEntryPublic } from "@/client"
+import type { ModeScope, PlayerLeaderboardEntryPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
   PlayerDisplay,
@@ -142,6 +142,7 @@ function metricColumn(
 
 export function getLeaderboardColumns(
   t: TFunction,
+  scope?: ModeScope,
 ): ColumnDef<LeaderboardTableRow>[] {
   return [
     {
@@ -158,7 +159,9 @@ export function getLeaderboardColumns(
     {
       accessorKey: "player",
       header: () => t("labels.player"),
-      cell: ({ row }) => <PlayerDisplay player={row.original.playerData} />,
+      cell: ({ row }) => (
+        <PlayerDisplay player={row.original.playerData} scope={scope} />
+      ),
     },
     metricColumn("rating", () => "Rating"),
     metricColumn("rating_easy", () => "Rating.E"),
