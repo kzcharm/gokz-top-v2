@@ -510,45 +510,47 @@ export function PlayerDisplay({
       )}
     >
       <div className="flex items-center gap-2">
-        {showCountryFlag ? (
-          FlagComponent ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className="inline-flex"
-                  data-testid={`country-flag-${steamid64}`}
-                  role="img"
-                  aria-label={countryName || countryCode || "Unknown country"}
-                >
-                  <FlagComponent className="h-4 w-6 shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={8}>
-                {countryName || countryCode}
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <img
-              src={noneFlagSrc}
-              alt="Unknown country"
-              className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
-              title="Unknown country"
-            />
-          )
-        ) : null}
-
-        <span
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center"
-          aria-hidden={showRatingBadge ? undefined : "true"}
-        >
-          {ratingBadgeSrc ? (
-            <img
-              src={ratingBadgeSrc}
-              alt={`Rating level ${ratingLevel}`}
-              className="h-5 w-5 shrink-0"
-            />
+        <div className="flex items-center gap-1">
+          {showCountryFlag ? (
+            FlagComponent ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex"
+                    data-testid={`country-flag-${steamid64}`}
+                    role="img"
+                    aria-label={countryName || countryCode || "Unknown country"}
+                  >
+                    <FlagComponent className="h-4 w-6 shrink-0" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={8}>
+                  {countryName || countryCode}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <img
+                src={noneFlagSrc}
+                alt="Unknown country"
+                className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
+                title="Unknown country"
+              />
+            )
           ) : null}
-        </span>
+
+          <span
+            className="inline-flex h-5 w-5 shrink-0 items-center justify-center"
+            aria-hidden={showRatingBadge ? undefined : "true"}
+          >
+            {ratingBadgeSrc ? (
+              <img
+                src={ratingBadgeSrc}
+                alt={`Rating level ${ratingLevel}`}
+                className="h-5 w-5 shrink-0"
+              />
+            ) : null}
+          </span>
+        </div>
 
         {showAvatar ? (
           <Avatar
