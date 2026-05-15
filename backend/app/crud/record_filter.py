@@ -170,6 +170,10 @@ async def load_scoped_course_tiers(
     ).all()
     fallback_difficulty_by_map_id = dict(map_rows)
 
+    scoped_tier_predicate = col(RecordFilter.tier).is_not(None)
+    if scope is not ModeScope.VNL:
+        scoped_tier_predicate = scoped_tier_predicate & (col(RecordFilter.tier) >= 1)
+
     scoped_tier_rows = (
         await session.exec(
             select(
@@ -182,7 +186,7 @@ async def load_scoped_course_tiers(
                 col(RecordFilter.stage).in_(stages),
                 col(RecordFilter.tickrate) == 128,
                 col(RecordFilter.mode).in_(list(mode_scope_modes(scope))),
-                col(RecordFilter.tier).is_not(None),
+                scoped_tier_predicate,
             )
             .group_by(RecordFilter.map_id, RecordFilter.stage)
         )
@@ -229,19 +233,29 @@ async def load_map_tiers_by_scope(
     vnl_modes = list(mode_scope_modes(ModeScope.VNL))
 
     all_modes: list[KZMode] = list(dict.fromkeys([*ovr_modes, *kzt_modes, *skz_modes, *vnl_modes]))
+    positive_tier = col(RecordFilter.tier) >= 1
 
     scoped_tier_rows = (
         await session.exec(
             select(
                 RecordFilter.map_id,
                 func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode).in_(ovr_modes))
+                .filter(
+                    col(RecordFilter.mode).in_(ovr_modes),
+                    positive_tier,
+                )
                 .label("ovr_tier"),
                 func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode).in_(kzt_modes))
+                .filter(
+                    col(RecordFilter.mode).in_(kzt_modes),
+                    positive_tier,
+                )
                 .label("kzt_tier"),
                 func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode).in_(skz_modes))
+                .filter(
+                    col(RecordFilter.mode).in_(skz_modes),
+                    positive_tier,
+                )
                 .label("skz_tier"),
                 func.min(RecordFilter.tier)
                 .filter(col(RecordFilter.mode).in_(vnl_modes))
