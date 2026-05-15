@@ -435,6 +435,11 @@ export const en = {
         loginRequiredDescription:
           "Log in first to view your friends leaderboard.",
       },
+      findMe: {
+        loginRequiredTitle: "Login required",
+        loginRequiredDescription:
+          "Log in first to find yourself on the leaderboard.",
+      },
     },
     mapColumns: {
       playtime: "Playtime",

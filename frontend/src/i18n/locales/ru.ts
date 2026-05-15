@@ -440,6 +440,11 @@ export const ru = {
         loginRequiredDescription:
           "Сначала войдите в аккаунт, чтобы видеть таблицу лидеров друзей.",
       },
+      findMe: {
+        loginRequiredTitle: "Требуется вход",
+        loginRequiredDescription:
+          "Сначала войдите в аккаунт, чтобы найти себя в таблице лидеров.",
+      },
     },
     mapColumns: {
       playtime: "Время в игре",

@@ -425,6 +425,10 @@ export const zhCN = {
         loginRequiredTitle: "需要登录",
         loginRequiredDescription: "请先登录，再查看好友排行榜。",
       },
+      findMe: {
+        loginRequiredTitle: "需要登录",
+        loginRequiredDescription: "请先登录，再在排行榜中查找自己。",
+      },
     },
     mapColumns: {
       playtime: "游玩时长",
