@@ -280,6 +280,15 @@ export const en = {
       pageHint:
         "Showing up to {{count}} players per page. Click any entry to open that profile.",
     },
+    history: {
+      menuAction: "Profile History",
+      title: "Profile History",
+      description:
+        "Review previously stored profile names and avatars for this player.",
+      empty: "No profile history has been recorded for this player yet.",
+      loadFailed: "Failed to load profile history.",
+      missingName: "Unknown name",
+    },
     friends: {
       syncButton: "Sync",
       syncing: "Syncing...",

@@ -1,6 +1,7 @@
 import logging
 import uuid
 from datetime import UTC, datetime
+from math import ceil
 from typing import Annotated, Any
 
 import httpx
@@ -31,6 +32,8 @@ from app.models import (
     PlayerPinnedRecordsPublic,
     PlayerPinnedRecordUpsert,
     PlayerPlaytimePublic,
+    PlayerProfileHistoryListQuery,
+    PlayerProfileHistoryPublic,
     PlayerProfileViewsPublic,
     PlayerPublic,
     PlayersBatchPublic,
@@ -71,7 +74,11 @@ from app.services.globalapi_ban_sync import (
     GlobalApiBanSyncError,
     sync_player_bans_from_globalapi,
 )
-from app.services.player_friends import read_player_friends_public, sync_player_friends
+from app.services.player_friends import (
+    format_friends_sync_retry_wait,
+    read_player_friends_public,
+    sync_player_friends,
+)
 from app.services.player_social_links import build_player_social_link_url
 from app.services.player_steam_profile import (
     is_player_steam_profile_sync_due,
@@ -1376,7 +1383,22 @@ async def sync_player_friends_route(
 
     result = await sync_player_friends(session=session, player=player)
     if result.kind == "rate_limited":
-        raise HTTPException(status_code=429, detail="Friends sync is rate limited")
+        now = datetime.now(UTC)
+        wait = format_friends_sync_retry_wait(
+            now=now,
+            next_allowed_at=result.next_allowed_at,
+        )
+        retry_after_seconds = max(
+            1,
+            ceil((result.next_allowed_at - now).total_seconds())
+            if result.next_allowed_at is not None
+            else 1,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail=f"Friends sync is rate limited. Wait {wait} before retrying.",
+            headers={"Retry-After": str(retry_after_seconds)},
+        )
     if result.kind == "failed":
         raise HTTPException(status_code=502, detail="Friends sync failed")
 
@@ -1522,6 +1544,35 @@ async def update_current_player_settings(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get(
+    "/{identifier:path}/profile-history",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=PlayerProfileHistoryPublic,
+)
+async def read_player_profile_history(
+    *,
+    session: SessionDep,
+    identifier: str,
+    query: Annotated[PlayerProfileHistoryListQuery, Query()],
+    current_user: CurrentSuperuser,
+) -> PlayerProfileHistoryPublic:
+    del current_user
+    player_steamid64 = await _resolve_player_identifier_to_steamid64_or_404(
+        session=session,
+        identifier=identifier,
+    )
+    rows, count = await crud.read_player_profile_history(
+        session=session,
+        player_steamid64=player_steamid64,
+        offset=query.offset,
+        limit=query.limit,
+    )
+    return PlayerProfileHistoryPublic(
+        data=crud.to_player_profile_history_publics(histories=rows),
+        count=count,
+    )
 
 
 @router.get("/{identifier:path}", response_model=PlayerPublic)

@@ -4,10 +4,17 @@ from typing import Any
 
 import httpx
 import pytest
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import GlobalApiSyncState, Map, Player, Record, ServerGlobalapi
+from app.models import (
+    GlobalApiSyncState,
+    Map,
+    Player,
+    PlayerProfileHistory,
+    Record,
+    ServerGlobalapi,
+)
 from app.services import globalapi_record_sync as record_sync
 from tests.utils.utils import random_steamid64
 
@@ -47,6 +54,20 @@ async def _set_records_cursor(db: AsyncSession, cursor: int) -> None:
 async def _delete_record_by_id(db: AsyncSession, *, record_id: int) -> None:
     await db.exec(delete(Record).where(Record.id == record_id))
     await db.commit()
+
+
+async def _get_profile_history_rows(
+    db: AsyncSession, *, steamid64: int
+) -> list[PlayerProfileHistory]:
+    return list(
+        (
+            await db.exec(
+                select(PlayerProfileHistory).where(
+                    PlayerProfileHistory.player_steamid64 == steamid64
+                )
+            )
+        ).all()
+    )
 
 
 async def _create_local_record(
@@ -1127,3 +1148,51 @@ async def test_sync_records_from_globalapi_emits_debug_logs_for_synced_records(
         f"Finished GlobalAPI records sync at cursor={record_id + 1} processed=1 created=1 updated=0 errors=0 warnings=0"
         in info_messages
     )
+
+
+async def test_ensure_player_records_profile_history_for_name_only_change(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    db.add(
+        Player(
+            steamid64=steamid64,
+            name=str(steamid64),
+            avatar_hash="a" * 40,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    async def _fake_fetch_player_from_steam_api(
+        _steamid64: int,
+    ) -> dict[str, str | bool | None]:
+        return {
+            "name": "Resolved Steam Name",
+            "custom_id": None,
+            "avatar_hash": "a" * 40,
+            "country": None,
+            "fetched": True,
+        }
+
+    monkeypatch.setattr(
+        record_sync.crud,
+        "_fetch_player_from_steam_api",
+        _fake_fetch_player_from_steam_api,
+    )
+
+    ensured = await record_sync._ensure_player(
+        session=db,
+        steamid64=steamid64,
+        player_name="Fallback Name",
+        created_on=datetime(2026, 2, 1, tzinfo=UTC),
+    )
+    await db.commit()
+
+    assert ensured.name == "Resolved Steam Name"
+    history_rows = await _get_profile_history_rows(db, steamid64=steamid64)
+    assert len(history_rows) == 1
+    assert history_rows[0].name == str(steamid64)
+    assert history_rows[0].avatar_hash == "a" * 40

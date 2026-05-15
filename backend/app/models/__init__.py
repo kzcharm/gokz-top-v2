@@ -66,6 +66,15 @@ from .mode import (
     ModeCompatPublicV0,
     ModePublic,
 )
+from .mode_scope import (
+    ModeScope,
+    ModeScopeId,
+    mode_scope_from_id,
+    mode_scope_mode_ids,
+    mode_scope_modes,
+    mode_scope_to_id,
+    normalize_mode_scope,
+)
 from .player import (
     Player,
     PlayerBanStatusCheckPublic,
@@ -108,6 +117,12 @@ from .player_profile_field_change import (
     PlayerProfileFieldStatus,
     PlayerSettingsPublic,
     PlayerSettingsUpdate,
+)
+from .player_profile_history import (
+    PlayerProfileHistory,
+    PlayerProfileHistoryEntryPublic,
+    PlayerProfileHistoryListQuery,
+    PlayerProfileHistoryPublic,
 )
 from .player_profile_view import PlayerProfileView
 from .player_session import (
@@ -168,15 +183,6 @@ from .player_webhook import (
     PlayerWebhooksPublic,
     PlayerWebhookUpdate,
     normalize_discord_webhook_url,
-)
-from .mode_scope import (
-    ModeScope,
-    ModeScopeId,
-    mode_scope_from_id,
-    mode_scope_mode_ids,
-    mode_scope_modes,
-    mode_scope_to_id,
-    normalize_mode_scope,
 )
 from .record import (
     KZMode,
@@ -379,6 +385,10 @@ __all__ = [
     "PlayerProfileViewsPublic",
     "PlayerProfileField",
     "PlayerProfileFieldStatus",
+    "PlayerProfileHistory",
+    "PlayerProfileHistoryEntryPublic",
+    "PlayerProfileHistoryListQuery",
+    "PlayerProfileHistoryPublic",
     "PlayerSettingsPublic",
     "PlayerSettingsUpdate",
     "PlayerSession",

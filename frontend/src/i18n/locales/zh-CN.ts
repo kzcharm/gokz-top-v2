@@ -276,6 +276,14 @@ export const zhCN = {
       pageHint:
         "每页最多显示 {{count}} 位玩家。点击任意条目即可打开该玩家主页。",
     },
+    history: {
+      menuAction: "资料历史",
+      title: "资料历史",
+      description: "查看这位玩家此前保存过的个人名称和头像。",
+      empty: "这位玩家暂时还没有资料历史记录。",
+      loadFailed: "加载资料历史失败。",
+      missingName: "未知名称",
+    },
     friends: {
       syncButton: "同步",
       syncing: "同步中...",

@@ -1207,6 +1207,55 @@ export const MapLeaderboardsPublicSchema = {
     title: 'MapLeaderboardsPublic'
 } as const;
 
+export const MapPbLeaderboardPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        unique_nub_finishes: {
+            type: 'integer',
+            title: 'Unique Nub Finishes'
+        },
+        unique_pro_finishes: {
+            type: 'integer',
+            title: 'Unique Pro Finishes'
+        },
+        current_user_rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current User Rank'
+        },
+        current_user_steamid64: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current User Steamid64'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count', 'unique_nub_finishes', 'unique_pro_finishes'],
+    title: 'MapPbLeaderboardPublic'
+} as const;
+
 export const MapPublicSchema = {
     properties: {
         id: {
@@ -2557,6 +2606,65 @@ export const PlayerProfileFieldStatusSchema = {
     },
     type: 'object',
     title: 'PlayerProfileFieldStatus'
+} as const;
+
+export const PlayerProfileHistoryEntryPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Avatar Hash'
+        },
+        changed_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Changed At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'changed_at'],
+    title: 'PlayerProfileHistoryEntryPublic'
+} as const;
+
+export const PlayerProfileHistoryPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerProfileHistoryEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerProfileHistoryPublic'
 } as const;
 
 export const PlayerProfileViewsPublicSchema = {
