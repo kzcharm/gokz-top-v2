@@ -137,16 +137,22 @@ export function MapCard({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/85" />
         </Link>
 
-        <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
-          <h2 className="z-10 min-w-0 select-text break-all text-lg font-semibold text-white drop-shadow-sm">
-            {map.name}
+        <div className="absolute left-2 top-2 right-2 z-10 min-w-0">
+          <h2 className="min-w-0 select-text text-sm font-semibold text-white">
+            <span
+              className="inline-block max-w-[calc(100%-4.5rem)] rounded-md bg-black/45 px-2 py-1 break-all"
+              title={map.name}
+            >
+              {map.name}
+            </span>
           </h2>
-          <div className="pointer-events-none z-10 shrink-0">
-            <TierBadge
-              tier={activeTier}
-              className="bg-black/55 text-white backdrop-blur-sm"
-            />
-          </div>
+        </div>
+
+        <div className="pointer-events-none absolute right-2 top-2 z-10 shrink-0">
+          <TierBadge
+            tier={activeTier}
+            className="bg-black/55 text-white backdrop-blur-sm"
+          />
         </div>
       </div>
 
