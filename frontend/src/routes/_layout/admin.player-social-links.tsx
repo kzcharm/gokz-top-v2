@@ -16,6 +16,7 @@ import {
   AdminTableCard,
 } from "@/components/Admin/AdminPageLayout"
 import { DataTable } from "@/components/Common/DataTable"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Button } from "@/components/ui/button"
@@ -251,6 +252,8 @@ function AdminPlayerSocialLinks() {
         steamid64: steamid64.trim() || null,
         platform: platform === "all" ? null : platform,
         verified: verified === "all" ? null : verified === "true",
+        sortBy: "created_at",
+        sortOrder: "desc",
       }),
   })
 
@@ -320,6 +323,13 @@ function AdminPlayerSocialLinks() {
           >
             {row.original.account_identifier}
           </a>
+        ),
+      },
+      {
+        accessorKey: "created_at",
+        header: "Created At",
+        cell: ({ row }) => (
+          <FormattedDateTime value={row.original.created_at} />
         ),
       },
       {

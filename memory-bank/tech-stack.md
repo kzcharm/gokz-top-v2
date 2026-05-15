@@ -136,3 +136,12 @@
 - Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
 - Frontend destructive actions should use the destructive red visual treatment consistently, including icon-only delete buttons in tables and settings surfaces.
 - Short frontend field titles and settings/tab labels should use title case in English copy, capitalizing the first letter of each word (for example `Steam Name`, `Social Links`, `Country / Region`).
+
+## Local Admin Testing
+- For manual local browser testing of admin-only pages, do not enable `/v1/private/auth/session` by default.
+- The preferred flow is to mint a normal local JWT for `settings.SUPER_USER_STEAMID64` using `backend/app/core/security.py`, then open the frontend callback route with that token:
+  - generate a token from the backend environment with `create_access_token(settings.SUPER_USER_STEAMID64, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))`
+  - visit `http://localhost:5173/auth/callback#access_token=<token>` to let the frontend store the token through its normal auth callback path
+  - then open the target admin page, such as `http://localhost:5173/admin/player-social-links`
+- This keeps manual QA closer to the real production auth path and avoids exposing the dev-only private auth helper during ordinary local development.
+- Only enable `ENABLE_TEST_AUTH_HELPERS=true` and the `/v1/private/auth/session` helper for explicit automated test runs or disposable local test environments.
