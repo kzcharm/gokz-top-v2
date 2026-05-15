@@ -341,6 +341,11 @@ async def test_read_player_leaderboard_uses_stable_scope_membership_across_sorts
     sort_by: str,
 ) -> None:
     players = await _seed_leaderboard_data(db)
+    expected_order = (
+        [str(players["beta"]), str(players["alpha"])]
+        if sort_by in {"records_900_plus", "records_800_plus"}
+        else [str(players["alpha"]), str(players["beta"])]
+    )
 
     response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players",
@@ -350,10 +355,7 @@ async def test_read_player_leaderboard_uses_stable_scope_membership_across_sorts
     assert response.status_code == 200
     payload = response.json()
     assert payload["count"] == 2
-    assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
-        str(players["alpha"]),
-        str(players["beta"]),
-    ]
+    assert [entry["player"]["steamid64"] for entry in payload["data"]] == expected_order
 
 
 async def test_read_player_leaderboard_default_sort_and_rank(
