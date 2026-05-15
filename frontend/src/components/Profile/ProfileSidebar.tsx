@@ -177,20 +177,20 @@ function ProfileIdentityCard({
                     </button>
                   </DialogTrigger>
                   <DialogContent
-                    className="max-w-[min(92vw,40rem)] border-border/70 bg-card/98 p-3 sm:p-4"
+                    className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none sm:max-w-none"
                     showCloseButton={false}
                   >
-                    <div className="overflow-hidden rounded-[24px]">
+                    <div className="flex justify-center overflow-hidden rounded-[24px]">
                       {avatarUrl ? (
                         <img
                           src={avatarUrl}
                           alt={t("profile.avatarAltEnlarged", {
                             name: player.name,
                           })}
-                          className="max-h-[80vh] w-full object-cover"
+                          className="h-[min(80vh,32rem)] w-[min(80vw,32rem)] rounded-[24px] object-cover"
                         />
                       ) : (
-                        <div className="flex aspect-square w-full items-center justify-center bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85">
+                        <div className="flex h-[min(80vh,32rem)] w-[min(80vw,32rem)] items-center justify-center rounded-[24px] bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85">
                           <span className="text-6xl font-semibold text-white">
                             {getInitials(player.alias || player.name)}
                           </span>

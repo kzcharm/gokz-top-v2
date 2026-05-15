@@ -197,14 +197,14 @@ function MapHero({
                 </button>
               </DialogTrigger>
               <DialogContent
-                className="max-w-[min(96vw,72rem)] border-border/70 bg-card/98 p-3 sm:p-4"
+                className="max-w-[min(96vw,72rem)] border-0 bg-transparent p-0 shadow-none sm:max-w-[min(96vw,72rem)]"
                 showCloseButton={false}
               >
-                <div className="overflow-hidden rounded-[24px]">
+                <div className="flex justify-center overflow-hidden rounded-[24px]">
                   <img
                     src={imageUrl}
                     alt={t("maps.imageAltEnlarged", { mapName: map.name })}
-                    className="max-h-[85vh] w-full object-contain"
+                    className="max-h-[85vh] max-w-full rounded-[24px] object-contain"
                   />
                 </div>
               </DialogContent>
