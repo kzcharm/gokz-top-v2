@@ -434,6 +434,9 @@ export function PlayersLeaderboardTab() {
 
   const handleFindMe = async () => {
     if (!currentUser?.steamid64) {
+      toast.warning(t("leaderboards.players.findMe.loginRequiredTitle"), {
+        description: t("leaderboards.players.findMe.loginRequiredDescription"),
+      })
       return
     }
 
@@ -646,7 +649,6 @@ export function PlayersLeaderboardTab() {
                   type="button"
                   variant="outline"
                   loading={isLocatingPlayer}
-                  disabled={!currentUser?.steamid64}
                   onClick={() => void handleFindMe()}
                 >
                   <LocateFixed />

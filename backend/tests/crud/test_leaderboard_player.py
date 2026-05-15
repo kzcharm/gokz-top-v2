@@ -219,8 +219,8 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
     assert row.points == 11_000
     assert row.wrs_nub == 10
     assert row.wrs_pro == 1
-    assert row.records_900_plus == 10
-    assert row.records_800_plus == 10
+    assert row.records_900_plus == 0
+    assert row.records_800_plus == 0
     assert row.unique_map_finishes == 10
     assert row.rating == crud.calculate_weighted_rating([1000] * 10)
     assert row.rating_easy == crud.calculate_weighted_rating([1000] * 10)
@@ -240,7 +240,7 @@ async def test_build_leaderboard_values_counts_high_point_records_once_per_map()
     )
 
     assert values["records_900_plus"] == 2
-    assert values["records_800_plus"] == 2
+    assert values["records_800_plus"] == 0
     assert values["unique_map_finishes"] == 3
 
 

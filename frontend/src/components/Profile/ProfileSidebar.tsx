@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Copy, Search, X } from "lucide-react"
+import { Copy, History, Search, X } from "lucide-react"
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -38,13 +38,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { isLoggedIn } from "@/hooks/useAuth"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
+import { isSuperuser } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
+import { ProfileHistoryDialog } from "./ProfileHistoryDialog"
 import {
   ProfileSocialDialog,
   type ProfileSocialTab,
@@ -65,14 +67,18 @@ type ProfilePlayer = PlayerPublic & {
 }
 
 function ProfileIdentityCard({
+  canViewProfileHistory,
   displayName,
+  onOpenProfileHistory,
   profileSummary,
   profileSummaryLoading,
   onContextMenuOpenChange,
   openContextMenu,
   player,
 }: {
+  canViewProfileHistory: boolean
   displayName: string
+  onOpenProfileHistory: () => void
   profileSummary: ProfileSummaryData
   profileSummaryLoading: boolean
   onContextMenuOpenChange: (open: boolean) => void
@@ -177,20 +183,20 @@ function ProfileIdentityCard({
                     </button>
                   </DialogTrigger>
                   <DialogContent
-                    className="max-w-[min(92vw,40rem)] border-border/70 bg-card/98 p-3 sm:p-4"
+                    className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none sm:max-w-none"
                     showCloseButton={false}
                   >
-                    <div className="overflow-hidden rounded-[24px]">
+                    <div className="flex justify-center overflow-hidden rounded-[24px]">
                       {avatarUrl ? (
                         <img
                           src={avatarUrl}
                           alt={t("profile.avatarAltEnlarged", {
                             name: player.name,
                           })}
-                          className="max-h-[80vh] w-full object-cover"
+                          className="h-[min(80vh,32rem)] w-[min(80vw,32rem)] rounded-[24px] object-cover"
                         />
                       ) : (
-                        <div className="flex aspect-square w-full items-center justify-center bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85">
+                        <div className="flex h-[min(80vh,32rem)] w-[min(80vw,32rem)] items-center justify-center rounded-[24px] bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85">
                           <span className="text-6xl font-semibold text-white">
                             {getInitials(player.alias || player.name)}
                           </span>
@@ -336,6 +342,15 @@ function ProfileIdentityCard({
           steamProfileUrl={steamProfileUrl}
           steamid64={player.steamid64}
         >
+          {canViewProfileHistory ? (
+            <DropdownMenuItem
+              data-testid="profile-history-menu-item"
+              onSelect={onOpenProfileHistory}
+            >
+              <History />
+              {t("profile.history.menuAction")}
+            </DropdownMenuItem>
+          ) : null}
           <PlayerFollowContextMenuItem
             menuOpen={openContextMenu}
             steamid64={player.steamid64}
@@ -666,7 +681,9 @@ export function ProfileSidebar({
 }) {
   const { t } = useTranslation()
   const authenticated = isLoggedIn()
+  const { user } = useAuth()
   const navigate = useNavigate()
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
   const [identityContextMenuOpen, setIdentityContextMenuOpen] = useState(false)
@@ -688,6 +705,7 @@ export function ProfileSidebar({
   const followSummary = followSummaryQuery.data
   const followerCount = getFollowSummaryCount(followSummary, "follower_count")
   const followingCount = getFollowSummaryCount(followSummary, "following_count")
+  const canViewProfileHistory = isSuperuser(user)
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
 
@@ -729,7 +747,11 @@ export function ProfileSidebar({
     <>
       <div className="grid min-w-0 items-stretch gap-6 md:auto-rows-fr md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 xl:auto-rows-auto">
         <ProfileIdentityCard
+          canViewProfileHistory={canViewProfileHistory}
           displayName={player.alias || player.name}
+          onOpenProfileHistory={() => {
+            setHistoryDialogOpen(true)
+          }}
           profileSummary={summary}
           profileSummaryLoading={summaryLoading}
           onContextMenuOpenChange={setIdentityContextMenuOpen}
@@ -892,6 +914,11 @@ export function ProfileSidebar({
           </CardContent>
         </Card>
       </div>
+      <ProfileHistoryDialog
+        identifier={identifier}
+        onOpenChange={setHistoryDialogOpen}
+        open={historyDialogOpen}
+      />
       <ProfileSocialDialog
         followerCount={followerCount}
         followingCount={followingCount}

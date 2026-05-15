@@ -84,6 +84,7 @@ from .player import (
     to_player_public_with_profile_views,
     to_player_publics,
     update_player,
+    update_player_identity_fields,
     update_player_settings,
 )
 from .player_follow import (
@@ -117,6 +118,13 @@ from .player_profile_field_change import (
     player_profile_field_change_exists,
     upsert_player_action_timestamp,
     upsert_player_profile_field_change,
+)
+from .player_profile_history import (
+    create_player_profile_history,
+    create_player_profile_history_if_changed,
+    read_player_profile_history,
+    to_player_profile_history_public,
+    to_player_profile_history_publics,
 )
 from .player_profile_view import (
     count_player_profile_views,
@@ -275,6 +283,8 @@ __all__ = [
     "create_player_follow",
     "delete_player_friend_edges",
     "create_player_pinned_record",
+    "create_player_profile_history",
+    "create_player_profile_history_if_changed",
     "create_player_profile_view",
     "create_player_social_link",
     "create_player_webhook",
@@ -303,6 +313,7 @@ __all__ = [
     "get_player_friend_steamid64s",
     "get_player_friends",
     "get_player_settings",
+    "read_player_profile_history",
     "get_player_profile_field_changes",
     "get_player_follow_summary",
     "get_player_followers",
@@ -397,6 +408,8 @@ __all__ = [
     "to_mode_compat_public_v0",
     "to_mode_public",
     "to_player_public",
+    "to_player_profile_history_public",
+    "to_player_profile_history_publics",
     "to_player_publics",
     "to_player_public_with_profile_views",
     "to_player_session_public",
@@ -434,6 +447,7 @@ __all__ = [
     "update_server",
     "update_server_group",
     "update_user",
+    "update_player_identity_fields",
     "upsert_player_action_timestamp",
     "upsert_player_friend_edges",
     "upsert_player_profile_field_change",

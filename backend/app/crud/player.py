@@ -2,6 +2,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -17,6 +18,7 @@ from app.crud.player_profile_field_change import (
     player_profile_field_change_exists,
     upsert_player_profile_field_change,
 )
+from app.crud.player_profile_history import create_player_profile_history_if_changed
 from app.crud.player_profile_view import count_player_profile_views
 from app.models import (
     LeaderboardPlayer,
@@ -37,6 +39,7 @@ STEAM_COMMUNITY_HOSTS = {"steamcommunity.com", "www.steamcommunity.com"}
 STEAM_ID_TYPE_INDIVIDUAL = 1
 STEAM_ID_INSTANCE_DESKTOP = 1
 PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR = "<%"
+_UNCHANGED = object()
 
 
 class PlayerSettingsConflictError(ValueError):
@@ -310,21 +313,73 @@ async def _player_country_is_locked(
     )
 
 
-def _apply_steam_player_update(
+async def update_player_identity_fields(
     *,
+    session: AsyncSession,
+    player: Player,
+    name: str | object = _UNCHANGED,
+    avatar_hash: str | None | object = _UNCHANGED,
+    custom_id: str | None | object = _UNCHANGED,
+    country: str | None | object = _UNCHANGED,
+    now: datetime,
+) -> None:
+    resolved_name = cast(str, player.name if name is _UNCHANGED else name)
+    resolved_avatar_hash = cast(
+        str | None,
+        player.avatar_hash if avatar_hash is _UNCHANGED else avatar_hash
+    )
+    resolved_custom_id = cast(
+        str | None, player.custom_id if custom_id is _UNCHANGED else custom_id
+    )
+    resolved_country = cast(
+        str | None, player.country if country is _UNCHANGED else country
+    )
+    await create_player_profile_history_if_changed(
+        session=session,
+        player=player,
+        name=resolved_name,
+        avatar_hash=resolved_avatar_hash,
+        changed_at=now,
+    )
+    if name is not _UNCHANGED:
+        player.name = resolved_name
+    if avatar_hash is not _UNCHANGED:
+        player.avatar_hash = resolved_avatar_hash
+    if custom_id is not _UNCHANGED:
+        player.custom_id = resolved_custom_id
+    if country is not _UNCHANGED:
+        player.country = resolved_country
+    player.updated_at = now
+
+
+async def _apply_steam_player_update(
+    *,
+    session: AsyncSession,
     player: Player,
     steam_data: dict[str, str | bool | None],
     now: datetime,
     custom_id: str | None,
     country_locked: bool,
 ) -> None:
-    player.name = steam_data["name"] or player.name
-    if custom_id is not None and player.custom_id is None:
-        player.custom_id = custom_id
-    player.avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
-    if not country_locked:
-        player.country = steam_data["country"] or player.country
-    player.updated_at = now
+    resolved_name = steam_data["name"] or player.name
+    resolved_avatar_hash = steam_data["avatar_hash"] or player.avatar_hash
+    resolved_country = (
+        player.country if country_locked else steam_data["country"] or player.country
+    )
+    resolved_custom_id = (
+        player.custom_id
+        if custom_id is None or player.custom_id is not None
+        else custom_id
+    )
+    await update_player_identity_fields(
+        session=session,
+        player=player,
+        name=resolved_name,
+        avatar_hash=resolved_avatar_hash,
+        custom_id=resolved_custom_id,
+        country=resolved_country,
+        now=now,
+    )
 
 
 async def _commit_player_update_with_custom_id_fallback(
@@ -343,7 +398,8 @@ async def _commit_player_update_with_custom_id_fallback(
         session=session,
         player_steamid64=steamid64,
     )
-    _apply_steam_player_update(
+    await _apply_steam_player_update(
+        session=session,
         player=player,
         steam_data=steam_data,
         now=now,
@@ -606,7 +662,8 @@ async def create_or_update_player_from_steam(
                 session=session,
                 player_steamid64=steamid64,
             )
-            _apply_steam_player_update(
+            await _apply_steam_player_update(
+                session=session,
                 player=player,
                 steam_data=steam_data,
                 now=now,
@@ -726,7 +783,8 @@ async def create_or_update_player_from_steam_data_if_fetched(
             session=session,
             player_steamid64=steamid64,
         )
-        _apply_steam_player_update(
+        await _apply_steam_player_update(
+            session=session,
             player=player,
             steam_data=steam_data,
             now=now,

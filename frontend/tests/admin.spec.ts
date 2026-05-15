@@ -232,11 +232,18 @@ test.describe("Admin social links", () => {
       name: "Super User",
     })
     let links: unknown[] = []
+    let requestedSortBy: string | null = null
+    let requestedSortOrder: string | null = null
 
     await page.route(
       /\/v1\/admin\/player-social-links(\?.*)?$/,
       async (route) => {
         const method = route.request().method()
+        if (method === "GET") {
+          const url = new URL(route.request().url())
+          requestedSortBy = url.searchParams.get("sort_by")
+          requestedSortOrder = url.searchParams.get("sort_order")
+        }
         if (method === "POST") {
           links = [
             {
@@ -303,6 +310,12 @@ test.describe("Admin social links", () => {
     await expect(
       page.getByRole("heading", { name: /Player Social Links/ }),
     ).toBeVisible()
+    await expect
+      .poll(() => ({ sortBy: requestedSortBy, sortOrder: requestedSortOrder }))
+      .toEqual({
+        sortBy: "created_at",
+        sortOrder: "desc",
+      })
 
     await page.getByRole("button", { name: "Add" }).click()
     const createDialog = page.getByRole("dialog", { name: "Add Social Link" })

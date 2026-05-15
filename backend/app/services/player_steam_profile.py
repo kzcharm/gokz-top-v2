@@ -7,6 +7,8 @@ from app.core.db import async_session_maker
 from app.crud.player import (
     _fetch_players_from_steam_api_if_available,
     create_or_update_player_from_steam_data_if_fetched,
+    get_player_by_steamid64,
+    update_player_identity_fields,
 )
 from app.models import Player
 
@@ -65,16 +67,19 @@ async def sync_player_steam_profile_if_due(*, steamid64: int) -> None:
 
             steam_data = steam_data_by_steamid64.get(steamid64)
             if steam_data is None:
-                update_statement = (
-                    update(Player)
-                    .where(col(Player.steamid64) == steamid64)
-                    .values(
-                        avatar_hash="",
-                        updated_at=datetime.now(UTC),
-                    )
+                player = await get_player_by_steamid64(
+                    session=session, steamid64=steamid64
                 )
-                await session.execute(update_statement)
-                await session.commit()
+                if player is not None:
+                    now = datetime.now(UTC)
+                    await update_player_identity_fields(
+                        session=session,
+                        player=player,
+                        avatar_hash="",
+                        now=now,
+                    )
+                    session.add(player)
+                    await session.commit()
                 return
 
             await create_or_update_player_from_steam_data_if_fetched(

@@ -18,6 +18,7 @@ from app.models import (
     Player,
     PlayerFollow,
     PlayerProfileField,
+    PlayerProfileHistory,
     User,
 )
 from app.services import globalapi_ban_sync, player_steam_profile
@@ -69,6 +70,22 @@ async def _create_profile_field_change(
         changed_at=changed_at,
     )
     await db.commit()
+
+
+async def _get_profile_history_rows(
+    *,
+    db: AsyncSession,
+    steamid64: int,
+) -> list[PlayerProfileHistory]:
+    statement = (
+        select(PlayerProfileHistory)
+        .where(col(PlayerProfileHistory.player_steamid64) == steamid64)
+        .order_by(
+            col(PlayerProfileHistory.changed_at).asc(),
+            col(PlayerProfileHistory.id).asc(),
+        )
+    )
+    return list((await db.exec(statement)).all())
 
 
 async def _set_ovr_rating(*, db: AsyncSession, steamid64: int, rating: int) -> None:
@@ -742,6 +759,10 @@ async def test_sync_player_steam_profile_if_due_updates_hash(
     assert refreshed is not None
     assert refreshed.avatar_hash == "b" * 40
     assert refreshed.steam_profile_synced_at is not None
+    history_rows = await _get_profile_history_rows(db=db, steamid64=player.steamid64)
+    assert len(history_rows) == 1
+    assert history_rows[0].name == "Avatar Update Player"
+    assert history_rows[0].avatar_hash is None
 
 
 @pytest.mark.asyncio
@@ -753,6 +774,7 @@ async def test_sync_player_steam_profile_if_due_sets_empty_hash_when_not_found(
         db=db,
         steamid64=random_steamid64(),
         name="Deleted Steam Player",
+        avatar_hash="c" * 40,
     )
 
     @asynccontextmanager
@@ -780,6 +802,10 @@ async def test_sync_player_steam_profile_if_due_sets_empty_hash_when_not_found(
     assert refreshed is not None
     assert refreshed.avatar_hash == ""
     assert refreshed.steam_profile_synced_at is not None
+    history_rows = await _get_profile_history_rows(db=db, steamid64=player.steamid64)
+    assert len(history_rows) == 1
+    assert history_rows[0].name == "Deleted Steam Player"
+    assert history_rows[0].avatar_hash == "c" * 40
 
 
 @pytest.mark.asyncio
@@ -825,6 +851,110 @@ async def test_sync_player_steam_profile_if_due_leaves_hash_null_on_fetch_failur
     assert refreshed.avatar_hash is None
     assert refreshed.steam_profile_synced_at is not None
     assert fetch_calls == 1
+    assert await _get_profile_history_rows(db=db, steamid64=player.steamid64) == []
+
+
+@pytest.mark.asyncio
+async def test_update_player_identity_fields_tracks_name_only_change(
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Before Name",
+        avatar_hash="a" * 40,
+    )
+
+    await player_crud.update_player_identity_fields(
+        session=db,
+        player=player,
+        name="After Name",
+        now=datetime.now(UTC),
+    )
+    db.add(player)
+    await db.commit()
+
+    history_rows = await _get_profile_history_rows(db=db, steamid64=player.steamid64)
+    assert len(history_rows) == 1
+    assert history_rows[0].name == "Before Name"
+    assert history_rows[0].avatar_hash == "a" * 40
+
+
+@pytest.mark.asyncio
+async def test_update_player_identity_fields_tracks_avatar_only_change(
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Avatar Only",
+        avatar_hash=None,
+    )
+
+    await player_crud.update_player_identity_fields(
+        session=db,
+        player=player,
+        avatar_hash="d" * 40,
+        now=datetime.now(UTC),
+    )
+    db.add(player)
+    await db.commit()
+
+    history_rows = await _get_profile_history_rows(db=db, steamid64=player.steamid64)
+    assert len(history_rows) == 1
+    assert history_rows[0].name == "Avatar Only"
+    assert history_rows[0].avatar_hash is None
+
+
+@pytest.mark.asyncio
+async def test_update_player_identity_fields_tracks_combined_change_once(
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Combined Before",
+        avatar_hash="e" * 40,
+    )
+
+    await player_crud.update_player_identity_fields(
+        session=db,
+        player=player,
+        name="Combined After",
+        avatar_hash="f" * 40,
+        now=datetime.now(UTC),
+    )
+    db.add(player)
+    await db.commit()
+
+    history_rows = await _get_profile_history_rows(db=db, steamid64=player.steamid64)
+    assert len(history_rows) == 1
+    assert history_rows[0].name == "Combined Before"
+    assert history_rows[0].avatar_hash == "e" * 40
+
+
+@pytest.mark.asyncio
+async def test_update_player_identity_fields_skips_noop_history(
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Noop Player",
+        avatar_hash="9" * 40,
+    )
+
+    await player_crud.update_player_identity_fields(
+        session=db,
+        player=player,
+        name="Noop Player",
+        avatar_hash="9" * 40,
+        now=datetime.now(UTC),
+    )
+    db.add(player)
+    await db.commit()
+
+    assert await _get_profile_history_rows(db=db, steamid64=player.steamid64) == []
 
 
 @pytest.mark.asyncio
@@ -995,6 +1125,72 @@ async def test_update_player_rejects_non_superuser(
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_read_player_profile_history_requires_superuser(
+    client: AsyncClient,
+    db: AsyncSession,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Protected History",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/profile-history",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_read_player_profile_history_returns_newest_first(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="History Current",
+        custom_id="history-current",
+        avatar_hash="1" * 40,
+    )
+
+    first_changed_at = datetime.now(UTC) - timedelta(minutes=2)
+    second_changed_at = datetime.now(UTC) - timedelta(minutes=1)
+    await crud.create_player_profile_history(
+        session=db,
+        player_steamid64=player.steamid64,
+        name="History First",
+        avatar_hash=None,
+        changed_at=first_changed_at,
+    )
+    await crud.create_player_profile_history(
+        session=db,
+        player_steamid64=player.steamid64,
+        name=None,
+        avatar_hash="0" * 40,
+        changed_at=second_changed_at,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{player.custom_id}/profile-history",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert payload["data"][0]["name"] is None
+    assert payload["data"][0]["avatar_hash"] == "0" * 40
+    assert payload["data"][1]["name"] == "History First"
+    assert payload["data"][1]["avatar_hash"] is None
 
 
 @pytest.mark.asyncio

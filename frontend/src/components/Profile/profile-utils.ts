@@ -5,6 +5,8 @@ import {
   MapsService,
   type MapWrPublic,
   type PlayerFollowSummaryPublic,
+  type PlayerProfileHistoryEntryPublic,
+  type PlayerProfileHistoryPublic,
   type PlayerPublic,
   type PlayerStatsPublic,
   type PlayerStatType,
@@ -88,6 +90,9 @@ export type ProfileFriendsResult = {
   count: number
   sync: ProfileFriendSync
 }
+
+export type ProfileHistoryEntry = PlayerProfileHistoryEntryPublic
+export type ProfileHistoryResult = PlayerProfileHistoryPublic
 
 export function getProfileActiveBanQueryOptions(steamid64: string | null) {
   return queryOptions({
@@ -233,6 +238,22 @@ export async function syncProfileFriends({
     throw new Error("Failed to sync friends")
   }
   return payload as ProfileFriendsResult
+}
+
+export async function fetchProfileHistory({
+  identifier,
+  offset = 0,
+  limit = 100,
+}: {
+  identifier: string
+  offset?: number
+  limit?: number
+}): Promise<ProfileHistoryResult> {
+  return await PlayersService.readPlayerProfileHistory({
+    identifier,
+    offset,
+    limit,
+  })
 }
 
 export function getProfileStatsQueryOptions(
@@ -516,10 +537,10 @@ export function buildProfileTrophyCounts(
     if (record.points === 1000) {
       gold += 1
     }
-    if (record.points >= 900) {
+    if (record.points >= 900 && record.points < 1000) {
       silver += 1
     }
-    if (record.points >= 800) {
+    if (record.points >= 800 && record.points < 900) {
       bronze += 1
     }
   }

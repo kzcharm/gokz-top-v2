@@ -96,6 +96,8 @@ function formatRankShare(
   return `${formatNumber(rank)} / ${formatNumber(total)} (${topLabel} ${percentage}%)`
 }
 
+const MAP_RANK_SUMMARY_UNAVAILABLE_LABEL = "-"
+
 type MapPbLeaderboardResponse = {
   data: RecordPublic[]
   count: number
@@ -197,14 +199,14 @@ function MapHero({
                 </button>
               </DialogTrigger>
               <DialogContent
-                className="max-w-[min(96vw,72rem)] border-border/70 bg-card/98 p-3 sm:p-4"
+                className="max-w-[min(96vw,72rem)] border-0 bg-transparent p-0 shadow-none sm:max-w-[min(96vw,72rem)]"
                 showCloseButton={false}
               >
-                <div className="overflow-hidden rounded-[24px]">
+                <div className="flex justify-center overflow-hidden rounded-[24px]">
                   <img
                     src={imageUrl}
                     alt={t("maps.imageAltEnlarged", { mapName: map.name })}
-                    className="max-h-[85vh] w-full object-contain"
+                    className="max-h-[85vh] max-w-full rounded-[24px] object-contain"
                   />
                 </div>
               </DialogContent>
@@ -470,6 +472,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
   const activeTier = map.tiers[scope]
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
+  const authenticatedUserSteamid64 = currentUser?.steamid64 ?? null
   const currentUserSteamid64 =
     leaderboardQuery.data?.current_user_steamid64 ?? null
   const nubRank =
@@ -482,6 +485,13 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
       : oppositeLeaderboardQuery.data?.current_user_rank ?? null
 
   const handleFindMe = () => {
+    if (!currentUser?.steamid64) {
+      toast.warning(t("leaderboards.players.findMe.loginRequiredTitle"), {
+        description: t("leaderboards.players.findMe.loginRequiredDescription"),
+      })
+      return
+    }
+
     const viewerSteamid64 =
       leaderboardQuery.data?.current_user_steamid64 ?? null
     if (!viewerSteamid64) {
@@ -516,7 +526,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                   {formatRankShare(
                     currentUserSteamid64 ? nubRank : null,
                     leaderboardQuery.data?.unique_nub_finishes ?? 0,
-                    t("common.notAvailable"),
+                    MAP_RANK_SUMMARY_UNAVAILABLE_LABEL,
                     t("maps.topPercentPrefix"),
                   )}
                 </div>
@@ -529,7 +539,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                   {formatRankShare(
                     currentUserSteamid64 ? proRank : null,
                     leaderboardQuery.data?.unique_pro_finishes ?? 0,
-                    t("common.notAvailable"),
+                    MAP_RANK_SUMMARY_UNAVAILABLE_LABEL,
                     t("maps.topPercentPrefix"),
                   )}
                 </div>
@@ -644,17 +654,15 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                       <Users />
                       {t("leaderboards.players.friends.label")}
                     </Button>
-                    {currentUserSteamid64 ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleFindMe}
-                        disabled={leaderboardQuery.isLoading}
-                      >
-                        <LocateFixed />
-                        {t("maps.findMe")}
-                      </Button>
-                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleFindMe}
+                      disabled={leaderboardQuery.isLoading}
+                    >
+                      <LocateFixed />
+                      {t("maps.findMe")}
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"
@@ -719,7 +727,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
               onPageChange={setTopPageIndex}
               onPageSizeChange={setTopPageSize}
               currentUserSteamid64={
-                leaderboardQuery.data?.current_user_steamid64 ?? null
+                authenticatedUserSteamid64
               }
             />
           )}

@@ -249,6 +249,15 @@ export type MapLeaderboardsPublic = {
     count: number;
 };
 
+export type MapPbLeaderboardPublic = {
+    data: Array<RecordPublic>;
+    count: number;
+    unique_nub_finishes: number;
+    unique_pro_finishes: number;
+    current_user_rank?: (number | null);
+    current_user_steamid64?: (string | null);
+};
+
 export type MapPublic = {
     id: number;
     name: string;
@@ -520,6 +529,18 @@ export type PlayerProfileFieldStatus = {
     last_changed_at?: (string | null);
     next_available_at?: (string | null);
     can_change?: boolean;
+};
+
+export type PlayerProfileHistoryEntryPublic = {
+    id: string;
+    name?: (string | null);
+    avatar_hash?: (string | null);
+    changed_at: string;
+};
+
+export type PlayerProfileHistoryPublic = {
+    data: Array<PlayerProfileHistoryEntryPublic>;
+    count: number;
 };
 
 export type PlayerProfileViewsPublic = {
@@ -1290,6 +1311,20 @@ export type MapsReadMapByNameData = {
 
 export type MapsReadMapByNameResponse = (MapPublic);
 
+export type MapsReadMapPbLeaderboardData = {
+    country?: (string | null);
+    friendsOnly?: boolean;
+    id: number;
+    limit?: number;
+    offset?: number;
+    region?: (string | null);
+    scope?: ModeScope;
+    stage?: number;
+    type?: RecordType;
+};
+
+export type MapsReadMapPbLeaderboardResponse = (MapPbLeaderboardPublic);
+
 export type MapsReadMapWrsData = {
     mapId?: (number | null);
     mapName?: (string | null);
@@ -1569,6 +1604,14 @@ export type PlayersTestCurrentPlayerWebhookData = {
 };
 
 export type PlayersTestCurrentPlayerWebhookResponse = (PlayerWebhookPublic);
+
+export type PlayersReadPlayerProfileHistoryData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayersReadPlayerProfileHistoryResponse = (PlayerProfileHistoryPublic);
 
 export type PlayersReadPlayerData = {
     identifier: string;

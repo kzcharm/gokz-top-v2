@@ -363,8 +363,12 @@ def _build_leaderboard_values(
         elif tier >= 5:
             hard_points.append(best_points)
 
-    records_900_plus = sum(1 for best_points in map_best_points if best_points >= 900)
-    records_800_plus = sum(1 for best_points in map_best_points if best_points >= 800)
+    records_900_plus = sum(
+        1 for best_points in map_best_points if 900 <= best_points < 1000
+    )
+    records_800_plus = sum(
+        1 for best_points in map_best_points if 800 <= best_points < 900
+    )
 
     if unique_map_finishes >= ELIGIBLE_UNIQUE_MAP_FINISHES:
         rating = calculate_weighted_rating(map_best_points)

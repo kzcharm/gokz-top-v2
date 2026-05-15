@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from math import ceil
 
 import httpx
 from sqlmodel import col, select
@@ -21,6 +22,29 @@ STEAM_API_TIMEOUT_SECONDS = 10.0
 
 class SteamFriendsPrivateError(Exception):
     pass
+
+
+def format_friends_sync_retry_wait(
+    *,
+    now: datetime,
+    next_allowed_at: datetime | None,
+) -> str:
+    if next_allowed_at is None:
+        return "1 second"
+
+    remaining_seconds = max(1, ceil((next_allowed_at - now).total_seconds()))
+    if remaining_seconds < 60:
+        unit = "second" if remaining_seconds == 1 else "seconds"
+        return f"{remaining_seconds} {unit}"
+
+    remaining_minutes = ceil(remaining_seconds / 60)
+    if remaining_minutes < 60:
+        unit = "minute" if remaining_minutes == 1 else "minutes"
+        return f"{remaining_minutes} {unit}"
+
+    remaining_hours = ceil(remaining_minutes / 60)
+    unit = "hour" if remaining_hours == 1 else "hours"
+    return f"{remaining_hours} {unit}"
 
 
 async def _fetch_steam_profile_is_public(*, steamid64: int) -> bool | None:

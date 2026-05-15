@@ -451,28 +451,45 @@ async def _ensure_player(
         session.add(player)
         return player
 
+    resolved_player_name = player.name
     if resolved_name and player.name == str(steamid64):
-        player.name = resolved_name
+        resolved_player_name = resolved_name
     elif steam_name and steam_name != str(steamid64):
-        player.name = steam_name
+        resolved_player_name = steam_name
+
+    resolved_custom_id = player.custom_id
     if steam_data.get("custom_id") and player.custom_id is None:
         normalized_custom_id = crud.normalize_custom_id(steam_data["custom_id"])
         if normalized_custom_id:
-            player.custom_id = normalized_custom_id
+            resolved_custom_id = normalized_custom_id
+
+    resolved_avatar_hash = player.avatar_hash
     if steam_data.get("avatar_hash"):
-        player.avatar_hash = steam_data["avatar_hash"]
+        resolved_avatar_hash = steam_data["avatar_hash"]
+
     country_locked = await crud.player_profile_field_change_exists(
         session=session,
         player_steamid64=steamid64,
         field=PlayerProfileField.COUNTRY,
     )
+    resolved_country = player.country
     if steam_data.get("country") and not country_locked:
-        player.country = steam_data["country"]
+        resolved_country = steam_data["country"]
+
+    now = get_datetime_utc()
+    await crud.update_player_identity_fields(
+        session=session,
+        player=player,
+        name=resolved_player_name,
+        avatar_hash=resolved_avatar_hash,
+        custom_id=resolved_custom_id,
+        country=resolved_country,
+        now=now,
+    )
     if player.created_at is None or created_on < player.created_at:
         player.created_at = created_on
     if player.last_played_at is None or created_on > player.last_played_at:
         player.last_played_at = created_on
-    player.updated_at = get_datetime_utc()
     session.add(player)
     return player
 
