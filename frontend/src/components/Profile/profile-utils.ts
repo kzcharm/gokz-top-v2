@@ -537,10 +537,10 @@ export function buildProfileTrophyCounts(
     if (record.points === 1000) {
       gold += 1
     }
-    if (record.points >= 900) {
+    if (record.points >= 900 && record.points < 1000) {
       silver += 1
     }
-    if (record.points >= 800) {
+    if (record.points >= 800 && record.points < 900) {
       bronze += 1
     }
   }
