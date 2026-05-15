@@ -8,6 +8,7 @@ import {
   UserCheck,
   UserPlus,
   UserRound,
+  Users,
 } from "lucide-react"
 import type {
   ComponentType,
@@ -17,6 +18,7 @@ import type {
   SVGProps,
 } from "react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import noneFlagSrc from "@/assets/flags/none.svg"
 import playerAvatarPlaceholderSrc from "@/assets/player-avatar-placeholder.jpg"
 import {
@@ -52,6 +54,8 @@ import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { loadPlayerForDisplay } from "@/lib/player-graphql"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
+
+import { getProfileFriendsQueryOptions } from "../Profile/profile-utils"
 
 const countryNameFormatter =
   typeof Intl !== "undefined" && "DisplayNames" in Intl
@@ -389,6 +393,7 @@ export function PlayerDisplay({
   hideAvatarWithoutSteamid64 = false,
   scope,
 }: PlayerDisplayProps) {
+  const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
@@ -419,6 +424,17 @@ export function PlayerDisplay({
   const isCurrentUser =
     steamid64Pattern.test(steamid64) &&
     (viewerSteamid64 === steamid64 || user?.steamid64 === steamid64)
+  const viewerFriendsQuery = useQuery({
+    ...getProfileFriendsQueryOptions(viewerSteamid64),
+    enabled:
+      viewerSteamid64 !== null &&
+      steamid64Pattern.test(steamid64) &&
+      viewerSteamid64 !== steamid64,
+  })
+  const isViewerFriend =
+    viewerFriendsQuery.data?.data.some(
+      (friend) => friend.steamid64 === steamid64,
+    ) ?? false
   const effectiveSubline =
     subline ?? (showSteamid ? ({ type: "steamid64" } as const) : null)
   const clanTag = getPlayerClanTag(resolvedPlayer)
@@ -584,7 +600,7 @@ export function PlayerDisplay({
       <div className="min-w-0">
         <p
           className={cn(
-            "flex w-full min-w-0 items-baseline gap-1 text-sm font-medium transition-colors",
+            "flex w-full min-w-0 items-center gap-1 text-sm font-medium transition-colors",
             hasProfileLink &&
               "group-hover:text-accent-foreground group-focus-visible:text-accent-foreground",
           )}
@@ -596,6 +612,22 @@ export function PlayerDisplay({
             </span>
           ) : null}
           <span className="truncate">{truncatedDisplayName}</span>
+          {isViewerFriend ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="shrink-0 text-muted-foreground"
+                  role="img"
+                  aria-label={t("leaderboards.players.friends.label")}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={8}>
+                {t("leaderboards.players.friends.label")}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </p>
         {sublineContent ? (
           <p
