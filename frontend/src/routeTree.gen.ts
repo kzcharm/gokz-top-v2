@@ -45,6 +45,7 @@ import { Route as LayoutProfileIdentifierIndexRouteImport } from './routes/_layo
 import { Route as LayoutProfileIdentifierUnfinishedRouteImport } from './routes/_layout/profile.$identifier.unfinished'
 import { Route as LayoutProfileIdentifierStatsRouteImport } from './routes/_layout/profile.$identifier.stats'
 import { Route as LayoutProfileIdentifierRecordsRouteImport } from './routes/_layout/profile.$identifier.records'
+import { Route as LayoutProfileIdentifierJumpstatsRouteImport } from './routes/_layout/profile.$identifier.jumpstats'
 import { Route as LayoutProfileIdentifierFriendsRouteImport } from './routes/_layout/profile.$identifier.friends'
 
 const ServersRoute = ServersRouteImport.update({
@@ -237,6 +238,12 @@ const LayoutProfileIdentifierRecordsRoute =
     path: '/records',
     getParentRoute: () => LayoutProfileIdentifierRoute,
   } as any)
+const LayoutProfileIdentifierJumpstatsRoute =
+  LayoutProfileIdentifierJumpstatsRouteImport.update({
+    id: '/jumpstats',
+    path: '/jumpstats',
+    getParentRoute: () => LayoutProfileIdentifierRoute,
+  } as any)
 const LayoutProfileIdentifierFriendsRoute =
   LayoutProfileIdentifierFriendsRouteImport.update({
     id: '/friends',
@@ -277,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
+  '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -314,6 +322,7 @@ export interface FileRoutesByTo {
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
+  '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -354,6 +363,7 @@ export interface FileRoutesById {
   '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/_layout/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/_layout/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
+  '/_layout/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/_layout/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/_layout/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/settings/social-links'
     | '/settings/webhooks'
     | '/profile/$identifier/friends'
+    | '/profile/$identifier/jumpstats'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -431,6 +442,7 @@ export interface FileRouteTypes {
     | '/settings/social-links'
     | '/settings/webhooks'
     | '/profile/$identifier/friends'
+    | '/profile/$identifier/jumpstats'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -470,6 +482,7 @@ export interface FileRouteTypes {
     | '/_layout/settings/social-links'
     | '/_layout/settings/webhooks'
     | '/_layout/profile/$identifier/friends'
+    | '/_layout/profile/$identifier/jumpstats'
     | '/_layout/profile/$identifier/records'
     | '/_layout/profile/$identifier/stats'
     | '/_layout/profile/$identifier/unfinished'
@@ -738,6 +751,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierRecordsRouteImport
       parentRoute: typeof LayoutProfileIdentifierRoute
     }
+    '/_layout/profile/$identifier/jumpstats': {
+      id: '/_layout/profile/$identifier/jumpstats'
+      path: '/jumpstats'
+      fullPath: '/profile/$identifier/jumpstats'
+      preLoaderRoute: typeof LayoutProfileIdentifierJumpstatsRouteImport
+      parentRoute: typeof LayoutProfileIdentifierRoute
+    }
     '/_layout/profile/$identifier/friends': {
       id: '/_layout/profile/$identifier/friends'
       path: '/friends'
@@ -823,6 +843,7 @@ const LayoutSettingsRouteWithChildren = LayoutSettingsRoute._addFileChildren(
 
 interface LayoutProfileIdentifierRouteChildren {
   LayoutProfileIdentifierFriendsRoute: typeof LayoutProfileIdentifierFriendsRoute
+  LayoutProfileIdentifierJumpstatsRoute: typeof LayoutProfileIdentifierJumpstatsRoute
   LayoutProfileIdentifierRecordsRoute: typeof LayoutProfileIdentifierRecordsRoute
   LayoutProfileIdentifierStatsRoute: typeof LayoutProfileIdentifierStatsRoute
   LayoutProfileIdentifierUnfinishedRoute: typeof LayoutProfileIdentifierUnfinishedRoute
@@ -832,6 +853,8 @@ interface LayoutProfileIdentifierRouteChildren {
 const LayoutProfileIdentifierRouteChildren: LayoutProfileIdentifierRouteChildren =
   {
     LayoutProfileIdentifierFriendsRoute: LayoutProfileIdentifierFriendsRoute,
+    LayoutProfileIdentifierJumpstatsRoute:
+      LayoutProfileIdentifierJumpstatsRoute,
     LayoutProfileIdentifierRecordsRoute: LayoutProfileIdentifierRecordsRoute,
     LayoutProfileIdentifierStatsRoute: LayoutProfileIdentifierStatsRoute,
     LayoutProfileIdentifierUnfinishedRoute:

@@ -23,6 +23,7 @@ import {
   ProfileCompletionSection,
   ProfileHomeContent,
 } from "./ProfileHomeContent"
+import { ProfileJumpstatsTab } from "./ProfileJumpstatsTab"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileStatsContent } from "./ProfileStatsContent"
@@ -38,6 +39,7 @@ import {
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfileFriendsQueryOptions,
+  getProfileJumpstatsQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
@@ -112,6 +114,10 @@ export function ProfilePage({
     ...getProfileFriendsQueryOptions(canonicalIdentifier),
     enabled: canonicalIdentifier !== null && activeTab === "friends",
   })
+  const jumpstatsQuery = useQuery({
+    ...getProfileJumpstatsQueryOptions(canonicalIdentifier),
+    enabled: canonicalIdentifier !== null && activeTab === "jumpstats",
+  })
   const nubRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
       identifier: playerSteamid64,
@@ -142,6 +148,8 @@ export function ProfilePage({
         ? "/profile/$identifier/unfinished"
         : activeTab === "stats"
           ? "/profile/$identifier/stats"
+          : activeTab === "jumpstats"
+            ? "/profile/$identifier/jumpstats"
           : activeTab === "friends"
             ? "/profile/$identifier/friends"
             : "/profile/$identifier"
@@ -368,8 +376,12 @@ export function ProfilePage({
       await queryClient.invalidateQueries({
         queryKey: ["profile-friends", canonicalIdentifier],
       })
+      const message = extractErrorMessage(error).replace(
+        /^Friends sync is rate limited\.\s*/u,
+        "",
+      )
       toast.error(t("profile.friends.syncFailed"), {
-        description: extractErrorMessage(error),
+        description: message,
       })
     },
   })
@@ -681,6 +693,12 @@ export function ProfilePage({
                   </Button>
                 ) : null
               }
+            />
+          ) : activeTab === "jumpstats" ? (
+            <ProfileJumpstatsTab
+              data={jumpstatsQuery.data}
+              loading={jumpstatsQuery.isLoading}
+              error={jumpstatsQuery.isError}
             />
           ) : (
             <ProfileStatsContent
