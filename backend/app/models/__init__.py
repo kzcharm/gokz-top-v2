@@ -11,6 +11,15 @@ from .ban import (
     BanType,
 )
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
+from .jumpstat import (
+    Jumpstat,
+    JumpstatDetailPublic,
+    JumpstatListQuery,
+    JumpstatPublic,
+    JumpstatsPublic,
+    JumpstatStrafeStat,
+    JumpstatType,
+)
 from .leaderboard_player import (
     LeaderboardPlayer,
     LeaderboardPlayerCount,
@@ -305,6 +314,13 @@ __all__ = [
     "BanType",
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
+    "Jumpstat",
+    "JumpstatDetailPublic",
+    "JumpstatListQuery",
+    "JumpstatPublic",
+    "JumpstatsPublic",
+    "JumpstatStrafeStat",
+    "JumpstatType",
     "LiveStreamCardPublic",
     "LiveStreamListQuery",
     "LiveStreamPlayerPublic",

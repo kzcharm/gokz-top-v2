@@ -104,6 +104,12 @@ Scope model:
 
 ### 5.6 Jumpstats and Replays
 - Jumpstats submission/query/top views.
+- Current jumpstats phase ships read-only public queries first:
+  - `/v1/jumpstats` for global list/top reads
+  - `/v1/jumpstats/{id}` for single jumpstat detail
+  - `/v1/players/{identifier}/jumpstats` for per-player history
+- Jumpstat persistence is v2-native, keyed by UUIDv7 and server-group ownership rather than mirrored GlobalAPI server IDs.
+- Per-strafe breakdown rows are stored inline in PostgreSQL JSONB on the parent jumpstat row; there is no separate strafe detail table.
 - Replay upload, indexing, and retrieval.
 - Replay visibility integrated into player and map workflows.
 

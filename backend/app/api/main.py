@@ -8,6 +8,7 @@ from app.api.v1 import (
     admin_servers,
     bans,
     graphql,
+    jumpstats,
     leaderboards,
     live,
     login,
@@ -33,6 +34,7 @@ api_router.include_router(users.router)
 api_router.include_router(bans.router)
 api_router.include_router(players.router)
 api_router.include_router(graphql.router)
+api_router.include_router(jumpstats.router)
 api_router.include_router(leaderboards.router)
 api_router.include_router(live.router)
 api_router.include_router(maps.router)
