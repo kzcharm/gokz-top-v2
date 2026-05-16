@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { PlayersLeaderboardTab } from "@/components/Leaderboards/PlayersLeaderboardTab"
+import { JumpstatsLeaderboardTab } from "@/components/Leaderboards/JumpstatsLeaderboardTab"
+import { useScope } from "@/components/scope-provider"
 
 export const Route = createFileRoute("/_layout/leaderboards/jumpstats")({
   component: JumpstatsRoute,
 })
 
 function JumpstatsRoute() {
-  return <PlayersLeaderboardTab />
+  const { scope } = useScope()
+
+  return <JumpstatsLeaderboardTab scope={scope} />
 }

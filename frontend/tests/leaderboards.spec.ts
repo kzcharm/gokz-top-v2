@@ -931,4 +931,142 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByText("kz_alpha")).toBeVisible()
     await expect(page.getByText("kz_gamma")).not.toBeVisible()
   })
+
+  test("jumpstats leaderboard defaults to long jump and refetches on scope change", async ({
+    page,
+  }) => {
+    const requestedScopes: string[] = []
+    const requestedTypes: string[] = []
+    let playerLeaderboardRequests = 0
+
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      playerLeaderboardRequests += 1
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ data: [], count: 0 }),
+      })
+    })
+    await page.route("**/v1/leaderboards/jumpstats*", async (route) => {
+      const url = new URL(route.request().url())
+      const scope = url.searchParams.get("scope") || "OVR"
+      const type = url.searchParams.get("type") || "LJ"
+      requestedScopes.push(scope)
+      requestedTypes.push(type)
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              id: "6a4ff955-7a2d-4b91-86f4-a7d493bbac31",
+              player: buildPlayerRef("76561198000000001", `Scope ${scope}`),
+              server_group_id: "eb8f4b1c-c83c-4f7d-8ef8-4d7c0dcdb2bb",
+              server_group: {
+                id: "eb8f4b1c-c83c-4f7d-8ef8-4d7c0dcdb2bb",
+                name: "Jumpstats Group",
+              },
+              mode: scope === "SKZ" ? "SKZ" : "KZT",
+              type,
+              distance: 281.1234,
+              block: 280,
+              strafes: 8,
+              sync_percent: 90,
+              pre_speed: 275.22,
+              max_speed: 366.78,
+              jumped_at: "2099-01-01T00:00:00Z",
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards/jumpstats")
+
+    await expect(page.getByText("Scope OVR")).toBeVisible()
+    await expect(page.getByText("Jumpstats Group")).toBeVisible()
+    expect(requestedScopes[0]).toBe("OVR")
+    expect(requestedTypes[0]).toBe("LJ")
+    expect(playerLeaderboardRequests).toBe(0)
+
+    await page.getByRole("button", { name: "Select record scope" }).click()
+    await page.getByRole("menuitemradio", { name: "SKZ" }).click()
+
+    await expect(page.getByText("Scope SKZ")).toBeVisible()
+    expect(requestedScopes).toContain("SKZ")
+  })
+
+  test("jumpstats leaderboard refetches on jump type change and block sort", async ({
+    page,
+  }) => {
+    const requests: Array<{
+      scope: string
+      type: string
+      sortBy: string | null
+      sortOrder: string | null
+    }> = []
+
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+    await page.route("**/v1/leaderboards/jumpstats*", async (route) => {
+      const url = new URL(route.request().url())
+      const scope = url.searchParams.get("scope") || "OVR"
+      const type = url.searchParams.get("type") || "LJ"
+      const sortBy = url.searchParams.get("sort_by")
+      const sortOrder = url.searchParams.get("sort_order")
+      requests.push({ scope, type, sortBy, sortOrder })
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              id: "2e4bf9af-2e1a-4267-ab90-7f0ca1269ef6",
+              player: buildPlayerRef("76561198000000002", "Beta"),
+              server_group_id: "94db4edc-447c-4328-b5ca-1177c51d39c9",
+              server_group: {
+                id: "94db4edc-447c-4328-b5ca-1177c51d39c9",
+                name: "Jumpstats Group",
+              },
+              mode: "KZT",
+              type,
+              distance: sortBy === "block" ? 283.5 : 280.5,
+              block: 282,
+              strafes: 7,
+              sync_percent: 88,
+              pre_speed: 274.11,
+              max_speed: 365.41,
+              jumped_at: "2099-01-01T00:00:00Z",
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards/jumpstats")
+
+    await expect(page.getByText("7")).toBeVisible()
+    await page.getByRole("combobox", { name: "Jump Type" }).click()
+    await page.getByRole("option", { name: "Bhop" }).click()
+    await expect(page.getByText("Beta")).toBeVisible()
+    expect(requests.some((request) => request.type === "BH")).toBe(true)
+
+    await page.getByRole("button", { name: "Block" }).click()
+    await page.getByRole("button", { name: "Block" }).click()
+
+    const blockRequests = requests.filter(
+      (request) => request.sortBy === "block",
+    )
+    expect(blockRequests.length).toBeGreaterThan(0)
+    expect(blockRequests.every((request) => request.sortOrder === null)).toBe(
+      true,
+    )
+  })
 })

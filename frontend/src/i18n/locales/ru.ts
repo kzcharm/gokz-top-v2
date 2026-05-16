@@ -322,7 +322,8 @@ export const ru = {
       breakdownTitle: "Разбивка по стрейфам",
       edge: "Edge",
       deviation: "Deviation",
-      mapDependentOmitted: "Данные, зависящие от карты, скрыты: Edge, Deviation.",
+      mapDependentOmitted:
+        "Данные, зависящие от карты, скрыты: Edge, Deviation.",
       summary: {
         strafes: "Strafes",
         sync: "Sync",
@@ -475,6 +476,36 @@ export const ru = {
       jumpstats: "Jumpstats",
       servers: "Серверы",
       maps: "Карты",
+    },
+    jumpstats: {
+      filters: "Фильтры",
+      jumpType: "Тип прыжка",
+      loadFailedTitle: "Не удалось загрузить таблицу jumpstats",
+      loadFailedDescription: "Не удалось загрузить таблицу лидеров jumpstats.",
+      empty: "Записи для таблицы лидеров jumpstats не найдены.",
+      columns: {
+        distance: "Distance",
+        block: "Block",
+        strafes: "Strafes",
+        sync: "Sync",
+        pre: "Pre",
+        max: "Max",
+        jumpedAt: "Jumped At",
+      },
+      types: {
+        LJ: "Long Jump",
+        BH: "Bhop",
+        MBH: "Multi Bunnyhop",
+        WJ: "Weird Jump",
+        LAJ: "Ladder Jump",
+        LAH: "Ladderhop",
+        JB: "Jumpbug",
+        LBH: "Ladder Bunnyhop",
+        LWJ: "Ladder Weird Jump",
+        FL: "Fall",
+        UNK: "Unknown",
+        INV: "Invalid",
+      },
     },
     players: {
       friends: {

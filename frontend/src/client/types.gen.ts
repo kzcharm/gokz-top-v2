@@ -191,9 +191,110 @@ export type BansPublic = {
 
 export type BanType = 'ban_evasion' | 'bhop_hack' | 'bhop_macro' | 'exploiting' | 'strafe_hack' | 'strafe_macro' | 'other';
 
+export type Body_jumpstats_create_jumpstat = {
+    replay: (Blob | File);
+};
+
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
+
+export type JumpstatDetailPublic = {
+    id: string;
+    player: PlayerRefPublic;
+    server_group_id: string;
+    server_group: ServerGroupSummary;
+    mode: KZMode;
+    type: JumpstatType;
+    distance: number;
+    block?: (number | null);
+    strafes: number;
+    sync_percent: number;
+    pre_speed: number;
+    max_speed: number;
+    w_count: number;
+    overlap_count: number;
+    dead_air_count: number;
+    width: number;
+    height: number;
+    airtime_percent: number;
+    offset: number;
+    crouched_ticks: number;
+    edge?: (number | null);
+    deviation?: (number | null);
+    jumped_at: string;
+    created_at: string;
+    updated_at: string;
+    strafe_stats: Array<JumpstatStrafeStat>;
+};
+
+export type JumpstatLeaderboardEntryPublic = {
+    rank: number;
+    id: string;
+    player: PlayerRefPublic;
+    server_group_id: string;
+    server_group: ServerGroupSummary;
+    mode: KZMode;
+    type: JumpstatType;
+    distance: number;
+    block?: (number | null);
+    strafes: number;
+    sync_percent: number;
+    pre_speed: number;
+    max_speed: number;
+    jumped_at: string;
+};
+
+export type JumpstatLeaderboardsPublic = {
+    data: Array<JumpstatLeaderboardEntryPublic>;
+    count: number;
+};
+
+export type JumpstatPublic = {
+    id: string;
+    player: PlayerRefPublic;
+    server_group_id: string;
+    server_group: ServerGroupSummary;
+    mode: KZMode;
+    type: JumpstatType;
+    distance: number;
+    block?: (number | null);
+    strafes: number;
+    sync_percent: number;
+    pre_speed: number;
+    max_speed: number;
+    w_count: number;
+    overlap_count: number;
+    dead_air_count: number;
+    width: number;
+    height: number;
+    airtime_percent: number;
+    offset: number;
+    crouched_ticks: number;
+    edge?: (number | null);
+    deviation?: (number | null);
+    jumped_at: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type JumpstatsPublic = {
+    data: Array<JumpstatPublic>;
+    count: number;
+};
+
+export type JumpstatStrafeStat = {
+    index: number;
+    sync_percent: number;
+    gain: number;
+    loss: number;
+    airtime_percent: number;
+    width: number;
+    overlap_count?: number;
+    dead_air_count?: number;
+};
+
+export type JumpstatType = 'LJ' | 'BH' | 'MBH' | 'WJ' | 'LAJ' | 'LAH' | 'JB' | 'LBH' | 'LWJ' | 'FL' | 'UNK' | 'INV';
 
 export type KZMode = 'KZT' | 'SKZ' | 'VNL' | 'NKZ';
 
@@ -1230,6 +1331,44 @@ export type HandleHttpGetResponse = (unknown);
 
 export type HandleHttpPostResponse = (unknown);
 
+export type JumpstatsCreateJumpstatData = {
+    authorization?: (string | null);
+    formData: Body_jumpstats_create_jumpstat;
+    xServerGroupKey?: (string | null);
+};
+
+export type JumpstatsCreateJumpstatResponse = (JumpstatDetailPublic);
+
+export type JumpstatsReadJumpstatsData = {
+    block?: (number | null);
+    excludeCheaters?: boolean;
+    limit?: number;
+    mode?: (KZMode | null);
+    offset?: number;
+    serverGroupId?: (string | null);
+    sortBy?: 'distance' | 'jumped_at' | 'created_at';
+    sortOrder?: 'asc' | 'desc';
+    type?: (JumpstatType | null);
+};
+
+export type JumpstatsReadJumpstatsResponse = (JumpstatsPublic);
+
+export type JumpstatsReadJumpstatData = {
+    jumpstatId: string;
+};
+
+export type JumpstatsReadJumpstatResponse = (JumpstatDetailPublic);
+
+export type LeaderboardsReadJumpstatLeaderboardData = {
+    limit?: number;
+    offset?: number;
+    scope?: ModeScope;
+    sortBy?: 'distance' | 'block';
+    type?: JumpstatType;
+};
+
+export type LeaderboardsReadJumpstatLeaderboardResponse = (JumpstatLeaderboardsPublic);
+
 export type LeaderboardsReadPlayerLeaderboardData = {
     country?: (string | null);
     friendsOnly?: boolean;
@@ -1440,6 +1579,21 @@ export type PlayersReadPlayerStatsData = {
 };
 
 export type PlayersReadPlayerStatsResponse = (PlayerStatsPublic);
+
+export type PlayersReadPlayerJumpstatsData = {
+    block?: (number | null);
+    excludeCheaters?: boolean;
+    identifier: string;
+    limit?: number;
+    mode?: (KZMode | null);
+    offset?: number;
+    serverGroupId?: (string | null);
+    sortBy?: 'distance' | 'jumped_at' | 'created_at';
+    sortOrder?: 'asc' | 'desc';
+    type?: (JumpstatType | null);
+};
+
+export type PlayersReadPlayerJumpstatsResponse = (JumpstatsPublic);
 
 export type PlayersReadPlayerSocialLinksData = {
     identifier: string;

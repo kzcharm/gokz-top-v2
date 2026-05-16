@@ -13,6 +13,9 @@ from .ban import (
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .jumpstat import (
     Jumpstat,
+    JumpstatLeaderboardEntryPublic,
+    JumpstatLeaderboardListQuery,
+    JumpstatLeaderboardsPublic,
     JumpstatDetailPublic,
     JumpstatListQuery,
     JumpstatPublic,
@@ -315,6 +318,9 @@ __all__ = [
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
     "Jumpstat",
+    "JumpstatLeaderboardEntryPublic",
+    "JumpstatLeaderboardListQuery",
+    "JumpstatLeaderboardsPublic",
     "JumpstatDetailPublic",
     "JumpstatListQuery",
     "JumpstatPublic",

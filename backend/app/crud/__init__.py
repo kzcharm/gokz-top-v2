@@ -8,8 +8,10 @@ from .ban import (
 )
 from .jumpstat import (
     get_jumpstat_by_id,
+    read_jumpstat_leaderboard,
     read_jumpstats,
     to_jumpstat_detail_public,
+    to_jumpstat_leaderboard_publics,
     to_jumpstat_public,
     to_jumpstat_publics,
 )
@@ -373,6 +375,7 @@ __all__ = [
     "list_player_social_links",
     "mark_player_webhook_used",
     "not_active_ban_exists_clause",
+    "read_jumpstat_leaderboard",
     "parse_social_link_or_raise",
     "player_action_timestamp_exists",
     "player_profile_field_change_exists",
@@ -403,6 +406,7 @@ __all__ = [
     "to_ban_compat_public_v0",
     "to_ban_public",
     "to_jumpstat_detail_public",
+    "to_jumpstat_leaderboard_publics",
     "to_jumpstat_public",
     "to_jumpstat_publics",
     "to_admin_map_public",

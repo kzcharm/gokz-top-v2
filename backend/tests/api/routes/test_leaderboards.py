@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -11,6 +12,9 @@ from app.core.config import settings
 from app.models import (
     Ban,
     BanType,
+    Jumpstat,
+    JumpstatType,
+    KZMode,
     LeaderboardPlayer,
     Map,
     MapCourse,
@@ -21,6 +25,7 @@ from app.models import (
     ServerGlobalapi,
 )
 from app.models.leaderboard_player import scale_public_rating
+from tests.utils.server import create_server_group as create_test_server_group
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import random_steamid64
 
@@ -179,6 +184,64 @@ async def _create_ban(
     await db.flush()
 
 
+async def _create_jumpstat(
+    db: AsyncSession,
+    *,
+    player_steamid64: int,
+    server_group_id: uuid.UUID,
+    type: JumpstatType = JumpstatType.LJ,
+    mode: KZMode = KZMode.KZT,
+    distance: str = "281.8030",
+    block: int | None = 280,
+    strafes: int = 8,
+    sync_percent: int = 83,
+    pre_speed: str = "276.1000",
+    max_speed: str = "366.7200",
+    jumped_at: datetime | None = None,
+) -> Jumpstat:
+    jumpstat = Jumpstat(
+        player_steamid64=player_steamid64,
+        server_group_id=server_group_id,
+        type=type,
+        mode=mode,
+        distance=Decimal(distance),
+        block=block,
+        strafes=strafes,
+        sync_percent=sync_percent,
+        pre_speed=Decimal(pre_speed),
+        max_speed=Decimal(max_speed),
+        w_count=0,
+        overlap_count=0,
+        dead_air_count=0,
+        width=Decimal("33.8000"),
+        height=Decimal("55.8000"),
+        airtime_percent=100,
+        offset=Decimal("0.0000"),
+        crouched_ticks=21,
+        edge=None,
+        deviation=None,
+        strafe_stats=[
+            {
+                "index": index,
+                "sync_percent": min(100, 80 + index),
+                "gain": float(12 + index),
+                "loss": 0.0,
+                "airtime_percent": 10 + index,
+                "width": float(20 + index),
+                "overlap_count": 0,
+                "dead_air_count": 0,
+            }
+            for index in range(1, strafes + 1)
+        ],
+        jumped_at=jumped_at or datetime(2099, 2, 1, 12, 0, tzinfo=UTC),
+        created_at=jumped_at or datetime(2099, 2, 1, 12, 0, tzinfo=UTC),
+        updated_at=jumped_at or datetime(2099, 2, 1, 12, 0, tzinfo=UTC),
+    )
+    db.add(jumpstat)
+    await db.flush()
+    return jumpstat
+
+
 async def _create_friendship(
     db: AsyncSession,
     *,
@@ -192,6 +255,19 @@ async def _create_friendship(
             (friend_steamid64, player_steamid64, None),
         ],
     )
+    await db.flush()
+
+
+async def _set_leaderboard_rating(
+    db: AsyncSession,
+    *,
+    scope: ModeScope,
+    steamid64: int,
+    rating: int,
+) -> None:
+    row = await db.get(LeaderboardPlayer, (scope, steamid64))
+    assert row is not None
+    row.rating = rating
     await db.flush()
 
 
@@ -891,5 +967,239 @@ async def test_upsert_player_leaderboards_rebuilds_player_without_auth(
 
     assert after_response.status_code == 200
     payload = after_response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["player"]["steamid64"] == str(players["alpha"])
+
+
+async def test_read_jumpstat_leaderboard_returns_pb_rows_for_scope_and_type(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _set_leaderboard_rating(
+        db, scope=ModeScope.KZT, steamid64=players["alpha"], rating=40_000
+    )
+    await _set_leaderboard_rating(
+        db, scope=ModeScope.KZT, steamid64=players["beta"], rating=39_000
+    )
+    group, _api_key = await create_test_server_group(db, name="Jumpstats Leaderboard")
+
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["alpha"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="281.1111",
+        block=280,
+        jumped_at=datetime(2099, 2, 1, 12, 0, tzinfo=UTC),
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["alpha"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="284.4444",
+        block=282,
+        jumped_at=datetime(2099, 2, 1, 13, 0, tzinfo=UTC),
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["alpha"],
+        server_group_id=group.id,
+        type=JumpstatType.BH,
+        mode=KZMode.KZT,
+        distance="289.9999",
+        block=286,
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["beta"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="279.5555",
+        block=279,
+        jumped_at=datetime(2099, 2, 1, 11, 0, tzinfo=UTC),
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["gamma"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.SKZ,
+        distance="300.1234",
+        block=290,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/jumpstats",
+        params={"scope": "KZT", "type": "LJ"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert [row["player"]["display_name"] for row in payload["data"]] == ["Alpha", "Beta"]
+    assert [row["distance"] for row in payload["data"]] == [284.4444, 279.5555]
+    assert payload["data"][0]["block"] == 282
+    assert payload["data"][0]["strafes"] == 8
+    assert payload["data"][0]["mode"] == "KZT"
+    assert payload["data"][0]["type"] == "LJ"
+
+
+async def test_read_jumpstat_leaderboard_uses_current_scope_raw_rating_threshold(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    group, _api_key = await create_test_server_group(
+        db, name="Jumpstats Threshold Leaderboard"
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["beta"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="280.0001",
+        block=280,
+    )
+
+    beta_kzt_row = await db.get(LeaderboardPlayer, (ModeScope.KZT, players["beta"]))
+    beta_ovr_row = await db.get(LeaderboardPlayer, (ModeScope.OVR, players["beta"]))
+    assert beta_kzt_row is not None
+    assert beta_ovr_row is not None
+    beta_kzt_row.rating = 33_456
+    beta_ovr_row.rating = 40_000
+    await db.commit()
+
+    kzt_response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/jumpstats",
+        params={"scope": "KZT", "type": "LJ"},
+    )
+    assert kzt_response.status_code == 200
+    assert kzt_response.json() == {"data": [], "count": 0}
+
+    ovr_response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/jumpstats",
+        params={"scope": "OVR", "type": "LJ"},
+    )
+    assert ovr_response.status_code == 200
+    payload = ovr_response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["player"]["steamid64"] == str(players["beta"])
+
+
+async def test_read_jumpstat_leaderboard_block_sort_uses_distance_tiebreaker(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _set_leaderboard_rating(
+        db, scope=ModeScope.OVR, steamid64=players["alpha"], rating=40_000
+    )
+    await _set_leaderboard_rating(
+        db, scope=ModeScope.OVR, steamid64=players["beta"], rating=39_000
+    )
+    await _set_leaderboard_rating(
+        db, scope=ModeScope.OVR, steamid64=players["gamma"], rating=38_000
+    )
+    group, _api_key = await create_test_server_group(db, name="Jumpstats Block Leaderboard")
+
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["alpha"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="285.0000",
+        block=280,
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["beta"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="282.0000",
+        block=280,
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["gamma"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.SKZ,
+        distance="275.0000",
+        block=285,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/jumpstats",
+        params={"scope": "OVR", "type": "LJ", "sort_by": "block"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 3
+    assert [row["player"]["display_name"] for row in payload["data"]] == [
+        "Gamma",
+        "Alpha",
+        "Beta",
+    ]
+    assert [row["block"] for row in payload["data"]] == [285, 280, 280]
+    assert [row["distance"] for row in payload["data"]] == [275.0, 285.0, 282.0]
+
+
+async def test_read_jumpstat_leaderboard_excludes_banned_players(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _set_leaderboard_rating(
+        db, scope=ModeScope.KZT, steamid64=players["alpha"], rating=40_000
+    )
+    await _set_leaderboard_rating(
+        db, scope=ModeScope.KZT, steamid64=players["beta"], rating=39_000
+    )
+    group, _api_key = await create_test_server_group(db, name="Jumpstats Ban Leaderboard")
+
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["alpha"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="286.0000",
+        block=281,
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=players["beta"],
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        mode=KZMode.KZT,
+        distance="287.0000",
+        block=282,
+    )
+    await _create_ban(
+        db,
+        ban_id=2_129_900_001,
+        steamid64=players["beta"],
+        expires_on=None,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/jumpstats",
+        params={"scope": "KZT", "type": "LJ"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
     assert payload["count"] == 1
     assert payload["data"][0]["player"]["steamid64"] == str(players["alpha"])

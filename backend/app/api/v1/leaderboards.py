@@ -7,8 +7,10 @@ from app.api.deps import OptionalCurrentUser, SessionDep, get_current_active_sup
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.models import (
-    Message,
+    JumpstatLeaderboardListQuery,
+    JumpstatLeaderboardsPublic,
     MapLeaderboardsPublic,
+    Message,
     ModeScope,
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
@@ -17,6 +19,7 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
+
 
 def _validate_geography_filters(
     *,
@@ -59,8 +62,16 @@ def _get_friends_only_viewer_steamid64(
         raise HTTPException(
             status_code=403,
             detail="Login is required to view a friends-only leaderboard.",
-        )
+    )
     return current_user.steamid64
+
+
+@router.get("/jumpstats", response_model=JumpstatLeaderboardsPublic)
+async def read_jumpstat_leaderboard(
+    session: SessionDep,
+    query: Annotated[JumpstatLeaderboardListQuery, Query()],
+) -> JumpstatLeaderboardsPublic:
+    return await crud.read_jumpstat_leaderboard(session=session, query=query)
 
 
 @router.get("/players", response_model=PlayerLeaderboardsPublic)

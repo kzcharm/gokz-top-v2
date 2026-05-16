@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Any, cast
 
+from sqlalchemy import and_
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -11,14 +12,21 @@ from app.crud.player import to_player_ref_public
 from app.models import (
     Jumpstat,
     JumpstatDetailPublic,
+    JumpstatLeaderboardEntryPublic,
+    JumpstatLeaderboardListQuery,
+    JumpstatLeaderboardsPublic,
     JumpstatListQuery,
     JumpstatPublic,
+    LeaderboardPlayer,
     Player,
     ServerGroup,
     ServerGroupSummary,
+    mode_scope_modes,
 )
 
 type JumpstatRow = tuple[Jumpstat, Player, ServerGroup]
+
+MIN_JUMPSTAT_LEADERBOARD_RAW_RATING = 33_457
 
 
 def _to_server_group_summary(*, server_group: ServerGroup) -> ServerGroupSummary:
@@ -72,6 +80,134 @@ def _build_order_by(query: JumpstatListQuery) -> list[ColumnElement[Any]]:
     if query.sort_order == "asc":
         return [sort_column.asc(), col(Jumpstat.id).asc()]
     return [sort_column.desc(), col(Jumpstat.id).desc()]
+
+
+def to_jumpstat_leaderboard_publics(
+    *,
+    rows: Sequence[JumpstatRow],
+    offset: int,
+) -> list[JumpstatLeaderboardEntryPublic]:
+    return [
+        JumpstatLeaderboardEntryPublic.from_row(
+            rank=offset + index,
+            jumpstat=jumpstat,
+            player=to_player_ref_public(player=player),
+            server_group=_to_server_group_summary(server_group=server_group),
+        )
+        for index, (jumpstat, player, server_group) in enumerate(rows, start=1)
+    ]
+
+
+def _leaderboard_base_order_by(columns: Any) -> list[Any]:
+    return [
+        columns.distance.desc(),
+        columns.jumped_at.desc(),
+        columns.id.desc(),
+    ]
+
+
+def _leaderboard_order_by(
+    *,
+    query: JumpstatLeaderboardListQuery,
+    columns: Any,
+) -> list[Any]:
+    if query.sort_by == "block":
+        return [
+            columns.block.desc().nullslast(),
+            columns.distance.desc(),
+            columns.jumped_at.desc(),
+            columns.id.desc(),
+        ]
+    return _leaderboard_base_order_by(columns)
+
+
+async def read_jumpstat_leaderboard(
+    *,
+    session: AsyncSession,
+    query: JumpstatLeaderboardListQuery,
+) -> JumpstatLeaderboardsPublic:
+    ranked_jumpstats_subquery = (
+        select(
+            col(Jumpstat.id).label("id"),
+            col(Jumpstat.distance).label("distance"),
+            col(Jumpstat.block).label("block"),
+            col(Jumpstat.jumped_at).label("jumped_at"),
+            func.row_number()
+            .over(
+                partition_by=col(Jumpstat.player_steamid64),
+                order_by=_leaderboard_base_order_by(Jumpstat),
+            )
+            .label("pb_rank"),
+        )
+        .select_from(Jumpstat)
+        .join(
+            LeaderboardPlayer,
+            and_(
+                col(LeaderboardPlayer.steamid64) == col(Jumpstat.player_steamid64),
+                col(LeaderboardPlayer.scope) == query.scope,
+            ),
+        )
+        .where(
+            col(Jumpstat.type) == query.type,
+            col(Jumpstat.mode).in_(list(mode_scope_modes(query.scope))),
+            not_active_ban_exists_clause(
+                steamid64_column=Jumpstat.__table__.c.player_steamid64
+            ),
+            # TODO: Stop using raw rating here once we write the actual rating directly
+            # to the database.
+            col(LeaderboardPlayer.rating) >= MIN_JUMPSTAT_LEADERBOARD_RAW_RATING,
+        )
+        .subquery()
+    )
+    pb_jumpstats_subquery = (
+        select(
+            ranked_jumpstats_subquery.c.id,
+            ranked_jumpstats_subquery.c.distance,
+            ranked_jumpstats_subquery.c.block,
+            ranked_jumpstats_subquery.c.jumped_at,
+        )
+        .where(ranked_jumpstats_subquery.c.pb_rank == 1)
+        .subquery()
+    )
+    page_subquery = (
+        select(
+            pb_jumpstats_subquery.c.id,
+            pb_jumpstats_subquery.c.distance,
+            pb_jumpstats_subquery.c.block,
+            pb_jumpstats_subquery.c.jumped_at,
+        )
+        .order_by(*_leaderboard_order_by(query=query, columns=pb_jumpstats_subquery.c))
+        .offset(query.offset)
+        .limit(query.limit)
+        .subquery()
+    )
+
+    rows = cast(
+        list[JumpstatRow],
+        list(
+            (
+                await session.exec(
+                    select(Jumpstat, Player, ServerGroup)
+                    .select_from(page_subquery)
+                    .join(Jumpstat, col(Jumpstat.id) == page_subquery.c.id)
+                    .join(Player, col(Player.steamid64) == col(Jumpstat.player_steamid64))
+                    .join(ServerGroup, col(ServerGroup.id) == col(Jumpstat.server_group_id))
+                    .order_by(*_leaderboard_order_by(query=query, columns=page_subquery.c))
+                )
+            ).all()
+        ),
+    )
+    count = int(
+        (
+            await session.exec(
+                select(func.count()).select_from(pb_jumpstats_subquery)
+            )
+        ).one()
+    )
+    return JumpstatLeaderboardsPublic(
+        data=to_jumpstat_leaderboard_publics(rows=rows, offset=query.offset),
+        count=count,
+    )
 
 
 async def read_jumpstats(

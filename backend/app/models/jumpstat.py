@@ -10,6 +10,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
+from .mode_scope import ModeScope
 from .player import PlayerRefPublic
 from .record import KZMode
 from .server import ServerGroupSummary
@@ -287,3 +288,62 @@ class JumpstatListQuery(SQLModel):
     exclude_cheaters: bool = True
     sort_by: Literal["distance", "jumped_at", "created_at"] = "distance"
     sort_order: Literal["asc", "desc"] = "desc"
+
+
+JumpstatLeaderboardSortBy = Literal["distance", "block"]
+
+
+class JumpstatLeaderboardEntryPublic(SQLModel):
+    rank: int
+    id: uuid.UUID
+    player: PlayerRefPublic
+    server_group_id: uuid.UUID
+    server_group: ServerGroupSummary
+    mode: KZMode
+    type: JumpstatType
+    distance: float
+    block: int | None = None
+    strafes: int
+    sync_percent: int
+    pre_speed: float
+    max_speed: float
+    jumped_at: datetime
+
+    @classmethod
+    def from_row(
+        cls,
+        *,
+        rank: int,
+        jumpstat: Jumpstat,
+        player: PlayerRefPublic,
+        server_group: ServerGroupSummary,
+    ) -> JumpstatLeaderboardEntryPublic:
+        return cls(
+            rank=rank,
+            id=jumpstat.id,
+            player=player,
+            server_group_id=jumpstat.server_group_id,
+            server_group=server_group,
+            mode=jumpstat.mode,
+            type=jumpstat.type,
+            distance=float(jumpstat.distance),
+            block=jumpstat.block,
+            strafes=jumpstat.strafes,
+            sync_percent=jumpstat.sync_percent,
+            pre_speed=float(jumpstat.pre_speed),
+            max_speed=float(jumpstat.max_speed),
+            jumped_at=jumpstat.jumped_at,
+        )
+
+
+class JumpstatLeaderboardsPublic(SQLModel):
+    data: list[JumpstatLeaderboardEntryPublic]
+    count: int
+
+
+class JumpstatLeaderboardListQuery(SQLModel):
+    scope: ModeScope = ModeScope.OVR
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=100)
+    type: JumpstatType = JumpstatType.LJ
+    sort_by: JumpstatLeaderboardSortBy = "distance"
