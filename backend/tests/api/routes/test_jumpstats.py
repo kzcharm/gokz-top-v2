@@ -4,10 +4,17 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import Ban, BanType, Jumpstat, JumpstatType, KZMode, Player
+from app.services.jump_replay_storage import get_jump_replay_path
+from tests.utils.jump_replay import (
+    build_synthetic_jump_replay,
+    expected_parent_values,
+    expected_strafe_stats,
+)
 from tests.utils.server import create_server_group as create_test_server_group
 from tests.utils.utils import random_steamid64
 
@@ -294,3 +301,136 @@ async def test_jumpstat_lists_exclude_banned_players_by_default_but_detail_remai
     detail_response = await client.get(f"{settings.API_V1_STR}/jumpstats/{jumpstat.id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["player"]["steamid64"] == str(player.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_create_jumpstat_upload_creates_row_and_replay_file(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    group, api_key = await create_test_server_group(db, name="Upload Group")
+    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    synthetic = build_synthetic_jump_replay()
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/jumpstats",
+        files={
+            "replay": (
+                "synthetic.replay",
+                synthetic.replay_bytes,
+                "application/octet-stream",
+            )
+        },
+        headers={"X-Server-Group-Key": api_key},
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    expected = expected_parent_values()
+    assert payload["player"]["steamid64"] == str(synthetic.steamid64)
+    assert payload["server_group"]["id"] == str(group.id)
+    assert payload["distance"] == float(expected["distance"])
+    assert payload["deviation"] == float(expected["deviation"])
+    assert payload["edge"] is None
+    assert payload["strafe_stats"] == expected_strafe_stats()
+
+    jumpstat_id = uuid.UUID(payload["id"])
+    stored_path = get_jump_replay_path(jumpstat_id=jumpstat_id)
+    assert stored_path.exists()
+    assert stored_path.read_bytes() == synthetic.replay_bytes
+
+    created_jumpstats = list((await db.exec(select(Jumpstat))).all())
+    assert len(created_jumpstats) == 1
+    stored_player = await db.get(Player, synthetic.steamid64)
+    assert stored_player is not None
+    assert stored_player.name == str(synthetic.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_create_jumpstat_upload_is_not_deduplicated(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _group, api_key = await create_test_server_group(db, name="Repeat Upload Group")
+    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    synthetic = build_synthetic_jump_replay()
+
+    first = await client.post(
+        f"{settings.API_V1_STR}/jumpstats",
+        files={
+            "replay": (
+                "synthetic.replay",
+                synthetic.replay_bytes,
+                "application/octet-stream",
+            )
+        },
+        headers={"X-Server-Group-Key": api_key},
+    )
+    second = await client.post(
+        f"{settings.API_V1_STR}/jumpstats",
+        files={
+            "replay": (
+                "synthetic.replay",
+                synthetic.replay_bytes,
+                "application/octet-stream",
+            )
+        },
+        headers={"X-Server-Group-Key": api_key},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["id"] != second.json()["id"]
+    jumpstats = list(
+        (await db.exec(select(Jumpstat).order_by(Jumpstat.created_at))).all()
+    )
+    assert len(jumpstats) == 2
+
+
+@pytest.mark.asyncio
+async def test_create_jumpstat_upload_rejects_invalid_style(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    _group, api_key = await create_test_server_group(db, name="Invalid Upload Group")
+    synthetic = build_synthetic_jump_replay(style_index=1)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/jumpstats",
+        files={
+            "replay": (
+                "invalid.replay",
+                synthetic.replay_bytes,
+                "application/octet-stream",
+            )
+        },
+        headers={"X-Server-Group-Key": api_key},
+    )
+
+    assert response.status_code == 422
+    assert "unsupported replay style" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_jumpstat_upload_requires_valid_server_group_key(
+    client: AsyncClient,
+) -> None:
+    synthetic = build_synthetic_jump_replay()
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/jumpstats",
+        files={
+            "replay": (
+                "synthetic.replay",
+                synthetic.replay_bytes,
+                "application/octet-stream",
+            )
+        },
+        headers={"X-Server-Group-Key": "not-a-key"},
+    )
+
+    assert response.status_code == 401

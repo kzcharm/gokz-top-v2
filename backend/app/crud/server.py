@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -293,6 +293,20 @@ async def get_server_group_by_api_key(
     return (await session.exec(statement)).first()
 
 
+async def get_server_groups_by_custom_id_or_name(
+    *,
+    session: AsyncSession,
+    identifier: str,
+) -> list[ServerGroup]:
+    statement = select(ServerGroup).where(
+        or_(
+            col(ServerGroup.custom_id) == identifier,
+            col(ServerGroup.name) == identifier,
+        )
+    )
+    return list((await session.exec(statement)).all())
+
+
 async def owner_has_invalidated_server_group(
     *,
     session: AsyncSession,
@@ -337,9 +351,11 @@ async def read_server_groups_for_admin(
     if not group_ids:
         return groups, {}
 
-    servers_statement = select(Server.group_id, func.count()).where(
-        col(Server.group_id).in_(group_ids)
-    ).group_by(col(Server.group_id))
+    servers_statement = (
+        select(Server.group_id, func.count())
+        .where(col(Server.group_id).in_(group_ids))
+        .group_by(col(Server.group_id))
+    )
     return groups, {
         group_id: count
         for group_id, count in (await session.exec(servers_statement)).all()
@@ -457,7 +473,9 @@ async def update_server_group(
 
 
 async def delete_server_group(*, session: AsyncSession, group: ServerGroup) -> None:
-    counts = await get_server_group_dependency_counts(session=session, group_id=group.id)
+    counts = await get_server_group_dependency_counts(
+        session=session, group_id=group.id
+    )
     if counts.total > 0:
         raise ValueError("Server group has dependencies")
     await session.delete(group)
@@ -539,7 +557,9 @@ async def read_servers(
     if query.region:
         region_country_codes = get_region_country_codes(query.region)
         if region_country_codes is not None:
-            statement = statement.where(col(Server.country).in_(list(region_country_codes)))
+            statement = statement.where(
+                col(Server.country).in_(list(region_country_codes))
+            )
         else:
             return [], 0
     if query.city:
@@ -572,8 +592,7 @@ async def read_servers(
     servers.sort(
         key=lambda server: (
             0 if server.live_status and server.live_status.is_online else 1,
-            (server.live_status.hostname if server.live_status else None)
-            or "",
+            (server.live_status.hostname if server.live_status else None) or "",
             server.ip,
             server.port,
         )
@@ -912,7 +931,10 @@ async def record_plugin_heartbeat(
         players=[player.model_dump(mode="json") for player in payload.players],
         is_online=True,
     )
-    if _should_auto_validate_server_group(group=group, server=server) and group is not None:
+    if (
+        _should_auto_validate_server_group(group=group, server=server)
+        and group is not None
+    ):
         group.status = ServerGroupStatus.VALIDATED
         group.updated_at = payload.observed_at
         session.add(group)
