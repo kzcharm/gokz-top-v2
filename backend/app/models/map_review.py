@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import field_validator
 from sqlalchemy import BigInteger, Column, DateTime, Index, UniqueConstraint

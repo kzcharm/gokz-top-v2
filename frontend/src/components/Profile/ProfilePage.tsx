@@ -150,9 +150,9 @@ export function ProfilePage({
           ? "/profile/$identifier/stats"
           : activeTab === "jumpstats"
             ? "/profile/$identifier/jumpstats"
-          : activeTab === "friends"
-            ? "/profile/$identifier/friends"
-            : "/profile/$identifier"
+            : activeTab === "friends"
+              ? "/profile/$identifier/friends"
+              : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {

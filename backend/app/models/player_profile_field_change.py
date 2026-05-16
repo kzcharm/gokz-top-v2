@@ -6,6 +6,7 @@ from sqlalchemy import BigInteger, Column, DateTime, ForeignKey
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
+from .mode_scope import ModeScope
 from .player import (
     MAX_PLAYER_CUSTOM_ID_LENGTH,
     PlayerPublic,
@@ -13,7 +14,6 @@ from .player import (
     validate_player_custom_id,
     validate_player_settings_alias,
 )
-from .mode_scope import ModeScope
 from .utils import get_datetime_utc
 
 

@@ -15,7 +15,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import type { ProfileJumpstatDetail, ProfileJumpstatsResult } from "./profile-utils"
+import type {
+  ProfileJumpstatDetail,
+  ProfileJumpstatsResult,
+} from "./profile-utils"
 
 function formatDecimal(value: number, digits = 1) {
   return value.toFixed(digits)
@@ -92,7 +95,10 @@ function JumpstatCard({ jumpstat }: { jumpstat: ProfileJumpstatDetail }) {
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>{jumpstat.server_group.name}</span>
               <span>•</span>
-              <FormattedDateTime value={jumpstat.jumped_at} display="absolute" />
+              <FormattedDateTime
+                value={jumpstat.jumped_at}
+                display="absolute"
+              />
             </div>
           </div>
 
@@ -205,7 +211,8 @@ function JumpstatCard({ jumpstat }: { jumpstat: ProfileJumpstatDetail }) {
               <div className="inline-flex items-center gap-2">
                 <Ruler className="h-3.5 w-3.5" />
                 <span className="font-mono tabular-nums">
-                  {t("profile.jumpstats.edge")}: {formatDecimal(jumpstat.edge, 2)}
+                  {t("profile.jumpstats.edge")}:{" "}
+                  {formatDecimal(jumpstat.edge, 2)}
                 </span>
               </div>
             ) : null}

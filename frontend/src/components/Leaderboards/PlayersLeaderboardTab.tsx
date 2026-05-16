@@ -26,8 +26,8 @@ import {
   type LeaderboardTableRow,
 } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
