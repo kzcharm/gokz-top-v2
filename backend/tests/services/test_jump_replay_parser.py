@@ -104,6 +104,40 @@ def test_parse_jump_replay_bytes_rejects_truncated_replay() -> None:
         parse_jump_replay_bytes(data=b"", source_name="empty.replay")
 
 
+def test_parse_jump_replay_bytes_rejects_non_finite_tick_values() -> None:
+    synthetic = build_synthetic_jump_replay(
+        ticks=[
+            SyntheticReplayTick(
+                origin=(0.0, 0.0, 0.0),
+                angles=(0.0, 0.0, 0.0),
+                velocity=(100.0, 0.0, 0.0),
+                flags=RP_FL_ONGROUND | RP_IN_FORWARD,
+                forwardmove=450.0,
+            ),
+            SyntheticReplayTick(
+                origin=(1.0, 0.0, 1.0),
+                angles=(0.0, float("inf"), 0.0),
+                velocity=(110.0, 0.0, 10.0),
+                flags=RP_IN_MOVERIGHT,
+                sidemove=450.0,
+            ),
+            SyntheticReplayTick(
+                origin=(2.0, 0.0, 0.0),
+                angles=(0.0, 10.0, 0.0),
+                velocity=(100.0, 0.0, -10.0),
+                flags=RP_FL_ONGROUND | RP_IN_MOVERIGHT,
+                sidemove=450.0,
+            ),
+        ]
+    )
+
+    with pytest.raises(JumpReplayParseError, match="non-finite angles.y"):
+        parse_jump_replay_bytes(
+            data=synthetic.replay_bytes,
+            source_name="non-finite.replay",
+        )
+
+
 def test_parse_jump_replay_visualization_keeps_route_bottom_to_top() -> None:
     synthetic = build_synthetic_jump_replay()
 
