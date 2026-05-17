@@ -18,33 +18,35 @@ const STRAFE_TYPE_COLORS: Record<JumpstatVisualizationStrafeType, string> = {
   NONE_RIGHT: "#22c55e",
 }
 
-function getRoutePoint(
-  sample: JumpstatVisualizationSample,
+function getRouteCoordinates(
+  x: number,
+  y: number,
   visualization: JumpstatVisualizationPublic,
 ) {
   const width = 100
   const height = 120
   const padding = 10
-  const drawableWidth = width - padding * 2
+  const drawableHalfWidth = (width - padding * 2) / 2
   const drawableHeight = height - padding * 2
-  const xRange = Math.max(
-    visualization.bounds.max_x - visualization.bounds.min_x,
+  const maxAbsX = Math.max(
+    Math.abs(visualization.bounds.min_x),
+    Math.abs(visualization.bounds.max_x),
     1,
   )
-  const yRange = Math.max(
-    visualization.bounds.max_y - visualization.bounds.min_y,
-    1,
-  )
+  const maxY = Math.max(visualization.bounds.max_y, 1)
+  const scale = Math.min(drawableHalfWidth / maxAbsX, drawableHeight / maxY)
 
   return {
-    x:
-      padding +
-      ((sample.x - visualization.bounds.min_x) / xRange) * drawableWidth,
-    y:
-      height -
-      padding -
-      ((sample.y - visualization.bounds.min_y) / yRange) * drawableHeight,
+    x: width / 2 + x * scale,
+    y: height - padding - y * scale,
   }
+}
+
+function getRoutePoint(
+  sample: JumpstatVisualizationSample,
+  visualization: JumpstatVisualizationPublic,
+) {
+  return getRouteCoordinates(sample.x, sample.y, visualization)
 }
 
 function Strip({
@@ -106,6 +108,7 @@ export function JumpstatRouteVisualization({
     sample,
     ...getRoutePoint(sample, visualization),
   }))
+  const originPoint = getRouteCoordinates(0, 0, visualization)
 
   return (
     <div className="rounded-[26px] border border-border/70 bg-background/70 p-5">
@@ -124,7 +127,7 @@ export function JumpstatRouteVisualization({
       <div className="mt-4 overflow-hidden rounded-2xl border border-border/60 bg-card">
         <svg
           viewBox="0 0 100 120"
-          className="h-[20rem] w-full bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.15),_transparent_55%)]"
+          className="h-[36rem] w-full bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.15),_transparent_55%)]"
           role="img"
           aria-label={title}
         >
@@ -153,6 +156,17 @@ export function JumpstatRouteVisualization({
             stroke="rgba(148,163,184,0.2)"
             strokeDasharray="2 3"
           />
+          {points[0] ? (
+            <line
+              x1={originPoint.x}
+              y1={originPoint.y}
+              x2={points[0].x}
+              y2={points[0].y}
+              stroke={STRAFE_TYPE_COLORS[points[0].sample.strafe_type]}
+              strokeWidth="1.9"
+              strokeLinecap="round"
+            />
+          ) : null}
           {points.slice(1).map((point, index) => {
             const previous = points[index]
             return (
@@ -163,22 +177,19 @@ export function JumpstatRouteVisualization({
                 x2={point.x}
                 y2={point.y}
                 stroke={STRAFE_TYPE_COLORS[point.sample.strafe_type]}
-                strokeWidth="2.8"
+                strokeWidth="1.9"
                 strokeLinecap="round"
               />
             )
           })}
-          {points.map((point) => (
-            <circle
-              key={`point-${point.sample.index}`}
-              cx={point.x}
-              cy={point.y}
-              r="2.2"
-              fill={STRAFE_TYPE_COLORS[point.sample.strafe_type]}
-              stroke="rgba(255,255,255,0.7)"
-              strokeWidth="0.7"
-            />
-          ))}
+          <circle
+            cx={originPoint.x}
+            cy={originPoint.y}
+            r="1.4"
+            fill="#f8fafc"
+            stroke="rgba(15,23,42,0.65)"
+            strokeWidth="0.55"
+          />
         </svg>
       </div>
 

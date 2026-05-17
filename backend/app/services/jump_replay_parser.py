@@ -749,11 +749,15 @@ def _mouse_direction_from_yaw_delta(
     return JumpstatVisualizationMouseDirection.NONE
 
 
-def _rotate_point(*, x: float, y: float, radians: float) -> tuple[float, float]:
-    return (
-        x * math.cos(radians) - y * math.sin(radians),
-        x * math.sin(radians) + y * math.cos(radians),
-    )
+def _canonicalize_route_offset(*, x: float, y: float, delta_x: float, delta_y: float) -> tuple[float, float]:
+    if abs(delta_x) >= abs(delta_y):
+        if delta_x >= 0.0:
+            return (-y, x)
+        return (y, -x)
+
+    if delta_y >= 0.0:
+        return (x, y)
+    return (-x, -y)
 
 
 def parse_jump_replay_bytes(
@@ -824,11 +828,6 @@ def parse_jump_replay_visualization(
     landing_y = ticks[landing_tick].origin.y
     delta_x = landing_x - takeoff_x
     delta_y = landing_y - takeoff_y
-    route_angle = math.degrees(math.atan2(delta_y, delta_x)) if (
-        abs(delta_x) > EPSILON or abs(delta_y) > EPSILON
-    ) else 90.0
-    rotation_radians = math.radians(90.0 - route_angle)
-    deviation_angle = _to_decimal(_normalize_angle(route_angle - 90.0))
     jump_direction = _derive_jump_direction(
         ticks=ticks,
         base_tick=base_tick,
@@ -843,16 +842,17 @@ def parse_jump_replay_visualization(
         range(segment.start_air_tick, landing_tick + 1)
     ):
         tick = ticks[tick_index]
-        rotated_x, rotated_y = _rotate_point(
+        canonical_x, canonical_y = _canonicalize_route_offset(
             x=tick.origin.x - takeoff_x,
             y=tick.origin.y - takeoff_y,
-            radians=rotation_radians,
+            delta_x=delta_x,
+            delta_y=delta_y,
         )
         samples.append(
             JumpstatVisualizationSample(
                 index=relative_index,
-                x=float(_to_decimal(rotated_x)),
-                y=float(_to_decimal(rotated_y)),
+                x=float(_to_decimal(canonical_x)),
+                y=float(_to_decimal(canonical_y)),
                 yaw_delta=0.0,
                 mouse_direction=JumpstatVisualizationMouseDirection.NONE,
                 a_pressed=bool(tick.flags & left_button),
@@ -869,6 +869,14 @@ def parse_jump_replay_visualization(
         samples[mouse_index].yaw_delta = float(_to_decimal(yaw_delta))
         samples[mouse_index].mouse_direction = _mouse_direction_from_yaw_delta(yaw_delta)
         previous_yaw = tick.angles.y
+
+    if samples:
+        end_sample = samples[-1]
+        deviation_angle = _to_decimal(
+            abs(math.degrees(math.atan2(end_sample.x, max(end_sample.y, EPSILON))))
+        )
+    else:
+        deviation_angle = _to_decimal(0.0)
 
     if samples:
         bounds = JumpstatVisualizationBounds(

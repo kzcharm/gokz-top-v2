@@ -150,10 +150,10 @@ function JumpstatDetailPanel({
           <pre className="whitespace-pre-wrap break-words font-mono text-[13px] leading-7 text-[#d4d4d4]">
             {consoleBlock}
           </pre>
-          {jumpstat.deviation !== null ? (
+          {visualization ? (
             <div className="mt-4 font-mono text-xs text-[#b7b7b7]">
-              {t("leaderboards.jumpstats.dialog.deviation")}:{" "}
-              {formatDecimal(jumpstat.deviation, 2)}
+              {t("leaderboards.jumpstats.dialog.visualization.deviationAngle")}:{" "}
+              {formatDecimal(visualization.deviation_angle, 2)}°
             </div>
           ) : null}
         </div>

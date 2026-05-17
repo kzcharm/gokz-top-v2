@@ -104,7 +104,7 @@ def test_parse_jump_replay_bytes_rejects_truncated_replay() -> None:
         parse_jump_replay_bytes(data=b"", source_name="empty.replay")
 
 
-def test_parse_jump_replay_visualization_rotates_route_upward() -> None:
+def test_parse_jump_replay_visualization_keeps_route_bottom_to_top() -> None:
     synthetic = build_synthetic_jump_replay()
 
     visualization = parse_jump_replay_visualization(
@@ -114,7 +114,7 @@ def test_parse_jump_replay_visualization_rotates_route_upward() -> None:
 
     assert visualization.version == JUMPSTAT_VISUALIZATION_VERSION
     assert visualization.jump_direction == "FORWARDS"
-    assert visualization.deviation_angle == pytest.approx(-78.6901, abs=1e-4)
+    assert visualization.deviation_angle == pytest.approx(11.3099, abs=1e-4)
     assert len(visualization.samples) == 4
     assert visualization.samples[0].strafe_type == "NONE_RIGHT"
     assert visualization.samples[0].yaw_delta == -5.0
@@ -125,8 +125,10 @@ def test_parse_jump_replay_visualization_rotates_route_upward() -> None:
     assert visualization.samples[1].mouse_direction == "RIGHT"
     assert visualization.samples[-1].mouse_direction == "NONE"
     assert visualization.samples[-1].yaw_delta == 0.0
-    assert abs(visualization.samples[-1].x) <= 0.0001
-    assert visualization.samples[-1].y > 10.0
+    assert visualization.samples[0].x == pytest.approx(0.0, abs=1e-4)
+    assert visualization.samples[0].y == pytest.approx(1.0, abs=1e-4)
+    assert visualization.samples[-1].x == pytest.approx(-2.0, abs=1e-4)
+    assert visualization.samples[-1].y == pytest.approx(10.0, abs=1e-4)
 
 
 @pytest.mark.parametrize(
