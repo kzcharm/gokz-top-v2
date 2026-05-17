@@ -234,6 +234,14 @@ def float_from_i32(raw: int) -> float:
     return struct.unpack("<f", struct.pack("<I", raw & 0xFFFFFFFF))[0]
 
 
+def _ensure_finite(*, value: float, label: str, source_name: str) -> float:
+    if not math.isfinite(value):
+        raise JumpReplayParseError(
+            f"{source_name}: replay contains non-finite {label}"
+        )
+    return value
+
+
 def wrap_angle_delta(current: float, previous: float) -> float:
     delta = current - previous
     while delta <= -180.0:
@@ -314,6 +322,32 @@ def _parse_jump_replay_header(
     max_speed = float_from_i32(reader.read_i32())
     airtime = reader.read_i32()
 
+    tickrate = _ensure_finite(
+        value=tickrate,
+        label="tickrate",
+        source_name=source_name,
+    )
+    distance = _ensure_finite(
+        value=distance,
+        label="distance",
+        source_name=source_name,
+    )
+    sync = _ensure_finite(
+        value=sync,
+        label="sync",
+        source_name=source_name,
+    )
+    pre_speed = _ensure_finite(
+        value=pre_speed,
+        label="pre speed",
+        source_name=source_name,
+    )
+    max_speed = _ensure_finite(
+        value=max_speed,
+        label="max speed",
+        source_name=source_name,
+    )
+
     return JumpReplayHeader(
         source_name=source_name,
         timestamp=timestamp,
@@ -345,19 +379,55 @@ def _parse_ticks(*, reader: BinaryReader, header: JumpReplayHeader) -> list[Repl
                 tick_array[field_index] = reader.read_i32()
 
         origin = Vec3(
-            float_from_i32(tick_array[7]),
-            float_from_i32(tick_array[8]),
-            float_from_i32(tick_array[9]),
+            _ensure_finite(
+                value=float_from_i32(tick_array[7]),
+                label="origin.x",
+                source_name=header.source_name,
+            ),
+            _ensure_finite(
+                value=float_from_i32(tick_array[8]),
+                label="origin.y",
+                source_name=header.source_name,
+            ),
+            _ensure_finite(
+                value=float_from_i32(tick_array[9]),
+                label="origin.z",
+                source_name=header.source_name,
+            ),
         )
         angles = Vec3(
-            float_from_i32(tick_array[10]),
-            float_from_i32(tick_array[11]),
-            float_from_i32(tick_array[12]),
+            _ensure_finite(
+                value=float_from_i32(tick_array[10]),
+                label="angles.x",
+                source_name=header.source_name,
+            ),
+            _ensure_finite(
+                value=float_from_i32(tick_array[11]),
+                label="angles.y",
+                source_name=header.source_name,
+            ),
+            _ensure_finite(
+                value=float_from_i32(tick_array[12]),
+                label="angles.z",
+                source_name=header.source_name,
+            ),
         )
         velocity = Vec3(
-            float_from_i32(tick_array[13]),
-            float_from_i32(tick_array[14]),
-            float_from_i32(tick_array[15]),
+            _ensure_finite(
+                value=float_from_i32(tick_array[13]),
+                label="velocity.x",
+                source_name=header.source_name,
+            ),
+            _ensure_finite(
+                value=float_from_i32(tick_array[14]),
+                label="velocity.y",
+                source_name=header.source_name,
+            ),
+            _ensure_finite(
+                value=float_from_i32(tick_array[15]),
+                label="velocity.z",
+                source_name=header.source_name,
+            ),
         )
         flags = tick_array[16]
 
