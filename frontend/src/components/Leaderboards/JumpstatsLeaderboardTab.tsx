@@ -1,17 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
-import {
-  functionalUpdate,
-  type OnChangeFn,
-  type SortingState,
-} from "@tanstack/react-table"
-import { Filter, TriangleAlert } from "lucide-react"
-import {
-  type KeyboardEvent,
-  type MouseEvent,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
+import { TriangleAlert } from "lucide-react"
+import { type KeyboardEvent, type MouseEvent, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { type JumpstatType, LeaderboardsService } from "@/client"
@@ -24,14 +13,9 @@ import {
 } from "@/components/Leaderboards/jumpstats-columns"
 import type { AppScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { extractErrorMessage } from "@/utils"
 
 const JUMPSTAT_TYPE_OPTIONS: JumpstatType[] = [
@@ -44,9 +28,6 @@ const JUMPSTAT_TYPE_OPTIONS: JumpstatType[] = [
   "JB",
   "LBH",
   "LWJ",
-  "FL",
-  "UNK",
-  "INV",
 ]
 
 function getJumpstatTypeLabel(
@@ -61,21 +42,20 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [selectedType, setSelectedType] = useState<JumpstatType>("LJ")
+  const [blockEnabled, setBlockEnabled] = useState(false)
   const [lastKnownTotalCount, setLastKnownTotalCount] = useState(0)
   const [selectedJumpstatId, setSelectedJumpstatId] = useState<string | null>(
     null,
   )
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "distance", desc: true },
-  ])
 
-  const sortBy = sorting[0]?.id === "block" ? "block" : "distance"
+  const sortBy = blockEnabled ? "block" : "distance"
   const leaderboardQuery = useQuery({
     queryKey: [
       "leaderboards",
       "jumpstats",
       scope,
       selectedType,
+      blockEnabled,
       pageIndex,
       pageSize,
       sortBy,
@@ -91,24 +71,11 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
     staleTime: 30_000,
   })
 
-  const rows = useMemo<JumpstatsLeaderboardTableRow[]>(
-    () => leaderboardQuery.data?.data ?? [],
-    [leaderboardQuery.data],
-  )
+  const rows: JumpstatsLeaderboardTableRow[] = leaderboardQuery.data?.data ?? []
   const totalCount = leaderboardQuery.data?.count ?? lastKnownTotalCount
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const hasNextPage = pageIndex + 1 < pageCount
-  const columns = useMemo(() => getJumpstatsLeaderboardColumns(t), [t])
-
-  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
-    const next = functionalUpdate(updater, sorting)
-    const nextSort =
-      next[0]?.id === "block"
-        ? [{ id: "block", desc: true }]
-        : [{ id: "distance", desc: true }]
-    setSorting(nextSort)
-    setPageIndex(0)
-  }
+  const columns = getJumpstatsLeaderboardColumns(t, { blockEnabled })
 
   useEffect(() => {
     if (leaderboardQuery.data === undefined) {
@@ -153,42 +120,49 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
 
   return (
     <div className="space-y-6">
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-2 text-sm text-muted-foreground">
-              <Filter className="size-4" />
-              <span>{t("leaderboards.jumpstats.filters")}</span>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <span className="text-sm font-medium text-foreground">
-                {t("leaderboards.jumpstats.jumpType")}
-              </span>
-              <Select
-                value={selectedType}
-                onValueChange={(value) => {
-                  setSelectedType(value as JumpstatType)
-                  setPageIndex(0)
-                }}
-              >
-                <SelectTrigger
-                  className="w-full min-w-[220px] sm:w-[220px]"
-                  aria-label={t("leaderboards.jumpstats.jumpType")}
+      <Tabs
+        value={selectedType}
+        onValueChange={(value) => {
+          setSelectedType(value as JumpstatType)
+          setPageIndex(0)
+        }}
+        className="gap-0"
+      >
+        <div className="flex items-center gap-3">
+          <div className="-mx-2 min-w-0 flex-1 overflow-x-auto px-2 py-1">
+            <TabsList
+              aria-label={t("leaderboards.jumpstats.jumpType")}
+              className="h-auto w-full justify-start gap-2 bg-transparent p-0 text-foreground sm:w-fit"
+            >
+              {JUMPSTAT_TYPE_OPTIONS.map((option) => (
+                <TabsTrigger
+                  key={option}
+                  value={option}
+                  className="h-auto flex-none rounded-full border border-border/60 bg-background/45 px-4 py-2 text-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm dark:data-[state=active]:bg-input/30"
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {JUMPSTAT_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {getJumpstatTypeLabel(option, t)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  {getJumpstatTypeLabel(option, t)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </div>
-        </CardContent>
-      </Card>
+
+          <Button
+            type="button"
+            variant="ghost"
+            className={
+              blockEnabled
+                ? "ml-auto shrink-0 rounded-xl border border-[#7c98d6] bg-[#dbe7ff] text-[#244488] shadow-sm hover:bg-[#cfdfff] hover:text-[#1d3a78]"
+                : "ml-auto shrink-0 rounded-xl border border-[#c9d7f3] bg-[#eef4ff] text-[#5671aa] hover:bg-[#e3ecff] hover:text-[#3f5d96]"
+            }
+            onClick={() => {
+              setBlockEnabled((current) => !current)
+              setPageIndex(0)
+            }}
+          >
+            {t("leaderboards.jumpstats.columns.block")}
+          </Button>
+        </div>
+      </Tabs>
 
       {leaderboardQuery.isError ? (
         <Alert variant="destructive">
@@ -224,11 +198,6 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
                 setPageSize(size)
                 setPageIndex(0)
               },
-            }}
-            sorting={{
-              state: sorting,
-              onSortingChange,
-              manualSorting: true,
             }}
           />
           <TablePaginationFooter

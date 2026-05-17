@@ -481,6 +481,8 @@ export const en = {
         title: "Jumpstat details",
         description:
           "Route, strafe breakdown, and replay-derived movement visualization.",
+        copyDetails: "Copy details",
+        copyLabel: "jumpstat details",
         units: "units",
         breakdownTitle: "Strafe breakdown",
         deviation: "Deviation",

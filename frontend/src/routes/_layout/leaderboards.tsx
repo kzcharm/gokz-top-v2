@@ -16,16 +16,10 @@ const LEADERBOARD_TAB_OPTIONS = [
     labelKey: "leaderboards.tabs.players",
     to: "/leaderboards/players",
   },
-  { value: "pow", labelKey: "leaderboards.tabs.pow", to: "/leaderboards/pow" },
   {
     value: "jumpstats",
     labelKey: "leaderboards.tabs.jumpstats",
     to: "/leaderboards/jumpstats",
-  },
-  {
-    value: "servers",
-    labelKey: "leaderboards.tabs.servers",
-    to: "/leaderboards/servers",
   },
   {
     value: "maps",

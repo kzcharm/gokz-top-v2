@@ -989,6 +989,20 @@ test.describe("Leaderboards page", () => {
 
     await expect(page.getByText("Scope OVR")).toBeVisible()
     await expect(page.getByText("Jumpstats Group")).toBeVisible()
+    await expect(page.getByText("Filters")).not.toBeVisible()
+    await expect(page.getByText("Jump Type")).not.toBeVisible()
+    await expect(
+      page.getByRole("tab", { name: "Long Jump", exact: true }),
+    ).toHaveAttribute("data-state", "active")
+    await expect(
+      page.getByRole("tab", { name: "Fall", exact: true }),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("tab", { name: "Unknown", exact: true }),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("tab", { name: "Invalid", exact: true }),
+    ).toHaveCount(0)
     expect(requestedScopes[0]).toBe("OVR")
     expect(requestedTypes[0]).toBe("LJ")
     expect(playerLeaderboardRequests).toBe(0)
@@ -1000,7 +1014,7 @@ test.describe("Leaderboards page", () => {
     expect(requestedScopes).toContain("SKZ")
   })
 
-  test("jumpstats leaderboard refetches on jump type change and block sort", async ({
+  test("jumpstats leaderboard refetches on jump type change and block toggle", async ({
     page,
   }) => {
     const requests: Array<{
@@ -1055,13 +1069,17 @@ test.describe("Leaderboards page", () => {
     await expect(
       page.getByRole("cell", { name: "7", exact: true }),
     ).toBeVisible()
-    await page.getByRole("combobox", { name: "Jump Type" }).click()
-    await page.getByRole("option", { name: "Bhop" }).click()
+    await expect(page.getByRole("columnheader", { name: "Block" })).toHaveCount(
+      0,
+    )
+    await page.getByRole("tab", { name: "Bhop", exact: true }).click()
     await expect(page.getByText("Beta")).toBeVisible()
     expect(requests.some((request) => request.type === "BH")).toBe(true)
 
     await page.getByRole("button", { name: "Block" }).click()
-    await page.getByRole("button", { name: "Block" }).click()
+    await expect(
+      page.getByRole("columnheader", { name: "Block" }),
+    ).toBeVisible()
 
     const blockRequests = requests.filter(
       (request) => request.sortBy === "block",
@@ -1070,6 +1088,11 @@ test.describe("Leaderboards page", () => {
     expect(blockRequests.every((request) => request.sortOrder === null)).toBe(
       true,
     )
+
+    await page.getByRole("button", { name: "Block" }).click()
+    await expect(page.getByRole("columnheader", { name: "Block" })).toHaveCount(
+      0,
+    )
   })
 
   test("jumpstats leaderboard row opens details dialog and preserves row link navigation", async ({
@@ -1077,6 +1100,22 @@ test.describe("Leaderboards page", () => {
   }) => {
     await page.addInitScript(() => {
       localStorage.clear()
+      let copiedText = ""
+      Object.defineProperty(window, "__jumpstatCopiedText", {
+        configurable: true,
+        get: () => copiedText,
+        set: (value: string) => {
+          copiedText = value
+        },
+      })
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            copiedText = text
+          },
+        },
+      })
     })
     await page.route("**/v1/leaderboards/jumpstats*", async (route) => {
       await route.fulfill({
@@ -1211,16 +1250,36 @@ test.describe("Leaderboards page", () => {
     await detailResponsePromise
     await visualizationResponsePromise
     await expect(page.getByRole("dialog")).toBeVisible()
-    await expect(page.getByText("Jumpstat details")).toBeVisible()
+    await expect(page.getByRole("dialog")).toContainText(
+      "Gamma jumped 281.1234 units with a Long Jump",
+    )
     await expect(
       page.getByRole("img", { name: "Route visualization" }),
     ).toBeVisible()
-    await expect(page.getByText("Deviation angle:")).toBeVisible()
-    await page.getByRole("button", { name: "Close" }).click()
+    await expect(page.getByRole("dialog")).toContainText(
+      "Deviation angle: -12.50°",
+    )
+    await expect(
+      page.getByRole("button", { name: "Copy details" }),
+    ).toBeVisible()
+    await page.getByRole("button", { name: "Copy details" }).click()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __jumpstatCopiedText?: string })
+              .__jumpstatCopiedText ?? "",
+        ),
+      )
+      .toContain("Gamma jumped 281.1234 units with a Long Jump")
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Close" })
+      .click()
     await expect(page.getByRole("dialog")).not.toBeVisible()
     await expect(
-      page.getByRole("combobox", { name: "Jump Type" }),
-    ).toContainText("Long Jump")
+      page.getByRole("tab", { name: "Long Jump", exact: true }),
+    ).toHaveAttribute("data-state", "active")
 
     await page.getByRole("link", { name: "Gamma" }).click()
     await expect(page).toHaveURL(/\/profile\/76561198000000003/)

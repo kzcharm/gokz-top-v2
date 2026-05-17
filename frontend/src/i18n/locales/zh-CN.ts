@@ -470,6 +470,8 @@ export const zhCN = {
       dialog: {
         title: "Jumpstat 详情",
         description: "查看路线、连跳分解以及基于回放的移动可视化。",
+        copyDetails: "复制详情",
+        copyLabel: "Jumpstat 详情",
         units: "单位",
         breakdownTitle: "连跳分解",
         deviation: "偏移",

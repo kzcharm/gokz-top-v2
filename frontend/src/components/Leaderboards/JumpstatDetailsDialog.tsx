@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
-import { TriangleAlertIcon } from "lucide-react"
+import { Check, Copy, TriangleAlertIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import {
   type JumpstatDetailPublic,
@@ -12,8 +13,10 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { JumpstatRouteVisualization } from "@/components/Leaderboards/JumpstatRouteVisualization"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { extractErrorMessage } from "@/utils"
 
 function formatDecimal(value: number, digits = 1) {
@@ -62,7 +65,6 @@ function buildConsoleBlock(jumpstat: JumpstatDetailPublic) {
       `${formatDecimal(jumpstat.offset, 1)} Offset`,
       `${jumpstat.crouched_ticks} Crouched`,
     ].join(" | "),
-    "",
     [
       `${padCell("#.", 4, "start")}`,
       `${padCell("Sync", 6, "start")}`,
@@ -101,6 +103,28 @@ function JumpstatDetailPanel({
 }) {
   const { t } = useTranslation()
   const consoleBlock = buildConsoleBlock(jumpstat)
+  const [copiedText, copyToClipboard] = useCopyToClipboard()
+
+  const handleCopyConsoleBlock = async () => {
+    const copyText = visualization
+      ? [
+          consoleBlock,
+          "",
+          `${t("leaderboards.jumpstats.dialog.visualization.deviationAngle")}: ${formatDecimal(visualization.deviation_angle, 2)}°`,
+        ].join("\n")
+      : consoleBlock
+    const label = t("leaderboards.jumpstats.dialog.copyLabel")
+    const didCopy = await copyToClipboard(copyText)
+
+    if (didCopy) {
+      toast.success(t("common.copied", { label }), {
+        description: jumpstat.player.display_name,
+      })
+      return
+    }
+
+    toast.error(t("common.copyFailed", { label }))
+  }
 
   return (
     <div className="space-y-6">
@@ -145,8 +169,23 @@ function JumpstatDetailPanel({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[26px] border border-[#5d5d5d] bg-[#3b3b3b] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <div>
+      <div className="relative overflow-hidden rounded-[26px] border border-[#5d5d5d] bg-[#3b3b3b] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="absolute top-3 right-3 z-10 rounded-md text-[#cfcfcf] opacity-80 shadow-none hover:bg-white/8 hover:text-white hover:opacity-100 focus-visible:ring-white/20"
+          onClick={() => void handleCopyConsoleBlock()}
+          aria-label={t("leaderboards.jumpstats.dialog.copyDetails")}
+          title={t("leaderboards.jumpstats.dialog.copyDetails")}
+        >
+          {copiedText ? (
+            <Check className="size-4" />
+          ) : (
+            <Copy className="size-4" />
+          )}
+        </Button>
+        <div className="pr-10">
           <pre className="whitespace-pre-wrap break-words font-mono text-[13px] leading-7 text-[#d4d4d4]">
             {consoleBlock}
           </pre>

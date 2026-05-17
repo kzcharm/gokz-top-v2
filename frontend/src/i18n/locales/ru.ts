@@ -487,6 +487,8 @@ export const ru = {
         title: "Детали jumpstat",
         description:
           "Маршрут, разбивка по стрейфам и визуализация движения из реплея.",
+        copyDetails: "Скопировать детали",
+        copyLabel: "детали jumpstat",
         units: "юн.",
         breakdownTitle: "Разбивка по стрейфам",
         deviation: "Отклонение",

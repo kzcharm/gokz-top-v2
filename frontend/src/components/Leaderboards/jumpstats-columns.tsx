@@ -1,12 +1,10 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import type { TFunction } from "i18next"
-import { ArrowDown } from "lucide-react"
 
 import type { JumpstatLeaderboardEntryPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { ModeBadge } from "@/components/Records/ModeBadge"
-import { Button } from "@/components/ui/button"
 import { formatNumber } from "@/i18n/locale"
 
 export type JumpstatsLeaderboardTableRow = JumpstatLeaderboardEntryPublic
@@ -18,44 +16,15 @@ function formatDecimal(value: number, digits: number) {
   })
 }
 
-function SortableHeader({
-  title,
-  column,
-  align = "center",
-}: {
-  title: string
-  column: {
-    getIsSorted: () => false | "asc" | "desc"
-    toggleSorting: (desc?: boolean) => void
-  }
-  align?: "center" | "right"
-}) {
-  const sorting = column.getIsSorted()
-  return (
-    <div
-      className={
-        align === "right"
-          ? "flex w-full justify-end"
-          : "flex w-full justify-center"
-      }
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-8 px-3"
-        onClick={() => column.toggleSorting(true)}
-      >
-        {title}
-        {sorting ? <ArrowDown className="ml-2 size-4" /> : null}
-      </Button>
-    </div>
-  )
-}
-
 export function getJumpstatsLeaderboardColumns(
   t: TFunction,
+  {
+    blockEnabled,
+  }: {
+    blockEnabled: boolean
+  },
 ): ColumnDef<JumpstatsLeaderboardTableRow>[] {
-  return [
+  const columns: ColumnDef<JumpstatsLeaderboardTableRow>[] = [
     {
       accessorKey: "rank",
       header: () => <div className="flex w-full justify-center">#</div>,
@@ -85,29 +54,15 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "distance",
-      header: ({ column }) => (
-        <SortableHeader
-          title={t("leaderboards.jumpstats.columns.distance")}
-          column={column}
-        />
+      header: () => (
+        <div className="flex w-full justify-center">
+          {t("leaderboards.jumpstats.columns.distance")}
+        </div>
       ),
+      enableSorting: false,
       cell: ({ row }) => (
         <div className="flex w-full justify-center font-medium tabular-nums">
           {formatDecimal(row.original.distance, 4)}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "block",
-      header: ({ column }) => (
-        <SortableHeader
-          title={t("leaderboards.jumpstats.columns.block")}
-          column={column}
-        />
-      ),
-      cell: ({ row }) => (
-        <div className="flex w-full justify-center font-medium tabular-nums">
-          {row.original.block == null ? "-" : formatNumber(row.original.block)}
         </div>
       ),
     },
@@ -197,4 +152,23 @@ export function getJumpstatsLeaderboardColumns(
       ),
     },
   ]
+
+  if (blockEnabled) {
+    columns.splice(4, 0, {
+      accessorKey: "block",
+      header: () => (
+        <div className="flex w-full justify-center">
+          {t("leaderboards.jumpstats.columns.block")}
+        </div>
+      ),
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex w-full justify-center font-medium tabular-nums">
+          {row.original.block == null ? "-" : formatNumber(row.original.block)}
+        </div>
+      ),
+    })
+  }
+
+  return columns
 }
