@@ -1,28 +1,27 @@
-import type { CSSProperties } from "react"
-
 import type {
   JumpstatVisualizationPublic,
   JumpstatVisualizationSample,
-  JumpstatVisualizationStrafeType,
 } from "@/client"
-import { cn } from "@/lib/utils"
-
-const STRAFE_TYPE_COLORS: Record<JumpstatVisualizationStrafeType, string> = {
-  OVERLAP: "#d946ef",
-  NONE: "#94a3b8",
-  LEFT: "#0f172a",
-  OVERLAP_LEFT: "#0891b2",
-  NONE_LEFT: "#16a34a",
-  RIGHT: "#2563eb",
-  OVERLAP_RIGHT: "#06b6d4",
-  NONE_RIGHT: "#22c55e",
-}
 
 const DISTBUG_BEAM_COLORS = {
   neutral: "#FFBF00",
   loss: "#FF00FF",
   gain: "#85eb34",
   duck: "#001F7F",
+} as const
+
+const DISTBUG_STRAFE_COLORS = {
+  overlap: "#FF00FF",
+  none: "#2A2A2A",
+  turn: "#FFFFFF",
+  overlapTurn: "#00BFBF",
+  noKeyTurn: "#408040",
+} as const
+
+const DISTBUG_MOUSE_COLORS = {
+  left: "#FFBF00",
+  none: "#2A2A2A",
+  right: "#003FFF",
 } as const
 
 function getBeamColor(sample: JumpstatVisualizationSample) {
@@ -72,37 +71,77 @@ function getRoutePoint(
   return getRouteCoordinates(sample.x, sample.y, visualization)
 }
 
-function Strip({
+function getStrafeLedColor(
+  sample: JumpstatVisualizationSample,
+  side: "left" | "right",
+) {
+  if (side === "left") {
+    switch (sample.strafe_type) {
+      case "OVERLAP":
+        return DISTBUG_STRAFE_COLORS.overlap
+      case "NONE":
+      case "RIGHT":
+      case "NONE_RIGHT":
+      case "OVERLAP_RIGHT":
+        return DISTBUG_STRAFE_COLORS.none
+      case "LEFT":
+        return DISTBUG_STRAFE_COLORS.turn
+      case "OVERLAP_LEFT":
+        return DISTBUG_STRAFE_COLORS.overlapTurn
+      case "NONE_LEFT":
+        return DISTBUG_STRAFE_COLORS.noKeyTurn
+    }
+  }
+
+  switch (sample.strafe_type) {
+    case "OVERLAP":
+      return DISTBUG_STRAFE_COLORS.overlap
+    case "NONE":
+    case "LEFT":
+    case "NONE_LEFT":
+    case "OVERLAP_LEFT":
+      return DISTBUG_STRAFE_COLORS.none
+    case "RIGHT":
+      return DISTBUG_STRAFE_COLORS.turn
+    case "OVERLAP_RIGHT":
+      return DISTBUG_STRAFE_COLORS.overlapTurn
+    case "NONE_RIGHT":
+      return DISTBUG_STRAFE_COLORS.noKeyTurn
+  }
+}
+
+function getMouseLedColor(sample: JumpstatVisualizationSample) {
+  switch (sample.mouse_direction) {
+    case "LEFT":
+      return DISTBUG_MOUSE_COLORS.left
+    case "NONE":
+      return DISTBUG_MOUSE_COLORS.none
+    case "RIGHT":
+      return DISTBUG_MOUSE_COLORS.right
+  }
+}
+
+function LedStrip({
   label,
   samples,
-  getActive,
-  getStyle,
+  getColor,
 }: {
   label: string
   samples: JumpstatVisualizationSample[]
-  getActive: (sample: JumpstatVisualizationSample) => boolean
-  getStyle: (sample: JumpstatVisualizationSample) => CSSProperties
+  getColor: (sample: JumpstatVisualizationSample) => string
 }) {
   return (
-    <div className="grid grid-cols-[2rem_1fr] items-center gap-3">
-      <div className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+    <div className="flex items-center gap-[10px] font-mono">
+      <div className="w-5 shrink-0 text-right text-xs font-medium text-muted-foreground">
         {label}
       </div>
-      <div className="overflow-x-auto">
-        <div
-          className="grid gap-1"
-          style={{
-            gridTemplateColumns: `repeat(${Math.max(samples.length, 1)}, minmax(0, 1fr))`,
-          }}
-        >
+      <div className="flex flex-1 justify-center overflow-x-auto">
+        <div className="flex items-center gap-[2px]">
           {samples.map((sample) => (
             <div
               key={`${label}-${sample.index}`}
-              className={cn(
-                "h-5 min-w-3 rounded-sm border border-border/50",
-                getActive(sample) ? "" : "bg-background/70",
-              )}
-              style={getActive(sample) ? getStyle(sample) : undefined}
+              className="h-[22px] w-[5px] shrink-0 rounded-[2px] border border-white/10 transition-opacity hover:opacity-70"
+              style={{ backgroundColor: getColor(sample) }}
               title={`${label} ${sample.index + 1}`}
             />
           ))}
@@ -251,35 +290,21 @@ export function JumpstatRouteVisualization({
         </svg>
       </div>
 
-      <div className="mt-4 space-y-2">
-        <Strip
+      <div className="mt-4 space-y-3">
+        <LedStrip
           label={aLabel}
           samples={visualization.samples}
-          getActive={(sample) => sample.a_pressed}
-          getStyle={(sample) => ({
-            backgroundColor: STRAFE_TYPE_COLORS[sample.strafe_type],
-          })}
+          getColor={(sample) => getStrafeLedColor(sample, "left")}
         />
-        <Strip
+        <LedStrip
           label={dLabel}
           samples={visualization.samples}
-          getActive={(sample) => sample.d_pressed}
-          getStyle={(sample) => ({
-            backgroundColor: STRAFE_TYPE_COLORS[sample.strafe_type],
-          })}
+          getColor={(sample) => getStrafeLedColor(sample, "right")}
         />
-        <Strip
+        <LedStrip
           label={mouseLabel}
           samples={visualization.samples}
-          getActive={(sample) => sample.mouse_direction !== "NONE"}
-          getStyle={(sample) => ({
-            backgroundColor:
-              sample.mouse_direction === "LEFT"
-                ? "#0f172a"
-                : sample.mouse_direction === "RIGHT"
-                  ? "#2563eb"
-                  : "#cbd5e1",
-          })}
+          getColor={getMouseLedColor}
         />
       </div>
     </div>
