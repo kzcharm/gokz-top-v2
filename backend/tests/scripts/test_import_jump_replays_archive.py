@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import zipfile
 from contextlib import asynccontextmanager
+from decimal import Decimal
 
 import pytest
 from sqlmodel import select
@@ -12,7 +13,15 @@ from app.core.config import settings
 from app.import_jump_replays_archive import import_jump_replays_archive_from_path
 from app.models import Jumpstat, ServerGroupUpdate
 from app.services.jump_replay_storage import get_jump_replay_path
-from tests.utils.jump_replay import build_synthetic_jump_replay
+from tests.utils.jump_replay import (
+    RP_FL_ONGROUND,
+    RP_IN_DUCK,
+    RP_IN_FORWARD,
+    RP_IN_MOVELEFT,
+    RP_IN_MOVERIGHT,
+    SyntheticReplayTick,
+    build_synthetic_jump_replay,
+)
 from tests.utils.server import create_server_group as create_test_server_group
 
 pytestmark = pytest.mark.asyncio
@@ -114,6 +123,76 @@ async def test_import_jump_replays_archive_dry_run_skips_writes(
     assert result.deduped == 0
     assert result.failed == 0
     assert list((await db.exec(select(Jumpstat))).all()) == []
+
+
+async def test_import_jump_replays_archive_supports_large_vertical_values(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _bind_import_session(monkeypatch, db)
+    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    group, _api_key = await create_test_server_group(db, name="AXE High Z Group")
+    synthetic = build_synthetic_jump_replay(
+        ticks=[
+            SyntheticReplayTick(
+                origin=(0.0, 0.0, 0.0),
+                angles=(0.0, 10.0, 0.0),
+                velocity=(100.0, 0.0, 0.0),
+                flags=RP_FL_ONGROUND | RP_IN_FORWARD,
+                forwardmove=450.0,
+            ),
+            SyntheticReplayTick(
+                origin=(1.0, 0.0, 8192.0),
+                angles=(0.0, 20.0, 0.0),
+                velocity=(150.0, 0.0, 10.0),
+                flags=RP_IN_FORWARD,
+                forwardmove=450.0,
+                sidemove=450.0,
+            ),
+            SyntheticReplayTick(
+                origin=(3.0, 1.0, 15872.9688),
+                angles=(0.0, 15.0, 0.0),
+                velocity=(130.0, 20.0, 5.0),
+                flags=RP_IN_MOVELEFT,
+                forwardmove=450.0,
+                sidemove=-450.0,
+            ),
+            SyntheticReplayTick(
+                origin=(6.0, 1.0, 15872.5),
+                angles=(0.0, 25.0, 0.0),
+                velocity=(200.0, 0.0, -5.0),
+                flags=RP_IN_MOVERIGHT | RP_IN_DUCK,
+                forwardmove=450.0,
+                sidemove=450.0,
+            ),
+            SyntheticReplayTick(
+                origin=(10.0, 2.0, 15872.0),
+                angles=(0.0, 35.0, 0.0),
+                velocity=(180.0, 0.0, -20.0),
+                flags=RP_FL_ONGROUND | RP_IN_DUCK,
+                forwardmove=450.0,
+                sidemove=450.0,
+            ),
+        ]
+    )
+    archive_path = tmp_path / "jumps.zip"
+    with zipfile.ZipFile(archive_path, mode="w") as archive:
+        archive.writestr("_jumps/high-z.replay", synthetic.replay_bytes)
+
+    result = await import_jump_replays_archive_from_path(
+        archive_path,
+        server_group=group.name,
+    )
+
+    assert result.scanned == 1
+    assert result.inserted == 1
+    assert result.deduped == 0
+    assert result.failed == 0
+
+    jumpstat = (await db.exec(select(Jumpstat))).one()
+    assert jumpstat.height == Decimal("15872.9688")
+    assert jumpstat.offset == Decimal("15872.0000")
 
 
 async def test_import_jump_replays_archive_rejects_ambiguous_group_identifier(

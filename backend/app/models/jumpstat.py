@@ -190,17 +190,17 @@ class Jumpstat(SQLModel, table=True):
     overlap_count: int = Field(default=0, ge=0)
     dead_air_count: int = Field(default=0, ge=0)
     width: Decimal = Field(sa_column=Column(Numeric(8, 4), nullable=False))
-    height: Decimal = Field(sa_column=Column(Numeric(8, 4), nullable=False))
+    height: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
     airtime_percent: int = Field(ge=0, le=100)
-    offset: Decimal = Field(sa_column=Column(Numeric(8, 4), nullable=False))
+    offset: Decimal = Field(sa_column=Column(Numeric(10, 4), nullable=False))
     crouched_ticks: int = Field(default=0, ge=0)
     edge: Decimal | None = Field(
         default=None,
-        sa_column=Column(Numeric(8, 4), nullable=True),
+        sa_column=Column(Numeric(10, 4), nullable=True),
     )
     deviation: Decimal | None = Field(
         default=None,
-        sa_column=Column(Numeric(8, 4), nullable=True),
+        sa_column=Column(Numeric(10, 4), nullable=True),
     )
     strafe_stats: list[dict[str, Any]] = Field(
         default_factory=list,
