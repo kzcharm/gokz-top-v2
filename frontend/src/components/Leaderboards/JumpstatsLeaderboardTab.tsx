@@ -61,6 +61,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [selectedType, setSelectedType] = useState<JumpstatType>("LJ")
+  const [lastKnownTotalCount, setLastKnownTotalCount] = useState(0)
   const [selectedJumpstatId, setSelectedJumpstatId] = useState<string | null>(
     null,
   )
@@ -94,7 +95,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
     () => leaderboardQuery.data?.data ?? [],
     [leaderboardQuery.data],
   )
-  const totalCount = leaderboardQuery.data?.count ?? 0
+  const totalCount = leaderboardQuery.data?.count ?? lastKnownTotalCount
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const hasNextPage = pageIndex + 1 < pageCount
   const columns = useMemo(() => getJumpstatsLeaderboardColumns(t), [t])
@@ -110,11 +111,21 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   }
 
   useEffect(() => {
+    if (leaderboardQuery.data === undefined) {
+      return
+    }
+    setLastKnownTotalCount(leaderboardQuery.data.count)
+  }, [leaderboardQuery.data])
+
+  useEffect(() => {
+    if (leaderboardQuery.data === undefined) {
+      return
+    }
     if (pageIndex <= pageCount - 1) {
       return
     }
     setPageIndex(pageCount - 1)
-  }, [pageCount, pageIndex])
+  }, [leaderboardQuery.data, pageCount, pageIndex])
 
   const rowInteractionProps = (row: JumpstatsLeaderboardTableRow) => ({
     className:
