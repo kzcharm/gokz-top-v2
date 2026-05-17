@@ -53,6 +53,56 @@ class JumpstatStrafeStat(SQLModel):
     dead_air_count: int = Field(default=0, ge=0)
 
 
+class JumpstatVisualizationStrafeType(StrEnum):
+    OVERLAP = "OVERLAP"
+    NONE = "NONE"
+    LEFT = "LEFT"
+    OVERLAP_LEFT = "OVERLAP_LEFT"
+    NONE_LEFT = "NONE_LEFT"
+    RIGHT = "RIGHT"
+    OVERLAP_RIGHT = "OVERLAP_RIGHT"
+    NONE_RIGHT = "NONE_RIGHT"
+
+
+class JumpstatVisualizationMouseDirection(StrEnum):
+    LEFT = "LEFT"
+    NONE = "NONE"
+    RIGHT = "RIGHT"
+
+
+class JumpstatVisualizationJumpDirection(StrEnum):
+    FORWARDS = "FORWARDS"
+    BACKWARDS = "BACKWARDS"
+    LEFT = "LEFT"
+    RIGHT = "RIGHT"
+
+
+class JumpstatVisualizationBounds(SQLModel):
+    min_x: float
+    max_x: float
+    min_y: float
+    max_y: float
+
+
+class JumpstatVisualizationSample(SQLModel):
+    index: int = Field(ge=0)
+    x: float
+    y: float
+    yaw_delta: float
+    mouse_direction: JumpstatVisualizationMouseDirection
+    a_pressed: bool
+    d_pressed: bool
+    strafe_type: JumpstatVisualizationStrafeType
+
+
+class JumpstatVisualizationPublic(SQLModel):
+    version: int = Field(ge=1)
+    jump_direction: JumpstatVisualizationJumpDirection
+    deviation_angle: float
+    bounds: JumpstatVisualizationBounds
+    samples: list[JumpstatVisualizationSample]
+
+
 def _normalize_strafe_stats(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         raise ValueError("strafe_stats must be a list")
@@ -155,6 +205,10 @@ class Jumpstat(SQLModel, table=True):
     strafe_stats: list[dict[str, Any]] = Field(
         default_factory=list,
         sa_column=Column(JSONB, nullable=False),
+    )
+    visualization_data: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
     )
     jumped_at: datetime = Field(
         default_factory=get_datetime_utc,

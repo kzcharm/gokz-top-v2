@@ -7,12 +7,18 @@ from app import crud
 from app.api.deps import SessionDep
 from app.api.v1.player_sessions import _get_server_group_from_api_key
 from app.models import (
+    Jumpstat,
     JumpstatDetailPublic,
     JumpstatListQuery,
+    JumpstatVisualizationPublic,
     JumpstatsPublic,
 )
 from app.services.jump_replay_parser import JumpReplayParseError
 from app.services.jumpstat_ingest import ingest_jump_replay
+from app.services.jumpstat_visualization import (
+    JumpstatVisualizationUnavailableError,
+    get_or_build_jumpstat_visualization,
+)
 
 router = APIRouter(prefix="/jumpstats", tags=["jumpstats"])
 
@@ -77,3 +83,21 @@ async def read_jumpstat(
         player=player,
         server_group=server_group,
     )
+
+
+@router.get("/{jumpstat_id}/visualization", response_model=JumpstatVisualizationPublic)
+async def read_jumpstat_visualization(
+    session: SessionDep,
+    jumpstat_id: uuid.UUID,
+) -> JumpstatVisualizationPublic:
+    jumpstat = await session.get(Jumpstat, jumpstat_id)
+    if jumpstat is None:
+        raise HTTPException(status_code=404, detail="Jumpstat not found")
+
+    try:
+        return await get_or_build_jumpstat_visualization(
+            session=session,
+            jumpstat=jumpstat,
+        )
+    except JumpstatVisualizationUnavailableError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

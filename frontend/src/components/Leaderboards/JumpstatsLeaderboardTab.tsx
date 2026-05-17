@@ -5,12 +5,19 @@ import {
   type SortingState,
 } from "@tanstack/react-table"
 import { Filter, TriangleAlert } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import { useTranslation } from "react-i18next"
 
 import { type JumpstatType, LeaderboardsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
+import { JumpstatDetailsDialog } from "@/components/Leaderboards/JumpstatDetailsDialog"
 import {
   getJumpstatsLeaderboardColumns,
   type JumpstatsLeaderboardTableRow,
@@ -54,6 +61,9 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [selectedType, setSelectedType] = useState<JumpstatType>("LJ")
+  const [selectedJumpstatId, setSelectedJumpstatId] = useState<string | null>(
+    null,
+  )
   const [sorting, setSorting] = useState<SortingState>([
     { id: "distance", desc: true },
   ])
@@ -105,6 +115,30 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
     }
     setPageIndex(pageCount - 1)
   }, [pageCount, pageIndex])
+
+  const rowInteractionProps = (row: JumpstatsLeaderboardTableRow) => ({
+    className:
+      "cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none",
+    tabIndex: 0,
+    onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+      const target = event.target as HTMLElement
+      if (target.closest("a, button, input, select, textarea")) {
+        return
+      }
+      setSelectedJumpstatId(row.id)
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return
+      }
+      const target = event.target as HTMLElement
+      if (target.closest("a, button, input, select, textarea")) {
+        return
+      }
+      event.preventDefault()
+      setSelectedJumpstatId(row.id)
+    },
+  })
 
   return (
     <div className="space-y-6">
@@ -169,6 +203,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
             tableClassName="border-separate border-spacing-0"
             showFooter={false}
             getRowId={(row) => row.id}
+            getRowProps={rowInteractionProps}
             serverPagination={{
               pageIndex,
               pageSize,
@@ -200,6 +235,16 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
           />
         </CardContent>
       </Card>
+
+      <JumpstatDetailsDialog
+        jumpstatId={selectedJumpstatId}
+        open={selectedJumpstatId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedJumpstatId(null)
+          }
+        }}
+      />
     </div>
   )
 }

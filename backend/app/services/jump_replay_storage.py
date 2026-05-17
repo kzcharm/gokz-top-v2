@@ -14,6 +14,10 @@ def get_jump_replay_path(*, jumpstat_id: uuid.UUID) -> Path:
     )
 
 
+def load_jump_replay(*, jumpstat_id: uuid.UUID) -> bytes:
+    return get_jump_replay_path(jumpstat_id=jumpstat_id).read_bytes()
+
+
 def save_jump_replay(*, jumpstat_id: uuid.UUID, replay_bytes: bytes) -> Path:
     destination = get_jump_replay_path(jumpstat_id=jumpstat_id)
     destination.parent.mkdir(parents=True, exist_ok=True)

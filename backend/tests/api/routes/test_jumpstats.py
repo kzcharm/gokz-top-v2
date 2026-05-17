@@ -8,8 +8,21 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Ban, BanType, Jumpstat, JumpstatType, KZMode, Player
-from app.services.jump_replay_storage import get_jump_replay_path
+from app.models import (
+    Ban,
+    BanType,
+    Jumpstat,
+    JumpstatType,
+    JumpstatVisualizationBounds,
+    JumpstatVisualizationJumpDirection,
+    JumpstatVisualizationMouseDirection,
+    JumpstatVisualizationPublic,
+    JumpstatVisualizationSample,
+    JumpstatVisualizationStrafeType,
+    KZMode,
+    Player,
+)
+from app.services.jump_replay_storage import get_jump_replay_path, save_jump_replay
 from tests.utils.jump_replay import (
     build_synthetic_jump_replay,
     expected_parent_values,
@@ -35,6 +48,44 @@ def _build_strafe_stats(*, strafes: int) -> list[dict[str, float | int]]:
         }
         for index in range(1, strafes + 1)
     ]
+
+
+def _build_visualization_payload(*, version: int = 1) -> dict[str, object]:
+    payload = JumpstatVisualizationPublic(
+        version=1,
+        jump_direction=JumpstatVisualizationJumpDirection.FORWARDS,
+        deviation_angle=-12.5,
+        bounds=JumpstatVisualizationBounds(
+            min_x=-1.0,
+            max_x=1.0,
+            min_y=0.0,
+            max_y=2.0,
+        ),
+        samples=[
+            JumpstatVisualizationSample(
+                index=0,
+                x=0.0,
+                y=0.0,
+                yaw_delta=0.0,
+                mouse_direction=JumpstatVisualizationMouseDirection.NONE,
+                a_pressed=False,
+                d_pressed=False,
+                strafe_type=JumpstatVisualizationStrafeType.NONE,
+            ),
+            JumpstatVisualizationSample(
+                index=1,
+                x=0.5,
+                y=1.5,
+                yaw_delta=10.0,
+                mouse_direction=JumpstatVisualizationMouseDirection.RIGHT,
+                a_pressed=False,
+                d_pressed=True,
+                strafe_type=JumpstatVisualizationStrafeType.RIGHT,
+            ),
+        ],
+    ).model_dump(mode="json")
+    payload["version"] = version
+    return payload
 
 
 async def _create_player(
@@ -81,6 +132,7 @@ async def _create_jumpstat(
     edge: str | None = None,
     deviation: str | None = None,
     jumped_at: datetime | None = None,
+    visualization_data: dict[str, object] | None = None,
 ) -> Jumpstat:
     jumpstat = Jumpstat(
         player_steamid64=player_steamid64,
@@ -104,6 +156,7 @@ async def _create_jumpstat(
         edge=Decimal(edge) if edge is not None else None,
         deviation=Decimal(deviation) if deviation is not None else None,
         strafe_stats=_build_strafe_stats(strafes=strafes),
+        visualization_data=visualization_data,
         jumped_at=jumped_at or datetime(2026, 5, 1, 12, 0, tzinfo=UTC),
         created_at=jumped_at or datetime(2026, 5, 1, 12, 0, tzinfo=UTC),
         updated_at=jumped_at or datetime(2026, 5, 1, 12, 0, tzinfo=UTC),
@@ -219,6 +272,160 @@ async def test_read_jumpstat_detail_returns_strafe_stats(
         "overlap_count": 0,
         "dead_air_count": 0,
     }
+
+
+@pytest.mark.asyncio
+async def test_read_jumpstat_visualization_returns_cached_payload(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, _api_key = await create_test_server_group(db, name="Visualization Group")
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Visualization Runner",
+    )
+    jumpstat = await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+        visualization_data=_build_visualization_payload(),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/jumpstats/{jumpstat.id}/visualization"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == _build_visualization_payload()
+
+
+@pytest.mark.asyncio
+async def test_read_jumpstat_visualization_builds_and_persists_missing_cache(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    group, _api_key = await create_test_server_group(db, name="Visualization Build Group")
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Build Runner",
+    )
+    jumpstat = await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+    )
+    synthetic = build_synthetic_jump_replay()
+    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    save_jump_replay(jumpstat_id=jumpstat.id, replay_bytes=synthetic.replay_bytes)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/jumpstats/{jumpstat.id}/visualization"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"] == 1
+    assert payload["jump_direction"] == "FORWARDS"
+    assert len(payload["samples"]) == 4
+
+    await db.refresh(jumpstat)
+    assert jumpstat.visualization_data is not None
+    assert jumpstat.visualization_data["version"] == 1
+
+
+@pytest.mark.asyncio
+async def test_read_jumpstat_visualization_rebuilds_outdated_cache(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    group, _api_key = await create_test_server_group(db, name="Visualization Rebuild Group")
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Rebuild Runner",
+    )
+    jumpstat = await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+        visualization_data=_build_visualization_payload(version=0),
+    )
+    synthetic = build_synthetic_jump_replay()
+    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    save_jump_replay(jumpstat_id=jumpstat.id, replay_bytes=synthetic.replay_bytes)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/jumpstats/{jumpstat.id}/visualization"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"] == 1
+    assert payload["samples"] != _build_visualization_payload(version=0)["samples"]
+
+    await db.refresh(jumpstat)
+    assert jumpstat.visualization_data is not None
+    assert jumpstat.visualization_data["version"] == 1
+
+
+@pytest.mark.asyncio
+async def test_read_jumpstat_visualization_returns_409_when_replay_is_missing(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, _api_key = await create_test_server_group(db, name="Visualization Missing Group")
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Missing Replay Runner",
+    )
+    jumpstat = await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/jumpstats/{jumpstat.id}/visualization"
+    )
+
+    assert response.status_code == 409
+    assert ".replay" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_read_jumpstat_visualization_returns_409_when_replay_is_invalid(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    group, _api_key = await create_test_server_group(db, name="Visualization Invalid Group")
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Invalid Replay Runner",
+    )
+    jumpstat = await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+    )
+    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    save_jump_replay(jumpstat_id=jumpstat.id, replay_bytes=b"not-a-replay")
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/jumpstats/{jumpstat.id}/visualization"
+    )
+
+    assert response.status_code == 409
+    assert "invalid replay magic" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from app.models import JumpstatStrafeStat, JumpstatType, KZMode
+from app.models import (
+    JumpstatStrafeStat,
+    JumpstatType,
+    JumpstatVisualizationBounds,
+    JumpstatVisualizationJumpDirection,
+    JumpstatVisualizationMouseDirection,
+    JumpstatVisualizationPublic,
+    JumpstatVisualizationSample,
+    JumpstatVisualizationStrafeType,
+    KZMode,
+)
 
 REPLAY_MAGIC = 0x676F6B7A
 REPLAY_FORMAT_VERSION = 2
@@ -26,6 +36,7 @@ UNIVERSE_PUBLIC = 1
 STEAM_ID_TYPE_INDIVIDUAL = 1
 STEAM_ID_INSTANCE_DESKTOP = 1
 DECIMAL_FOUR_PLACES = Decimal("0.0001")
+JUMPSTAT_VISUALIZATION_VERSION = 1
 
 MODE_BY_INDEX: dict[int, KZMode] = {
     0: KZMode.VNL,
@@ -48,6 +59,19 @@ JUMPSTAT_TYPE_BY_INDEX: dict[int, JumpstatType] = {
     11: JumpstatType.INV,
 }
 
+LEFT_BUTTON_BY_JUMP_DIRECTION: dict[JumpstatVisualizationJumpDirection, int] = {
+    JumpstatVisualizationJumpDirection.FORWARDS: RP_IN_MOVELEFT,
+    JumpstatVisualizationJumpDirection.BACKWARDS: RP_IN_MOVERIGHT,
+    JumpstatVisualizationJumpDirection.LEFT: RP_IN_BACK,
+    JumpstatVisualizationJumpDirection.RIGHT: RP_IN_FORWARD,
+}
+RIGHT_BUTTON_BY_JUMP_DIRECTION: dict[JumpstatVisualizationJumpDirection, int] = {
+    JumpstatVisualizationJumpDirection.FORWARDS: RP_IN_MOVERIGHT,
+    JumpstatVisualizationJumpDirection.BACKWARDS: RP_IN_MOVELEFT,
+    JumpstatVisualizationJumpDirection.LEFT: RP_IN_FORWARD,
+    JumpstatVisualizationJumpDirection.RIGHT: RP_IN_BACK,
+}
+
 
 class JumpReplayParseError(ValueError):
     pass
@@ -62,6 +86,11 @@ class Vec3:
 
 @dataclass(frozen=True)
 class ReplayTick:
+    forwardmove: float
+    sidemove: float
+    upmove: float
+    mouse_x: int
+    mouse_y: int
     origin: Vec3
     angles: Vec3
     velocity: Vec3
@@ -117,6 +146,29 @@ class StrafeStats:
 
 
 @dataclass(frozen=True)
+class DerivedJumpStats:
+    duration: int
+    strafes: int
+    sync: float
+    max_speed: float
+    height: float
+    offset: float
+    deviation: float
+    overlap: int
+    dead_air: int
+    crouch_ticks: int
+    release_w: int
+    total_width: float
+    strafe_stats: list[StrafeStats]
+
+    @property
+    def average_width(self) -> float:
+        if self.strafes == 0:
+            return 0.0
+        return self.total_width / self.strafes
+
+
+@dataclass(frozen=True)
 class ParsedJumpReplay:
     steamid64: int
     mode: KZMode
@@ -138,6 +190,17 @@ class ParsedJumpReplay:
     crouched_ticks: int
     strafe_stats: list[dict[str, float | int]]
     jumped_at: datetime
+
+
+@dataclass(frozen=True)
+class SelectedJumpReplay:
+    header: JumpReplayHeader
+    steamid64: int
+    mode: KZMode
+    jump_type: JumpstatType
+    ticks: list[ReplayTick]
+    segment: JumpSegment
+    stats: DerivedJumpStats
 
 
 class BinaryReader:
@@ -178,6 +241,14 @@ def wrap_angle_delta(current: float, previous: float) -> float:
     while delta > 180.0:
         delta -= 360.0
     return delta
+
+
+def _normalize_angle(angle: float) -> float:
+    while angle <= -180.0:
+        angle += 360.0
+    while angle > 180.0:
+        angle -= 360.0
+    return angle
 
 
 def _to_decimal(value: float) -> Decimal:
@@ -302,6 +373,11 @@ def _parse_ticks(*, reader: BinaryReader, header: JumpReplayHeader) -> list[Repl
 
         ticks.append(
             ReplayTick(
+                forwardmove=float_from_i32(tick_array[2]),
+                sidemove=float_from_i32(tick_array[3]),
+                upmove=float_from_i32(tick_array[4]),
+                mouse_x=tick_array[5],
+                mouse_y=tick_array[6],
                 origin=origin,
                 angles=angles,
                 velocity=velocity,
@@ -368,29 +444,6 @@ def _get_coord_orientation(
     coord_dist = int(abs(end_x - start_x) < abs(end_y - start_y))
     coord_dev = 1 - coord_dist
     return coord_dist, coord_dev
-
-
-@dataclass(frozen=True)
-class DerivedJumpStats:
-    duration: int
-    strafes: int
-    sync: float
-    max_speed: float
-    height: float
-    offset: float
-    deviation: float
-    overlap: int
-    dead_air: int
-    crouch_ticks: int
-    release_w: int
-    total_width: float
-    strafe_stats: list[StrafeStats]
-
-    @property
-    def average_width(self) -> float:
-        if self.strafes == 0:
-            return 0.0
-        return self.total_width / self.strafes
 
 
 def _derive_segment_stats(
@@ -523,22 +576,23 @@ def _choose_best_segment(
     *,
     header: JumpReplayHeader,
     ticks: list[ReplayTick],
-) -> DerivedJumpStats:
+) -> tuple[JumpSegment, DerivedJumpStats]:
     segments = _find_air_segments(ticks)
     if not segments:
         raise JumpReplayParseError(f"{header.source_name}: no airborne segment found")
 
-    derived = [
-        _derive_segment_stats(ticks=ticks, segment=segment) for segment in segments
+    scored_segments = [
+        (segment, _derive_segment_stats(ticks=ticks, segment=segment))
+        for segment in segments
     ]
-    return min(derived, key=lambda stats: _segment_match_score(header, stats))
+    return min(scored_segments, key=lambda item: _segment_match_score(header, item[1]))
 
 
-def parse_jump_replay_bytes(
+def _parse_selected_jump_replay(
     *,
     data: bytes,
     source_name: str,
-) -> ParsedJumpReplay:
+) -> SelectedJumpReplay:
     try:
         reader = BinaryReader(data)
         header = _parse_jump_replay_header(reader=reader, source_name=source_name)
@@ -561,53 +615,280 @@ def parse_jump_replay_bytes(
             )
 
         ticks = _parse_ticks(reader=reader, header=header)
-        stats = _choose_best_segment(header=header, ticks=ticks)
+        segment, stats = _choose_best_segment(header=header, ticks=ticks)
         if stats.strafes < 1:
             raise JumpReplayParseError(
                 f"{source_name}: replay produced no valid strafes"
             )
 
-        steamid64 = steam_account_id_to_steamid64(header.steam_account_id)
-        duration = max(1, stats.duration)
-        strafe_stats = [
-            JumpstatStrafeStat(
-                index=index,
-                sync_percent=_to_percent(current.sync),
-                gain=float(_to_decimal(current.gain)),
-                loss=float(_to_decimal(current.loss)),
-                airtime_percent=_to_percent((current.ticks / duration) * 100.0),
-                width=float(_to_decimal(current.width)),
-                overlap_count=current.overlap,
-                dead_air_count=current.dead_air,
-            ).model_dump(mode="json")
-            for index, current in enumerate(
-                stats.strafe_stats[1 : stats.strafes + 1], start=1
-            )
-        ]
-
-        return ParsedJumpReplay(
-            steamid64=steamid64,
+        return SelectedJumpReplay(
+            header=header,
+            steamid64=steam_account_id_to_steamid64(header.steam_account_id),
             mode=mode,
-            type=jump_type,
-            distance=_to_decimal(header.distance),
-            block=header.block_distance if header.block_distance > 0 else None,
-            strafes=stats.strafes,
-            sync_percent=_to_percent(stats.sync),
-            pre_speed=_to_decimal(header.pre_speed),
-            max_speed=_to_decimal(stats.max_speed),
-            w_count=max(0, stats.release_w),
-            overlap_count=stats.overlap,
-            dead_air_count=stats.dead_air,
-            width=_to_decimal(stats.average_width),
-            height=_to_decimal(stats.height),
-            airtime_percent=100,
-            offset=_to_decimal(stats.offset),
-            deviation=_to_decimal(stats.deviation),
-            crouched_ticks=stats.crouch_ticks,
-            strafe_stats=strafe_stats,
-            jumped_at=datetime.fromtimestamp(header.timestamp, UTC),
+            jump_type=jump_type,
+            ticks=ticks,
+            segment=segment,
+            stats=stats,
         )
     except struct.error as exc:
         raise JumpReplayParseError(
             f"{source_name}: truncated or malformed replay"
         ) from exc
+
+
+def _derive_jump_direction(
+    *,
+    ticks: list[ReplayTick],
+    base_tick: int,
+    jump_type: JumpstatType,
+) -> JumpstatVisualizationJumpDirection:
+    speed = math.hypot(ticks[base_tick].velocity.x, ticks[base_tick].velocity.y)
+    if speed <= 50.0 or jump_type == JumpstatType.LAJ:
+        return JumpstatVisualizationJumpDirection.FORWARDS
+
+    velocity_direction = math.degrees(
+        math.atan2(ticks[base_tick].velocity.y, ticks[base_tick].velocity.x)
+    )
+    direction = wrap_angle_delta(ticks[base_tick].angles.y, velocity_direction)
+
+    if 45.0 <= direction <= 135.0:
+        return JumpstatVisualizationJumpDirection.RIGHT
+    if -135.0 <= direction <= -45.0:
+        return JumpstatVisualizationJumpDirection.LEFT
+    if direction > 135.0 or direction < -135.0:
+        return JumpstatVisualizationJumpDirection.BACKWARDS
+    return JumpstatVisualizationJumpDirection.FORWARDS
+
+
+def _is_wishspeed_moving_left(
+    *,
+    forwardmove: float,
+    sidemove: float,
+    jump_direction: JumpstatVisualizationJumpDirection,
+) -> bool:
+    if jump_direction == JumpstatVisualizationJumpDirection.FORWARDS:
+        return sidemove < 0.0
+    if jump_direction == JumpstatVisualizationJumpDirection.BACKWARDS:
+        return sidemove > 0.0
+    if jump_direction == JumpstatVisualizationJumpDirection.LEFT:
+        return forwardmove < 0.0
+    return forwardmove > 0.0
+
+
+def _is_wishspeed_moving_right(
+    *,
+    forwardmove: float,
+    sidemove: float,
+    jump_direction: JumpstatVisualizationJumpDirection,
+) -> bool:
+    if jump_direction == JumpstatVisualizationJumpDirection.FORWARDS:
+        return sidemove > 0.0
+    if jump_direction == JumpstatVisualizationJumpDirection.BACKWARDS:
+        return sidemove < 0.0
+    if jump_direction == JumpstatVisualizationJumpDirection.LEFT:
+        return forwardmove > 0.0
+    return forwardmove < 0.0
+
+
+def _classify_strafe_type(
+    *,
+    tick: ReplayTick,
+    jump_direction: JumpstatVisualizationJumpDirection,
+) -> JumpstatVisualizationStrafeType:
+    left_button = LEFT_BUTTON_BY_JUMP_DIRECTION[jump_direction]
+    right_button = RIGHT_BUTTON_BY_JUMP_DIRECTION[jump_direction]
+    move_left = bool(tick.flags & left_button)
+    move_right = bool(tick.flags & right_button)
+    vel_left = _is_wishspeed_moving_left(
+        forwardmove=tick.forwardmove,
+        sidemove=tick.sidemove,
+        jump_direction=jump_direction,
+    )
+    vel_right = _is_wishspeed_moving_right(
+        forwardmove=tick.forwardmove,
+        sidemove=tick.sidemove,
+        jump_direction=jump_direction,
+    )
+    vel_is_zero = not vel_left and not vel_right
+
+    if move_left and not move_right:
+        if vel_left:
+            return JumpstatVisualizationStrafeType.LEFT
+        if vel_right:
+            return JumpstatVisualizationStrafeType.RIGHT
+    elif move_right and not move_left:
+        if vel_right:
+            return JumpstatVisualizationStrafeType.RIGHT
+        if vel_left:
+            return JumpstatVisualizationStrafeType.LEFT
+    elif move_left and move_right:
+        if vel_is_zero:
+            return JumpstatVisualizationStrafeType.OVERLAP
+        if vel_left:
+            return JumpstatVisualizationStrafeType.OVERLAP_LEFT
+        if vel_right:
+            return JumpstatVisualizationStrafeType.OVERLAP_RIGHT
+    else:
+        if vel_is_zero:
+            return JumpstatVisualizationStrafeType.NONE
+        if vel_left:
+            return JumpstatVisualizationStrafeType.NONE_LEFT
+        if vel_right:
+            return JumpstatVisualizationStrafeType.NONE_RIGHT
+
+    return JumpstatVisualizationStrafeType.NONE
+
+
+def _mouse_direction_from_yaw_delta(
+    yaw_delta: float,
+) -> JumpstatVisualizationMouseDirection:
+    if yaw_delta < -EPSILON:
+        return JumpstatVisualizationMouseDirection.LEFT
+    if yaw_delta > EPSILON:
+        return JumpstatVisualizationMouseDirection.RIGHT
+    return JumpstatVisualizationMouseDirection.NONE
+
+
+def _rotate_point(*, x: float, y: float, radians: float) -> tuple[float, float]:
+    return (
+        x * math.cos(radians) - y * math.sin(radians),
+        x * math.sin(radians) + y * math.cos(radians),
+    )
+
+
+def parse_jump_replay_bytes(
+    *,
+    data: bytes,
+    source_name: str,
+) -> ParsedJumpReplay:
+    selected = _parse_selected_jump_replay(data=data, source_name=source_name)
+    stats = selected.stats
+    duration = max(1, stats.duration)
+    strafe_stats = [
+        JumpstatStrafeStat(
+            index=index,
+            sync_percent=_to_percent(current.sync),
+            gain=float(_to_decimal(current.gain)),
+            loss=float(_to_decimal(current.loss)),
+            airtime_percent=_to_percent((current.ticks / duration) * 100.0),
+            width=float(_to_decimal(current.width)),
+            overlap_count=current.overlap,
+            dead_air_count=current.dead_air,
+        ).model_dump(mode="json")
+        for index, current in enumerate(
+            stats.strafe_stats[1 : stats.strafes + 1], start=1
+        )
+    ]
+
+    return ParsedJumpReplay(
+        steamid64=selected.steamid64,
+        mode=selected.mode,
+        type=selected.jump_type,
+        distance=_to_decimal(selected.header.distance),
+        block=selected.header.block_distance if selected.header.block_distance > 0 else None,
+        strafes=stats.strafes,
+        sync_percent=_to_percent(stats.sync),
+        pre_speed=_to_decimal(selected.header.pre_speed),
+        max_speed=_to_decimal(stats.max_speed),
+        w_count=max(0, stats.release_w),
+        overlap_count=stats.overlap,
+        dead_air_count=stats.dead_air,
+        width=_to_decimal(stats.average_width),
+        height=_to_decimal(stats.height),
+        airtime_percent=100,
+        offset=_to_decimal(stats.offset),
+        deviation=_to_decimal(stats.deviation),
+        crouched_ticks=stats.crouch_ticks,
+        strafe_stats=strafe_stats,
+        jumped_at=datetime.fromtimestamp(selected.header.timestamp, UTC),
+    )
+
+
+def parse_jump_replay_visualization(
+    *,
+    data: bytes,
+    source_name: str,
+) -> JumpstatVisualizationPublic:
+    selected = _parse_selected_jump_replay(data=data, source_name=source_name)
+    ticks = selected.ticks
+    segment = selected.segment
+    base_tick = max(0, segment.start_air_tick - 1)
+    landing_tick = (
+        segment.end_air_tick + 1
+        if segment.landed and segment.end_air_tick + 1 < len(ticks)
+        else segment.end_air_tick
+    )
+    takeoff_x = ticks[base_tick].origin.x
+    takeoff_y = ticks[base_tick].origin.y
+    landing_x = ticks[landing_tick].origin.x
+    landing_y = ticks[landing_tick].origin.y
+    delta_x = landing_x - takeoff_x
+    delta_y = landing_y - takeoff_y
+    route_angle = math.degrees(math.atan2(delta_y, delta_x)) if (
+        abs(delta_x) > EPSILON or abs(delta_y) > EPSILON
+    ) else 90.0
+    rotation_radians = math.radians(90.0 - route_angle)
+    deviation_angle = _to_decimal(_normalize_angle(route_angle - 90.0))
+    jump_direction = _derive_jump_direction(
+        ticks=ticks,
+        base_tick=base_tick,
+        jump_type=selected.jump_type,
+    )
+    left_button = LEFT_BUTTON_BY_JUMP_DIRECTION[jump_direction]
+    right_button = RIGHT_BUTTON_BY_JUMP_DIRECTION[jump_direction]
+
+    samples: list[JumpstatVisualizationSample] = []
+    previous_yaw = ticks[base_tick].angles.y
+    for relative_index, tick_index in enumerate(
+        range(segment.start_air_tick, landing_tick + 1)
+    ):
+        tick = ticks[tick_index]
+        rotated_x, rotated_y = _rotate_point(
+            x=tick.origin.x - takeoff_x,
+            y=tick.origin.y - takeoff_y,
+            radians=rotation_radians,
+        )
+        samples.append(
+            JumpstatVisualizationSample(
+                index=relative_index,
+                x=float(_to_decimal(rotated_x)),
+                y=float(_to_decimal(rotated_y)),
+                yaw_delta=0.0,
+                mouse_direction=JumpstatVisualizationMouseDirection.NONE,
+                a_pressed=bool(tick.flags & left_button),
+                d_pressed=bool(tick.flags & right_button),
+                strafe_type=_classify_strafe_type(
+                    tick=tick,
+                    jump_direction=jump_direction,
+                ),
+            )
+        )
+
+        yaw_delta = wrap_angle_delta(tick.angles.y, previous_yaw)
+        mouse_index = max(relative_index - 1, 0)
+        samples[mouse_index].yaw_delta = float(_to_decimal(yaw_delta))
+        samples[mouse_index].mouse_direction = _mouse_direction_from_yaw_delta(yaw_delta)
+        previous_yaw = tick.angles.y
+
+    if samples:
+        bounds = JumpstatVisualizationBounds(
+            min_x=min(sample.x for sample in samples),
+            max_x=max(sample.x for sample in samples),
+            min_y=min(sample.y for sample in samples),
+            max_y=max(sample.y for sample in samples),
+        )
+    else:
+        bounds = JumpstatVisualizationBounds(
+            min_x=0.0,
+            max_x=0.0,
+            min_y=0.0,
+            max_y=0.0,
+        )
+
+    return JumpstatVisualizationPublic(
+        version=JUMPSTAT_VISUALIZATION_VERSION,
+        jump_direction=jump_direction,
+        deviation_angle=float(deviation_angle),
+        bounds=bounds,
+        samples=samples,
+    )

@@ -19,6 +19,18 @@ class SyntheticJumpReplay:
     jumped_at: datetime
 
 
+@dataclass(frozen=True)
+class SyntheticReplayTick:
+    origin: tuple[float, float, float]
+    angles: tuple[float, float, float]
+    velocity: tuple[float, float, float]
+    flags: int
+    forwardmove: float = 0.0
+    sidemove: float = 0.0
+    upmove: float = 0.0
+    mouse: tuple[int, int] = (0, 0)
+
+
 def _pack_len_string(value: str) -> bytes:
     encoded = value.encode("utf-8")
     return struct.pack("<B", len(encoded)) + encoded
@@ -34,8 +46,17 @@ def _tick_bytes(
     angles: tuple[float, float, float],
     velocity: tuple[float, float, float],
     flags: int,
+    forwardmove: float = 0.0,
+    sidemove: float = 0.0,
+    upmove: float = 0.0,
+    mouse: tuple[int, int] = (0, 0),
 ) -> bytes:
     fields = {
+        2: _pack_float_as_i32(forwardmove),
+        3: _pack_float_as_i32(sidemove),
+        4: _pack_float_as_i32(upmove),
+        5: struct.pack("<i", mouse[0]),
+        6: struct.pack("<i", mouse[1]),
         7: _pack_float_as_i32(origin[0]),
         8: _pack_float_as_i32(origin[1]),
         9: _pack_float_as_i32(origin[2]),
@@ -64,42 +85,69 @@ def build_synthetic_jump_replay(
     style_index: int = 0,
     jump_type_index: int = 0,
     block_distance: int = 260,
+    ticks: list[SyntheticReplayTick] | None = None,
 ) -> SyntheticJumpReplay:
     timestamp = 1715860800
     steam_account_id = 12345
     steamid64 = 76561197960265728 + steam_account_id
 
-    ticks = [
-        _tick_bytes(
+    tick_specs = ticks or [
+        SyntheticReplayTick(
             origin=(0.0, 0.0, 0.0),
             angles=(0.0, 10.0, 0.0),
             velocity=(100.0, 0.0, 0.0),
             flags=RP_FL_ONGROUND | RP_IN_FORWARD,
+            forwardmove=450.0,
         ),
-        _tick_bytes(
+        SyntheticReplayTick(
             origin=(1.0, 0.0, 1.0),
             angles=(0.0, 20.0, 0.0),
             velocity=(150.0, 0.0, 10.0),
             flags=RP_IN_FORWARD,
+            forwardmove=450.0,
+            sidemove=450.0,
+            mouse=(10, 0),
         ),
-        _tick_bytes(
+        SyntheticReplayTick(
             origin=(3.0, 1.0, 2.0),
             angles=(0.0, 15.0, 0.0),
             velocity=(130.0, 20.0, 5.0),
             flags=RP_IN_MOVELEFT,
+            forwardmove=450.0,
+            sidemove=-450.0,
+            mouse=(-14, 0),
         ),
-        _tick_bytes(
+        SyntheticReplayTick(
             origin=(6.0, 1.0, 1.0),
             angles=(0.0, 25.0, 0.0),
             velocity=(200.0, 0.0, -5.0),
             flags=RP_IN_MOVERIGHT | RP_IN_DUCK,
+            forwardmove=450.0,
+            sidemove=450.0,
+            mouse=(20, 0),
         ),
-        _tick_bytes(
+        SyntheticReplayTick(
             origin=(10.0, 2.0, 0.0),
             angles=(0.0, 35.0, 0.0),
             velocity=(180.0, 0.0, -20.0),
             flags=RP_FL_ONGROUND | RP_IN_DUCK,
+            forwardmove=450.0,
+            sidemove=450.0,
+            mouse=(24, 0),
         ),
+    ]
+    tick_bytes = [
+        _tick_bytes(
+            origin=tick.origin,
+            angles=tick.angles,
+            velocity=tick.velocity,
+            flags=tick.flags,
+            forwardmove=tick.forwardmove,
+            sidemove=tick.sidemove,
+            upmove=tick.upmove,
+            mouse=tick.mouse,
+        )
+        for tick in tick_specs
     ]
 
     header = bytearray()
@@ -118,7 +166,7 @@ def build_synthetic_jump_replay(
     header.extend(_pack_float_as_i32(1.5))
     header.extend(_pack_float_as_i32(0.022))
     header.extend(_pack_float_as_i32(128.0))
-    header.extend(struct.pack("<i", len(ticks)))
+    header.extend(struct.pack("<i", len(tick_bytes)))
     header.extend(struct.pack("<i", 0))
     header.extend(struct.pack("<i", 0))
     header.extend(struct.pack("<B", jump_type_index))
@@ -130,7 +178,7 @@ def build_synthetic_jump_replay(
     header.extend(_pack_float_as_i32(200.0))
     header.extend(struct.pack("<i", 313))
 
-    replay_bytes = bytes(header) + b"".join(ticks)
+    replay_bytes = bytes(header) + b"".join(tick_bytes)
     return SyntheticJumpReplay(
         replay_bytes=replay_bytes,
         steamid64=steamid64,

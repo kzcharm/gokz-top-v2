@@ -1052,7 +1052,9 @@ test.describe("Leaderboards page", () => {
 
     await page.goto("/leaderboards/jumpstats")
 
-    await expect(page.getByText("7")).toBeVisible()
+    await expect(
+      page.getByRole("cell", { name: "7", exact: true }),
+    ).toBeVisible()
     await page.getByRole("combobox", { name: "Jump Type" }).click()
     await page.getByRole("option", { name: "Bhop" }).click()
     await expect(page.getByText("Beta")).toBeVisible()
@@ -1068,5 +1070,277 @@ test.describe("Leaderboards page", () => {
     expect(blockRequests.every((request) => request.sortOrder === null)).toBe(
       true,
     )
+  })
+
+  test("jumpstats leaderboard row opens details dialog and preserves row link navigation", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+    await page.route("**/v1/leaderboards/jumpstats*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              id: "11111111-1111-4111-8111-111111111111",
+              player: buildPlayerRef("76561198000000003", "Gamma"),
+              server_group_id: "22222222-2222-4222-8222-222222222222",
+              server_group: {
+                id: "22222222-2222-4222-8222-222222222222",
+                name: "Jumpstats Group",
+              },
+              mode: "KZT",
+              type: "LJ",
+              distance: 281.1234,
+              block: 280,
+              strafes: 8,
+              sync_percent: 90,
+              pre_speed: 275.22,
+              max_speed: 366.78,
+              jumped_at: "2099-01-01T00:00:00Z",
+            },
+          ],
+        }),
+      })
+    })
+    await page.route(
+      /\/v1\/jumpstats\/11111111-1111-4111-8111-111111111111$/,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "11111111-1111-4111-8111-111111111111",
+            player: buildPlayerRef("76561198000000003", "Gamma"),
+            server_group_id: "22222222-2222-4222-8222-222222222222",
+            server_group: {
+              id: "22222222-2222-4222-8222-222222222222",
+              name: "Jumpstats Group",
+            },
+            mode: "KZT",
+            type: "LJ",
+            distance: 281.1234,
+            block: 280,
+            strafes: 8,
+            sync_percent: 90,
+            pre_speed: 275.22,
+            max_speed: 366.78,
+            w_count: 1,
+            overlap_count: 0,
+            dead_air_count: 0,
+            width: 18.5,
+            height: 56.1,
+            airtime_percent: 100,
+            offset: 0,
+            crouched_ticks: 0,
+            edge: null,
+            deviation: 3.25,
+            jumped_at: "2099-01-01T00:00:00Z",
+            created_at: "2099-01-01T00:00:00Z",
+            updated_at: "2099-01-01T00:00:00Z",
+            strafe_stats: [
+              {
+                index: 1,
+                sync_percent: 90,
+                gain: 10,
+                loss: 0,
+                airtime_percent: 50,
+                width: 12,
+                overlap_count: 0,
+                dead_air_count: 0,
+              },
+            ],
+          }),
+        })
+      },
+    )
+    await page.route(
+      /\/v1\/jumpstats\/11111111-1111-4111-8111-111111111111\/visualization$/,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            version: 1,
+            jump_direction: "FORWARDS",
+            deviation_angle: -12.5,
+            bounds: {
+              min_x: -1,
+              max_x: 1,
+              min_y: 0,
+              max_y: 3,
+            },
+            samples: [
+              {
+                index: 0,
+                x: 0,
+                y: 0,
+                yaw_delta: 0,
+                mouse_direction: "NONE",
+                a_pressed: false,
+                d_pressed: false,
+                strafe_type: "NONE",
+              },
+              {
+                index: 1,
+                x: 0.2,
+                y: 2.5,
+                yaw_delta: 8,
+                mouse_direction: "RIGHT",
+                a_pressed: false,
+                d_pressed: true,
+                strafe_type: "RIGHT",
+              },
+            ],
+          }),
+        })
+      },
+    )
+
+    await page.goto("/leaderboards/jumpstats")
+
+    const detailResponsePromise = page.waitForResponse(
+      /\/v1\/jumpstats\/11111111-1111-4111-8111-111111111111$/,
+    )
+    const visualizationResponsePromise = page.waitForResponse(
+      /\/v1\/jumpstats\/11111111-1111-4111-8111-111111111111\/visualization$/,
+    )
+    await page.locator("tbody tr").first().click()
+    await detailResponsePromise
+    await visualizationResponsePromise
+    await expect(page.getByRole("dialog")).toBeVisible()
+    await expect(page.getByText("Jumpstat details")).toBeVisible()
+    await expect(
+      page.getByRole("img", { name: "Route visualization" }),
+    ).toBeVisible()
+    await expect(page.getByText("Deviation angle:")).toBeVisible()
+    await page.getByRole("button", { name: "Close" }).click()
+    await expect(page.getByRole("dialog")).not.toBeVisible()
+    await expect(
+      page.getByRole("combobox", { name: "Jump Type" }),
+    ).toContainText("Long Jump")
+
+    await page.getByRole("link", { name: "Gamma" }).click()
+    await expect(page).toHaveURL(/\/profile\/76561198000000003/)
+  })
+
+  test("jumpstats details dialog shows visualization error without hiding detail", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+    await page.route("**/v1/leaderboards/jumpstats*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              id: "33333333-3333-4333-8333-333333333333",
+              player: buildPlayerRef("76561198000000004", "Delta"),
+              server_group_id: "44444444-4444-4444-8444-444444444444",
+              server_group: {
+                id: "44444444-4444-4444-8444-444444444444",
+                name: "Jumpstats Group",
+              },
+              mode: "KZT",
+              type: "LJ",
+              distance: 280.5,
+              block: 260,
+              strafes: 7,
+              sync_percent: 88,
+              pre_speed: 274.11,
+              max_speed: 365.41,
+              jumped_at: "2099-01-01T00:00:00Z",
+            },
+          ],
+        }),
+      })
+    })
+    await page.route(
+      /\/v1\/jumpstats\/33333333-3333-4333-8333-333333333333$/,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "33333333-3333-4333-8333-333333333333",
+            player: buildPlayerRef("76561198000000004", "Delta"),
+            server_group_id: "44444444-4444-4444-8444-444444444444",
+            server_group: {
+              id: "44444444-4444-4444-8444-444444444444",
+              name: "Jumpstats Group",
+            },
+            mode: "KZT",
+            type: "LJ",
+            distance: 280.5,
+            block: 260,
+            strafes: 7,
+            sync_percent: 88,
+            pre_speed: 274.11,
+            max_speed: 365.41,
+            w_count: 1,
+            overlap_count: 0,
+            dead_air_count: 0,
+            width: 18.5,
+            height: 56.1,
+            airtime_percent: 100,
+            offset: 0,
+            crouched_ticks: 0,
+            edge: null,
+            deviation: 3.25,
+            jumped_at: "2099-01-01T00:00:00Z",
+            created_at: "2099-01-01T00:00:00Z",
+            updated_at: "2099-01-01T00:00:00Z",
+            strafe_stats: [
+              {
+                index: 1,
+                sync_percent: 88,
+                gain: 12,
+                loss: 0,
+                airtime_percent: 50,
+                width: 14,
+                overlap_count: 0,
+                dead_air_count: 0,
+              },
+            ],
+          }),
+        })
+      },
+    )
+    await page.route(
+      /\/v1\/jumpstats\/33333333-3333-4333-8333-333333333333\/visualization$/,
+      async (route) => {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            detail: "33333333-3333-4333-8333-333333333333.replay",
+          }),
+        })
+      },
+    )
+
+    await page.goto("/leaderboards/jumpstats")
+
+    const detailResponsePromise = page.waitForResponse(
+      /\/v1\/jumpstats\/33333333-3333-4333-8333-333333333333$/,
+    )
+    const visualizationResponsePromise = page.waitForResponse(
+      /\/v1\/jumpstats\/33333333-3333-4333-8333-333333333333\/visualization$/,
+    )
+    await page.locator("tbody tr").first().click()
+    await detailResponsePromise
+    await visualizationResponsePromise
+    await expect(page.getByRole("dialog")).toBeVisible()
+    await expect(page.getByRole("dialog")).toContainText(
+      "Unable to load jump route",
+    )
+    await expect(
+      page.getByText("Strafe breakdown", { exact: true }),
+    ).toBeVisible()
   })
 })

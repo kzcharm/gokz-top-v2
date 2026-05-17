@@ -1343,6 +1343,117 @@ export const JumpstatTypeSchema = {
     title: 'JumpstatType'
 } as const;
 
+export const JumpstatVisualizationBoundsSchema = {
+    properties: {
+        min_x: {
+            type: 'number',
+            title: 'Min X'
+        },
+        max_x: {
+            type: 'number',
+            title: 'Max X'
+        },
+        min_y: {
+            type: 'number',
+            title: 'Min Y'
+        },
+        max_y: {
+            type: 'number',
+            title: 'Max Y'
+        }
+    },
+    type: 'object',
+    required: ['min_x', 'max_x', 'min_y', 'max_y'],
+    title: 'JumpstatVisualizationBounds'
+} as const;
+
+export const JumpstatVisualizationJumpDirectionSchema = {
+    type: 'string',
+    enum: ['FORWARDS', 'BACKWARDS', 'LEFT', 'RIGHT'],
+    title: 'JumpstatVisualizationJumpDirection'
+} as const;
+
+export const JumpstatVisualizationMouseDirectionSchema = {
+    type: 'string',
+    enum: ['LEFT', 'NONE', 'RIGHT'],
+    title: 'JumpstatVisualizationMouseDirection'
+} as const;
+
+export const JumpstatVisualizationPublicSchema = {
+    properties: {
+        version: {
+            type: 'integer',
+            minimum: 1,
+            title: 'Version'
+        },
+        jump_direction: {
+            '$ref': '#/components/schemas/JumpstatVisualizationJumpDirection'
+        },
+        deviation_angle: {
+            type: 'number',
+            title: 'Deviation Angle'
+        },
+        bounds: {
+            '$ref': '#/components/schemas/JumpstatVisualizationBounds'
+        },
+        samples: {
+            items: {
+                '$ref': '#/components/schemas/JumpstatVisualizationSample'
+            },
+            type: 'array',
+            title: 'Samples'
+        }
+    },
+    type: 'object',
+    required: ['version', 'jump_direction', 'deviation_angle', 'bounds', 'samples'],
+    title: 'JumpstatVisualizationPublic'
+} as const;
+
+export const JumpstatVisualizationSampleSchema = {
+    properties: {
+        index: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Index'
+        },
+        x: {
+            type: 'number',
+            title: 'X'
+        },
+        y: {
+            type: 'number',
+            title: 'Y'
+        },
+        yaw_delta: {
+            type: 'number',
+            title: 'Yaw Delta'
+        },
+        mouse_direction: {
+            '$ref': '#/components/schemas/JumpstatVisualizationMouseDirection'
+        },
+        a_pressed: {
+            type: 'boolean',
+            title: 'A Pressed'
+        },
+        d_pressed: {
+            type: 'boolean',
+            title: 'D Pressed'
+        },
+        strafe_type: {
+            '$ref': '#/components/schemas/JumpstatVisualizationStrafeType'
+        }
+    },
+    type: 'object',
+    required: ['index', 'x', 'y', 'yaw_delta', 'mouse_direction', 'a_pressed', 'd_pressed', 'strafe_type'],
+    title: 'JumpstatVisualizationSample'
+} as const;
+
+export const JumpstatVisualizationStrafeTypeSchema = {
+    type: 'string',
+    enum: ['OVERLAP', 'NONE', 'LEFT', 'OVERLAP_LEFT', 'NONE_LEFT', 'RIGHT', 'OVERLAP_RIGHT', 'NONE_RIGHT'],
+    title: 'JumpstatVisualizationStrafeType'
+} as const;
+
 export const JumpstatsPublicSchema = {
     properties: {
         data: {

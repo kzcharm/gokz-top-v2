@@ -296,6 +296,38 @@ export type JumpstatStrafeStat = {
 
 export type JumpstatType = 'LJ' | 'BH' | 'MBH' | 'WJ' | 'LAJ' | 'LAH' | 'JB' | 'LBH' | 'LWJ' | 'FL' | 'UNK' | 'INV';
 
+export type JumpstatVisualizationBounds = {
+    min_x: number;
+    max_x: number;
+    min_y: number;
+    max_y: number;
+};
+
+export type JumpstatVisualizationJumpDirection = 'FORWARDS' | 'BACKWARDS' | 'LEFT' | 'RIGHT';
+
+export type JumpstatVisualizationMouseDirection = 'LEFT' | 'NONE' | 'RIGHT';
+
+export type JumpstatVisualizationPublic = {
+    version: number;
+    jump_direction: JumpstatVisualizationJumpDirection;
+    deviation_angle: number;
+    bounds: JumpstatVisualizationBounds;
+    samples: Array<JumpstatVisualizationSample>;
+};
+
+export type JumpstatVisualizationSample = {
+    index: number;
+    x: number;
+    y: number;
+    yaw_delta: number;
+    mouse_direction: JumpstatVisualizationMouseDirection;
+    a_pressed: boolean;
+    d_pressed: boolean;
+    strafe_type: JumpstatVisualizationStrafeType;
+};
+
+export type JumpstatVisualizationStrafeType = 'OVERLAP' | 'NONE' | 'LEFT' | 'OVERLAP_LEFT' | 'NONE_LEFT' | 'RIGHT' | 'OVERLAP_RIGHT' | 'NONE_RIGHT';
+
 export type KZMode = 'KZT' | 'SKZ' | 'VNL' | 'NKZ';
 
 export type LiveStreamCardPublic = {
@@ -1358,6 +1390,12 @@ export type JumpstatsReadJumpstatData = {
 };
 
 export type JumpstatsReadJumpstatResponse = (JumpstatDetailPublic);
+
+export type JumpstatsReadJumpstatVisualizationData = {
+    jumpstatId: string;
+};
+
+export type JumpstatsReadJumpstatVisualizationResponse = (JumpstatVisualizationPublic);
 
 export type LeaderboardsReadJumpstatLeaderboardData = {
     limit?: number;
