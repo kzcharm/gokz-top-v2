@@ -170,6 +170,13 @@ function JumpstatDetailPanel({
           deviationLabel={t(
             "leaderboards.jumpstats.dialog.visualization.deviationAngle",
           )}
+          legendLabel={t("leaderboards.jumpstats.dialog.visualization.legend")}
+          neutralLabel={t(
+            "leaderboards.jumpstats.dialog.visualization.neutral",
+          )}
+          gainLabel={t("leaderboards.jumpstats.dialog.visualization.gain")}
+          lossLabel={t("leaderboards.jumpstats.dialog.visualization.loss")}
+          duckLabel={t("leaderboards.jumpstats.dialog.visualization.duck")}
           aLabel={t("leaderboards.jumpstats.dialog.visualization.aKey")}
           dLabel={t("leaderboards.jumpstats.dialog.visualization.dKey")}
           mouseLabel={t("leaderboards.jumpstats.dialog.visualization.mouse")}

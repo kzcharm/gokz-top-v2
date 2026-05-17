@@ -18,6 +18,29 @@ const STRAFE_TYPE_COLORS: Record<JumpstatVisualizationStrafeType, string> = {
   NONE_RIGHT: "#22c55e",
 }
 
+const DISTBUG_BEAM_COLORS = {
+  neutral: "#FFBF00",
+  loss: "#FF00FF",
+  gain: "#85eb34",
+  duck: "#001F7F",
+} as const
+
+function getBeamColor(sample: JumpstatVisualizationSample) {
+  switch (sample.strafe_type) {
+    case "OVERLAP":
+    case "OVERLAP_LEFT":
+    case "OVERLAP_RIGHT":
+      return DISTBUG_BEAM_COLORS.loss
+    case "LEFT":
+    case "RIGHT":
+      return DISTBUG_BEAM_COLORS.gain
+    case "NONE":
+    case "NONE_LEFT":
+    case "NONE_RIGHT":
+      return DISTBUG_BEAM_COLORS.neutral
+  }
+}
+
 function getRouteCoordinates(
   x: number,
   y: number,
@@ -93,6 +116,11 @@ export function JumpstatRouteVisualization({
   visualization,
   title,
   deviationLabel,
+  legendLabel,
+  neutralLabel,
+  gainLabel,
+  lossLabel,
+  duckLabel,
   aLabel,
   dLabel,
   mouseLabel,
@@ -100,6 +128,11 @@ export function JumpstatRouteVisualization({
   visualization: JumpstatVisualizationPublic
   title: string
   deviationLabel: string
+  legendLabel: string
+  neutralLabel: string
+  gainLabel: string
+  lossLabel: string
+  duckLabel: string
   aLabel: string
   dLabel: string
   mouseLabel: string
@@ -125,6 +158,31 @@ export function JumpstatRouteVisualization({
       </div>
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-border/60 bg-card">
+        <div className="border-b border-border/60 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            <span className="font-semibold tracking-[0.14em] uppercase">
+              {legendLabel}
+            </span>
+            {[
+              { color: DISTBUG_BEAM_COLORS.neutral, label: neutralLabel },
+              { color: DISTBUG_BEAM_COLORS.gain, label: gainLabel },
+              { color: DISTBUG_BEAM_COLORS.loss, label: lossLabel },
+              { color: DISTBUG_BEAM_COLORS.duck, label: duckLabel },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                <span
+                  className="h-0.5 w-6 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                  aria-hidden="true"
+                />
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
         <svg
           viewBox="0 0 100 120"
           className="h-[36rem] w-full bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.15),_transparent_55%)]"
@@ -162,7 +220,7 @@ export function JumpstatRouteVisualization({
               y1={originPoint.y}
               x2={points[0].x}
               y2={points[0].y}
-              stroke={STRAFE_TYPE_COLORS[points[0].sample.strafe_type]}
+              stroke={getBeamColor(points[0].sample)}
               strokeWidth="1.9"
               strokeLinecap="round"
             />
@@ -176,7 +234,7 @@ export function JumpstatRouteVisualization({
                 y1={previous.y}
                 x2={point.x}
                 y2={point.y}
-                stroke={STRAFE_TYPE_COLORS[point.sample.strafe_type]}
+                stroke={getBeamColor(point.sample)}
                 strokeWidth="1.9"
                 strokeLinecap="round"
               />

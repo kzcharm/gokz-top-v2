@@ -498,6 +498,11 @@ export const ru = {
         visualization: {
           title: "Визуализация маршрута",
           deviationAngle: "Угол отклонения",
+          legend: "Цвета луча",
+          neutral: "Нейтрально",
+          gain: "Прирост",
+          loss: "Потеря",
+          duck: "Присед",
           aKey: "A",
           dKey: "D",
           mouse: "Мышь",

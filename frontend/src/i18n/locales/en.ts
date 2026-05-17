@@ -492,6 +492,11 @@ export const en = {
         visualization: {
           title: "Route visualization",
           deviationAngle: "Deviation angle",
+          legend: "Beam colors",
+          neutral: "Neutral",
+          gain: "Gain",
+          loss: "Loss",
+          duck: "Duck",
           aKey: "A",
           dKey: "D",
           mouse: "Mouse",

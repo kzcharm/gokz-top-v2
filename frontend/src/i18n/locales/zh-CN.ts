@@ -480,6 +480,11 @@ export const zhCN = {
         visualization: {
           title: "路线可视化",
           deviationAngle: "偏离角",
+          legend: "光束颜色",
+          neutral: "中性",
+          gain: "增速",
+          loss: "减速",
+          duck: "下蹲",
           aKey: "A",
           dKey: "D",
           mouse: "鼠标",
