@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
-import tomllib
 
 _RANK_SYSTEM_CONFIG_PATH = Path(__file__).resolve().parents[2] / "rank-system.toml"
 

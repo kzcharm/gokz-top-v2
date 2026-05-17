@@ -20,6 +20,8 @@ from app.api.deps import (
 from app.core.config import settings
 from app.crud import player as player_crud
 from app.models import (
+    JumpstatListQuery,
+    JumpstatsPublic,
     LiveStreamState,
     ModeScope,
     Player,
@@ -532,6 +534,27 @@ async def read_player_stats(
     response_payload = stats.model_dump(mode="json")
     _drop_null_group_ids(response_payload)
     return JSONResponse(content=response_payload)
+
+
+@router.get(
+    "/{identifier:path}/jumpstats",
+    response_model=JumpstatsPublic,
+)
+async def read_player_jumpstats(
+    identifier: str,
+    session: SessionDep,
+    query: Annotated[JumpstatListQuery, Query()],
+) -> JumpstatsPublic:
+    player_steamid64 = await _resolve_player_identifier_to_steamid64_or_404(
+        session=session,
+        identifier=identifier,
+    )
+    rows, count = await crud.read_jumpstats(
+        session=session,
+        query=query,
+        player_steamid64=player_steamid64,
+    )
+    return JumpstatsPublic(data=crud.to_jumpstat_publics(rows=rows), count=count)
 
 
 @router.get(

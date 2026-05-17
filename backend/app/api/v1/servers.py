@@ -20,12 +20,12 @@ from app.models import (
     ServerUpdate,
     User,
 )
+from app.services.server_events import broadcast_server_update
 from app.services.server_query import (
     ServerQueryError,
     query_server_a2s_info,
     validate_server_addition_info,
 )
-from app.services.server_events import broadcast_server_update
 from app.services.server_status import (
     SERVER_DISCOVERY_ENABLED,
     run_server_discovery_cycle,

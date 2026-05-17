@@ -902,6 +902,19 @@ export const BansPublicSchema = {
     title: 'BansPublic'
 } as const;
 
+export const Body_jumpstats_create_jumpstatSchema = {
+    properties: {
+        replay: {
+            type: 'string',
+            format: 'binary',
+            title: 'Replay'
+        }
+    },
+    type: 'object',
+    required: ['replay'],
+    title: 'Body_jumpstats-create_jumpstat'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -914,6 +927,550 @@ export const HTTPValidationErrorSchema = {
     },
     type: 'object',
     title: 'HTTPValidationError'
+} as const;
+
+export const JumpstatDetailPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        server_group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Group Id'
+        },
+        server_group: {
+            '$ref': '#/components/schemas/ServerGroupSummary'
+        },
+        mode: {
+            '$ref': '#/components/schemas/KZMode'
+        },
+        type: {
+            '$ref': '#/components/schemas/JumpstatType'
+        },
+        distance: {
+            type: 'number',
+            title: 'Distance'
+        },
+        block: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Block'
+        },
+        strafes: {
+            type: 'integer',
+            title: 'Strafes'
+        },
+        sync_percent: {
+            type: 'integer',
+            title: 'Sync Percent'
+        },
+        pre_speed: {
+            type: 'number',
+            title: 'Pre Speed'
+        },
+        max_speed: {
+            type: 'number',
+            title: 'Max Speed'
+        },
+        w_count: {
+            type: 'integer',
+            title: 'W Count'
+        },
+        overlap_count: {
+            type: 'integer',
+            title: 'Overlap Count'
+        },
+        dead_air_count: {
+            type: 'integer',
+            title: 'Dead Air Count'
+        },
+        width: {
+            type: 'number',
+            title: 'Width'
+        },
+        height: {
+            type: 'number',
+            title: 'Height'
+        },
+        airtime_percent: {
+            type: 'integer',
+            title: 'Airtime Percent'
+        },
+        offset: {
+            type: 'number',
+            title: 'Offset'
+        },
+        crouched_ticks: {
+            type: 'integer',
+            title: 'Crouched Ticks'
+        },
+        edge: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Edge'
+        },
+        deviation: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Deviation'
+        },
+        jumped_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Jumped At'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        strafe_stats: {
+            items: {
+                '$ref': '#/components/schemas/JumpstatStrafeStat'
+            },
+            type: 'array',
+            title: 'Strafe Stats'
+        }
+    },
+    type: 'object',
+    required: ['id', 'player', 'server_group_id', 'server_group', 'mode', 'type', 'distance', 'strafes', 'sync_percent', 'pre_speed', 'max_speed', 'w_count', 'overlap_count', 'dead_air_count', 'width', 'height', 'airtime_percent', 'offset', 'crouched_ticks', 'jumped_at', 'created_at', 'updated_at', 'strafe_stats'],
+    title: 'JumpstatDetailPublic'
+} as const;
+
+export const JumpstatLeaderboardEntryPublicSchema = {
+    properties: {
+        rank: {
+            type: 'integer',
+            title: 'Rank'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        server_group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Group Id'
+        },
+        server_group: {
+            '$ref': '#/components/schemas/ServerGroupSummary'
+        },
+        mode: {
+            '$ref': '#/components/schemas/KZMode'
+        },
+        type: {
+            '$ref': '#/components/schemas/JumpstatType'
+        },
+        distance: {
+            type: 'number',
+            title: 'Distance'
+        },
+        block: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Block'
+        },
+        strafes: {
+            type: 'integer',
+            title: 'Strafes'
+        },
+        sync_percent: {
+            type: 'integer',
+            title: 'Sync Percent'
+        },
+        pre_speed: {
+            type: 'number',
+            title: 'Pre Speed'
+        },
+        max_speed: {
+            type: 'number',
+            title: 'Max Speed'
+        },
+        jumped_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Jumped At'
+        }
+    },
+    type: 'object',
+    required: ['rank', 'id', 'player', 'server_group_id', 'server_group', 'mode', 'type', 'distance', 'strafes', 'sync_percent', 'pre_speed', 'max_speed', 'jumped_at'],
+    title: 'JumpstatLeaderboardEntryPublic'
+} as const;
+
+export const JumpstatLeaderboardsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/JumpstatLeaderboardEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'JumpstatLeaderboardsPublic'
+} as const;
+
+export const JumpstatPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        server_group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Group Id'
+        },
+        server_group: {
+            '$ref': '#/components/schemas/ServerGroupSummary'
+        },
+        mode: {
+            '$ref': '#/components/schemas/KZMode'
+        },
+        type: {
+            '$ref': '#/components/schemas/JumpstatType'
+        },
+        distance: {
+            type: 'number',
+            title: 'Distance'
+        },
+        block: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Block'
+        },
+        strafes: {
+            type: 'integer',
+            title: 'Strafes'
+        },
+        sync_percent: {
+            type: 'integer',
+            title: 'Sync Percent'
+        },
+        pre_speed: {
+            type: 'number',
+            title: 'Pre Speed'
+        },
+        max_speed: {
+            type: 'number',
+            title: 'Max Speed'
+        },
+        w_count: {
+            type: 'integer',
+            title: 'W Count'
+        },
+        overlap_count: {
+            type: 'integer',
+            title: 'Overlap Count'
+        },
+        dead_air_count: {
+            type: 'integer',
+            title: 'Dead Air Count'
+        },
+        width: {
+            type: 'number',
+            title: 'Width'
+        },
+        height: {
+            type: 'number',
+            title: 'Height'
+        },
+        airtime_percent: {
+            type: 'integer',
+            title: 'Airtime Percent'
+        },
+        offset: {
+            type: 'number',
+            title: 'Offset'
+        },
+        crouched_ticks: {
+            type: 'integer',
+            title: 'Crouched Ticks'
+        },
+        edge: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Edge'
+        },
+        deviation: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Deviation'
+        },
+        jumped_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Jumped At'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'player', 'server_group_id', 'server_group', 'mode', 'type', 'distance', 'strafes', 'sync_percent', 'pre_speed', 'max_speed', 'w_count', 'overlap_count', 'dead_air_count', 'width', 'height', 'airtime_percent', 'offset', 'crouched_ticks', 'jumped_at', 'created_at', 'updated_at'],
+    title: 'JumpstatPublic'
+} as const;
+
+export const JumpstatStrafeStatSchema = {
+    properties: {
+        index: {
+            type: 'integer',
+            minimum: 1,
+            title: 'Index'
+        },
+        sync_percent: {
+            type: 'integer',
+            maximum: 100,
+            minimum: 0,
+            title: 'Sync Percent'
+        },
+        gain: {
+            type: 'number',
+            minimum: 0,
+            title: 'Gain'
+        },
+        loss: {
+            type: 'number',
+            minimum: 0,
+            title: 'Loss'
+        },
+        airtime_percent: {
+            type: 'integer',
+            maximum: 100,
+            minimum: 0,
+            title: 'Airtime Percent'
+        },
+        width: {
+            type: 'number',
+            minimum: 0,
+            title: 'Width'
+        },
+        overlap_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Overlap Count',
+            default: 0
+        },
+        dead_air_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Dead Air Count',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['index', 'sync_percent', 'gain', 'loss', 'airtime_percent', 'width'],
+    title: 'JumpstatStrafeStat'
+} as const;
+
+export const JumpstatTypeSchema = {
+    type: 'string',
+    enum: ['LJ', 'BH', 'MBH', 'WJ', 'LAJ', 'LAH', 'JB', 'LBH', 'LWJ', 'FL', 'UNK', 'INV'],
+    title: 'JumpstatType'
+} as const;
+
+export const JumpstatVisualizationBoundsSchema = {
+    properties: {
+        min_x: {
+            type: 'number',
+            title: 'Min X'
+        },
+        max_x: {
+            type: 'number',
+            title: 'Max X'
+        },
+        min_y: {
+            type: 'number',
+            title: 'Min Y'
+        },
+        max_y: {
+            type: 'number',
+            title: 'Max Y'
+        }
+    },
+    type: 'object',
+    required: ['min_x', 'max_x', 'min_y', 'max_y'],
+    title: 'JumpstatVisualizationBounds'
+} as const;
+
+export const JumpstatVisualizationJumpDirectionSchema = {
+    type: 'string',
+    enum: ['FORWARDS', 'BACKWARDS', 'LEFT', 'RIGHT'],
+    title: 'JumpstatVisualizationJumpDirection'
+} as const;
+
+export const JumpstatVisualizationMouseDirectionSchema = {
+    type: 'string',
+    enum: ['LEFT', 'NONE', 'RIGHT'],
+    title: 'JumpstatVisualizationMouseDirection'
+} as const;
+
+export const JumpstatVisualizationPublicSchema = {
+    properties: {
+        version: {
+            type: 'integer',
+            minimum: 1,
+            title: 'Version'
+        },
+        jump_direction: {
+            '$ref': '#/components/schemas/JumpstatVisualizationJumpDirection'
+        },
+        deviation_angle: {
+            type: 'number',
+            title: 'Deviation Angle'
+        },
+        bounds: {
+            '$ref': '#/components/schemas/JumpstatVisualizationBounds'
+        },
+        samples: {
+            items: {
+                '$ref': '#/components/schemas/JumpstatVisualizationSample'
+            },
+            type: 'array',
+            title: 'Samples'
+        }
+    },
+    type: 'object',
+    required: ['version', 'jump_direction', 'deviation_angle', 'bounds', 'samples'],
+    title: 'JumpstatVisualizationPublic'
+} as const;
+
+export const JumpstatVisualizationSampleSchema = {
+    properties: {
+        index: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Index'
+        },
+        x: {
+            type: 'number',
+            title: 'X'
+        },
+        y: {
+            type: 'number',
+            title: 'Y'
+        },
+        yaw_delta: {
+            type: 'number',
+            title: 'Yaw Delta'
+        },
+        mouse_direction: {
+            '$ref': '#/components/schemas/JumpstatVisualizationMouseDirection'
+        },
+        a_pressed: {
+            type: 'boolean',
+            title: 'A Pressed'
+        },
+        d_pressed: {
+            type: 'boolean',
+            title: 'D Pressed'
+        },
+        strafe_type: {
+            '$ref': '#/components/schemas/JumpstatVisualizationStrafeType'
+        }
+    },
+    type: 'object',
+    required: ['index', 'x', 'y', 'yaw_delta', 'mouse_direction', 'a_pressed', 'd_pressed', 'strafe_type'],
+    title: 'JumpstatVisualizationSample'
+} as const;
+
+export const JumpstatVisualizationStrafeTypeSchema = {
+    type: 'string',
+    enum: ['OVERLAP', 'NONE', 'LEFT', 'OVERLAP_LEFT', 'NONE_LEFT', 'RIGHT', 'OVERLAP_RIGHT', 'NONE_RIGHT'],
+    title: 'JumpstatVisualizationStrafeType'
+} as const;
+
+export const JumpstatsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/JumpstatPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'JumpstatsPublic'
 } as const;
 
 export const KZModeSchema = {

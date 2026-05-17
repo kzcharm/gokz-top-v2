@@ -64,7 +64,7 @@ function ServerCardPlayerChip({
 
   useEffect(() => {
     setAvatarLoadFailed(false)
-  }, [avatarSrc])
+  }, [])
 
   return (
     <div

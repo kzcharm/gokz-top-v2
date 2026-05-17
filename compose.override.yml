@@ -83,6 +83,7 @@ services:
     # TODO: remove once coverage is done locally
     volumes:
       - ./backend/htmlcov:/app/backend/htmlcov
+      - ./.jump-replays:/app/.jump-replays
 
   frontend:
     restart: "no"

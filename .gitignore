@@ -8,6 +8,7 @@ node_modules/
 /playwright/.cache/
 .playwright-mcp/
 /.geoip/
+/.jump-replays/
 .idea/
 .DS_Store
 .obisidian/

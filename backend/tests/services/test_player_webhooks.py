@@ -9,9 +9,9 @@ from app.services.player_webhooks import (
     DISCORD_WEBHOOK_USERNAME,
     TWITCH_EMBED_COLOR,
     DiscordWebhookStreamEvent,
-    build_player_profile_url,
     build_discord_embed_payload,
     build_player_avatar_url,
+    build_player_profile_url,
     get_webhook_embed_color,
 )
 

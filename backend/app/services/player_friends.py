@@ -32,19 +32,22 @@ def format_friends_sync_retry_wait(
     if next_allowed_at is None:
         return "1 second"
 
-    remaining_seconds = max(1, ceil((next_allowed_at - now).total_seconds()))
-    if remaining_seconds < 60:
-        unit = "second" if remaining_seconds == 1 else "seconds"
-        return f"{remaining_seconds} {unit}"
+    remaining_seconds = max(ceil((next_allowed_at - now).total_seconds()), 1)
+    if remaining_seconds >= 86400:
+        value = ceil(remaining_seconds / 86400)
+        unit = "day"
+    elif remaining_seconds >= 3600:
+        value = ceil(remaining_seconds / 3600)
+        unit = "hour"
+    elif remaining_seconds >= 60:
+        value = ceil(remaining_seconds / 60)
+        unit = "minute"
+    else:
+        value = remaining_seconds
+        unit = "second"
 
-    remaining_minutes = ceil(remaining_seconds / 60)
-    if remaining_minutes < 60:
-        unit = "minute" if remaining_minutes == 1 else "minutes"
-        return f"{remaining_minutes} {unit}"
-
-    remaining_hours = ceil(remaining_minutes / 60)
-    unit = "hour" if remaining_hours == 1 else "hours"
-    return f"{remaining_hours} {unit}"
+    suffix = "" if value == 1 else "s"
+    return f"{value} {unit}{suffix}"
 
 
 async def _fetch_steam_profile_is_public(*, steamid64: int) -> bool | None:

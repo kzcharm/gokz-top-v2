@@ -242,7 +242,8 @@ async function installProfileShellRoutes(
 
     if (body?.query?.includes("players(")) {
       const players = (body.variables?.steamid64s ?? []).map(
-        (requestedSteamid64) => graphqlPlayersBySteamid64[requestedSteamid64] ?? null,
+        (requestedSteamid64) =>
+          graphqlPlayersBySteamid64[requestedSteamid64] ?? null,
       )
       await route.fulfill({
         status: 200,

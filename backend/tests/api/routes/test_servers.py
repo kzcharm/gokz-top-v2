@@ -633,7 +633,7 @@ async def test_put_server_status_updates_live_status_from_plugin(
     broadcasted_server_ids: list[str] = []
 
     async def _fake_broadcast_server_update(server: object) -> None:
-        broadcasted_server_ids.append(str(getattr(server, "id")))
+        broadcasted_server_ids.append(str(server.id))
 
     monkeypatch.setattr(
         servers_route,

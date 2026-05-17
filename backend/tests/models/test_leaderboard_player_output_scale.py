@@ -2,7 +2,10 @@ from itertools import pairwise
 
 import pytest
 
-from app.models.leaderboard_player import redistribute_display_rating, scale_public_rating
+from app.models.leaderboard_player import (
+    redistribute_display_rating,
+    scale_public_rating,
+)
 
 
 @pytest.mark.parametrize(

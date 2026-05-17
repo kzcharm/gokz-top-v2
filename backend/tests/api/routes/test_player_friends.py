@@ -296,3 +296,8 @@ async def test_sync_player_friends_returns_429_when_rate_limited(
     )
 
     assert response.status_code == 429
+    assert response.headers["Retry-After"] == "60"
+    assert (
+        response.json()["detail"]
+        == "Friends sync is rate limited. Wait 1 minute before retrying."
+    )

@@ -10,8 +10,8 @@ from app.models import (
     ServerGroup,
     ServerGroupCreate,
     ServerGroupStatus,
-    ServerStatus,
     ServerGroupUpdate,
+    ServerStatus,
 )
 from tests.utils.user import create_random_user
 from tests.utils.utils import random_lower_string

@@ -14,8 +14,8 @@ from app.api.deps import (
 )
 from app.core.regions import is_valid_region_code
 from app.models import (
-    MapPublic,
     MapPbLeaderboardPublic,
+    MapPublic,
     MapReviewListQuery,
     MapReviewPublic,
     MapReviewsPublic,

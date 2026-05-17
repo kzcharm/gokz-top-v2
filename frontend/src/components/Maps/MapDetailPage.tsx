@@ -275,7 +275,9 @@ function MapHero({
           </dl>
 
           {leaderboardSummary ? (
-            <div className="grid gap-3 sm:grid-cols-2">{leaderboardSummary}</div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {leaderboardSummary}
+            </div>
           ) : null}
         </div>
       </div>
@@ -389,14 +391,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
 
   useEffect(() => {
     setTopPageIndex(0)
-  }, [
-    mapQuery.data?.id,
-    scope,
-    isProOnly,
-    selectedCountry,
-    selectedRegion,
-    isFriendsOnly,
-  ])
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -448,7 +443,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
     }, 350)
 
     setPendingSpotlightSteamid64(null)
-  }, [leaderboardQuery.data?.data, pendingSpotlightSteamid64])
+  }, [pendingSpotlightSteamid64])
 
   if (mapQuery.isLoading) {
     return <MapDetailSkeleton />
@@ -477,12 +472,12 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
     leaderboardQuery.data?.current_user_steamid64 ?? null
   const nubRank =
     isProOnly === false
-      ? leaderboardQuery.data?.current_user_rank ?? null
-      : oppositeLeaderboardQuery.data?.current_user_rank ?? null
+      ? (leaderboardQuery.data?.current_user_rank ?? null)
+      : (oppositeLeaderboardQuery.data?.current_user_rank ?? null)
   const proRank =
     isProOnly === true
-      ? leaderboardQuery.data?.current_user_rank ?? null
-      : oppositeLeaderboardQuery.data?.current_user_rank ?? null
+      ? (leaderboardQuery.data?.current_user_rank ?? null)
+      : (oppositeLeaderboardQuery.data?.current_user_rank ?? null)
 
   const handleFindMe = () => {
     if (!currentUser?.steamid64) {
@@ -631,7 +626,9 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                       onClick={() => {
                         if (!currentUser?.steamid64) {
                           toast.warning(
-                            t("leaderboards.players.friends.loginRequiredTitle"),
+                            t(
+                              "leaderboards.players.friends.loginRequiredTitle",
+                            ),
                             {
                               description: t(
                                 "leaderboards.players.friends.loginRequiredDescription",
@@ -693,7 +690,6 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                 </Button>
               )}
             </div>
-
           </CardContent>
         </Card>
 
@@ -726,9 +722,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
               totalCount={leaderboardQuery.data?.count ?? 0}
               onPageChange={setTopPageIndex}
               onPageSizeChange={setTopPageSize}
-              currentUserSteamid64={
-                authenticatedUserSteamid64
-              }
+              currentUserSteamid64={authenticatedUserSteamid64}
             />
           )}
         </TabsContent>

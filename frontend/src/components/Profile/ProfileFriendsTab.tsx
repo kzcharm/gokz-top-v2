@@ -188,7 +188,9 @@ export function ProfileFriendsTab({
       } else if (sortField === "last_played") {
         comparison = compareNullableNumber(
           left.last_played_at ? new Date(left.last_played_at).getTime() : null,
-          right.last_played_at ? new Date(right.last_played_at).getTime() : null,
+          right.last_played_at
+            ? new Date(right.last_played_at).getTime()
+            : null,
         )
       } else {
         comparison = compareLocaleText(
@@ -307,7 +309,9 @@ export function ProfileFriendsTab({
           </div>
         </div>
 
-        {actions ? <div className="flex justify-start sm:justify-end">{actions}</div> : null}
+        {actions ? (
+          <div className="flex justify-start sm:justify-end">{actions}</div>
+        ) : null}
       </div>
 
       <div

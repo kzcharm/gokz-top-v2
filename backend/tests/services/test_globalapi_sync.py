@@ -13,10 +13,10 @@ pytestmark = pytest.mark.asyncio
 
 
 class _FakeAdvisoryLockCursor:
-    def __init__(self, connection: "_FakeAdvisoryLockConnection") -> None:
+    def __init__(self, connection: _FakeAdvisoryLockConnection) -> None:
         self._connection = connection
 
-    async def __aenter__(self) -> "_FakeAdvisoryLockCursor":
+    async def __aenter__(self) -> _FakeAdvisoryLockCursor:
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -34,7 +34,7 @@ class _FakeAdvisoryLockConnection:
         self.lock_acquired = lock_acquired
         self.executed: list[tuple[str, tuple[int] | None]] = []
 
-    async def __aenter__(self) -> "_FakeAdvisoryLockConnection":
+    async def __aenter__(self) -> _FakeAdvisoryLockConnection:
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:

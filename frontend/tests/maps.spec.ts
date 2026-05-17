@@ -355,7 +355,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        data: filteredRows.slice(offset, offset + limit).map((row) => row.record),
+        data: filteredRows
+          .slice(offset, offset + limit)
+          .map((row) => row.record),
         count: filteredRows.length,
         unique_nub_finishes: nubCount,
         unique_pro_finishes: proCount,
@@ -449,9 +451,13 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByRole("columnheader", { name: "Player" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
-  await expect(page.locator("div").filter({ hasText: /^NUB$/ }).first()).toBeVisible()
+  await expect(
+    page.locator("div").filter({ hasText: /^NUB$/ }).first(),
+  ).toBeVisible()
   await expect(page.getByText(/11 \/ 12 91\.7%/)).toBeVisible()
-  await expect(page.locator("div").filter({ hasText: /^PRO$/ }).first()).toBeVisible()
+  await expect(
+    page.locator("div").filter({ hasText: /^PRO$/ }).first(),
+  ).toBeVisible()
   await expect(page.getByText(/N\/A \/ 6/)).toBeVisible()
 
   await page

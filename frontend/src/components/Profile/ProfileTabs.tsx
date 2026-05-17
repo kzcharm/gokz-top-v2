@@ -14,6 +14,7 @@ const tabDefinitions: Array<{
     | "/profile/$identifier/records"
     | "/profile/$identifier/unfinished"
     | "/profile/$identifier/stats"
+    | "/profile/$identifier/jumpstats"
     | "/profile/$identifier/friends"
 }> = [
   { key: "home", labelKey: "profile.tabs.home", to: "/profile/$identifier" },
@@ -31,6 +32,11 @@ const tabDefinitions: Array<{
     key: "stats",
     labelKey: "profile.tabs.stats",
     to: "/profile/$identifier/stats",
+  },
+  {
+    key: "jumpstats",
+    labelKey: "profile.tabs.jumpstats",
+    to: "/profile/$identifier/jumpstats",
   },
   {
     key: "friends",

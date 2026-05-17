@@ -1,4 +1,3 @@
-import pytest
 
 from app.services.vanilla_tier import (
     VanillaTierEntry,
