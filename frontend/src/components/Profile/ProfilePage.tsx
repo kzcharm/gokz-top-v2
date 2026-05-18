@@ -39,7 +39,6 @@ import {
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfileFriendsQueryOptions,
-  getProfileJumpstatsQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
@@ -113,10 +112,6 @@ export function ProfilePage({
   const friendsQuery = useQuery({
     ...getProfileFriendsQueryOptions(canonicalIdentifier),
     enabled: canonicalIdentifier !== null && activeTab === "friends",
-  })
-  const jumpstatsQuery = useQuery({
-    ...getProfileJumpstatsQueryOptions(canonicalIdentifier),
-    enabled: canonicalIdentifier !== null && activeTab === "jumpstats",
   })
   const nubRecordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
@@ -547,7 +542,7 @@ export function ProfilePage({
               ) : null}
               {activeBans.map((ban) => (
                 <div
-                  key={ban.id}
+                  key={ban.uuid}
                   className={cn(
                     "rounded-xl border px-4 py-3",
                     hasPermanentBan
@@ -695,11 +690,7 @@ export function ProfilePage({
               }
             />
           ) : activeTab === "jumpstats" ? (
-            <ProfileJumpstatsTab
-              data={jumpstatsQuery.data}
-              loading={jumpstatsQuery.isLoading}
-              error={jumpstatsQuery.isError}
-            />
+            <ProfileJumpstatsTab identifier={canonicalIdentifier} />
           ) : (
             <ProfileStatsContent
               error={playerStatsQuery.isError}

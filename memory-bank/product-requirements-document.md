@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-05-13
+- Last Updated: 2026-05-18
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -66,7 +66,7 @@ Scope model:
 - Main-map world-record reads are served from a PostgreSQL cache/read model derived from main-course PB rows and keyed by scope and NUB/PRO record type.
 - World-record and recent-record experiences.
 - Scope-dependent points for rank-oriented queries.
-- Selected leaderboard and record list surfaces exclude players with any active mirrored ban by default, while recent feeds and record detail views remain unchanged.
+- Selected leaderboard and record list surfaces exclude players with any active mirrored ban by default, while recent feeds and record detail views remain unchanged. Local admin-created bans are visible in `/v1/bans` but do not participate in the mirrored-ban compatibility flows unless they also have an upstream GlobalAPI id.
 
 ### 5.3 Maps and Reviews
 - Map catalog and detail pages with filters and metadata.
@@ -133,7 +133,7 @@ Scope model:
 - Mirror authoritative entities from GlobalAPI where required (for example maps/records/filters/bans).
 - Preserve compatibility-critical identifiers and field semantics.
 - Track sync status/lag for reliability and troubleshooting.
-- GlobalAPI bans are mirrored as append/update-only rows keyed by upstream `id`; if upstream ever introduces true ban deletions/unbans, the sync policy must be revisited.
+- GlobalAPI bans are mirrored as append/update-only rows keyed by nullable upstream `id`, while v2 also allows superusers to create local bans with `id = NULL` and a UUIDv7 internal identifier; if upstream ever introduces true ban deletions/unbans, the sync policy must be revisited.
 
 ### 6.2 Extend Rules
 - Keep mirrored source data separate from v2-derived data.
@@ -145,6 +145,7 @@ Scope model:
 - Compatibility tests guard response shape and behavioral parity.
 - New product-native behavior should prefer `/v1` instead of changing `/v0` semantics.
 - Bans now have both `/v0/bans` compatibility reads and `/v1/bans` public `{data, count}` reads for future user-facing bans pages.
+- `/v0/bans` only returns mirrored GlobalAPI bans with a non-null external id, while `/v1/bans` exposes both `uuid` and nullable external `id`, allows superuser manual creation through `POST /v1/bans`, and uses UUIDs for `/v1/bans/{uuid}` detail reads.
 - `/v1/graphql` is an additive read-only player query surface for selective frontend hydration; it does not replace `/v0` and does not remove dedicated `/v1/players*` endpoints.
 - Touched `/v1` non-player responses should embed compact player references instead of full player payloads when only identity/display name is required inline.
 

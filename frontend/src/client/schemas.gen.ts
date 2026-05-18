@@ -775,10 +775,71 @@ export const AdminServerRoleSchema = {
     title: 'AdminServerRole'
 } as const;
 
+export const BanCreateSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        ban_type: {
+            '$ref': '#/components/schemas/BanType'
+        },
+        expires_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expires On'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        stats: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stats'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'ban_type'],
+    title: 'BanCreate'
+} as const;
+
 export const BanPublicSchema = {
     properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
         id: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Id'
         },
         ban_type: {
@@ -873,7 +934,7 @@ export const BanPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'ban_type', 'created_on', 'updated_on'],
+    required: ['uuid', 'ban_type', 'created_on', 'updated_on'],
     title: 'BanPublic'
 } as const;
 

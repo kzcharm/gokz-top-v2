@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import uuid as uuid_pkg
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, Column, DateTime, Index, Text
+from sqlalchemy import BigInteger, Column, DateTime, Index, Text, text
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
-from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
+from .utils import LegacyDatetimeNamesMixin, generate_uuid7, get_datetime_utc
 
 
 def _enum_values(enum_class: type[StrEnum]) -> list[str]:
@@ -71,6 +72,12 @@ class BanBase(LegacyDatetimeNamesMixin):
 class Ban(BanBase, table=True):
     __tablename__ = "ban"  # type: ignore[assignment]
     __table_args__ = (
+        Index(
+            "uq_ban_external_id",
+            "id",
+            unique=True,
+            postgresql_where=text("id IS NOT NULL"),
+        ),
         Index("ix_ban_steamid64_expires_on", "steamid64", "expires_on"),
         Index("ix_ban_ban_type", "ban_type"),
         Index("ix_ban_server_id", "server_id"),
@@ -78,7 +85,16 @@ class Ban(BanBase, table=True):
         Index("ix_ban_updated_at", "updated_at"),
     )
 
-    id: int = Field(primary_key=True)
+    uuid: uuid_pkg.UUID = Field(default_factory=generate_uuid7, primary_key=True)
+    id: int | None = Field(default=None)
+
+
+class BanCreate(SQLModel):
+    steamid64: str
+    ban_type: BanType
+    expires_on: datetime | None = None
+    notes: str | None = None
+    stats: str | None = None
 
 
 class BanCompatPublicV0(SQLModel):
@@ -97,7 +113,8 @@ class BanCompatPublicV0(SQLModel):
 
 
 class BanPublic(SQLModel):
-    id: int
+    uuid: uuid_pkg.UUID
+    id: int | None = None
     ban_type: BanType
     expires_on: datetime | None = None
     ip: str | None = None

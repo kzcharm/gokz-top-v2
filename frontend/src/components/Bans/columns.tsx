@@ -17,7 +17,8 @@ type BanPlayer = {
 }
 
 export interface BanRow {
-  id: number
+  uuid: string
+  id: number | null
   ban_type: string
   created_on: string
   expires_on: string | null
@@ -119,6 +120,16 @@ export const banColumns: ColumnDef<BanRow>[] = [
     ),
   },
   {
+    accessorKey: "id",
+    header: "Source",
+    cell: ({ row }) =>
+      row.original.id === null ? (
+        <Badge variant="destructive">Admin-created</Badge>
+      ) : (
+        <Badge variant="outline">GlobalAPI</Badge>
+      ),
+  },
+  {
     accessorKey: "ban_type",
     header: "Ban Type",
     cell: ({ row }) => (
@@ -137,7 +148,7 @@ export const banColumns: ColumnDef<BanRow>[] = [
     header: "Notes",
     cell: ({ row }) => (
       <div
-        className="max-w-[340px] truncate text-sm text-muted-foreground"
+        className="max-w-[280px] truncate text-sm text-muted-foreground"
         title={row.original.notes ?? ""}
       >
         {row.original.notes?.trim() || "No notes"}

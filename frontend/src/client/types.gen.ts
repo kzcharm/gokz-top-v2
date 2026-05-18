@@ -170,8 +170,17 @@ export type AdminServerGroupsPublic = {
 
 export type AdminServerRole = 'root_admin' | 'server_owner';
 
+export type BanCreate = {
+    steamid64: string;
+    ban_type: BanType;
+    expires_on?: (string | null);
+    notes?: (string | null);
+    stats?: (string | null);
+};
+
 export type BanPublic = {
-    id: number;
+    uuid: string;
+    id?: (number | null);
     ban_type: BanType;
     expires_on?: (string | null);
     ip?: (string | null);
@@ -1353,8 +1362,14 @@ export type BansReadBansData = {
 
 export type BansReadBansResponse = (BansPublic);
 
+export type BansCreateBanData = {
+    requestBody: BanCreate;
+};
+
+export type BansCreateBanResponse = (BanPublic);
+
 export type BansReadBanData = {
-    id: number;
+    banUuid: string;
 };
 
 export type BansReadBanResponse = (BanPublic);
@@ -1378,7 +1393,7 @@ export type JumpstatsReadJumpstatsData = {
     mode?: (KZMode | null);
     offset?: number;
     serverGroupId?: (string | null);
-    sortBy?: 'distance' | 'jumped_at' | 'created_at';
+    sortBy?: 'distance' | 'block' | 'jumped_at' | 'created_at';
     sortOrder?: 'asc' | 'desc';
     type?: (JumpstatType | null);
 };
@@ -1626,7 +1641,7 @@ export type PlayersReadPlayerJumpstatsData = {
     mode?: (KZMode | null);
     offset?: number;
     serverGroupId?: (string | null);
-    sortBy?: 'distance' | 'jumped_at' | 'created_at';
+    sortBy?: 'distance' | 'block' | 'jumped_at' | 'created_at';
     sortOrder?: 'asc' | 'desc';
     type?: (JumpstatType | null);
 };
@@ -2028,11 +2043,5 @@ export type UsersUpdateUserData = {
 };
 
 export type UsersUpdateUserResponse = (UserPublic);
-
-export type UsersDeleteUserData = {
-    userId: string;
-};
-
-export type UsersDeleteUserResponse = (Message);
 
 export type UtilsHealthCheckResponse = (boolean);

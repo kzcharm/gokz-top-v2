@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -7,6 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import Ban, BanType, Player
+from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
 
@@ -14,7 +16,7 @@ pytestmark = pytest.mark.asyncio
 async def _create_ban(
     db: AsyncSession,
     *,
-    id: int,
+    id: int | None,
     ban_type: BanType,
     steamid64: int,
     expires_on: datetime | None,
@@ -25,8 +27,9 @@ async def _create_ban(
     created_on: datetime | None = None,
     updated_on: datetime | None = None,
 ) -> Ban:
-    await db.exec(delete(Ban).where(Ban.id == id))
-    await db.commit()
+    if id is not None:
+        await db.exec(delete(Ban).where(Ban.id == id))
+        await db.commit()
     if await db.get(Player, steamid64) is None:
         db.add(Player(steamid64=steamid64, name=player_name))
         await db.commit()
@@ -100,6 +103,7 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
         notes="macro evidence",
         stats="pattern A",
         server_id=1,
+        created_on=datetime(2026, 4, 2, tzinfo=UTC),
         updated_on=datetime(2026, 4, 2, tzinfo=UTC),
     )
     await _create_ban(
@@ -112,6 +116,7 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
         notes="scroll pattern",
         stats="pattern B",
         server_id=2,
+        created_on=datetime(2026, 4, 3, tzinfo=UTC),
         updated_on=datetime(2026, 4, 3, tzinfo=UTC),
     )
     await _create_player(
@@ -132,6 +137,7 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
         notes="old note",
         stats="pattern C",
         server_id=3,
+        created_on=datetime(2026, 4, 4, tzinfo=UTC),
         updated_on=datetime(2026, 4, 4, tzinfo=UTC),
     )
 
@@ -190,8 +196,9 @@ async def test_read_ban_v1_detail_and_missing(
         avatar_hash="detailhash",
     )
 
-    response = await client.get(f"{settings.API_V1_STR}/bans/{ban.id}")
+    response = await client.get(f"{settings.API_V1_STR}/bans/{ban.uuid}")
     assert response.status_code == 200
+    assert response.json()["uuid"] == str(ban.uuid)
     assert response.json()["id"] == 1101
     assert response.json()["ban_type"] == "strafe_macro"
     assert response.json()["player"] == {
@@ -201,6 +208,94 @@ async def test_read_ban_v1_detail_and_missing(
     assert "steamid64" not in response.json()
     assert "player_name" not in response.json()
 
-    missing = await client.get(f"{settings.API_V1_STR}/bans/999999")
+    missing = await client.get(f"{settings.API_V1_STR}/bans/{uuid.uuid4()}")
     assert missing.status_code == 404
     assert missing.json() == {"detail": "Ban not found"}
+
+
+async def test_create_manual_ban_requires_superuser(
+    client: AsyncClient,
+    db: AsyncSession,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    await _clear_bans(db)
+    steamid64 = random_steamid64()
+    await _create_player(
+        db,
+        steamid64=steamid64,
+        name="Manual Ban Target",
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/bans",
+        headers=normal_user_token_headers,
+        json={
+            "steamid64": str(steamid64),
+            "ban_type": "bhop_macro",
+            "notes": "manual ban attempt",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "The user doesn't have enough privileges"
+
+
+async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    await _clear_bans(db)
+    steamid64 = random_steamid64()
+    player = await _create_player(
+        db,
+        steamid64=steamid64,
+        name="Admin Created Target",
+        alias="Admin Alias",
+    )
+
+    create_response = await client.post(
+        f"{settings.API_V1_STR}/bans",
+        headers=superuser_token_headers,
+        json={
+            "steamid64": str(steamid64),
+            "ban_type": "bhop_macro",
+            "notes": "manual admin ban",
+            "stats": "admin evidence",
+        },
+    )
+
+    assert create_response.status_code == 200
+    created_payload = create_response.json()
+    assert created_payload["uuid"]
+    assert created_payload["id"] is None
+    assert created_payload["updated_by_id"] == str(settings.SUPER_USER_STEAMID64)
+    assert created_payload["player"] == {
+        "steamid64": str(player.steamid64),
+        "display_name": "Admin Alias",
+    }
+
+    created_ban = await db.get(Ban, uuid.UUID(created_payload["uuid"]))
+    assert created_ban is not None
+    assert created_ban.id is None
+    assert created_ban.updated_by_id == str(settings.SUPER_USER_STEAMID64)
+
+    detail_response = await client.get(
+        f"{settings.API_V1_STR}/bans/{created_payload['uuid']}"
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["uuid"] == created_payload["uuid"]
+    assert detail_response.json()["id"] is None
+
+    v1_list = await client.get(
+        f"{settings.API_V1_STR}/bans",
+        params={"steamid64": str(steamid64)},
+    )
+    assert v1_list.status_code == 200
+    assert v1_list.json()["count"] == 1
+    assert v1_list.json()["data"][0]["uuid"] == created_payload["uuid"]
+    assert v1_list.json()["data"][0]["id"] is None
+
+    v0_list = await client.get("/v0/bans", params={"steamid64": str(steamid64)})
+    assert v0_list.status_code == 200
+    assert v0_list.json() == []

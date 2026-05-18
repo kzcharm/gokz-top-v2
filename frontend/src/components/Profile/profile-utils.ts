@@ -28,56 +28,6 @@ export type ProfileTab =
   | "jumpstats"
   | "friends"
 
-export type ProfileJumpstatStrafeStat = {
-  index: number
-  sync_percent: number
-  gain: number
-  loss: number
-  airtime_percent: number
-  width: number
-  overlap_count: number
-  dead_air_count: number
-}
-
-export type ProfileJumpstatPublic = {
-  id: string
-  server_group_id: string
-  server_group: {
-    id: string
-    name: string
-  }
-  mode: string
-  type: string
-  distance: number
-  block: number | null
-  strafes: number
-  sync_percent: number
-  pre_speed: number
-  max_speed: number
-  w_count: number
-  overlap_count: number
-  dead_air_count: number
-  width: number
-  height: number
-  airtime_percent: number
-  offset: number
-  crouched_ticks: number
-  edge: number | null
-  deviation: number | null
-  jumped_at: string
-  created_at: string
-  updated_at: string
-}
-
-export type ProfileJumpstatDetail = ProfileJumpstatPublic & {
-  strafe_stats: ProfileJumpstatStrafeStat[]
-}
-
-export type ProfileJumpstatsResult = {
-  data: ProfileJumpstatDetail[]
-  count: number
-}
-
 export const PROFILE_QUERY_LIMIT = 10_000
 export const PROFILE_SOCIAL_PAGE_LIMIT = 20
 
@@ -111,7 +61,8 @@ export async function fetchProfilePlayer(identifier: string) {
 }
 
 export type ProfileBan = {
-  id: number
+  uuid: string
+  id: number | null
   ban_type: string
   created_on: string
   expires_on?: string | null
@@ -257,54 +208,6 @@ export function getProfileFriendsQueryOptions(identifier: string | null) {
         throw new Error("Failed to load friends")
       }
       return (await response.json()) as ProfileFriendsResult
-    },
-    enabled: identifier !== null,
-    retry: false,
-    staleTime: 30_000,
-  })
-}
-
-export function getProfileJumpstatsQueryOptions(identifier: string | null) {
-  return queryOptions({
-    queryKey: ["profile-jumpstats", identifier],
-    queryFn: async (): Promise<ProfileJumpstatsResult | null> => {
-      if (!identifier) {
-        return null
-      }
-
-      const params = new URLSearchParams({
-        offset: "0",
-        limit: "20",
-        sort_by: "distance",
-        sort_order: "desc",
-      })
-      const listResponse = await fetch(
-        `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/jumpstats?${params.toString()}`,
-      )
-      if (!listResponse.ok) {
-        throw new Error("Failed to load jumpstats")
-      }
-      const listPayload = (await listResponse.json()) as {
-        data?: ProfileJumpstatPublic[]
-        count?: number
-      }
-      const items = listPayload.data ?? []
-      const details = await Promise.all(
-        items.map(async (item) => {
-          const detailResponse = await fetch(
-            `${OpenAPI.BASE}/v1/jumpstats/${encodeURIComponent(item.id)}`,
-          )
-          if (!detailResponse.ok) {
-            throw new Error("Failed to load jumpstat detail")
-          }
-          return (await detailResponse.json()) as ProfileJumpstatDetail
-        }),
-      )
-
-      return {
-        data: details,
-        count: listPayload.count ?? details.length,
-      }
     },
     enabled: identifier !== null,
     retry: false,

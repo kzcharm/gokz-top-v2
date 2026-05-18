@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-05-13
+- Last Updated: 2026-05-18
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -19,7 +19,7 @@
 - Data strategy:
   - PostgreSQL as primary persistent store
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
-  - Mirrored GlobalAPI ban rows are stored locally in PostgreSQL with a PostgreSQL enum-backed `ban_type` and append/update-only sync semantics
+  - Ban rows are stored locally in PostgreSQL with an internal UUIDv7 primary key (`ban.uuid`) plus a nullable external GlobalAPI id (`ban.id`), allowing append/update-only mirrored GlobalAPI bans and superuser-created local bans to coexist in the same table
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by a single midnight-UTC rank pipeline plus repair/backfill CLIs
   - The maps leaderboard is materialized in `cache.map_leaderboard`, keyed by `(map_id, scope)`, derived from raw valid stage-0 `record` rows, and joined with scoped map tiers plus map review summaries at read time
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
@@ -128,13 +128,14 @@
 - Steam OpenID and Steam Web API integration paths exist in backend flows.
 - GlobalAPI endpoints are consumed for synchronization/compatibility behavior.
 - Twitch Helix API is consumed for verified Twitch live-stream status using app credentials.
-- GlobalAPI ban sync uses large backfill pages for catch-up, then incremental `updated_since` polling with a steady-state page size of `10`.
+- GlobalAPI ban sync upserts by nullable external `ban.id`, uses large backfill pages for catch-up, then incremental `created_since` overlap polling with a steady-state page size of `10`, and ignores local manual bans because they do not carry an external id.
 
 ## Implementation Constraints
 - Do not hand-edit generated frontend files:
   - `frontend/src/client/*`
   - `frontend/src/routeTree.gen.ts`
 - Keep compatibility behavior under `/v0` stable; project-native changes should go to `/v1`.
+- `/v0/bans` remains a mirrored-GlobalAPI compatibility surface and excludes local manual bans, while `/v1/bans` returns both mirrored and local bans, exposes both `uuid` and nullable `id`, supports superuser `POST /v1/bans` manual creation, and uses UUIDs for `/v1/bans/{uuid}` detail reads.
 - Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
 - Frontend destructive actions should use the destructive red visual treatment consistently, including icon-only delete buttons in tables and settings surfaces.
 - Short frontend field titles and settings/tab labels should use title case in English copy, capitalizing the first letter of each word (for example `Steam Name`, `Social Links`, `Country / Region`).

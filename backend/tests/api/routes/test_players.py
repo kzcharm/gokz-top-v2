@@ -2469,6 +2469,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
         notes="locally active",
     )
     ban_id = ban.id
+    ban_uuid = ban.uuid
     expired_at = datetime.now(UTC) - timedelta(hours=1)
     rebuilt_steamid64s: list[int] = []
 
@@ -2530,7 +2531,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
     assert rebuilt_steamid64s == [player_steamid64]
 
     db.expire_all()
-    refreshed = await db.get(Ban, ban_id)
+    refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
     assert refreshed.expires_on == expired_at
     assert refreshed.notes == "expired upstream"
@@ -2558,6 +2559,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
         expires_on=None,
     )
     ban_id = ban.id
+    ban_uuid = ban.uuid
     future_expiry = datetime.now(UTC) + timedelta(days=7)
     rebuilt_steamid64s: list[int] = []
 
@@ -2619,7 +2621,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
     assert rebuilt_steamid64s == []
 
     db.expire_all()
-    refreshed = await db.get(Ban, ban_id)
+    refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
     assert refreshed.expires_on == future_expiry
 

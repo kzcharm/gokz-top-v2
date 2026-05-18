@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { type PlayerPublic, PlayersService } from "@/client"
+import { AddBanDialog } from "@/components/Bans/AddBanDialog"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
@@ -93,6 +94,7 @@ function ProfileIdentityCard({
   player: ProfilePlayer
 }) {
   const { t } = useTranslation()
+  const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const avatarUrl = getAvatarUrl(player)
   const showWebsiteUserRing = player.is_website_user === true
   const alias = player.alias?.trim() ?? ""
@@ -343,8 +345,10 @@ function ProfileIdentityCard({
         sideOffset={12}
       >
         <PlayerContextMenuItems
+          closeMenu={() => onContextMenuOpenChange(false)}
           displayName={displayName}
           hasProfileLink={hasProfileLink}
+          onAddBan={() => setAddBanDialogOpen(true)}
           player={player}
           steamProfileUrl={steamProfileUrl}
           steamid64={player.steamid64}
@@ -365,6 +369,17 @@ function ProfileIdentityCard({
           />
         </PlayerContextMenuItems>
       </DropdownMenuContent>
+      <AddBanDialog
+        open={addBanDialogOpen}
+        onOpenChange={setAddBanDialogOpen}
+        initialPlayer={{
+          steamid64: player.steamid64,
+          displayName,
+          name: player.name,
+          alias: player.alias ?? null,
+          country: player.country ?? null,
+        }}
+      />
     </DropdownMenu>
   )
 }
