@@ -118,6 +118,24 @@ _openapi_v0_schema: dict[str, Any] | None = None
 _openapi_v1_schema: dict[str, Any] | None = None
 
 
+def _format_openapi_tag(tag: str) -> str:
+    return tag.replace("-", " ").replace("_", " ").title()
+
+
+def _format_openapi_tags(schema: dict[str, Any]) -> dict[str, Any]:
+    for path_item in schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            tags = operation.get("tags")
+            if isinstance(tags, list):
+                operation["tags"] = [
+                    _format_openapi_tag(tag) if isinstance(tag, str) else tag
+                    for tag in tags
+                ]
+    return schema
+
+
 def _build_openapi_schema(
     prefix: str,
     title: str,
@@ -131,12 +149,13 @@ def _build_openapi_schema(
         and route.path.startswith(prefix)
         and route.include_in_schema
     ]
-    return get_openapi(
+    schema = get_openapi(
         title=title,
         version=version,
         description=description,
         routes=routes,
     )
+    return _format_openapi_tags(schema)
 
 
 def custom_openapi_v1() -> dict[str, Any]:
@@ -184,6 +203,7 @@ def swagger_ui() -> HTMLResponse:
                 },
             ],
             "urls.primaryName": "v1",
+            "docExpansion": "none",
             "layout": "StandaloneLayout",
         }
     )
