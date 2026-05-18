@@ -71,6 +71,22 @@ def to_jumpstat_detail_public(
 
 
 def _build_order_by(query: JumpstatListQuery) -> list[ColumnElement[Any]]:
+    if query.sort_by == "block":
+        block_column = col(Jumpstat.block)
+        if query.sort_order == "asc":
+            return [
+                block_column.asc().nullslast(),
+                col(Jumpstat.distance).asc(),
+                col(Jumpstat.jumped_at).asc(),
+                col(Jumpstat.id).asc(),
+            ]
+        return [
+            block_column.desc().nullslast(),
+            col(Jumpstat.distance).desc(),
+            col(Jumpstat.jumped_at).desc(),
+            col(Jumpstat.id).desc(),
+        ]
+
     sort_column_map = {
         "distance": col(Jumpstat.distance),
         "jumped_at": col(Jumpstat.jumped_at),

@@ -35,7 +35,9 @@
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
   - Jumpstats are stored in `jumpstat`, keyed by UUIDv7, with scalar headline metrics plus per-strafe JSONB payloads, a nullable versioned `visualization_data` JSONB cache for replay-derived route samples, server-group-authenticated replay uploads accepted through `POST /v1/jumpstats`, and public reads served from `/v1/jumpstats`, `/v1/jumpstats/{id}/visualization`, and `/v1/players/{identifier}/jumpstats`
-  - Uploaded/imported replay binaries are stored on disk under `REPLAY_STORAGE_DIR`, partitioned by replay type, with jump replays under `jumps/<jumpstat-id>.replay` and planned run replays under `runs/<normalized-map-name>/<record-uuid>.replay`
+  - Uploaded/imported replay binaries are stored on disk under `REPLAY_STORAGE_DIR`, partitioned by replay type, with jump replays under `jumps/<jumpstat-id>.replay` and run replays under `runs/<normalized-map-name>/<record-uuid>.replay`
+  - Historical run replays can be backfilled with the `app.import_run_replays` CLI, which accepts `.replay` files, directories, `.zip` archives, and `.7z` archives, requires v2 `NRM` style, matches exact player/mode/map/stage/time within a 24-hour `record.created_at` window, and skips ambiguous or already-imported replays
+  - `/v1` record-shaped responses now expose `is_replay_available`, derived from run replay storage existence by `(map_name, record.uuid)` without changing `/v0` compatibility payloads
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned
@@ -71,6 +73,7 @@
 - python-multipart
 - tenacity
 - pyjwt
+- py7zr
 - pwdlib (`argon2`, `bcrypt`)
 - sentry-sdk (FastAPI integration)
 

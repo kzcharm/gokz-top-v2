@@ -75,6 +75,67 @@ GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh api \
 3. Fix only the actual failing cause. Do not make speculative cleanup changes.
 4. Prefer focused local verification that matches the failure.
 
+## When GitHub Actions are unavailable
+
+Sometimes the hosted workflows are not usable even though the repository code is fine, for example:
+- GitHub-hosted jobs fail immediately because the repo is out of minutes
+- the pushed SHA gets `failure` conclusions without meaningful logs
+- `gh api 'repos/kzcharm/gokz-top-v2/actions/jobs/<job_id>/logs'` returns `BlobNotFound` or another 404 for jobs that never really started
+- only the self-hosted `Deploy Staging` workflow is still runnable
+
+Treat those as CI infrastructure failures, not code regressions.
+
+When that happens:
+
+1. Still push `dev` and capture the exact `head_sha`.
+2. Confirm whether `Deploy Staging` for that same SHA is still available.
+3. Run focused local verification for the touched area instead of waiting on broken hosted workflows.
+4. Require either:
+   - a successful `Deploy Staging` run for the exact SHA, or
+   - a manual staging deploy on `kzcharm-v2` with healthy containers
+5. If staging-specific operational work is part of the task, complete and verify it on staging before touching `main`.
+6. Merge `origin/dev` into `main` from a clean worktree even though the hosted checks are unavailable, and state explicitly why the normal gate was bypassed.
+7. If the release workflow is unavailable, create the release tag manually with `gh release create`.
+8. Deploy production manually on `kzcharm-v2` and verify container health plus at least one live public surface.
+
+### Manual deploy fallback for this repo
+
+If the server checkout cannot fetch from GitHub directly, sync a clean local tree to the server and deploy from that synced tree instead of relying on `git fetch` on the host.
+
+Typical production fallback on `kzcharm-v2`:
+
+```bash
+cp /root/code/gokz-top-v2/.env /root/code/gokz-top-v2-manual/.env
+cd /root/code/gokz-top-v2-manual
+export VITE_APP_VERSION=vX.Y.Z
+docker compose -f compose.yml --project-name gokz-top-v2 build
+docker compose -f compose.yml --project-name gokz-top-v2 up -d
+docker compose -f compose.yml --project-name gokz-top-v2 ps
+```
+
+Typical staging fallback on `kzcharm-v2`:
+
+```bash
+cd /root/code/gokz-top-v2-staging
+docker compose -f compose.yml --project-name gokz-top-v2-staging build
+docker compose -f compose.yml --project-name gokz-top-v2-staging up -d
+docker compose -f compose.yml --project-name gokz-top-v2-staging ps
+```
+
+### Substitute gate when hosted CI is down
+
+Before merging or deploying under this fallback path, gather all of:
+- the exact pushed `dev` SHA
+- the exact local verification commands that passed
+- proof that staging for that SHA is healthy
+- proof that production after deploy is healthy
+
+In the final report, explicitly state:
+- which workflows were unavailable and why
+- which manual verifications replaced them
+- the `dev` SHA used for the manual path
+- the final `main` merge commit SHA
+
 ## Clean-worktree pattern
 
 If the main checkout has unrelated uncommitted changes, do not fix CI directly there.

@@ -36,6 +36,19 @@ def load_replay(
     ).read_bytes()
 
 
+def has_replay(
+    *,
+    namespace: ReplayNamespace,
+    replay_id: uuid.UUID,
+    relative_dir: Path | None = None,
+) -> bool:
+    return get_replay_path(
+        namespace=namespace,
+        replay_id=replay_id,
+        relative_dir=relative_dir,
+    ).exists()
+
+
 def save_replay(
     *,
     namespace: ReplayNamespace,

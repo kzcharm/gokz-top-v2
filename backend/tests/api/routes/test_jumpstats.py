@@ -467,6 +467,62 @@ async def test_read_player_jumpstats_resolves_identifier_and_filters(
 
 
 @pytest.mark.asyncio
+async def test_read_player_jumpstats_block_sort_uses_distance_tiebreaker(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, _api_key = await create_test_server_group(db, name="Block Sort Group")
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Block Runner",
+        custom_id="block-runner",
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        distance="282.0000",
+        block=280,
+        jumped_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        distance="281.5000",
+        block=282,
+        jumped_at=datetime(2026, 5, 1, 10, 0, tzinfo=UTC),
+    )
+    await _create_jumpstat(
+        db,
+        player_steamid64=player.steamid64,
+        server_group_id=group.id,
+        type=JumpstatType.LJ,
+        distance="281.7500",
+        block=282,
+        jumped_at=datetime(2026, 5, 1, 9, 0, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/block-runner/jumpstats",
+        params={"type": "LJ", "sort_by": "block"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 3
+    assert [entry["block"] for entry in payload["data"]] == [282, 282, 280]
+    assert [entry["distance"] for entry in payload["data"]] == [
+        281.75,
+        281.5,
+        282.0,
+    ]
+
+
+@pytest.mark.asyncio
 async def test_jumpstat_lists_exclude_banned_players_by_default_but_detail_remains_available(
     client: AsyncClient,
     db: AsyncSession,

@@ -4,7 +4,12 @@ import re
 import uuid
 from pathlib import Path
 
-from app.services.replay_storage import get_replay_path, load_replay, save_replay
+from app.services.replay_storage import (
+    get_replay_path,
+    has_replay,
+    load_replay,
+    save_replay,
+)
 
 
 def normalize_run_replay_map_dir(map_name: str) -> str:
@@ -24,6 +29,14 @@ def get_run_replay_path(*, map_name: str, replay_id: uuid.UUID) -> Path:
 
 def load_run_replay(*, map_name: str, replay_id: uuid.UUID) -> bytes:
     return load_replay(
+        namespace="runs",
+        relative_dir=Path(normalize_run_replay_map_dir(map_name)),
+        replay_id=replay_id,
+    )
+
+
+def has_run_replay(*, map_name: str, replay_id: uuid.UUID) -> bool:
+    return has_replay(
         namespace="runs",
         relative_dir=Path(normalize_run_replay_map_dir(map_name)),
         replay_id=replay_id,

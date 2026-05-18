@@ -19,6 +19,7 @@ from app.models import (
     RecordPb,
     ServerGlobalapi,
 )
+from app.services.run_replay_storage import save_run_replay
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -224,7 +225,10 @@ async def _clear_records(db: AsyncSession) -> None:
 async def test_read_records_v1_list_and_detail(
     client: AsyncClient,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     player_id = 76561199012345678
     await _seed_record_dependencies(
         db,
@@ -243,6 +247,7 @@ async def test_read_records_v1_list_and_detail(
         points=420,
         replay_id=123,
     )
+    save_run_replay(map_name="kz_record_test", replay_id=record.uuid, replay_bytes=b"run")
 
     list_response = await client.get(
         f"{settings.API_V1_STR}/records/",
@@ -264,18 +269,23 @@ async def test_read_records_v1_list_and_detail(
     assert payload["data"][0]["time"] == 35.289
     assert payload["data"][0]["points"] == 1000
     assert payload["data"][0]["replay_id"] == 123
+    assert payload["data"][0]["is_replay_available"] is True
     assert payload["data"][0]["is_valid"] is True
 
     detail_response = await client.get(f"{settings.API_V1_STR}/records/{record.uuid}")
     assert detail_response.status_code == 200
     assert detail_response.json()["uuid"] == str(record.uuid)
     assert detail_response.json()["points"] == 1000
+    assert detail_response.json()["is_replay_available"] is True
 
 
 async def test_read_recent_records_v1_returns_nested_public_feed(
     client: AsyncClient,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     await _clear_records(db)
 
     first_player_id = random_steamid64()
@@ -392,6 +402,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert first_row["teleports"] == 3
     assert first_row["time"] == 25.0
     assert first_row["points"] == 1000
+    assert first_row["is_replay_available"] is False
 
     offset_response = await client.get(
         f"{settings.API_V1_STR}/records/recent",
@@ -532,7 +543,10 @@ async def test_patch_record_v1_updates_validity(
 async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_modes(
     client: AsyncClient,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     player_one = random_steamid64()
     player_two = random_steamid64()
     await _seed_record_dependencies(
@@ -588,6 +602,7 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
         teleports=0,
         is_valid=False,
     )
+    save_run_replay(map_name="kz_record_test", replay_id=winning.uuid, replay_bytes=b"pb")
 
     response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -607,6 +622,7 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
     assert payload[0]["uuid"] == str(winning.uuid)
     assert payload[0]["mode_id"] == 201
     assert payload[0]["replay_id"] == 9001
+    assert payload[0]["is_replay_available"] is True
 
 
 async def test_read_pb_records_v1_player_anchor_and_filters(

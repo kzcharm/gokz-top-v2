@@ -51,6 +51,7 @@ from app.services.course_points import (
     calculate_bucket_points,
     calculate_estimated_pb_points,
 )
+from app.services.run_replay_storage import has_run_replay
 
 from .ban import active_ban_exists_clause, not_active_ban_exists_clause
 from .map import get_map_by_name
@@ -1242,6 +1243,10 @@ def to_record_public(
         updated_on=record.updated_at,
         updated_by=str(record.updated_by),
         replay_id=record.replay_id,
+        is_replay_available=has_run_replay(
+            map_name=map_obj.name,
+            replay_id=record.uuid,
+        ),
         is_valid=record.is_valid,
     )
 
@@ -1279,6 +1284,10 @@ def to_recent_record_public(
         points=points,
         created_on=record.created_at,
         updated_on=record.updated_at,
+        is_replay_available=has_run_replay(
+            map_name=map_obj.name,
+            replay_id=record.uuid,
+        ),
     )
 
 
@@ -2014,6 +2023,10 @@ async def get_pb_record_publics(
             updated_on=updated_on,
             updated_by=str(updated_by),
             replay_id=replay_id,
+            is_replay_available=has_run_replay(
+                map_name=map_name,
+                replay_id=record_uuid,
+            ),
             is_valid=is_valid,
         )
         for (
@@ -2250,6 +2263,10 @@ async def read_map_pb_leaderboard(
             updated_on=updated_on,
             updated_by=str(updated_by),
             replay_id=replay_id,
+            is_replay_available=has_run_replay(
+                map_name=map_name,
+                replay_id=record_uuid,
+            ),
             is_valid=is_valid,
         )
         for (

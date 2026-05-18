@@ -9,6 +9,8 @@ import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter
 import { JumpstatDetailsDialog } from "@/components/Leaderboards/JumpstatDetailsDialog"
 import {
   getJumpstatsLeaderboardColumns,
+  getJumpstatTypeLabel,
+  JUMPSTAT_TYPE_OPTIONS,
   type JumpstatsLeaderboardTableRow,
 } from "@/components/Leaderboards/jumpstats-columns"
 import type { AppScope } from "@/components/scope-provider"
@@ -17,25 +19,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { extractErrorMessage } from "@/utils"
-
-const JUMPSTAT_TYPE_OPTIONS: JumpstatType[] = [
-  "LJ",
-  "BH",
-  "MBH",
-  "WJ",
-  "LAJ",
-  "LAH",
-  "JB",
-  "LBH",
-  "LWJ",
-]
-
-function getJumpstatTypeLabel(
-  value: JumpstatType,
-  t: ReturnType<typeof useTranslation>["t"],
-) {
-  return t(`leaderboards.jumpstats.types.${value}`)
-}
 
 export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   const { t } = useTranslation()
