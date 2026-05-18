@@ -76,6 +76,7 @@ from .map_review import (
     MapReviewUpsert,
 )
 from .map_review_summary import MapReviewSummaryCache, MapReviewSummaryPublic
+from .misc import IPLookupRequest, IPLookupResponse
 from .mode import (
     CANONICAL_MODE_SEEDS,
     CanonicalModeSeed,
@@ -341,6 +342,8 @@ __all__ = [
     "JumpstatVisualizationPublic",
     "JumpstatVisualizationSample",
     "JumpstatVisualizationStrafeType",
+    "IPLookupRequest",
+    "IPLookupResponse",
     "LiveStreamCardPublic",
     "LiveStreamListQuery",
     "LiveStreamPlayerPublic",

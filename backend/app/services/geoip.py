@@ -38,6 +38,14 @@ class GeoIPLocation:
     city_name: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class GeoIPLookupDetails:
+    country_name: str | None
+    country_code: str | None
+    subdivision_name: str | None = None
+    city_name: str | None = None
+
+
 class GeoIPCityDatabase:
     def __init__(
         self,
@@ -52,6 +60,16 @@ class GeoIPCityDatabase:
         self._lock = Lock()
 
     def lookup(self, ip_address: str) -> GeoIPLocation | None:
+        details = self.lookup_details(ip_address)
+        if details is None:
+            return None
+        return GeoIPLocation(
+            country_code=details.country_code,
+            region_name=details.subdivision_name,
+            city_name=details.city_name,
+        )
+
+    def lookup_details(self, ip_address: str) -> GeoIPLookupDetails | None:
         parsed_ip = _parse_public_ip(ip_address)
         if parsed_ip is None:
             return None
@@ -67,13 +85,25 @@ class GeoIPCityDatabase:
         except ValueError:
             return None
 
+        country_name = getattr(response.country, "name", None)
+        registered_country = getattr(response, "registered_country", None)
+        if not isinstance(country_name, str) or not country_name:
+            registered_name = getattr(registered_country, "name", None)
+            country_name = registered_name if isinstance(registered_name, str) else None
+
         country_code = getattr(response.country, "iso_code", None)
+        if not isinstance(country_code, str) or not country_code:
+            registered_code = getattr(registered_country, "iso_code", None)
+            country_code = registered_code if isinstance(registered_code, str) else None
         subdivision_name = None
         subdivisions = getattr(response, "subdivisions", None)
         if subdivisions is not None:
             most_specific = getattr(subdivisions, "most_specific", None)
             subdivision_name = getattr(most_specific, "name", None)
         city_name = getattr(response.city, "name", None)
+        normalized_country_name = (
+            country_name if isinstance(country_name, str) and country_name else None
+        )
         normalized_country = (
             country_code.upper() if isinstance(country_code, str) else None
         )
@@ -86,14 +116,16 @@ class GeoIPCityDatabase:
             city_name if isinstance(city_name, str) and city_name else None
         )
         if (
-            normalized_country is None
+            normalized_country_name is None
+            and normalized_country is None
             and normalized_region is None
             and normalized_city is None
         ):
             return None
-        return GeoIPLocation(
+        return GeoIPLookupDetails(
+            country_name=normalized_country_name,
             country_code=normalized_country,
-            region_name=normalized_region,
+            subdivision_name=normalized_region,
             city_name=normalized_city,
         )
 
@@ -152,6 +184,10 @@ _geoip_city_database = GeoIPCityDatabase(db_path=settings.GEOIP_CITY_DB_PATH)
 
 def lookup_geoip_city(ip_address: str) -> GeoIPLocation | None:
     return _geoip_city_database.lookup(ip_address)
+
+
+def lookup_geoip_details(ip_address: str) -> GeoIPLookupDetails | None:
+    return _geoip_city_database.lookup_details(ip_address)
 
 
 def reset_geoip_city_database_for_tests() -> None:
