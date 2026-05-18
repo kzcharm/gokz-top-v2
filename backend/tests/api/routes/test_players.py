@@ -313,6 +313,41 @@ async def test_search_players_uses_rating_to_break_same_relevance_tier(
 
 
 @pytest.mark.asyncio
+async def test_search_players_ignores_active_ban_rating_tiebreaker(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    query_term = "bannedrunnertier"
+    clean_player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name=f"{query_term} alpha",
+    )
+    banned_player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name=f"{query_term} beta",
+    )
+    await _set_ovr_rating(db=db, steamid64=clean_player.steamid64, rating=50)
+    await _set_ovr_rating(db=db, steamid64=banned_player.steamid64, rating=900)
+    await _create_ban(
+        db=db,
+        ban_id=9_820_001,
+        steamid64=banned_player.steamid64,
+        expires_on=None,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": query_term},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["steamid64"] == str(clean_player.steamid64)
+
+
+@pytest.mark.asyncio
 async def test_search_players_supports_steam2_identifier(
     client: AsyncClient,
     db: AsyncSession,

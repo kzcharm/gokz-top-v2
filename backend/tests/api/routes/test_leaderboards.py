@@ -729,9 +729,9 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_inelig
     assert payload["region"] == "EU"
     assert "rating_rank" not in payload
     assert payload["points"] == 0
-    assert payload["rating"] is None
-    assert payload["rating_easy"] is None
-    assert payload["rating_hard"] is None
+    assert payload["rating"] == 0
+    assert payload["rating_easy"] == 0
+    assert payload["rating_hard"] == 0
     assert payload["unique_map_finishes"] == 0
 
 
@@ -754,9 +754,40 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missin
     assert payload["region"] == "EU"
     assert "rating_rank" not in payload
     assert payload["points"] == 0
-    assert payload["rating"] is None
-    assert payload["rating_easy"] is None
-    assert payload["rating_hard"] is None
+    assert payload["rating"] == 0
+    assert payload["rating_easy"] == 0
+    assert payload["rating_hard"] == 0
+    assert payload["unique_map_finishes"] == 0
+
+
+async def test_read_player_leaderboard_rank_zeroes_active_banned_player(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    await _create_ban(
+        db,
+        ban_id=2_120_900_010,
+        steamid64=players["alpha"],
+        expires_on=None,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/alpha",
+        params={"scope": "KZT"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player"]["steamid64"] == str(players["alpha"])
+    assert payload["rank"] is None
+    assert payload["global_rank"] is None
+    assert payload["rank_regional"] is None
+    assert payload["points"] == 0
+    assert payload["rating"] == 0
+    assert payload["rating_easy"] == 0
+    assert payload["rating_hard"] == 0
     assert payload["unique_map_finishes"] == 0
 
 

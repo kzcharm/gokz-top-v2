@@ -1338,6 +1338,9 @@ async def test_read_records_v1_and_pb_exclude_cheaters_by_default(
     )
     assert listed_all.status_code == 200
     assert [row["id"] for row in listed_all.json()["data"]] == [981001, 981000]
+    listed_all_points = {row["id"]: row["points"] for row in listed_all.json()["data"]}
+    assert listed_all_points[981001] == 0
+    assert listed_all_points[981000] > 0
 
     pb = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -1352,6 +1355,15 @@ async def test_read_records_v1_and_pb_exclude_cheaters_by_default(
     )
     assert pb_all.status_code == 200
     assert [row["id"] for row in pb_all.json()] == [981001, 981000]
+    pb_all_points = {row["id"]: row["points"] for row in pb_all.json()}
+    assert pb_all_points[981001] == 0
+    assert pb_all_points[981000] > 0
+
+    detail = await client.get(
+        f"{settings.API_V1_STR}/records/{listed_all.json()['data'][0]['uuid']}"
+    )
+    assert detail.status_code == 200
+    assert detail.json()["points"] == 0
 
 
 async def test_read_records_v1_supports_map_name_filter(
@@ -1722,7 +1734,15 @@ async def test_read_records_recent_still_includes_banned_players(
 
     response = await client.get(f"{settings.API_V1_STR}/records/recent")
     assert response.status_code == 200
-    assert record.id in [row["id"] for row in response.json()["data"]]
+    points_by_id = {row["id"]: row["points"] for row in response.json()["data"]}
+    assert points_by_id[record.id] == 0
+
+    filtered = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"points_more_or_equal_than": 1},
+    )
+    assert filtered.status_code == 200
+    assert record.id not in [row["id"] for row in filtered.json()["data"]]
 
 
 async def test_read_record_v0_top_and_world_records_exclude_cheaters_by_default(
