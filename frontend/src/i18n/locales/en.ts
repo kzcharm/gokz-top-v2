@@ -252,6 +252,7 @@ export const en = {
       dateJoined: "Date Joined",
       lastPlayed: "Last Played",
       playtime: "Playtime",
+      ljPb: "Long Jump",
       profileViews: "Profile Views",
       followers: "Followers",
       following: "Following",

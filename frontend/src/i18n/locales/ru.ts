@@ -253,6 +253,7 @@ export const ru = {
       dateJoined: "Дата регистрации",
       lastPlayed: "Последняя игра",
       playtime: "Время в игре",
+      ljPb: "LJ PB",
       profileViews: "Просмотры профиля",
       followers: "Подписчики",
       following: "Подписки",
