@@ -12,6 +12,7 @@ from app.models import (
     Ban,
     BanCompatPublicV0,
     BanCreate,
+    BanListItemPublic,
     BanListQuery,
     BanPublic,
     BanType,
@@ -122,6 +123,24 @@ def to_ban_public(*, ban: Ban, player: Player | None = None) -> BanPublic:
     return BanPublic(
         uuid=ban.uuid,
         id=ban.id,
+        ban_type=ban.ban_type,
+        expires_on=ban.expires_on,
+        ip=ban.ip,
+        notes=ban.notes,
+        stats=ban.stats,
+        server_id=ban.server_id,
+        updated_by_id=ban.updated_by_id,
+        created_on=ban.created_at,
+        updated_on=ban.updated_at,
+        player=to_player_ref_public(player=player) if player is not None else None,
+    )
+
+
+def to_ban_list_item_public(
+    *, ban: Ban, player: Player | None = None
+) -> BanListItemPublic:
+    return BanListItemPublic(
+        uuid=ban.uuid,
         ban_type=ban.ban_type,
         expires_on=ban.expires_on,
         ip=ban.ip,

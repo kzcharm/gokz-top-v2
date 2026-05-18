@@ -5,7 +5,6 @@ test.use({ storageState: { cookies: [], origins: [] } })
 function buildBan(index: number, source: "globalapi" | "manual" = "globalapi") {
   return {
     uuid: `01966858-7280-7000-8000-${index.toString().padStart(12, "0")}`,
-    id: source === "globalapi" ? index : null,
     ban_type: source === "globalapi" ? "bhop_hack" : "bhop_macro",
     created_on: "2026-03-01T12:00:00Z",
     expires_on: null,
@@ -243,6 +242,7 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
       createdBodies.push(body)
       const createdBan = {
         ...buildBan(999, "manual"),
+        id: null,
         uuid: "01966858-7280-7000-8000-000000009999",
         notes: "Admin-created local ban",
         stats: null,
@@ -307,8 +307,8 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
   expect(createdBodies[0]).not.toHaveProperty("stats")
   expect(createdBodies[0]).not.toHaveProperty("id")
 
-  await expect(page.getByText("Admin-created", { exact: true })).toBeVisible()
   await expect(page.getByText("Picked Player", { exact: true })).toBeVisible()
+  await expect(page.getByText("Admin-created local ban", { exact: true })).toBeVisible()
 
   await page
     .getByRole("link", { name: /Banned Player 1/ })

@@ -18,7 +18,6 @@ type BanPlayer = {
 
 export interface BanRow {
   uuid: string
-  id: number | null
   ban_type: string
   created_on: string
   expires_on: string | null
@@ -118,16 +117,6 @@ export const banColumns: ColumnDef<BanRow>[] = [
         nameMaxLength={28}
       />
     ),
-  },
-  {
-    accessorKey: "id",
-    header: "Source",
-    cell: ({ row }) =>
-      row.original.id === null ? (
-        <Badge variant="destructive">Admin-created</Badge>
-      ) : (
-        <Badge variant="outline">GlobalAPI</Badge>
-      ),
   },
   {
     accessorKey: "ban_type",

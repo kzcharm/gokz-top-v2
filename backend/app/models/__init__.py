@@ -6,6 +6,7 @@ from .ban import (
     BanBase,
     BanCompatPublicV0,
     BanCreate,
+    BanListItemPublic,
     BanListQuery,
     BanPublic,
     BansPublic,

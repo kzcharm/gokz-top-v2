@@ -5,6 +5,7 @@ from .ban import (
     not_active_ban_exists_clause,
     read_bans,
     to_ban_compat_public_v0,
+    to_ban_list_item_public,
     to_ban_public,
 )
 from .jumpstat import (

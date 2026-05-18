@@ -2,9 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 
 import { BansService, type BanType } from "@/client"
-import {
-  type PlayerDisplayPlayer,
-} from "@/components/Common/PlayerDisplay"
+import type { PlayerDisplayPlayer } from "@/components/Common/PlayerDisplay"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import {
   Dialog,

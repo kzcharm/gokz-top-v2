@@ -127,8 +127,22 @@ class BanPublic(SQLModel):
     player: PlayerRefPublic | None = None
 
 
+class BanListItemPublic(SQLModel):
+    uuid: uuid_pkg.UUID
+    ban_type: BanType
+    expires_on: datetime | None = None
+    ip: str | None = None
+    notes: str | None = None
+    stats: str | None = None
+    server_id: int | None = None
+    updated_by_id: str | None = None
+    created_on: datetime
+    updated_on: datetime
+    player: PlayerRefPublic | None = None
+
+
 class BansPublic(SQLModel):
-    data: list[BanPublic]
+    data: list[BanListItemPublic]
     count: int
 
 

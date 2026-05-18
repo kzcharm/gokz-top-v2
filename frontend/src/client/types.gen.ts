@@ -178,6 +178,20 @@ export type BanCreate = {
     stats?: (string | null);
 };
 
+export type BanListItemPublic = {
+    uuid: string;
+    ban_type: BanType;
+    expires_on?: (string | null);
+    ip?: (string | null);
+    notes?: (string | null);
+    stats?: (string | null);
+    server_id?: (number | null);
+    updated_by_id?: (string | null);
+    created_on: string;
+    updated_on: string;
+    player?: (PlayerRefPublic | null);
+};
+
 export type BanPublic = {
     uuid: string;
     id?: (number | null);
@@ -194,7 +208,7 @@ export type BanPublic = {
 };
 
 export type BansPublic = {
-    data: Array<BanPublic>;
+    data: Array<BanListItemPublic>;
     count: number;
 };
 
@@ -206,6 +220,20 @@ export type Body_jumpstats_create_jumpstat = {
 
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
+};
+
+export type IPLookupRequest = {
+    addresses: Array<(string)>;
+};
+
+export type IPLookupResponse = {
+    ip: string;
+    country?: (string | null);
+    country_code?: (string | null);
+    region?: (string | null);
+    city?: (string | null);
+    region_name?: (string | null);
+    region_code?: (string | null);
 };
 
 export type JumpstatDetailPublic = {
@@ -1559,6 +1587,18 @@ export type MapsDeleteMapReviewCommentsData = {
 export type MapsDeleteMapReviewCommentsResponse = (MapReviewPublic);
 
 export type MapsTriggerMapSyncResponse = (MapSyncResult);
+
+export type MiscLookupIpListData = {
+    requestBody: IPLookupRequest;
+};
+
+export type MiscLookupIpListResponse = (Array<IPLookupResponse>);
+
+export type MiscLookupIpData = {
+    address: string;
+};
+
+export type MiscLookupIpResponse = (IPLookupResponse);
 
 export type ModesReadModesResponse = (Array<ModePublic>);
 

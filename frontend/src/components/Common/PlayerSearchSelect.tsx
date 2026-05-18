@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import { Search, X } from "lucide-react"
-import { useDeferredValue, useEffect, useRef, useState, type ReactNode } from "react"
+import {
+  type ReactNode,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,9 +52,7 @@ export function PlayerSearchSelect({
   const playerSearchQuery = deferredSearchInput.trim()
 
   useEffect(() => {
-    setSearchInput(
-      selectedPlayer ? getPlayerDisplayName(selectedPlayer) : "",
-    )
+    setSearchInput(selectedPlayer ? getPlayerDisplayName(selectedPlayer) : "")
   }, [selectedPlayer])
 
   useEffect(() => {
@@ -68,7 +72,8 @@ export function PlayerSearchSelect({
       playerSearchQuery,
     ],
     enabled: playerSearchQuery.length > 0,
-    queryFn: async () => (await searchPlayersGraphql(playerSearchQuery, resultLimit)).data,
+    queryFn: async () =>
+      (await searchPlayersGraphql(playerSearchQuery, resultLimit)).data,
     staleTime: 30_000,
   })
 

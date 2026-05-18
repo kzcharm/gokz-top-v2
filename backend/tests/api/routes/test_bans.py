@@ -162,8 +162,9 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert v1_response.status_code == 200
     payload = v1_response.json()
     assert payload["count"] == 3
-    assert [row["id"] for row in payload["data"]] == [1003, 1002]
     assert payload["data"][0]["ban_type"] == "other"
+    assert payload["data"][0]["uuid"]
+    assert "id" not in payload["data"][0]
     assert payload["data"][1]["player"] == {
         "steamid64": "76561198000000002",
         "display_name": "TempAlias",
@@ -294,7 +295,7 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     assert v1_list.status_code == 200
     assert v1_list.json()["count"] == 1
     assert v1_list.json()["data"][0]["uuid"] == created_payload["uuid"]
-    assert v1_list.json()["data"][0]["id"] is None
+    assert "id" not in v1_list.json()["data"][0]
 
     v0_list = await client.get("/v0/bans", params={"steamid64": str(steamid64)})
     assert v0_list.status_code == 200

@@ -26,7 +26,10 @@ async def read_bans(
 ) -> BansPublic:
     bans, count = await crud.read_bans(session=session, query=query)
     return BansPublic(
-        data=[crud.to_ban_public(ban=ban, player=player) for ban, player in bans],
+        data=[
+            crud.to_ban_list_item_public(ban=ban, player=player)
+            for ban, player in bans
+        ],
         count=count,
     )
 
