@@ -35,7 +35,7 @@
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
   - Jumpstats are stored in `jumpstat`, keyed by UUIDv7, with scalar headline metrics plus per-strafe JSONB payloads, a nullable versioned `visualization_data` JSONB cache for replay-derived route samples, server-group-authenticated replay uploads accepted through `POST /v1/jumpstats`, and public reads served from `/v1/jumpstats`, `/v1/jumpstats/{id}/visualization`, and `/v1/players/{identifier}/jumpstats`
-  - Uploaded/imported jump replay binaries are stored on disk under `JUMP_REPLAY_STORAGE_DIR`, normalized to the same UUIDv7 filename as the owning `jumpstat.id`
+  - Uploaded/imported replay binaries are stored on disk under `REPLAY_STORAGE_DIR`, partitioned by replay type, with jump replays under `jumps/<jumpstat-id>.replay` and planned run replays under `runs/<normalized-map-name>/<record-uuid>.replay`
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned

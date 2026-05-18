@@ -47,7 +47,7 @@ async def test_import_jump_replays_archive_creates_rows_and_replay_files(
     tmp_path,
 ) -> None:
     _bind_import_session(monkeypatch, db)
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     group, _api_key = await create_test_server_group(db, name="AXE GOKZ")
     synthetic = build_synthetic_jump_replay()
     archive_path = tmp_path / "jumps.zip"
@@ -78,7 +78,7 @@ async def test_import_jump_replays_archive_deduplicates_matching_signature(
     tmp_path,
 ) -> None:
     _bind_import_session(monkeypatch, db)
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     group, _api_key = await create_test_server_group(db, name="AXE Import Group")
     synthetic = build_synthetic_jump_replay()
     archive_path = tmp_path / "jumps.zip"
@@ -105,7 +105,7 @@ async def test_import_jump_replays_archive_dry_run_skips_writes(
     tmp_path,
 ) -> None:
     _bind_import_session(monkeypatch, db)
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     group, _api_key = await create_test_server_group(db, name="AXE Dry Run Group")
     synthetic = build_synthetic_jump_replay()
     archive_path = tmp_path / "jumps.zip"
@@ -131,7 +131,7 @@ async def test_import_jump_replays_archive_supports_large_vertical_values(
     tmp_path,
 ) -> None:
     _bind_import_session(monkeypatch, db)
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     group, _api_key = await create_test_server_group(db, name="AXE High Z Group")
     synthetic = build_synthetic_jump_replay(
         ticks=[

@@ -114,7 +114,7 @@ Scope model:
 - Per-strafe breakdown rows are stored inline in PostgreSQL JSONB on the parent jumpstat row; there is no separate strafe detail table.
 - Replay-derived route visualizations are cached as versioned JSONB on the parent jumpstat row, rebuilt lazily from the stored replay when the cache is missing or stale, and surfaced on the public jumpstats leaderboard dialog.
 - Replay-derived writes currently reconstruct headline jumpstat fields plus `deviation`, while `edge` remains unavailable because it still depends on map/world traces outside the replay file.
-- Replay files are stored locally under the same UUIDv7 as the owning jumpstat row, and manual archive import tooling supports backfilling historical jump replays into a chosen server group.
+- Replay files are stored locally under a shared replay root with type-specific subdirectories, with jump replays under `jumps/<jumpstat-id>.replay` and planned run replays under `runs/<normalized-map-name>/<record-uuid>.replay`, and manual archive import tooling supports backfilling historical jump replays into a chosen server group.
 - Replay visibility integrated into player and map workflows.
 
 ### 5.7 Auth, Roles, and Settings

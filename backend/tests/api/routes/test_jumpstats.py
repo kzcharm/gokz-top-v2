@@ -319,7 +319,7 @@ async def test_read_jumpstat_visualization_builds_and_persists_missing_cache(
         server_group_id=group.id,
     )
     synthetic = build_synthetic_jump_replay()
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     save_jump_replay(jumpstat_id=jumpstat.id, replay_bytes=synthetic.replay_bytes)
 
     response = await client.get(
@@ -357,7 +357,7 @@ async def test_read_jumpstat_visualization_rebuilds_outdated_cache(
         visualization_data=_build_visualization_payload(version=0),
     )
     synthetic = build_synthetic_jump_replay()
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     save_jump_replay(jumpstat_id=jumpstat.id, replay_bytes=synthetic.replay_bytes)
 
     response = await client.get(
@@ -417,7 +417,7 @@ async def test_read_jumpstat_visualization_returns_409_when_replay_is_invalid(
         player_steamid64=player.steamid64,
         server_group_id=group.id,
     )
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     save_jump_replay(jumpstat_id=jumpstat.id, replay_bytes=b"not-a-replay")
 
     response = await client.get(
@@ -518,7 +518,7 @@ async def test_create_jumpstat_upload_creates_row_and_replay_file(
     tmp_path,
 ) -> None:
     group, api_key = await create_test_server_group(db, name="Upload Group")
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     synthetic = build_synthetic_jump_replay()
 
     response = await client.post(
@@ -563,7 +563,7 @@ async def test_create_jumpstat_upload_is_not_deduplicated(
     tmp_path,
 ) -> None:
     _group, api_key = await create_test_server_group(db, name="Repeat Upload Group")
-    monkeypatch.setattr(settings, "JUMP_REPLAY_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     synthetic = build_synthetic_jump_replay()
 
     first = await client.post(
