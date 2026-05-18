@@ -138,28 +138,6 @@ async def test_users_routes_direct_branches(db: AsyncSession) -> None:
             current_user=superuser,
         )
 
-    with pytest.raises(HTTPException, match="User not found"):
-        await users_routes.delete_user(
-            session=db,
-            current_user=superuser,
-            user_id=str(random_steamid64()),
-        )
-
-    with pytest.raises(HTTPException, match="delete themselves"):
-        await users_routes.delete_user(
-            session=db,
-            current_user=superuser,
-            user_id=str(superuser.steamid64),
-        )
-
-    target_for_delete = await _create_user(db)
-    deleted = await users_routes.delete_user(
-        session=db,
-        current_user=superuser,
-        user_id=str(target_for_delete.steamid64),
-    )
-    assert deleted.message == "User deleted successfully"
-
 
 @pytest.mark.asyncio
 async def test_players_routes_direct_branches(db: AsyncSession) -> None:

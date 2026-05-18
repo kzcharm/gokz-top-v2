@@ -17,10 +17,18 @@ from app.models import (
     JumpstatVisualizationStrafeType,
     KZMode,
 )
+from app.services.replay_parser_common import (
+    MODE_BY_INDEX,
+    REPLAY_FORMAT_VERSION,
+    REPLAY_MAGIC,
+    REPLAY_STYLE_NRM,
+    REPLAY_TYPE_JUMP,
+    BinaryReader,
+    ensure_finite,
+    float_from_i32,
+    steam_account_id_to_steamid64,
+)
 
-REPLAY_MAGIC = 0x676F6B7A
-REPLAY_FORMAT_VERSION = 2
-REPLAY_TYPE_JUMP = 2
 GOKZ_DB_JS_AIRTIME_PRECISION = 10000
 
 RP_IN_DUCK = 1 << 7
@@ -32,18 +40,8 @@ RP_FL_ONGROUND = 1 << 18
 
 EPSILON = 1e-6
 MAX_STRAFES = 48
-UNIVERSE_PUBLIC = 1
-STEAM_ID_TYPE_INDIVIDUAL = 1
-STEAM_ID_INSTANCE_DESKTOP = 1
 DECIMAL_FOUR_PLACES = Decimal("0.0001")
 JUMPSTAT_VISUALIZATION_VERSION = 1
-
-MODE_BY_INDEX: dict[int, KZMode] = {
-    0: KZMode.VNL,
-    1: KZMode.SKZ,
-    2: KZMode.KZT,
-    3: KZMode.NKZ,
-}
 JUMPSTAT_TYPE_BY_INDEX: dict[int, JumpstatType] = {
     0: JumpstatType.LJ,
     1: JumpstatType.BH,
@@ -203,45 +201,6 @@ class SelectedJumpReplay:
     stats: DerivedJumpStats
 
 
-class BinaryReader:
-    def __init__(self, data: bytes) -> None:
-        self._data = data
-        self._pos = 0
-
-    def read_u8(self) -> int:
-        value = self._data[self._pos]
-        self._pos += 1
-        return value
-
-    def read_i32(self) -> int:
-        value = struct.unpack_from("<i", self._data, self._pos)[0]
-        self._pos += 4
-        return value
-
-    def read_u32(self) -> int:
-        value = struct.unpack_from("<I", self._data, self._pos)[0]
-        self._pos += 4
-        return value
-
-    def read_len_string_u8(self) -> str:
-        length = self.read_u8()
-        value = self._data[self._pos : self._pos + length].decode("utf-8", "replace")
-        self._pos += length
-        return value
-
-
-def float_from_i32(raw: int) -> float:
-    return struct.unpack("<f", struct.pack("<I", raw & 0xFFFFFFFF))[0]
-
-
-def _ensure_finite(*, value: float, label: str, source_name: str) -> float:
-    if not math.isfinite(value):
-        raise JumpReplayParseError(
-            f"{source_name}: replay contains non-finite {label}"
-        )
-    return value
-
-
 def wrap_angle_delta(current: float, previous: float) -> float:
     delta = current - previous
     while delta <= -180.0:
@@ -265,17 +224,6 @@ def _to_decimal(value: float) -> Decimal:
 
 def _to_percent(value: float) -> int:
     return max(0, min(100, int(round(value))))
-
-
-def steam_account_id_to_steamid64(account_id: int) -> int:
-    if account_id <= 0:
-        raise JumpReplayParseError("Replay is missing a valid Steam account ID")
-    return (
-        (UNIVERSE_PUBLIC << 56)
-        | (STEAM_ID_TYPE_INDIVIDUAL << 52)
-        | (STEAM_ID_INSTANCE_DESKTOP << 32)
-        | account_id
-    )
 
 
 def _parse_jump_replay_header(
@@ -322,30 +270,35 @@ def _parse_jump_replay_header(
     max_speed = float_from_i32(reader.read_i32())
     airtime = reader.read_i32()
 
-    tickrate = _ensure_finite(
+    tickrate = ensure_finite(
         value=tickrate,
         label="tickrate",
         source_name=source_name,
+        error_type=JumpReplayParseError,
     )
-    distance = _ensure_finite(
+    distance = ensure_finite(
         value=distance,
         label="distance",
         source_name=source_name,
+        error_type=JumpReplayParseError,
     )
-    sync = _ensure_finite(
+    sync = ensure_finite(
         value=sync,
         label="sync",
         source_name=source_name,
+        error_type=JumpReplayParseError,
     )
-    pre_speed = _ensure_finite(
+    pre_speed = ensure_finite(
         value=pre_speed,
         label="pre speed",
         source_name=source_name,
+        error_type=JumpReplayParseError,
     )
-    max_speed = _ensure_finite(
+    max_speed = ensure_finite(
         value=max_speed,
         label="max speed",
         source_name=source_name,
+        error_type=JumpReplayParseError,
     )
 
     return JumpReplayHeader(
@@ -379,54 +332,63 @@ def _parse_ticks(*, reader: BinaryReader, header: JumpReplayHeader) -> list[Repl
                 tick_array[field_index] = reader.read_i32()
 
         origin = Vec3(
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[7]),
                 label="origin.x",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[8]),
                 label="origin.y",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[9]),
                 label="origin.z",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
         )
         angles = Vec3(
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[10]),
                 label="angles.x",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[11]),
                 label="angles.y",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[12]),
                 label="angles.z",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
         )
         velocity = Vec3(
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[13]),
                 label="velocity.x",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[14]),
                 label="velocity.y",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
-            _ensure_finite(
+            ensure_finite(
                 value=float_from_i32(tick_array[15]),
                 label="velocity.z",
                 source_name=header.source_name,
+                error_type=JumpReplayParseError,
             ),
         )
         flags = tick_array[16]
@@ -667,7 +629,7 @@ def _parse_selected_jump_replay(
         reader = BinaryReader(data)
         header = _parse_jump_replay_header(reader=reader, source_name=source_name)
 
-        if header.style_index != 0:
+        if header.style_index != REPLAY_STYLE_NRM:
             raise JumpReplayParseError(
                 f"{source_name}: unsupported replay style index {header.style_index}"
             )
@@ -693,7 +655,10 @@ def _parse_selected_jump_replay(
 
         return SelectedJumpReplay(
             header=header,
-            steamid64=steam_account_id_to_steamid64(header.steam_account_id),
+            steamid64=steam_account_id_to_steamid64(
+                header.steam_account_id,
+                error_type=JumpReplayParseError,
+            ),
             mode=mode,
             jump_type=jump_type,
             ticks=ticks,

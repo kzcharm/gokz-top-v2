@@ -95,6 +95,25 @@ export function DataTable<TData, TValue>({
   serverPagination,
   sorting,
 }: DataTableProps<TData, TValue>) {
+  const getColumnSizeStyle = (columnDef: ColumnDef<TData, TValue>) => {
+    if (typeof columnDef.size !== "number") {
+      return undefined
+    }
+
+    return {
+      width: `${columnDef.size}px`,
+      minWidth: `${columnDef.size}px`,
+    }
+  }
+
+  const getColumnMeta = (columnDef: ColumnDef<TData, TValue>) =>
+    (columnDef.meta as
+      | {
+          headerClassName?: string
+          cellClassName?: string
+        }
+      | undefined) ?? undefined
+
   const { t } = useTranslation()
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const stickyHeaderCellRef = useRef<HTMLTableCellElement | null>(null)
@@ -234,6 +253,7 @@ export function DataTable<TData, TValue>({
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="hover:bg-transparent">
               {headerGroup.headers.map((header) => {
+                const columnMeta = getColumnMeta(header.column.columnDef)
                 return (
                   <TableHead
                     key={header.id}
@@ -242,15 +262,19 @@ export function DataTable<TData, TValue>({
                         ? stickyHeaderCellRef
                         : undefined
                     }
-                    className={
+                    className={[
                       stickyHeader
                         ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted ${
                             isStickyHeaderPinned
                               ? "first:rounded-tl-none last:rounded-tr-none"
                               : "first:rounded-tl-[27px] last:rounded-tr-[27px]"
                           }`
-                        : undefined
-                    }
+                        : undefined,
+                      columnMeta?.headerClassName,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={getColumnSizeStyle(header.column.columnDef)}
                   >
                     {header.isPlaceholder
                       ? null
@@ -280,14 +304,21 @@ export function DataTable<TData, TValue>({
                       rowProps?.className ?? getRowClassName?.(row.original)
                     }
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                    {row.getVisibleCells().map((cell) => {
+                      const columnMeta = getColumnMeta(cell.column.columnDef)
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={columnMeta?.cellClassName}
+                          style={getColumnSizeStyle(cell.column.columnDef)}
+                        >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
                         )}
-                      </TableCell>
-                    ))}
+                        </TableCell>
+                      )
+                    })}
                   </TableRow>
                   {isExpanded ? (
                     <TableRow className="bg-muted/15 hover:bg-muted/15">

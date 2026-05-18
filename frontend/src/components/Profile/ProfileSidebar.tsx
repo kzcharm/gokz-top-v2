@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { type PlayerPublic, PlayersService } from "@/client"
+import { AddBanDialog } from "@/components/Bans/AddBanDialog"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
@@ -66,6 +67,13 @@ type ProfilePlayer = PlayerPublic & {
   is_website_user?: boolean
 }
 
+function formatJumpDistance(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
 function ProfileIdentityCard({
   canViewProfileHistory,
   displayName,
@@ -86,6 +94,7 @@ function ProfileIdentityCard({
   player: ProfilePlayer
 }) {
   const { t } = useTranslation()
+  const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const avatarUrl = getAvatarUrl(player)
   const showWebsiteUserRing = player.is_website_user === true
   const alias = player.alias?.trim() ?? ""
@@ -336,8 +345,10 @@ function ProfileIdentityCard({
         sideOffset={12}
       >
         <PlayerContextMenuItems
+          closeMenu={() => onContextMenuOpenChange(false)}
           displayName={displayName}
           hasProfileLink={hasProfileLink}
+          onAddBan={() => setAddBanDialogOpen(true)}
           player={player}
           steamProfileUrl={steamProfileUrl}
           steamid64={player.steamid64}
@@ -358,6 +369,17 @@ function ProfileIdentityCard({
           />
         </PlayerContextMenuItems>
       </DropdownMenuContent>
+      <AddBanDialog
+        open={addBanDialogOpen}
+        onOpenChange={setAddBanDialogOpen}
+        initialPlayer={{
+          steamid64: player.steamid64,
+          displayName,
+          name: player.name,
+          alias: player.alias ?? null,
+          country: player.country ?? null,
+        }}
+      />
     </DropdownMenu>
   )
 }
@@ -702,9 +724,23 @@ export function ProfileSidebar({
       (await searchPlayersGraphql(playerSearchQuery, 8)).data,
     staleTime: 30_000,
   })
+  const ljPbQuery = useQuery({
+    queryKey: ["profile-sidebar-lj-pb", identifier],
+    queryFn: () =>
+      PlayersService.readPlayerJumpstats({
+        identifier,
+        type: "LJ",
+        limit: 1,
+        offset: 0,
+        sortBy: "distance",
+        sortOrder: "desc",
+      }),
+    staleTime: 30_000,
+  })
   const followSummary = followSummaryQuery.data
   const followerCount = getFollowSummaryCount(followSummary, "follower_count")
   const followingCount = getFollowSummaryCount(followSummary, "following_count")
+  const ljPbDistance = ljPbQuery.data?.data?.[0]?.distance ?? null
   const canViewProfileHistory = isSuperuser(user)
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
@@ -882,6 +918,20 @@ export function ProfileSidebar({
                     t("profile.unavailable")
                   ) : (
                     formatSecondsAsHours(playtimeSeconds ?? 0)
+                  )
+                }
+              />
+              <DetailRow
+                label={t("profile.summary.ljPb")}
+                value={
+                  ljPbQuery.isLoading ? (
+                    <Skeleton className="h-4 w-14" />
+                  ) : ljPbQuery.isError ? (
+                    t("profile.unavailable")
+                  ) : ljPbDistance === null ? (
+                    "-"
+                  ) : (
+                    formatJumpDistance(ljPbDistance)
                   )
                 }
               />

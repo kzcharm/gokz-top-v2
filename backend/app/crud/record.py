@@ -51,8 +51,9 @@ from app.services.course_points import (
     calculate_bucket_points,
     calculate_estimated_pb_points,
 )
+from app.services.run_replay_storage import has_run_replay
 
-from .ban import not_active_ban_exists_clause
+from .ban import active_ban_exists_clause, not_active_ban_exists_clause
 from .map import get_map_by_name
 from .map_leaderboard import rebuild_map_leaderboards_for_keys
 from .player import read_players_batch, to_player_ref_public
@@ -243,7 +244,14 @@ async def _load_pb_points_by_record_uuid(
     if not record_uuids:
         return {}
 
-    statement = select(RecordPb.record_uuid, RecordPb.is_pro_only, RecordPb.points).where(
+    statement = select(
+        RecordPb.record_uuid,
+        RecordPb.is_pro_only,
+        case(
+            (active_ban_exists_clause(steamid64_column=col(RecordPb.steamid64)), 0),
+            else_=RecordPb.points,
+        ).label("points"),
+    ).where(
         col(RecordPb.record_uuid).in_(list(record_uuids)),
         col(RecordPb.scope) == scope,
     )
@@ -1235,6 +1243,10 @@ def to_record_public(
         updated_on=record.updated_at,
         updated_by=str(record.updated_by),
         replay_id=record.replay_id,
+        is_replay_available=has_run_replay(
+            map_name=map_obj.name,
+            replay_id=record.uuid,
+        ),
         is_valid=record.is_valid,
     )
 
@@ -1272,6 +1284,10 @@ def to_recent_record_public(
         points=points,
         created_on=record.created_at,
         updated_on=record.updated_at,
+        is_replay_available=has_run_replay(
+            map_name=map_obj.name,
+            replay_id=record.uuid,
+        ),
     )
 
 
@@ -1379,9 +1395,20 @@ async def read_recent_records(
         scoped_points = func.coalesce(ovr_pb.points, 0)
     else:
         scoped_points = func.coalesce(pro_pb.points, ovr_pb.points, 0)
+    public_scoped_points = case(
+        (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
+        else_=scoped_points,
+    )
 
     statement = (
-        select(Record, Player, ServerGlobalapi, Map, Mode, scoped_points.label("points"))
+        select(
+            Record,
+            Player,
+            ServerGlobalapi,
+            Map,
+            Mode,
+            public_scoped_points.label("points"),
+        )
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .join(Map, col(Record.map_id) == col(Map.id))
@@ -1409,7 +1436,9 @@ async def read_recent_records(
     elif requested_record_type is RecordType.NUB:
         statement = statement.where(col(Record.teleports) > 0)
     if query.points_more_or_equal_than is not None:
-        statement = statement.where(scoped_points >= query.points_more_or_equal_than)
+        statement = statement.where(
+            public_scoped_points >= query.points_more_or_equal_than
+        )
 
     if (
         query.points_more_or_equal_than is None
@@ -1445,7 +1474,7 @@ async def read_recent_records(
             count_statement = count_statement.where(col(Record.teleports) > 0)
         if query.points_more_or_equal_than is not None:
             count_statement = count_statement.where(
-                scoped_points >= query.points_more_or_equal_than
+                public_scoped_points >= query.points_more_or_equal_than
             )
         count = (await session.exec(count_statement)).one()
 
@@ -1833,6 +1862,10 @@ async def get_pb_record_publics(
     scoped_points = (
         pro_pb.points if record_type.is_pro else func.coalesce(ovr_pb.points, 0)
     )
+    public_scoped_points = case(
+        (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
+        else_=scoped_points,
+    )
 
     statement = (
         select(
@@ -1851,7 +1884,7 @@ async def get_pb_record_publics(
             Record.stage,
             Record.time,
             Record.teleports,
-            scoped_points.label("points"),
+            public_scoped_points.label("points"),
             Record.created_at,
             Record.updated_at,
             Record.updated_by,
@@ -1990,6 +2023,10 @@ async def get_pb_record_publics(
             updated_on=updated_on,
             updated_by=str(updated_by),
             replay_id=replay_id,
+            is_replay_available=has_run_replay(
+                map_name=map_name,
+                replay_id=record_uuid,
+            ),
             is_valid=is_valid,
         )
         for (
@@ -2096,6 +2133,10 @@ async def read_map_pb_leaderboard(
     scoped_points = (
         pro_pb.points if is_pro_only else func.coalesce(ovr_pb.points, 0)
     )
+    public_scoped_points = case(
+        (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
+        else_=scoped_points,
+    )
 
     statement = (
         select(
@@ -2114,7 +2155,7 @@ async def read_map_pb_leaderboard(
             Record.stage,
             Record.time,
             Record.teleports,
-            scoped_points.label("points"),
+            public_scoped_points.label("points"),
             Record.created_at,
             Record.updated_at,
             Record.updated_by,
@@ -2222,6 +2263,10 @@ async def read_map_pb_leaderboard(
             updated_on=updated_on,
             updated_by=str(updated_by),
             replay_id=replay_id,
+            is_replay_available=has_run_replay(
+                map_name=map_name,
+                replay_id=record_uuid,
+            ),
             is_valid=is_valid,
         )
         for (

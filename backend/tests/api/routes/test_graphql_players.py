@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import LeaderboardPlayer, ModeScope, Player, User
+from app.models import Ban, BanType, LeaderboardPlayer, ModeScope, Player, User
 from app.models.player_profile_view import PlayerProfileView
 from tests.utils.utils import random_steamid64
 
@@ -211,6 +211,57 @@ async def test_graphql_player_rating_returns_zero_when_scope_has_no_rating(
             steamid64=steamid64,
             name="Unrated Scope",
             primary_scope=ModeScope.VNL,
+        )
+    )
+    await db.commit()
+
+    payload = await _post_graphql(
+        client,
+        query="""
+        query PlayerRating($identifier: String!) {
+          player(identifier: $identifier) {
+            rating
+          }
+        }
+        """,
+        variables={"identifier": str(steamid64)},
+    )
+
+    assert payload["data"]["player"]["rating"] == 0
+
+
+async def test_graphql_player_rating_returns_zero_for_active_ban(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    db.add(
+        Player(
+            steamid64=steamid64,
+            name="Banned Rated Player",
+            primary_scope=ModeScope.KZT,
+        )
+    )
+    await db.flush()
+    db.add(
+        LeaderboardPlayer(
+            scope=ModeScope.KZT,
+            steamid64=steamid64,
+            rating=32564,
+        )
+    )
+    db.add(
+        Ban(
+            id=9_810_001,
+            ban_type=BanType.BHOP_HACK,
+            expires_on=None,
+            steamid64=steamid64,
+            notes="cheater",
+            stats="stats",
+            server_id=1,
+            updated_by_id="1",
+            created_at=datetime(2099, 1, 3, tzinfo=UTC),
+            updated_at=datetime(2099, 1, 3, tzinfo=UTC),
         )
     )
     await db.commit()

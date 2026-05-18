@@ -11,7 +11,6 @@ from app.api.deps import (
     user_has_role,
 )
 from app.models import (
-    Message,
     User,
     UserPublic,
     UserRole,
@@ -124,23 +123,3 @@ async def update_user(
 
     db_user = await crud.update_user(session=session, db_user=db_user, user_in=user_in)
     return await crud.to_user_public(session=session, user=db_user)
-
-
-@router.delete("/{user_id}", dependencies=[Depends(get_current_active_superuser)])
-async def delete_user(
-    session: SessionDep, current_user: CurrentUser, user_id: str
-) -> Message:
-    """
-    Delete a user.
-    """
-    steamid64 = _parse_steamid64(user_id)
-    user = await session.get(User, steamid64)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user == current_user:
-        raise HTTPException(
-            status_code=403, detail="Super users are not allowed to delete themselves"
-        )
-    await session.delete(user)
-    await session.commit()
-    return Message(message="User deleted successfully")

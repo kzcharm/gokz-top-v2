@@ -492,6 +492,7 @@ export function ProfileRecordsTab({
               "server",
               "datetime",
             ]}
+            showReplayColumn
             columnFilters={{
               map: (
                 <Input

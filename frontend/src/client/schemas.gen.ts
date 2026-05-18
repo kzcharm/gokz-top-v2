@@ -775,10 +775,174 @@ export const AdminServerRoleSchema = {
     title: 'AdminServerRole'
 } as const;
 
+export const BanCreateSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        ban_type: {
+            '$ref': '#/components/schemas/BanType'
+        },
+        expires_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expires On'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        stats: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stats'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'ban_type'],
+    title: 'BanCreate'
+} as const;
+
+export const BanListItemPublicSchema = {
+    properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
+        ban_type: {
+            '$ref': '#/components/schemas/BanType'
+        },
+        expires_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expires On'
+        },
+        ip: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ip'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        },
+        stats: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Stats'
+        },
+        server_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Server Id'
+        },
+        updated_by_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Updated By Id'
+        },
+        created_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created On'
+        },
+        updated_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated On'
+        },
+        player: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['uuid', 'ban_type', 'created_on', 'updated_on'],
+    title: 'BanListItemPublic'
+} as const;
+
 export const BanPublicSchema = {
     properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
         id: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Id'
         },
         ban_type: {
@@ -873,7 +1037,7 @@ export const BanPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'ban_type', 'created_on', 'updated_on'],
+    required: ['uuid', 'ban_type', 'created_on', 'updated_on'],
     title: 'BanPublic'
 } as const;
 
@@ -887,7 +1051,7 @@ export const BansPublicSchema = {
     properties: {
         data: {
             items: {
-                '$ref': '#/components/schemas/BanPublic'
+                '$ref': '#/components/schemas/BanListItemPublic'
             },
             type: 'array',
             title: 'Data'
@@ -927,6 +1091,99 @@ export const HTTPValidationErrorSchema = {
     },
     type: 'object',
     title: 'HTTPValidationError'
+} as const;
+
+export const IPLookupRequestSchema = {
+    properties: {
+        addresses: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Addresses'
+        }
+    },
+    type: 'object',
+    required: ['addresses'],
+    title: 'IPLookupRequest'
+} as const;
+
+export const IPLookupResponseSchema = {
+    properties: {
+        ip: {
+            type: 'string',
+            title: 'Ip'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        country_code: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country Code'
+        },
+        region: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Region'
+        },
+        city: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'City'
+        },
+        region_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Region Name'
+        },
+        region_code: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Region Code'
+        }
+    },
+    type: 'object',
+    required: ['ip'],
+    title: 'IPLookupResponse'
 } as const;
 
 export const JumpstatDetailPublicSchema = {

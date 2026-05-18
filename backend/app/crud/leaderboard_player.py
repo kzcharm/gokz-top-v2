@@ -58,7 +58,10 @@ async def load_player_ratings_by_scope(
                 LeaderboardPlayer.steamid64,
                 LeaderboardPlayer.scope,
                 LeaderboardPlayer.rating,
-            ).where(col(LeaderboardPlayer.steamid64).in_(unique_steamid64s))
+            ).where(
+                col(LeaderboardPlayer.steamid64).in_(unique_steamid64s),
+                _not_banned_clause(),
+            )
         )
     ).all()
     ratings_by_player: dict[int, dict[ModeScope, int]] = defaultdict(dict)
@@ -859,6 +862,11 @@ async def read_player_leaderboard_rank(
         LeaderboardPlayer,
         (scope, player.steamid64),
     )
+    if leaderboard_row is not None and await _player_has_active_ban(
+        session=session,
+        steamid64=player.steamid64,
+    ):
+        leaderboard_row = None
 
     rank: int | None = None
 

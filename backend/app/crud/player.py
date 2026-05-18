@@ -6,7 +6,7 @@ from typing import cast
 from urllib.parse import urlsplit
 
 import httpx
-from sqlalchemy import case, false, func, literal, or_
+from sqlalchemy import case, exists, false, func, literal, or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -21,6 +21,7 @@ from app.crud.player_profile_field_change import (
 from app.crud.player_profile_history import create_player_profile_history_if_changed
 from app.crud.player_profile_view import count_player_profile_views
 from app.models import (
+    Ban,
     LeaderboardPlayer,
     ModeScope,
     Player,
@@ -595,7 +596,19 @@ async def search_players(
         func.word_similarity(search_term_lower, lower_alias),
         func.word_similarity(search_term_lower, lower_name),
     )
-    rating_rank = func.coalesce(col(LeaderboardPlayer.rating), 0)
+    active_ban_exists = exists(
+        select(Ban.uuid).where(
+            col(Ban.steamid64) == col(Player.steamid64),
+            or_(
+                col(Ban.expires_on).is_(None),
+                col(Ban.expires_on) >= datetime.now(UTC),
+            ),
+        )
+    )
+    rating_rank = case(
+        (active_ban_exists, 0),
+        else_=func.coalesce(col(LeaderboardPlayer.rating), 0),
+    )
 
     base_statement = (
         select(Player)

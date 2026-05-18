@@ -248,6 +248,7 @@ export const zhCN = {
       dateJoined: "加入时间",
       lastPlayed: "最近游玩",
       playtime: "游玩时长",
+      ljPb: "LJ PB",
       profileViews: "资料浏览量",
       followers: "关注者",
       following: "关注中",

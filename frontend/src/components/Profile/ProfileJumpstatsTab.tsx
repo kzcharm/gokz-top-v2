@@ -1,301 +1,232 @@
-import { Gauge, Ruler, StepForward, TriangleAlertIcon } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { TriangleAlert } from "lucide-react"
+import { type KeyboardEvent, type MouseEvent, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { PlayersService } from "@/client"
+import { DataTable } from "@/components/Common/DataTable"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
+import { JumpstatDetailsDialog } from "@/components/Leaderboards/JumpstatDetailsDialog"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-
-import type {
-  ProfileJumpstatDetail,
-  ProfileJumpstatsResult,
-} from "./profile-utils"
-
-function formatDecimal(value: number, digits = 1) {
-  return value.toFixed(digits)
-}
-
-function formatJumpstatType(value: string) {
-  const labels: Record<string, string> = {
-    LJ: "Long Jump",
-    BH: "Bhop",
-    MBH: "Multi Bunnyhop",
-    WJ: "Weird Jump",
-    LAJ: "Ladder Jump",
-    LAH: "Ladderhop",
-    JB: "Jumpbug",
-    LBH: "Ladder Bunnyhop",
-    LWJ: "Ladder Weird Jump",
-    FL: "Fall",
-    UNK: "Unknown",
-    INV: "Invalid",
-  }
-  return labels[value] ?? value
-}
-
-function JumpstatSummaryPill({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-2">
-      <div className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-        {label}
-      </div>
-      <div className="mt-1 font-mono text-sm font-semibold tabular-nums">
-        {value}
-      </div>
-    </div>
-  )
-}
-
-function JumpstatCard({ jumpstat }: { jumpstat: ProfileJumpstatDetail }) {
-  const { t } = useTranslation()
-  const typeLabel = formatJumpstatType(jumpstat.type)
-
-  return (
-    <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
-      <CardContent className="space-y-5 p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant="outline"
-                className="border-sky-300/60 bg-sky-500/10 text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
-              >
-                {jumpstat.mode}
-              </Badge>
-              {jumpstat.block !== null ? (
-                <Badge variant="outline" className="font-mono tabular-nums">
-                  {jumpstat.block} Block
-                </Badge>
-              ) : null}
-              <Badge variant="outline">{typeLabel}</Badge>
-            </div>
-            <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-              <div className="font-mono text-3xl font-semibold tabular-nums tracking-tight">
-                {formatDecimal(jumpstat.distance, 4)}
-              </div>
-              <div className="pb-1 text-sm text-muted-foreground">
-                {t("profile.jumpstats.units")}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span>{jumpstat.server_group.name}</span>
-              <span>•</span>
-              <FormattedDateTime
-                value={jumpstat.jumped_at}
-                display="absolute"
-              />
-            </div>
-          </div>
-
-          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
-            <JumpstatSummaryPill
-              label={t("profile.jumpstats.summary.strafes")}
-              value={String(jumpstat.strafes)}
-            />
-            <JumpstatSummaryPill
-              label={t("profile.jumpstats.summary.sync")}
-              value={`${jumpstat.sync_percent}%`}
-            />
-            <JumpstatSummaryPill
-              label={t("profile.jumpstats.summary.pre")}
-              value={formatDecimal(jumpstat.pre_speed, 2)}
-            />
-            <JumpstatSummaryPill
-              label={t("profile.jumpstats.summary.max")}
-              value={formatDecimal(jumpstat.max_speed, 2)}
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.width")}
-            value={`${formatDecimal(jumpstat.width, 1)}°`}
-          />
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.height")}
-            value={formatDecimal(jumpstat.height, 1)}
-          />
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.airtime")}
-            value={`${jumpstat.airtime_percent}%`}
-          />
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.offset")}
-            value={formatDecimal(jumpstat.offset, 1)}
-          />
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.w")}
-            value={String(jumpstat.w_count)}
-          />
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.ol")}
-            value={String(jumpstat.overlap_count)}
-          />
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.da")}
-            value={String(jumpstat.dead_air_count)}
-          />
-          <JumpstatSummaryPill
-            label={t("profile.jumpstats.summary.crouched")}
-            value={String(jumpstat.crouched_ticks)}
-          />
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
-            <Gauge className="h-4 w-4 text-muted-foreground" />
-            <span>{t("profile.jumpstats.breakdownTitle")}</span>
-          </div>
-          <Table containerClassName="rounded-2xl border-border/70 bg-background/60">
-            <TableHeader>
-              <TableRow>
-                <TableHead>#</TableHead>
-                <TableHead>{t("profile.jumpstats.table.sync")}</TableHead>
-                <TableHead>{t("profile.jumpstats.table.gain")}</TableHead>
-                <TableHead>{t("profile.jumpstats.table.loss")}</TableHead>
-                <TableHead>{t("profile.jumpstats.table.airtime")}</TableHead>
-                <TableHead>{t("profile.jumpstats.table.width")}</TableHead>
-                <TableHead>{t("profile.jumpstats.table.ol")}</TableHead>
-                <TableHead>{t("profile.jumpstats.table.da")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {jumpstat.strafe_stats.map((strafe) => (
-                <TableRow key={strafe.index}>
-                  <TableCell className="font-mono tabular-nums">
-                    {strafe.index}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {strafe.sync_percent}%
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {formatDecimal(strafe.gain, 2)}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {formatDecimal(strafe.loss, 2)}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {strafe.airtime_percent}%
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {formatDecimal(strafe.width, 1)}°
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {strafe.overlap_count}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {strafe.dead_air_count}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-            {jumpstat.edge !== null ? (
-              <div className="inline-flex items-center gap-2">
-                <Ruler className="h-3.5 w-3.5" />
-                <span className="font-mono tabular-nums">
-                  {t("profile.jumpstats.edge")}:{" "}
-                  {formatDecimal(jumpstat.edge, 2)}
-                </span>
-              </div>
-            ) : null}
-            {jumpstat.deviation !== null ? (
-              <div className="inline-flex items-center gap-2">
-                <StepForward className="h-3.5 w-3.5" />
-                <span className="font-mono tabular-nums">
-                  {t("profile.jumpstats.deviation")}:{" "}
-                  {formatDecimal(jumpstat.deviation, 2)}
-                </span>
-              </div>
-            ) : null}
-            {jumpstat.edge === null && jumpstat.deviation === null ? (
-              <span>{t("profile.jumpstats.mapDependentOmitted")}</span>
-            ) : null}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function JumpstatsSkeleton() {
-  return (
-    <div className="space-y-6">
-      {Array.from({ length: 2 }).map((_, index) => (
-        <Card
-          key={index}
-          className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0"
-        >
-          <CardContent className="space-y-5 p-6">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-64 w-full rounded-2xl" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-}
+  getJumpstatTypeLabel,
+  getProfileJumpstatsColumns,
+  JUMPSTAT_TYPE_OPTIONS,
+  type ProfileJumpstatsTableRow,
+} from "@/components/Leaderboards/jumpstats-columns"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { extractErrorMessage } from "@/utils"
 
 export function ProfileJumpstatsTab({
-  data,
-  loading,
-  error,
+  identifier,
 }: {
-  data: ProfileJumpstatsResult | null | undefined
-  loading: boolean
-  error: boolean
+  identifier: string | null
 }) {
   const { t } = useTranslation()
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const [selectedType, setSelectedType] =
+    useState<(typeof JUMPSTAT_TYPE_OPTIONS)[number]>("LJ")
+  const [blockEnabled, setBlockEnabled] = useState(false)
+  const [lastKnownTotalCount, setLastKnownTotalCount] = useState(0)
+  const [selectedJumpstatId, setSelectedJumpstatId] = useState<string | null>(
+    null,
+  )
 
-  if (loading) {
-    return <JumpstatsSkeleton />
-  }
+  const sortBy = blockEnabled ? "block" : "distance"
+  const jumpstatsQuery = useQuery({
+    queryKey: [
+      "profile-jumpstats",
+      identifier,
+      selectedType,
+      blockEnabled,
+      pageIndex,
+      pageSize,
+      sortBy,
+    ],
+    queryFn: () =>
+      PlayersService.readPlayerJumpstats({
+        identifier: identifier ?? "",
+        type: selectedType,
+        offset: pageIndex * pageSize,
+        limit: pageSize,
+        sortBy,
+        sortOrder: "desc",
+      }),
+    enabled: identifier !== null,
+    retry: false,
+    staleTime: 30_000,
+  })
 
-  if (error) {
-    return (
-      <Alert>
-        <TriangleAlertIcon />
-        <AlertTitle>{t("profile.jumpstats.loadFailedTitle")}</AlertTitle>
-        <AlertDescription>
-          {t("profile.jumpstats.loadFailedBody")}
-        </AlertDescription>
-      </Alert>
-    )
-  }
+  const rows: ProfileJumpstatsTableRow[] = jumpstatsQuery.data?.data ?? []
+  const totalCount = jumpstatsQuery.data?.count ?? lastKnownTotalCount
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
+  const hasNextPage = pageIndex + 1 < pageCount
+  const columns = getProfileJumpstatsColumns(t, { blockEnabled })
 
-  if (!data || data.data.length === 0) {
-    return (
-      <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-6 text-sm text-muted-foreground">
-          {t("profile.jumpstats.empty")}
-        </CardContent>
-      </Card>
-    )
+  useEffect(() => {
+    if (identifier === null) {
+      return
+    }
+    setPageIndex(0)
+    setLastKnownTotalCount(0)
+    setSelectedJumpstatId(null)
+  }, [identifier])
+
+  useEffect(() => {
+    if (jumpstatsQuery.data === undefined) {
+      return
+    }
+    setLastKnownTotalCount(jumpstatsQuery.data.count)
+  }, [jumpstatsQuery.data])
+
+  useEffect(() => {
+    if (jumpstatsQuery.data === undefined) {
+      return
+    }
+    if (pageIndex <= pageCount - 1) {
+      return
+    }
+    setPageIndex(pageCount - 1)
+  }, [jumpstatsQuery.data, pageCount, pageIndex])
+
+  const rowInteractionProps = (row: ProfileJumpstatsTableRow) => ({
+    className:
+      "cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none",
+    tabIndex: 0,
+    onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+      const target = event.target as HTMLElement
+      if (target.closest("a, button, input, select, textarea")) {
+        return
+      }
+      setSelectedJumpstatId(row.id)
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return
+      }
+      const target = event.target as HTMLElement
+      if (target.closest("a, button, input, select, textarea")) {
+        return
+      }
+      event.preventDefault()
+      setSelectedJumpstatId(row.id)
+    },
+  })
+
+  if (identifier === null) {
+    return null
   }
 
   return (
     <div className="space-y-6">
-      {data.data.map((jumpstat) => (
-        <JumpstatCard key={jumpstat.id} jumpstat={jumpstat} />
-      ))}
+      <Tabs
+        value={selectedType}
+        onValueChange={(value) => {
+          setSelectedType(value as (typeof JUMPSTAT_TYPE_OPTIONS)[number])
+          setPageIndex(0)
+        }}
+        className="gap-0"
+      >
+        <div className="flex items-center gap-3">
+          <div className="-mx-2 min-w-0 flex-1 overflow-x-auto px-2 py-1">
+            <TabsList
+              aria-label={t("leaderboards.jumpstats.jumpType")}
+              className="h-auto w-full justify-start gap-2 bg-transparent p-0 text-foreground sm:w-fit"
+            >
+              {JUMPSTAT_TYPE_OPTIONS.map((option) => (
+                <TabsTrigger
+                  key={option}
+                  value={option}
+                  className="h-auto flex-none rounded-full border border-border/60 bg-background/45 px-4 py-2 text-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm dark:data-[state=active]:bg-input/30"
+                >
+                  {getJumpstatTypeLabel(option, t)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            className={
+              blockEnabled
+                ? "ml-auto shrink-0 rounded-xl border border-[#7c98d6] bg-[#dbe7ff] text-[#244488] shadow-sm hover:bg-[#cfdfff] hover:text-[#1d3a78]"
+                : "ml-auto shrink-0 rounded-xl border border-[#c9d7f3] bg-[#eef4ff] text-[#5671aa] hover:bg-[#e3ecff] hover:text-[#3f5d96]"
+            }
+            onClick={() => {
+              setBlockEnabled((current) => !current)
+              setPageIndex(0)
+            }}
+          >
+            {t("leaderboards.jumpstats.columns.block")}
+          </Button>
+        </div>
+      </Tabs>
+
+      {jumpstatsQuery.isError ? (
+        <Alert variant="destructive">
+          <TriangleAlert className="h-4 w-4" />
+          <AlertTitle>{t("profile.jumpstats.loadFailedTitle")}</AlertTitle>
+          <AlertDescription>
+            {extractErrorMessage(jumpstatsQuery.error) ||
+              t("profile.jumpstats.loadFailedBody")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
+          <DataTable
+            columns={columns}
+            data={rows}
+            isLoading={jumpstatsQuery.isLoading}
+            emptyText={t("profile.jumpstats.empty")}
+            stickyHeader
+            stickyHeaderTopClassName="top-16"
+            tableContainerClassName="md:overflow-visible"
+            tableClassName="border-separate border-spacing-0"
+            showFooter={false}
+            getRowId={(row) => row.id}
+            getRowProps={rowInteractionProps}
+            serverPagination={{
+              pageIndex,
+              pageSize,
+              totalCount,
+              onPageChange: setPageIndex,
+              onPageSizeChange: (size) => {
+                setPageSize(size)
+                setPageIndex(0)
+              },
+            }}
+          />
+          <TablePaginationFooter
+            totalLabel={t("profile.tabs.jumpstats")}
+            totalCount={totalCount}
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            onPageIndexChange={setPageIndex}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setPageIndex(0)
+            }}
+            hasNextPage={hasNextPage}
+          />
+        </CardContent>
+      </Card>
+
+      <JumpstatDetailsDialog
+        jumpstatId={selectedJumpstatId}
+        open={selectedJumpstatId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedJumpstatId(null)
+          }
+        }}
+      />
     </div>
   )
 }

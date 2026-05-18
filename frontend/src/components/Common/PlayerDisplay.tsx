@@ -5,6 +5,7 @@ import {
   Copy,
   ExternalLink,
   IdCard,
+  ShieldAlert,
   UserCheck,
   UserPlus,
   UserRound,
@@ -17,7 +18,7 @@ import type {
   ReactNode,
   SVGProps,
 } from "react"
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import noneFlagSrc from "@/assets/flags/none.svg"
 import playerAvatarPlaceholderSrc from "@/assets/player-avatar-placeholder.jpg"
@@ -52,10 +53,16 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { loadPlayerForDisplay } from "@/lib/player-graphql"
+import { isSuperuser } from "@/lib/user-roles"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
 import { getProfileFriendsQueryOptions } from "../Profile/profile-utils"
+
+const AddBanDialog = lazy(async () => {
+  const module = await import("../Bans/AddBanDialog")
+  return { default: module.AddBanDialog }
+})
 
 const countryNameFormatter =
   typeof Intl !== "undefined" && "DisplayNames" in Intl
@@ -127,8 +134,10 @@ interface PlayerDisplayProps {
 
 type PlayerContextMenuItemsProps = {
   children?: ReactNode
+  closeMenu: () => void
   displayName: string
   hasProfileLink: boolean
+  onAddBan: () => void
   player?: {
     alias?: string | null
     country?: string | null
@@ -222,14 +231,18 @@ function shouldHydratePlayer(
 
 export function PlayerContextMenuItems({
   children,
+  closeMenu,
   displayName,
   hasProfileLink,
+  onAddBan,
   player,
   steamProfileUrl,
   steamid64,
 }: PlayerContextMenuItemsProps) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [, copyToClipboard] = useCopyToClipboard()
+  const canAddBan = isSuperuser(user) && steamid64Pattern.test(steamid64)
 
   const handleGotoProfile = () => {
     if (!hasProfileLink) {
@@ -281,6 +294,22 @@ export function PlayerContextMenuItems({
         Copy Name
       </DropdownMenuItem>
       {player ? <EditPlayer player={player} /> : null}
+      {canAddBan ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={(event) => {
+              event.preventDefault()
+              closeMenu()
+              onAddBan()
+            }}
+          >
+            <ShieldAlert />
+            Add Ban
+          </DropdownMenuItem>
+        </>
+      ) : null}
       {children}
     </>
   )
@@ -395,7 +424,9 @@ export function PlayerDisplay({
 }: PlayerDisplayProps) {
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const suppressProfileLinkClickRef = useRef(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
   const hydrationQuery = useQuery({
     queryKey: ["graphql", "player", steamid64, scope ?? "PRIMARY"],
@@ -491,6 +522,20 @@ export function PlayerDisplay({
   useEffect(() => {
     setAvatarLoadFailed(false)
   }, [])
+
+  useEffect(() => {
+    if (menuOpen || !suppressProfileLinkClickRef.current) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      suppressProfileLinkClickRef.current = false
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [menuOpen])
 
   let sublineContent: string | null = null
   if (effectiveSubline?.type === "steamid64") {
@@ -646,6 +691,7 @@ export function PlayerDisplay({
 
   const handleContextMenu = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
+    suppressProfileLinkClickRef.current = true
     setMenuOpen(true)
   }
 
@@ -655,8 +701,18 @@ export function PlayerDisplay({
       (event.shiftKey && event.key === "F10")
     ) {
       event.preventDefault()
+      suppressProfileLinkClickRef.current = true
       setMenuOpen(true)
     }
+  }
+
+  const handleLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!suppressProfileLinkClickRef.current) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
   }
 
   if (!hasProfileLink) {
@@ -676,6 +732,7 @@ export function PlayerDisplay({
           to="/profile/$identifier"
           params={{ identifier: steamid64 }}
           className="-mx-2 -my-1 block rounded-md px-2 py-1 transition-colors hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={handleLinkClick}
           onContextMenu={handleContextMenu}
           onKeyDown={handleKeyDown}
         >
@@ -689,8 +746,10 @@ export function PlayerDisplay({
         className="min-w-44"
       >
         <PlayerContextMenuItems
+          closeMenu={() => setMenuOpen(false)}
           displayName={displayName}
           hasProfileLink={hasProfileLink}
+          onAddBan={() => setAddBanDialogOpen(true)}
           player={
             resolvedPlayer
               ? {
@@ -710,6 +769,19 @@ export function PlayerDisplay({
           />
         </PlayerContextMenuItems>
       </DropdownMenuContent>
+      <Suspense fallback={null}>
+        <AddBanDialog
+          open={addBanDialogOpen}
+          onOpenChange={setAddBanDialogOpen}
+          initialPlayer={{
+            steamid64,
+            displayName,
+            name: resolvedPlayer?.name ?? displayName,
+            alias: resolvedPlayer?.alias ?? null,
+            country: resolvedPlayer?.country ?? null,
+          }}
+        />
+      </Suspense>
     </DropdownMenu>
   )
 }

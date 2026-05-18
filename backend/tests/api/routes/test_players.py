@@ -313,6 +313,41 @@ async def test_search_players_uses_rating_to_break_same_relevance_tier(
 
 
 @pytest.mark.asyncio
+async def test_search_players_ignores_active_ban_rating_tiebreaker(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    query_term = "bannedrunnertier"
+    clean_player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name=f"{query_term} alpha",
+    )
+    banned_player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name=f"{query_term} beta",
+    )
+    await _set_ovr_rating(db=db, steamid64=clean_player.steamid64, rating=50)
+    await _set_ovr_rating(db=db, steamid64=banned_player.steamid64, rating=900)
+    await _create_ban(
+        db=db,
+        ban_id=9_820_001,
+        steamid64=banned_player.steamid64,
+        expires_on=None,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": query_term},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["steamid64"] == str(clean_player.steamid64)
+
+
+@pytest.mark.asyncio
 async def test_search_players_supports_steam2_identifier(
     client: AsyncClient,
     db: AsyncSession,
@@ -2469,6 +2504,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
         notes="locally active",
     )
     ban_id = ban.id
+    ban_uuid = ban.uuid
     expired_at = datetime.now(UTC) - timedelta(hours=1)
     rebuilt_steamid64s: list[int] = []
 
@@ -2530,7 +2566,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
     assert rebuilt_steamid64s == [player_steamid64]
 
     db.expire_all()
-    refreshed = await db.get(Ban, ban_id)
+    refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
     assert refreshed.expires_on == expired_at
     assert refreshed.notes == "expired upstream"
@@ -2558,6 +2594,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
         expires_on=None,
     )
     ban_id = ban.id
+    ban_uuid = ban.uuid
     future_expiry = datetime.now(UTC) + timedelta(days=7)
     rebuilt_steamid64s: list[int] = []
 
@@ -2619,7 +2656,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
     assert rebuilt_steamid64s == []
 
     db.expire_all()
-    refreshed = await db.get(Ban, ban_id)
+    refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
     assert refreshed.expires_on == future_expiry
 

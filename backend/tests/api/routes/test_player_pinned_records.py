@@ -152,6 +152,7 @@ async def test_player_pinned_records_owner_can_create_read_and_delete(
     assert create_payload["data"][0]["scope"] == "OVR"
     assert create_payload["data"][0]["type"] == "NUB"
     assert create_payload["data"][0]["record"]["map_id"] == 981000
+    assert create_payload["data"][0]["record"]["is_replay_available"] is False
 
     read_response = await client.get(
         f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",

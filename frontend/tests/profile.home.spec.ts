@@ -377,6 +377,54 @@ async function installProfileHomeRoutes(
   )
 
   await page.route(
+    /\/v1\/players\/[^/]+\/jumpstats(\?.*)?$/,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "11111111-1111-4111-8111-111111111111",
+              player: {
+                steamid64,
+                display_name: "Pinned Alias",
+              },
+              server_group_id: "22222222-2222-4222-8222-222222222222",
+              server_group: {
+                id: "22222222-2222-4222-8222-222222222222",
+                name: "Jumpstats Group",
+              },
+              mode: "KZT",
+              type: "LJ",
+              distance: 281.8,
+              block: 280,
+              strafes: 8,
+              sync_percent: 90,
+              pre_speed: 275.22,
+              max_speed: 366.78,
+              w_count: 0,
+              overlap_count: 0,
+              dead_air_count: 0,
+              width: 18.5,
+              height: 56.1,
+              airtime_percent: 100,
+              offset: 0,
+              crouched_ticks: 0,
+              edge: null,
+              deviation: null,
+              jumped_at: "2099-01-01T00:00:00Z",
+              created_at: "2099-01-01T00:00:00Z",
+              updated_at: "2099-01-01T00:00:00Z",
+            },
+          ],
+          count: 1,
+        }),
+      })
+    },
+  )
+
+  await page.route(
     /\/v1\/players\/[^/]+\/stats(\?.*)?$/,
     async (route: Route) => {
       await route.fulfill({
@@ -477,6 +525,8 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText(/^Jan$/)).toBeVisible()
   await expect(page.getByText(/^Mar$/)).toBeVisible()
   await expect(page.getByText("10.5 hrs")).toBeVisible()
+  await expect(page.getByText("Long Jump")).toBeVisible()
+  await expect(page.getByText("281.80")).toBeVisible()
   await expect(page.getByText("Recent", { exact: true })).toBeVisible()
   await expect(
     page.getByTestId("profile-activity-view-last-365-days"),

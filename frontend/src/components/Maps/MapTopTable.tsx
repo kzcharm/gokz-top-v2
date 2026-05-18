@@ -9,6 +9,7 @@ import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { ModeBadge } from "@/components/Records/ModeBadge"
 import { PointsBadge } from "@/components/Records/PointsBadge"
+import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilityButton"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
 import { cn, truncateText } from "@/lib/utils"
@@ -90,6 +91,24 @@ export function MapTopTable({
         cell: ({ row }) => (
           <div className="text-right font-mono font-medium">
             {formatRecordTime(row.original.record.time)}
+          </div>
+        ),
+      },
+      {
+        id: "replay",
+        size: 40,
+        meta: {
+          headerClassName: "!px-2",
+          cellClassName: "!px-2",
+        },
+        header: () => (
+          <div className="flex w-6 justify-center">
+            <span className="sr-only">Replay</span>
+          </div>
+        ),
+        cell: ({ row }) => (
+          <div className="flex w-6 justify-center">
+            <ReplayAvailabilityButton record={row.original.record} />
           </div>
         ),
       },

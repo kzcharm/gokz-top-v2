@@ -302,6 +302,7 @@ async def _upsert_ban_payloads(
     insert_statement = pg_insert(table).values(list(rows_by_id.values()))
     upsert_statement = insert_statement.on_conflict_do_update(
         index_elements=[table.c.id],
+        index_where=table.c.id.is_not(None),
         set_={
             "ban_type": insert_statement.excluded.ban_type,
             "expires_on": insert_statement.excluded.expires_on,
@@ -326,7 +327,8 @@ async def _load_active_ban_ids_for_player(
     session: AsyncSession,
     steamid64: int,
     now: datetime | None = None,
-) -> set[int]:
+    external_only: bool = False,
+) -> set[str]:
     current_time = now or datetime.now(UTC)
     statement = select(Ban.id).where(
         Ban.steamid64 == steamid64,
@@ -335,7 +337,24 @@ async def _load_active_ban_ids_for_player(
             Ban.expires_on >= current_time,
         ),
     )
-    return {int(ban_id) for ban_id in (await session.exec(statement)).all()}
+    if external_only:
+        statement = statement.where(Ban.id.is_not(None))
+        return {str(ban_id) for ban_id in (await session.exec(statement)).all()}
+
+    return {
+        str(ban_uuid)
+        for ban_uuid in (
+            await session.exec(
+                select(Ban.uuid).where(
+                    Ban.steamid64 == steamid64,
+                    or_(
+                        Ban.expires_on.is_(None),
+                        Ban.expires_on >= current_time,
+                    ),
+                )
+            )
+        ).all()
+    }
 
 
 async def sync_bans_from_globalapi(
@@ -345,7 +364,9 @@ async def sync_bans_from_globalapi(
     sync_state = await session.get(GlobalApiSyncState, "bans")
     created_since: datetime | None = None
     limit = settings.GLOBALAPI_BANS_BACKFILL_LIMIT
-    latest_local_created_at = await session.exec(select(func.max(Ban.created_at)))
+    latest_local_created_at = await session.exec(
+        select(func.max(Ban.created_at)).where(Ban.id.is_not(None))
+    )
     incremental_anchor = latest_local_created_at.one()
     if (
         sync_state is not None
@@ -439,6 +460,7 @@ async def sync_player_bans_from_globalapi(
     before_active_ban_ids = await _load_active_ban_ids_for_player(
         session=session,
         steamid64=steamid64,
+        external_only=True,
     )
     offset = 0
     limit = settings.GLOBALAPI_BANS_BACKFILL_LIMIT
@@ -480,6 +502,7 @@ async def sync_player_bans_from_globalapi(
     after_active_ban_ids = await _load_active_ban_ids_for_player(
         session=session,
         steamid64=steamid64,
+        external_only=True,
     )
     if before_active_ban_ids != after_active_ban_ids:
         await crud.rebuild_leaderboard_players(

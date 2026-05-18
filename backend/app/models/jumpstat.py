@@ -332,6 +332,9 @@ class JumpstatsPublic(SQLModel):
     count: int
 
 
+JumpstatSortBy = Literal["distance", "block", "jumped_at", "created_at"]
+
+
 class JumpstatListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=1000)
@@ -340,7 +343,7 @@ class JumpstatListQuery(SQLModel):
     block: int | None = Field(default=None, ge=0)
     server_group_id: uuid.UUID | None = None
     exclude_cheaters: bool = True
-    sort_by: Literal["distance", "jumped_at", "created_at"] = "distance"
+    sort_by: JumpstatSortBy = "distance"
     sort_order: Literal["asc", "desc"] = "desc"
 
 

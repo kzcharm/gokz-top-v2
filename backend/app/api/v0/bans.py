@@ -42,6 +42,7 @@ async def read_bans(
             offset=offset,
             limit=limit,
         ),
+        external_only=True,
     )
     return [
         crud.to_ban_compat_public_v0(ban=ban, player=player)

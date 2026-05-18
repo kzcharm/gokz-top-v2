@@ -1,9 +1,11 @@
 from .ban import (
     active_ban_exists_clause,
-    get_ban_by_id,
+    create_manual_ban,
+    get_ban_by_uuid,
     not_active_ban_exists_clause,
     read_bans,
     to_ban_compat_public_v0,
+    to_ban_list_item_public,
     to_ban_public,
 )
 from .jumpstat import (
@@ -307,7 +309,8 @@ __all__ = [
     "delete_player_webhook",
     "disconnect_player_session",
     "ensure_map_courses_for_valid_records",
-    "get_ban_by_id",
+    "create_manual_ban",
+    "get_ban_by_uuid",
     "get_map_by_id",
     "get_map_by_name",
     "load_changed_map_leaderboard_keys",

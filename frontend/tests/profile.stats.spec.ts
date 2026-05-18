@@ -164,6 +164,17 @@ async function installProfileStatsRoutes(page: Page) {
     },
   )
 
+  await page.route(/\/v1\/players\/[^/]+\/jumpstats(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [],
+        count: 0,
+      }),
+    })
+  })
+
   await page.route(/\/v1\/players\/[^/]+\/social-links$/, async (route) => {
     await route.fulfill({
       status: 200,

@@ -13,6 +13,7 @@ from app.api.v1 import (
     live,
     login,
     maps,
+    misc,
     modes,
     player_sessions,
     players,
@@ -38,6 +39,7 @@ api_router.include_router(jumpstats.router)
 api_router.include_router(leaderboards.router)
 api_router.include_router(live.router)
 api_router.include_router(maps.router)
+api_router.include_router(misc.router)
 api_router.include_router(modes.router)
 api_router.include_router(player_sessions.router)
 api_router.include_router(records.router)

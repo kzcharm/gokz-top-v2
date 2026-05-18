@@ -460,6 +460,7 @@ class RecordPublic(SQLModel):
     updated_on: datetime
     updated_by: str
     replay_id: int | None = None
+    is_replay_available: bool
     is_valid: bool
 
 
@@ -528,6 +529,7 @@ class RecentRecordPublic(SQLModel):
     points: int
     created_on: datetime
     updated_on: datetime
+    is_replay_available: bool
 
 
 class RecentRecordsPublic(SQLModel):

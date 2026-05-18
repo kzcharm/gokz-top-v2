@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     TWITCH_CLIENT_SECRET: str | None = None
     LOG_LEVEL: str = "INFO"
     GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")
-    JUMP_REPLAY_STORAGE_DIR: Path = Path("../.jump-replays")
+    REPLAY_STORAGE_DIR: Path = Path("../.replays")
     SUPER_USER_STEAMID64: int
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:

@@ -332,7 +332,7 @@ class PlayerLeaderboardRankPublic(SQLModel):
 
     @field_serializer("rating", "rating_easy", "rating_hard")
     def serialize_rating(self, value: float | None) -> float | None:
-        return scale_public_rating(value)
+        return scale_public_rating(value) or 0
 
 
 class PlayerLeaderboardsPublic(SQLModel):

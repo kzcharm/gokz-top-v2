@@ -27,6 +27,7 @@ import { cn, truncateText } from "@/lib/utils"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import type { PbRecordsColumn, PbRecordsSortState } from "./pb-records-utils"
+import { ReplayAvailabilityButton } from "./ReplayAvailabilityButton"
 import { TeleportsBadge } from "./TeleportsBadge"
 import { formatRecordTime } from "./utils"
 
@@ -40,6 +41,7 @@ interface PbRecordsTableProps {
   onSortChange?: (column: PbRecordsColumn) => void
   getRowContextMenu?: (record: RecordPublic) => ReactNode
   getMapContextMenu?: (record: RecordPublic) => ReactNode
+  showReplayColumn?: boolean
 }
 
 function PbRecordTableRow({
@@ -47,12 +49,14 @@ function PbRecordTableRow({
   getMapContextMenu,
   getRowContextMenu,
   record,
+  showReplayColumn,
   visibleColumns,
 }: {
   dateTimeDisplay: DateTimeDisplay
   getMapContextMenu?: (record: RecordPublic) => ReactNode
   getRowContextMenu?: (record: RecordPublic) => ReactNode
   record: RecordPublic
+  showReplayColumn: boolean
   visibleColumns: Set<PbRecordsColumn>
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -123,6 +127,13 @@ function PbRecordTableRow({
       {visibleColumns.has("time") ? (
         <TableCell className="text-right font-mono font-medium">
           {formatRecordTime(record.time)}
+        </TableCell>
+      ) : null}
+      {showReplayColumn ? (
+        <TableCell className="w-10 px-2">
+          <div className="flex justify-center">
+            <ReplayAvailabilityButton record={record} />
+          </div>
         </TableCell>
       ) : null}
       {visibleColumns.has("points") ? (
@@ -237,11 +248,12 @@ export function PbRecordsTable({
   onSortChange,
   getRowContextMenu,
   getMapContextMenu,
+  showReplayColumn = false,
 }: PbRecordsTableProps) {
   const { t } = useTranslation()
   const visibleColumns = new Set(columns)
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
-  const colSpan = columns.length
+  const colSpan = columns.length + (showReplayColumn ? 1 : 0)
   const hasColumnFilters = columns.some(
     (column) => columnFilters?.[column] !== undefined,
   )
@@ -320,6 +332,11 @@ export function PbRecordsTable({
                   />
                 </TableHead>
               ) : null}
+              {showReplayColumn ? (
+                <TableHead className={`w-10 px-2 ${tableHeadClassName}`}>
+                  <span className="sr-only">Replay</span>
+                </TableHead>
+              ) : null}
               {visibleColumns.has("points") ? (
                 <TableHead className={`min-w-24 ${tableHeadClassName}`}>
                   <SortableHeader
@@ -376,6 +393,7 @@ export function PbRecordsTable({
                   getMapContextMenu={getMapContextMenu}
                   getRowContextMenu={getRowContextMenu}
                   record={record}
+                  showReplayColumn={showReplayColumn}
                   visibleColumns={visibleColumns}
                 />
               ))
