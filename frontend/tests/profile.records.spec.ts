@@ -14,8 +14,9 @@ const seededPlayer = {
   last_played_at: "2026-03-31T12:00:00Z",
   updated_at: "2026-03-31T12:00:00Z",
   steamid64,
-  profile_views: 3,
 }
+
+const profileViews = 3
 
 async function installProfileShellRoutes(page: Page) {
   await page.route(/\/v1\/users\/me$/, async (route) => {
@@ -31,6 +32,14 @@ async function installProfileShellRoutes(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(seededPlayer),
+    })
+  })
+
+  await page.route(/\/v1\/players\/[^/]+\/views$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ profile_views: profileViews }),
     })
   })
 

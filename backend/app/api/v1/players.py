@@ -27,6 +27,7 @@ from app.models import (
     Player,
     PlayerBanStatusCheckPublic,
     PlayerDailyActivityPublic,
+    PlayerDetailPublic,
     PlayerFollowListQuery,
     PlayerFollowSummaryPublic,
     PlayerFriendsPublic,
@@ -453,6 +454,22 @@ async def create_player_view(
         viewer_steamid64=current_user.steamid64,
         target_steamid64=player.steamid64,
     )
+    profile_views = await crud.count_player_profile_views(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return PlayerProfileViewsPublic(profile_views=profile_views)
+
+
+@router.get("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)
+async def read_player_views(
+    identifier: str,
+    session: SessionDep,
+) -> PlayerProfileViewsPublic:
+    """
+    Retrieve the current total profile view count for a player.
+    """
+    player = await _get_player_or_404(session=session, identifier=identifier)
     profile_views = await crud.count_player_profile_views(
         session=session,
         target_steamid64=player.steamid64,
@@ -1598,12 +1615,12 @@ async def read_player_profile_history(
     )
 
 
-@router.get("/{identifier:path}", response_model=PlayerPublic)
+@router.get("/{identifier:path}", response_model=PlayerDetailPublic)
 async def read_player(
     identifier: str,
     session: SessionDep,
     background_tasks: BackgroundTasks,
-) -> Any:
+) -> PlayerDetailPublic:
     """
     Retrieve a player by app custom_id, steamid64, or full Steam profile URL.
     """
@@ -1613,7 +1630,13 @@ async def read_player(
             sync_player_steam_profile_if_due,
             steamid64=player.steamid64,
         )
-    return await crud.to_player_public_with_profile_views(session=session, player=player)
+    website_user_steamid64s = await crud.load_website_user_steamid64s(
+        session=session, steamid64s=[player.steamid64]
+    )
+    return crud.to_player_detail_public(
+        player=player,
+        is_website_user=player.steamid64 in website_user_steamid64s,
+    )
 
 
 @router.put(

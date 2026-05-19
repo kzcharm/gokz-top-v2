@@ -460,7 +460,7 @@ async def test_read_player_by_steamid64(
     payload = response.json()
     assert payload["steamid64"] == str(player.steamid64)
     assert payload["custom_id"] == "steam-id-player"
-    assert payload["profile_views"] == 0
+    assert "profile_views" not in payload
 
 
 @pytest.mark.asyncio
@@ -481,7 +481,7 @@ async def test_read_player_by_custom_id(
     payload = response.json()
     assert payload["steamid64"] == str(player.steamid64)
     assert payload["custom_id"] == "custom-profile_42"
-    assert payload["profile_views"] == 0
+    assert "profile_views" not in payload
 
 
 @pytest.mark.asyncio
@@ -610,7 +610,7 @@ async def test_read_player_follow_summary_accepts_full_steam_profile_url(
 
 
 @pytest.mark.asyncio
-async def test_read_player_includes_profile_views(
+async def test_read_player_views_returns_profile_view_count(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -629,8 +629,13 @@ async def test_read_player_includes_profile_views(
         target_steamid64=target.steamid64,
     )
 
-    response = await client.get(f"{settings.API_V1_STR}/players/{target.steamid64}")
+    player_response = await client.get(f"{settings.API_V1_STR}/players/{target.steamid64}")
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/views"
+    )
 
+    assert player_response.status_code == 200
+    assert "profile_views" not in player_response.json()
     assert response.status_code == 200
     assert response.json()["profile_views"] == 1
 

@@ -196,6 +196,11 @@ class PlayerPublic(PlayerBase):
     profile_views: int = 0
 
 
+class PlayerDetailPublic(PlayerBase):
+    steamid64: str
+    is_website_user: bool = False
+
+
 class PlayerRefPublic(SQLModel):
     steamid64: str
     display_name: str

@@ -13,7 +13,7 @@ import {
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { type PlayerPublic, PlayersService } from "@/client"
+import { PlayersService } from "@/client"
 import { AddBanDialog } from "@/components/Bans/AddBanDialog"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -60,12 +60,9 @@ import {
   getAvatarUrl,
   getFollowSummaryCount,
   getProfileFollowSummaryQueryOptions,
+  type ProfilePlayer,
   type ProfileSummaryData,
 } from "./profile-utils"
-
-type ProfilePlayer = PlayerPublic & {
-  is_website_user?: boolean
-}
 
 function formatJumpDistance(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -557,7 +554,7 @@ function SummaryMiniCard({
   icon?: ReactNode
   label: string
   onClick?: () => void
-  value: string
+  value: ReactNode
 }) {
   const Comp = onClick ? "button" : "div"
 
@@ -580,7 +577,9 @@ function SummaryMiniCard({
             {icon}
           </span>
           <p className="min-w-0 text-xs text-muted-foreground">{label}</p>
-          <p className="ml-auto text-lg font-semibold tracking-tight">{value}</p>
+          <p className="ml-auto text-lg font-semibold tracking-tight">
+            {value}
+          </p>
         </div>
       ) : (
         <>
@@ -705,6 +704,9 @@ export function ProfileSidebar({
   playtimeLoading,
   playtimeSeconds,
   player,
+  profileViews,
+  profileViewsError,
+  profileViewsLoading,
   summary,
   summaryLoading,
 }: {
@@ -713,6 +715,9 @@ export function ProfileSidebar({
   playtimeLoading: boolean
   playtimeSeconds: number | null
   player: ProfilePlayer
+  profileViews: number
+  profileViewsError: boolean
+  profileViewsLoading: boolean
   summary: ProfileSummaryData
   summaryLoading: boolean
 }) {
@@ -957,7 +962,15 @@ export function ProfileSidebar({
                 dataTestId="profile-profile-views-card"
                 icon={<Eye className="size-3.5" />}
                 label={t("profile.summary.profileViews")}
-                value={formatNumber(player.profile_views ?? 0)}
+                value={
+                  profileViewsLoading ? (
+                    <Skeleton className="h-4 w-14" />
+                  ) : profileViewsError ? (
+                    t("profile.unavailable")
+                  ) : (
+                    formatNumber(profileViews)
+                  )
+                }
               />
               <SummaryMiniCard
                 icon={<UserRoundCheck className="size-3.5" />}

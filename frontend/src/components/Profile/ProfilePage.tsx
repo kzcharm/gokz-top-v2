@@ -4,7 +4,7 @@ import { TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { type PlayerPublic, PlayersService } from "@/client"
+import { PlayersService } from "@/client"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
@@ -46,6 +46,7 @@ import {
   getProfileRecordRanksQueryOptions,
   getProfileStatsQueryOptions,
   getProfileValidatedMapsQueryOptions,
+  getProfileViewsQueryOptions,
   type ProfileTab,
   pinProfileRecord,
   syncProfileFriends,
@@ -101,6 +102,9 @@ export function ProfilePage({
   const playerSteamid64 = playerQuery.data?.steamid64 ?? null
   const activeBanCountQuery = useQuery(
     getProfileActiveBanQueryOptions(playerSteamid64),
+  )
+  const profileViewsQuery = useQuery(
+    getProfileViewsQueryOptions(playerSteamid64),
   )
   const playerStatsQuery = useQuery({
     ...getProfileStatsQueryOptions(
@@ -186,25 +190,10 @@ export function ProfilePage({
       identifier: playerSteamid64,
     })
       .then((response) => {
-        const applyProfileViews = (current: PlayerPublic | undefined) =>
-          current
-            ? {
-                ...current,
-                profile_views:
-                  response.profile_views ?? current.profile_views ?? 0,
-              }
-            : current
-
-        queryClient.setQueryData<PlayerPublic>(
-          ["profile-player", identifier],
-          applyProfileViews,
+        queryClient.setQueryData(
+          ["profile-player-views", playerSteamid64],
+          response,
         )
-        if (canonicalIdentifier !== identifier) {
-          queryClient.setQueryData<PlayerPublic>(
-            ["profile-player", canonicalIdentifier],
-            applyProfileViews,
-          )
-        }
       })
       .catch(() => {
         recordedProfileViewsRef.current.delete(playerSteamid64)
@@ -585,6 +574,9 @@ export function ProfilePage({
             playtimeSeconds={
               playerStatsQuery.data?.playtime?.total_seconds ?? null
             }
+            profileViews={profileViewsQuery.data?.profile_views ?? 0}
+            profileViewsError={profileViewsQuery.isError}
+            profileViewsLoading={profileViewsQuery.isLoading}
             summary={summary}
             summaryLoading={summaryLoading}
           />

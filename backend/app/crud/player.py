@@ -25,6 +25,7 @@ from app.models import (
     LeaderboardPlayer,
     ModeScope,
     Player,
+    PlayerDetailPublic,
     PlayerProfileField,
     PlayerProfileFieldStatus,
     PlayerPublic,
@@ -1100,6 +1101,24 @@ def to_player_public(
         updated_at=player.updated_at,
         is_website_user=is_website_user,
         profile_views=profile_views,
+    )
+
+
+def to_player_detail_public(
+    *, player: Player, is_website_user: bool = False
+) -> PlayerDetailPublic:
+    return PlayerDetailPublic(
+        steamid64=str(player.steamid64),
+        name=player.name,
+        alias=player.alias,
+        custom_id=normalize_custom_id(player.custom_id),
+        avatar_hash=player.avatar_hash,
+        country=player.country,
+        primary_scope=player.primary_scope,
+        created_at=player.created_at,
+        last_played_at=player.last_played_at,
+        updated_at=player.updated_at,
+        is_website_user=is_website_user,
     )
 
 

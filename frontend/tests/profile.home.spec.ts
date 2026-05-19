@@ -14,8 +14,9 @@ const player = {
   last_played_at: "2026-03-31T12:00:00Z",
   updated_at: "2026-03-31T12:00:00Z",
   steamid64,
-  profile_views: 7,
 }
+
+const profileViews = 7
 
 const playerStats = {
   steamid64,
@@ -279,6 +280,14 @@ async function installProfileHomeRoutes(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(player),
+    })
+  })
+
+  await page.route(/\/v1\/players\/[^/]+\/views$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ profile_views: profileViews }),
     })
   })
 

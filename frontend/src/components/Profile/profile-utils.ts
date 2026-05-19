@@ -4,10 +4,11 @@ import {
   type MapPublic,
   MapsService,
   type MapWrPublic,
+  type PlayerDetailPublic,
   type PlayerFollowSummaryPublic,
   type PlayerProfileHistoryEntryPublic,
   type PlayerProfileHistoryPublic,
-  type PlayerPublic,
+  type PlayerProfileViewsPublic,
   type PlayerStatsPublic,
   type PlayerStatType,
   type PlayersPublic,
@@ -60,6 +61,30 @@ export async function fetchProfilePlayer(identifier: string) {
   })
 }
 
+export type ProfilePlayer = PlayerDetailPublic
+
+export async function fetchProfileViews(identifier: string) {
+  return await PlayersService.readPlayerViews({
+    identifier,
+  })
+}
+
+export function getProfileViewsQueryOptions(identifier: string | null) {
+  return queryOptions({
+    queryKey: ["profile-player-views", identifier],
+    queryFn: async (): Promise<PlayerProfileViewsPublic | null> => {
+      if (!identifier) {
+        return null
+      }
+
+      return await fetchProfileViews(identifier)
+    },
+    enabled: identifier !== null,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
 export type ProfileBan = {
   uuid: string
   id: number | null
@@ -93,7 +118,7 @@ export type ProfileFriendSync = {
 }
 
 export type ProfileFriendsResult = {
-  data: PlayerPublic[]
+  data: ProfilePlayer[]
   count: number
   sync: ProfileFriendSync
 }
@@ -824,7 +849,7 @@ export function formatRatingBadge(value: number) {
   return (value / 1158).toFixed(2)
 }
 
-export function getAvatarUrl(player: PlayerPublic) {
+export function getAvatarUrl(player: ProfilePlayer) {
   if (!player.avatar_hash) {
     return null
   }

@@ -581,6 +581,20 @@ export type PlayerDailyActivityPublic = {
     days?: Array<PlayerDailyActivityDayPublic>;
 };
 
+export type PlayerDetailPublic = {
+    name: string;
+    alias?: (string | null);
+    custom_id?: (string | null);
+    avatar_hash?: (string | null);
+    country?: (string | null);
+    primary_scope?: ModeScope;
+    created_at?: (string | null);
+    last_played_at?: (string | null);
+    updated_at?: (string | null);
+    steamid64: string;
+    is_website_user?: boolean;
+};
+
 export type PlayerFollowSummaryPublic = {
     follower_count?: number;
     following_count?: number;
@@ -899,6 +913,7 @@ export type RecentRecordPublic = {
     points: number;
     created_on: string;
     updated_on: string;
+    is_replay_available: boolean;
 };
 
 export type RecentRecordServerPublic = {
@@ -936,6 +951,7 @@ export type RecordPublic = {
     updated_on: string;
     updated_by: string;
     replay_id?: (number | null);
+    is_replay_available: boolean;
     is_valid: boolean;
 };
 
@@ -1643,6 +1659,12 @@ export type PlayersCreatePlayerViewData = {
 
 export type PlayersCreatePlayerViewResponse = (PlayerProfileViewsPublic);
 
+export type PlayersReadPlayerViewsData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerViewsResponse = (PlayerProfileViewsPublic);
+
 export type PlayersReadPlayerPinnedRecordsData = {
     identifier: string;
     scope?: ModeScope;
@@ -1864,7 +1886,7 @@ export type PlayersReadPlayerData = {
     identifier: string;
 };
 
-export type PlayersReadPlayerResponse = (PlayerPublic);
+export type PlayersReadPlayerResponse = (PlayerDetailPublic);
 
 export type PlayersUpdatePlayerData = {
     identifier: string;

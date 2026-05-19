@@ -2827,6 +2827,116 @@ export const PlayerDailyActivityPublicSchema = {
     title: 'PlayerDailyActivityPublic'
 } as const;
 
+export const PlayerDetailPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name'
+        },
+        alias: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alias'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Avatar Hash'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        primary_scope: {
+            '$ref': '#/components/schemas/ModeScope',
+            default: 'OVR'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        last_played_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Played At'
+        },
+        updated_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Updated At'
+        },
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        is_website_user: {
+            type: 'boolean',
+            title: 'Is Website User',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['name', 'steamid64'],
+    title: 'PlayerDetailPublic'
+} as const;
+
 export const PlayerFollowSummaryPublicSchema = {
     properties: {
         follower_count: {
@@ -4338,10 +4448,14 @@ export const RecentRecordPublicSchema = {
             type: 'string',
             format: 'date-time',
             title: 'Updated On'
+        },
+        is_replay_available: {
+            type: 'boolean',
+            title: 'Is Replay Available'
         }
     },
     type: 'object',
-    required: ['uuid', 'player', 'map', 'server', 'mode', 'stage', 'teleports', 'time', 'points', 'created_on', 'updated_on'],
+    required: ['uuid', 'player', 'map', 'server', 'mode', 'stage', 'teleports', 'time', 'points', 'created_on', 'updated_on', 'is_replay_available'],
     title: 'RecentRecordPublic'
 } as const;
 
@@ -4499,13 +4613,17 @@ export const RecordPublicSchema = {
             ],
             title: 'Replay Id'
         },
+        is_replay_available: {
+            type: 'boolean',
+            title: 'Is Replay Available'
+        },
         is_valid: {
             type: 'boolean',
             title: 'Is Valid'
         }
     },
     type: 'object',
-    required: ['uuid', 'player', 'server_id', 'server_name', 'map_id', 'map_name', 'map_tier', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_valid'],
+    required: ['uuid', 'player', 'server_id', 'server_name', 'map_id', 'map_name', 'map_tier', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_replay_available', 'is_valid'],
     title: 'RecordPublic'
 } as const;
 
