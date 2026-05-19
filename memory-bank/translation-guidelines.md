@@ -22,7 +22,7 @@
   - `Rating.H`
   - `GlobalAPI`
   - `Steam`
-  - `Steam ID64`
+  - `SteamID64`
   - `NUB`
   - `PRO`
   - `OVR`

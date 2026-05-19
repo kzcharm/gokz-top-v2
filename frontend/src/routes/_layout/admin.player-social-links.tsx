@@ -174,7 +174,7 @@ function LinkDialog({
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <label className="text-sm font-medium" htmlFor="social-steamid64">
-              Steam ID64
+              SteamID64
             </label>
             <Input
               id="social-steamid64"
@@ -396,9 +396,9 @@ function AdminPlayerSocialLinks() {
       <AdminControlsCard>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Input
-            aria-label="Filter by Steam ID64"
+            aria-label="Filter by SteamID64"
             className="sm:w-56"
-            placeholder="Steam ID64"
+            placeholder="SteamID64"
             value={steamid64}
             onChange={(event) => {
               setSteamid64(event.target.value)

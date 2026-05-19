@@ -249,7 +249,7 @@ export const ru = {
     unranked: "Вне рейтинга",
     regionFallback: "Регион",
     summary: {
-      steamId64: "Steam ID64",
+      steamId64: "SteamID64",
       dateJoined: "Дата регистрации",
       lastPlayed: "Последняя игра",
       playtime: "Время в игре",
@@ -300,7 +300,7 @@ export const ru = {
       syncFailed: "Не удалось синхронизировать друзей",
       sortFields: {
         name: "Имя",
-        steamid64: "Steam ID64",
+        steamid64: "SteamID64",
         country: "Страна",
         rating: "Рейтинг",
         lastPlayed: "Последняя игра",

@@ -248,7 +248,7 @@ export const en = {
     unranked: "Unranked",
     regionFallback: "Region",
     summary: {
-      steamId64: "Steam ID64",
+      steamId64: "SteamID64",
       dateJoined: "Date Joined",
       lastPlayed: "Last Played",
       playtime: "Playtime",
@@ -298,7 +298,7 @@ export const en = {
       syncFailed: "Failed to sync friends",
       sortFields: {
         name: "Name",
-        steamid64: "Steam ID64",
+        steamid64: "SteamID64",
         country: "Country",
         rating: "Rating",
         lastPlayed: "Last played",

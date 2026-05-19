@@ -319,7 +319,7 @@ test.describe("Admin social links", () => {
 
     await page.getByRole("button", { name: "Add" }).click()
     const createDialog = page.getByRole("dialog", { name: "Add Social Link" })
-    await createDialog.getByLabel("Steam ID64").fill("76561198012345678")
+    await createDialog.getByLabel("SteamID64").fill("76561198012345678")
     await createDialog.getByLabel("URL").fill("https://github.com/social-admin")
     await createDialog.getByRole("switch", { name: "Verified" }).click()
     await createDialog.getByRole("button", { name: "Save" }).click()
