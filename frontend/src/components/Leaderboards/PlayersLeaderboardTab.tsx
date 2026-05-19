@@ -669,7 +669,7 @@ export function PlayersLeaderboardTab() {
             stickyHeader
             stickyHeaderTopClassName="top-16"
             tableContainerClassName="md:overflow-visible"
-            tableClassName="border-separate border-spacing-0"
+            tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             getRowProps={(row) => ({
               "data-player-steamid64": row.player.steamid64,

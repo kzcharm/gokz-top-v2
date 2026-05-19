@@ -48,6 +48,7 @@ export function getJumpstatsLeaderboardColumns(
   const columns: ColumnDef<JumpstatsLeaderboardTableRow>[] = [
     {
       accessorKey: "rank",
+      size: 56,
       header: () => <div className="flex w-full justify-center">#</div>,
       cell: ({ row }) => (
         <div className="flex w-full justify-center font-semibold tabular-nums">
@@ -57,12 +58,14 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "player",
+      size: 288,
       header: () => t("labels.player"),
       enableSorting: false,
       cell: ({ row }) => <PlayerDisplay player={row.original.player} />,
     },
     {
       accessorKey: "mode",
+      size: 88,
       header: () => (
         <div className="flex w-full justify-center">{t("labels.mode")}</div>
       ),
@@ -75,6 +78,7 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "distance",
+      size: 140,
       header: () => (
         <div className="flex w-full justify-center">
           {t("leaderboards.jumpstats.columns.distance")}
@@ -89,6 +93,7 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "strafes",
+      size: 104,
       header: () => (
         <div className="flex w-full justify-center">
           {t("leaderboards.jumpstats.columns.strafes")}
@@ -103,6 +108,7 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "sync_percent",
+      size: 104,
       header: () => (
         <div className="flex w-full justify-center">
           {t("leaderboards.jumpstats.columns.sync")}
@@ -117,6 +123,7 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "pre_speed",
+      size: 112,
       header: () => (
         <div className="flex w-full justify-center">
           {t("leaderboards.jumpstats.columns.pre")}
@@ -131,6 +138,7 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "max_speed",
+      size: 112,
       header: () => (
         <div className="flex w-full justify-center">
           {t("leaderboards.jumpstats.columns.max")}
@@ -145,6 +153,7 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       id: "server_group",
+      size: 144,
       header: () => (
         <div className="flex w-full justify-center">{t("labels.server")}</div>
       ),
@@ -157,6 +166,7 @@ export function getJumpstatsLeaderboardColumns(
     },
     {
       accessorKey: "jumped_at",
+      size: 184,
       header: () => (
         <div className="flex w-full justify-center">
           {t("leaderboards.jumpstats.columns.jumpedAt")}
@@ -177,6 +187,7 @@ export function getJumpstatsLeaderboardColumns(
   if (blockEnabled) {
     columns.splice(4, 0, {
       accessorKey: "block",
+      size: 96,
       header: () => (
         <div className="flex w-full justify-center">
           {t("leaderboards.jumpstats.columns.block")}
