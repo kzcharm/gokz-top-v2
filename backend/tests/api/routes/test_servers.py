@@ -304,7 +304,7 @@ async def test_trigger_server_discovery_requires_superuser(
     normal_user_token_headers: dict[str, str],
 ) -> None:
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/discovery",
+        f"{settings.API_V1_STR}/admin/server-discovery-runs",
         headers=normal_user_token_headers,
     )
 
@@ -316,7 +316,7 @@ async def test_trigger_server_discovery_returns_disabled_when_feature_flag_is_of
     superuser_token_headers: dict[str, str],
 ) -> None:
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/discovery",
+        f"{settings.API_V1_STR}/admin/server-discovery-runs",
         headers=superuser_token_headers,
     )
 

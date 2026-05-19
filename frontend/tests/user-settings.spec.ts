@@ -53,7 +53,9 @@ test.describe("Profile and theme", () => {
     let links: unknown[] = []
     await logInUser(page, steamid64)
     await page.route(
-      new RegExp(`/v1/players/${steamid64}/social-links$`),
+      new RegExp(
+        `/v1/player-social-links/(players/${steamid64}|me/social-links)$`,
+      ),
       async (route) => {
         if (route.request().method() === "POST") {
           links = [
@@ -77,7 +79,7 @@ test.describe("Profile and theme", () => {
       },
     )
     await page.route(
-      new RegExp(`/v1/players/${steamid64}/social-links/[^/]+$`),
+      /\/v1\/player-social-links\/me\/social-links\/[^/]+$/,
       async (route) => {
         if (route.request().method() === "DELETE") {
           links = []
@@ -112,7 +114,7 @@ test.describe("Profile and theme", () => {
     let links: unknown[] = []
     await logInUser(page, steamid64)
     await page.route(
-      new RegExp(`/v1/players/${steamid64}/social-links$`),
+      new RegExp(`/v1/player-social-links/players/${steamid64}$`),
       async (route) => {
         await route.fulfill({
           status: 200,
@@ -122,7 +124,7 @@ test.describe("Profile and theme", () => {
       },
     )
     await page.route(
-      new RegExp(`/v1/players/${steamid64}/social-links/add/twitch/start$`),
+      /\/v1\/player-social-links\/me\/social-links\/twitch\/connection-requests$/,
       async (route) => {
         await route.fulfill({
           status: 200,
@@ -199,7 +201,7 @@ test.describe("Profile and theme", () => {
 
     await logInUser(page, steamid64)
     await page.route(
-      new RegExp(`/v1/players/${steamid64}/social-links$`),
+      new RegExp(`/v1/player-social-links/players/${steamid64}$`),
       async (route) => {
         await route.fulfill({
           status: route.request().method() === "POST" ? 200 : 200,
@@ -209,9 +211,7 @@ test.describe("Profile and theme", () => {
       },
     )
     await page.route(
-      new RegExp(
-        `/v1/players/${steamid64}/social-links/019e0000-0000-7000-8000-000000000301/verify/twitch/confirm$`,
-      ),
+      /\/v1\/player-social-links\/me\/social-links\/019e0000-0000-7000-8000-000000000301\/twitch-verification-confirmations$/,
       async (route) => {
         links = [
           {

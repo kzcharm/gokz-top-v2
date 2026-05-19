@@ -6,6 +6,7 @@ import {
   type MapWrPublic,
   type PlayerDetailPublic,
   type PlayerFollowSummaryPublic,
+  PlayerFollowsService,
   type PlayerProfileHistoryEntryPublic,
   type PlayerProfileHistoryPublic,
   type PlayerProfileViewsPublic,
@@ -168,15 +169,12 @@ export async function checkProfileUnbanStatus({
   identifier: string
 }): Promise<ProfileBanStatusCheckResult> {
   const accessToken = localStorage.getItem("access_token")
-  const encodedIdentifier = encodeURIComponent(identifier)
-  const response = await fetch(
-    `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/unban-check`,
-    {
-      method: "POST",
-      credentials: OpenAPI.CREDENTIALS,
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-    },
-  )
+  void identifier
+  const response = await fetch(`${OpenAPI.BASE}/v1/me/ban-status-checks`, {
+    method: "POST",
+    credentials: OpenAPI.CREDENTIALS,
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  })
 
   const payload = (await response.json().catch(() => null)) as
     | ProfileBanStatusCheckResult
@@ -210,7 +208,7 @@ export function getProfileFollowSummaryQueryOptions(identifier: string) {
   return queryOptions({
     queryKey: ["profile-follow-summary", identifier],
     queryFn: () =>
-      PlayersService.readPlayerFollowSummary({
+      PlayerFollowsService.readPlayerFollowSummary({
         identifier,
       }),
     retry: false,
@@ -245,15 +243,13 @@ export async function syncProfileFriends({
 }: {
   identifier: string
 }): Promise<ProfileFriendsResult> {
+  void identifier
   const accessToken = localStorage.getItem("access_token")
-  const response = await fetch(
-    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/friends/sync`,
-    {
-      method: "POST",
-      credentials: OpenAPI.CREDENTIALS,
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-    },
-  )
+  const response = await fetch(`${OpenAPI.BASE}/v1/me/friend-sync-requests`, {
+    method: "POST",
+    credentials: OpenAPI.CREDENTIALS,
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  })
   const payload = (await response.json().catch(() => null)) as
     | ProfileFriendsResult
     | { detail?: string }
@@ -319,7 +315,7 @@ export async function fetchProfileFollowers({
   offset: number
   limit?: number
 }): Promise<PlayersPublic> {
-  return await PlayersService.readPlayerFollowers({
+  return await PlayerFollowsService.readPlayerFollowers({
     identifier,
     offset,
     limit,
@@ -335,7 +331,7 @@ export async function fetchProfileFollowing({
   offset: number
   limit?: number
 }): Promise<PlayersPublic> {
-  return await PlayersService.readPlayerFollowing({
+  return await PlayerFollowsService.readPlayerFollowing({
     identifier,
     offset,
     limit,
@@ -696,18 +692,15 @@ export async function pinProfileRecord({
   scope: AppScope
   type: "NUB" | "PRO"
 }) {
-  const encodedIdentifier = encodeURIComponent(identifier)
-  await fetchPinnedRecordMutation(
-    `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/pinned-records`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        map_id: mapId,
-        scope,
-        type,
-      }),
-    },
-  )
+  void identifier
+  await fetchPinnedRecordMutation(`${OpenAPI.BASE}/v1/me/pinned-records`, {
+    method: "POST",
+    body: JSON.stringify({
+      map_id: mapId,
+      scope,
+      type,
+    }),
+  })
 }
 
 export async function unpinProfileRecord({
@@ -721,14 +714,9 @@ export async function unpinProfileRecord({
   scope: AppScope
   type: "NUB" | "PRO"
 }) {
-  const encodedIdentifier = encodeURIComponent(identifier)
-  const params = new URLSearchParams({
-    map_id: String(mapId),
-    scope,
-    type,
-  })
+  void identifier
   await fetchPinnedRecordMutation(
-    `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/pinned-records?${params.toString()}`,
+    `${OpenAPI.BASE}/v1/me/pinned-records/${mapId}/${scope}/${type}`,
     {
       method: "DELETE",
     },

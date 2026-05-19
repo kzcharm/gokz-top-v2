@@ -12,7 +12,11 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { OpenAPI, type PlayerSocialLinkPublic, PlayersService } from "@/client"
+import {
+  OpenAPI,
+  type PlayerSocialLinkPublic,
+  PlayerSocialLinksService,
+} from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -129,8 +133,9 @@ async function startTwitchVerification(
   identifier: string,
   linkId: string,
 ): Promise<string> {
+  void identifier
   const response = await fetch(
-    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/twitch/start`,
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/twitch-verification-requests`,
     {
       method: "POST",
       headers: {
@@ -149,8 +154,9 @@ async function startTwitchVerification(
 }
 
 async function startTwitchAdd(identifier: string): Promise<string> {
+  void identifier
   const response = await fetch(
-    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/add/twitch/start`,
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/twitch/connection-requests`,
     {
       method: "POST",
       headers: {
@@ -173,8 +179,9 @@ async function confirmTwitchVerification(
   linkId: string,
   pendingToken: string,
 ) {
+  void identifier
   const response = await fetch(
-    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/twitch/confirm`,
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/twitch-verification-confirmations`,
     {
       method: "POST",
       headers: {
@@ -191,7 +198,7 @@ async function confirmTwitchVerification(
   }
 
   return (await response.json()) as Awaited<
-    ReturnType<typeof PlayersService.readPlayerSocialLinks>
+    ReturnType<typeof PlayerSocialLinksService.readPlayerSocialLinks>
   >
 }
 
@@ -199,8 +206,9 @@ async function startBilibiliVerification(
   identifier: string,
   linkId: string,
 ): Promise<BilibiliVerificationStartResponse> {
+  void identifier
   const response = await fetch(
-    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/bilibili/start`,
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/bilibili-verification-requests`,
     {
       method: "POST",
       headers: {
@@ -222,8 +230,9 @@ async function confirmBilibiliVerification(
   linkId: string,
   pendingToken: string,
 ) {
+  void identifier
   const response = await fetch(
-    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/social-links/${linkId}/verify/bilibili/confirm`,
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/bilibili-verification-confirmations`,
     {
       method: "POST",
       headers: {
@@ -240,7 +249,7 @@ async function confirmBilibiliVerification(
   }
 
   return (await response.json()) as Awaited<
-    ReturnType<typeof PlayersService.readPlayerSocialLinks>
+    ReturnType<typeof PlayerSocialLinksService.readPlayerSocialLinks>
   >
 }
 
@@ -368,7 +377,7 @@ export default function SocialLinksSettings() {
     queryKey,
     enabled: identifier.length > 0,
     queryFn: () =>
-      PlayersService.readPlayerSocialLinks({
+      PlayerSocialLinksService.readPlayerSocialLinks({
         identifier,
       }),
   })
@@ -551,8 +560,7 @@ export default function SocialLinksSettings() {
 
   const createMutation = useMutation({
     mutationFn: (url: string) =>
-      PlayersService.createPlayerSocialLink({
-        identifier,
+      PlayerSocialLinksService.createPlayerSocialLink({
         requestBody: { url },
       }),
     onSuccess: () => {
@@ -566,8 +574,7 @@ export default function SocialLinksSettings() {
 
   const updateMutation = useMutation({
     mutationFn: ({ linkId, url }: { linkId: string; url: string }) =>
-      PlayersService.updatePlayerSocialLink({
-        identifier,
+      PlayerSocialLinksService.updatePlayerSocialLink({
         linkId,
         requestBody: { url },
       }),
@@ -582,8 +589,7 @@ export default function SocialLinksSettings() {
 
   const deleteMutation = useMutation({
     mutationFn: (linkId: string) =>
-      PlayersService.deletePlayerSocialLink({
-        identifier,
+      PlayerSocialLinksService.deletePlayerSocialLink({
         linkId,
       }),
     onSuccess: () => {
@@ -643,8 +649,7 @@ export default function SocialLinksSettings() {
 
   const bilibiliQuickLinkMutation = useMutation({
     mutationFn: async (url: string) => {
-      const created = await PlayersService.createPlayerSocialLink({
-        identifier,
+      const created = await PlayerSocialLinksService.createPlayerSocialLink({
         requestBody: { url },
       })
       const link = created.data.find(

@@ -13,7 +13,7 @@ import {
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { PlayersService } from "@/client"
+import { PlayerSocialLinksService, PlayersService } from "@/client"
 import { AddBanDialog } from "@/components/Bans/AddBanDialog"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -108,7 +108,7 @@ function ProfileIdentityCard({
   const socialLinksQuery = useQuery({
     queryKey: ["player-social-links", player.steamid64],
     queryFn: () =>
-      PlayersService.readPlayerSocialLinks({
+      PlayerSocialLinksService.readPlayerSocialLinks({
         identifier: player.steamid64,
       }),
     enabled: hasProfileLink,

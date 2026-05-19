@@ -1314,6 +1314,8 @@ export type AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkResponse = ({
     [key: string]: (string);
 });
 
+export type AdminServersTriggerServerDiscoveryResponse = (ServerDiscoveryRunPublic);
+
 export type AdminServersReadAdminServerAccessResponse = (AdminServerAccessPublic);
 
 export type AdminServersReadAdminGlobalapiServersData = {
@@ -1598,6 +1600,59 @@ export type MapsDeleteMapReviewCommentsResponse = (MapReviewPublic);
 
 export type MapsTriggerMapSyncResponse = (MapSyncResult);
 
+export type MeReadCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
+
+export type MeUpdateCurrentPlayerSettingsData = {
+    requestBody: PlayerSettingsUpdate;
+};
+
+export type MeUpdateCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
+
+export type MeReadCurrentPlayerWebhooksResponse = (PlayerWebhooksPublic);
+
+export type MeCreateCurrentPlayerWebhookData = {
+    requestBody: PlayerWebhookCreate;
+};
+
+export type MeCreateCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
+
+export type MeUpdateCurrentPlayerWebhookData = {
+    requestBody: PlayerWebhookUpdate;
+    webhookId: string;
+};
+
+export type MeUpdateCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
+
+export type MeDeleteCurrentPlayerWebhookData = {
+    webhookId: string;
+};
+
+export type MeDeleteCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
+
+export type MeTestCurrentPlayerWebhookData = {
+    webhookId: string;
+};
+
+export type MeTestCurrentPlayerWebhookResponse = (PlayerWebhookPublic);
+
+export type MeSyncCurrentPlayerFriendsResponse = (PlayerFriendsPublic);
+
+export type MeCheckCurrentPlayerBanStatusResponse = (PlayerBanStatusCheckPublic);
+
+export type MeCreateCurrentPlayerPinnedRecordData = {
+    requestBody: PlayerPinnedRecordUpsert;
+};
+
+export type MeCreateCurrentPlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
+
+export type MeDeleteCurrentPlayerPinnedRecordData = {
+    mapId: number;
+    scope: ModeScope;
+    type: RecordType;
+};
+
+export type MeDeleteCurrentPlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
+
 export type MiscLookupIpListData = {
     requestBody: IPLookupRequest;
 };
@@ -1621,6 +1676,40 @@ export type ModesReadModeByIdData = {
 };
 
 export type ModesReadModeByIdResponse = (ModePublic);
+
+export type PlayerFollowsReadPlayerFollowSummaryData = {
+    identifier: string;
+};
+
+export type PlayerFollowsReadPlayerFollowSummaryResponse = (PlayerFollowSummaryPublic);
+
+export type PlayerFollowsFollowPlayerData = {
+    identifier: string;
+};
+
+export type PlayerFollowsFollowPlayerResponse = (PlayerFollowSummaryPublic);
+
+export type PlayerFollowsUnfollowPlayerData = {
+    identifier: string;
+};
+
+export type PlayerFollowsUnfollowPlayerResponse = (PlayerFollowSummaryPublic);
+
+export type PlayerFollowsReadPlayerFollowersData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayerFollowsReadPlayerFollowersResponse = (PlayersPublic);
+
+export type PlayerFollowsReadPlayerFollowingData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayerFollowsReadPlayerFollowingResponse = (PlayersPublic);
 
 export type PlayersReadPlayersData = {
     limit?: number;
@@ -1664,22 +1753,6 @@ export type PlayersReadPlayerPinnedRecordsData = {
 
 export type PlayersReadPlayerPinnedRecordsResponse = (PlayerPinnedRecordsPublic);
 
-export type PlayersCreatePlayerPinnedRecordData = {
-    identifier: string;
-    requestBody: PlayerPinnedRecordUpsert;
-};
-
-export type PlayersCreatePlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
-
-export type PlayersDeletePlayerPinnedRecordData = {
-    identifier: string;
-    mapId: number;
-    scope?: ModeScope;
-    type?: RecordType;
-};
-
-export type PlayersDeletePlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
-
 export type PlayersReadPlayerStatsData = {
     identifier: string;
     type?: (PlayerStatType | null);
@@ -1702,169 +1775,11 @@ export type PlayersReadPlayerJumpstatsData = {
 
 export type PlayersReadPlayerJumpstatsResponse = (JumpstatsPublic);
 
-export type PlayersReadPlayerSocialLinksData = {
-    identifier: string;
-};
-
-export type PlayersReadPlayerSocialLinksResponse = (PlayerSocialLinksPublic);
-
-export type PlayersCreatePlayerSocialLinkData = {
-    identifier: string;
-    requestBody: PlayerSocialLinkCreate;
-};
-
-export type PlayersCreatePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
-
-export type PlayersUpdatePlayerSocialLinkData = {
-    identifier: string;
-    linkId: string;
-    requestBody: PlayerSocialLinkUpdate;
-};
-
-export type PlayersUpdatePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
-
-export type PlayersDeletePlayerSocialLinkData = {
-    identifier: string;
-    linkId: string;
-};
-
-export type PlayersDeletePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
-
-export type PlayersStartPlayerTwitchSocialLinkVerificationData = {
-    identifier: string;
-    linkId: string;
-};
-
-export type PlayersStartPlayerTwitchSocialLinkVerificationResponse = ({
-    [key: string]: (string);
-});
-
-export type PlayersStartPlayerTwitchSocialLinkAddData = {
-    identifier: string;
-};
-
-export type PlayersStartPlayerTwitchSocialLinkAddResponse = ({
-    [key: string]: (string);
-});
-
-export type PlayersCompletePlayerTwitchSocialLinkVerificationData = {
-    code?: (string | null);
-    error?: (string | null);
-    errorDescription?: (string | null);
-    state: string;
-};
-
-export type PlayersCompletePlayerTwitchSocialLinkVerificationResponse = (unknown);
-
-export type PlayersConfirmPlayerTwitchSocialLinkVerificationData = {
-    identifier: string;
-    linkId: string;
-    requestBody: PlayerSocialLinkVerifyConfirm;
-};
-
-export type PlayersConfirmPlayerTwitchSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
-
-export type PlayersStartPlayerBilibiliSocialLinkVerificationData = {
-    identifier: string;
-    linkId: string;
-};
-
-export type PlayersStartPlayerBilibiliSocialLinkVerificationResponse = (PlayerSocialLinkBilibiliVerificationStart);
-
-export type PlayersConfirmPlayerBilibiliSocialLinkVerificationData = {
-    identifier: string;
-    linkId: string;
-    requestBody: PlayerSocialLinkVerifyConfirm;
-};
-
-export type PlayersConfirmPlayerBilibiliSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
-
-export type PlayersReadPlayerFollowSummaryData = {
-    identifier: string;
-};
-
-export type PlayersReadPlayerFollowSummaryResponse = (PlayerFollowSummaryPublic);
-
-export type PlayersFollowPlayerData = {
-    identifier: string;
-};
-
-export type PlayersFollowPlayerResponse = (PlayerFollowSummaryPublic);
-
-export type PlayersUnfollowPlayerData = {
-    identifier: string;
-};
-
-export type PlayersUnfollowPlayerResponse = (PlayerFollowSummaryPublic);
-
-export type PlayersCheckPlayerBanStatusData = {
-    identifier: string;
-};
-
-export type PlayersCheckPlayerBanStatusResponse = (PlayerBanStatusCheckPublic);
-
-export type PlayersReadPlayerFollowersData = {
-    identifier: string;
-    limit?: number;
-    offset?: number;
-};
-
-export type PlayersReadPlayerFollowersResponse = (PlayersPublic);
-
-export type PlayersReadPlayerFollowingData = {
-    identifier: string;
-    limit?: number;
-    offset?: number;
-};
-
-export type PlayersReadPlayerFollowingResponse = (PlayersPublic);
-
-export type PlayersReadCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
-
-export type PlayersUpdateCurrentPlayerSettingsData = {
-    requestBody: PlayerSettingsUpdate;
-};
-
-export type PlayersUpdateCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
-
-export type PlayersReadCurrentPlayerWebhooksResponse = (PlayerWebhooksPublic);
-
-export type PlayersCreateCurrentPlayerWebhookData = {
-    requestBody: PlayerWebhookCreate;
-};
-
-export type PlayersCreateCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
-
 export type PlayersReadPlayerFriendsData = {
     identifier: string;
 };
 
 export type PlayersReadPlayerFriendsResponse = (PlayerFriendsPublic);
-
-export type PlayersSyncPlayerFriendsRouteData = {
-    identifier: string;
-};
-
-export type PlayersSyncPlayerFriendsRouteResponse = (PlayerFriendsPublic);
-
-export type PlayersUpdateCurrentPlayerWebhookData = {
-    requestBody: PlayerWebhookUpdate;
-    webhookId: string;
-};
-
-export type PlayersUpdateCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
-
-export type PlayersDeleteCurrentPlayerWebhookData = {
-    webhookId: string;
-};
-
-export type PlayersDeleteCurrentPlayerWebhookResponse = (PlayerWebhooksPublic);
-
-export type PlayersTestCurrentPlayerWebhookData = {
-    webhookId: string;
-};
-
-export type PlayersTestCurrentPlayerWebhookResponse = (PlayerWebhookPublic);
 
 export type PlayersReadPlayerProfileHistoryData = {
     identifier: string;
@@ -1916,6 +1831,72 @@ export type PlayerSessionsDisconnectPlayerSessionData = {
 };
 
 export type PlayerSessionsDisconnectPlayerSessionResponse = (PlayerSessionPublic);
+
+export type PlayerSocialLinksReadPlayerSocialLinksData = {
+    identifier: string;
+};
+
+export type PlayerSocialLinksReadPlayerSocialLinksResponse = (PlayerSocialLinksPublic);
+
+export type PlayerSocialLinksCreatePlayerSocialLinkData = {
+    requestBody: PlayerSocialLinkCreate;
+};
+
+export type PlayerSocialLinksCreatePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
+
+export type PlayerSocialLinksUpdatePlayerSocialLinkData = {
+    linkId: string;
+    requestBody: PlayerSocialLinkUpdate;
+};
+
+export type PlayerSocialLinksUpdatePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
+
+export type PlayerSocialLinksDeletePlayerSocialLinkData = {
+    linkId: string;
+};
+
+export type PlayerSocialLinksDeletePlayerSocialLinkResponse = (PlayerSocialLinksPublic);
+
+export type PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationData = {
+    linkId: string;
+};
+
+export type PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationResponse = ({
+    [key: string]: (string);
+});
+
+export type PlayerSocialLinksStartPlayerTwitchSocialLinkAddResponse = ({
+    [key: string]: (string);
+});
+
+export type PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationData = {
+    linkId: string;
+    requestBody: PlayerSocialLinkVerifyConfirm;
+};
+
+export type PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
+
+export type PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationData = {
+    linkId: string;
+};
+
+export type PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationResponse = (PlayerSocialLinkBilibiliVerificationStart);
+
+export type PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationData = {
+    linkId: string;
+    requestBody: PlayerSocialLinkVerifyConfirm;
+};
+
+export type PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
+
+export type PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationData = {
+    code?: (string | null);
+    error?: (string | null);
+    errorDescription?: (string | null);
+    state: string;
+};
+
+export type PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationResponse = (unknown);
 
 export type RecordsReadRecordsData = {
     createdSince?: (string | null);
@@ -2043,8 +2024,6 @@ export type ServersCreateServerData = {
 };
 
 export type ServersCreateServerResponse = (ServerPublic);
-
-export type ServersTriggerServerDiscoveryResponse = (ServerDiscoveryRunPublic);
 
 export type ServersReadServerHistoryData = {
     bucketSeconds?: number;

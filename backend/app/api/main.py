@@ -5,17 +5,23 @@ from app.api.v1 import (
     admin_modes,
     admin_player_sessions,
     admin_player_social_links,
+    admin_server_discovery,
     admin_servers,
     bans,
     graphql,
     jumpstats,
     leaderboards,
+    me_player_actions,
+    me_settings,
+    me_webhooks,
     live,
     login,
     maps,
     misc,
     modes,
     player_sessions,
+    player_follows,
+    player_social_links,
     players,
     private,
     record_ws,
@@ -34,6 +40,12 @@ api_router.include_router(login.router)
 api_router.include_router(users.router)
 api_router.include_router(bans.router)
 api_router.include_router(players.router)
+api_router.include_router(me_settings.router)
+api_router.include_router(me_webhooks.router)
+api_router.include_router(me_player_actions.router)
+api_router.include_router(player_follows.router)
+api_router.include_router(player_social_links.router)
+api_router.include_router(player_social_links.verification_router)
 api_router.include_router(graphql.router)
 api_router.include_router(jumpstats.router)
 api_router.include_router(leaderboards.router)
@@ -52,6 +64,7 @@ api_router.include_router(admin_maps.router)
 api_router.include_router(admin_modes.router)
 api_router.include_router(admin_player_sessions.router)
 api_router.include_router(admin_player_social_links.router)
+api_router.include_router(admin_server_discovery.router)
 api_router.include_router(admin_servers.router)
 api_router.include_router(utils.router)
 

@@ -9,7 +9,6 @@ from app.api.v1.player_sessions import _resolve_server_group_api_key
 from app.models import (
     Message,
     ServerCreate,
-    ServerDiscoveryRunPublic,
     ServerGroupStatus,
     ServerHistoryPublic,
     ServerHistoryQuery,
@@ -25,10 +24,6 @@ from app.services.server_query import (
     ServerQueryError,
     query_server_a2s_info,
     validate_server_addition_info,
-)
-from app.services.server_status import (
-    SERVER_DISCOVERY_ENABLED,
-    run_server_discovery_cycle,
 )
 
 router = APIRouter(prefix="/servers", tags=["servers"])
@@ -103,38 +98,6 @@ async def read_servers(
     return ServersPublic(
         data=[crud.to_server_public(server=server) for server in servers],
         count=count,
-    )
-
-
-@router.post(
-    "/discovery",
-    dependencies=[Depends(get_current_active_superuser)],
-    response_model=ServerDiscoveryRunPublic,
-)
-async def trigger_server_discovery(
-    *,
-    current_user: CurrentSuperuser,
-) -> ServerDiscoveryRunPublic:
-    del current_user
-    if not SERVER_DISCOVERY_ENABLED:
-        raise HTTPException(
-            status_code=503,
-            detail="Server discovery is temporarily disabled",
-        )
-    try:
-        result = await run_server_discovery_cycle()
-    except ServerQueryError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to query Steam server list",
-        ) from exc
-
-    return ServerDiscoveryRunPublic(
-        started_at=result.started_at,
-        completed_at=result.completed_at,
-        regions_scanned=result.regions_scanned,
-        candidate_count=result.candidate_count,
-        upserted_count=result.upserted_count,
     )
 
 

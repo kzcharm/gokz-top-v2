@@ -7,6 +7,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.api.v1 import me_player_actions as me_player_actions_api
 from app.api.v1 import players as players_api
 from app.core.config import settings
 from app.crud import player as player_crud
@@ -596,13 +597,13 @@ async def test_read_player_follow_summary_accepts_full_steam_profile_url(
     )
     follower_headers = await get_user_token_headers(client, random_steamid64())
 
-    await client.post(
-        f"{settings.API_V1_STR}/players/https://steamcommunity.com/profiles/{target.steamid64}/follow",
+    await client.put(
+        f"{settings.API_V1_STR}/player-follows/players/https://steamcommunity.com/profiles/{target.steamid64}",
         headers=follower_headers,
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/https://steamcommunity.com/profiles/{target.steamid64}/follow-summary"
+        f"{settings.API_V1_STR}/player-follows/players/https://steamcommunity.com/profiles/{target.steamid64}/summary"
     )
 
     assert response.status_code == 200
@@ -1310,7 +1311,7 @@ async def test_read_current_player_settings_returns_edit_status(
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
     )
 
@@ -1339,7 +1340,7 @@ async def test_update_current_player_settings_persists_changes_and_locks_country
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={
             "alias": "Saved Alias",
@@ -1401,7 +1402,7 @@ async def test_update_current_player_settings_enforces_alias_cooldown(
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"alias": "Blocked Alias"},
     )
@@ -1435,7 +1436,7 @@ async def test_update_current_player_settings_enforces_custom_id_cooldown(
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"custom_id": "new-custom-cooldown"},
     )
@@ -1478,7 +1479,7 @@ async def test_update_current_player_settings_allows_superuser_to_bypass_cooldow
     headers = await get_superuser_token_headers(client)
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"alias": "Super Alias", "custom_id": "super-bypass"},
     )
@@ -1528,7 +1529,7 @@ async def test_read_current_player_settings_hides_cooldowns_for_superuser(
     headers = await get_superuser_token_headers(client)
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
     )
 
@@ -1560,7 +1561,7 @@ async def test_update_current_player_settings_rejects_custom_id_conflict(
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"custom_id": "taken-custom"},
     )
@@ -1583,7 +1584,7 @@ async def test_update_current_player_settings_rejects_alias_with_non_english_cha
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"alias": "赛发东方"},
     )
@@ -1608,7 +1609,7 @@ async def test_update_current_player_settings_rejects_custom_id_with_spaces(
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"custom_id": "bad id"},
     )
@@ -1639,12 +1640,12 @@ async def test_update_current_player_settings_rejects_clear_and_name_edits(
     )
 
     clear_response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"alias": None},
     )
     name_response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"name": "Not Allowed"},
     )
@@ -1683,7 +1684,7 @@ async def test_update_current_player_settings_allows_country_changes_after_lock(
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"country": "DE"},
     )
@@ -1724,7 +1725,7 @@ async def test_update_current_player_settings_updates_primary_scope_without_cool
     )
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/settings",
+        f"{settings.API_V1_STR}/me/settings",
         headers=headers,
         json={"primary_scope": "VNL"},
     )
@@ -2118,13 +2119,13 @@ async def test_read_player_follow_summary_is_public(
     )
     follower_headers = await get_user_token_headers(client, random_steamid64())
 
-    await client.post(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+    await client.put(
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}",
         headers=follower_headers,
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow-summary"
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}/summary"
     )
 
     assert response.status_code == 200
@@ -2148,13 +2149,13 @@ async def test_read_player_follow_summary_includes_authenticated_viewer_state(
     viewer_steamid64 = random_steamid64()
     viewer_headers = await get_user_token_headers(client, viewer_steamid64)
 
-    await client.post(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+    await client.put(
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}",
         headers=viewer_headers,
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow-summary",
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}/summary",
         headers=viewer_headers,
     )
 
@@ -2176,11 +2177,11 @@ async def test_follow_and_unfollow_player_require_authentication(
         name="Auth Target",
     )
 
-    follow_response = await client.post(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+    follow_response = await client.put(
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}",
     )
     unfollow_response = await client.delete(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}",
     )
 
     assert follow_response.status_code == 401
@@ -2196,8 +2197,8 @@ async def test_follow_player_rejects_self_follow(
     await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
     headers = await get_user_token_headers(client, steamid64)
 
-    response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/follow",
+    response = await client.put(
+        f"{settings.API_V1_STR}/player-follows/players/{steamid64}",
         headers=headers,
     )
 
@@ -2217,10 +2218,10 @@ async def test_follow_lists_require_authentication(
     )
 
     followers_response = await client.get(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/followers"
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}/followers"
     )
     following_response = await client.get(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/following"
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}/following"
     )
 
     assert followers_response.status_code == 401
@@ -2239,12 +2240,12 @@ async def test_follow_and_unfollow_player_return_updated_summary(
     )
     viewer_headers = await get_user_token_headers(client, random_steamid64())
 
-    follow_response = await client.post(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+    follow_response = await client.put(
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}",
         headers=viewer_headers,
     )
     unfollow_response = await client.delete(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/follow",
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}",
         headers=viewer_headers,
     )
 
@@ -2321,11 +2322,11 @@ async def test_follow_lists_return_players_in_newest_first_order(
     await db.commit()
 
     followers_response = await client.get(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/followers",
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}/followers",
         headers=viewer_headers,
     )
     following_response = await client.get(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/following",
+        f"{settings.API_V1_STR}/player-follows/players/{target.steamid64}/following",
         headers=viewer_headers,
     )
 
@@ -2352,14 +2353,14 @@ async def test_follow_routes_return_not_found_for_missing_player(
     missing_identifier = str(random_steamid64())
 
     summary_response = await client.get(
-        f"{settings.API_V1_STR}/players/{missing_identifier}/follow-summary"
+        f"{settings.API_V1_STR}/player-follows/players/{missing_identifier}/summary"
     )
-    follow_response = await client.post(
-        f"{settings.API_V1_STR}/players/{missing_identifier}/follow",
+    follow_response = await client.put(
+        f"{settings.API_V1_STR}/player-follows/players/{missing_identifier}",
         headers=normal_user_token_headers,
     )
     followers_response = await client.get(
-        f"{settings.API_V1_STR}/players/{missing_identifier}/followers",
+        f"{settings.API_V1_STR}/player-follows/players/{missing_identifier}/followers",
         headers=normal_user_token_headers,
     )
 
@@ -2561,7 +2562,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{player_steamid64}/unban-check",
+        f"{settings.API_V1_STR}/me/ban-status-checks",
         headers=headers,
     )
 
@@ -2651,7 +2652,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{player_steamid64}/unban-check",
+        f"{settings.API_V1_STR}/me/ban-status-checks",
         headers=headers,
     )
 
@@ -2667,24 +2668,49 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
 
 
 @pytest.mark.asyncio
-async def test_check_player_ban_status_rejects_other_users(
+async def test_check_player_ban_status_uses_current_user_identity(
     client: AsyncClient,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    target = await _create_player(
+    await _create_player(
         db=db,
         steamid64=random_steamid64(),
-        name="Target Profile",
+        name="Ignored Target",
     )
-    other_headers = await get_user_token_headers(client, random_steamid64())
+    other_steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=other_steamid64,
+        name="Current User",
+    )
+    other_headers = await get_user_token_headers(client, other_steamid64)
+
+    async def _fake_sync(
+        *,
+        session: AsyncSession,
+        steamid64: int,
+    ) -> globalapi_ban_sync.PlayerBanSyncResult:
+        del session
+        assert steamid64 == other_steamid64
+        return globalapi_ban_sync.PlayerBanSyncResult(
+            remaining_active_ban_count=0,
+            cleared_active_ban_count=0,
+        )
+
+    monkeypatch.setattr(
+        me_player_actions_api,
+        "sync_player_bans_from_globalapi",
+        _fake_sync,
+    )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{target.steamid64}/unban-check",
+        f"{settings.API_V1_STR}/me/ban-status-checks",
         headers=other_headers,
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "You cannot check another player's ban status"
+    assert response.status_code == 200
+    assert response.json()["remaining_active_ban_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -2711,10 +2737,14 @@ async def test_check_player_ban_status_returns_bad_gateway_on_globalapi_failure(
             "Failed to fetch bans from GlobalAPI"
         )
 
-    monkeypatch.setattr(players_api, "sync_player_bans_from_globalapi", _fake_sync)
+    monkeypatch.setattr(
+        me_player_actions_api,
+        "sync_player_bans_from_globalapi",
+        _fake_sync,
+    )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{player.steamid64}/unban-check",
+        f"{settings.API_V1_STR}/me/ban-status-checks",
         headers=headers,
     )
 

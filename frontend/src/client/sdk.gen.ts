@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminMapsReadAdminMapsData, AdminMapsReadAdminMapsResponse, AdminMapsUpdateAdminMapData, AdminMapsUpdateAdminMapResponse, AdminMapsReadAdminMapRecordFiltersData, AdminMapsReadAdminMapRecordFiltersResponse, AdminMapsUpdateAdminRecordFilterData, AdminMapsUpdateAdminRecordFilterResponse, AdminModesUpdateModeData, AdminModesUpdateModeResponse, AdminPlayerSessionsReadAdminPlayerSessionsData, AdminPlayerSessionsReadAdminPlayerSessionsResponse, AdminPlayerSessionsReadAdminPlayerSessionIpLinksData, AdminPlayerSessionsReadAdminPlayerSessionIpLinksResponse, AdminPlayerSocialLinksReadAdminPlayerSocialLinksData, AdminPlayerSocialLinksReadAdminPlayerSocialLinksResponse, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkData, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkData, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkData, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkResponse, AdminServersReadAdminServerAccessResponse, AdminServersReadAdminGlobalapiServersData, AdminServersReadAdminGlobalapiServersResponse, AdminServersUpdateAdminGlobalapiServerData, AdminServersUpdateAdminGlobalapiServerResponse, AdminServersReadAdminPublicServersData, AdminServersReadAdminPublicServersResponse, AdminServersUpdateAdminPublicServerData, AdminServersUpdateAdminPublicServerResponse, AdminServersDeleteAdminPublicServerData, AdminServersDeleteAdminPublicServerResponse, AdminServersReadAdminServerGroupsResponse, AdminServersCreateAdminServerGroupData, AdminServersCreateAdminServerGroupResponse, AdminServersUpdateAdminServerGroupData, AdminServersUpdateAdminServerGroupResponse, AdminServersDeleteAdminServerGroupData, AdminServersDeleteAdminServerGroupResponse, AdminServersRotateAdminServerGroupApiKeyData, AdminServersRotateAdminServerGroupApiKeyResponse, BansReadBansData, BansReadBansResponse, BansCreateBanData, BansCreateBanResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, JumpstatsCreateJumpstatData, JumpstatsCreateJumpstatResponse, JumpstatsReadJumpstatsData, JumpstatsReadJumpstatsResponse, JumpstatsReadJumpstatData, JumpstatsReadJumpstatResponse, JumpstatsReadJumpstatVisualizationData, JumpstatsReadJumpstatVisualizationResponse, LeaderboardsReadJumpstatLeaderboardData, LeaderboardsReadJumpstatLeaderboardResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LeaderboardsReadMapLeaderboardData, LeaderboardsReadMapLeaderboardResponse, LeaderboardsUpsertMapLeaderboardsData, LeaderboardsUpsertMapLeaderboardsResponse, LiveReadLiveStreamsData, LiveReadLiveStreamsResponse, LiveProxyLivePreviewImageData, LiveProxyLivePreviewImageResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapPbLeaderboardData, MapsReadMapPbLeaderboardResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsDeleteMapReviewCommentsData, MapsDeleteMapReviewCommentsResponse, MapsTriggerMapSyncResponse, MiscLookupIpListData, MiscLookupIpListResponse, MiscLookupIpData, MiscLookupIpResponse, ModesReadModesData, ModesReadModesResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerViewsData, PlayersReadPlayerViewsResponse, PlayersReadPlayerPinnedRecordsData, PlayersReadPlayerPinnedRecordsResponse, PlayersCreatePlayerPinnedRecordData, PlayersCreatePlayerPinnedRecordResponse, PlayersDeletePlayerPinnedRecordData, PlayersDeletePlayerPinnedRecordResponse, PlayersReadPlayerStatsData, PlayersReadPlayerStatsResponse, PlayersReadPlayerJumpstatsData, PlayersReadPlayerJumpstatsResponse, PlayersReadPlayerSocialLinksData, PlayersReadPlayerSocialLinksResponse, PlayersCreatePlayerSocialLinkData, PlayersCreatePlayerSocialLinkResponse, PlayersUpdatePlayerSocialLinkData, PlayersUpdatePlayerSocialLinkResponse, PlayersDeletePlayerSocialLinkData, PlayersDeletePlayerSocialLinkResponse, PlayersStartPlayerTwitchSocialLinkVerificationData, PlayersStartPlayerTwitchSocialLinkVerificationResponse, PlayersStartPlayerTwitchSocialLinkAddData, PlayersStartPlayerTwitchSocialLinkAddResponse, PlayersCompletePlayerTwitchSocialLinkVerificationData, PlayersCompletePlayerTwitchSocialLinkVerificationResponse, PlayersConfirmPlayerTwitchSocialLinkVerificationData, PlayersConfirmPlayerTwitchSocialLinkVerificationResponse, PlayersStartPlayerBilibiliSocialLinkVerificationData, PlayersStartPlayerBilibiliSocialLinkVerificationResponse, PlayersConfirmPlayerBilibiliSocialLinkVerificationData, PlayersConfirmPlayerBilibiliSocialLinkVerificationResponse, PlayersReadPlayerFollowSummaryData, PlayersReadPlayerFollowSummaryResponse, PlayersFollowPlayerData, PlayersFollowPlayerResponse, PlayersUnfollowPlayerData, PlayersUnfollowPlayerResponse, PlayersCheckPlayerBanStatusData, PlayersCheckPlayerBanStatusResponse, PlayersReadPlayerFollowersData, PlayersReadPlayerFollowersResponse, PlayersReadPlayerFollowingData, PlayersReadPlayerFollowingResponse, PlayersReadCurrentPlayerSettingsResponse, PlayersUpdateCurrentPlayerSettingsData, PlayersUpdateCurrentPlayerSettingsResponse, PlayersReadCurrentPlayerWebhooksResponse, PlayersCreateCurrentPlayerWebhookData, PlayersCreateCurrentPlayerWebhookResponse, PlayersReadPlayerFriendsData, PlayersReadPlayerFriendsResponse, PlayersSyncPlayerFriendsRouteData, PlayersSyncPlayerFriendsRouteResponse, PlayersUpdateCurrentPlayerWebhookData, PlayersUpdateCurrentPlayerWebhookResponse, PlayersDeleteCurrentPlayerWebhookData, PlayersDeleteCurrentPlayerWebhookResponse, PlayersTestCurrentPlayerWebhookData, PlayersTestCurrentPlayerWebhookResponse, PlayersReadPlayerProfileHistoryData, PlayersReadPlayerProfileHistoryResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayerSessionsConnectPlayerSessionData, PlayerSessionsConnectPlayerSessionResponse, PlayerSessionsHeartbeatPlayerSessionData, PlayerSessionsHeartbeatPlayerSessionResponse, PlayerSessionsDisconnectPlayerSessionData, PlayerSessionsDisconnectPlayerSessionResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersTriggerServerDiscoveryResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminMapsReadAdminMapsData, AdminMapsReadAdminMapsResponse, AdminMapsUpdateAdminMapData, AdminMapsUpdateAdminMapResponse, AdminMapsReadAdminMapRecordFiltersData, AdminMapsReadAdminMapRecordFiltersResponse, AdminMapsUpdateAdminRecordFilterData, AdminMapsUpdateAdminRecordFilterResponse, AdminModesUpdateModeData, AdminModesUpdateModeResponse, AdminPlayerSessionsReadAdminPlayerSessionsData, AdminPlayerSessionsReadAdminPlayerSessionsResponse, AdminPlayerSessionsReadAdminPlayerSessionIpLinksData, AdminPlayerSessionsReadAdminPlayerSessionIpLinksResponse, AdminPlayerSocialLinksReadAdminPlayerSocialLinksData, AdminPlayerSocialLinksReadAdminPlayerSocialLinksResponse, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkData, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkData, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkData, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkResponse, AdminServersTriggerServerDiscoveryResponse, AdminServersReadAdminServerAccessResponse, AdminServersReadAdminGlobalapiServersData, AdminServersReadAdminGlobalapiServersResponse, AdminServersUpdateAdminGlobalapiServerData, AdminServersUpdateAdminGlobalapiServerResponse, AdminServersReadAdminPublicServersData, AdminServersReadAdminPublicServersResponse, AdminServersUpdateAdminPublicServerData, AdminServersUpdateAdminPublicServerResponse, AdminServersDeleteAdminPublicServerData, AdminServersDeleteAdminPublicServerResponse, AdminServersReadAdminServerGroupsResponse, AdminServersCreateAdminServerGroupData, AdminServersCreateAdminServerGroupResponse, AdminServersUpdateAdminServerGroupData, AdminServersUpdateAdminServerGroupResponse, AdminServersDeleteAdminServerGroupData, AdminServersDeleteAdminServerGroupResponse, AdminServersRotateAdminServerGroupApiKeyData, AdminServersRotateAdminServerGroupApiKeyResponse, BansReadBansData, BansReadBansResponse, BansCreateBanData, BansCreateBanResponse, BansReadBanData, BansReadBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, JumpstatsCreateJumpstatData, JumpstatsCreateJumpstatResponse, JumpstatsReadJumpstatsData, JumpstatsReadJumpstatsResponse, JumpstatsReadJumpstatData, JumpstatsReadJumpstatResponse, JumpstatsReadJumpstatVisualizationData, JumpstatsReadJumpstatVisualizationResponse, LeaderboardsReadJumpstatLeaderboardData, LeaderboardsReadJumpstatLeaderboardResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LeaderboardsReadMapLeaderboardData, LeaderboardsReadMapLeaderboardResponse, LeaderboardsUpsertMapLeaderboardsData, LeaderboardsUpsertMapLeaderboardsResponse, LiveReadLiveStreamsData, LiveReadLiveStreamsResponse, LiveProxyLivePreviewImageData, LiveProxyLivePreviewImageResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapPbLeaderboardData, MapsReadMapPbLeaderboardResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsDeleteMapReviewCommentsData, MapsDeleteMapReviewCommentsResponse, MapsTriggerMapSyncResponse, MeReadCurrentPlayerSettingsResponse, MeUpdateCurrentPlayerSettingsData, MeUpdateCurrentPlayerSettingsResponse, MeReadCurrentPlayerWebhooksResponse, MeCreateCurrentPlayerWebhookData, MeCreateCurrentPlayerWebhookResponse, MeUpdateCurrentPlayerWebhookData, MeUpdateCurrentPlayerWebhookResponse, MeDeleteCurrentPlayerWebhookData, MeDeleteCurrentPlayerWebhookResponse, MeTestCurrentPlayerWebhookData, MeTestCurrentPlayerWebhookResponse, MeSyncCurrentPlayerFriendsResponse, MeCheckCurrentPlayerBanStatusResponse, MeCreateCurrentPlayerPinnedRecordData, MeCreateCurrentPlayerPinnedRecordResponse, MeDeleteCurrentPlayerPinnedRecordData, MeDeleteCurrentPlayerPinnedRecordResponse, MiscLookupIpListData, MiscLookupIpListResponse, MiscLookupIpData, MiscLookupIpResponse, ModesReadModesData, ModesReadModesResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayerFollowsReadPlayerFollowSummaryData, PlayerFollowsReadPlayerFollowSummaryResponse, PlayerFollowsFollowPlayerData, PlayerFollowsFollowPlayerResponse, PlayerFollowsUnfollowPlayerData, PlayerFollowsUnfollowPlayerResponse, PlayerFollowsReadPlayerFollowersData, PlayerFollowsReadPlayerFollowersResponse, PlayerFollowsReadPlayerFollowingData, PlayerFollowsReadPlayerFollowingResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerViewsData, PlayersReadPlayerViewsResponse, PlayersReadPlayerPinnedRecordsData, PlayersReadPlayerPinnedRecordsResponse, PlayersReadPlayerStatsData, PlayersReadPlayerStatsResponse, PlayersReadPlayerJumpstatsData, PlayersReadPlayerJumpstatsResponse, PlayersReadPlayerFriendsData, PlayersReadPlayerFriendsResponse, PlayersReadPlayerProfileHistoryData, PlayersReadPlayerProfileHistoryResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayerSessionsConnectPlayerSessionData, PlayerSessionsConnectPlayerSessionResponse, PlayerSessionsHeartbeatPlayerSessionData, PlayerSessionsHeartbeatPlayerSessionResponse, PlayerSessionsDisconnectPlayerSessionData, PlayerSessionsDisconnectPlayerSessionResponse, PlayerSocialLinksReadPlayerSocialLinksData, PlayerSocialLinksReadPlayerSocialLinksResponse, PlayerSocialLinksCreatePlayerSocialLinkData, PlayerSocialLinksCreatePlayerSocialLinkResponse, PlayerSocialLinksUpdatePlayerSocialLinkData, PlayerSocialLinksUpdatePlayerSocialLinkResponse, PlayerSocialLinksDeletePlayerSocialLinkData, PlayerSocialLinksDeletePlayerSocialLinkResponse, PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationData, PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationResponse, PlayerSocialLinksStartPlayerTwitchSocialLinkAddResponse, PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationData, PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationResponse, PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationData, PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationResponse, PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationData, PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationResponse, PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationData, PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RegionsReadRegionsResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminMapsService {
     /**
@@ -284,6 +284,18 @@ export class AdminPlayerSocialLinksService {
 }
 
 export class AdminServersService {
+    /**
+     * Trigger Server Discovery
+     * @returns ServerDiscoveryRunPublic Successful Response
+     * @throws ApiError
+     */
+    public static triggerServerDiscovery(): CancelablePromise<AdminServersTriggerServerDiscoveryResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/admin/server-discovery-runs'
+        });
+    }
+    
     /**
      * Read Admin Server Access
      * @returns AdminServerAccessPublic Successful Response
@@ -1195,6 +1207,200 @@ export class MapsService {
     }
 }
 
+export class MeService {
+    /**
+     * Read Current Player Settings
+     * @returns PlayerSettingsPublic Successful Response
+     * @throws ApiError
+     */
+    public static readCurrentPlayerSettings(): CancelablePromise<MeReadCurrentPlayerSettingsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/me/settings'
+        });
+    }
+    
+    /**
+     * Update Current Player Settings
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns PlayerSettingsPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateCurrentPlayerSettings(data: MeUpdateCurrentPlayerSettingsData): CancelablePromise<MeUpdateCurrentPlayerSettingsResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/v1/me/settings',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Current Player Webhooks
+     * @returns PlayerWebhooksPublic Successful Response
+     * @throws ApiError
+     */
+    public static readCurrentPlayerWebhooks(): CancelablePromise<MeReadCurrentPlayerWebhooksResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/me/webhooks'
+        });
+    }
+    
+    /**
+     * Create Current Player Webhook
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns PlayerWebhooksPublic Successful Response
+     * @throws ApiError
+     */
+    public static createCurrentPlayerWebhook(data: MeCreateCurrentPlayerWebhookData): CancelablePromise<MeCreateCurrentPlayerWebhookResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/me/webhooks',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Current Player Webhook
+     * @param data The data for the request.
+     * @param data.webhookId
+     * @param data.requestBody
+     * @returns PlayerWebhooksPublic Successful Response
+     * @throws ApiError
+     */
+    public static updateCurrentPlayerWebhook(data: MeUpdateCurrentPlayerWebhookData): CancelablePromise<MeUpdateCurrentPlayerWebhookResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/v1/me/webhooks/{webhook_id}',
+            path: {
+                webhook_id: data.webhookId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Current Player Webhook
+     * @param data The data for the request.
+     * @param data.webhookId
+     * @returns PlayerWebhooksPublic Successful Response
+     * @throws ApiError
+     */
+    public static deleteCurrentPlayerWebhook(data: MeDeleteCurrentPlayerWebhookData): CancelablePromise<MeDeleteCurrentPlayerWebhookResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/me/webhooks/{webhook_id}',
+            path: {
+                webhook_id: data.webhookId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Test Current Player Webhook
+     * @param data The data for the request.
+     * @param data.webhookId
+     * @returns PlayerWebhookPublic Successful Response
+     * @throws ApiError
+     */
+    public static testCurrentPlayerWebhook(data: MeTestCurrentPlayerWebhookData): CancelablePromise<MeTestCurrentPlayerWebhookResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/me/webhooks/{webhook_id}/test',
+            path: {
+                webhook_id: data.webhookId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Sync Current Player Friends
+     * @returns PlayerFriendsPublic Successful Response
+     * @throws ApiError
+     */
+    public static syncCurrentPlayerFriends(): CancelablePromise<MeSyncCurrentPlayerFriendsResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/me/friend-sync-requests'
+        });
+    }
+    
+    /**
+     * Check Current Player Ban Status
+     * @returns PlayerBanStatusCheckPublic Successful Response
+     * @throws ApiError
+     */
+    public static checkCurrentPlayerBanStatus(): CancelablePromise<MeCheckCurrentPlayerBanStatusResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/me/ban-status-checks'
+        });
+    }
+    
+    /**
+     * Create Current Player Pinned Record
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns PlayerPinnedRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static createCurrentPlayerPinnedRecord(data: MeCreateCurrentPlayerPinnedRecordData): CancelablePromise<MeCreateCurrentPlayerPinnedRecordResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/me/pinned-records',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Current Player Pinned Record
+     * @param data The data for the request.
+     * @param data.mapId
+     * @param data.scope
+     * @param data.type
+     * @returns PlayerPinnedRecordsPublic Successful Response
+     * @throws ApiError
+     */
+    public static deleteCurrentPlayerPinnedRecord(data: MeDeleteCurrentPlayerPinnedRecordData): CancelablePromise<MeDeleteCurrentPlayerPinnedRecordResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/me/pinned-records/{map_id}/{scope}/{type}',
+            path: {
+                map_id: data.mapId,
+                scope: data.scope,
+                type: data.type
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class MiscService {
     /**
      * Lookup Ip List
@@ -1280,10 +1486,123 @@ export class ModesService {
     }
 }
 
+export class PlayerFollowsService {
+    /**
+     * Read Player Follow Summary
+     * @param data The data for the request.
+     * @param data.identifier
+     * @returns PlayerFollowSummaryPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayerFollowSummary(data: PlayerFollowsReadPlayerFollowSummaryData): CancelablePromise<PlayerFollowsReadPlayerFollowSummaryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/player-follows/players/{identifier}/summary',
+            path: {
+                identifier: data.identifier
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Follow Player
+     * @param data The data for the request.
+     * @param data.identifier
+     * @returns PlayerFollowSummaryPublic Successful Response
+     * @throws ApiError
+     */
+    public static followPlayer(data: PlayerFollowsFollowPlayerData): CancelablePromise<PlayerFollowsFollowPlayerResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/v1/player-follows/players/{identifier}',
+            path: {
+                identifier: data.identifier
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Unfollow Player
+     * @param data The data for the request.
+     * @param data.identifier
+     * @returns PlayerFollowSummaryPublic Successful Response
+     * @throws ApiError
+     */
+    public static unfollowPlayer(data: PlayerFollowsUnfollowPlayerData): CancelablePromise<PlayerFollowsUnfollowPlayerResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/player-follows/players/{identifier}',
+            path: {
+                identifier: data.identifier
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Player Followers
+     * @param data The data for the request.
+     * @param data.identifier
+     * @param data.offset
+     * @param data.limit
+     * @returns PlayersPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayerFollowers(data: PlayerFollowsReadPlayerFollowersData): CancelablePromise<PlayerFollowsReadPlayerFollowersResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/player-follows/players/{identifier}/followers',
+            path: {
+                identifier: data.identifier
+            },
+            query: {
+                offset: data.offset,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Read Player Following
+     * @param data The data for the request.
+     * @param data.identifier
+     * @param data.offset
+     * @param data.limit
+     * @returns PlayersPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayerFollowing(data: PlayerFollowsReadPlayerFollowingData): CancelablePromise<PlayerFollowsReadPlayerFollowingResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/player-follows/players/{identifier}/following',
+            path: {
+                identifier: data.identifier
+            },
+            query: {
+                offset: data.offset,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
 export class PlayersService {
     /**
      * Read Players
-     * Retrieve players.
      * @param data The data for the request.
      * @param data.offset
      * @param data.limit
@@ -1310,7 +1629,6 @@ export class PlayersService {
     
     /**
      * Read Players Batch
-     * Retrieve players by steamid64 list.
      * @param data The data for the request.
      * @param data.requestBody
      * @returns PlayersBatchPublic Successful Response
@@ -1330,7 +1648,6 @@ export class PlayersService {
     
     /**
      * Search Players
-     * Search players by identifier, name, alias, and rating-weighted relevance.
      * @param data The data for the request.
      * @param data.q
      * @param data.offset
@@ -1355,7 +1672,6 @@ export class PlayersService {
     
     /**
      * Create Player View
-     * Record an authenticated profile view for the current UTC day.
      * @param data The data for the request.
      * @param data.identifier
      * @returns PlayerProfileViewsPublic Successful Response
@@ -1376,7 +1692,6 @@ export class PlayersService {
     
     /**
      * Read Player Views
-     * Retrieve the current total profile view count for a player.
      * @param data The data for the request.
      * @param data.identifier
      * @returns PlayerProfileViewsPublic Successful Response
@@ -1412,57 +1727,6 @@ export class PlayersService {
             },
             query: {
                 scope: data.scope
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Create Player Pinned Record
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.requestBody
-     * @returns PlayerPinnedRecordsPublic Successful Response
-     * @throws ApiError
-     */
-    public static createPlayerPinnedRecord(data: PlayersCreatePlayerPinnedRecordData): CancelablePromise<PlayersCreatePlayerPinnedRecordResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/pinned-records',
-            path: {
-                identifier: data.identifier
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Delete Player Pinned Record
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.mapId
-     * @param data.scope
-     * @param data.type
-     * @returns PlayerPinnedRecordsPublic Successful Response
-     * @throws ApiError
-     */
-    public static deletePlayerPinnedRecord(data: PlayersDeletePlayerPinnedRecordData): CancelablePromise<PlayersDeletePlayerPinnedRecordResponse> {
-        return __request(OpenAPI, {
-            method: 'DELETE',
-            url: '/v1/players/{identifier}/pinned-records',
-            path: {
-                identifier: data.identifier
-            },
-            query: {
-                map_id: data.mapId,
-                scope: data.scope,
-                type: data.type
             },
             errors: {
                 422: 'Validation Error'
@@ -1535,435 +1799,6 @@ export class PlayersService {
     }
     
     /**
-     * Read Player Social Links
-     * @param data The data for the request.
-     * @param data.identifier
-     * @returns PlayerSocialLinksPublic Successful Response
-     * @throws ApiError
-     */
-    public static readPlayerSocialLinks(data: PlayersReadPlayerSocialLinksData): CancelablePromise<PlayersReadPlayerSocialLinksResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/v1/players/{identifier}/social-links',
-            path: {
-                identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Create Player Social Link
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.requestBody
-     * @returns PlayerSocialLinksPublic Successful Response
-     * @throws ApiError
-     */
-    public static createPlayerSocialLink(data: PlayersCreatePlayerSocialLinkData): CancelablePromise<PlayersCreatePlayerSocialLinkResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/social-links',
-            path: {
-                identifier: data.identifier
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Update Player Social Link
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.linkId
-     * @param data.requestBody
-     * @returns PlayerSocialLinksPublic Successful Response
-     * @throws ApiError
-     */
-    public static updatePlayerSocialLink(data: PlayersUpdatePlayerSocialLinkData): CancelablePromise<PlayersUpdatePlayerSocialLinkResponse> {
-        return __request(OpenAPI, {
-            method: 'PATCH',
-            url: '/v1/players/{identifier}/social-links/{link_id}',
-            path: {
-                identifier: data.identifier,
-                link_id: data.linkId
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Delete Player Social Link
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.linkId
-     * @returns PlayerSocialLinksPublic Successful Response
-     * @throws ApiError
-     */
-    public static deletePlayerSocialLink(data: PlayersDeletePlayerSocialLinkData): CancelablePromise<PlayersDeletePlayerSocialLinkResponse> {
-        return __request(OpenAPI, {
-            method: 'DELETE',
-            url: '/v1/players/{identifier}/social-links/{link_id}',
-            path: {
-                identifier: data.identifier,
-                link_id: data.linkId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Start Player Twitch Social Link Verification
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.linkId
-     * @returns string Successful Response
-     * @throws ApiError
-     */
-    public static startPlayerTwitchSocialLinkVerification(data: PlayersStartPlayerTwitchSocialLinkVerificationData): CancelablePromise<PlayersStartPlayerTwitchSocialLinkVerificationResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/social-links/{link_id}/verify/twitch/start',
-            path: {
-                identifier: data.identifier,
-                link_id: data.linkId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Start Player Twitch Social Link Add
-     * @param data The data for the request.
-     * @param data.identifier
-     * @returns string Successful Response
-     * @throws ApiError
-     */
-    public static startPlayerTwitchSocialLinkAdd(data: PlayersStartPlayerTwitchSocialLinkAddData): CancelablePromise<PlayersStartPlayerTwitchSocialLinkAddResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/social-links/add/twitch/start',
-            path: {
-                identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Complete Player Twitch Social Link Verification
-     * @param data The data for the request.
-     * @param data.state
-     * @param data.code
-     * @param data.error
-     * @param data.errorDescription
-     * @returns unknown Successful Response
-     * @throws ApiError
-     */
-    public static completePlayerTwitchSocialLinkVerification(data: PlayersCompletePlayerTwitchSocialLinkVerificationData): CancelablePromise<PlayersCompletePlayerTwitchSocialLinkVerificationResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/v1/players/social-links/verify/twitch/callback',
-            query: {
-                state: data.state,
-                code: data.code,
-                error: data.error,
-                error_description: data.errorDescription
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Confirm Player Twitch Social Link Verification
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.linkId
-     * @param data.requestBody
-     * @returns PlayerSocialLinksPublic Successful Response
-     * @throws ApiError
-     */
-    public static confirmPlayerTwitchSocialLinkVerification(data: PlayersConfirmPlayerTwitchSocialLinkVerificationData): CancelablePromise<PlayersConfirmPlayerTwitchSocialLinkVerificationResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/social-links/{link_id}/verify/twitch/confirm',
-            path: {
-                identifier: data.identifier,
-                link_id: data.linkId
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Start Player Bilibili Social Link Verification
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.linkId
-     * @returns PlayerSocialLinkBilibiliVerificationStart Successful Response
-     * @throws ApiError
-     */
-    public static startPlayerBilibiliSocialLinkVerification(data: PlayersStartPlayerBilibiliSocialLinkVerificationData): CancelablePromise<PlayersStartPlayerBilibiliSocialLinkVerificationResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/social-links/{link_id}/verify/bilibili/start',
-            path: {
-                identifier: data.identifier,
-                link_id: data.linkId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Confirm Player Bilibili Social Link Verification
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.linkId
-     * @param data.requestBody
-     * @returns PlayerSocialLinksPublic Successful Response
-     * @throws ApiError
-     */
-    public static confirmPlayerBilibiliSocialLinkVerification(data: PlayersConfirmPlayerBilibiliSocialLinkVerificationData): CancelablePromise<PlayersConfirmPlayerBilibiliSocialLinkVerificationResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/social-links/{link_id}/verify/bilibili/confirm',
-            path: {
-                identifier: data.identifier,
-                link_id: data.linkId
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Read Player Follow Summary
-     * Retrieve follow counts and viewer relationship state for a player.
-     * @param data The data for the request.
-     * @param data.identifier
-     * @returns PlayerFollowSummaryPublic Successful Response
-     * @throws ApiError
-     */
-    public static readPlayerFollowSummary(data: PlayersReadPlayerFollowSummaryData): CancelablePromise<PlayersReadPlayerFollowSummaryResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/v1/players/{identifier}/follow-summary',
-            path: {
-                identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Follow Player
-     * Follow a player.
-     * @param data The data for the request.
-     * @param data.identifier
-     * @returns PlayerFollowSummaryPublic Successful Response
-     * @throws ApiError
-     */
-    public static followPlayer(data: PlayersFollowPlayerData): CancelablePromise<PlayersFollowPlayerResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/follow',
-            path: {
-                identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Unfollow Player
-     * Unfollow a player.
-     * @param data The data for the request.
-     * @param data.identifier
-     * @returns PlayerFollowSummaryPublic Successful Response
-     * @throws ApiError
-     */
-    public static unfollowPlayer(data: PlayersUnfollowPlayerData): CancelablePromise<PlayersUnfollowPlayerResponse> {
-        return __request(OpenAPI, {
-            method: 'DELETE',
-            url: '/v1/players/{identifier}/follow',
-            path: {
-                identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Check Player Ban Status
-     * @param data The data for the request.
-     * @param data.identifier
-     * @returns PlayerBanStatusCheckPublic Successful Response
-     * @throws ApiError
-     */
-    public static checkPlayerBanStatus(data: PlayersCheckPlayerBanStatusData): CancelablePromise<PlayersCheckPlayerBanStatusResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/unban-check',
-            path: {
-                identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Read Player Followers
-     * Retrieve followers for a player.
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.offset
-     * @param data.limit
-     * @returns PlayersPublic Successful Response
-     * @throws ApiError
-     */
-    public static readPlayerFollowers(data: PlayersReadPlayerFollowersData): CancelablePromise<PlayersReadPlayerFollowersResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/v1/players/{identifier}/followers',
-            path: {
-                identifier: data.identifier
-            },
-            query: {
-                offset: data.offset,
-                limit: data.limit
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Read Player Following
-     * Retrieve players followed by a player.
-     * @param data The data for the request.
-     * @param data.identifier
-     * @param data.offset
-     * @param data.limit
-     * @returns PlayersPublic Successful Response
-     * @throws ApiError
-     */
-    public static readPlayerFollowing(data: PlayersReadPlayerFollowingData): CancelablePromise<PlayersReadPlayerFollowingResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/v1/players/{identifier}/following',
-            path: {
-                identifier: data.identifier
-            },
-            query: {
-                offset: data.offset,
-                limit: data.limit
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Read Current Player Settings
-     * @returns PlayerSettingsPublic Successful Response
-     * @throws ApiError
-     */
-    public static readCurrentPlayerSettings(): CancelablePromise<PlayersReadCurrentPlayerSettingsResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/v1/players/me/settings'
-        });
-    }
-    
-    /**
-     * Update Current Player Settings
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns PlayerSettingsPublic Successful Response
-     * @throws ApiError
-     */
-    public static updateCurrentPlayerSettings(data: PlayersUpdateCurrentPlayerSettingsData): CancelablePromise<PlayersUpdateCurrentPlayerSettingsResponse> {
-        return __request(OpenAPI, {
-            method: 'PATCH',
-            url: '/v1/players/me/settings',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Read Current Player Webhooks
-     * @returns PlayerWebhooksPublic Successful Response
-     * @throws ApiError
-     */
-    public static readCurrentPlayerWebhooks(): CancelablePromise<PlayersReadCurrentPlayerWebhooksResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/v1/players/me/webhooks'
-        });
-    }
-    
-    /**
-     * Create Current Player Webhook
-     * @param data The data for the request.
-     * @param data.requestBody
-     * @returns PlayerWebhooksPublic Successful Response
-     * @throws ApiError
-     */
-    public static createCurrentPlayerWebhook(data: PlayersCreateCurrentPlayerWebhookData): CancelablePromise<PlayersCreateCurrentPlayerWebhookResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/me/webhooks',
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
      * Read Player Friends
      * @param data The data for the request.
      * @param data.identifier
@@ -1976,89 +1811,6 @@ export class PlayersService {
             url: '/v1/players/{identifier}/friends',
             path: {
                 identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Sync Player Friends Route
-     * @param data The data for the request.
-     * @param data.identifier
-     * @returns PlayerFriendsPublic Successful Response
-     * @throws ApiError
-     */
-    public static syncPlayerFriendsRoute(data: PlayersSyncPlayerFriendsRouteData): CancelablePromise<PlayersSyncPlayerFriendsRouteResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/{identifier}/friends/sync',
-            path: {
-                identifier: data.identifier
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Update Current Player Webhook
-     * @param data The data for the request.
-     * @param data.webhookId
-     * @param data.requestBody
-     * @returns PlayerWebhooksPublic Successful Response
-     * @throws ApiError
-     */
-    public static updateCurrentPlayerWebhook(data: PlayersUpdateCurrentPlayerWebhookData): CancelablePromise<PlayersUpdateCurrentPlayerWebhookResponse> {
-        return __request(OpenAPI, {
-            method: 'PATCH',
-            url: '/v1/players/me/webhooks/{webhook_id}',
-            path: {
-                webhook_id: data.webhookId
-            },
-            body: data.requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Delete Current Player Webhook
-     * @param data The data for the request.
-     * @param data.webhookId
-     * @returns PlayerWebhooksPublic Successful Response
-     * @throws ApiError
-     */
-    public static deleteCurrentPlayerWebhook(data: PlayersDeleteCurrentPlayerWebhookData): CancelablePromise<PlayersDeleteCurrentPlayerWebhookResponse> {
-        return __request(OpenAPI, {
-            method: 'DELETE',
-            url: '/v1/players/me/webhooks/{webhook_id}',
-            path: {
-                webhook_id: data.webhookId
-            },
-            errors: {
-                422: 'Validation Error'
-            }
-        });
-    }
-    
-    /**
-     * Test Current Player Webhook
-     * @param data The data for the request.
-     * @param data.webhookId
-     * @returns PlayerWebhookPublic Successful Response
-     * @throws ApiError
-     */
-    public static testCurrentPlayerWebhook(data: PlayersTestCurrentPlayerWebhookData): CancelablePromise<PlayersTestCurrentPlayerWebhookResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/players/me/webhooks/{webhook_id}/test',
-            path: {
-                webhook_id: data.webhookId
             },
             errors: {
                 422: 'Validation Error'
@@ -2094,7 +1846,6 @@ export class PlayersService {
     
     /**
      * Read Player
-     * Retrieve a player by app custom_id, steamid64, or full Steam profile URL.
      * @param data The data for the request.
      * @param data.identifier
      * @returns PlayerDetailPublic Successful Response
@@ -2115,7 +1866,6 @@ export class PlayersService {
     
     /**
      * Update Player
-     * Update player profile data.
      * @param data The data for the request.
      * @param data.identifier
      * @param data.requestBody
@@ -2139,7 +1889,6 @@ export class PlayersService {
     
     /**
      * Upsert Player From Steam
-     * Create or update player from a Steam-resolvable identifier.
      * @param data The data for the request.
      * @param data.identifier
      * @returns PlayerPublic Successful Response
@@ -2229,6 +1978,214 @@ export class PlayerSessionsService {
             },
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+}
+
+export class PlayerSocialLinksService {
+    /**
+     * Read Player Social Links
+     * @param data The data for the request.
+     * @param data.identifier
+     * @returns PlayerSocialLinksPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayerSocialLinks(data: PlayerSocialLinksReadPlayerSocialLinksData): CancelablePromise<PlayerSocialLinksReadPlayerSocialLinksResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/player-social-links/players/{identifier}',
+            path: {
+                identifier: data.identifier
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Create Player Social Link
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns PlayerSocialLinksPublic Successful Response
+     * @throws ApiError
+     */
+    public static createPlayerSocialLink(data: PlayerSocialLinksCreatePlayerSocialLinkData): CancelablePromise<PlayerSocialLinksCreatePlayerSocialLinkResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-social-links/me/social-links',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Update Player Social Link
+     * @param data The data for the request.
+     * @param data.linkId
+     * @param data.requestBody
+     * @returns PlayerSocialLinksPublic Successful Response
+     * @throws ApiError
+     */
+    public static updatePlayerSocialLink(data: PlayerSocialLinksUpdatePlayerSocialLinkData): CancelablePromise<PlayerSocialLinksUpdatePlayerSocialLinkResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/v1/player-social-links/me/social-links/{link_id}',
+            path: {
+                link_id: data.linkId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Player Social Link
+     * @param data The data for the request.
+     * @param data.linkId
+     * @returns PlayerSocialLinksPublic Successful Response
+     * @throws ApiError
+     */
+    public static deletePlayerSocialLink(data: PlayerSocialLinksDeletePlayerSocialLinkData): CancelablePromise<PlayerSocialLinksDeletePlayerSocialLinkResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/player-social-links/me/social-links/{link_id}',
+            path: {
+                link_id: data.linkId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Start Player Twitch Social Link Verification
+     * @param data The data for the request.
+     * @param data.linkId
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static startPlayerTwitchSocialLinkVerification(data: PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationData): CancelablePromise<PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-social-links/me/social-links/{link_id}/twitch-verification-requests',
+            path: {
+                link_id: data.linkId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Start Player Twitch Social Link Add
+     * @returns string Successful Response
+     * @throws ApiError
+     */
+    public static startPlayerTwitchSocialLinkAdd(): CancelablePromise<PlayerSocialLinksStartPlayerTwitchSocialLinkAddResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-social-links/me/social-links/twitch/connection-requests'
+        });
+    }
+    
+    /**
+     * Confirm Player Twitch Social Link Verification
+     * @param data The data for the request.
+     * @param data.linkId
+     * @param data.requestBody
+     * @returns PlayerSocialLinksPublic Successful Response
+     * @throws ApiError
+     */
+    public static confirmPlayerTwitchSocialLinkVerification(data: PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationData): CancelablePromise<PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-social-links/me/social-links/{link_id}/twitch-verification-confirmations',
+            path: {
+                link_id: data.linkId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Start Player Bilibili Social Link Verification
+     * @param data The data for the request.
+     * @param data.linkId
+     * @returns PlayerSocialLinkBilibiliVerificationStart Successful Response
+     * @throws ApiError
+     */
+    public static startPlayerBilibiliSocialLinkVerification(data: PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationData): CancelablePromise<PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-social-links/me/social-links/{link_id}/bilibili-verification-requests',
+            path: {
+                link_id: data.linkId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Confirm Player Bilibili Social Link Verification
+     * @param data The data for the request.
+     * @param data.linkId
+     * @param data.requestBody
+     * @returns PlayerSocialLinksPublic Successful Response
+     * @throws ApiError
+     */
+    public static confirmPlayerBilibiliSocialLinkVerification(data: PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationData): CancelablePromise<PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/player-social-links/me/social-links/{link_id}/bilibili-verification-confirmations',
+            path: {
+                link_id: data.linkId
+            },
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Complete Player Twitch Social Link Verification
+     * @param data The data for the request.
+     * @param data.state
+     * @param data.code
+     * @param data.error
+     * @param data.errorDescription
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static completePlayerTwitchSocialLinkVerification(data: PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationData): CancelablePromise<PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/social-link-verifications/twitch/callback',
+            query: {
+                state: data.state,
+                code: data.code,
+                error: data.error,
+                error_description: data.errorDescription
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -2617,18 +2574,6 @@ export class ServersService {
             errors: {
                 422: 'Validation Error'
             }
-        });
-    }
-    
-    /**
-     * Trigger Server Discovery
-     * @returns ServerDiscoveryRunPublic Successful Response
-     * @throws ApiError
-     */
-    public static triggerServerDiscovery(): CancelablePromise<ServersTriggerServerDiscoveryResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/v1/servers/discovery'
         });
     }
     

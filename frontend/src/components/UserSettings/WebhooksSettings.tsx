@@ -3,7 +3,7 @@ import { Pencil, Plus, Send, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { FaDiscord } from "react-icons/fa"
 
-import { PlayersService, type PlayerWebhookPublic } from "@/client"
+import { MeService, type PlayerWebhookPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -125,12 +125,12 @@ export default function WebhooksSettings() {
   const query = useQuery({
     queryKey: webhooksQueryKey,
     enabled: Boolean(currentUser),
-    queryFn: () => PlayersService.readCurrentPlayerWebhooks(),
+    queryFn: () => MeService.readCurrentPlayerWebhooks(),
   })
 
   const createMutation = useMutation({
     mutationFn: (url: string) =>
-      PlayersService.createCurrentPlayerWebhook({
+      MeService.createCurrentPlayerWebhook({
         requestBody: { url },
       }),
     onSuccess: (data) => {
@@ -153,7 +153,7 @@ export default function WebhooksSettings() {
       webhookId: string
       requestBody: { url?: string; enabled?: boolean }
     }) =>
-      PlayersService.updateCurrentPlayerWebhook({
+      MeService.updateCurrentPlayerWebhook({
         webhookId,
         requestBody,
       }),
@@ -171,7 +171,7 @@ export default function WebhooksSettings() {
 
   const deleteMutation = useMutation({
     mutationFn: (webhookId: string) =>
-      PlayersService.deleteCurrentPlayerWebhook({ webhookId }),
+      MeService.deleteCurrentPlayerWebhook({ webhookId }),
     onSuccess: (data) => {
       queryClient.setQueryData(webhooksQueryKey, data)
       showSuccessToast("Webhook deleted")
@@ -184,7 +184,7 @@ export default function WebhooksSettings() {
 
   const testMutation = useMutation({
     mutationFn: (webhookId: string) =>
-      PlayersService.testCurrentPlayerWebhook({ webhookId }),
+      MeService.testCurrentPlayerWebhook({ webhookId }),
     onSuccess: (data) => {
       queryClient.setQueryData(
         webhooksQueryKey,
