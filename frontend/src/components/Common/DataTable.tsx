@@ -312,10 +312,10 @@ export function DataTable<TData, TValue>({
                           className={columnMeta?.cellClassName}
                           style={getColumnSizeStyle(cell.column.columnDef)}
                         >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
                         </TableCell>
                       )
                     })}

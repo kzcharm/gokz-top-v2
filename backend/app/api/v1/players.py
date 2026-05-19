@@ -373,7 +373,7 @@ def _ensure_link_is_bilibili_and_unverified(*, link: Any) -> None:
         raise HTTPException(status_code=409, detail="Social link is already verified")
 
 
-@router.get("/", response_model=PlayersPublic)
+@router.get("", response_model=PlayersPublic)
 async def read_players(
     session: SessionDep,
     query: Annotated[PlayersListQuery, Query()],
@@ -414,7 +414,7 @@ async def search_players(
     )
 
 
-@router.post("/", response_model=PlayersBatchPublic)
+@router.post("", response_model=PlayersBatchPublic)
 async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> Any:
     """
     Retrieve players by steamid64 list.

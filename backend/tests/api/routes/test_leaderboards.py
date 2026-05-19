@@ -960,7 +960,7 @@ async def test_read_player_leaderboard_rank_returns_null_region_when_player_coun
 
 
 async def test_read_regions_returns_region_metadata(client: AsyncClient) -> None:
-    response = await client.get(f"{settings.API_V1_STR}/regions/")
+    response = await client.get(f"{settings.API_V1_STR}/regions")
 
     assert response.status_code == 200
     payload = response.json()

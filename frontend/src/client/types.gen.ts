@@ -1541,17 +1541,11 @@ export type MapsReadMapsData = {
 
 export type MapsReadMapsResponse = (Array<MapPublic>);
 
-export type MapsReadMapByNameData = {
-    mapName: string;
-};
-
-export type MapsReadMapByNameResponse = (MapPublic);
-
 export type MapsReadMapPbLeaderboardData = {
     country?: (string | null);
     friendsOnly?: boolean;
-    id: number;
     limit?: number;
+    mapId: number;
     offset?: number;
     region?: (string | null);
     scope?: ModeScope;
@@ -1571,7 +1565,7 @@ export type MapsReadMapWrsData = {
 export type MapsReadMapWrsResponse = (Array<MapWrPublic>);
 
 export type MapsReadMapByIdData = {
-    id: number;
+    mapId: number;
 };
 
 export type MapsReadMapByIdResponse = (MapPublic);
@@ -1616,16 +1610,14 @@ export type MiscLookupIpData = {
 
 export type MiscLookupIpResponse = (IPLookupResponse);
 
-export type ModesReadModesResponse = (Array<ModePublic>);
-
-export type ModesReadModeByNameData = {
-    modeName: string;
+export type ModesReadModesData = {
+    name?: (string | null);
 };
 
-export type ModesReadModeByNameResponse = (ModePublic);
+export type ModesReadModesResponse = (Array<ModePublic>);
 
 export type ModesReadModeByIdData = {
-    id: number;
+    modeId: number;
 };
 
 export type ModesReadModeByIdResponse = (ModePublic);

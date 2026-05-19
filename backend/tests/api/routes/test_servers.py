@@ -105,7 +105,7 @@ async def test_create_server_requires_successful_a2s_query(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={
             "ip": random_server_ip(),
@@ -156,7 +156,7 @@ async def test_create_server_fills_blank_location_from_geoip(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={
             "ip": random_server_ip(),
@@ -180,7 +180,7 @@ async def test_read_servers_returns_derived_region_and_filters_by_region(
     await create_server(db, country="US", city="Chicago")
 
     response = await client.get(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         params={"region": "EU", "limit": 200},
     )
 
@@ -198,7 +198,7 @@ async def test_read_servers_accepts_limit_1000(
     await create_server(db)
 
     response = await client.get(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         params={"limit": 1000},
     )
 
@@ -209,7 +209,7 @@ async def test_read_servers_rejects_limit_above_1000(
     client: AsyncClient,
 ) -> None:
     response = await client.get(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         params={"limit": 1001},
     )
 
@@ -246,7 +246,7 @@ async def test_create_server_reenables_existing_invalid_server(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={"ip": server.ip, "port": server.port},
     )
@@ -290,7 +290,7 @@ async def test_create_server_rejects_existing_disabled_server(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={"ip": server.ip, "port": server.port},
     )
@@ -339,7 +339,7 @@ async def test_create_server_rejects_unreachable_server(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={"ip": random_server_ip(), "port": random_server_port()},
     )
@@ -374,7 +374,7 @@ async def test_create_server_rejects_non_csgo_server(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={"ip": random_server_ip(), "port": random_server_port()},
     )
@@ -416,7 +416,7 @@ async def test_create_server_rejects_counter_strike_2_even_when_folder_and_app_i
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={"ip": random_server_ip(), "port": random_server_port()},
     )
@@ -458,7 +458,7 @@ async def test_create_server_allows_zero_app_id_when_game_field_matches_csgo(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={"ip": random_server_ip(), "port": random_server_port()},
     )
@@ -494,7 +494,7 @@ async def test_create_server_rejects_non_kz_map(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         headers=normal_user_token_headers,
         json={"ip": random_server_ip(), "port": random_server_port()},
     )
@@ -825,7 +825,7 @@ async def test_read_servers_hides_invalidated_server_groups(
     group, _ = await create_server_group(db, status=ServerGroupStatus.INVALIDATED)
     server = await create_server(db, group_id=group.id, status=ServerStatus.DISABLED)
 
-    response = await client.get(f"{settings.API_V1_STR}/servers/")
+    response = await client.get(f"{settings.API_V1_STR}/servers")
 
     assert response.status_code == 200
     payload = response.json()
@@ -864,7 +864,7 @@ async def test_offline_mark_preserves_identity_and_zeroes_player_state(
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         params={"online": False, "limit": 200},
     )
 
@@ -887,7 +887,7 @@ async def test_read_servers_returns_map_tier_for_known_map(
     await create_server(db, hostname="Tier Host", map_name="kz_tiered")
 
     response = await client.get(
-        f"{settings.API_V1_STR}/servers/",
+        f"{settings.API_V1_STR}/servers",
         params={"limit": 200},
     )
 

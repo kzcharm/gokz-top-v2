@@ -104,7 +104,7 @@ async def _to_record_publics(
     ]
 
 
-@router.get("/", response_model=RecordsPublic)
+@router.get("", response_model=RecordsPublic)
 async def read_records(
     session: SessionDep,
     query: Annotated[RecordListQuery, Query()],

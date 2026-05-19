@@ -101,7 +101,7 @@ type ReviewRow = {
 }
 
 async function stubRegions(page: Page) {
-  await page.route("**/v1/regions/", async (route) => {
+  await page.route("**/v1/regions", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",

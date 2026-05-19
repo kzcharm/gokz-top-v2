@@ -308,7 +308,9 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
   expect(createdBodies[0]).not.toHaveProperty("id")
 
   await expect(page.getByText("Picked Player", { exact: true })).toBeVisible()
-  await expect(page.getByText("Admin-created local ban", { exact: true })).toBeVisible()
+  await expect(
+    page.getByText("Admin-created local ban", { exact: true }),
+  ).toBeVisible()
 
   await page
     .getByRole("link", { name: /Banned Player 1/ })

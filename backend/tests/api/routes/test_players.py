@@ -152,11 +152,11 @@ async def test_read_players_public_with_offset_and_limit(
     )
 
     first_page_response = await client.get(
-        f"{settings.API_V1_STR}/players/",
+        f"{settings.API_V1_STR}/players",
         params={"offset": 0, "limit": 3},
     )
     second_page_response = await client.get(
-        f"{settings.API_V1_STR}/players/",
+        f"{settings.API_V1_STR}/players",
         params={"offset": 1, "limit": 2},
     )
 
@@ -429,7 +429,7 @@ async def test_read_players_batch_preserves_order_with_nullable_entries(
     }
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/",
+        f"{settings.API_V1_STR}/players",
         json=request_body,
     )
 
@@ -1022,7 +1022,7 @@ async def test_read_players_list_includes_is_website_user(
     await db.commit()
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/",
+        f"{settings.API_V1_STR}/players",
         params={"offset": 0, "limit": 100},
     )
 

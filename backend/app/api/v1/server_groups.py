@@ -29,7 +29,7 @@ async def _get_server_count(*, session: SessionDep, group_id: uuid.UUID) -> int:
     return (await session.exec(statement)).one()
 
 
-@router.get("/", response_model=ServerGroupsPublic)
+@router.get("", response_model=ServerGroupsPublic)
 async def read_server_groups(session: SessionDep) -> Any:
     groups, counts = await crud.read_server_groups(session=session)
     return ServerGroupsPublic(
@@ -45,7 +45,7 @@ async def read_server_groups(session: SessionDep) -> Any:
 
 
 @router.post(
-    "/",
+    "",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=ServerGroupApiKeyPublic,
 )

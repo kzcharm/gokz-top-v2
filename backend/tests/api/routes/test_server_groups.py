@@ -18,7 +18,7 @@ async def test_read_server_groups_public_returns_counts(
     group, _ = await create_server_group(db, name="Public Group")
     await create_server(db, group_id=group.id)
 
-    response = await client.get(f"{settings.API_V1_STR}/server-groups/")
+    response = await client.get(f"{settings.API_V1_STR}/server-groups")
 
     assert response.status_code == 200
     payload = response.json()
@@ -36,7 +36,7 @@ async def test_create_server_group_requires_superuser(
     normal_user_token_headers: dict[str, str],
 ) -> None:
     response = await client.post(
-        f"{settings.API_V1_STR}/server-groups/",
+        f"{settings.API_V1_STR}/server-groups",
         headers=normal_user_token_headers,
         json={"name": "Blocked Group"},
     )
@@ -50,7 +50,7 @@ async def test_create_and_rotate_server_group_api_key(
     superuser_token_headers: dict[str, str],
 ) -> None:
     create_response = await client.post(
-        f"{settings.API_V1_STR}/server-groups/",
+        f"{settings.API_V1_STR}/server-groups",
         headers=superuser_token_headers,
         json={"name": "Managed Group"},
     )
@@ -86,7 +86,7 @@ async def test_invalidated_owner_cannot_create_another_server_group(
     superuser_token_headers: dict[str, str],
 ) -> None:
     create_response = await client.post(
-        f"{settings.API_V1_STR}/server-groups/",
+        f"{settings.API_V1_STR}/server-groups",
         headers=superuser_token_headers,
         json={"name": "First Group"},
     )
@@ -100,7 +100,7 @@ async def test_invalidated_owner_cannot_create_another_server_group(
     assert invalidate_response.status_code == 200
 
     second_create_response = await client.post(
-        f"{settings.API_V1_STR}/server-groups/",
+        f"{settings.API_V1_STR}/server-groups",
         headers=superuser_token_headers,
         json={"name": "Blocked Group"},
     )

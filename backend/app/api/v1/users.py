@@ -31,7 +31,7 @@ def _parse_steamid64(user_id: str) -> int:
 
 
 @router.get(
-    "/",
+    "",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UsersPublic,
 )

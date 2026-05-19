@@ -94,7 +94,7 @@ async def put_server_status(
     return crud.to_server_public(server=server)
 
 
-@router.get("/", response_model=ServersPublic)
+@router.get("", response_model=ServersPublic)
 async def read_servers(
     session: SessionDep,
     query: Annotated[ServerListQuery, Query()],
@@ -166,7 +166,7 @@ async def read_server(*, session: SessionDep, server_id: uuid.UUID) -> Any:
 
 
 @router.post(
-    "/",
+    "",
     response_model=ServerPublic,
 )
 async def create_server(

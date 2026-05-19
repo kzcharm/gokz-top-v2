@@ -250,7 +250,7 @@ async def test_read_records_v1_list_and_detail(
     save_run_replay(map_name="kz_record_test", replay_id=record.uuid, replay_bytes=b"run")
 
     list_response = await client.get(
-        f"{settings.API_V1_STR}/records/",
+        f"{settings.API_V1_STR}/records",
         params={"steamid64": player_id},
     )
     assert list_response.status_code == 200
@@ -1342,14 +1342,14 @@ async def test_read_records_v1_and_pb_exclude_cheaters_by_default(
     await _create_ban(db, id=981100, steamid64=banned_player, expires_on=None)
 
     listed = await client.get(
-        f"{settings.API_V1_STR}/records/",
+        f"{settings.API_V1_STR}/records",
         params={"map_id": 980200},
     )
     assert listed.status_code == 200
     assert [row["id"] for row in listed.json()["data"]] == [981000]
 
     listed_all = await client.get(
-        f"{settings.API_V1_STR}/records/",
+        f"{settings.API_V1_STR}/records",
         params={"map_id": 980200, "exclude_cheaters": "false"},
     )
     assert listed_all.status_code == 200
@@ -1405,7 +1405,7 @@ async def test_read_records_v1_supports_map_name_filter(
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/records/",
+        f"{settings.API_V1_STR}/records",
         params={"map_name": "kz_records_by_name"},
     )
 
