@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Copy, History, Search, X } from "lucide-react"
+import { Copy, Eye, History, Search, UserRoundCheck, X } from "lucide-react"
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -548,11 +548,13 @@ function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
 
 function SummaryMiniCard({
   dataTestId,
+  icon,
   label,
   onClick,
   value,
 }: {
   dataTestId?: string
+  icon?: ReactNode
   label: string
   onClick?: () => void
   value: string
@@ -561,6 +563,7 @@ function SummaryMiniCard({
 
   return (
     <Comp
+      aria-label={label}
       className={cn(
         "rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5 text-left transition-colors",
         onClick
@@ -571,8 +574,20 @@ function SummaryMiniCard({
       onClick={onClick}
       type={onClick ? "button" : undefined}
     >
-      <p className="text-lg font-semibold tracking-tight">{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+      {icon ? (
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center text-muted-foreground">
+            {icon}
+          </span>
+          <p className="min-w-0 text-xs text-muted-foreground">{label}</p>
+          <p className="ml-auto text-lg font-semibold tracking-tight">{value}</p>
+        </div>
+      ) : (
+        <>
+          <p className="text-lg font-semibold tracking-tight">{value}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+        </>
+      )}
     </Comp>
   )
 }
@@ -931,7 +946,7 @@ export function ProfileSidebar({
                   ) : ljPbDistance === null ? (
                     "-"
                   ) : (
-                    formatJumpDistance(ljPbDistance)
+                    `${formatJumpDistance(ljPbDistance)} ${t("profile.jumpstats.units")}`
                   )
                 }
               />
@@ -940,10 +955,12 @@ export function ProfileSidebar({
             <div className="grid grid-cols-2 gap-3">
               <SummaryMiniCard
                 dataTestId="profile-profile-views-card"
+                icon={<Eye className="size-3.5" />}
                 label={t("profile.summary.profileViews")}
                 value={formatNumber(player.profile_views ?? 0)}
               />
               <SummaryMiniCard
+                icon={<UserRoundCheck className="size-3.5" />}
                 label={t("profile.summary.followers")}
                 dataTestId="profile-followers-card"
                 onClick={() => handleOpenSocial("followers")}

@@ -261,7 +261,7 @@ export const en = {
       rating: "Rating",
     },
     skillRadar: {
-      title: "Skill Radar",
+      title: "Skills",
       ariaLabel: "Profile skill radar",
       route: "Route",
       strafe: "Strafe",

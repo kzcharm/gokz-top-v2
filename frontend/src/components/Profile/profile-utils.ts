@@ -813,7 +813,7 @@ export function formatHours(hours: number) {
 }
 
 export function formatSecondsAsHours(totalSeconds: number) {
-  return `${(totalSeconds / 3600).toFixed(1)} hrs`
+  return `${(totalSeconds / 3600).toFixed(1)} hours`
 }
 
 export function formatCompactPercent(value: number) {
