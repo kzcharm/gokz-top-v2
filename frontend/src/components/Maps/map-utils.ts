@@ -63,9 +63,14 @@ const mapSkillPortionsByName = new Map<string, Record<MapSkillKey, number>>(
 )
 
 export async function fetchMapByName(mapName: string) {
-  return await MapsService.readMapByName({
-    mapName,
+  const maps = await MapsService.readMaps({
+    name: mapName,
   })
+  const map = maps[0]
+  if (!map) {
+    throw new Error("Map not found")
+  }
+  return map
 }
 
 function hashString(value: string) {

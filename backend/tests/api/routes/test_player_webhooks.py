@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.v1 import players as players_routes
+from app.api.v1 import me_webhooks as me_webhooks_routes
 from app.core.config import settings
 from app.models import PlayerWebhook
 from tests.utils.user import authentication_token_from_steamid
@@ -23,7 +23,7 @@ async def test_current_player_webhooks_crud_and_toggle(
     )
 
     create_response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks",
+        f"{settings.API_V1_STR}/me/webhooks",
         headers=headers,
         json={
             "url": (
@@ -41,14 +41,14 @@ async def test_current_player_webhooks_crud_and_toggle(
     assert created_payload["data"][0]["enabled"] is True
 
     list_response = await client.get(
-        f"{settings.API_V1_STR}/players/me/webhooks",
+        f"{settings.API_V1_STR}/me/webhooks",
         headers=headers,
     )
     assert list_response.status_code == 200
     assert list_response.json()["count"] == 1
 
     update_response = await client.patch(
-        f"{settings.API_V1_STR}/players/me/webhooks/{webhook_id}",
+        f"{settings.API_V1_STR}/me/webhooks/{webhook_id}",
         headers=headers,
         json={"enabled": False},
     )
@@ -56,7 +56,7 @@ async def test_current_player_webhooks_crud_and_toggle(
     assert update_response.json()["data"][0]["enabled"] is False
 
     delete_response = await client.delete(
-        f"{settings.API_V1_STR}/players/me/webhooks/{webhook_id}",
+        f"{settings.API_V1_STR}/me/webhooks/{webhook_id}",
         headers=headers,
     )
     assert delete_response.status_code == 200
@@ -75,7 +75,7 @@ async def test_current_player_webhooks_reject_invalid_url(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks",
+        f"{settings.API_V1_STR}/me/webhooks",
         headers=headers,
         json={"url": "https://example.com/not-a-discord-webhook"},
     )
@@ -100,7 +100,7 @@ async def test_current_player_webhooks_accept_discord_compatible_host(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks",
+        f"{settings.API_V1_STR}/me/webhooks",
         headers=headers,
         json={
             "url": (
@@ -136,7 +136,7 @@ async def test_current_player_webhooks_hide_other_users_webhooks(
     )
 
     create_response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks",
+        f"{settings.API_V1_STR}/me/webhooks",
         headers=first_headers,
         json={
             "url": (
@@ -148,7 +148,7 @@ async def test_current_player_webhooks_hide_other_users_webhooks(
     webhook_id = create_response.json()["data"][0]["id"]
 
     for method in ("PATCH", "DELETE", "POST"):
-        path = f"{settings.API_V1_STR}/players/me/webhooks/{webhook_id}"
+        path = f"{settings.API_V1_STR}/me/webhooks/{webhook_id}"
         if method == "POST":
             path = f"{path}/test"
         response = await client.request(
@@ -173,7 +173,7 @@ async def test_current_player_webhook_test_updates_last_used_at(
     )
 
     create_response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks",
+        f"{settings.API_V1_STR}/me/webhooks",
         headers=headers,
         json={
             "url": (
@@ -188,10 +188,10 @@ async def test_current_player_webhook_test_updates_last_used_at(
         assert webhook_url.startswith("https://discord.com/api/webhooks/")
         assert "embeds" in payload
 
-    monkeypatch.setattr(players_routes, "send_discord_webhook", _fake_send)
+    monkeypatch.setattr(me_webhooks_routes, "send_discord_webhook", _fake_send)
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks/{webhook_id}/test",
+        f"{settings.API_V1_STR}/me/webhooks/{webhook_id}/test",
         headers=headers,
     )
 
@@ -218,7 +218,7 @@ async def test_current_player_webhook_test_returns_502_on_delivery_failure(
     )
 
     create_response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks",
+        f"{settings.API_V1_STR}/me/webhooks",
         headers=headers,
         json={
             "url": (
@@ -231,12 +231,12 @@ async def test_current_player_webhook_test_returns_502_on_delivery_failure(
 
     async def _failing_send(*, webhook_url: str, payload: dict[str, object]) -> None:
         del webhook_url, payload
-        raise players_routes.httpx.ConnectError("network down")
+        raise me_webhooks_routes.httpx.ConnectError("network down")
 
-    monkeypatch.setattr(players_routes, "send_discord_webhook", _failing_send)
+    monkeypatch.setattr(me_webhooks_routes, "send_discord_webhook", _failing_send)
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/me/webhooks/{webhook_id}/test",
+        f"{settings.API_V1_STR}/me/webhooks/{webhook_id}/test",
         headers=headers,
     )
 

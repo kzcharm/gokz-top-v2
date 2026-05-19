@@ -112,21 +112,10 @@ async def read_maps(
     return await crud.to_map_publics(session=session, maps=maps)
 
 
-@router.get("/name/{map_name}", response_model=MapPublic)
-async def read_map_by_name(
-    session: SessionDep,
-    map_name: str,
-) -> MapPublic:
-    map_obj = await crud.get_map_by_name(session=session, map_name=map_name)
-    if not map_obj:
-        raise HTTPException(status_code=404, detail="Map not found")
-    return (await crud.to_map_publics(session=session, maps=[map_obj]))[0]
-
-
-@router.get("/{id:int}/leaderboard", response_model=MapPbLeaderboardPublic)
+@router.get("/{map_id:int}/leaderboard", response_model=MapPbLeaderboardPublic)
 async def read_map_pb_leaderboard(
     session: SessionDep,
-    id: int,
+    map_id: int,
     current_user: OptionalCurrentUser,
     scope: ModeScope = ModeScope.OVR,
     type: RecordType = RecordType.NUB,
@@ -137,7 +126,7 @@ async def read_map_pb_leaderboard(
     region: Annotated[str | None, Query(max_length=3)] = None,
     friends_only: bool = Query(default=False),
 ) -> MapPbLeaderboardPublic:
-    map_obj = await crud.get_map_by_id(session=session, id=id)
+    map_obj = await crud.get_map_by_id(session=session, id=map_id)
     if map_obj is None:
         raise HTTPException(status_code=404, detail="Map not found")
 
@@ -196,12 +185,12 @@ async def read_map_wrs(
     )
 
 
-@router.get("/{id:int}", response_model=MapPublic)
+@router.get("/{map_id:int}", response_model=MapPublic)
 async def read_map_by_id(
     session: SessionDep,
-    id: int,
+    map_id: int,
 ) -> MapPublic:
-    map_obj = await crud.get_map_by_id(session=session, id=id)
+    map_obj = await crud.get_map_by_id(session=session, id=map_id)
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
     return (await crud.to_map_publics(session=session, maps=[map_obj]))[0]

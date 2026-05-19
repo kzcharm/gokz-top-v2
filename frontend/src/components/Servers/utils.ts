@@ -220,6 +220,10 @@ export function matchesServerSearch(server: ServerPublic, rawQuery: string) {
     return true
   }
 
+  const playerNames = getServerPlayers(server)
+    .map((player) => getPlayerStringValue(player, "name"))
+    .filter((name): name is string => name !== null)
+
   const fields = [
     getServerAddress(server),
     server.ip,
@@ -232,6 +236,7 @@ export function matchesServerSearch(server: ServerPublic, rawQuery: string) {
     server.region,
     getRegionName(server.region),
     server.group?.name,
+    ...playerNames,
   ]
 
   return fields.some((field) => field?.toLowerCase().includes(query))

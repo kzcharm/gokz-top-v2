@@ -817,7 +817,8 @@ async def test_read_map_v1_returns_scope_aware_main_course_tiers(
 
     by_id_response = await client.get(f"{settings.API_V1_STR}/maps/930202")
     by_name_response = await client.get(
-        f"{settings.API_V1_STR}/maps/name/kz_test_930202"
+        f"{settings.API_V1_STR}/maps",
+        params={"name": "kz_test_930202"},
     )
     filtered_response = await client.get(
         f"{settings.API_V1_STR}/maps",
@@ -832,7 +833,7 @@ async def test_read_map_v1_returns_scope_aware_main_course_tiers(
         "VNL": 8,
     }
     assert by_name_response.status_code == 200
-    assert by_name_response.json()["tiers"] == {
+    assert by_name_response.json()[0]["tiers"] == {
         "OVR": 3,
         "KZT": 6,
         "SKZ": 3,
@@ -874,7 +875,8 @@ async def test_read_map_v1_returns_null_for_missing_scope_tiers_when_other_scope
 
     by_id_response = await client.get(f"{settings.API_V1_STR}/maps/930203")
     by_name_response = await client.get(
-        f"{settings.API_V1_STR}/maps/name/kz_test_930203"
+        f"{settings.API_V1_STR}/maps",
+        params={"name": "kz_test_930203"},
     )
     filtered_response = await client.get(
         f"{settings.API_V1_STR}/maps",
@@ -889,7 +891,7 @@ async def test_read_map_v1_returns_null_for_missing_scope_tiers_when_other_scope
         "VNL": 4,
     }
     assert by_name_response.status_code == 200
-    assert by_name_response.json()["tiers"] == {
+    assert by_name_response.json()[0]["tiers"] == {
         "OVR": 4,
         "KZT": None,
         "SKZ": None,
@@ -1573,10 +1575,11 @@ async def test_read_map_v1_includes_review_summary(
     }
 
     by_name_response = await client.get(
-        f"{settings.API_V1_STR}/maps/name/{map_obj.name}",
+        f"{settings.API_V1_STR}/maps",
+        params={"name": map_obj.name},
     )
     assert by_name_response.status_code == 200
-    assert by_name_response.json()["review_summary"]["reviews_count"] == 2
+    assert by_name_response.json()[0]["review_summary"]["reviews_count"] == 2
 
     list_response = await client.get(
         f"{settings.API_V1_STR}/maps",

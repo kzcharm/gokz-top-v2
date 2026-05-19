@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.api.v1 import players as players_routes
+from app.api.v1 import player_social_links as player_social_links_routes
 from app.core.config import settings
 from app.models import Player
 from app.services.bilibili_social_link_verification import (
@@ -38,7 +38,7 @@ async def _create_social_link(
     url: str,
 ) -> dict[str, object]:
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=headers,
         json={"url": url},
     )
@@ -77,14 +77,14 @@ async def test_player_social_links_parse_supported_platforms_and_sort_alpha(
         "https://www.twitch.tv/Cinyan10",
     ]:
         response = await client.post(
-            f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+            f"{settings.API_V1_STR}/player-social-links/me/social-links",
             headers=headers,
             json={"url": url},
         )
         assert response.status_code == 200
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/players/{steamid64}",
     )
 
     assert response.status_code == 200
@@ -117,7 +117,7 @@ async def test_player_social_links_reject_non_profile_url(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=headers,
         json={"url": "https://github.com/KZGlobalTeam/gokz"},
     )
@@ -125,7 +125,7 @@ async def test_player_social_links_reject_non_profile_url(
     assert response.status_code == 422
 
 
-async def test_player_social_links_forbid_mutating_another_player(
+async def test_player_social_links_create_uses_current_user_identity(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -140,12 +140,12 @@ async def test_player_social_links_forbid_mutating_another_player(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=other_headers,
         json={"url": "https://x.com/cinyan10"},
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 async def test_player_social_links_one_link_per_platform(
@@ -161,12 +161,12 @@ async def test_player_social_links_one_link_per_platform(
     )
 
     first = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=headers,
         json={"url": "https://x.com/cinyan10"},
     )
     second = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=headers,
         json={"url": "https://twitter.com/other_name"},
     )
@@ -188,14 +188,14 @@ async def test_player_social_links_owner_can_update_and_delete(
     )
 
     create_response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=headers,
         json={"url": "https://x.com/cinyan10"},
     )
     link_id = create_response.json()["data"][0]["id"]
 
     update_response = await client.patch(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link_id}",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link_id}",
         headers=headers,
         json={"url": "https://github.com/cinyan10"},
     )
@@ -204,7 +204,7 @@ async def test_player_social_links_owner_can_update_and_delete(
     assert update_response.json()["data"][0]["verified"] is False
 
     delete_response = await client.delete(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link_id}",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link_id}",
         headers=headers,
     )
     assert delete_response.status_code == 200
@@ -330,13 +330,13 @@ async def test_player_bilibili_social_link_verify_start_returns_code_and_token(
         return "current profile text"
 
     monkeypatch.setattr(
-        players_routes,
+        player_social_links_routes,
         "fetch_bilibili_profile_text",
         _fake_fetch_profile_text,
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-requests",
         headers=headers,
     )
 
@@ -380,13 +380,13 @@ async def test_player_bilibili_social_link_verify_start_rejects_invalid_cases(
     )
 
     forbidden = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{bilibili_link['id']}/verify/bilibili/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{bilibili_link['id']}/bilibili-verification-requests",
         headers=other_headers,
     )
     assert forbidden.status_code == 403
 
     non_bilibili = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{github_link['id']}/verify/bilibili/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{github_link['id']}/bilibili-verification-requests",
         headers=owner_headers,
     )
     assert non_bilibili.status_code == 422
@@ -399,7 +399,7 @@ async def test_player_bilibili_social_link_verify_start_rejects_invalid_cases(
     )
     assert verified_update.status_code == 200
     verified = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{bilibili_link['id']}/verify/bilibili/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{bilibili_link['id']}/bilibili-verification-requests",
         headers=owner_headers,
     )
     assert verified.status_code == 409
@@ -425,18 +425,18 @@ async def test_player_bilibili_social_link_verify_start_rejects_profile_fetch_fa
     )
 
     async def _failing_fetch(**_: object) -> str:
-        raise players_routes.BilibiliProfileFetchError(
+        raise player_social_links_routes.BilibiliProfileFetchError(
             "Failed to read the Bilibili profile text. Try again later."
         )
 
     monkeypatch.setattr(
-        players_routes,
+        player_social_links_routes,
         "fetch_bilibili_profile_text",
         _failing_fetch,
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-requests",
         headers=headers,
     )
     assert response.status_code == 503
@@ -464,7 +464,7 @@ async def test_player_twitch_social_link_verify_start_returns_authorization_url(
     monkeypatch.setattr(settings, "TWITCH_CLIENT_SECRET", "test-secret")
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/twitch/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/twitch-verification-requests",
         headers=headers,
     )
 
@@ -478,7 +478,7 @@ async def test_player_twitch_social_link_verify_start_returns_authorization_url(
     assert params["response_type"] == ["code"]
     assert (
         params["redirect_uri"][0]
-        == f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{settings.API_V1_STR}/players/social-links/verify/twitch/callback"
+        == f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{settings.API_V1_STR}/social-link-verifications/twitch/callback"
     )
     state = decode_twitch_verification_state_token(params["state"][0])
     assert state.steamid64 == steamid64
@@ -516,13 +516,13 @@ async def test_player_bilibili_social_link_confirm_verifies_matching_profile(
         return None
 
     monkeypatch.setattr(
-        players_routes,
+        player_social_links_routes,
         "verify_bilibili_profile_contains_code",
         _fake_verify,
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-confirmations",
         headers=headers,
         json={"pending_token": pending_token},
     )
@@ -570,13 +570,13 @@ async def test_player_bilibili_social_link_confirm_rejects_invalid_token_and_con
         return None
 
     monkeypatch.setattr(
-        players_routes,
+        player_social_links_routes,
         "verify_bilibili_profile_contains_code",
         _fake_verify,
     )
 
     invalid = await client.post(
-        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/bilibili/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{first_link['id']}/bilibili-verification-confirmations",
         headers=first_headers,
         json={"pending_token": "not-a-token"},
     )
@@ -588,7 +588,7 @@ async def test_player_bilibili_social_link_confirm_rejects_invalid_token_and_con
         current_account_identifier="123456",
     )
     wrong_owner = await client.post(
-        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/bilibili/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{first_link['id']}/bilibili-verification-confirmations",
         headers=first_headers,
         json={"pending_token": wrong_owner_token},
     )
@@ -600,7 +600,7 @@ async def test_player_bilibili_social_link_confirm_rejects_invalid_token_and_con
         current_account_identifier="123456",
     )
     conflict = await client.post(
-        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/bilibili/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{first_link['id']}/bilibili-verification-confirmations",
         headers=first_headers,
         json={"pending_token": conflict_token},
     )
@@ -632,27 +632,27 @@ async def test_player_bilibili_social_link_confirm_rejects_changed_link_and_miss
     )
 
     update_response = await client.patch(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}",
         headers=headers,
         json={"url": "https://space.bilibili.com/654321"},
     )
     assert update_response.status_code == 200
 
     changed = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-confirmations",
         headers=headers,
         json={"pending_token": pending_token},
     )
     assert changed.status_code == 409
 
     delete_response = await client.delete(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}",
         headers=headers,
     )
     assert delete_response.status_code == 200
 
     bilibili_create = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=headers,
         json={"url": "https://space.bilibili.com/123456"},
     )
@@ -665,18 +665,18 @@ async def test_player_bilibili_social_link_confirm_rejects_changed_link_and_miss
     )
 
     async def _missing_code(**_: object) -> None:
-        raise players_routes.BilibiliProfileVerificationCodeMissingError(
+        raise player_social_links_routes.BilibiliProfileVerificationCodeMissingError(
             "Verification code not found in the public Bilibili profile text."
         )
 
     monkeypatch.setattr(
-        players_routes,
+        player_social_links_routes,
         "verify_bilibili_profile_contains_code",
         _missing_code,
     )
 
     missing_code = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{recreated_link['id']}/verify/bilibili/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{recreated_link['id']}/bilibili-verification-confirmations",
         headers=headers,
         json={"pending_token": recreated_token},
     )
@@ -708,18 +708,18 @@ async def test_player_bilibili_social_link_confirm_rejects_upstream_fetch_failur
     )
 
     async def _fetch_error(**_: object) -> None:
-        raise players_routes.BilibiliProfileFetchError(
+        raise player_social_links_routes.BilibiliProfileFetchError(
             "Failed to fetch the Bilibili profile page. Try again later."
         )
 
     monkeypatch.setattr(
-        players_routes,
+        player_social_links_routes,
         "verify_bilibili_profile_contains_code",
         _fetch_error,
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/bilibili/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-confirmations",
         headers=headers,
         json={"pending_token": pending_token},
     )
@@ -761,13 +761,13 @@ async def test_player_twitch_social_link_verify_start_rejects_invalid_cases(
     monkeypatch.setattr(settings, "TWITCH_CLIENT_SECRET", "test-secret")
 
     forbidden = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{twitch_link['id']}/verify/twitch/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{twitch_link['id']}/twitch-verification-requests",
         headers=other_headers,
     )
     assert forbidden.status_code == 403
 
     non_twitch = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{github_link['id']}/verify/twitch/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{github_link['id']}/twitch-verification-requests",
         headers=owner_headers,
     )
     assert non_twitch.status_code == 422
@@ -780,7 +780,7 @@ async def test_player_twitch_social_link_verify_start_rejects_invalid_cases(
     )
     assert verified_update.status_code == 200
     verified = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/social-links/{twitch_link['id']}/verify/twitch/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{twitch_link['id']}/twitch-verification-requests",
         headers=owner_headers,
     )
     assert verified.status_code == 409
@@ -802,7 +802,7 @@ async def test_player_twitch_social_link_add_start_returns_authorization_url(
     monkeypatch.setattr(settings, "TWITCH_CLIENT_SECRET", "test-secret")
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/add/twitch/start",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/twitch/connection-requests",
         headers=headers,
     )
 
@@ -836,7 +836,11 @@ async def test_player_twitch_social_link_add_callback_creates_verified_link(
     async def _fake_token(**_: object) -> str:
         return "user-token"
 
-    monkeypatch.setattr(players_routes, "exchange_twitch_code_for_access_token", _fake_token)
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "exchange_twitch_code_for_access_token",
+        _fake_token,
+    )
 
     async def _fake_user(**_: object) -> TwitchAuthenticatedUser:
         return TwitchAuthenticatedUser(
@@ -844,10 +848,14 @@ async def test_player_twitch_social_link_add_callback_creates_verified_link(
             display_name="NewStreamer",
         )
 
-    monkeypatch.setattr(players_routes, "fetch_twitch_authenticated_user", _fake_user)
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "fetch_twitch_authenticated_user",
+        _fake_user,
+    )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/social-links/verify/twitch/callback",
+        f"{settings.API_V1_STR}/social-link-verifications/twitch/callback",
         params={"state": state, "code": "oauth-code"},
         follow_redirects=False,
     )
@@ -858,7 +866,7 @@ async def test_player_twitch_social_link_add_callback_creates_verified_link(
         "?tab=social-links&twitchVerification=success"
     )
     links_response = await client.get(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links",
+        f"{settings.API_V1_STR}/player-social-links/players/{steamid64}",
         headers=headers,
     )
     payload = links_response.json()
@@ -894,7 +902,11 @@ async def test_player_twitch_social_link_callback_verifies_matching_account(
     async def _fake_token(**_: object) -> str:
         return "user-token"
 
-    monkeypatch.setattr(players_routes, "exchange_twitch_code_for_access_token", _fake_token)
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "exchange_twitch_code_for_access_token",
+        _fake_token,
+    )
 
     async def _fake_user(**_: object) -> TwitchAuthenticatedUser:
         return TwitchAuthenticatedUser(
@@ -902,10 +914,14 @@ async def test_player_twitch_social_link_callback_verifies_matching_account(
             display_name="Cinyan10",
         )
 
-    monkeypatch.setattr(players_routes, "fetch_twitch_authenticated_user", _fake_user)
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "fetch_twitch_authenticated_user",
+        _fake_user,
+    )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/social-links/verify/twitch/callback",
+        f"{settings.API_V1_STR}/social-link-verifications/twitch/callback",
         params={"state": state, "code": "oauth-code"},
         follow_redirects=False,
     )
@@ -916,7 +932,7 @@ async def test_player_twitch_social_link_callback_verifies_matching_account(
         "?tab=social-links&twitchVerification=success"
     )
     links_response = await client.get(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links"
+        f"{settings.API_V1_STR}/player-social-links/players/{steamid64}"
     )
     assert links_response.json()["data"][0]["verified"] is True
 
@@ -948,7 +964,11 @@ async def test_player_twitch_social_link_callback_redirects_mismatch_without_mut
     async def _fake_token(**_: object) -> str:
         return "user-token"
 
-    monkeypatch.setattr(players_routes, "exchange_twitch_code_for_access_token", _fake_token)
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "exchange_twitch_code_for_access_token",
+        _fake_token,
+    )
 
     async def _fake_user(**_: object) -> TwitchAuthenticatedUser:
         return TwitchAuthenticatedUser(
@@ -956,10 +976,14 @@ async def test_player_twitch_social_link_callback_redirects_mismatch_without_mut
             display_name="OtherStreamer",
         )
 
-    monkeypatch.setattr(players_routes, "fetch_twitch_authenticated_user", _fake_user)
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "fetch_twitch_authenticated_user",
+        _fake_user,
+    )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/players/social-links/verify/twitch/callback",
+        f"{settings.API_V1_STR}/social-link-verifications/twitch/callback",
         params={"state": state, "code": "oauth-code"},
         follow_redirects=False,
     )
@@ -972,7 +996,7 @@ async def test_player_twitch_social_link_callback_redirects_mismatch_without_mut
     assert params["currentAccount"] == ["cinyan10"]
     assert params["authenticatedAccount"] == ["otherstreamer"]
     links_response = await client.get(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links"
+        f"{settings.API_V1_STR}/player-social-links/players/{steamid64}"
     )
     payload = links_response.json()
     assert payload["data"][0]["verified"] is False
@@ -1005,7 +1029,7 @@ async def test_player_twitch_social_link_confirm_replaces_identifier_and_verifie
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/social-links/{link['id']}/verify/twitch/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/twitch-verification-confirmations",
         headers=headers,
         json={"pending_token": pending_token},
     )
@@ -1048,7 +1072,7 @@ async def test_player_twitch_social_link_confirm_rejects_invalid_token_and_confl
     assert verified_create.status_code == 200
 
     invalid = await client.post(
-        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/twitch/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{first_link['id']}/twitch-verification-confirmations",
         headers=first_headers,
         json={"pending_token": "not-a-token"},
     )
@@ -1062,7 +1086,7 @@ async def test_player_twitch_social_link_confirm_rejects_invalid_token_and_confl
         return_path="/settings?tab=social-links",
     )
     wrong_owner = await client.post(
-        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/twitch/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{first_link['id']}/twitch-verification-confirmations",
         headers=first_headers,
         json={"pending_token": wrong_owner_token},
     )
@@ -1076,7 +1100,7 @@ async def test_player_twitch_social_link_confirm_rejects_invalid_token_and_confl
         return_path="/settings?tab=social-links",
     )
     conflict = await client.post(
-        f"{settings.API_V1_STR}/players/{first_steamid64}/social-links/{first_link['id']}/verify/twitch/confirm",
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{first_link['id']}/twitch-verification-confirmations",
         headers=first_headers,
         json={"pending_token": conflict_token},
     )

@@ -117,7 +117,7 @@ async function stubPlayerGraphql(
 }
 
 async function stubRegions(page: Page) {
-  await page.route("**/v1/regions/", async (route) => {
+  await page.route("**/v1/regions", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({

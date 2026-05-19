@@ -244,7 +244,7 @@ export const zhCN = {
     unranked: "未上榜",
     regionFallback: "地区",
     summary: {
-      steamId64: "Steam ID64",
+      steamId64: "SteamID64",
       dateJoined: "加入时间",
       lastPlayed: "最近游玩",
       playtime: "游玩时长",
@@ -293,7 +293,7 @@ export const zhCN = {
       syncFailed: "同步好友失败",
       sortFields: {
         name: "名称",
-        steamid64: "Steam ID64",
+        steamid64: "SteamID64",
         country: "国家",
         rating: "Rating",
         lastPlayed: "最近游玩",

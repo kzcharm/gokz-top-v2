@@ -168,7 +168,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
             stickyHeader
             stickyHeaderTopClassName="top-16"
             tableContainerClassName="md:overflow-visible"
-            tableClassName="border-separate border-spacing-0"
+            tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             getRowId={(row) => row.id}
             getRowProps={rowInteractionProps}

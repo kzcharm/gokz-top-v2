@@ -135,7 +135,7 @@ async def test_player_pinned_records_owner_can_create_read_and_delete(
     )
 
     create_response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
+        f"{settings.API_V1_STR}/me/pinned-records",
         headers=headers,
         json={
             "map_id": 981000,
@@ -162,9 +162,8 @@ async def test_player_pinned_records_owner_can_create_read_and_delete(
     assert read_response.json()["count"] == 1
 
     delete_response = await client.delete(
-        f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
+        f"{settings.API_V1_STR}/me/pinned-records/981000/OVR/NUB",
         headers=headers,
-        params={"map_id": 981000, "scope": "OVR", "type": "NUB"},
     )
     assert delete_response.status_code == 200
     assert delete_response.json() == {"data": [], "count": 0}
@@ -193,7 +192,7 @@ async def test_player_pinned_records_read_returns_players_pb_not_map_wr(
     )
 
     create_response = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
+        f"{settings.API_V1_STR}/me/pinned-records",
         headers=headers,
         json={
             "map_id": 981005,
@@ -223,7 +222,7 @@ async def test_player_pinned_records_repin_is_idempotent(
 
     for _ in range(2):
         response = await client.post(
-            f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
+            f"{settings.API_V1_STR}/me/pinned-records",
             headers=headers,
             json={"map_id": 981010, "scope": "OVR", "type": "NUB"},
         )
@@ -250,15 +249,13 @@ async def test_player_pinned_records_forbid_mutating_another_player(
     )
 
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{owner_steamid64}/pinned-records",
+        f"{settings.API_V1_STR}/me/pinned-records",
         headers=headers,
         json={"map_id": 981020, "scope": "OVR", "type": "NUB"},
     )
 
-    assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You cannot modify another player's pinned records"
-    }
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Pinned record target not found"
 
 
 async def test_player_pinned_records_seventh_pin_evicts_oldest_in_scope(
@@ -276,7 +273,7 @@ async def test_player_pinned_records_seventh_pin_evicts_oldest_in_scope(
 
     for map_id in map_ids:
         response = await client.post(
-            f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
+            f"{settings.API_V1_STR}/me/pinned-records",
             headers=headers,
             json={"map_id": map_id, "scope": "OVR", "type": "NUB"},
         )
@@ -305,7 +302,7 @@ async def test_player_pinned_records_read_filters_to_requested_scope(
     )
 
     response_ovr = await client.post(
-        f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
+        f"{settings.API_V1_STR}/me/pinned-records",
         headers=headers,
         json={"map_id": 981200, "scope": "OVR", "type": "NUB"},
     )

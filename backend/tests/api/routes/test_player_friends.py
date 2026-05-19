@@ -160,7 +160,7 @@ async def test_sync_player_friends_reconciles_known_friends_and_deletes_stale_ed
         db=db,
     )
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{owner.steamid64}/friends/sync",
+        f"{settings.API_V1_STR}/me/friend-sync-requests",
         headers=headers,
     )
 
@@ -216,7 +216,7 @@ async def test_sync_player_friends_private_result_preserves_existing_edges(
         db=db,
     )
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{owner.steamid64}/friends/sync",
+        f"{settings.API_V1_STR}/me/friend-sync-requests",
         headers=headers,
     )
 
@@ -265,7 +265,7 @@ async def test_sync_player_friends_failed_fetch_preserves_existing_edges_and_ret
         db=db,
     )
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{owner.steamid64}/friends/sync",
+        f"{settings.API_V1_STR}/me/friend-sync-requests",
         headers=headers,
     )
 
@@ -291,7 +291,7 @@ async def test_sync_player_friends_returns_429_when_rate_limited(
         db=db,
     )
     response = await client.post(
-        f"{settings.API_V1_STR}/players/{owner.steamid64}/friends/sync",
+        f"{settings.API_V1_STR}/me/friend-sync-requests",
         headers=headers,
     )
 

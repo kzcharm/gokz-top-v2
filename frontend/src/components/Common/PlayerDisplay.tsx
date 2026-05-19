@@ -26,7 +26,7 @@ import {
   ApiError,
   MapsService,
   type ModeScope,
-  PlayersService,
+  PlayerFollowsService,
   type RecordType,
 } from "@/client"
 import EditPlayer from "@/components/AdminPlayers/EditPlayer"
@@ -348,7 +348,7 @@ export function PlayerFollowContextMenuItem({
   const followSummaryQuery = useQuery({
     queryKey: ["profile-follow-summary", steamid64],
     queryFn: () =>
-      PlayersService.readPlayerFollowSummary({
+      PlayerFollowsService.readPlayerFollowSummary({
         identifier: steamid64,
       }),
     enabled: authenticated && menuOpen,
@@ -365,8 +365,8 @@ export function PlayerFollowContextMenuItem({
   const followMutation = useMutation({
     mutationFn: async () => {
       return isFollowing
-        ? await PlayersService.unfollowPlayer({ identifier: steamid64 })
-        : await PlayersService.followPlayer({ identifier: steamid64 })
+        ? await PlayerFollowsService.unfollowPlayer({ identifier: steamid64 })
+        : await PlayerFollowsService.followPlayer({ identifier: steamid64 })
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["profile-follow-summary", steamid64], data)

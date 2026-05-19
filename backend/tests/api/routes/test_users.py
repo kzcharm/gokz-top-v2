@@ -86,7 +86,7 @@ async def test_retrieve_users_as_superuser(
     await crud.get_or_create_user_from_steam(session=db, steamid64=random_steamid64())
 
     response = await client.get(
-        f"{settings.API_V1_STR}/users/",
+        f"{settings.API_V1_STR}/users",
         headers=superuser_token_headers,
     )
 
@@ -119,7 +119,7 @@ async def test_retrieve_users_supports_sort_by_created_at(
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/users/",
+        f"{settings.API_V1_STR}/users",
         headers=superuser_token_headers,
         params={
             "skip": 0,
@@ -160,7 +160,7 @@ async def test_retrieve_users_supports_sort_by_last_visited_at(
     )
 
     response = await client.get(
-        f"{settings.API_V1_STR}/users/",
+        f"{settings.API_V1_STR}/users",
         headers=superuser_token_headers,
         params={
             "skip": 0,
@@ -184,7 +184,7 @@ async def test_retrieve_users_without_privileges(
     normal_user_token_headers: dict[str, str],
 ) -> None:
     response = await client.get(
-        f"{settings.API_V1_STR}/users/",
+        f"{settings.API_V1_STR}/users",
         headers=normal_user_token_headers,
     )
 
@@ -209,7 +209,7 @@ async def test_retrieve_users_rejects_non_superuser_admin_roles(
     headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
 
     users_response = await client.get(
-        f"{settings.API_V1_STR}/users/",
+        f"{settings.API_V1_STR}/users",
         headers=headers,
     )
 

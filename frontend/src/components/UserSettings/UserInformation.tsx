@@ -3,11 +3,7 @@ import { CircleHelp, Pencil, Save } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import {
-  type ModeScope,
-  type PlayerSettingsPublic,
-  PlayersService,
-} from "@/client"
+import { MeService, type ModeScope, type PlayerSettingsPublic } from "@/client"
 import { CountryFlag, getCountryName } from "@/components/Common/CountryFlag"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -181,7 +177,7 @@ const UserInformation = () => {
   const settingsQuery = useQuery({
     queryKey: settingsQueryKey,
     enabled: Boolean(currentUser),
-    queryFn: () => PlayersService.readCurrentPlayerSettings(),
+    queryFn: () => MeService.readCurrentPlayerSettings(),
     staleTime: 60_000,
   })
 
@@ -260,7 +256,7 @@ const UserInformation = () => {
         requestBody.primary_scope = primaryScopeInput
       }
 
-      return PlayersService.updateCurrentPlayerSettings({ requestBody })
+      return MeService.updateCurrentPlayerSettings({ requestBody })
     },
     onSuccess: (data) => {
       queryClient.setQueryData(settingsQueryKey, data)

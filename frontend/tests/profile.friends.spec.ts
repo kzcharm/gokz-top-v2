@@ -13,7 +13,6 @@ const player = {
   last_played_at: "2026-03-31T12:00:00Z",
   updated_at: "2026-03-31T12:00:00Z",
   steamid64,
-  profile_views: 0,
 }
 
 const friend = {
@@ -26,7 +25,6 @@ const friend = {
   last_played_at: "2026-03-30T12:00:00Z",
   updated_at: "2026-03-30T12:00:00Z",
   steamid64: friendSteamid64,
-  profile_views: 0,
 }
 
 const sortableFriends = [
@@ -40,7 +38,6 @@ const sortableFriends = [
     last_played_at: "2026-03-05T12:00:00Z",
     updated_at: "2026-03-05T12:00:00Z",
     steamid64: "76561198000000003",
-    profile_views: 0,
   },
   {
     name: "Alpha",
@@ -52,7 +49,6 @@ const sortableFriends = [
     last_played_at: "2026-03-10T12:00:00Z",
     updated_at: "2026-03-10T12:00:00Z",
     steamid64: "76561198000000001",
-    profile_views: 0,
   },
   {
     name: "Bravo",
@@ -64,7 +60,6 @@ const sortableFriends = [
     last_played_at: null,
     updated_at: "2026-03-02T12:00:00Z",
     steamid64: "76561198000000002",
-    profile_views: 0,
   },
 ]
 
@@ -175,6 +170,14 @@ async function installProfileShellRoutes(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(player),
+    })
+  })
+
+  await page.route(/\/v1\/players\/[^/]+\/views$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ profile_views: 0 }),
     })
   })
 

@@ -9,7 +9,7 @@ from app.models import Mode
 
 @pytest.mark.asyncio
 async def test_read_modes_public_returns_seeded_modes(client: AsyncClient) -> None:
-    response = await client.get(f"{settings.API_V1_STR}/modes/")
+    response = await client.get(f"{settings.API_V1_STR}/modes")
 
     assert response.status_code == 200
     payload = response.json()
@@ -54,15 +54,18 @@ async def test_read_modes_v0_contract(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_get_mode_by_id_and_name(client: AsyncClient) -> None:
-    by_id_response = await client.get(f"{settings.API_V1_STR}/modes/id/201")
-    by_name_response = await client.get(f"{settings.API_V1_STR}/modes/name/kz_simple")
+    by_id_response = await client.get(f"{settings.API_V1_STR}/modes/201")
+    by_name_response = await client.get(
+        f"{settings.API_V1_STR}/modes",
+        params={"name": "kz_simple"},
+    )
 
     assert by_id_response.status_code == 200
     assert by_name_response.status_code == 200
     assert by_id_response.json()["id"] == 201
     assert by_id_response.json()["name"] == "kz_simple"
-    assert by_name_response.json()["id"] == 201
-    assert by_name_response.json()["name_short"] == "SKZ"
+    assert by_name_response.json()[0]["id"] == 201
+    assert by_name_response.json()[0]["name_short"] == "SKZ"
 
 
 @pytest.mark.asyncio
@@ -81,15 +84,16 @@ async def test_get_mode_v0_by_id_and_name(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_get_mode_not_found(client: AsyncClient) -> None:
-    by_id_response = await client.get(f"{settings.API_V1_STR}/modes/id/999")
+    by_id_response = await client.get(f"{settings.API_V1_STR}/modes/999")
     by_name_response = await client.get(
-        f"{settings.API_V1_STR}/modes/name/unknown_mode"
+        f"{settings.API_V1_STR}/modes",
+        params={"name": "unknown_mode"},
     )
 
     assert by_id_response.status_code == 404
-    assert by_name_response.status_code == 404
+    assert by_name_response.status_code == 200
     assert by_id_response.json() == {"detail": "Mode not found"}
-    assert by_name_response.json() == {"detail": "Mode not found"}
+    assert by_name_response.json() == []
 
 
 @pytest.mark.asyncio
