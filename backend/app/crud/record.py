@@ -1381,6 +1381,63 @@ async def read_records(
     return records, count
 
 
+async def read_records_with_replays(
+    *,
+    session: AsyncSession,
+    record_uuids: Sequence[uuid.UUID],
+    scope: ModeScope,
+    exclude_cheaters: bool,
+) -> list[RecordPublic]:
+    unique_record_uuids = list(dict.fromkeys(record_uuids))
+    if not unique_record_uuids:
+        return []
+
+    statement = (
+        select(Record, Player, ServerGlobalapi, Map, Mode)
+        .join(Player, col(Record.steamid64) == col(Player.steamid64))
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .join(Map, col(Record.map_id) == col(Map.id))
+        .join(Mode, col(Record.mode) == col(Mode.name_short))
+        .where(col(Record.uuid).in_(unique_record_uuids))
+    )
+    if exclude_cheaters:
+        statement = statement.where(
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+        )
+
+    rows = list((await session.exec(statement)).all())
+    if not rows:
+        return []
+
+    points_by_uuid = await _load_pb_points_by_record_uuid(
+        session=session,
+        record_uuids=[record.uuid for record, *_rest in rows],
+        scope=scope,
+    )
+    tiers_by_course = await _load_scoped_record_tiers(
+        session=session,
+        record_courses=[(record.map_id, record.stage) for record, *_rest in rows],
+        scope=scope,
+    )
+    publics_by_uuid = {
+        record.uuid: to_record_public(
+            record=record,
+            player=player,
+            server=server,
+            map_obj=map_obj,
+            mode=mode,
+            map_tier=tiers_by_course[(record.map_id, record.stage)],
+            points=points_by_uuid.get(record.uuid, 0),
+        )
+        for record, player, server, map_obj, mode in rows
+    }
+    return [
+        publics_by_uuid[record_uuid]
+        for record_uuid in unique_record_uuids
+        if record_uuid in publics_by_uuid
+    ]
+
+
 async def read_recent_records(
     *,
     session: AsyncSession,

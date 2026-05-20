@@ -211,6 +211,7 @@ from .record import (
     MapCourse,
     MapPbLeaderboardPublic,
     MapWrPublic,
+    ReplayListQuery,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
     RecentRecordMapPublic,
