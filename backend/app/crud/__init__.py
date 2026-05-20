@@ -209,6 +209,7 @@ from .record import (
     read_recent_records,
     read_record_ranks,
     read_records,
+    read_records_with_replays,
     rebuild_record_pb_points_bucket,
     rebuild_record_pb_points_for_course,
     rebuild_record_pbs,

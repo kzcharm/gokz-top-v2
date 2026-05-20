@@ -181,19 +181,19 @@ function MapHero({
   return (
     <section className="overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm">
       <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(280px,0.76fr)_minmax(380px,1.24fr)] lg:items-start">
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted">
+        <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted leading-none">
           {imageUrl ? (
             <Dialog>
               <DialogTrigger asChild>
                 <button
                   type="button"
-                  className="relative aspect-video w-full cursor-zoom-in overflow-hidden"
+                  className="relative block aspect-video h-full w-full cursor-zoom-in overflow-hidden leading-none"
                   aria-label={t("maps.zoomImage", { mapName: map.name })}
                 >
                   <img
                     src={imageUrl}
                     alt={t("maps.imageAlt", { mapName: map.name })}
-                    className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.02]"
+                    className="block h-full w-full scale-[1.002] object-cover transition-transform duration-300 hover:scale-[1.022]"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
                 </button>
@@ -202,11 +202,11 @@ function MapHero({
                 className="max-w-[min(96vw,72rem)] border-0 bg-transparent p-0 shadow-none sm:max-w-[min(96vw,72rem)]"
                 showCloseButton={false}
               >
-                <div className="flex justify-center overflow-hidden rounded-[24px]">
+                <div className="flex justify-center overflow-hidden rounded-[24px] leading-none">
                   <img
                     src={imageUrl}
                     alt={t("maps.imageAltEnlarged", { mapName: map.name })}
-                    className="max-h-[85vh] max-w-full rounded-[24px] object-contain"
+                    className="block max-h-[85vh] max-w-full scale-[1.002] rounded-[24px] object-contain"
                   />
                 </div>
               </DialogContent>

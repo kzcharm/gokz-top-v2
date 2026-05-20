@@ -129,13 +129,6 @@ function PbRecordTableRow({
           {formatRecordTime(record.time)}
         </TableCell>
       ) : null}
-      {showReplayColumn ? (
-        <TableCell className="w-10 px-2">
-          <div className="flex justify-center">
-            <ReplayAvailabilityButton record={record} />
-          </div>
-        </TableCell>
-      ) : null}
       {visibleColumns.has("points") ? (
         <TableCell>
           <PointsBadge points={record.points} />
@@ -158,6 +151,13 @@ function PbRecordTableRow({
             display={dateTimeDisplay}
             fallback="-"
           />
+        </TableCell>
+      ) : null}
+      {showReplayColumn ? (
+        <TableCell className="w-10 px-2">
+          <div className="flex justify-center">
+            <ReplayAvailabilityButton record={record} />
+          </div>
         </TableCell>
       ) : null}
     </TableRow>
@@ -332,11 +332,6 @@ export function PbRecordsTable({
                   />
                 </TableHead>
               ) : null}
-              {showReplayColumn ? (
-                <TableHead className={`w-10 px-2 ${tableHeadClassName}`}>
-                  <span className="sr-only">Replay</span>
-                </TableHead>
-              ) : null}
               {visibleColumns.has("points") ? (
                 <TableHead className={`min-w-24 ${tableHeadClassName}`}>
                   <SortableHeader
@@ -370,17 +365,36 @@ export function PbRecordsTable({
                   />
                 </TableHead>
               ) : null}
+              {showReplayColumn ? (
+                <TableHead className={`w-10 px-2 ${tableHeadClassName}`}>
+                  <span className="sr-only">Replay</span>
+                </TableHead>
+              ) : null}
             </TableRow>
             {hasColumnFilters ? (
               <TableRow className="hover:bg-transparent">
-                {columns.map((column) => (
-                  <TableHead
-                    key={`filter-${column}`}
-                    className="h-auto border-t border-border/60 px-3 py-3 align-top"
-                  >
-                    {columnFilters?.[column] ?? null}
-                  </TableHead>
-                ))}
+                {columns.map((column) => {
+                  const filterCell = (
+                    <TableHead
+                      key={`filter-${column}`}
+                      className="h-auto border-t border-border/60 px-3 py-3 align-top"
+                    >
+                      {columnFilters?.[column] ?? null}
+                    </TableHead>
+                  )
+
+                  if (column === "datetime" && showReplayColumn) {
+                    return [
+                      filterCell,
+                      <TableHead
+                        key="filter-replay"
+                        className="h-auto w-10 border-t border-border/60 px-2 py-3 align-top"
+                      />,
+                    ]
+                  }
+
+                  return filterCell
+                })}
               </TableRow>
             ) : null}
           </TableHeader>

@@ -433,6 +433,18 @@ class RecordListQuery(SQLModel):
     updated_since: datetime | None = None
 
 
+class ReplayListQuery(SQLModel):
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=100, ge=1, le=10000)
+    scope: ModeScope = ModeScope.OVR
+    exclude_cheaters: bool = True
+    steamid64: int | None = Field(default=None, sa_type=BigInteger)
+    map_name: str | None = Field(default=None, max_length=255)
+    mode: KZMode | None = None
+    stage: int = Field(default=0, ge=0)
+    teleports: int | None = Field(default=None, ge=0)
+
+
 class RecordPatch(SQLModel):
     model_config = {"extra": "forbid"}
 
