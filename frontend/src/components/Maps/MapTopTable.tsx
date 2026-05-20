@@ -55,6 +55,7 @@ export function MapTopTable({
     () => [
       {
         accessorKey: "rank",
+        size: 96,
         header: () => t("labels.rank"),
         cell: ({ row }) => (
           <span className="font-mono font-semibold text-foreground/90">
@@ -64,6 +65,7 @@ export function MapTopTable({
       },
       {
         id: "player",
+        size: 300,
         header: () => t("labels.player"),
         cell: ({ row }) => (
           <PlayerDisplay
@@ -75,11 +77,13 @@ export function MapTopTable({
       },
       {
         id: "mode",
+        size: 96,
         header: () => t("labels.mode"),
         cell: ({ row }) => <ModeBadge mode={row.original.record.mode} />,
       },
       {
         id: "tps",
+        size: 96,
         header: () => t("labels.tps"),
         cell: ({ row }) => (
           <TeleportsBadge teleports={row.original.record.teleports} />
@@ -87,11 +91,48 @@ export function MapTopTable({
       },
       {
         id: "time",
+        size: 148,
+        meta: {
+          headerClassName: "text-right",
+          cellClassName: "text-right",
+        },
         header: () => <div className="text-right">{t("labels.time")}</div>,
         cell: ({ row }) => (
           <div className="text-right font-mono font-medium">
             {formatRecordTime(row.original.record.time)}
           </div>
+        ),
+      },
+      {
+        id: "points",
+        size: 112,
+        header: () => t("labels.points"),
+        cell: ({ row }) => <PointsBadge points={row.original.record.points} />,
+      },
+      {
+        id: "server",
+        size: 320,
+        header: () => t("labels.server"),
+        cell: ({ row }) => (
+          <span
+            className="block max-w-[14rem] truncate text-sm text-foreground/90"
+            title={row.original.record.server_name}
+          >
+            {truncateText(row.original.record.server_name, 32)}
+          </span>
+        ),
+      },
+      {
+        id: "datetime",
+        size: 176,
+        header: () => t("labels.datetime"),
+        cell: ({ row }) => (
+          <FormattedDateTime
+            className="text-sm text-muted-foreground"
+            value={row.original.record.created_on}
+            display="contextual-relative"
+            fallback="-"
+          />
         ),
       },
       {
@@ -112,35 +153,6 @@ export function MapTopTable({
           </div>
         ),
       },
-      {
-        id: "points",
-        header: () => t("labels.points"),
-        cell: ({ row }) => <PointsBadge points={row.original.record.points} />,
-      },
-      {
-        id: "server",
-        header: () => t("labels.server"),
-        cell: ({ row }) => (
-          <span
-            className="block max-w-[14rem] truncate text-sm text-foreground/90"
-            title={row.original.record.server_name}
-          >
-            {truncateText(row.original.record.server_name, 32)}
-          </span>
-        ),
-      },
-      {
-        id: "datetime",
-        header: () => t("labels.datetime"),
-        cell: ({ row }) => (
-          <FormattedDateTime
-            className="text-sm text-muted-foreground"
-            value={row.original.record.created_on}
-            display="contextual-relative"
-            fallback="-"
-          />
-        ),
-      },
     ],
     [t],
   )
@@ -158,7 +170,7 @@ export function MapTopTable({
           stickyHeader
           stickyHeaderTopClassName="top-16"
           tableContainerClassName="md:overflow-visible"
-          tableClassName="border-separate border-spacing-0"
+          tableClassName="table-fixed border-separate border-spacing-0"
           showFooter={false}
           getRowProps={(row) => ({
             "data-player-steamid64": row.record.player.steamid64,
