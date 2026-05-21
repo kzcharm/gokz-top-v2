@@ -27,6 +27,15 @@ def _decimal_to_float(value: Decimal | None) -> float | None:
     return float(value)
 
 
+def _normalize_deviation_angle(value: float) -> float:
+    normalized = abs(value) % 180.0
+    if normalized > 90.0:
+        normalized = 180.0 - normalized
+    if normalized > 45.0:
+        normalized = 90.0 - normalized
+    return normalized
+
+
 class JumpstatType(StrEnum):
     LJ = "LJ"
     BH = "BH"
@@ -101,6 +110,11 @@ class JumpstatVisualizationPublic(SQLModel):
     deviation_angle: float
     bounds: JumpstatVisualizationBounds
     samples: list[JumpstatVisualizationSample]
+
+    @field_validator("deviation_angle", mode="before")
+    @classmethod
+    def _validate_deviation_angle(cls, value: float) -> float:
+        return _normalize_deviation_angle(float(value))
 
 
 def _normalize_strafe_stats(value: Any) -> list[dict[str, Any]]:

@@ -367,7 +367,7 @@ test("Profile jumpstats rows open the shared details dialog", async ({
         body: JSON.stringify({
           version: 1,
           jump_direction: "FORWARDS",
-          deviation_angle: -12.5,
+          deviation_angle: 12.5,
           bounds: {
             min_x: -1,
             max_x: 1,
@@ -421,7 +421,7 @@ test("Profile jumpstats rows open the shared details dialog", async ({
     page.getByRole("img", { name: "Route visualization" }),
   ).toBeVisible()
   await expect(page.getByRole("dialog")).toContainText(
-    "Deviation angle: -12.50°",
+    "Deviation angle: 12.50°",
   )
   await expect(
     page.getByRole("button", { name: "Play this jump replay" }),
