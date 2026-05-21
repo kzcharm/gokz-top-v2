@@ -74,7 +74,7 @@ jobs:
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
-          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://api.${DOMAIN}
+          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://api.${DOMAIN},https://replay-viewer.kzcharm.com
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}
