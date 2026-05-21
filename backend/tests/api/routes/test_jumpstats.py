@@ -22,6 +22,7 @@ from app.models import (
     KZMode,
     Player,
 )
+from app.services.jump_replay_parser import JUMPSTAT_VISUALIZATION_VERSION
 from app.services.jump_replay_storage import get_jump_replay_path, save_jump_replay
 from tests.utils.jump_replay import (
     build_synthetic_jump_replay,
@@ -50,11 +51,14 @@ def _build_strafe_stats(*, strafes: int) -> list[dict[str, float | int]]:
     ]
 
 
-def _build_visualization_payload(*, version: int = 1) -> dict[str, object]:
+def _build_visualization_payload(
+    *,
+    version: int = JUMPSTAT_VISUALIZATION_VERSION,
+) -> dict[str, object]:
     payload = JumpstatVisualizationPublic(
-        version=1,
+        version=JUMPSTAT_VISUALIZATION_VERSION,
         jump_direction=JumpstatVisualizationJumpDirection.FORWARDS,
-        deviation_angle=-12.5,
+        deviation_angle=12.5,
         bounds=JumpstatVisualizationBounds(
             min_x=-1.0,
             max_x=1.0,
@@ -328,13 +332,14 @@ async def test_read_jumpstat_visualization_builds_and_persists_missing_cache(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["version"] == 1
+    assert payload["version"] == JUMPSTAT_VISUALIZATION_VERSION
     assert payload["jump_direction"] == "FORWARDS"
+    assert payload["deviation_angle"] == pytest.approx(11.3099, abs=1e-4)
     assert len(payload["samples"]) == 4
 
     await db.refresh(jumpstat)
     assert jumpstat.visualization_data is not None
-    assert jumpstat.visualization_data["version"] == 1
+    assert jumpstat.visualization_data["version"] == JUMPSTAT_VISUALIZATION_VERSION
 
 
 @pytest.mark.asyncio
@@ -354,7 +359,9 @@ async def test_read_jumpstat_visualization_rebuilds_outdated_cache(
         db,
         player_steamid64=player.steamid64,
         server_group_id=group.id,
-        visualization_data=_build_visualization_payload(version=0),
+        visualization_data=_build_visualization_payload(
+            version=JUMPSTAT_VISUALIZATION_VERSION - 1
+        ),
     )
     synthetic = build_synthetic_jump_replay()
     monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
@@ -366,12 +373,15 @@ async def test_read_jumpstat_visualization_rebuilds_outdated_cache(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["version"] == 1
-    assert payload["samples"] != _build_visualization_payload(version=0)["samples"]
+    assert payload["version"] == JUMPSTAT_VISUALIZATION_VERSION
+    assert payload["deviation_angle"] == pytest.approx(11.3099, abs=1e-4)
+    assert payload["samples"] != _build_visualization_payload(
+        version=JUMPSTAT_VISUALIZATION_VERSION - 1
+    )["samples"]
 
     await db.refresh(jumpstat)
     assert jumpstat.visualization_data is not None
-    assert jumpstat.visualization_data["version"] == 1
+    assert jumpstat.visualization_data["version"] == JUMPSTAT_VISUALIZATION_VERSION
 
 
 @pytest.mark.asyncio

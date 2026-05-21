@@ -1101,11 +1101,27 @@ test.describe("Leaderboards page", () => {
     await page.addInitScript(() => {
       localStorage.clear()
       let copiedText = ""
+      let lastOpenedUrl = ""
       Object.defineProperty(window, "__jumpstatCopiedText", {
         configurable: true,
         get: () => copiedText,
         set: (value: string) => {
           copiedText = value
+        },
+      })
+      Object.defineProperty(window, "__lastOpenedUrl", {
+        configurable: true,
+        get: () => lastOpenedUrl,
+        set: (value: string) => {
+          lastOpenedUrl = value
+        },
+      })
+      Object.defineProperty(window, "open", {
+        configurable: true,
+        value: (url?: string | URL) => {
+          lastOpenedUrl =
+            typeof url === "string" ? url : url?.toString?.() ?? ""
+          return null
         },
       })
       Object.defineProperty(navigator, "clipboard", {
@@ -1204,7 +1220,7 @@ test.describe("Leaderboards page", () => {
           body: JSON.stringify({
             version: 1,
             jump_direction: "FORWARDS",
-            deviation_angle: -12.5,
+            deviation_angle: 12.5,
             bounds: {
               min_x: -1,
               max_x: 1,
@@ -1257,11 +1273,24 @@ test.describe("Leaderboards page", () => {
       page.getByRole("img", { name: "Route visualization" }),
     ).toBeVisible()
     await expect(page.getByRole("dialog")).toContainText(
-      "Deviation angle: -12.50°",
+      "Deviation angle: 12.50°",
     )
     await expect(
       page.getByRole("button", { name: "Copy details" }),
     ).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: "Play this jump replay" }),
+    ).toBeVisible()
+    await page.getByRole("button", { name: "Play this jump replay" }).click()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __lastOpenedUrl?: string }).__lastOpenedUrl ??
+            "",
+        ),
+      )
+      .toBe("http://localhost:5180/?jump_id=11111111-1111-4111-8111-111111111111")
     await page.getByRole("button", { name: "Copy details" }).click()
     await expect
       .poll(() =>

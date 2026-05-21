@@ -79,6 +79,18 @@ VITE_API_URL=https://api.my-domain.example.com
 
 Then, when you run the frontend, it will use that URL as the base URL for the API.
 
+## Replay Viewer URL
+
+The frontend can open run and jump replays in the separate replay viewer. Set
+`VITE_REPLAY_VIEWER_URL` to the viewer root URL when needed:
+
+```env
+VITE_REPLAY_VIEWER_URL=http://localhost:5180
+```
+
+If it is not set, the frontend defaults to `http://localhost:5180` in dev and
+`https://replay-viewer.kzcharm.com` outside dev mode.
+
 ## Code Structure
 
 The frontend code is structured as follows:

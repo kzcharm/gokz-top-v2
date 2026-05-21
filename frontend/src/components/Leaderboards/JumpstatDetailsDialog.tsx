@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Check, Copy, TriangleAlertIcon } from "lucide-react"
+import { Check, Copy, Play, TriangleAlertIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -17,6 +17,10 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import {
+  buildJumpReplayViewerUrl,
+  openReplayViewer,
+} from "@/lib/replay-viewer"
 import { extractErrorMessage } from "@/utils"
 
 function formatDecimal(value: number, digits = 1) {
@@ -104,6 +108,7 @@ function JumpstatDetailPanel({
   const { t } = useTranslation()
   const consoleBlock = buildConsoleBlock(jumpstat)
   const [copiedText, copyToClipboard] = useCopyToClipboard()
+  const playReplayLabel = t("common.playJumpReplay")
 
   const handleCopyConsoleBlock = async () => {
     const copyText = visualization
@@ -129,7 +134,7 @@ function JumpstatDetailPanel({
   return (
     <div className="space-y-6">
       <div className="rounded-[26px] border border-border/70 bg-card/95 p-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div>
             <div className="text-[11px] font-medium tracking-[0.16em] text-muted-foreground uppercase">
               Player
@@ -164,6 +169,26 @@ function JumpstatDetailPanel({
                 value={jumpstat.jumped_at}
                 display="absolute"
               />
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] font-medium tracking-[0.16em] text-muted-foreground uppercase">
+              {t("labels.replay")}
+            </div>
+            <div className="mt-2 flex min-h-10 items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-md border-0 bg-transparent p-0 shadow-none hover:bg-accent/40"
+                onClick={() =>
+                  openReplayViewer(buildJumpReplayViewerUrl(jumpstat.id))
+                }
+                aria-label={playReplayLabel}
+                title={playReplayLabel}
+              >
+                <Play className="size-4" />
+              </Button>
             </div>
           </div>
         </div>

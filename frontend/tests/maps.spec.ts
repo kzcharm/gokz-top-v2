@@ -92,6 +92,7 @@ function createLeaderboardRecord({
   country,
   teleports,
   time,
+  replayAvailable = false,
 }: {
   index: number
   steamid64: string
@@ -99,6 +100,7 @@ function createLeaderboardRecord({
   country: string
   teleports: number
   time: number
+  replayAvailable?: boolean
 }) {
   return {
     country,
@@ -126,6 +128,7 @@ function createLeaderboardRecord({
       updated_on: `2026-03-${`${(index % 28) + 1}`.padStart(2, "0")}T12:00:00Z`,
       updated_by: steamid64,
       replay_id: null,
+      is_replay_available: replayAvailable,
       is_valid: true,
     },
   }
@@ -139,6 +142,7 @@ const mapLeaderboardSeedRows = [
     country: "DE",
     teleports: 0,
     time: 41.123,
+    replayAvailable: true,
   }),
   createLeaderboardRecord({
     index: 2,
@@ -635,4 +639,68 @@ test("Map detail shows leaderboard error state when PB loading fails", async ({
   await page.goto(`/maps/${seededMaps[0].name}`)
 
   await expect(page.getByText("Unable to load map leaderboard")).toBeVisible()
+})
+
+test("Map detail opens the replay viewer for an available run replay", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let lastOpenedUrl = ""
+    Object.defineProperty(window, "__lastOpenedUrl", {
+      configurable: true,
+      get: () => lastOpenedUrl,
+      set: (value: string) => {
+        lastOpenedUrl = value
+      },
+    })
+    Object.defineProperty(window, "open", {
+      configurable: true,
+      value: (url?: string | URL) => {
+        lastOpenedUrl =
+          typeof url === "string" ? url : url?.toString?.() ?? ""
+        return null
+      },
+    })
+  })
+  await stubRegions(page)
+
+  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seededMaps[0]),
+    })
+  })
+
+  await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [mapLeaderboardSeedRows[0].record],
+        count: 1,
+        unique_nub_finishes: 1,
+        unique_pro_finishes: 1,
+        current_user_rank: null,
+        current_user_steamid64: null,
+      }),
+    })
+  })
+
+  await page.goto(`/maps/${seededMaps[0].name}`)
+
+  await expect(page.getByText("Alpha Runner")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Play this run replay" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Play this run replay" }).click()
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as Window & { __lastOpenedUrl?: string }).__lastOpenedUrl ??
+          "",
+      ),
+    )
+    .toBe("http://localhost:5180/?replay=019e0001-0001-7001-8001-000000000001")
 })

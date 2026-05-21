@@ -158,6 +158,7 @@ services:
       args:
         - VITE_API_URL=https://${API_HOST?Variable not set}
         - VITE_APP_VERSION=${VITE_APP_VERSION:-dev}
+        - VITE_REPLAY_VIEWER_URL=https://replay-viewer.kzcharm.com
         - NODE_ENV=production
     labels:
       - traefik.enable=true
