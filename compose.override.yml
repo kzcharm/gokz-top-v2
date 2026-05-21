@@ -95,6 +95,7 @@ services:
       args:
         - VITE_API_URL=http://localhost:8000
         - VITE_APP_VERSION=${VITE_APP_VERSION:-dev}
+        - VITE_REPLAY_VIEWER_URL=http://localhost:5180
         - NODE_ENV=development
 
   playwright:
