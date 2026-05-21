@@ -117,8 +117,9 @@ services:
       - PLAYWRIGHT_HTML_HOST=0.0.0.0
       - CI=${CI}
     volumes:
-      - ./frontend/blob-report:/app/frontend/blob-report
-      - ./frontend/test-results:/app/frontend/test-results
+      - ./.temp/frontend/blob-report:/app/.temp/frontend/blob-report
+      - ./.temp/frontend/test-results:/app/.temp/frontend/test-results
+      - ./.temp/frontend/playwright-report:/app/.temp/frontend/playwright-report
     ports:
       - 9323:9323
 

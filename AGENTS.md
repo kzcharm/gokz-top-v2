@@ -48,6 +48,13 @@ Do not hand-edit generated files in `frontend/src/client/` or `frontend/src/rout
 
 For database schema changes, create migrations with Alembic autogenerate rather than writing migration files by hand.
 
+## Temporary Artifact Workflow
+Store disposable artifacts under `/.temp/` at the repository root. This includes screenshots, Playwright reports, test result files, ad-hoc exports, one-off debug logs, and scratch task folders.
+
+Use task-specific subdirectories such as `/.temp/frontend/test-results`, `/.temp/frontend/playwright-report`, `/.temp/screenshots`, or `/.temp/<task-name>/`. Do not create temporary files at the repo root or inside tracked source directories unless the file is meant to be committed.
+
+Before finishing a task, either delete ad-hoc artifacts or move them into `/.temp/`. Treat anything outside `/.temp/` as potentially commit-worthy.
+
 ## Documentation Workflow
 Public documentation lives in the `notes/` submodule, backed by the separate `kzcharm/gokz-top-docs` repository.
 

@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 import 'dotenv/config'
 
+const TEMP_ARTIFACTS_DIR = '../.temp/frontend'
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -11,6 +13,7 @@ import 'dotenv/config'
  */
 export default defineConfig({
   testDir: './tests',
+  outputDir: `${TEMP_ARTIFACTS_DIR}/test-results`,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -20,7 +23,9 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: process.env.CI ? 'blob' : 'html',
+  reporter: process.env.CI
+    ? [['blob', { outputDir: `${TEMP_ARTIFACTS_DIR}/blob-report` }]]
+    : [['html', { outputFolder: `${TEMP_ARTIFACTS_DIR}/playwright-report` }]],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */

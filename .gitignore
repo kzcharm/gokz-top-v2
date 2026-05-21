@@ -2,6 +2,7 @@
 !.vscode/extensions.json
 .env
 node_modules/
+/.temp/
 /test-results/
 /playwright-report/
 /blob-report/
