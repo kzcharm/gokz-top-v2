@@ -30,6 +30,7 @@ import {
   type RecordType,
 } from "@/client"
 import EditPlayer from "@/components/AdminPlayers/EditPlayer"
+import { suppressRowInteractions } from "@/components/Common/interaction-suppression"
 import {
   getPlayerRatingBadgeIcon,
   getPlayerRatingLevel,
@@ -715,6 +716,13 @@ export function PlayerDisplay({
     event.stopPropagation()
   }
 
+  const handleAddBanDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      suppressRowInteractions()
+    }
+    setAddBanDialogOpen(open)
+  }
+
   if (!hasProfileLink) {
     return content
   }
@@ -744,6 +752,9 @@ export function PlayerDisplay({
         align="start"
         sideOffset={10}
         className="min-w-44"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
         <PlayerContextMenuItems
           closeMenu={() => setMenuOpen(false)}
@@ -772,7 +783,7 @@ export function PlayerDisplay({
       <Suspense fallback={null}>
         <AddBanDialog
           open={addBanDialogOpen}
-          onOpenChange={setAddBanDialogOpen}
+          onOpenChange={handleAddBanDialogOpenChange}
           initialPlayer={{
             steamid64,
             displayName,

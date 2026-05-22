@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 
 import { BansService, type BanType } from "@/client"
+import { suppressRowInteractions } from "@/components/Common/interaction-suppression"
 import type { PlayerDisplayPlayer } from "@/components/Common/PlayerDisplay"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import {
@@ -105,6 +106,27 @@ export function AddBanDialog({
     setFormError(null)
   }, [initialPlayer, open])
 
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      onOpenChange(false)
+    }
+
+    window.addEventListener("keydown", handleEscape, true)
+    return () => {
+      window.removeEventListener("keydown", handleEscape, true)
+    }
+  }, [onOpenChange, open])
+
   const createBanMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPlayer) {
@@ -146,7 +168,26 @@ export function AddBanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
+      <DialogContent
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl"
+        onClick={(event) => event.stopPropagation()}
+        onInteractOutside={(event) => {
+          suppressRowInteractions()
+          event.preventDefault()
+        }}
+        onEscapeKeyDown={() => onOpenChange(false)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            return
+          }
+          event.stopPropagation()
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDownOutside={(event) => {
+          suppressRowInteractions()
+          event.preventDefault()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Add Ban</DialogTitle>
           <DialogDescription>

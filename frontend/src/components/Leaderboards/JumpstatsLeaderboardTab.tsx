@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 
 import { type JumpstatType, LeaderboardsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { areRowInteractionsSuppressed } from "@/components/Common/interaction-suppression"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { JumpstatDetailsDialog } from "@/components/Leaderboards/JumpstatDetailsDialog"
 import {
@@ -82,6 +83,9 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
       "cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none",
     tabIndex: 0,
     onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+      if (areRowInteractionsSuppressed()) {
+        return
+      }
       const target = event.target as HTMLElement
       if (target.closest("a, button, input, select, textarea")) {
         return
@@ -89,6 +93,9 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
       setSelectedJumpstatId(row.id)
     },
     onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+      if (areRowInteractionsSuppressed()) {
+        return
+      }
       if (event.key !== "Enter" && event.key !== " ") {
         return
       }
