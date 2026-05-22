@@ -1460,6 +1460,7 @@ export type JumpstatsReadJumpstatVisualizationResponse = (JumpstatVisualizationP
 
 export type LeaderboardsReadJumpstatLeaderboardData = {
     limit?: number;
+    minRating?: number;
     offset?: number;
     scope?: ModeScope;
     sortBy?: 'distance' | 'block';
@@ -1970,6 +1971,32 @@ export type RecordsPatchRecordData = {
 export type RecordsPatchRecordResponse = (RecordPublic);
 
 export type RegionsReadRegionsResponse = (RegionsPublic);
+
+export type ReplaysReadReplaysData = {
+    excludeCheaters?: boolean;
+    limit?: number;
+    mapName?: (string | null);
+    mode?: (KZMode | null);
+    offset?: number;
+    scope?: ModeScope;
+    stage?: number;
+    steamid64?: (number | null);
+    teleports?: (number | null);
+};
+
+export type ReplaysReadReplaysResponse = (RecordsPublic);
+
+export type ReplaysReadJumpReplayData = {
+    jumpstatId: string;
+};
+
+export type ReplaysReadJumpReplayResponse = (unknown);
+
+export type ReplaysReadRunReplayData = {
+    recordUuid: string;
+};
+
+export type ReplaysReadRunReplayResponse = (unknown);
 
 export type ServerGroupsReadServerGroupsResponse = (ServerGroupsPublic);
 

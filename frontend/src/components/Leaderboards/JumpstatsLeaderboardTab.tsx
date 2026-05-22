@@ -18,14 +18,24 @@ import type { AppScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { extractErrorMessage } from "@/utils"
+
+const MIN_RATING_OPTIONS = [6, 7, 8, 9, 10] as const
 
 export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   const { t } = useTranslation()
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [selectedType, setSelectedType] = useState<JumpstatType>("LJ")
+  const [selectedMinRating, setSelectedMinRating] = useState(7)
   const [blockEnabled, setBlockEnabled] = useState(false)
   const [lastKnownTotalCount, setLastKnownTotalCount] = useState(0)
   const [selectedJumpstatId, setSelectedJumpstatId] = useState<string | null>(
@@ -39,6 +49,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
       "jumpstats",
       scope,
       selectedType,
+      selectedMinRating,
       blockEnabled,
       pageIndex,
       pageSize,
@@ -51,6 +62,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
         offset: pageIndex * pageSize,
         limit: pageSize,
         sortBy,
+        minRating: selectedMinRating,
       }),
     staleTime: 30_000,
   })
@@ -118,7 +130,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
         }}
         className="gap-0"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="-mx-2 min-w-0 flex-1 overflow-x-auto px-2 py-1">
             <TabsList
               aria-label={t("leaderboards.jumpstats.jumpType")}
@@ -136,21 +148,47 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
             </TabsList>
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            className={
-              blockEnabled
-                ? "ml-auto shrink-0 rounded-xl border border-[#7c98d6] bg-[#dbe7ff] text-[#244488] shadow-sm hover:bg-[#cfdfff] hover:text-[#1d3a78]"
-                : "ml-auto shrink-0 rounded-xl border border-[#c9d7f3] bg-[#eef4ff] text-[#5671aa] hover:bg-[#e3ecff] hover:text-[#3f5d96]"
-            }
-            onClick={() => {
-              setBlockEnabled((current) => !current)
-              setPageIndex(0)
-            }}
-          >
-            {t("leaderboards.jumpstats.columns.block")}
-          </Button>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Select
+              value={String(selectedMinRating)}
+              onValueChange={(value) => {
+                setSelectedMinRating(Number(value))
+                setPageIndex(0)
+              }}
+            >
+              <SelectTrigger
+                aria-label={t("leaderboards.jumpstats.minRatingAria")}
+                className="h-9 w-[120px] rounded-full border border-[#d9ddea] bg-[#fbfafc] px-4 text-[14px] font-medium text-[#5f677c] shadow-none hover:bg-[#fbfafc] focus-visible:ring-2 focus-visible:ring-[#d9ddea]/70 [&_svg]:text-[#a7adbb]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {MIN_RATING_OPTIONS.map((rating) => (
+                  <SelectItem key={rating} value={String(rating)}>
+                    {t("leaderboards.jumpstats.minRatingValue", {
+                      value: rating,
+                    })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className={
+                blockEnabled
+                  ? "shrink-0 rounded-xl border border-[#7c98d6] bg-[#dbe7ff] text-[#244488] shadow-sm hover:bg-[#cfdfff] hover:text-[#1d3a78]"
+                  : "shrink-0 rounded-xl border border-[#c9d7f3] bg-[#eef4ff] text-[#5671aa] hover:bg-[#e3ecff] hover:text-[#3f5d96]"
+              }
+              onClick={() => {
+                setBlockEnabled((current) => !current)
+                setPageIndex(0)
+              }}
+            >
+              {t("leaderboards.jumpstats.columns.block")}
+            </Button>
+          </div>
         </div>
       </Tabs>
 

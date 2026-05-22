@@ -484,6 +484,8 @@ export const ru = {
     jumpstats: {
       filters: "Фильтры",
       jumpType: "Тип прыжка",
+      minRatingAria: "Минимальный рейтинг",
+      minRatingValue: "Rating {{value}}+",
       loadFailedTitle: "Не удалось загрузить таблицу jumpstats",
       loadFailedDescription: "Не удалось загрузить таблицу лидеров jumpstats.",
       empty: "Записи для таблицы лидеров jumpstats не найдены.",

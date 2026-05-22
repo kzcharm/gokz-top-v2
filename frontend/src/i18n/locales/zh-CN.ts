@@ -468,6 +468,8 @@ export const zhCN = {
     jumpstats: {
       filters: "筛选",
       jumpType: "跳跃类型",
+      minRatingAria: "最低评级",
+      minRatingValue: "Rating {{value}}+",
       loadFailedTitle: "无法加载 jumpstats 排行榜",
       loadFailedDescription: "jumpstats 排行榜加载失败。",
       empty: "未找到 jumpstats 排行榜数据。",

@@ -478,6 +478,8 @@ export const en = {
     jumpstats: {
       filters: "Filters",
       jumpType: "Jump Type",
+      minRatingAria: "Minimum rating",
+      minRatingValue: "Rating {{value}}+",
       loadFailedTitle: "Unable to load jumpstats leaderboard",
       loadFailedDescription: "The jumpstats leaderboard could not be loaded.",
       empty: "No jumpstats leaderboard entries found.",
