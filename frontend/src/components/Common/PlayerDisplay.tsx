@@ -4,6 +4,7 @@ import * as Flags from "country-flag-icons/react/3x2"
 import {
   Copy,
   ExternalLink,
+  History,
   IdCard,
   ShieldAlert,
   UserCheck,
@@ -18,7 +19,7 @@ import type {
   ReactNode,
   SVGProps,
 } from "react"
-import { lazy, Suspense, useEffect, useRef, useState } from "react"
+import { Children, lazy, Suspense, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import noneFlagSrc from "@/assets/flags/none.svg"
 import playerAvatarPlaceholderSrc from "@/assets/player-avatar-placeholder.jpg"
@@ -58,6 +59,7 @@ import { isSuperuser } from "@/lib/user-roles"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
+import { ProfileHistoryDialog } from "../Profile/ProfileHistoryDialog"
 import { getProfileFriendsQueryOptions } from "../Profile/profile-utils"
 
 const AddBanDialog = lazy(async () => {
@@ -134,10 +136,11 @@ interface PlayerDisplayProps {
 }
 
 type PlayerContextMenuItemsProps = {
-  children?: ReactNode
+  adminChildren?: ReactNode
   closeMenu: () => void
   displayName: string
   hasProfileLink: boolean
+  loggedInChildren?: ReactNode
   onAddBan: () => void
   player?: {
     alias?: string | null
@@ -231,19 +234,32 @@ function shouldHydratePlayer(
 }
 
 export function PlayerContextMenuItems({
-  children,
+  adminChildren,
   closeMenu,
   displayName,
   hasProfileLink,
+  loggedInChildren,
   onAddBan,
   player,
   steamProfileUrl,
   steamid64,
 }: PlayerContextMenuItemsProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [, copyToClipboard] = useCopyToClipboard()
   const canAddBan = isSuperuser(user) && steamid64Pattern.test(steamid64)
+  const canViewProfileHistory =
+    isSuperuser(user) && steamid64Pattern.test(steamid64)
+  const adminItems = Children.toArray(adminChildren)
+  const loggedInItems = Children.toArray(loggedInChildren)
+  const hasAdminSection =
+    canAddBan ||
+    canViewProfileHistory ||
+    (player != null && isSuperuser(user)) ||
+    adminItems.length > 0
+  const hasLoggedInSection = loggedInItems.length > 0
+  const [profileHistoryOpen, setProfileHistoryOpen] = useState(false)
 
   const handleGotoProfile = () => {
     if (!hasProfileLink) {
@@ -294,24 +310,50 @@ export function PlayerContextMenuItems({
         <IdCard />
         Copy Name
       </DropdownMenuItem>
-      {player ? <EditPlayer player={player} /> : null}
-      {canAddBan ? (
+      {hasLoggedInSection ? (
         <>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={(event) => {
-              event.preventDefault()
-              closeMenu()
-              onAddBan()
-            }}
-          >
-            <ShieldAlert />
-            Add Ban
-          </DropdownMenuItem>
+          {loggedInItems}
         </>
       ) : null}
-      {children}
+      {hasAdminSection ? (
+        <>
+          <DropdownMenuSeparator />
+          {player ? <EditPlayer player={player} /> : null}
+          {canViewProfileHistory ? (
+            <DropdownMenuItem
+              data-testid="profile-history-menu-item"
+              onSelect={(event) => {
+                event.preventDefault()
+                closeMenu()
+                setProfileHistoryOpen(true)
+              }}
+            >
+              <History />
+              {t("profile.history.menuAction")}
+            </DropdownMenuItem>
+          ) : null}
+          {adminItems}
+          {canAddBan ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={(event) => {
+                event.preventDefault()
+                closeMenu()
+                onAddBan()
+              }}
+            >
+              <ShieldAlert />
+              Add Ban
+            </DropdownMenuItem>
+          ) : null}
+        </>
+      ) : null}
+      <ProfileHistoryDialog
+        identifier={steamid64}
+        onOpenChange={setProfileHistoryOpen}
+        open={profileHistoryOpen}
+      />
     </>
   )
 }
@@ -388,26 +430,23 @@ export function PlayerFollowContextMenuItem({
   }
 
   return (
-    <>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        data-testid={testId}
-        disabled={followSummaryQuery.isLoading || followMutation.isPending}
-        onSelect={() => {
-          if (followSummaryQuery.isLoading || followMutation.isPending) {
-            return
-          }
-          followMutation.mutate()
-        }}
-      >
-        {isFollowing ? <UserCheck /> : <UserPlus />}
-        {followMutation.isPending
-          ? "Updating follow"
-          : isFollowing
-            ? "Unfollow"
-            : "Follow"}
-      </DropdownMenuItem>
-    </>
+    <DropdownMenuItem
+      data-testid={testId}
+      disabled={followSummaryQuery.isLoading || followMutation.isPending}
+      onSelect={() => {
+        if (followSummaryQuery.isLoading || followMutation.isPending) {
+          return
+        }
+        followMutation.mutate()
+      }}
+    >
+      {isFollowing ? <UserCheck /> : <UserPlus />}
+      {followMutation.isPending
+        ? "Updating follow"
+        : isFollowing
+          ? "Unfollow"
+          : "Follow"}
+    </DropdownMenuItem>
   )
 }
 
@@ -757,6 +796,14 @@ export function PlayerDisplay({
         onKeyDown={(event) => event.stopPropagation()}
       >
         <PlayerContextMenuItems
+          loggedInChildren={
+            authenticated && !isCurrentUser ? (
+              <PlayerFollowContextMenuItem
+                menuOpen={menuOpen}
+                steamid64={steamid64}
+              />
+            ) : undefined
+          }
           closeMenu={() => setMenuOpen(false)}
           displayName={displayName}
           hasProfileLink={hasProfileLink}
@@ -773,12 +820,7 @@ export function PlayerDisplay({
           }
           steamProfileUrl={steamProfileUrl}
           steamid64={steamid64}
-        >
-          <PlayerFollowContextMenuItem
-            menuOpen={menuOpen}
-            steamid64={steamid64}
-          />
-        </PlayerContextMenuItems>
+        />
       </DropdownMenuContent>
       <Suspense fallback={null}>
         <AddBanDialog
