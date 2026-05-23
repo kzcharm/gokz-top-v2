@@ -703,7 +703,22 @@ export const en = {
     },
     tabs: {
       top: "Map Top",
+      stats: "Stats",
       reviews: "Reviews",
+    },
+    stats: {
+      loadFailedTitle: "Unable to load map stats",
+      loadFailedBody: "Try refreshing the page.",
+      nubTitle: "NUB WR Gap Distribution",
+      proTitle: "PRO WR Gap Distribution",
+      medianLabel: "Median: {{median}} ({{time}})",
+      noWr: "No WR",
+      empty: "No PB gaps available for this slice yet.",
+      medianMarker: "Median",
+      youMarker: "You",
+      tooltipCount: "{{count}} PBs",
+      tooltipCountWithPercent: "{{count}} PBs ({{percent}})",
+      tooltipTimeRange: "Time range: {{start}} to {{end}}",
     },
     filters: {
       country: "country",

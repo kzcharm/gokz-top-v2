@@ -20,6 +20,7 @@ from app.models import (
     MapReviewPublic,
     MapReviewsPublic,
     MapReviewUpsert,
+    MapStatsPublic,
     MapSyncResult,
     MapWrPublic,
     ModeScope,
@@ -182,6 +183,23 @@ async def read_map_wrs(
         map_id=resolved_map_id,
         scope=scope,
         record_type=type,
+    )
+
+
+@router.get("/{map_id:int}/stats", response_model=MapStatsPublic)
+async def read_map_stats(
+    session: SessionDep,
+    map_id: int,
+    scope: ModeScope = ModeScope.OVR,
+) -> MapStatsPublic:
+    map_obj = await crud.get_map_by_id(session=session, id=map_id)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    return await crud.get_or_rebuild_map_stats(
+        session=session,
+        map_id=map_obj.id,
+        scope=scope,
     )
 
 

@@ -63,6 +63,12 @@ from .map_review import (
     to_map_review_public,
     upsert_map_review,
 )
+from .map_stat import (
+    get_or_rebuild_map_stats,
+    load_changed_map_stat_keys,
+    rebuild_map_stats_for_keys,
+    rebuild_map_wr_gap_distribution_stat,
+)
 from .mode import (
     get_mode_by_id,
     get_mode_by_name,
@@ -294,6 +300,7 @@ __all__ = [
     "calculate_weighted_rating",
     "claim_player_action_timestamp",
     "clear_map_review_comments",
+    "get_or_rebuild_map_stats",
     "close_timed_out_player_sessions",
     "create_or_update_player_from_steam",
     "create_or_update_player_from_steam_data_if_fetched",
@@ -319,6 +326,7 @@ __all__ = [
     "get_map_by_id",
     "get_map_by_name",
     "load_changed_map_leaderboard_keys",
+    "load_changed_map_stat_keys",
     "read_map_leaderboard",
     "get_mode_by_id",
     "get_mode_by_name",
@@ -429,6 +437,8 @@ __all__ = [
     "to_map_publics",
     "rebuild_map_leaderboards",
     "rebuild_map_leaderboards_for_keys",
+    "rebuild_map_stats_for_keys",
+    "rebuild_map_wr_gap_distribution_stat",
     "rebuild_map_review_summary",
     "has_finished_map_for_review",
     "to_mode_compat_public_v0",

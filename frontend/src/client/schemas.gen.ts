@@ -2545,6 +2545,32 @@ export const MapReviewsPublicSchema = {
     title: 'MapReviewsPublic'
 } as const;
 
+export const MapStatsPublicSchema = {
+    properties: {
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        scope: {
+            '$ref': '#/components/schemas/ModeScope'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        nub_wr_gap_distribution: {
+            '$ref': '#/components/schemas/MapWrGapDistributionContentPublic'
+        },
+        pro_wr_gap_distribution: {
+            '$ref': '#/components/schemas/MapWrGapDistributionContentPublic'
+        }
+    },
+    type: 'object',
+    required: ['map_id', 'scope', 'updated_at', 'nub_wr_gap_distribution', 'pro_wr_gap_distribution'],
+    title: 'MapStatsPublic'
+} as const;
+
 export const MapSyncResultSchema = {
     properties: {
         processed: {
@@ -2602,6 +2628,95 @@ export const MapTiersSchema = {
     },
     type: 'object',
     title: 'MapTiers'
+} as const;
+
+export const MapWrGapDistributionBinPublicSchema = {
+    properties: {
+        label: {
+            type: 'string',
+            title: 'Label'
+        },
+        lower_bound: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Lower Bound'
+        },
+        upper_bound: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Upper Bound'
+        },
+        count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Count',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['label'],
+    title: 'MapWrGapDistributionBinPublic'
+} as const;
+
+export const MapWrGapDistributionContentPublicSchema = {
+    properties: {
+        wr_time: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Wr Time'
+        },
+        median_wr_gap: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Median Wr Gap'
+        },
+        total_pb_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Total Pb Count',
+            default: 0
+        },
+        plotted_pb_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Plotted Pb Count',
+            default: 0
+        },
+        bins: {
+            items: {
+                '$ref': '#/components/schemas/MapWrGapDistributionBinPublic'
+            },
+            type: 'array',
+            title: 'Bins'
+        }
+    },
+    type: 'object',
+    title: 'MapWrGapDistributionContentPublic'
 } as const;
 
 export const MapWrPublicSchema = {

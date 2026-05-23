@@ -76,6 +76,13 @@ from .map_review import (
     MapReviewsPublic,
     MapReviewUpsert,
 )
+from .map_stat import (
+    MapStatCache,
+    MapStatsPublic,
+    MapStatType,
+    MapWrGapDistributionBinPublic,
+    MapWrGapDistributionContentPublic,
+)
 from .map_review_summary import MapReviewSummaryCache, MapReviewSummaryPublic
 from .misc import IPLookupRequest, IPLookupResponse
 from .mode import (
@@ -408,6 +415,11 @@ __all__ = [
     "MapReviewSummaryPublic",
     "MapReviewsPublic",
     "MapReviewUpsert",
+    "MapStatCache",
+    "MapStatsPublic",
+    "MapStatType",
+    "MapWrGapDistributionBinPublic",
+    "MapWrGapDistributionContentPublic",
     "MapSyncResult",
     "MapTiers",
     "CANONICAL_MODE_SEEDS",

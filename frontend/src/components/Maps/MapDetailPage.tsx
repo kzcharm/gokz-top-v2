@@ -1,11 +1,17 @@
 import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import { LocateFixed, Users } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { type MapPublic, MapsService, type RecordPublic } from "@/client"
+import {
+  type MapPublic,
+  MapsService,
+  type RecordPublic,
+  RecordsService,
+} from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
@@ -33,6 +39,7 @@ import { getRegionsQueryOptions } from "@/lib/regions"
 import { cn } from "@/lib/utils"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapReviewsTable } from "./MapReviewsTable"
+import { MapStatsSection } from "./MapStatsSection"
 import { MapTopTable } from "./MapTopTable"
 import { fetchMapByName } from "./map-utils"
 
@@ -97,6 +104,25 @@ function formatRankShare(
 }
 
 const MAP_RANK_SUMMARY_UNAVAILABLE_LABEL = "-"
+const MAP_TAB_OPTIONS = [
+  {
+    value: "top",
+    to: "/maps/$mapName/maptop",
+    labelKey: "maps.tabs.top",
+  },
+  {
+    value: "stats",
+    to: "/maps/$mapName/stats",
+    labelKey: "maps.tabs.stats",
+  },
+  {
+    value: "reviews",
+    to: "/maps/$mapName/reviews",
+    labelKey: "maps.tabs.reviews",
+  },
+] as const
+
+type MapDetailTab = (typeof MAP_TAB_OPTIONS)[number]["value"]
 
 type MapPbLeaderboardResponse = {
   data: RecordPublic[]
@@ -285,7 +311,13 @@ function MapHero({
   )
 }
 
-export function MapDetailPage({ mapName }: { mapName: string }) {
+export function MapDetailPage({
+  mapName,
+  activeTab,
+}: {
+  mapName: string
+  activeTab: MapDetailTab
+}) {
   const { t } = useTranslation()
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
@@ -293,7 +325,6 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [isFriendsOnly, setIsFriendsOnly] = useState(false)
-  const [activeTab, setActiveTab] = useState("top")
   const [topPageIndex, setTopPageIndex] = useState(0)
   const [topPageSize, setTopPageSize] = useState(20)
   const [reviewsPageIndex, setReviewsPageIndex] = useState(0)
@@ -399,6 +430,57 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
       }),
     enabled: mapQuery.data !== undefined,
     staleTime: 30_000,
+  })
+  const statsQuery = useQuery({
+    queryKey: ["map", "stats", mapQuery.data?.id ?? null, scope],
+    queryFn: () =>
+      MapsService.readMapStats({
+        mapId: mapQuery.data!.id,
+        scope,
+      }),
+    enabled: mapQuery.data !== undefined,
+    staleTime: 30_000,
+    retry: false,
+  })
+  const statsPlayerRecordsQuery = useQuery({
+    queryKey: [
+      "map",
+      "stats",
+      "player-records",
+      mapQuery.data?.id ?? null,
+      scope,
+      currentUser?.steamid64 ?? null,
+    ],
+    queryFn: async () => {
+      const viewerSteamid64 = currentUser?.steamid64
+      const [nubRecords, proRecords] = await Promise.all([
+        RecordsService.readPbRecords({
+          mapId: mapQuery.data!.id,
+          scope,
+          type: "NUB",
+          stage: 0,
+          identifier: viewerSteamid64!,
+          limit: 1,
+        }),
+        RecordsService.readPbRecords({
+          mapId: mapQuery.data!.id,
+          scope,
+          type: "PRO",
+          stage: 0,
+          identifier: viewerSteamid64!,
+          limit: 1,
+        }),
+      ])
+
+      return {
+        nubTime: nubRecords[0]?.time ?? null,
+        proTime: proRecords[0]?.time ?? null,
+      }
+    },
+    enabled:
+      mapQuery.data !== undefined && currentUser?.steamid64 !== undefined,
+    staleTime: 30_000,
+    retry: false,
   })
 
   useEffect(() => {
@@ -556,15 +638,18 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
         }
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
+      <Tabs value={activeTab} className="gap-4">
         <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
           <CardContent className="flex flex-col gap-4 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <TabsList className="w-fit">
-                <TabsTrigger value="top">{t("maps.tabs.top")}</TabsTrigger>
-                <TabsTrigger value="reviews">
-                  {t("maps.tabs.reviews")}
-                </TabsTrigger>
+                {MAP_TAB_OPTIONS.map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value} asChild>
+                    <Link to={tab.to} params={{ mapName }}>
+                      {t(tab.labelKey)}
+                    </Link>
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
               {activeTab === "top" ? (
@@ -691,7 +776,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                     </Button>
                   </div>
                 </div>
-              ) : (
+              ) : activeTab === "reviews" ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -700,7 +785,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
                 >
                   {t("maps.addReview")}
                 </Button>
-              )}
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -738,6 +823,44 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
               currentUserSteamid64={authenticatedUserSteamid64}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="stats" className="space-y-6">
+          {statsQuery.isError ? (
+            <Alert variant="destructive">
+              <AlertTitle>{t("maps.stats.loadFailedTitle")}</AlertTitle>
+              <AlertDescription>
+                {t("maps.stats.loadFailedBody")}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {statsQuery.isLoading ? (
+            <div className="grid gap-6 xl:grid-cols-2">
+              {Array.from({ length: 2 }, (_, index) => (
+                <Card
+                  key={index}
+                  className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0"
+                >
+                  <CardContent className="space-y-5 p-6">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-44" />
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-4 w-28" />
+                    </div>
+                    <Skeleton className="h-72 w-full rounded-[18px]" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : statsQuery.data ? (
+            <MapStatsSection
+              stats={statsQuery.data}
+              nubPlayerRecordTime={statsPlayerRecordsQuery.data?.nubTime ?? null}
+              proPlayerRecordTime={statsPlayerRecordsQuery.data?.proTime ?? null}
+              showPlayerMarker={authenticatedUserSteamid64 !== null}
+            />
+          ) : null}
         </TabsContent>
 
         <TabsContent value="reviews" className="space-y-6">

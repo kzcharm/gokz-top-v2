@@ -711,7 +711,22 @@ export const ru = {
     },
     tabs: {
       top: "Топ карты",
+      stats: "Статистика",
       reviews: "Отзывы",
+    },
+    stats: {
+      loadFailedTitle: "Не удалось загрузить статистику карты",
+      loadFailedBody: "Попробуйте обновить страницу.",
+      nubTitle: "Распределение WR Gap NUB",
+      proTitle: "Распределение WR Gap PRO",
+      medianLabel: "Медиана: {{median}} ({{time}})",
+      noWr: "Нет WR",
+      empty: "Для этого среза пока нет доступных PB gap.",
+      medianMarker: "Медиана",
+      youMarker: "Вы",
+      tooltipCount: "{{count}} PB",
+      tooltipCountWithPercent: "{{count}} PB ({{percent}})",
+      tooltipTimeRange: "Диапазон времени: {{start}} - {{end}}",
     },
     filters: {
       country: "страна",

@@ -1,21 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router"
-
-import { MapDetailPage } from "@/components/Maps/MapDetailPage"
-import { getPageTitle } from "@/lib/site"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/maps/$mapName")({
-  component: MapRoute,
-  head: ({ params }) => ({
-    meta: [
-      {
-        title: getPageTitle(params.mapName),
-      },
-    ],
-  }),
+  beforeLoad: ({ params, location }) => {
+    if (location.pathname === `/maps/${params.mapName}`) {
+      throw redirect({
+        to: "/maps/$mapName/maptop",
+        params: { mapName: params.mapName },
+        search: location.search,
+      })
+    }
+  },
 })
-
-function MapRoute() {
-  const { mapName } = Route.useParams()
-
-  return <MapDetailPage mapName={mapName} />
-}

@@ -529,6 +529,14 @@ export type MapReviewUpsert = {
     content: MapReviewContentInput;
 };
 
+export type MapStatsPublic = {
+    map_id: number;
+    scope: ModeScope;
+    updated_at: string;
+    nub_wr_gap_distribution: MapWrGapDistributionContentPublic;
+    pro_wr_gap_distribution: MapWrGapDistributionContentPublic;
+};
+
 export type MapSyncResult = {
     processed: number;
     created: number;
@@ -541,6 +549,21 @@ export type MapTiers = {
     KZT?: number;
     SKZ?: number;
     VNL?: number;
+};
+
+export type MapWrGapDistributionBinPublic = {
+    label: string;
+    lower_bound?: (number | null);
+    upper_bound?: (number | null);
+    count?: number;
+};
+
+export type MapWrGapDistributionContentPublic = {
+    wr_time?: (number | null);
+    median_wr_gap?: (number | null);
+    total_pb_count?: number;
+    plotted_pb_count?: number;
+    bins?: Array<MapWrGapDistributionBinPublic>;
 };
 
 export type MapWrPublic = {
@@ -1594,6 +1617,13 @@ export type MapsReadMapWrsData = {
 };
 
 export type MapsReadMapWrsResponse = (Array<MapWrPublic>);
+
+export type MapsReadMapStatsData = {
+    mapId: number;
+    scope?: ModeScope;
+};
+
+export type MapsReadMapStatsResponse = (MapStatsPublic);
 
 export type MapsReadMapByIdData = {
     mapId: number;

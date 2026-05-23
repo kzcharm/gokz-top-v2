@@ -40,6 +40,7 @@ class DailyRankSelection:
     point_buckets: list[tuple[int, int, RecordType]]
     leaderboard_keys: list[tuple[int, int]]
     map_leaderboard_keys: list[tuple[int, int]]
+    map_stat_keys: list[tuple[int, int, RecordType]]
     steamid64s: list[int]
 
 
@@ -191,6 +192,11 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
         window_start=window_start,
         window_end=window_end,
     )
+    map_stat_keys = await crud.load_changed_map_stat_keys(
+        session=session,
+        window_start=window_start,
+        window_end=window_end,
+    )
     return DailyRankSelection(
         window_start=window_start,
         window_end=window_end,
@@ -198,6 +204,7 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
         point_buckets=point_buckets,
         leaderboard_keys=leaderboard_keys,
         map_leaderboard_keys=map_leaderboard_keys,
+        map_stat_keys=map_stat_keys,
         steamid64s=steamid64s,
     )
 
@@ -240,6 +247,19 @@ async def rebuild_daily_rank_map_leaderboards(
     rebuilt = await crud.rebuild_map_leaderboards_for_keys(
         session=session,
         keys=selection.map_leaderboard_keys,
+    )
+    await session.commit()
+    return rebuilt
+
+
+async def rebuild_daily_rank_map_stats(
+    *,
+    session: AsyncSession,
+    selection: DailyRankSelection,
+) -> int:
+    rebuilt = await crud.rebuild_map_stats_for_keys(
+        session=session,
+        keys=selection.map_stat_keys,
     )
     await session.commit()
     return rebuilt
@@ -335,11 +355,12 @@ async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResu
             async with async_session_maker() as session:
                 selection = await load_daily_rank_selection(session=session)
                 logger.info(
-                    "Daily rank pipeline selected pb_rows=%s buckets=%s leaderboard_keys=%s map_leaderboard_keys=%s players=%s window_start=%s window_end=%s",
+                    "Daily rank pipeline selected pb_rows=%s buckets=%s leaderboard_keys=%s map_leaderboard_keys=%s map_stat_keys=%s players=%s window_start=%s window_end=%s",
                     selection.pb_row_count,
                     len(selection.point_buckets),
                     len(selection.leaderboard_keys),
                     len(selection.map_leaderboard_keys),
+                    len(selection.map_stat_keys),
                     len(selection.steamid64s),
                     selection.window_start.isoformat(),
                     selection.window_end.isoformat(),
@@ -370,6 +391,14 @@ async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResu
                 logger.info(
                     "Daily rank pipeline rebuilt map leaderboard rows processed=%s",
                     map_leaderboards_rebuilt,
+                )
+                map_stats_rebuilt = await rebuild_daily_rank_map_stats(
+                    session=session,
+                    selection=selection,
+                )
+                logger.info(
+                    "Daily rank pipeline rebuilt map stat rows processed=%s",
+                    map_stats_rebuilt,
                 )
                 steam_result = await refresh_daily_rank_player_profiles(
                     session=session,
@@ -406,6 +435,7 @@ async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResu
                 points_updated
                 + leaderboard_updated
                 + map_leaderboards_rebuilt
+                + map_stats_rebuilt
                 + steam_result.updated
                 + friend_result.synced
             ),

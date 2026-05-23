@@ -123,7 +123,7 @@ export function MapCard({
     >
       <div className="relative aspect-video overflow-hidden bg-muted">
         <Link
-          to="/maps/$mapName"
+          to="/maps/$mapName/maptop"
           params={{ mapName: map.name }}
           aria-label={`Open ${map.name}`}
           className="block h-full w-full rounded-t-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"

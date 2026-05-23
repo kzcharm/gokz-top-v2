@@ -45,7 +45,7 @@ export function MapDisplay({
   const mapParams = { mapName }
 
   const handleGoToMapPage = () => {
-    void navigate({ to: "/maps/$mapName", params: mapParams })
+    void navigate({ to: "/maps/$mapName/maptop", params: mapParams })
   }
 
   const handleCopyMapName = async () => {
@@ -90,7 +90,7 @@ export function MapDisplay({
           />
         </DropdownMenuTrigger>
         <Link
-          to="/maps/$mapName"
+          to="/maps/$mapName/maptop"
           params={mapParams}
           className="inline-block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={(event) => {
