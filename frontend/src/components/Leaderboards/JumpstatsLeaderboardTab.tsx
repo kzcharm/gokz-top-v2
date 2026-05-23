@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 
 import { type JumpstatType, LeaderboardsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { areRowInteractionsSuppressed } from "@/components/Common/interaction-suppression"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { JumpstatDetailsDialog } from "@/components/Leaderboards/JumpstatDetailsDialog"
 import {
@@ -17,14 +18,24 @@ import type { AppScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { extractErrorMessage } from "@/utils"
+
+const MIN_RATING_OPTIONS = [6, 7, 8, 9, 10] as const
 
 export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   const { t } = useTranslation()
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [selectedType, setSelectedType] = useState<JumpstatType>("LJ")
+  const [selectedMinRating, setSelectedMinRating] = useState(7)
   const [blockEnabled, setBlockEnabled] = useState(false)
   const [lastKnownTotalCount, setLastKnownTotalCount] = useState(0)
   const [selectedJumpstatId, setSelectedJumpstatId] = useState<string | null>(
@@ -38,6 +49,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
       "jumpstats",
       scope,
       selectedType,
+      selectedMinRating,
       blockEnabled,
       pageIndex,
       pageSize,
@@ -50,6 +62,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
         offset: pageIndex * pageSize,
         limit: pageSize,
         sortBy,
+        minRating: selectedMinRating,
       }),
     staleTime: 30_000,
   })
@@ -82,6 +95,9 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
       "cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none",
     tabIndex: 0,
     onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+      if (areRowInteractionsSuppressed()) {
+        return
+      }
       const target = event.target as HTMLElement
       if (target.closest("a, button, input, select, textarea")) {
         return
@@ -89,6 +105,9 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
       setSelectedJumpstatId(row.id)
     },
     onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+      if (areRowInteractionsSuppressed()) {
+        return
+      }
       if (event.key !== "Enter" && event.key !== " ") {
         return
       }
@@ -103,49 +122,80 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
 
   return (
     <div className="space-y-6">
-      <Tabs
-        value={selectedType}
-        onValueChange={(value) => {
-          setSelectedType(value as JumpstatType)
-          setPageIndex(0)
-        }}
-        className="gap-0"
-      >
-        <div className="flex items-center gap-3">
-          <div className="-mx-2 min-w-0 flex-1 overflow-x-auto px-2 py-1">
-            <TabsList
-              aria-label={t("leaderboards.jumpstats.jumpType")}
-              className="h-auto w-full justify-start gap-2 bg-transparent p-0 text-foreground sm:w-fit"
-            >
-              {JUMPSTAT_TYPE_OPTIONS.map((option) => (
-                <TabsTrigger
-                  key={option}
-                  value={option}
-                  className="h-auto flex-none rounded-full border border-border/60 bg-background/45 px-4 py-2 text-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm dark:data-[state=active]:bg-input/30"
-                >
-                  {getJumpstatTypeLabel(option, t)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-
-          <Button
-            type="button"
-            variant="ghost"
-            className={
-              blockEnabled
-                ? "ml-auto shrink-0 rounded-xl border border-[#7c98d6] bg-[#dbe7ff] text-[#244488] shadow-sm hover:bg-[#cfdfff] hover:text-[#1d3a78]"
-                : "ml-auto shrink-0 rounded-xl border border-[#c9d7f3] bg-[#eef4ff] text-[#5671aa] hover:bg-[#e3ecff] hover:text-[#3f5d96]"
-            }
-            onClick={() => {
-              setBlockEnabled((current) => !current)
+      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
+          <Tabs
+            value={selectedType}
+            onValueChange={(value) => {
+              setSelectedType(value as JumpstatType)
               setPageIndex(0)
             }}
+            className="gap-0"
           >
-            {t("leaderboards.jumpstats.columns.block")}
-          </Button>
-        </div>
-      </Tabs>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="-mx-2 min-w-0 flex-1 overflow-x-auto px-2">
+                <TabsList
+                  aria-label={t("leaderboards.jumpstats.jumpType")}
+                  className="h-auto w-full justify-start gap-2 bg-transparent p-0 text-foreground sm:w-fit"
+                >
+                  {JUMPSTAT_TYPE_OPTIONS.map((option) => (
+                    <TabsTrigger
+                      key={option}
+                      value={option}
+                      className="h-9 flex-none rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground shadow-none transition-[color,background-color,border-color] hover:bg-accent hover:text-accent-foreground data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:shadow-none dark:bg-input/30 dark:hover:bg-input/50 dark:data-[state=active]:bg-input/50"
+                    >
+                      {getJumpstatTypeLabel(option, t)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                <Select
+                  value={String(selectedMinRating)}
+                  onValueChange={(value) => {
+                    setSelectedMinRating(Number(value))
+                    setPageIndex(0)
+                  }}
+                >
+                  <SelectTrigger
+                    aria-label={t("leaderboards.jumpstats.minRatingAria")}
+                    className="w-full sm:w-[132px]"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    {MIN_RATING_OPTIONS.map((rating) => (
+                      <SelectItem key={rating} value={String(rating)}>
+                        {t("leaderboards.jumpstats.minRatingValue", {
+                          value: rating,
+                        })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={blockEnabled}
+                  className={
+                    blockEnabled
+                      ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+                      : "bg-background"
+                  }
+                  onClick={() => {
+                    setBlockEnabled((current) => !current)
+                    setPageIndex(0)
+                  }}
+                >
+                  {t("leaderboards.jumpstats.columns.block")}
+                </Button>
+              </div>
+            </div>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {leaderboardQuery.isError ? (
         <Alert variant="destructive">

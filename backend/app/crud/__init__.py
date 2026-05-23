@@ -63,6 +63,12 @@ from .map_review import (
     to_map_review_public,
     upsert_map_review,
 )
+from .map_stat import (
+    get_or_rebuild_map_stats,
+    load_changed_map_stat_keys,
+    rebuild_map_stats_for_keys,
+    rebuild_map_wr_gap_distribution_stat,
+)
 from .mode import (
     get_mode_by_id,
     get_mode_by_name,
@@ -192,6 +198,7 @@ from .player_webhook import (
 )
 from .record import (
     RECENT_RECORD_NOTIFY_CHANNEL,
+    ensure_map_courses_for_exact_record_filters,
     ensure_map_courses_for_valid_records,
     get_max_record_globalapi_id,
     get_pb_records,
@@ -223,9 +230,11 @@ from .record import (
 from .record_filter import (
     load_map_tiers_by_scope,
     load_scoped_course_tiers,
+    read_admin_map_course_tiers,
     read_admin_map_record_filters,
     read_record_filters_v0,
     record_filter_exists_for_course_mode,
+    to_admin_course_tier_public,
     to_admin_record_filter_public,
 )
 from .server import (
@@ -291,6 +300,7 @@ __all__ = [
     "calculate_weighted_rating",
     "claim_player_action_timestamp",
     "clear_map_review_comments",
+    "get_or_rebuild_map_stats",
     "close_timed_out_player_sessions",
     "create_or_update_player_from_steam",
     "create_or_update_player_from_steam_data_if_fetched",
@@ -316,6 +326,7 @@ __all__ = [
     "get_map_by_id",
     "get_map_by_name",
     "load_changed_map_leaderboard_keys",
+    "load_changed_map_stat_keys",
     "read_map_leaderboard",
     "get_mode_by_id",
     "get_mode_by_name",
@@ -416,6 +427,7 @@ __all__ = [
     "to_jumpstat_publics",
     "to_admin_map_public",
     "to_admin_map_publics",
+    "to_admin_course_tier_public",
     "to_admin_player_session_public",
     "to_admin_player_social_link_public",
     "to_admin_record_filter_public",
@@ -425,6 +437,8 @@ __all__ = [
     "to_map_publics",
     "rebuild_map_leaderboards",
     "rebuild_map_leaderboards_for_keys",
+    "rebuild_map_stats_for_keys",
+    "rebuild_map_wr_gap_distribution_stat",
     "rebuild_map_review_summary",
     "has_finished_map_for_review",
     "to_mode_compat_public_v0",
@@ -467,6 +481,7 @@ __all__ = [
     "rebuild_leaderboard_players_for_keys",
     "rebuild_record_pbs",
     "rebuild_record_pbs_for_course",
+    "ensure_map_courses_for_exact_record_filters",
     "update_server",
     "update_server_group",
     "update_user",
@@ -493,6 +508,7 @@ __all__ = [
     "record_a2s_failure",
     "record_a2s_success",
     "record_filter_exists_for_course_mode",
+    "read_admin_map_course_tiers",
     "read_admin_map_record_filters",
     "record_offline_mark",
     "record_plugin_heartbeat",

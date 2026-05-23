@@ -418,3 +418,4 @@ class JumpstatLeaderboardListQuery(SQLModel):
     limit: int = Field(default=20, ge=1, le=100)
     type: JumpstatType = JumpstatType.LJ
     sort_by: JumpstatLeaderboardSortBy = "distance"
+    min_rating: int = Field(default=7, ge=6, le=11)

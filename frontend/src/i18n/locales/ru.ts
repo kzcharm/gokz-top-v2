@@ -66,6 +66,7 @@ export const ru = {
     visuals: "Визуал",
     stage: "Этап",
     wrTime: "WR время",
+    wrGap: "Разрыв с WR",
   },
   language: {
     label: "Язык",
@@ -484,6 +485,8 @@ export const ru = {
     jumpstats: {
       filters: "Фильтры",
       jumpType: "Тип прыжка",
+      minRatingAria: "Минимальный рейтинг",
+      minRatingValue: "Rating {{value}}+",
       loadFailedTitle: "Не удалось загрузить таблицу jumpstats",
       loadFailedDescription: "Не удалось загрузить таблицу лидеров jumpstats.",
       empty: "Записи для таблицы лидеров jumpstats не найдены.",
@@ -708,7 +711,22 @@ export const ru = {
     },
     tabs: {
       top: "Топ карты",
+      stats: "Статистика",
       reviews: "Отзывы",
+    },
+    stats: {
+      loadFailedTitle: "Не удалось загрузить статистику карты",
+      loadFailedBody: "Попробуйте обновить страницу.",
+      nubTitle: "Распределение WR Gap NUB",
+      proTitle: "Распределение WR Gap PRO",
+      medianLabel: "Медиана: {{median}} ({{time}})",
+      noWr: "Нет WR",
+      empty: "Для этого среза пока нет доступных PB gap.",
+      medianMarker: "Медиана",
+      youMarker: "Вы",
+      tooltipCount: "{{count}} PB",
+      tooltipCountWithPercent: "{{count}} PB ({{percent}})",
+      tooltipTimeRange: "Диапазон времени: {{start}} - {{end}}",
     },
     filters: {
       country: "страна",
@@ -720,6 +738,18 @@ export const ru = {
     topPercentPrefix: "Топ",
     myRank: "Мой ранг",
     findMe: "Найти меня",
+    wrGapInfoButtonAria: "Объяснить WR Gap",
+    wrGapInfoTitle: "Что такое WR Gap?",
+    wrGapInfoDescription:
+      "WR Gap показывает, насколько результат отстаёт от мирового рекорда, на логарифмической шкале.",
+    wrGapInfoFormulaLabel: "Формула",
+    wrGapInfoCloser:
+      "Чем число более отрицательное, тем ближе результат к WR. Чем ближе к 0, тем дальше он от WR.",
+    wrGapInfoExampleLabel: "Пример",
+    wrGapInfoExample:
+      "Если WR равен 100.00 секундам, а результат равен 125.00 секундам, лишние 25% дают log2(0.25) = -2.00.",
+    wrGapInfoWrRow:
+      "В строке WR показывается '-', потому что для самого WR формула не определена.",
     findMeNotRankedTitle: "У вас нет ранкнутого финиша здесь",
     findMeNotRankedDescription:
       "Попробуйте другую область, фильтр или другой режим NUB / PRO.",

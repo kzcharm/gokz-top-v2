@@ -71,6 +71,7 @@ Scope model:
 ### 5.3 Maps and Reviews
 - Map catalog and detail pages with filters and metadata.
 - Map review/rating flows.
+- v1 map and course tiers are course-scoped rather than TP/PRO-scoped: each exact course has one tier per mode, `record_filter` rows only determine availability, and tier reads normalize to integer `0..8` values where `0` also covers unavailable/unknown/impossible cases.
 - Authenticated players can author website reviews only after earning a main-stage OVR PB on the map.
 - Map review authoring must prefill from the player's latest review on that map, while normal website saves continue to target the website review row only.
 - Players can delete all of their review comments for a map without deleting any rating rows; this applies across website and server-group review rows.
@@ -134,6 +135,7 @@ Scope model:
 - Mirror authoritative entities from GlobalAPI where required (for example maps/records/filters/bans).
 - Preserve compatibility-critical identifiers and field semantics.
 - Track sync status/lag for reliability and troubleshooting.
+- Mirrored `record_filter` rows are availability-only in v2-native logic; exact 128-tick non-wildcard tiers are backfilled once into local `map_course_tier`, after which non-VNL tiers are admin-managed and VNL tiers continue syncing from the vanilla tier sheet.
 - GlobalAPI bans are mirrored as append/update-only rows keyed by nullable upstream `id`, while v2 also allows superusers to create local bans with `id = NULL` and a UUIDv7 internal identifier; if upstream ever introduces true ban deletions/unbans, the sync policy must be revisited.
 
 ### 6.2 Extend Rules

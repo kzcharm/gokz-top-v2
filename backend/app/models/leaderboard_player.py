@@ -8,6 +8,8 @@ from sqlalchemy import BigInteger, Column, DateTime, Index, text
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
+from app.core.rank_system import get_rank_system_settings
+
 from .player import PlayerRefPublic
 from .record import ModeScope, normalize_mode_scope
 from .region import GeographyFilterMixin
@@ -164,6 +166,27 @@ def scale_public_rating(value: float | None) -> float | None:
         _PUBLIC_RATING_OFFSET
     )
     return redistribute_display_rating(float(old_rating))
+
+
+def min_raw_rating_for_public_rating(target_rating: int | float) -> int:
+    max_raw_rating = get_rank_system_settings().rating.target_max_raw_rating
+    minimum_target = max(1.0, float(target_rating))
+    maximum_public_rating = scale_public_rating(max_raw_rating)
+    if maximum_public_rating is None:
+        return max_raw_rating
+    if minimum_target >= maximum_public_rating:
+        return max_raw_rating
+
+    low = 1
+    high = max_raw_rating
+    while low < high:
+        midpoint = (low + high) // 2
+        midpoint_rating = scale_public_rating(midpoint)
+        if midpoint_rating is None or midpoint_rating < minimum_target:
+            low = midpoint + 1
+        else:
+            high = midpoint
+    return low
 
 
 class LeaderboardPlayerBase(LegacyDatetimeNamesMixin):

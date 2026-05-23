@@ -76,6 +76,13 @@ from .map_review import (
     MapReviewsPublic,
     MapReviewUpsert,
 )
+from .map_stat import (
+    MapStatCache,
+    MapStatsPublic,
+    MapStatType,
+    MapWrGapDistributionBinPublic,
+    MapWrGapDistributionContentPublic,
+)
 from .map_review_summary import MapReviewSummaryCache, MapReviewSummaryPublic
 from .misc import IPLookupRequest, IPLookupResponse
 from .mode import (
@@ -207,8 +214,13 @@ from .player_webhook import (
     normalize_discord_webhook_url,
 )
 from .record import (
+    AdminCourseTierPublic,
+    AdminCourseTierUpdate,
+    AdminMapCourseTiersPublic,
+    AdminMapCourseTierStagePublic,
     KZMode,
     MapCourse,
+    MapCourseTier,
     MapPbLeaderboardPublic,
     MapWrPublic,
     ReplayListQuery,
@@ -244,7 +256,6 @@ from .record_filter import (
     AdminMapRecordFiltersPublic,
     AdminRecordFilterPublic,
     AdminRecordFilterStagePublic,
-    AdminRecordFilterTierUpdate,
     RecordFilter,
     RecordFilterBase,
     RecordFilterCompatPublicV0,
@@ -358,6 +369,10 @@ __all__ = [
     "AdminMapListQuery",
     "AdminMapPublic",
     "AdminMapsPublic",
+    "AdminCourseTierPublic",
+    "AdminCourseTierUpdate",
+    "AdminMapCourseTiersPublic",
+    "AdminMapCourseTierStagePublic",
     "AdminMapRecordFiltersPublic",
     "AdminMapUpdate",
     "AdminPlayerSessionIpLinkBucketPublic",
@@ -376,11 +391,11 @@ __all__ = [
     "AdminPlayerSocialLinkUpdate",
     "AdminRecordFilterPublic",
     "AdminRecordFilterStagePublic",
-    "AdminRecordFilterTierUpdate",
     "Map",
     "MapBase",
     "MapCompatPublicV0",
     "MapCourse",
+    "MapCourseTier",
     "MapLeaderboardCache",
     "MapLeaderboardEntryPublic",
     "MapLeaderboardsPublic",
@@ -400,6 +415,11 @@ __all__ = [
     "MapReviewSummaryPublic",
     "MapReviewsPublic",
     "MapReviewUpsert",
+    "MapStatCache",
+    "MapStatsPublic",
+    "MapStatType",
+    "MapWrGapDistributionBinPublic",
+    "MapWrGapDistributionContentPublic",
     "MapSyncResult",
     "MapTiers",
     "CANONICAL_MODE_SEEDS",

@@ -2,11 +2,19 @@ from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Map, RecordFilter, UserRole
+from app.models import (
+    KZMode,
+    Map,
+    MapCourse,
+    MapCourseTier,
+    RecordFilter,
+    UserRole,
+    legacy_mode_id_to_kz_mode,
+)
 
 
 async def _create_map(
@@ -51,6 +59,21 @@ async def _create_record_filter(
 ) -> RecordFilter:
     await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
     await db.commit()
+    course: MapCourse | None = None
+    if map_id > 0 and await db.get(Map, map_id) is not None:
+        course = (
+            await db.exec(
+                select(MapCourse).where(
+                    MapCourse.map_id == map_id,
+                    MapCourse.stage == stage,
+                )
+            )
+        ).first()
+        if course is None:
+            course = MapCourse(map_id=map_id, stage=stage)
+            db.add(course)
+            await db.commit()
+            await db.refresh(course)
     record_filter = RecordFilter(
         id=id,
         map_id=map_id,
@@ -64,6 +87,23 @@ async def _create_record_filter(
     db.add(record_filter)
     await db.commit()
     await db.refresh(record_filter)
+    if tier is not None and course is not None and course.id is not None:
+        mode = legacy_mode_id_to_kz_mode(mode_id)
+        course_tier = await db.get(MapCourseTier, (course.id, mode))
+        if course_tier is None:
+            db.add(
+                MapCourseTier(
+                    course_id=course.id,
+                    mode=mode,
+                    tier=tier,
+                    updated_by_id="0",
+                )
+            )
+        else:
+            positive_tiers = [value for value in (course_tier.tier, tier) if value > 0]
+            course_tier.tier = min(positive_tiers) if positive_tiers else 0
+            db.add(course_tier)
+        await db.commit()
     return record_filter
 
 
@@ -112,7 +152,7 @@ async def test_admin_maps_require_map_admin_or_superuser(
 
 
 @pytest.mark.asyncio
-async def test_map_admin_can_update_map_validation_and_record_filter_tier(
+async def test_map_admin_can_update_map_validation_and_course_tier(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -122,7 +162,7 @@ async def test_map_admin_can_update_map_validation_and_record_filter_tier(
         roles=[UserRole.MAP_ADMIN],
     )
     map_obj = await _create_map(db, id=991005, name="kz_map_admin_access")
-    record_filter = await _create_record_filter(
+    await _create_record_filter(
         db,
         id=99100501,
         map_id=map_obj.id,
@@ -130,23 +170,33 @@ async def test_map_admin_can_update_map_validation_and_record_filter_tier(
         mode_id=200,
         tier=2,
     )
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_obj.id,
+                MapCourse.stage == 0,
+            )
+        )
+    ).first()
+    assert course is not None
+    assert course.id is not None
 
     map_response = await client.patch(
         f"{settings.API_V1_STR}/admin/maps/{map_obj.id}",
         headers=map_admin_headers,
         json={"validated": False},
     )
-    filter_response = await client.patch(
-        f"{settings.API_V1_STR}/admin/record-filters/{record_filter.id}",
+    course_tier_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/course-tiers/{course.id}/{KZMode.KZT.value}",
         headers=map_admin_headers,
         json={"tier": 6},
     )
 
     assert map_response.status_code == 200
     assert map_response.json()["validated"] is False
-    assert filter_response.status_code == 200
-    assert filter_response.json()["tier"] == 6
-    assert filter_response.json()["updated_by_id"] == "76561199011110002"
+    assert course_tier_response.status_code == 200
+    assert course_tier_response.json()["tier"] == 6
+    assert course_tier_response.json()["updated_by_id"] == "76561199011110002"
 
 
 @pytest.mark.asyncio
@@ -170,7 +220,7 @@ async def test_read_admin_maps_filters_searches_and_paginates(
     assert payload["count"] == 1
     assert [row["name"] for row in payload["data"]] == ["kz_admin_alpha"]
     assert payload["data"][0]["approved_by_steamid64"] == "76561198003275951"
-    assert payload["data"][0]["tiers"]["OVR"] == 5
+    assert payload["data"][0]["tiers"]["OVR"] == 0
 
 
 @pytest.mark.asyncio
@@ -274,7 +324,6 @@ async def test_read_admin_map_record_filters_returns_128_tick_grouped_by_stage(
                         "stage": 0,
                         "mode": "KZT",
                         "has_teleports": False,
-                        "tier": 3,
                         "created_on": payload["stages"][0]["record_filters"][0][
                             "created_on"
                         ],
@@ -294,7 +343,6 @@ async def test_read_admin_map_record_filters_returns_128_tick_grouped_by_stage(
                         "stage": 1,
                         "mode": "SKZ",
                         "has_teleports": True,
-                        "tier": 4,
                         "created_on": payload["stages"][1]["record_filters"][0][
                             "created_on"
                         ],
@@ -306,17 +354,59 @@ async def test_read_admin_map_record_filters_returns_128_tick_grouped_by_stage(
                 ],
             },
         ],
-    }
+}
 
 
 @pytest.mark.asyncio
-async def test_update_admin_record_filter_tier(
+async def test_read_admin_map_course_tiers_returns_grouped_stage_rows(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    map_obj = await _create_map(db, id=991025, name="kz_admin_course_tiers")
+    await _create_record_filter(
+        db,
+        id=99102501,
+        map_id=map_obj.id,
+        stage=0,
+        mode_id=200,
+        tier=3,
+    )
+    await _create_record_filter(
+        db,
+        id=99102502,
+        map_id=map_obj.id,
+        stage=1,
+        mode_id=201,
+        tier=4,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/maps/{map_obj.id}/course-tiers",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["map_id"] == map_obj.id
+    assert payload["stages"][0]["stage"] == 0
+    assert payload["stages"][0]["course_tiers"][0]["mode"] == "KZT"
+    assert payload["stages"][0]["course_tiers"][0]["tier"] == 3
+    assert payload["stages"][0]["course_tiers"][2]["mode"] == "VNL"
+    assert payload["stages"][0]["course_tiers"][2]["tier"] == 0
+    assert payload["stages"][1]["stage"] == 1
+    assert payload["stages"][1]["course_tiers"][1]["mode"] == "SKZ"
+    assert payload["stages"][1]["course_tiers"][1]["tier"] == 4
+
+
+@pytest.mark.asyncio
+async def test_update_admin_course_tier(
     client: AsyncClient,
     db: AsyncSession,
     superuser_token_headers: dict[str, str],
 ) -> None:
     map_obj = await _create_map(db, id=991030, name="kz_admin_tier_update")
-    record_filter = await _create_record_filter(
+    await _create_record_filter(
         db,
         id=99103001,
         map_id=map_obj.id,
@@ -324,72 +414,56 @@ async def test_update_admin_record_filter_tier(
         mode_id=200,
         tier=3,
     )
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_obj.id,
+                MapCourse.stage == 0,
+            )
+        )
+    ).first()
+    assert course is not None
+    assert course.id is not None
 
     response = await client.patch(
-        f"{settings.API_V1_STR}/admin/record-filters/{record_filter.id}",
+        f"{settings.API_V1_STR}/admin/course-tiers/{course.id}/{KZMode.KZT.value}",
         headers=superuser_token_headers,
-        json={"tier": None},
+        json={"tier": 6},
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["tier"] is None
+    assert payload["tier"] == 6
     assert payload["updated_by_id"] == str(settings.SUPER_USER_STEAMID64)
 
-    refreshed = await db.get(RecordFilter, record_filter.id)
+    refreshed = await db.get(MapCourseTier, (course.id, KZMode.KZT))
     assert refreshed is not None
-    assert refreshed.tier is None
+    assert refreshed.tier == 6
     assert refreshed.updated_by_id == str(settings.SUPER_USER_STEAMID64)
 
 
 @pytest.mark.asyncio
-async def test_update_admin_record_filter_rejects_wildcard_and_non_128_tick(
+async def test_update_admin_course_tier_rejects_invalid_tier_and_missing_course(
     client: AsyncClient,
-    db: AsyncSession,
     superuser_token_headers: dict[str, str],
 ) -> None:
-    map_obj = await _create_map(db, id=991040, name="kz_admin_rejected_filters")
-    wildcard = await _create_record_filter(
-        db,
-        id=99104001,
-        map_id=-1,
-        stage=0,
-        mode_id=200,
-        tier=2,
-    )
-    non_128_tick = await _create_record_filter(
-        db,
-        id=99104002,
-        map_id=map_obj.id,
-        stage=0,
-        mode_id=200,
-        tier=2,
-        tickrate=64,
-    )
-
-    wildcard_response = await client.patch(
-        f"{settings.API_V1_STR}/admin/record-filters/{wildcard.id}",
-        headers=superuser_token_headers,
-        json={"tier": 4},
-    )
-    non_128_response = await client.patch(
-        f"{settings.API_V1_STR}/admin/record-filters/{non_128_tick.id}",
+    missing_course_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/course-tiers/999999/{KZMode.KZT.value}",
         headers=superuser_token_headers,
         json={"tier": 4},
     )
     invalid_tier_response = await client.patch(
-        f"{settings.API_V1_STR}/admin/record-filters/{non_128_tick.id}",
+        f"{settings.API_V1_STR}/admin/course-tiers/999999/{KZMode.KZT.value}",
         headers=superuser_token_headers,
         json={"tier": 9},
     )
 
-    assert wildcard_response.status_code == 422
-    assert non_128_response.status_code == 422
+    assert missing_course_response.status_code == 404
     assert invalid_tier_response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_admin_map_and_record_filter_not_found(
+async def test_admin_map_and_course_tier_not_found(
     client: AsyncClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
@@ -402,12 +476,17 @@ async def test_admin_map_and_record_filter_not_found(
         f"{settings.API_V1_STR}/admin/maps/999999999/record-filters",
         headers=superuser_token_headers,
     )
-    filter_response = await client.patch(
-        f"{settings.API_V1_STR}/admin/record-filters/999999999",
+    course_tiers_response = await client.get(
+        f"{settings.API_V1_STR}/admin/maps/999999999/course-tiers",
+        headers=superuser_token_headers,
+    )
+    course_tier_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/course-tiers/999999999/{KZMode.KZT.value}",
         headers=superuser_token_headers,
         json={"tier": 1},
     )
 
     assert map_response.status_code == 404
     assert filters_response.status_code == 404
-    assert filter_response.status_code == 404
+    assert course_tiers_response.status_code == 404
+    assert course_tier_response.status_code == 404

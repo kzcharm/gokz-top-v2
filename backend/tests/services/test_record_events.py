@@ -8,7 +8,15 @@ from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.models import Map, Player, Record, ServerGlobalapi
+from app.models import (
+    Map,
+    MapCourse,
+    MapCourseTier,
+    Player,
+    Record,
+    ServerGlobalapi,
+    legacy_mode_id_to_kz_mode,
+)
 from app.services import record_events
 from app.services.record_events import (
     build_recent_record_snapshot_event,
@@ -48,6 +56,27 @@ async def _create_map(
             validated=True,
             difficulty=difficulty,
             approved_by_steamid64=0,
+        )
+    )
+    await db.commit()
+
+
+async def _create_course_tier(
+    db: AsyncSession,
+    *,
+    map_id: int,
+    mode_id: int,
+    tier: int,
+) -> None:
+    course = MapCourse(map_id=map_id, stage=0)
+    db.add(course)
+    await db.flush()
+    db.add(
+        MapCourseTier(
+            course_id=course.id,
+            mode=legacy_mode_id_to_kz_mode(mode_id),
+            tier=tier,
+            updated_by_id="0",
         )
     )
     await db.commit()
@@ -129,6 +158,7 @@ async def test_build_recent_record_snapshot_event_returns_latest_records(
     await _create_player(db, steamid64=player_one, name="Snapshot One")
     await _create_player(db, steamid64=player_two, name="Snapshot Two")
     await _create_map(db, map_id=990200, name="kz_snapshot", difficulty=5)
+    await _create_course_tier(db, map_id=990200, mode_id=200, tier=5)
     await _create_server(db, server_id=990300, name="Snapshot Server")
 
     oldest = await _create_record(

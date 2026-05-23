@@ -85,10 +85,10 @@ class MapCompatPublicV0(SQLModel):
 
 
 class MapTiers(SQLModel):
-    OVR: int | None
-    KZT: int | None
-    SKZ: int | None
-    VNL: int | None
+    OVR: int = Field(default=0, ge=0, le=8)
+    KZT: int = Field(default=0, ge=0, le=8)
+    SKZ: int = Field(default=0, ge=0, le=8)
+    VNL: int = Field(default=0, ge=0, le=8)
 
 
 class MapRefPublic(SQLModel):

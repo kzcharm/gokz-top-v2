@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.models import (
     Map,
     MapCourse,
+    MapCourseTier,
     MapReview,
     MapReviewSummaryCache,
     MapSyncResult,
@@ -21,6 +22,7 @@ from app.models import (
     RecordFilter,
     RecordType,
     ServerGlobalapi,
+    legacy_mode_id_to_kz_mode,
 )
 from app.models.utils import get_datetime_utc
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
@@ -66,6 +68,21 @@ async def _create_record_filter(
 ) -> RecordFilter:
     await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
     await db.commit()
+    course: MapCourse | None = None
+    if map_id > 0 and await db.get(Map, map_id) is not None:
+        course = (
+            await db.exec(
+                select(MapCourse).where(
+                    MapCourse.map_id == map_id,
+                    MapCourse.stage == stage,
+                )
+            )
+        ).first()
+        if course is None:
+            course = MapCourse(map_id=map_id, stage=stage)
+            db.add(course)
+            await db.commit()
+            await db.refresh(course)
     record_filter = RecordFilter(
         id=id,
         map_id=map_id,
@@ -79,6 +96,23 @@ async def _create_record_filter(
     db.add(record_filter)
     await db.commit()
     await db.refresh(record_filter)
+    if tier is not None and course is not None and course.id is not None:
+        mode = legacy_mode_id_to_kz_mode(mode_id)
+        course_tier = await db.get(MapCourseTier, (course.id, mode))
+        if course_tier is None:
+            db.add(
+                MapCourseTier(
+                    course_id=course.id,
+                    mode=mode,
+                    tier=tier,
+                    updated_by_id="0",
+                )
+            )
+        else:
+            positive_tiers = [value for value in (course_tier.tier, tier) if value > 0]
+            course_tier.tier = min(positive_tiers) if positive_tiers else 0
+            db.add(course_tier)
+        await db.commit()
     return record_filter
 
 
@@ -886,22 +920,22 @@ async def test_read_map_v1_returns_null_for_missing_scope_tiers_when_other_scope
     assert by_id_response.status_code == 200
     assert by_id_response.json()["tiers"] == {
         "OVR": 4,
-        "KZT": None,
-        "SKZ": None,
+        "KZT": 0,
+        "SKZ": 0,
         "VNL": 4,
     }
     assert by_name_response.status_code == 200
     assert by_name_response.json()[0]["tiers"] == {
         "OVR": 4,
-        "KZT": None,
-        "SKZ": None,
+        "KZT": 0,
+        "SKZ": 0,
         "VNL": 4,
     }
     assert filtered_response.status_code == 200
     assert filtered_response.json()[0]["tiers"] == {
         "OVR": 4,
-        "KZT": None,
-        "SKZ": None,
+        "KZT": 0,
+        "SKZ": 0,
         "VNL": 4,
     }
 

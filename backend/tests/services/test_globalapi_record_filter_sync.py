@@ -2,10 +2,17 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Map, RecordFilter
+from app.models import (
+    KZMode,
+    Map,
+    MapCourse,
+    MapCourseTier,
+    RecordFilter,
+    legacy_mode_id_to_kz_mode,
+)
 from app.services import globalapi_record_filter_sync as record_filter_sync
 from app.services.vanilla_tier import VanillaTierEntry
 
@@ -83,6 +90,67 @@ async def _create_local_record_filter(
     return record_filter
 
 
+async def _create_local_course_tier(
+    db: AsyncSession,
+    *,
+    map_id: int,
+    stage: int,
+    mode: KZMode,
+    tier: int,
+    updated_by_id: str | None = "0",
+) -> MapCourseTier:
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_id,
+                MapCourse.stage == stage,
+            )
+        )
+    ).first()
+    if course is None:
+        course = MapCourse(map_id=map_id, stage=stage)
+        db.add(course)
+        await db.commit()
+        await db.refresh(course)
+    assert course.id is not None
+
+    existing = await db.get(MapCourseTier, (course.id, mode))
+    if existing is None:
+        existing = MapCourseTier(
+            course_id=course.id,
+            mode=mode,
+            tier=tier,
+            updated_by_id=updated_by_id,
+        )
+    else:
+        existing.tier = tier
+        existing.updated_by_id = updated_by_id
+    db.add(existing)
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+
+async def _get_course_tier(
+    db: AsyncSession,
+    *,
+    map_id: int,
+    stage: int,
+    mode: KZMode,
+) -> MapCourseTier | None:
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_id,
+                MapCourse.stage == stage,
+            )
+        )
+    ).first()
+    if course is None or course.id is None:
+        return None
+    return await db.get(MapCourseTier, (course.id, mode))
+
+
 def _payload(
     *,
     id: int,
@@ -110,6 +178,9 @@ async def test_sync_record_filters_from_globalapi_syncs_multiple_pages(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    await _create_map(db, id=981200)
+    await _create_map(db, id=981201)
+
     async def _fake_fetch(
         *,
         client: object | None = None,
@@ -150,10 +221,31 @@ async def test_sync_record_filters_from_globalapi_syncs_multiple_pages(
     wildcard = await db.get(RecordFilter, 981602)
     assert wildcard is not None
     assert wildcard.map_id == -1
-    assert wildcard.tier is None
+    assert (
+        await _get_course_tier(
+            db,
+            map_id=981200,
+            stage=0,
+            mode=KZMode.KZT,
+        )
+    ) is None
+    assert (
+        await _get_course_tier(
+            db,
+            map_id=981201,
+            stage=1,
+            mode=KZMode.SKZ,
+        )
+    ) is None
+    assert await _get_course_tier(
+        db,
+        map_id=981602,
+        stage=2,
+        mode=KZMode.VNL,
+    ) is None
 
 
-async def test_sync_record_filters_from_globalapi_derives_main_course_tier_from_map(
+async def test_sync_record_filters_from_globalapi_creates_map_courses_only_for_exact_128_filters(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -171,7 +263,7 @@ async def test_sync_record_filters_from_globalapi_derives_main_course_tier_from_
         return [
             _payload(id=981605, map_id=981205, stage=0, mode_id=200, tickrate=128),
             _payload(id=981606, map_id=981205, stage=1, mode_id=200, tickrate=128),
-            _payload(id=981607, map_id=981205, stage=0, mode_id=200, tickrate=64),
+            _payload(id=981607, map_id=981205, stage=2, mode_id=200, tickrate=64),
         ]
 
     monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
@@ -179,29 +271,54 @@ async def test_sync_record_filters_from_globalapi_derives_main_course_tier_from_
     result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
 
     assert result.processed == 3
-    main_course = await db.get(RecordFilter, 981605)
+    main_course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == 981205,
+                MapCourse.stage == 0,
+            )
+        )
+    ).first()
+    bonus_course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == 981205,
+                MapCourse.stage == 1,
+            )
+        )
+    ).first()
+    non_128_course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == 981205,
+                MapCourse.stage == 2,
+            )
+        )
+    ).first()
+
     assert main_course is not None
-    assert main_course.tier == 6
-    bonus = await db.get(RecordFilter, 981606)
-    assert bonus is not None
-    assert bonus.tier is None
-    low_tick = await db.get(RecordFilter, 981607)
-    assert low_tick is not None
-    assert low_tick.tier is None
+    assert bonus_course is not None
+    assert non_128_course is None
+    assert await _get_course_tier(
+        db,
+        map_id=981205,
+        stage=0,
+        mode=KZMode.KZT,
+    ) is None
+    assert await db.get(RecordFilter, 981607) is not None
 
 
-async def test_sync_record_filters_from_globalapi_backfills_existing_null_tier(
+async def test_sync_record_filters_from_globalapi_preserves_existing_non_vnl_course_tier(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await _create_map(db, id=981208, difficulty=8)
-    await _create_local_record_filter(
+    await _create_local_course_tier(
         db,
-        id=981608,
         map_id=981208,
         stage=0,
-        mode_id=200,
-        tier=None,
+        mode=KZMode.KZT,
+        tier=8,
     )
 
     async def _fake_fetch(
@@ -220,42 +337,12 @@ async def test_sync_record_filters_from_globalapi_backfills_existing_null_tier(
     result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
 
     assert result.processed == 1
-    synced = await db.get(RecordFilter, 981608)
-    assert synced is not None
-    assert synced.tier == 8
-
-
-async def test_sync_record_filters_from_globalapi_preserves_existing_non_null_tier(
-    db: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    await _create_map(db, id=981209, difficulty=7)
-    await _create_local_record_filter(
+    synced = await _get_course_tier(
         db,
-        id=981609,
-        map_id=981209,
+        map_id=981208,
         stage=0,
-        mode_id=200,
-        tier=8,
+        mode=KZMode.KZT,
     )
-
-    async def _fake_fetch(
-        *,
-        client: object | None = None,
-        offset: int,
-        limit: int,
-    ) -> list[dict[str, Any]]:
-        del client, limit
-        if offset > 0:
-            return []
-        return [_payload(id=981609, map_id=981209, stage=0, mode_id=200)]
-
-    monkeypatch.setattr(record_filter_sync, "fetch_record_filters_from_globalapi", _fake_fetch)
-
-    result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
-
-    assert result.processed == 1
-    synced = await db.get(RecordFilter, 981609)
     assert synced is not None
     assert synced.tier == 8
 
@@ -303,12 +390,14 @@ async def test_sync_record_filters_from_globalapi_uses_vanilla_tiers_for_vnl_tp_
     result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
 
     assert result.processed == 2
-    tp_filter = await db.get(RecordFilter, 981660)
-    assert tp_filter is not None
-    assert tp_filter.tier == 3
-    pro_filter = await db.get(RecordFilter, 981661)
-    assert pro_filter is not None
-    assert pro_filter.tier == 6
+    course_tier = await _get_course_tier(
+        db,
+        map_id=981260,
+        stage=0,
+        mode=KZMode.VNL,
+    )
+    assert course_tier is not None
+    assert course_tier.tier == 3
 
 
 async def test_sync_record_filters_from_globalapi_sets_zero_tier_for_vnl_status_maps(
@@ -347,7 +436,12 @@ async def test_sync_record_filters_from_globalapi_sets_zero_tier_for_vnl_status_
     result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
 
     assert result.processed == 1
-    synced = await db.get(RecordFilter, 981662)
+    synced = await _get_course_tier(
+        db,
+        map_id=981261,
+        stage=0,
+        mode=KZMode.VNL,
+    )
     assert synced is not None
     assert synced.tier == 0
 
@@ -364,6 +458,13 @@ async def test_sync_record_filters_from_globalapi_overrides_existing_vnl_tier(
         stage=0,
         mode_id=202,
         has_teleports=False,
+        tier=8,
+    )
+    await _create_local_course_tier(
+        db,
+        map_id=981262,
+        stage=0,
+        mode=KZMode.VNL,
         tier=8,
     )
 
@@ -397,9 +498,14 @@ async def test_sync_record_filters_from_globalapi_overrides_existing_vnl_tier(
     result = await record_filter_sync.sync_record_filters_from_globalapi(session=db)
 
     assert result.processed == 1
-    synced = await db.get(RecordFilter, 981663)
+    synced = await _get_course_tier(
+        db,
+        map_id=981262,
+        stage=0,
+        mode=KZMode.VNL,
+    )
     assert synced is not None
-    assert synced.tier == 5
+    assert synced.tier == 2
 
 
 async def test_sync_record_filters_from_globalapi_updates_existing_rows(

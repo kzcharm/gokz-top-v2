@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Numeric,
+    String,
     text,
 )
 from sqlalchemy import Enum as SqlEnum
@@ -127,6 +128,62 @@ class MapCourse(MapCourseBase, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
+
+
+class MapCourseTierBase(LegacyDatetimeNamesMixin):
+    course_id: int = Field(
+        foreign_key="map_course.id",
+        primary_key=True,
+    )
+    mode: KZMode = Field(
+        sa_column=Column(
+            SqlEnum(KZMode, name="kz_mode"),
+            ForeignKey("mode.name_short"),
+            primary_key=True,
+            nullable=False,
+        )
+    )
+    tier: int = Field(default=0, ge=0, le=8)
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        validation_alias="created_on",
+        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+    )
+    updated_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        validation_alias="updated_on",
+        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+    )
+    updated_by_id: str | None = Field(
+        default=None,
+        max_length=32,
+        sa_type=String(32),
+    )
+
+    def __init__(self, /, **data: object) -> None:
+        super().__init__(**_normalize_record_payload(data))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_mode_input(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        return _normalize_record_payload(data)
+
+    @property
+    def mode_id(self) -> int:
+        return kz_mode_to_legacy_mode_id(self.mode)
+
+
+class MapCourseTier(MapCourseTierBase, table=True):
+    __tablename__ = "map_course_tier"
+    __table_args__ = (
+        CheckConstraint(
+            "tier >= 0 AND tier <= 8", name="ck_map_course_tier_range"
+        ),
+        Index("ix_map_course_tier_course_id", "course_id"),
+        Index("ix_map_course_tier_mode", "mode"),
+    )
 
 
 class RecordBase(LegacyDatetimeNamesMixin):
@@ -603,3 +660,31 @@ class WorldRecordCountCompatPublicV0(SQLModel):
     player_name: str
     steam_id: str | None = None
     world_records: int
+
+
+class AdminCourseTierPublic(SQLModel):
+    course_id: int
+    map_id: int
+    stage: int
+    mode: KZMode
+    tier: int
+    created_on: datetime | None = None
+    updated_on: datetime | None = None
+    updated_by_id: str | None = None
+
+
+class AdminMapCourseTierStagePublic(SQLModel):
+    stage: int
+    course_id: int
+    course_tiers: list[AdminCourseTierPublic]
+
+
+class AdminMapCourseTiersPublic(SQLModel):
+    map_id: int
+    stages: list[AdminMapCourseTierStagePublic]
+
+
+class AdminCourseTierUpdate(SQLModel):
+    model_config = {"extra": "forbid"}
+
+    tier: int = Field(ge=0, le=8)

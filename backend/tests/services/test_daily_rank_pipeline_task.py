@@ -204,6 +204,10 @@ async def test_load_daily_rank_selection_uses_previous_utc_day_window(
         (map_id, 0),
         (map_id, 1),
     ]
+    assert selection.map_stat_keys == [
+        (map_id, 0, RecordType.NUB),
+        (map_id, 1, RecordType.NUB),
+    ]
     assert selection.steamid64s == sorted([lower_bound_player, middle_player])
     assert records_by_steamid64[lower_bound_player].created_at == datetime(
         2099, 4, 3, 0, 0, tzinfo=UTC
@@ -287,6 +291,7 @@ async def test_load_daily_rank_selection_ignores_record_pb_updated_at_window_mis
         (int(ModeScopeId.KZT), included_player),
     ]
     assert selection.map_leaderboard_keys == []
+    assert selection.map_stat_keys == []
     assert selection.steamid64s == [included_player]
 
 
@@ -302,6 +307,7 @@ async def test_run_daily_rank_pipeline_runs_steps_in_sequence(
         point_buckets=[(1, 2, RecordType.NUB)],
         leaderboard_keys=[(2, 76561198000000001)],
         map_leaderboard_keys=[(123, 0), (123, 1)],
+        map_stat_keys=[(123, 0, RecordType.NUB), (123, 1, RecordType.PRO)],
         steamid64s=[76561198000000001],
     )
     order: list[str] = []
@@ -341,6 +347,19 @@ async def test_run_daily_rank_pipeline_runs_steps_in_sequence(
         assert selection.map_leaderboard_keys == [(123, 0), (123, 1)]
         order.append("maps")
         return 2
+
+    async def _rebuild_map_stats(
+        *,
+        session: AsyncSession,
+        selection: daily_rank_pipeline_task.DailyRankSelection,
+    ) -> int:
+        del session
+        assert selection.map_stat_keys == [
+            (123, 0, RecordType.NUB),
+            (123, 1, RecordType.PRO),
+        ]
+        order.append("map-stats")
+        return 4
 
     async def _refresh_profiles(
         *,
@@ -391,6 +410,11 @@ async def test_run_daily_rank_pipeline_runs_steps_in_sequence(
     )
     monkeypatch.setattr(
         daily_rank_pipeline_task,
+        "rebuild_daily_rank_map_stats",
+        _rebuild_map_stats,
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
         "refresh_daily_rank_player_profiles",
         _refresh_profiles,
     )
@@ -404,11 +428,19 @@ async def test_run_daily_rank_pipeline_runs_steps_in_sequence(
         only_stale=False
     )
 
-    assert order == ["select", "points", "leaderboard", "maps", "steam", "friends"]
+    assert order == [
+        "select",
+        "points",
+        "leaderboard",
+        "maps",
+        "map-stats",
+        "steam",
+        "friends",
+    ]
     assert result is not None
     assert result.processed == 3
     assert result.created == 3
-    assert result.updated == 18
+    assert result.updated == 22
     assert result.warnings == 0
 
 
@@ -425,6 +457,7 @@ async def test_run_daily_rank_pipeline_aborts_on_first_failure(
         point_buckets=[(1, 2, RecordType.NUB)],
         leaderboard_keys=[(2, 76561198000000001)],
         map_leaderboard_keys=[(123, 0)],
+        map_stat_keys=[(123, 0, RecordType.NUB)],
         steamid64s=[76561198000000001],
     )
     order: list[str] = []

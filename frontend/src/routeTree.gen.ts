@@ -23,6 +23,9 @@ import { Route as LayoutLeaderboardsRouteImport } from './routes/_layout/leaderb
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as MapsMapNameStatsRouteImport } from './routes/maps.$mapName.stats'
+import { Route as MapsMapNameReviewsRouteImport } from './routes/maps.$mapName.reviews'
+import { Route as MapsMapNameMaptopRouteImport } from './routes/maps.$mapName.maptop'
 import { Route as LayoutSettingsWebhooksRouteImport } from './routes/_layout/settings.webhooks'
 import { Route as LayoutSettingsSocialLinksRouteImport } from './routes/_layout/settings.social-links'
 import { Route as LayoutSettingsProfileRouteImport } from './routes/_layout/settings.profile'
@@ -116,6 +119,21 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => LayoutRoute,
+} as any)
+const MapsMapNameStatsRoute = MapsMapNameStatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
+  getParentRoute: () => MapsMapNameRoute,
+} as any)
+const MapsMapNameReviewsRoute = MapsMapNameReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => MapsMapNameRoute,
+} as any)
+const MapsMapNameMaptopRoute = MapsMapNameMaptopRouteImport.update({
+  id: '/maptop',
+  path: '/maptop',
+  getParentRoute: () => MapsMapNameRoute,
 } as any)
 const LayoutSettingsWebhooksRoute = LayoutSettingsWebhooksRouteImport.update({
   id: '/webhooks',
@@ -263,7 +281,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof LayoutLiveRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
-  '/maps/$mapName': typeof MapsMapNameRoute
+  '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
   '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
@@ -283,6 +301,9 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
+  '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
+  '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
@@ -301,7 +322,7 @@ export interface FileRoutesByTo {
   '/live': typeof LayoutLiveRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
-  '/maps/$mapName': typeof MapsMapNameRoute
+  '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/': typeof LayoutIndexRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
@@ -321,6 +342,9 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
+  '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
+  '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
@@ -341,7 +365,7 @@ export interface FileRoutesById {
   '/_layout/live': typeof LayoutLiveRoute
   '/_layout/settings': typeof LayoutSettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
-  '/maps/$mapName': typeof MapsMapNameRoute
+  '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/maps': typeof LayoutAdminMapsRoute
@@ -362,6 +386,9 @@ export interface FileRoutesById {
   '/_layout/settings/profile': typeof LayoutSettingsProfileRoute
   '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/_layout/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
+  '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
+  '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
   '/_layout/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/_layout/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
@@ -403,6 +430,9 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/social-links'
     | '/settings/webhooks'
+    | '/maps/$mapName/maptop'
+    | '/maps/$mapName/reviews'
+    | '/maps/$mapName/stats'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
     | '/profile/$identifier/records'
@@ -441,6 +471,9 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/social-links'
     | '/settings/webhooks'
+    | '/maps/$mapName/maptop'
+    | '/maps/$mapName/reviews'
+    | '/maps/$mapName/stats'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
     | '/profile/$identifier/records'
@@ -481,6 +514,9 @@ export interface FileRouteTypes {
     | '/_layout/settings/profile'
     | '/_layout/settings/social-links'
     | '/_layout/settings/webhooks'
+    | '/maps/$mapName/maptop'
+    | '/maps/$mapName/reviews'
+    | '/maps/$mapName/stats'
     | '/_layout/profile/$identifier/friends'
     | '/_layout/profile/$identifier/jumpstats'
     | '/_layout/profile/$identifier/records'
@@ -596,6 +632,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/maps/$mapName/stats': {
+      id: '/maps/$mapName/stats'
+      path: '/stats'
+      fullPath: '/maps/$mapName/stats'
+      preLoaderRoute: typeof MapsMapNameStatsRouteImport
+      parentRoute: typeof MapsMapNameRoute
+    }
+    '/maps/$mapName/reviews': {
+      id: '/maps/$mapName/reviews'
+      path: '/reviews'
+      fullPath: '/maps/$mapName/reviews'
+      preLoaderRoute: typeof MapsMapNameReviewsRouteImport
+      parentRoute: typeof MapsMapNameRoute
+    }
+    '/maps/$mapName/maptop': {
+      id: '/maps/$mapName/maptop'
+      path: '/maptop'
+      fullPath: '/maps/$mapName/maptop'
+      preLoaderRoute: typeof MapsMapNameMaptopRouteImport
+      parentRoute: typeof MapsMapNameRoute
     }
     '/_layout/settings/webhooks': {
       id: '/_layout/settings/webhooks'
@@ -892,12 +949,28 @@ const LayoutRouteChildren: LayoutRouteChildren = {
 const LayoutRouteWithChildren =
   LayoutRoute._addFileChildren(LayoutRouteChildren)
 
+interface MapsMapNameRouteChildren {
+  MapsMapNameMaptopRoute: typeof MapsMapNameMaptopRoute
+  MapsMapNameReviewsRoute: typeof MapsMapNameReviewsRoute
+  MapsMapNameStatsRoute: typeof MapsMapNameStatsRoute
+}
+
+const MapsMapNameRouteChildren: MapsMapNameRouteChildren = {
+  MapsMapNameMaptopRoute: MapsMapNameMaptopRoute,
+  MapsMapNameReviewsRoute: MapsMapNameReviewsRoute,
+  MapsMapNameStatsRoute: MapsMapNameStatsRoute,
+}
+
+const MapsMapNameRouteWithChildren = MapsMapNameRoute._addFileChildren(
+  MapsMapNameRouteChildren,
+)
+
 interface MapsRouteChildren {
-  MapsMapNameRoute: typeof MapsMapNameRoute
+  MapsMapNameRoute: typeof MapsMapNameRouteWithChildren
 }
 
 const MapsRouteChildren: MapsRouteChildren = {
-  MapsMapNameRoute: MapsMapNameRoute,
+  MapsMapNameRoute: MapsMapNameRouteWithChildren,
 }
 
 const MapsRouteWithChildren = MapsRoute._addFileChildren(MapsRouteChildren)

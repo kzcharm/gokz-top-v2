@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Copy, Eye, History, Search, UserRoundCheck, X } from "lucide-react"
+import { Copy, Eye, Search, UserRoundCheck, X } from "lucide-react"
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -41,13 +41,12 @@ import {
 } from "@/components/ui/tooltip"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
-import { isSuperuser } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
-import { ProfileHistoryDialog } from "./ProfileHistoryDialog"
 import {
   ProfileSocialDialog,
   type ProfileSocialTab,
@@ -72,18 +71,14 @@ function formatJumpDistance(value: number) {
 }
 
 function ProfileIdentityCard({
-  canViewProfileHistory,
   displayName,
-  onOpenProfileHistory,
   profileSummary,
   profileSummaryLoading,
   onContextMenuOpenChange,
   openContextMenu,
   player,
 }: {
-  canViewProfileHistory: boolean
   displayName: string
-  onOpenProfileHistory: () => void
   profileSummary: ProfileSummaryData
   profileSummaryLoading: boolean
   onContextMenuOpenChange: (open: boolean) => void
@@ -91,6 +86,8 @@ function ProfileIdentityCard({
   player: ProfilePlayer
 }) {
   const { t } = useTranslation()
+  const authenticated = isLoggedIn()
+  const { user } = useAuth()
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const avatarUrl = getAvatarUrl(player)
   const showWebsiteUserRing = player.is_website_user === true
@@ -121,6 +118,11 @@ function ProfileIdentityCard({
     profileSummary.regionalStanding === null
       ? t("profile.unranked")
       : `${regionalStandingPrefix} #${formatNumber(profileSummary.regionalStanding)}`
+  const viewerSteamid64 = authenticated
+    ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
+    : null
+  const isCurrentUser =
+    viewerSteamid64 === player.steamid64 || user?.steamid64 === player.steamid64
 
   const handleIdentityContextMenu = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -345,26 +347,20 @@ function ProfileIdentityCard({
           closeMenu={() => onContextMenuOpenChange(false)}
           displayName={displayName}
           hasProfileLink={hasProfileLink}
+          loggedInChildren={
+            authenticated && !isCurrentUser ? (
+              <PlayerFollowContextMenuItem
+                menuOpen={openContextMenu}
+                steamid64={player.steamid64}
+                testId="profile-follow-menu-item"
+              />
+            ) : undefined
+          }
           onAddBan={() => setAddBanDialogOpen(true)}
           player={player}
           steamProfileUrl={steamProfileUrl}
           steamid64={player.steamid64}
-        >
-          {canViewProfileHistory ? (
-            <DropdownMenuItem
-              data-testid="profile-history-menu-item"
-              onSelect={onOpenProfileHistory}
-            >
-              <History />
-              {t("profile.history.menuAction")}
-            </DropdownMenuItem>
-          ) : null}
-          <PlayerFollowContextMenuItem
-            menuOpen={openContextMenu}
-            steamid64={player.steamid64}
-            testId="profile-follow-menu-item"
-          />
-        </PlayerContextMenuItems>
+        />
       </DropdownMenuContent>
       <AddBanDialog
         open={addBanDialogOpen}
@@ -723,9 +719,7 @@ export function ProfileSidebar({
 }) {
   const { t } = useTranslation()
   const authenticated = isLoggedIn()
-  const { user } = useAuth()
   const navigate = useNavigate()
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
   const [identityContextMenuOpen, setIdentityContextMenuOpen] = useState(false)
@@ -761,7 +755,6 @@ export function ProfileSidebar({
   const followerCount = getFollowSummaryCount(followSummary, "follower_count")
   const followingCount = getFollowSummaryCount(followSummary, "following_count")
   const ljPbDistance = ljPbQuery.data?.data?.[0]?.distance ?? null
-  const canViewProfileHistory = isSuperuser(user)
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
 
@@ -803,11 +796,7 @@ export function ProfileSidebar({
     <>
       <div className="grid min-w-0 items-stretch gap-6 md:auto-rows-fr md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1 xl:auto-rows-auto">
         <ProfileIdentityCard
-          canViewProfileHistory={canViewProfileHistory}
           displayName={player.alias || player.name}
-          onOpenProfileHistory={() => {
-            setHistoryDialogOpen(true)
-          }}
           profileSummary={summary}
           profileSummaryLoading={summaryLoading}
           onContextMenuOpenChange={setIdentityContextMenuOpen}
@@ -994,11 +983,6 @@ export function ProfileSidebar({
           </CardContent>
         </Card>
       </div>
-      <ProfileHistoryDialog
-        identifier={identifier}
-        onOpenChange={setHistoryDialogOpen}
-        open={historyDialogOpen}
-      />
       <ProfileSocialDialog
         followerCount={followerCount}
         followingCount={followingCount}

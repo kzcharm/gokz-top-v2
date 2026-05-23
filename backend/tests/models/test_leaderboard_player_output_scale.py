@@ -3,6 +3,7 @@ from itertools import pairwise
 import pytest
 
 from app.models.leaderboard_player import (
+    min_raw_rating_for_public_rating,
     redistribute_display_rating,
     scale_public_rating,
 )
@@ -69,3 +70,23 @@ def test_scale_public_rating_composes_linear_scale_and_redistribution() -> None:
     assert scale_public_rating(4_000) == pytest.approx(
         redistribute_display_rating(2.0)
     )
+
+
+@pytest.mark.parametrize("target_rating", [1, 6, 7, 8, 9, 10, 11])
+def test_min_raw_rating_for_public_rating_returns_smallest_matching_raw_rating(
+    target_rating: int,
+) -> None:
+    threshold = min_raw_rating_for_public_rating(target_rating)
+
+    assert scale_public_rating(threshold) >= target_rating
+    if threshold > 1:
+        assert scale_public_rating(threshold - 1) < target_rating
+
+
+def test_min_raw_rating_for_public_rating_is_monotonic() -> None:
+    thresholds = [
+        min_raw_rating_for_public_rating(target_rating)
+        for target_rating in range(1, 12)
+    ]
+
+    assert all(left <= right for left, right in pairwise(thresholds))

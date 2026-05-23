@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
@@ -18,13 +18,18 @@ from app.models import (
     LeaderboardPlayer,
     Map,
     MapCourse,
+    MapCourseTier,
     ModeScope,
     ModeScopeId,
     Player,
     RecordFilter,
     ServerGlobalapi,
+    legacy_mode_id_to_kz_mode,
 )
-from app.models.leaderboard_player import scale_public_rating
+from app.models.leaderboard_player import (
+    min_raw_rating_for_public_rating,
+    scale_public_rating,
+)
 from tests.utils.server import create_server_group as create_test_server_group
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import random_steamid64
@@ -113,6 +118,14 @@ async def _create_record_filter(
     mode_id: int,
     tier: int,
 ) -> None:
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_id,
+                MapCourse.stage == 0,
+            )
+        )
+    ).first()
     db.add(
         RecordFilter(
             id=record_filter_id,
@@ -125,6 +138,22 @@ async def _create_record_filter(
             updated_by_id="0",
         )
     )
+    if course is not None and course.id is not None:
+        mode = legacy_mode_id_to_kz_mode(mode_id)
+        existing = await db.get(MapCourseTier, (course.id, mode))
+        if existing is None:
+            db.add(
+                MapCourseTier(
+                    course_id=course.id,
+                    mode=mode,
+                    tier=tier,
+                    updated_by_id="0",
+                )
+            )
+        else:
+            positive_tiers = [value for value in (existing.tier, tier) if value > 0]
+            existing.tier = min(positive_tiers) if positive_tiers else 0
+            db.add(existing)
     await db.flush()
 
 
@@ -1083,7 +1112,7 @@ async def test_read_jumpstat_leaderboard_returns_pb_rows_for_scope_and_type(
     assert payload["data"][0]["type"] == "LJ"
 
 
-async def test_read_jumpstat_leaderboard_uses_current_scope_raw_rating_threshold(
+async def test_read_jumpstat_leaderboard_defaults_to_min_rating_seven(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -1105,25 +1134,36 @@ async def test_read_jumpstat_leaderboard_uses_current_scope_raw_rating_threshold
     beta_ovr_row = await db.get(LeaderboardPlayer, (ModeScope.OVR, players["beta"]))
     assert beta_kzt_row is not None
     assert beta_ovr_row is not None
-    beta_kzt_row.rating = 33_456
-    beta_ovr_row.rating = 40_000
+    beta_kzt_row.rating = min_raw_rating_for_public_rating(6)
+    beta_ovr_row.rating = min_raw_rating_for_public_rating(6)
     await db.commit()
 
-    kzt_response = await client.get(
+    default_response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/jumpstats",
         params={"scope": "KZT", "type": "LJ"},
     )
-    assert kzt_response.status_code == 200
-    assert kzt_response.json() == {"data": [], "count": 0}
+    assert default_response.status_code == 200
+    assert default_response.json() == {"data": [], "count": 0}
 
-    ovr_response = await client.get(
+    explicit_response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/jumpstats",
-        params={"scope": "OVR", "type": "LJ"},
+        params={"scope": "KZT", "type": "LJ", "min_rating": 6},
     )
-    assert ovr_response.status_code == 200
-    payload = ovr_response.json()
+    assert explicit_response.status_code == 200
+    payload = explicit_response.json()
     assert payload["count"] == 1
     assert payload["data"][0]["player"]["steamid64"] == str(players["beta"])
+
+
+async def test_read_jumpstat_leaderboard_rejects_invalid_min_rating(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/jumpstats",
+        params={"min_rating": 5},
+    )
+
+    assert response.status_code == 422
 
 
 async def test_read_jumpstat_leaderboard_block_sort_uses_distance_tiebreaker(

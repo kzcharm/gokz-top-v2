@@ -66,6 +66,7 @@ export const en = {
     visuals: "Visuals",
     stage: "Stage",
     wrTime: "WR Time",
+    wrGap: "WR Gap",
   },
   language: {
     label: "Language",
@@ -478,6 +479,8 @@ export const en = {
     jumpstats: {
       filters: "Filters",
       jumpType: "Jump Type",
+      minRatingAria: "Minimum rating",
+      minRatingValue: "Rating {{value}}+",
       loadFailedTitle: "Unable to load jumpstats leaderboard",
       loadFailedDescription: "The jumpstats leaderboard could not be loaded.",
       empty: "No jumpstats leaderboard entries found.",
@@ -700,7 +703,22 @@ export const en = {
     },
     tabs: {
       top: "Map Top",
+      stats: "Stats",
       reviews: "Reviews",
+    },
+    stats: {
+      loadFailedTitle: "Unable to load map stats",
+      loadFailedBody: "Try refreshing the page.",
+      nubTitle: "NUB WR Gap Distribution",
+      proTitle: "PRO WR Gap Distribution",
+      medianLabel: "Median: {{median}} ({{time}})",
+      noWr: "No WR",
+      empty: "No PB gaps available for this slice yet.",
+      medianMarker: "Median",
+      youMarker: "You",
+      tooltipCount: "{{count}} PBs",
+      tooltipCountWithPercent: "{{count}} PBs ({{percent}})",
+      tooltipTimeRange: "Time range: {{start}} to {{end}}",
     },
     filters: {
       country: "country",
@@ -712,6 +730,18 @@ export const en = {
     topPercentPrefix: "Top",
     myRank: "My rank",
     findMe: "Find Me",
+    wrGapInfoButtonAria: "Explain WR Gap",
+    wrGapInfoTitle: "What is WR Gap?",
+    wrGapInfoDescription:
+      "WR Gap shows how far a run is from the world record using a logarithmic scale.",
+    wrGapInfoFormulaLabel: "Formula",
+    wrGapInfoCloser:
+      "More negative numbers mean the run is closer to the WR. Numbers closer to 0 mean it is farther away.",
+    wrGapInfoExampleLabel: "Example",
+    wrGapInfoExample:
+      "If the WR is 100.00 seconds and a run is 125.00 seconds, the extra 25% becomes log2(0.25) = -2.00.",
+    wrGapInfoWrRow:
+      "The WR row shows '-' because the formula is undefined for the WR itself.",
     findMeNotRankedTitle: "You do not have a ranked finish here",
     findMeNotRankedDescription:
       "Try another scope, filter, or the other NUB / PRO view.",

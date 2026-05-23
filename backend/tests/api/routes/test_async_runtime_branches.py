@@ -219,6 +219,11 @@ async def test_players_routes_direct_branches(db: AsyncSession) -> None:
         upserted = await players_routes.upsert_player_from_steam(
             session=db,
             identifier=str(mocked_upsert.steamid64),
+            current_user=User(
+                steamid64=random_steamid64(),
+                is_active=True,
+                roles=[UserRole.SUPERUSER],
+            ),
         )
     assert upserted.steamid64 == str(mocked_upsert.steamid64)
 
@@ -228,16 +233,16 @@ async def test_modes_routes_direct_branches(db: AsyncSession) -> None:
     modes = await modes_routes.read_modes(session=db)
     assert len(modes) >= 4
 
-    by_id = await modes_routes.read_mode_by_id(session=db, id=200)
-    by_name = await modes_routes.read_mode_by_name(session=db, mode_name="kz_timer")
+    by_id = await modes_routes.read_mode_by_id(session=db, mode_id=200)
+    by_name_matches = await modes_routes.read_modes(session=db, name="kz_timer")
     assert by_id.id == 200
-    assert by_name.name == "kz_timer"
+    assert len(by_name_matches) == 1
+    assert by_name_matches[0].name == "kz_timer"
 
     with pytest.raises(HTTPException, match="Mode not found"):
-        await modes_routes.read_mode_by_id(session=db, id=9999)
+        await modes_routes.read_mode_by_id(session=db, mode_id=9999)
 
-    with pytest.raises(HTTPException, match="Mode not found"):
-        await modes_routes.read_mode_by_name(session=db, mode_name="missing_mode")
+    assert await modes_routes.read_modes(session=db, name="missing_mode") == []
 
     superuser = await _create_user(db, superuser=True)
     updated = await admin_modes_routes.update_mode(

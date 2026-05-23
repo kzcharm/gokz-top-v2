@@ -23,10 +23,9 @@ from app.models import (
     ServerGroupSummary,
     mode_scope_modes,
 )
+from app.models.leaderboard_player import min_raw_rating_for_public_rating
 
 type JumpstatRow = tuple[Jumpstat, Player, ServerGroup]
-
-MIN_JUMPSTAT_LEADERBOARD_RAW_RATING = 33_457
 
 
 def _to_server_group_summary(*, server_group: ServerGroup) -> ServerGroupSummary:
@@ -142,6 +141,7 @@ async def read_jumpstat_leaderboard(
     session: AsyncSession,
     query: JumpstatLeaderboardListQuery,
 ) -> JumpstatLeaderboardsPublic:
+    minimum_raw_rating = min_raw_rating_for_public_rating(query.min_rating)
     ranked_jumpstats_subquery = (
         select(
             col(Jumpstat.id).label("id"),
@@ -169,9 +169,7 @@ async def read_jumpstat_leaderboard(
             not_active_ban_exists_clause(
                 steamid64_column=Jumpstat.__table__.c.player_steamid64
             ),
-            # TODO: Stop using raw rating here once we write the actual rating directly
-            # to the database.
-            col(LeaderboardPlayer.rating) >= MIN_JUMPSTAT_LEADERBOARD_RAW_RATING,
+            col(LeaderboardPlayer.rating) >= minimum_raw_rating,
         )
         .subquery()
     )

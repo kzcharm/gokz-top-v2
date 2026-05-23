@@ -45,7 +45,7 @@ class MapLeaderboardCache(SQLModel, table=True):
 
 class MapLeaderboardEntryPublic(SQLModel):
     map: MapRefPublic
-    tier: int | None = None
+    tier: int = 0
     review_summary: MapReviewSummaryPublic | None = None
     total_finishes: int
     total_playtime: float
