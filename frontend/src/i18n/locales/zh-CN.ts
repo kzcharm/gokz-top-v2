@@ -66,6 +66,7 @@ export const zhCN = {
     visuals: "视觉",
     stage: "关卡",
     wrTime: "WR 用时",
+    wrGap: "WR 差距",
   },
   language: {
     label: "语言",

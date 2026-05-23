@@ -339,6 +339,18 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
     staleTime: 30_000,
     retry: false,
   })
+  const wrQuery = useQuery({
+    queryKey: ["map", "wrs", mapQuery.data?.id ?? null, scope, isProOnly],
+    queryFn: () =>
+      MapsService.readMapWrs({
+        mapId: mapQuery.data!.id,
+        scope,
+        type: isProOnly ? "PRO" : "NUB",
+      }),
+    enabled: mapQuery.data !== undefined,
+    staleTime: 30_000,
+    retry: false,
+  })
   const oppositeLeaderboardQuery = useQuery({
     queryKey: [
       "map",
@@ -713,6 +725,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
           ) : (
             <MapTopTable
               records={leaderboardQuery.data?.data ?? []}
+              wrTime={wrQuery.data?.[0]?.time ?? null}
               emptyMessage={
                 isProOnly ? t("maps.emptyTopPro") : t("maps.emptyTop")
               }

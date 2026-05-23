@@ -66,6 +66,7 @@ export const ru = {
     visuals: "Визуал",
     stage: "Этап",
     wrTime: "WR время",
+    wrGap: "Разрыв с WR",
   },
   language: {
     label: "Язык",

@@ -66,6 +66,7 @@ export const en = {
     visuals: "Visuals",
     stage: "Stage",
     wrTime: "WR Time",
+    wrGap: "WR Gap",
   },
   language: {
     label: "Language",

@@ -12,6 +12,7 @@ import { PointsBadge } from "@/components/Records/PointsBadge"
 import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilityButton"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
+import { getLocale } from "@/i18n/locale"
 import { cn, truncateText } from "@/lib/utils"
 
 type MapTopTableRow = {
@@ -19,8 +20,23 @@ type MapTopTableRow = {
   record: RecordPublic
 }
 
+function getWrGap(recordTime: number, wrTime: number | null): number | null {
+  if (wrTime === null || !Number.isFinite(wrTime) || wrTime <= 0) {
+    return null
+  }
+
+  const ratioDelta = recordTime / wrTime - 1
+  if (!Number.isFinite(ratioDelta) || ratioDelta <= 0) {
+    return null
+  }
+
+  const wrGap = Math.log2(ratioDelta)
+  return Number.isFinite(wrGap) ? wrGap : null
+}
+
 export function MapTopTable({
   records,
+  wrTime,
   emptyMessage,
   isLoading,
   pageIndex,
@@ -31,6 +47,7 @@ export function MapTopTable({
   currentUserSteamid64,
 }: {
   records: RecordPublic[]
+  wrTime: number | null
   emptyMessage: string
   isLoading: boolean
   pageIndex: number
@@ -41,6 +58,14 @@ export function MapTopTable({
   currentUserSteamid64: string | null
 }) {
   const { t } = useTranslation()
+  const wrGapFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(getLocale(), {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [],
+  )
 
   const tableData = useMemo<MapTopTableRow[]>(
     () =>
@@ -104,6 +129,23 @@ export function MapTopTable({
         ),
       },
       {
+        id: "wrGap",
+        size: 112,
+        meta: {
+          headerClassName: "text-right",
+          cellClassName: "text-right",
+        },
+        header: () => <div className="text-right">{t("labels.wrGap")}</div>,
+        cell: ({ row }) => {
+          const wrGap = getWrGap(row.original.record.time, wrTime)
+          return (
+            <div className="text-right font-mono font-medium text-foreground/90">
+              {wrGap === null ? "-" : wrGapFormatter.format(wrGap)}
+            </div>
+          )
+        },
+      },
+      {
         id: "points",
         size: 112,
         header: () => t("labels.points"),
@@ -154,7 +196,7 @@ export function MapTopTable({
         ),
       },
     ],
-    [t],
+    [t, wrGapFormatter, wrTime],
   )
 
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
