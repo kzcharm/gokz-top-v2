@@ -3,18 +3,22 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
 from app.models import (
     Map,
+    MapCourse,
+    MapCourseTier,
     MapLeaderboardCache,
     MapReviewSummaryCache,
     ModeScope,
     Player,
     RecordFilter,
     ServerGlobalapi,
+    legacy_mode_id_to_kz_mode,
 )
 from tests.utils.utils import random_steamid64
 
@@ -55,6 +59,18 @@ async def _create_record_filter(
     mode_id: int,
     tier: int,
 ) -> None:
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_id,
+                MapCourse.stage == 0,
+            )
+        )
+    ).first()
+    if course is None:
+        course = MapCourse(map_id=map_id, stage=0)
+        db.add(course)
+        await db.flush()
     db.add(
         RecordFilter(
             id=record_filter_id,
@@ -67,6 +83,22 @@ async def _create_record_filter(
             updated_by_id="0",
         )
     )
+    if course.id is not None:
+        mode = legacy_mode_id_to_kz_mode(mode_id)
+        existing = await db.get(MapCourseTier, (course.id, mode))
+        if existing is None:
+            db.add(
+                MapCourseTier(
+                    course_id=course.id,
+                    mode=mode,
+                    tier=tier,
+                    updated_by_id="0",
+                )
+            )
+        else:
+            positive_tiers = [value for value in (existing.tier, tier) if value > 0]
+            existing.tier = min(positive_tiers) if positive_tiers else 0
+            db.add(existing)
     await db.flush()
 
 
@@ -199,7 +231,7 @@ async def test_read_map_leaderboard_returns_metrics_and_zero_rows(
     assert alpha_entry["unique_nub_finishes"] == 1
 
     beta_entry = payload["data"][1]
-    assert beta_entry["tier"] == 3
+    assert beta_entry["tier"] == 0
     assert beta_entry["review_summary"] is None
     assert beta_entry["total_finishes"] == 0
     assert beta_entry["average_first_completion_time"] == 0

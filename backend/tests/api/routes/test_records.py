@@ -13,11 +13,14 @@ from app.models import (
     Ban,
     BanType,
     Map,
+    MapCourse,
+    MapCourseTier,
     Player,
     Record,
     RecordFilter,
     RecordPb,
     ServerGlobalapi,
+    legacy_mode_id_to_kz_mode,
 )
 from app.services.run_replay_storage import save_run_replay
 from tests.utils.utils import random_steamid64
@@ -110,6 +113,21 @@ async def _create_record_filter(
 ) -> RecordFilter:
     await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
     await db.commit()
+    course: MapCourse | None = None
+    if map_id > 0 and await db.get(Map, map_id) is not None:
+        course = (
+            await db.exec(
+                select(MapCourse).where(
+                    MapCourse.map_id == map_id,
+                    MapCourse.stage == stage,
+                )
+            )
+        ).first()
+        if course is None:
+            course = MapCourse(map_id=map_id, stage=stage)
+            db.add(course)
+            await db.commit()
+            await db.refresh(course)
     record_filter = RecordFilter(
         id=id,
         map_id=map_id,
@@ -123,6 +141,23 @@ async def _create_record_filter(
     db.add(record_filter)
     await db.commit()
     await db.refresh(record_filter)
+    if tier is not None and course is not None and course.id is not None:
+        mode = legacy_mode_id_to_kz_mode(mode_id)
+        course_tier = await db.get(MapCourseTier, (course.id, mode))
+        if course_tier is None:
+            db.add(
+                MapCourseTier(
+                    course_id=course.id,
+                    mode=mode,
+                    tier=tier,
+                    updated_by_id="0",
+                )
+            )
+        else:
+            positive_tiers = [value for value in (course_tier.tier, tier) if value > 0]
+            course_tier.tier = min(positive_tiers) if positive_tiers else 0
+            db.add(course_tier)
+        await db.commit()
     return record_filter
 
 
@@ -694,7 +729,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     payload = response.json()
     assert [(row["map_id"], row["stage"]) for row in payload] == [(980200, 0)]
     assert payload[0]["id"] == 980421
-    assert payload[0]["map_tier"] == 4
+    assert payload[0]["map_tier"] == 0
     assert payload[0]["teleports"] == 0
 
     bonus_response = await client.get(

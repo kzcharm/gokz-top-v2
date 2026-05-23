@@ -5,14 +5,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app import crud
 from app.api.deps import SessionDep, get_current_active_map_admin
 from app.models import (
+    AdminCourseTierPublic,
+    AdminCourseTierUpdate,
+    AdminMapCourseTiersPublic,
     AdminMapListQuery,
     AdminMapPublic,
     AdminMapRecordFiltersPublic,
     AdminMapsPublic,
     AdminMapUpdate,
-    AdminRecordFilterPublic,
-    AdminRecordFilterTierUpdate,
-    RecordFilter,
+    MapCourse,
+    MapCourseTier,
+    KZMode,
     User,
     get_datetime_utc,
 )
@@ -70,6 +73,22 @@ async def update_admin_map(
 
 
 @router.get(
+    "/maps/{id}/course-tiers",
+    response_model=AdminMapCourseTiersPublic,
+)
+async def read_admin_map_course_tiers(
+    *,
+    session: SessionDep,
+    id: int,
+    _current_user: CurrentMapAdmin,
+) -> AdminMapCourseTiersPublic:
+    map_obj = await crud.get_map_by_id(session=session, id=id)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+    return await crud.read_admin_map_course_tiers(session=session, map_id=id)
+
+
+@router.get(
     "/maps/{id}/record-filters",
     response_model=AdminMapRecordFiltersPublic,
 )
@@ -85,33 +104,41 @@ async def read_admin_map_record_filters(
     return await crud.read_admin_map_record_filters(session=session, map_id=id)
 
 
-@router.patch("/record-filters/{id}", response_model=AdminRecordFilterPublic)
-async def update_admin_record_filter(
+@router.patch("/course-tiers/{course_id}/{mode}", response_model=AdminCourseTierPublic)
+async def update_admin_course_tier(
     *,
     session: SessionDep,
-    id: int,
-    filter_in: AdminRecordFilterTierUpdate,
+    course_id: int,
+    mode: KZMode,
+    tier_in: AdminCourseTierUpdate,
     current_user: CurrentMapAdmin,
-) -> AdminRecordFilterPublic:
-    record_filter = await session.get(RecordFilter, id)
-    if record_filter is None:
-        raise HTTPException(status_code=404, detail="Record filter not found")
-    if record_filter.map_id == -1:
-        raise HTTPException(
-            status_code=422,
-            detail="Wildcard record filters cannot be edited from the maps admin",
-        )
-    if record_filter.tickrate != 128:
-        raise HTTPException(
-            status_code=422,
-            detail="Only 128 tick record filters can be edited from the maps admin",
-        )
+) -> AdminCourseTierPublic:
+    course = await session.get(MapCourse, course_id)
+    if course is None:
+        raise HTTPException(status_code=404, detail="Map course not found")
 
-    record_filter.tier = filter_in.tier
-    record_filter.updated_at = get_datetime_utc()
-    record_filter.updated_by_id = str(current_user.steamid64)
-    session.add(record_filter)
+    course_tier = await session.get(MapCourseTier, (course_id, mode))
+    now = get_datetime_utc()
+    if course_tier is None:
+        course_tier = MapCourseTier(
+            course_id=course_id,
+            mode=mode,
+            tier=tier_in.tier,
+            created_on=now,
+            updated_on=now,
+            updated_by_id=str(current_user.steamid64),
+        )
+    else:
+        course_tier.tier = tier_in.tier
+        course_tier.updated_at = now
+        course_tier.updated_by_id = str(current_user.steamid64)
+
+    session.add(course_tier)
     await session.commit()
-    await session.refresh(record_filter)
+    await session.refresh(course_tier)
 
-    return crud.to_admin_record_filter_public(record_filter=record_filter)
+    return crud.to_admin_course_tier_public(
+        course=course,
+        mode=mode,
+        course_tier=course_tier,
+    )

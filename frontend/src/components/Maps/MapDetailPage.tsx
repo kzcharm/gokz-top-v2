@@ -464,7 +464,7 @@ export function MapDetailPage({ mapName }: { mapName: string }) {
   }
 
   const map = mapQuery.data
-  const activeTier = map.tiers[scope]
+  const activeTier = map.tiers[scope] ?? 0
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
   const authenticatedUserSteamid64 = currentUser?.steamid64 ?? null

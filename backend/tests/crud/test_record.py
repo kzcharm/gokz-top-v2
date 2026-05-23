@@ -10,6 +10,7 @@ from app import crud
 from app.models import (
     Map,
     MapCourse,
+    MapCourseTier,
     ModeScope,
     Player,
     Record,
@@ -17,6 +18,7 @@ from app.models import (
     RecordPb,
     RecordType,
     ServerGlobalapi,
+    legacy_mode_id_to_kz_mode,
 )
 from tests.utils.utils import random_steamid64
 
@@ -83,6 +85,21 @@ async def _create_record_filter(
 ) -> None:
     await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
     await db.commit()
+    course: MapCourse | None = None
+    if map_id > 0 and await db.get(Map, map_id) is not None:
+        course = (
+            await db.exec(
+                select(MapCourse).where(
+                    MapCourse.map_id == map_id,
+                    MapCourse.stage == stage,
+                )
+            )
+        ).first()
+        if course is None:
+            course = MapCourse(map_id=map_id, stage=stage)
+            db.add(course)
+            await db.commit()
+            await db.refresh(course)
     db.add(
         RecordFilter(
             id=id,
@@ -95,6 +112,25 @@ async def _create_record_filter(
             updated_by_id="0",
         )
     )
+    await db.commit()
+    if tier is None or course is None or course.id is None:
+        return
+
+    mode = legacy_mode_id_to_kz_mode(mode_id)
+    course_tier = await db.get(MapCourseTier, (course.id, mode))
+    if course_tier is None:
+        db.add(
+            MapCourseTier(
+                course_id=course.id,
+                mode=mode,
+                tier=tier,
+                updated_by_id="0",
+            )
+        )
+    else:
+        positive_tiers = [value for value in (course_tier.tier, tier) if value > 0]
+        course_tier.tier = min(positive_tiers) if positive_tiers else 0
+        db.add(course_tier)
     await db.commit()
 
 
@@ -311,7 +347,7 @@ async def test_load_scoped_course_tiers_uses_scope_min_and_stage_fallbacks(
     assert tiers[(981003, 2)] == 0
 
 
-async def test_load_map_tiers_by_scope_uses_scope_min_and_main_fallbacks(
+async def test_load_map_tiers_by_scope_uses_scope_min_and_zero_defaults(
     db: AsyncSession,
 ) -> None:
     await _create_map(db, id=981006, name="kz_map_tiers")
@@ -372,15 +408,15 @@ async def test_load_map_tiers_by_scope_uses_scope_min_and_main_fallbacks(
         "VNL": 8,
     }
     assert tiers_by_map_id[981007].model_dump() == {
-        "OVR": 1,
-        "KZT": 1,
-        "SKZ": 1,
-        "VNL": 1,
+        "OVR": 0,
+        "KZT": 0,
+        "SKZ": 0,
+        "VNL": 0,
     }
     assert tiers_by_map_id[981008].model_dump() == {
         "OVR": 4,
-        "KZT": None,
-        "SKZ": None,
+        "KZT": 0,
+        "SKZ": 0,
         "VNL": 4,
     }
 

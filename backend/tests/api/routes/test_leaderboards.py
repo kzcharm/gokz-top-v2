@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
@@ -18,11 +18,13 @@ from app.models import (
     LeaderboardPlayer,
     Map,
     MapCourse,
+    MapCourseTier,
     ModeScope,
     ModeScopeId,
     Player,
     RecordFilter,
     ServerGlobalapi,
+    legacy_mode_id_to_kz_mode,
 )
 from app.models.leaderboard_player import (
     min_raw_rating_for_public_rating,
@@ -116,6 +118,14 @@ async def _create_record_filter(
     mode_id: int,
     tier: int,
 ) -> None:
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == map_id,
+                MapCourse.stage == 0,
+            )
+        )
+    ).first()
     db.add(
         RecordFilter(
             id=record_filter_id,
@@ -128,6 +138,22 @@ async def _create_record_filter(
             updated_by_id="0",
         )
     )
+    if course is not None and course.id is not None:
+        mode = legacy_mode_id_to_kz_mode(mode_id)
+        existing = await db.get(MapCourseTier, (course.id, mode))
+        if existing is None:
+            db.add(
+                MapCourseTier(
+                    course_id=course.id,
+                    mode=mode,
+                    tier=tier,
+                    updated_by_id="0",
+                )
+            )
+        else:
+            positive_tiers = [value for value in (existing.tier, tier) if value > 0]
+            existing.tier = min(positive_tiers) if positive_tiers else 0
+            db.add(existing)
     await db.flush()
 
 

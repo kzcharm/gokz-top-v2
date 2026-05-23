@@ -1,11 +1,18 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.models import Map, ModeScope, RecordFilter
+from app.models import (
+    Map,
+    MapCourse,
+    MapCourseTier,
+    ModeScope,
+    RecordFilter,
+    legacy_mode_id_to_kz_mode,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -23,6 +30,21 @@ async def _create_record_filter(
 ) -> None:
     await db.exec(delete(RecordFilter).where(RecordFilter.id == id))
     await db.commit()
+    course: MapCourse | None = None
+    if map_id > 0 and await db.get(Map, map_id) is not None:
+        course = (
+            await db.exec(
+                select(MapCourse).where(
+                    MapCourse.map_id == map_id,
+                    MapCourse.stage == stage,
+                )
+            )
+        ).first()
+        if course is None:
+            course = MapCourse(map_id=map_id, stage=stage)
+            db.add(course)
+            await db.commit()
+            await db.refresh(course)
     db.add(
         RecordFilter(
             id=id,
@@ -37,6 +59,25 @@ async def _create_record_filter(
             updated_by_id="0",
         )
     )
+    await db.commit()
+    if tier is None or course is None or course.id is None:
+        return
+
+    mode = legacy_mode_id_to_kz_mode(mode_id)
+    course_tier = await db.get(MapCourseTier, (course.id, mode))
+    if course_tier is None:
+        db.add(
+            MapCourseTier(
+                course_id=course.id,
+                mode=mode,
+                tier=tier,
+                updated_by_id="0",
+            )
+        )
+    else:
+        positive_tiers = [value for value in (course_tier.tier, tier) if value > 0]
+        course_tier.tier = min(positive_tiers) if positive_tiers else 0
+        db.add(course_tier)
     await db.commit()
 
 
@@ -190,7 +231,7 @@ async def test_load_map_tiers_by_scope_ignores_zero_vnl_tiers_in_aggregate(
 
     assert tiers[981300].OVR == 6
     assert tiers[981300].KZT == 6
-    assert tiers[981300].SKZ is None
+    assert tiers[981300].SKZ == 0
     assert tiers[981300].VNL == 0
 
 

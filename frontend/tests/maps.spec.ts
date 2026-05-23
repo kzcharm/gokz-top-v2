@@ -657,7 +657,7 @@ test("Map detail opens the replay viewer for an available run replay", async ({
       configurable: true,
       value: (url?: string | URL) => {
         lastOpenedUrl =
-          typeof url === "string" ? url : url?.toString?.() ?? ""
+          typeof url === "string" ? url : (url?.toString?.() ?? "")
         return null
       },
     })

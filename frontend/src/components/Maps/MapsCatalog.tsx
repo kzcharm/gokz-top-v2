@@ -95,7 +95,7 @@ function SortableMapOption({
 }
 
 function getMapTierForScope(map: MapPublic, scope: AppScope) {
-  return map.tiers[scope]
+  return map.tiers[scope] ?? 0
 }
 
 function compareNullableNumbers(

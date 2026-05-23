@@ -82,7 +82,7 @@ export function MapDisplay({
 
   return (
     <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-      <div className="relative" data-drag-scroll-ignore>
+      <div className="relative inline-block" data-drag-scroll-ignore>
         <DropdownMenuTrigger asChild>
           <span
             aria-hidden="true"
@@ -92,7 +92,7 @@ export function MapDisplay({
         <Link
           to="/maps/$mapName"
           params={mapParams}
-          className="block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={(event) => {
             event.stopPropagation()
           }}

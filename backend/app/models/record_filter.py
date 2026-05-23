@@ -105,7 +105,6 @@ class AdminRecordFilterPublic(SQLModel):
     stage: int
     mode: KZMode
     has_teleports: bool
-    tier: int | None
     created_on: datetime
     updated_on: datetime
     updated_by_id: str | None = None
@@ -119,9 +118,3 @@ class AdminRecordFilterStagePublic(SQLModel):
 class AdminMapRecordFiltersPublic(SQLModel):
     map_id: int
     stages: list[AdminRecordFilterStagePublic]
-
-
-class AdminRecordFilterTierUpdate(SQLModel):
-    model_config = {"extra": "forbid"}
-
-    tier: int | None = Field(ge=0, le=8)

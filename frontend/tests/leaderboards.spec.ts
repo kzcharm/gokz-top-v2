@@ -1120,7 +1120,7 @@ test.describe("Leaderboards page", () => {
         configurable: true,
         value: (url?: string | URL) => {
           lastOpenedUrl =
-            typeof url === "string" ? url : url?.toString?.() ?? ""
+            typeof url === "string" ? url : (url?.toString?.() ?? "")
           return null
         },
       })
@@ -1290,7 +1290,9 @@ test.describe("Leaderboards page", () => {
             "",
         ),
       )
-      .toBe("http://localhost:5180/?jump_id=11111111-1111-4111-8111-111111111111")
+      .toBe(
+        "http://localhost:5180/?jump_id=11111111-1111-4111-8111-111111111111",
+      )
     await page.getByRole("button", { name: "Copy details" }).click()
     await expect
       .poll(() =>

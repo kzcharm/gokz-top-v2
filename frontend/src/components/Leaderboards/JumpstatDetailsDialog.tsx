@@ -17,10 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
-import {
-  buildJumpReplayViewerUrl,
-  openReplayViewer,
-} from "@/lib/replay-viewer"
+import { buildJumpReplayViewerUrl, openReplayViewer } from "@/lib/replay-viewer"
 import { extractErrorMessage } from "@/utils"
 
 function formatDecimal(value: number, digits = 1) {

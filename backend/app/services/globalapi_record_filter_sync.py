@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from sqlalchemy import case
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import func, select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
@@ -15,6 +13,8 @@ from app.models import (
     GlobalApiSyncResult,
     KZMode,
     Map,
+    MapCourse,
+    MapCourseTier,
     RecordFilter,
     legacy_mode_id_to_kz_mode,
 )
@@ -74,32 +74,14 @@ def _parse_optional_string(value: Any) -> str | None:
     return parsed or None
 
 
-def _derive_record_filter_tier(
-    *,
-    map_id: int,
-    stage: int,
-    mode: KZMode,
-    tickrate: int,
-    has_teleports: bool,
-    map_difficulty_by_id: Mapping[int, int],
-    vanilla_tiers_by_map_id: Mapping[int, VanillaTierEntry],
-) -> int | None:
-    if map_id < 0 or stage != 0 or tickrate != 128:
-        return None
-    if mode is KZMode.VNL:
-        vanilla_tier = vanilla_tiers_by_map_id.get(map_id)
-        if vanilla_tier is None:
-            return None
-        return vanilla_tier.tp_tier if has_teleports else vanilla_tier.pro_tier
-    return map_difficulty_by_id.get(map_id)
+def _resolve_shared_vnl_tier(entry: VanillaTierEntry) -> int:
+    positive_tiers = [tier for tier in (entry.tp_tier, entry.pro_tier) if tier and tier > 0]
+    if positive_tiers:
+        return min(positive_tiers)
+    return 0
 
 
-def _record_filter_values_from_globalapi(
-    payload: dict[str, Any],
-    *,
-    map_difficulty_by_id: Mapping[int, int],
-    vanilla_tiers_by_map_id: Mapping[int, VanillaTierEntry],
-) -> dict[str, Any] | None:
+def _record_filter_values_from_globalapi(payload: dict[str, Any]) -> dict[str, Any] | None:
     record_filter_id = _parse_int(payload.get("id"), default=-1)
     map_id = _parse_int(payload.get("map_id"), default=-2)
     mode_id = _parse_int(payload.get("mode_id"), default=-1)
@@ -119,19 +101,91 @@ def _record_filter_values_from_globalapi(
         "mode": mode,
         "tickrate": tickrate,
         "has_teleports": has_teleports,
-        "tier": _derive_record_filter_tier(
-            map_id=map_id,
-            stage=stage,
-            mode=mode,
-            tickrate=tickrate,
-            has_teleports=has_teleports,
-            map_difficulty_by_id=map_difficulty_by_id,
-            vanilla_tiers_by_map_id=vanilla_tiers_by_map_id,
-        ),
         "created_at": _normalize_datetime(payload.get("created_on")),
         "updated_at": _normalize_datetime(payload.get("updated_on")),
         "updated_by_id": _parse_optional_string(payload.get("updated_by_id")),
     }
+
+
+async def _ensure_main_courses_for_vanilla_maps(
+    *,
+    session: AsyncSession,
+    map_ids: list[int],
+) -> None:
+    existing_maps = set(
+        (
+            await session.exec(select(Map.id).where(col(Map.id).in_(map_ids)))
+        ).all()
+    )
+    if not existing_maps:
+        return
+
+    existing_map_ids = set(
+        (
+            await session.exec(
+                select(MapCourse.map_id).where(
+                    col(MapCourse.map_id).in_(existing_maps),
+                    col(MapCourse.stage) == 0,
+                )
+            )
+        ).all()
+    )
+    for map_id in sorted(existing_maps):
+        if map_id in existing_map_ids:
+            continue
+        session.add(MapCourse(map_id=map_id, stage=0))
+    await session.flush()
+
+
+async def _sync_vnl_course_tiers(
+    *,
+    session: AsyncSession,
+    vanilla_tiers_by_map_id: dict[int, VanillaTierEntry],
+) -> None:
+    if not vanilla_tiers_by_map_id:
+        return
+
+    map_ids = sorted(vanilla_tiers_by_map_id.keys())
+    await _ensure_main_courses_for_vanilla_maps(session=session, map_ids=map_ids)
+    main_courses = list(
+        (
+            await session.exec(
+                select(MapCourse).where(
+                    col(MapCourse.map_id).in_(map_ids),
+                    col(MapCourse.stage) == 0,
+                )
+            )
+        ).all()
+    )
+
+    now = _normalize_datetime(datetime.now(tz=UTC))
+    rows = [
+        {
+            "course_id": course.id,
+            "mode": KZMode.VNL,
+            "tier": _resolve_shared_vnl_tier(vanilla_tiers_by_map_id[course.map_id]),
+            "created_at": now,
+            "updated_at": now,
+            "updated_by_id": "vanillatier-sync",
+        }
+        for course in main_courses
+        if course.id is not None and course.map_id in vanilla_tiers_by_map_id
+    ]
+    if not rows:
+        return
+
+    table = MapCourseTier.__table__
+    insert_statement = pg_insert(table).values(rows)
+    await session.exec(
+        insert_statement.on_conflict_do_update(
+            index_elements=[table.c.course_id, table.c.mode],
+            set_={
+                "tier": insert_statement.excluded.tier,
+                "updated_at": insert_statement.excluded.updated_at,
+                "updated_by_id": insert_statement.excluded.updated_by_id,
+            },
+        )
+    )
 
 
 async def fetch_record_filters_from_globalapi(
@@ -207,25 +261,6 @@ async def sync_record_filters_from_globalapi(
             if not payloads:
                 break
 
-            map_ids = sorted(
-                {
-                    map_id
-                    for payload in payloads
-                    if (map_id := _parse_int(payload.get("map_id"), default=-2)) >= 0
-                }
-            )
-            map_difficulty_by_id = (
-                dict(
-                    (
-                        await session.exec(
-                            select(Map.id, Map.difficulty).where(Map.id.in_(map_ids))
-                        )
-                    ).all()
-                )
-                if map_ids
-                else {}
-            )
-
             rows_by_id: dict[int, dict[str, Any]] = {}
             page_processed = 0
             for payload in payloads:
@@ -238,11 +273,7 @@ async def sync_record_filters_from_globalapi(
                     duplicate_ids.add(record_filter_id)
                     continue
 
-                row = _record_filter_values_from_globalapi(
-                    payload,
-                    map_difficulty_by_id=map_difficulty_by_id,
-                    vanilla_tiers_by_map_id=vanilla_tiers_by_map_id,
-                )
+                row = _record_filter_values_from_globalapi(payload)
                 if row is None:
                     errors += 1
                     seen_ids.add(record_filter_id)
@@ -280,28 +311,37 @@ async def sync_record_filters_from_globalapi(
                         "mode": insert_statement.excluded.mode,
                         "tickrate": insert_statement.excluded.tickrate,
                         "has_teleports": insert_statement.excluded.has_teleports,
-                        "tier": case(
-                            (
-                                insert_statement.excluded.mode == KZMode.VNL,
-                                insert_statement.excluded.tier,
-                            ),
-                            else_=func.coalesce(
-                                table.c.tier, insert_statement.excluded.tier
-                            ),
-                        ),
                         "created_at": insert_statement.excluded.created_at,
                         "updated_at": insert_statement.excluded.updated_at,
                         "updated_by_id": insert_statement.excluded.updated_by_id,
                     },
                 )
                 await session.exec(upsert_statement)
-                await session.commit()
-                session.expire_all()
-
             processed += page_processed
             if len(payloads) < settings.GLOBALAPI_RECORD_FILTERS_LIMIT:
                 break
             offset += settings.GLOBALAPI_RECORD_FILTERS_LIMIT
+
+        await session.exec(
+            pg_insert(MapCourse.__table__)
+            .from_select(
+                ["map_id", "stage"],
+                select(RecordFilter.map_id, RecordFilter.stage)
+                .join(Map, col(Map.id) == col(RecordFilter.map_id))
+                .where(
+                    col(RecordFilter.map_id) > 0,
+                    col(RecordFilter.tickrate) == 128,
+                )
+                .distinct(),
+            )
+            .on_conflict_do_nothing(index_elements=["map_id", "stage"])
+        )
+        await _sync_vnl_course_tiers(
+            session=session,
+            vanilla_tiers_by_map_id=vanilla_tiers_by_map_id,
+        )
+        await session.commit()
+        session.expire_all()
 
     return GlobalApiSyncResult(
         processed=processed,

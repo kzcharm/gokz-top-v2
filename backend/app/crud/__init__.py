@@ -192,6 +192,7 @@ from .player_webhook import (
 )
 from .record import (
     RECENT_RECORD_NOTIFY_CHANNEL,
+    ensure_map_courses_for_exact_record_filters,
     ensure_map_courses_for_valid_records,
     get_max_record_globalapi_id,
     get_pb_records,
@@ -223,9 +224,11 @@ from .record import (
 from .record_filter import (
     load_map_tiers_by_scope,
     load_scoped_course_tiers,
+    read_admin_map_course_tiers,
     read_admin_map_record_filters,
     read_record_filters_v0,
     record_filter_exists_for_course_mode,
+    to_admin_course_tier_public,
     to_admin_record_filter_public,
 )
 from .server import (
@@ -416,6 +419,7 @@ __all__ = [
     "to_jumpstat_publics",
     "to_admin_map_public",
     "to_admin_map_publics",
+    "to_admin_course_tier_public",
     "to_admin_player_session_public",
     "to_admin_player_social_link_public",
     "to_admin_record_filter_public",
@@ -467,6 +471,7 @@ __all__ = [
     "rebuild_leaderboard_players_for_keys",
     "rebuild_record_pbs",
     "rebuild_record_pbs_for_course",
+    "ensure_map_courses_for_exact_record_filters",
     "update_server",
     "update_server_group",
     "update_user",
@@ -493,6 +498,7 @@ __all__ = [
     "record_a2s_failure",
     "record_a2s_success",
     "record_filter_exists_for_course_mode",
+    "read_admin_map_course_tiers",
     "read_admin_map_record_filters",
     "record_offline_mark",
     "record_plugin_heartbeat",

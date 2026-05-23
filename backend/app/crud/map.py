@@ -218,12 +218,7 @@ async def to_admin_map_publics(
             map_obj=map_obj,
             tiers=tiers_by_map_id.get(
                 map_obj.id,
-                MapTiers(
-                    OVR=map_obj.difficulty,
-                    KZT=map_obj.difficulty,
-                    SKZ=map_obj.difficulty,
-                    VNL=map_obj.difficulty,
-                ),
+                MapTiers(),
             ),
         )
         for map_obj in maps
@@ -247,12 +242,7 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
             map_obj=map_obj,
             tiers=tiers_by_map_id.get(
                 map_obj.id,
-                MapTiers(
-                    OVR=map_obj.difficulty,
-                    KZT=map_obj.difficulty,
-                    SKZ=map_obj.difficulty,
-                    VNL=map_obj.difficulty,
-                ),
+                MapTiers(),
             ),
             review_summary=review_summaries_by_map_id.get(map_obj.id),
         )

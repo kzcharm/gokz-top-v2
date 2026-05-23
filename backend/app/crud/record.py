@@ -928,6 +928,23 @@ async def ensure_map_courses_for_valid_records(*, session: AsyncSession) -> None
     )
 
 
+async def ensure_map_courses_for_exact_record_filters(*, session: AsyncSession) -> None:
+    await session.exec(
+        text(
+            """
+            INSERT INTO map_course (map_id, stage)
+            SELECT DISTINCT record_filter.map_id, record_filter.stage
+            FROM record_filter
+            JOIN map
+              ON map.id = record_filter.map_id
+            WHERE record_filter.map_id > 0
+              AND record_filter.tickrate = 128
+            ON CONFLICT (map_id, stage) DO NOTHING
+            """
+        )
+    )
+
+
 async def rebuild_record_pbs_for_course(
     *,
     session: AsyncSession,

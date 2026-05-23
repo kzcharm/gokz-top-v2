@@ -1,13 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useBlocker } from "@tanstack/react-router"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Check, ChevronDown, ChevronRight, Save } from "lucide-react"
-import { useCallback, useDeferredValue, useMemo, useState } from "react"
+import { ChevronDown, ChevronRight, ExternalLink, Save } from "lucide-react"
+import {
+  Fragment,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useState,
+} from "react"
 
 import {
+  type AdminCourseTierPublic,
   type AdminMapPublic,
   AdminMapsService,
-  type AdminRecordFilterPublic,
   UsersService,
 } from "@/client"
 import {
@@ -18,15 +24,15 @@ import {
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
-import { getScopeTone } from "@/components/Common/ScopeSelector"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
-import type { AppScope } from "@/components/scope-provider"
+import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
@@ -43,20 +49,23 @@ import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { getPageTitle } from "@/lib/site"
 import { canAccessAdminMaps } from "@/lib/user-roles"
-import { cn } from "@/lib/utils"
 import { handleError } from "@/utils"
 
 type MapValidationDraft = {
   originalValidated: boolean
   validated: boolean
 }
+
 type MapValidationDrafts = Record<number, MapValidationDraft>
-type FilterTierDraft = {
-  mapId: number
-  originalTier: number | null
-  tier: number | null
+
+type CourseTierDraft = {
+  courseId: number
+  mode: AdminCourseTierPublic["mode"]
+  originalTier: number
+  tier: number
 }
-type FilterTierDrafts = Record<number, FilterTierDraft>
+
+type CourseTierDrafts = Record<string, CourseTierDraft>
 
 function shouldIgnoreRowToggle(target: EventTarget | null) {
   if (!(target instanceof Element)) {
@@ -68,6 +77,13 @@ function shouldIgnoreRowToggle(target: EventTarget | null) {
       'a, button, input, select, textarea, [role="button"], [role="checkbox"], [role="combobox"], [data-row-click-ignore="true"]',
     ),
   )
+}
+
+function courseTierDraftKey(
+  courseId: number,
+  mode: AdminCourseTierPublic["mode"],
+) {
+  return `${courseId}:${mode}`
 }
 
 export const Route = createFileRoute("/_layout/admin/maps")({
@@ -111,7 +127,7 @@ function AdminMaps() {
   const [expandedMapId, setExpandedMapId] = useState<string | null>(null)
   const [mapValidationDrafts, setMapValidationDrafts] =
     useState<MapValidationDrafts>({})
-  const [filterTierDrafts, setFilterTierDrafts] = useState<FilterTierDrafts>({})
+  const [courseTierDrafts, setCourseTierDrafts] = useState<CourseTierDrafts>({})
   const deferredSearchInput = useDeferredValue(searchInput)
   const normalizedSearch = deferredSearchInput.trim()
   const validated =
@@ -143,14 +159,15 @@ function AdminMaps() {
       ),
     [mapValidationDrafts],
   )
-  const filterChanges = useMemo(
+  const courseTierChanges = useMemo(
     () =>
-      Object.entries(filterTierDrafts).filter(
+      Object.entries(courseTierDrafts).filter(
         ([, draft]) => draft.tier !== draft.originalTier,
       ),
-    [filterTierDrafts],
+    [courseTierDrafts],
   )
-  const hasUnsavedChanges = mapChanges.length > 0 || filterChanges.length > 0
+  const hasUnsavedChanges =
+    mapChanges.length > 0 || courseTierChanges.length > 0
 
   useBlocker({
     shouldBlockFn: () =>
@@ -168,9 +185,10 @@ function AdminMaps() {
             requestBody: { validated: draft.validated },
           }),
         ),
-        ...filterChanges.map(([id, draft]) =>
-          AdminMapsService.updateAdminRecordFilter({
-            id: Number(id),
+        ...courseTierChanges.map(([, draft]) =>
+          AdminMapsService.updateAdminCourseTier({
+            courseId: draft.courseId,
+            mode: draft.mode,
             requestBody: { tier: draft.tier },
           }),
         ),
@@ -179,13 +197,13 @@ function AdminMaps() {
     onSuccess: () => {
       showSuccessToast("Admin map changes saved")
       setMapValidationDrafts({})
-      setFilterTierDrafts({})
+      setCourseTierDrafts({})
     },
     onError: handleError.bind(showErrorToast),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-maps"] })
       void queryClient.invalidateQueries({
-        queryKey: ["admin-map-record-filters"],
+        queryKey: ["admin-map-course-tiers"],
       })
     },
   })
@@ -208,16 +226,18 @@ function AdminMaps() {
     [],
   )
 
-  const setFilterTierDraft = useCallback(
-    (recordFilter: AdminRecordFilterPublic, nextTier: number | null) => {
-      setFilterTierDrafts((current) => {
+  const setCourseTierDraft = useCallback(
+    (courseTier: AdminCourseTierPublic, nextTier: number) => {
+      const key = courseTierDraftKey(courseTier.course_id, courseTier.mode)
+      setCourseTierDrafts((current) => {
         const next = { ...current }
-        if (nextTier === recordFilter.tier) {
-          delete next[recordFilter.id]
+        if (nextTier === courseTier.tier) {
+          delete next[key]
         } else {
-          next[recordFilter.id] = {
-            mapId: recordFilter.map_id,
-            originalTier: recordFilter.tier,
+          next[key] = {
+            courseId: courseTier.course_id,
+            mode: courseTier.mode,
+            originalTier: courseTier.tier,
             tier: nextTier,
           }
         }
@@ -232,6 +252,7 @@ function AdminMaps() {
       {
         accessorKey: "id",
         header: "ID",
+        size: 96,
         cell: ({ row }) => {
           const rowId = String(row.original.id)
           const isExpanded = expandedMapId === rowId
@@ -242,7 +263,7 @@ function AdminMaps() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`${isExpanded ? "Hide" : "Show"} record filters for ${row.original.name}`}
+                aria-label={`${isExpanded ? "Hide" : "Show"} course tiers for ${row.original.name}`}
                 className="shrink-0"
                 data-row-click-ignore="true"
                 onClick={() => setExpandedMapId(isExpanded ? null : rowId)}
@@ -259,18 +280,41 @@ function AdminMaps() {
       {
         accessorKey: "name",
         header: "Map",
+        size: 300,
         cell: ({ row }) => (
-          <MapDisplay mapName={row.original.name} className="min-w-0 w-64" />
+          <MapDisplay
+            mapName={row.original.name}
+            className="min-w-0 w-64"
+            contextMenuItems={
+              row.original.workshop_id ? (
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    window.open(
+                      `https://steamcommunity.com/sharedfiles/filedetails/?id=${row.original.workshop_id}`,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }}
+                >
+                  <ExternalLink />
+                  Open Workshop
+                </DropdownMenuItem>
+              ) : null
+            }
+          />
         ),
       },
       {
         accessorKey: "tiers",
         header: "Tiers",
+        size: 320,
         cell: ({ row }) => <TierSummary map={row.original} />,
       },
       {
         accessorKey: "filesize",
         header: "Filesize",
+        size: 120,
         cell: ({ row }) => (
           <span className="text-muted-foreground">
             {formatBytes(row.original.filesize)}
@@ -278,25 +322,9 @@ function AdminMaps() {
         ),
       },
       {
-        accessorKey: "workshop_id",
-        header: "Workshop",
-        cell: ({ row }) =>
-          row.original.workshop_id ? (
-            <a
-              className="text-primary underline-offset-4 hover:underline"
-              href={`https://steamcommunity.com/sharedfiles/filedetails/?id=${row.original.workshop_id}`}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {row.original.workshop_id}
-            </a>
-          ) : (
-            <span className="text-muted-foreground">N/A</span>
-          ),
-      },
-      {
         accessorKey: "created_on",
         header: "Created",
+        size: 120,
         cell: ({ row }) => (
           <FormattedDateTime
             className="text-muted-foreground"
@@ -308,6 +336,7 @@ function AdminMaps() {
       {
         accessorKey: "updated_on",
         header: "Updated",
+        size: 120,
         cell: ({ row }) => (
           <FormattedDateTime
             className="text-muted-foreground"
@@ -319,6 +348,7 @@ function AdminMaps() {
       {
         accessorKey: "validated",
         header: "Validated",
+        size: 120,
         cell: ({ row }) => {
           const checked =
             mapValidationDrafts[row.original.id]?.validated ??
@@ -406,10 +436,7 @@ function AdminMaps() {
         <DataTable
           columns={columns}
           data={tableData}
-          stickyHeader
-          stickyHeaderTopClassName="top-16"
-          tableContainerClassName="md:overflow-visible"
-          tableClassName="border-separate border-spacing-0"
+          tableClassName="table-fixed border-separate border-spacing-0"
           showFooter={false}
           emptyText="No maps found."
           getRowProps={(row) => ({
@@ -436,10 +463,10 @@ function AdminMaps() {
           getRowId={(row) => String(row.id)}
           expandedRowId={expandedMapId}
           renderExpandedContent={(map) => (
-            <MapRecordFilters
+            <MapDetailsPanel
               map={map}
-              filterTierDrafts={filterTierDrafts}
-              onTierDraftChange={setFilterTierDraft}
+              courseTierDrafts={courseTierDrafts}
+              onCourseTierDraftChange={setCourseTierDraft}
               disabled={saveMutation.isPending}
             />
           )}
@@ -484,196 +511,211 @@ function AdminMaps() {
 
 function TierSummary({ map }: { map: AdminMapPublic }) {
   const tiers = [
-    ["OVR", map.tiers.OVR],
-    ["KZT", map.tiers.KZT],
-    ["SKZ", map.tiers.SKZ],
-    ["VNL", map.tiers.VNL],
-  ] as const satisfies ReadonlyArray<readonly [AppScope, number | null]>
+    ["KZT", map.tiers.KZT ?? 0],
+    ["SKZ", map.tiers.SKZ ?? 0],
+    ["VNL", map.tiers.VNL ?? 0],
+  ] as const
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {tiers.map(([scope, tier]) => (
-        <Badge
-          key={scope}
-          className={cn(
-            "border-transparent font-mono font-semibold tracking-[0.16em]",
-            getScopeTone(scope),
-          )}
-        >
-          {scope} {tier ?? "N/A"}
-        </Badge>
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      {tiers.map(([scope, tier], index) => (
+        <Fragment key={scope}>
+          {index > 0 ? <span className="text-muted-foreground">|</span> : null}
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium">{scope}</span>
+            <TierBadge
+              tier={tier}
+              className="px-2 py-0.5"
+              hideWhenUnknown={false}
+            />
+          </div>
+        </Fragment>
       ))}
     </div>
   )
 }
 
-function MapRecordFilters({
+function MapDetailsPanel({
   map,
-  filterTierDrafts,
-  onTierDraftChange,
+  courseTierDrafts,
+  onCourseTierDraftChange,
   disabled,
 }: {
   map: AdminMapPublic
-  filterTierDrafts: FilterTierDrafts
-  onTierDraftChange: (
-    recordFilter: AdminRecordFilterPublic,
-    nextTier: number | null,
+  courseTierDrafts: CourseTierDrafts
+  onCourseTierDraftChange: (
+    courseTier: AdminCourseTierPublic,
+    nextTier: number,
+  ) => void
+  disabled: boolean
+}) {
+  return (
+    <div className="rounded-[24px] border border-border/70 bg-gradient-to-br from-card via-card to-muted/20 p-5 shadow-sm">
+      <MapCourseTierEditor
+        map={map}
+        courseTierDrafts={courseTierDrafts}
+        onCourseTierDraftChange={onCourseTierDraftChange}
+        disabled={disabled}
+      />
+    </div>
+  )
+}
+
+function MapCourseTierEditor({
+  map,
+  courseTierDrafts,
+  onCourseTierDraftChange,
+  disabled,
+}: {
+  map: AdminMapPublic
+  courseTierDrafts: CourseTierDrafts
+  onCourseTierDraftChange: (
+    courseTier: AdminCourseTierPublic,
+    nextTier: number,
   ) => void
   disabled: boolean
 }) {
   const { data, isLoading, isError } = useQuery({
-    queryFn: () => AdminMapsService.readAdminMapRecordFilters({ id: map.id }),
-    queryKey: ["admin-map-record-filters", map.id],
+    queryFn: () => AdminMapsService.readAdminMapCourseTiers({ id: map.id }),
+    queryKey: ["admin-map-course-tiers", map.id],
   })
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div className="text-sm text-muted-foreground">
-        Failed to load record filters.
-      </div>
-    )
-  }
-
-  if (!data || data.stages.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground">
-        No 128-tick record filters for this map.
-      </div>
-    )
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      {data.stages.map((stage) => (
-        <section key={stage.stage} className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold">
-            {stage.stage === 0 ? "Main stage" : `Stage ${stage.stage}`}
-          </h2>
-          <div className="overflow-hidden rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">Filter</th>
-                  <th className="px-3 py-2 text-left font-medium">Mode</th>
-                  <th className="px-3 py-2 text-left font-medium">Type</th>
-                  <th className="px-3 py-2 text-left font-medium">Tier</th>
-                  <th className="px-3 py-2 text-right font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stage.record_filters.map((recordFilter) => (
-                  <RecordFilterTierRow
-                    key={recordFilter.id}
-                    recordFilter={recordFilter}
-                    draftTier={filterTierDrafts[recordFilter.id]?.tier}
-                    onTierDraftChange={onTierDraftChange}
-                    disabled={disabled}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
-    </div>
+    <section className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold">Course tiers</h2>
+        </div>
+        {data && data.stages.length > 0 ? (
+          <Badge variant="outline" className="w-fit text-[11px] uppercase">
+            {data.stages.length}{" "}
+            {data.stages.length === 1 ? "course" : "courses"}
+          </Badge>
+        ) : null}
+      </div>
+
+      {isLoading ? (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-28 w-full" />
+        </div>
+      ) : null}
+
+      {isError ? (
+        <div className="text-sm text-muted-foreground">
+          Failed to load course tiers.
+        </div>
+      ) : null}
+
+      {!isLoading && !isError && (!data || data.stages.length === 0) ? (
+        <div className="text-sm text-muted-foreground">
+          No exact 128-tick courses are available for this map yet.
+        </div>
+      ) : null}
+
+      {!isLoading && !isError && data && data.stages.length > 0 ? (
+        <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/80 shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/35 text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Stage</th>
+                <th className="px-4 py-3 text-center font-medium">KZT</th>
+                <th className="px-4 py-3 text-center font-medium">SKZ</th>
+                <th className="px-4 py-3 text-center font-medium">VNL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.stages.map((stage) => (
+                <CourseTierStageRow
+                  key={stage.course_id}
+                  stage={stage}
+                  courseTierDrafts={courseTierDrafts}
+                  onCourseTierDraftChange={onCourseTierDraftChange}
+                  disabled={disabled}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
   )
 }
 
-function RecordFilterTierRow({
-  recordFilter,
-  draftTier,
-  onTierDraftChange,
+function CourseTierStageRow({
+  stage,
+  courseTierDrafts,
+  onCourseTierDraftChange,
   disabled,
 }: {
-  recordFilter: AdminRecordFilterPublic
-  draftTier: number | null | undefined
-  onTierDraftChange: (
-    recordFilter: AdminRecordFilterPublic,
-    nextTier: number | null,
+  stage: {
+    stage: number
+    course_id: number
+    course_tiers: Array<AdminCourseTierPublic>
+  }
+  courseTierDrafts: CourseTierDrafts
+  onCourseTierDraftChange: (
+    courseTier: AdminCourseTierPublic,
+    nextTier: number,
   ) => void
   disabled: boolean
 }) {
-  const selectedTier = draftTier ?? recordFilter.tier
-  const isChanged = selectedTier !== recordFilter.tier
+  const visibleModes = stage.course_tiers.filter(
+    (courseTier) => courseTier.mode !== "NKZ",
+  )
+  const draftAwareCourseTiers = visibleModes.map((courseTier) => {
+    const draft =
+      courseTierDrafts[
+        courseTierDraftKey(courseTier.course_id, courseTier.mode)
+      ]
+    return {
+      courseTier,
+      selectedTier: draft?.tier ?? courseTier.tier,
+    }
+  })
+  const isChanged = draftAwareCourseTiers.some(
+    ({ courseTier, selectedTier }) => selectedTier !== courseTier.tier,
+  )
 
   return (
-    <tr className="border-t">
-      <td className="px-3 py-2 text-muted-foreground">#{recordFilter.id}</td>
-      <td className="px-3 py-2">
-        <ModeScopeBadge mode={recordFilter.mode} />
+    <tr className="border-t border-border/60">
+      <td className="px-4 py-3 font-medium">
+        <div className="flex items-center gap-3">
+          <span>
+            {stage.stage === 0 ? "Main stage" : `Stage ${stage.stage}`}
+          </span>
+          {isChanged ? (
+            <Badge variant="outline" className="text-[11px]">
+              Draft
+            </Badge>
+          ) : null}
+        </div>
       </td>
-      <td className="px-3 py-2">
-        <RecordFilterTypeBadge hasTeleports={recordFilter.has_teleports} />
-      </td>
-      <td className="px-3 py-2">
-        <TierSelector
-          value={tierToSelectorValue(selectedTier)}
-          onValueChange={(value) =>
-            onTierDraftChange(
-              recordFilter,
-              value === "none" ? null : Number(value),
-            )
-          }
-          includeAll={false}
-          includeNone
-          disabled={disabled}
-          ariaLabel={`Tier for record filter ${recordFilter.id}`}
-          triggerClassName="w-16 min-w-16 justify-center"
-        />
-      </td>
-      <td className="px-3 py-2 text-right">
-        {isChanged ? (
-          <Badge variant="outline">Unsaved</Badge>
-        ) : (
-          <Check className="ml-auto text-muted-foreground" />
-        )}
-      </td>
+      {draftAwareCourseTiers.map(({ courseTier, selectedTier }) => (
+        <td key={courseTier.mode} className="px-4 py-3 text-center">
+          <TierSelector
+            value={tierToSelectorValue(selectedTier)}
+            onValueChange={(value) =>
+              onCourseTierDraftChange(
+                courseTier,
+                value === "none" ? 0 : Number(value),
+              )
+            }
+            includeAll={false}
+            includeNone
+            noneLabel="T0"
+            disabled={disabled}
+            ariaLabel={`Tier for ${courseTier.mode} on course ${courseTier.course_id}`}
+            triggerClassName="mx-auto w-18 min-w-18 justify-center"
+          />
+        </td>
+      ))}
     </tr>
   )
 }
 
-function ModeScopeBadge({ mode }: { mode: AdminRecordFilterPublic["mode"] }) {
-  const scopeTone = getScopeTone(mode === "NKZ" ? "KZT" : (mode as AppScope))
-
-  return (
-    <Badge
-      className={cn(
-        "min-w-11 justify-center rounded-md border-transparent px-2 py-0.5 font-semibold tracking-[0.08em]",
-        scopeTone,
-      )}
-    >
-      {mode}
-    </Badge>
-  )
-}
-
-function RecordFilterTypeBadge({ hasTeleports }: { hasTeleports: boolean }) {
-  return (
-    <Badge
-      className={cn(
-        "w-12 border-transparent px-0 font-mono font-semibold tabular-nums",
-        hasTeleports ? "text-slate-950" : "text-white",
-      )}
-      style={{
-        backgroundColor: hasTeleports ? "#f2c40f" : "#3598db",
-      }}
-    >
-      {hasTeleports ? "NUB" : "PRO"}
-    </Badge>
-  )
-}
-
-function tierToSelectorValue(tier: number | null): TierSelectorValue {
-  return tier === null ? "none" : (String(tier) as `${number}`)
+function tierToSelectorValue(tier: number): TierSelectorValue {
+  return tier === 0 ? "none" : (String(tier) as `${number}`)
 }
 
 function formatBytes(bytes: number) {

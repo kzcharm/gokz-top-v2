@@ -719,7 +719,6 @@ export function ProfileSidebar({
 }) {
   const { t } = useTranslation()
   const authenticated = isLoggedIn()
-  const { user } = useAuth()
   const navigate = useNavigate()
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")

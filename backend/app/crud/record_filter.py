@@ -1,15 +1,20 @@
+from collections import defaultdict
 from collections.abc import Sequence
 
-from sqlalchemy import case, func, or_
+from sqlalchemy import case, or_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
+    AdminCourseTierPublic,
+    AdminMapCourseTiersPublic,
+    AdminMapCourseTierStagePublic,
     AdminMapRecordFiltersPublic,
     AdminRecordFilterPublic,
     AdminRecordFilterStagePublic,
     KZMode,
-    Map,
+    MapCourse,
+    MapCourseTier,
     MapTiers,
     ModeScope,
     RecordFilter,
@@ -28,10 +33,27 @@ def to_admin_record_filter_public(
         stage=record_filter.stage,
         mode=record_filter.mode,
         has_teleports=record_filter.has_teleports,
-        tier=record_filter.tier,
         created_on=record_filter.created_at,
         updated_on=record_filter.updated_at,
         updated_by_id=record_filter.updated_by_id,
+    )
+
+
+def to_admin_course_tier_public(
+    *,
+    course: MapCourse,
+    mode: KZMode,
+    course_tier: MapCourseTier | None,
+) -> AdminCourseTierPublic:
+    return AdminCourseTierPublic(
+        course_id=course.id or 0,
+        map_id=course.map_id,
+        stage=course.stage,
+        mode=mode,
+        tier=course_tier.tier if course_tier is not None else 0,
+        created_on=course_tier.created_at if course_tier is not None else None,
+        updated_on=course_tier.updated_at if course_tier is not None else None,
+        updated_by_id=course_tier.updated_by_id if course_tier is not None else None,
     )
 
 
@@ -73,6 +95,51 @@ async def read_admin_map_record_filters(
     return AdminMapRecordFiltersPublic(map_id=map_id, stages=stages)
 
 
+async def read_admin_map_course_tiers(
+    *,
+    session: AsyncSession,
+    map_id: int,
+) -> AdminMapCourseTiersPublic:
+    courses = list(
+        (
+            await session.exec(
+                select(MapCourse)
+                .where(col(MapCourse.map_id) == map_id)
+                .order_by(col(MapCourse.stage).asc(), col(MapCourse.id).asc())
+            )
+        ).all()
+    )
+    if not courses:
+        return AdminMapCourseTiersPublic(map_id=map_id, stages=[])
+
+    course_ids = [course.id for course in courses if course.id is not None]
+    tier_rows = (
+        await session.exec(
+            select(MapCourseTier).where(col(MapCourseTier.course_id).in_(course_ids))
+        )
+    ).all()
+    tiers_by_key = {(row.course_id, row.mode): row for row in tier_rows}
+
+    return AdminMapCourseTiersPublic(
+        map_id=map_id,
+        stages=[
+            AdminMapCourseTierStagePublic(
+                stage=course.stage,
+                course_id=course.id or 0,
+                course_tiers=[
+                    to_admin_course_tier_public(
+                        course=course,
+                        mode=mode,
+                        course_tier=tiers_by_key.get((course.id or 0, mode)),
+                    )
+                    for mode in KZMode
+                ],
+            )
+            for course in courses
+        ],
+    )
+
+
 async def read_record_filters_v0(
     *,
     session: AsyncSession,
@@ -95,7 +162,9 @@ async def read_record_filters_v0(
         statement = statement.where(col(RecordFilter.stage).in_(stages))
     if mode_ids:
         statement = statement.where(
-            col(RecordFilter.mode).in_([legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids])
+            col(RecordFilter.mode).in_(
+                [legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids]
+            )
         )
     if tickrates:
         statement = statement.where(col(RecordFilter.tickrate).in_(tickrates))
@@ -150,6 +219,13 @@ async def record_filter_exists_for_course_mode(
     return (await session.exec(statement)).first() is not None
 
 
+def _aggregate_scope_tier(tiers: Sequence[int]) -> int:
+    positive_tiers = [tier for tier in tiers if tier > 0]
+    if positive_tiers:
+        return min(positive_tiers)
+    return 0
+
+
 async def load_scoped_course_tiers(
     *,
     session: AsyncSession,
@@ -160,52 +236,47 @@ async def load_scoped_course_tiers(
     if not unique_course_keys:
         return {}
 
-    map_ids = sorted({map_id for map_id, _ in unique_course_keys})
-    stages = sorted({stage for _, stage in unique_course_keys})
-
-    map_rows = (
-        await session.exec(
-            select(Map.id, Map.difficulty).where(col(Map.id).in_(map_ids))
-        )
-    ).all()
-    fallback_difficulty_by_map_id = dict(map_rows)
-
-    scoped_tier_predicate = col(RecordFilter.tier).is_not(None)
-    if scope is not ModeScope.VNL:
-        scoped_tier_predicate = scoped_tier_predicate & (col(RecordFilter.tier) >= 1)
-
-    scoped_tier_rows = (
-        await session.exec(
-            select(
-                RecordFilter.map_id,
-                RecordFilter.stage,
-                func.min(RecordFilter.tier).label("tier"),
+    map_ids = sorted({map_id for map_id, _stage in unique_course_keys})
+    stages = sorted({stage for _map_id, stage in unique_course_keys})
+    courses = list(
+        (
+            await session.exec(
+                select(MapCourse)
+                .where(
+                    col(MapCourse.map_id).in_(map_ids),
+                    col(MapCourse.stage).in_(stages),
+                )
             )
-            .where(
-                col(RecordFilter.map_id).in_(map_ids),
-                col(RecordFilter.stage).in_(stages),
-                col(RecordFilter.tickrate) == 128,
-                col(RecordFilter.mode).in_(list(mode_scope_modes(scope))),
-                scoped_tier_predicate,
-            )
-            .group_by(RecordFilter.map_id, RecordFilter.stage)
-        )
-    ).all()
-    scoped_tier_by_course = {
-        (map_id, stage): int(tier)
-        for map_id, stage, tier in scoped_tier_rows
-        if tier is not None
+        ).all()
+    )
+    course_by_key = {
+        (course.map_id, course.stage): course
+        for course in courses
+        if course.id is not None
     }
+
+    tiers_by_course_id: dict[int, list[int]] = defaultdict(list)
+    course_ids = [course.id for course in courses if course.id is not None]
+    if course_ids:
+        tier_rows = (
+            await session.exec(
+                select(MapCourseTier.course_id, MapCourseTier.tier).where(
+                    col(MapCourseTier.course_id).in_(course_ids),
+                    col(MapCourseTier.mode).in_(list(mode_scope_modes(scope))),
+                )
+            )
+        ).all()
+        for course_id, tier in tier_rows:
+            tiers_by_course_id[int(course_id)].append(int(tier))
 
     resolved_tiers: dict[tuple[int, int], int] = {}
     for map_id, stage in unique_course_keys:
-        scoped_tier = scoped_tier_by_course.get((map_id, stage))
-        if scoped_tier is not None:
-            resolved_tiers[(map_id, stage)] = scoped_tier
+        course = course_by_key.get((map_id, stage))
+        if course is None or course.id is None:
+            resolved_tiers[(map_id, stage)] = 0
             continue
-
-        resolved_tiers[(map_id, stage)] = (
-            fallback_difficulty_by_map_id.get(map_id, 0) if stage == 0 else 0
+        resolved_tiers[(map_id, stage)] = _aggregate_scope_tier(
+            tiers_by_course_id.get(course.id, [])
         )
 
     return resolved_tiers
@@ -220,82 +291,68 @@ async def load_map_tiers_by_scope(
     if not unique_map_ids:
         return {}
 
-    map_rows = (
-        await session.exec(
-            select(Map.id, Map.difficulty).where(col(Map.id).in_(unique_map_ids))
-        )
-    ).all()
-    fallback_difficulty_by_map_id = dict(map_rows)
-
-    ovr_modes = list(mode_scope_modes(ModeScope.OVR))
-    kzt_modes = list(mode_scope_modes(ModeScope.KZT))
-    skz_modes = list(mode_scope_modes(ModeScope.SKZ))
-    vnl_modes = list(mode_scope_modes(ModeScope.VNL))
-
-    all_modes: list[KZMode] = list(dict.fromkeys([*ovr_modes, *kzt_modes, *skz_modes, *vnl_modes]))
-    positive_tier = col(RecordFilter.tier) >= 1
-
-    scoped_tier_rows = (
-        await session.exec(
-            select(
-                RecordFilter.map_id,
-                func.min(RecordFilter.tier)
-                .filter(
-                    col(RecordFilter.mode).in_(ovr_modes),
-                    positive_tier,
+    courses = list(
+        (
+            await session.exec(
+                select(MapCourse)
+                .where(
+                    col(MapCourse.map_id).in_(unique_map_ids),
+                    col(MapCourse.stage) == 0,
                 )
-                .label("ovr_tier"),
-                func.min(RecordFilter.tier)
-                .filter(
-                    col(RecordFilter.mode).in_(kzt_modes),
-                    positive_tier,
-                )
-                .label("kzt_tier"),
-                func.min(RecordFilter.tier)
-                .filter(
-                    col(RecordFilter.mode).in_(skz_modes),
-                    positive_tier,
-                )
-                .label("skz_tier"),
-                func.min(RecordFilter.tier)
-                .filter(col(RecordFilter.mode).in_(vnl_modes))
-                .label("vnl_tier"),
+                .order_by(col(MapCourse.map_id).asc(), col(MapCourse.id).asc())
             )
-            .where(
-                col(RecordFilter.map_id).in_(unique_map_ids),
-                col(RecordFilter.stage) == 0,
-                col(RecordFilter.tickrate) == 128,
-                col(RecordFilter.mode).in_(all_modes),
-                col(RecordFilter.tier).is_not(None),
-            )
-            .group_by(RecordFilter.map_id)
-        )
-    ).all()
-
-    scoped_tier_by_map_id = {
-        map_id: (
-            int(ovr_tier) if ovr_tier is not None else None,
-            int(kzt_tier) if kzt_tier is not None else None,
-            int(skz_tier) if skz_tier is not None else None,
-            int(vnl_tier) if vnl_tier is not None else None,
-        )
-        for map_id, ovr_tier, kzt_tier, skz_tier, vnl_tier in scoped_tier_rows
+        ).all()
+    )
+    course_by_map_id = {
+        course.map_id: course for course in courses if course.id is not None
     }
+
+    course_ids = [course.id for course in courses if course.id is not None]
+    tiers_by_course_id_and_mode: dict[tuple[int, KZMode], int] = {}
+    if course_ids:
+        rows = (
+            await session.exec(
+                select(MapCourseTier.course_id, MapCourseTier.mode, MapCourseTier.tier).where(
+                    col(MapCourseTier.course_id).in_(course_ids)
+                )
+            )
+        ).all()
+        tiers_by_course_id_and_mode = {
+            (int(course_id), mode): int(tier)
+            for course_id, mode, tier in rows
+        }
 
     resolved_tiers: dict[int, MapTiers] = {}
     for map_id in unique_map_ids:
-        fallback_tier = fallback_difficulty_by_map_id.get(map_id, 0)
-        ovr_tier, kzt_tier, skz_tier, vnl_tier = scoped_tier_by_map_id.get(
-            map_id, (None, None, None, None)
-        )
-        has_scoped_tiers = any(
-            tier is not None for tier in (ovr_tier, kzt_tier, skz_tier, vnl_tier)
-        )
+        course = course_by_map_id.get(map_id)
+        if course is None or course.id is None:
+            resolved_tiers[map_id] = MapTiers()
+            continue
         resolved_tiers[map_id] = MapTiers(
-            OVR=fallback_tier if ovr_tier is None and not has_scoped_tiers else ovr_tier,
-            KZT=fallback_tier if kzt_tier is None and not has_scoped_tiers else kzt_tier,
-            SKZ=fallback_tier if skz_tier is None and not has_scoped_tiers else skz_tier,
-            VNL=fallback_tier if vnl_tier is None and not has_scoped_tiers else vnl_tier,
+            OVR=_aggregate_scope_tier(
+                [
+                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    for mode in mode_scope_modes(ModeScope.OVR)
+                ]
+            ),
+            KZT=_aggregate_scope_tier(
+                [
+                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    for mode in mode_scope_modes(ModeScope.KZT)
+                ]
+            ),
+            SKZ=_aggregate_scope_tier(
+                [
+                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    for mode in mode_scope_modes(ModeScope.SKZ)
+                ]
+            ),
+            VNL=_aggregate_scope_tier(
+                [
+                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    for mode in mode_scope_modes(ModeScope.VNL)
+                ]
+            ),
         )
 
     return resolved_tiers
