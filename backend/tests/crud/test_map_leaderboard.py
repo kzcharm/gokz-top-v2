@@ -454,6 +454,13 @@ async def test_read_map_leaderboard_includes_zero_rows_and_review_summaries(
         mode_id=200,
         tier=5,
     )
+    await _create_record_filter(
+        db,
+        record_filter_id=2_131_100_002,
+        map_id=map_empty_id,
+        mode_id=200,
+        tier=3,
+    )
     await _upsert_record(
         db,
         record_id=2_131_200_001,
