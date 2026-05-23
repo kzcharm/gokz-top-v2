@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import { InfoIcon } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -13,6 +14,15 @@ import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilit
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
 import { getLocale } from "@/i18n/locale"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { cn, truncateText } from "@/lib/utils"
 
 type MapTopTableRow = {
@@ -32,6 +42,49 @@ function getWrGap(recordTime: number, wrTime: number | null): number | null {
 
   const wrGap = Math.log2(ratioDelta)
   return Number.isFinite(wrGap) ? wrGap : null
+}
+
+function WrGapHeader() {
+  const { t } = useTranslation()
+
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <span>{t("labels.wrGap")}</span>
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="size-6 text-muted-foreground hover:text-foreground"
+            aria-label={t("maps.wrGapInfoButtonAria")}
+          >
+            <InfoIcon className="size-3.5" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("maps.wrGapInfoTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("maps.wrGapInfoDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
+            <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
+              <p className="font-medium">{t("maps.wrGapInfoFormulaLabel")}</p>
+              <p className="font-mono text-sm">log2(record.time / wr.time - 1)</p>
+            </div>
+            <p>{t("maps.wrGapInfoCloser")}</p>
+            <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
+              <p className="font-medium">{t("maps.wrGapInfoExampleLabel")}</p>
+              <p>{t("maps.wrGapInfoExample")}</p>
+            </div>
+            <p className="text-muted-foreground">{t("maps.wrGapInfoWrRow")}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
 }
 
 export function MapTopTable({
@@ -135,7 +188,7 @@ export function MapTopTable({
           headerClassName: "text-right",
           cellClassName: "text-right",
         },
-        header: () => <div className="text-right">{t("labels.wrGap")}</div>,
+        header: () => <WrGapHeader />,
         cell: ({ row }) => {
           const wrGap = getWrGap(row.original.record.time, wrTime)
           return (

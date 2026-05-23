@@ -723,6 +723,18 @@ export const ru = {
     topPercentPrefix: "Топ",
     myRank: "Мой ранг",
     findMe: "Найти меня",
+    wrGapInfoButtonAria: "Объяснить WR Gap",
+    wrGapInfoTitle: "Что такое WR Gap?",
+    wrGapInfoDescription:
+      "WR Gap показывает, насколько результат отстаёт от мирового рекорда, на логарифмической шкале.",
+    wrGapInfoFormulaLabel: "Формула",
+    wrGapInfoCloser:
+      "Чем число более отрицательное, тем ближе результат к WR. Чем ближе к 0, тем дальше он от WR.",
+    wrGapInfoExampleLabel: "Пример",
+    wrGapInfoExample:
+      "Если WR равен 100.00 секундам, а результат равен 125.00 секундам, лишние 25% дают log2(0.25) = -2.00.",
+    wrGapInfoWrRow:
+      "В строке WR показывается '-', потому что для самого WR формула не определена.",
     findMeNotRankedTitle: "У вас нет ранкнутого финиша здесь",
     findMeNotRankedDescription:
       "Попробуйте другую область, фильтр или другой режим NUB / PRO.",

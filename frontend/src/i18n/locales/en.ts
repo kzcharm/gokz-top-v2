@@ -715,6 +715,18 @@ export const en = {
     topPercentPrefix: "Top",
     myRank: "My rank",
     findMe: "Find Me",
+    wrGapInfoButtonAria: "Explain WR Gap",
+    wrGapInfoTitle: "What is WR Gap?",
+    wrGapInfoDescription:
+      "WR Gap shows how far a run is from the world record using a logarithmic scale.",
+    wrGapInfoFormulaLabel: "Formula",
+    wrGapInfoCloser:
+      "More negative numbers mean the run is closer to the WR. Numbers closer to 0 mean it is farther away.",
+    wrGapInfoExampleLabel: "Example",
+    wrGapInfoExample:
+      "If the WR is 100.00 seconds and a run is 125.00 seconds, the extra 25% becomes log2(0.25) = -2.00.",
+    wrGapInfoWrRow:
+      "The WR row shows '-' because the formula is undefined for the WR itself.",
     findMeNotRankedTitle: "You do not have a ranked finish here",
     findMeNotRankedDescription:
       "Try another scope, filter, or the other NUB / PRO view.",

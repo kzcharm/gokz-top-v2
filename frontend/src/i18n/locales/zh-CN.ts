@@ -700,6 +700,18 @@ export const zhCN = {
     topPercentPrefix: "前",
     myRank: "我的排名",
     findMe: "找我",
+    wrGapInfoButtonAria: "解释 WR Gap",
+    wrGapInfoTitle: "什么是 WR Gap？",
+    wrGapInfoDescription:
+      "WR Gap 用对数刻度表示这条记录距离世界纪录还有多远。",
+    wrGapInfoFormulaLabel: "公式",
+    wrGapInfoCloser:
+      "数值越负，说明这条记录越接近 WR。越接近 0，则说明它离 WR 更远。",
+    wrGapInfoExampleLabel: "示例",
+    wrGapInfoExample:
+      "如果 WR 是 100.00 秒，而一条记录是 125.00 秒，那么多出的 25% 会变成 log2(0.25) = -2.00。",
+    wrGapInfoWrRow:
+      "WR 那一行会显示 '-'，因为这个公式对 WR 本身没有定义。",
     findMeNotRankedTitle: "你在这里还没有可排名的完成记录",
     findMeNotRankedDescription:
       "试试其他范围、筛选条件，或切换 NUB / PRO 视图。",
