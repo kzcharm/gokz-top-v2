@@ -13,7 +13,6 @@ import { PointsBadge } from "@/components/Records/PointsBadge"
 import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilityButton"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
-import { getLocale } from "@/i18n/locale"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,6 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { getLocale } from "@/i18n/locale"
 import { cn, truncateText } from "@/lib/utils"
 
 type MapTopTableRow = {
@@ -72,7 +72,9 @@ function WrGapHeader() {
           <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
             <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
               <p className="font-medium">{t("maps.wrGapInfoFormulaLabel")}</p>
-              <p className="font-mono text-sm">log2(record.time / wr.time - 1)</p>
+              <p className="font-mono text-sm">
+                log2(record.time / wr.time - 1)
+              </p>
             </div>
             <p>{t("maps.wrGapInfoCloser")}</p>
             <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
