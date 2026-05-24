@@ -1,6 +1,5 @@
 import type { EChartsOption } from "echarts"
 import * as echarts from "echarts"
-import { useTheme } from "next-themes"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -8,6 +7,7 @@ import type {
   MapStatsPublic,
   MapWrGapDistributionContentPublic,
 } from "@/client"
+import { useTheme } from "@/components/theme-provider"
 import { Card, CardContent } from "@/components/ui/card"
 import { useMediaQuery } from "@/hooks/useMobile"
 
@@ -185,7 +185,7 @@ function WrGapDistributionChart({
     const chart = echarts.init(element)
     const axisColor =
       resolvedTheme === "dark"
-        ? "rgba(255, 255, 255, 0.52)"
+        ? "rgba(255, 255, 255, 0.72)"
         : "rgba(15, 23, 42, 0.58)"
     const splitLineColor =
       resolvedTheme === "dark"
@@ -371,7 +371,7 @@ function WrGapDistributionChart({
                 fontSize: isNarrowViewport ? 9 : 10,
                 color:
                   resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.36)"
+                    ? "rgba(255, 255, 255, 0.56)"
                     : "rgba(15, 23, 42, 0.42)",
               },
             },
