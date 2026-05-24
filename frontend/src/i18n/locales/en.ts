@@ -267,10 +267,10 @@ export const en = {
     skillRadar: {
       title: "Skills",
       ariaLabel: "Profile skill radar",
-      route: "Boxtech",
+      boxtech: "Boxtech",
       strafe: "Strafe",
       bhop: "Bhop",
-      micro: "Climb",
+      climb: "Climb",
       ladder: "Ladder",
       slide: "Slide",
     },

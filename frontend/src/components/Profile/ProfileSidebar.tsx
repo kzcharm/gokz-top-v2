@@ -596,10 +596,10 @@ function SkillRadar() {
     ...skill,
     label: t(
       `profile.skillRadar.${skill.label.toLowerCase()}` as
-        | "profile.skillRadar.route"
+        | "profile.skillRadar.boxtech"
         | "profile.skillRadar.strafe"
         | "profile.skillRadar.bhop"
-        | "profile.skillRadar.micro"
+        | "profile.skillRadar.climb"
         | "profile.skillRadar.ladder"
         | "profile.skillRadar.slide",
     ),

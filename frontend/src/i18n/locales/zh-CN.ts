@@ -263,10 +263,10 @@ export const zhCN = {
     skillRadar: {
       title: "技能雷达",
       ariaLabel: "个人主页技能雷达图",
-      route: "Boxtech",
+      boxtech: "Boxtech",
       strafe: "加速",
       bhop: "Bhop",
-      micro: "Climb",
+      climb: "Climb",
       ladder: "梯子",
       slide: "滑坡",
     },
