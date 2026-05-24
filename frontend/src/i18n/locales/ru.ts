@@ -268,10 +268,10 @@ export const ru = {
     skillRadar: {
       title: "Радар навыков",
       ariaLabel: "Радар навыков профиля",
-      route: "Маршрут",
+      route: "Boxtech",
       strafe: "Стрейф",
       bhop: "Bhop",
-      micro: "Микро",
+      micro: "Climb",
       ladder: "Лестница",
       slide: "Слайд",
     },

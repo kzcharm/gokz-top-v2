@@ -90,10 +90,10 @@ export const profileHomePlaceholder: ProfileHomePlaceholder = {
     likes: 106,
   },
   skills: [
-    { label: "Route", shortLabel: "RT", value: 84, tone: "violet" },
+    { label: "Route", shortLabel: "BX", value: 84, tone: "violet" },
     { label: "Strafe", shortLabel: "ST", value: 79, tone: "sky" },
     { label: "Bhop", shortLabel: "BH", value: 88, tone: "emerald" },
-    { label: "Micro", shortLabel: "MI", value: 73, tone: "amber" },
+    { label: "Micro", shortLabel: "CL", value: 73, tone: "amber" },
     { label: "Ladder", shortLabel: "LD", value: 67, tone: "orange" },
     { label: "Slide", shortLabel: "SL", value: 82, tone: "stone" },
   ],
