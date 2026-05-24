@@ -14,7 +14,6 @@ from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import ServerStatus
-from app.services.server_events import broadcast_server_update
 from app.services.server_query import (
     A2SInfoResult,
     ServerQueryError,
@@ -174,10 +173,9 @@ async def _apply_query_outcome(outcome: CollectorQueryOutcome) -> None:
         if server is None or server.status == ServerStatus.DISABLED:
             return
 
-        before_public = crud.to_server_public(server=server).model_dump(mode="json")
         if outcome.success:
             assert outcome.info is not None
-            updated = await crud.record_a2s_success(
+            await crud.record_a2s_success(
                 session=session,
                 server=server,
                 observed_at=outcome.info.observed_at,
@@ -186,20 +184,14 @@ async def _apply_query_outcome(outcome: CollectorQueryOutcome) -> None:
                 player_count=outcome.info.player_count,
                 max_players=outcome.info.max_players,
                 players=outcome.info.players,
-                notify=False,
             )
         else:
-            updated = await crud.record_a2s_failure(
+            await crud.record_a2s_failure(
                 session=session,
                 server=server,
                 observed_at=outcome.observed_at,
                 offline_after_failures=SERVER_A2S_FAILURES_BEFORE_OFFLINE,
-                notify=False,
             )
-
-    after_public = crud.to_server_public(server=updated).model_dump(mode="json")
-    if before_public != after_public:
-        await broadcast_server_update(updated)
 
 
 def _drain_completed_outcomes(
