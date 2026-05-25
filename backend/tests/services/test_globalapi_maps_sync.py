@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlmodel import delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Map
+from app.models import KZMode, Map, MapCourse, MapCourseTier
 from app.services.globalapi_maps_sync import (
     MAP_DATETIME_FALLBACK,
     _normalize_datetime,
@@ -157,3 +157,245 @@ def test_normalize_datetime_fallback_for_invalid_values() -> None:
     assert _normalize_datetime(None) == fallback
     assert _normalize_datetime("bad-value") == fallback
     assert _normalize_datetime("0001-01-01T00:00:00") == fallback
+
+
+@pytest.mark.asyncio
+async def test_sync_maps_from_globalapi_marks_missing_rows_invalid(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stale_id = int(datetime.now(UTC).timestamp()) % 100000 + 940000
+    upstream_id = stale_id + 1
+
+    await db.exec(delete(Map).where(Map.id.in_([stale_id, upstream_id])))
+    await db.commit()
+
+    db.add(
+        Map(
+            id=stale_id,
+            name=f"kz_stale_{stale_id}",
+            filesize=1,
+            validated=True,
+            difficulty=4,
+            created_on=datetime(2020, 1, 1, tzinfo=UTC),
+            updated_on=datetime(2020, 1, 1, tzinfo=UTC),
+            approved_by_steamid64=0,
+            synced_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    async def _mock_fetch() -> list[dict[str, object]]:
+        return [
+            {
+                "id": upstream_id,
+                "name": f"kz_upstream_{upstream_id}",
+                "filesize": 100,
+                "validated": True,
+                "difficulty": 6,
+                "created_on": "2021-01-01T00:00:00",
+                "updated_on": "2021-01-01T00:00:00",
+                "approved_by_steamid64": "0",
+                "workshop_url": None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_maps_from_globalapi",
+        _mock_fetch,
+    )
+
+    result = await sync_maps_from_globalapi(session=db)
+
+    assert result.processed == 1
+    assert result.created == 1
+    assert result.updated == 1
+
+    stale_map = await db.get(Map, stale_id)
+    assert stale_map is not None
+    assert stale_map.validated is False
+
+
+@pytest.mark.asyncio
+async def test_sync_maps_from_globalapi_bootstraps_missing_non_vnl_main_course_tiers(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    map_id = int(datetime.now(UTC).timestamp()) % 100000 + 950000
+    await db.exec(delete(Map).where(Map.id == map_id))
+    await db.commit()
+
+    db.add(
+        Map(
+            id=map_id,
+            name=f"kz_seed_{map_id}",
+            filesize=1,
+            validated=False,
+            difficulty=1,
+            created_on=datetime(2020, 1, 1, tzinfo=UTC),
+            updated_on=datetime(2020, 1, 1, tzinfo=UTC),
+            approved_by_steamid64=0,
+            synced_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    course = MapCourse(map_id=map_id, stage=0)
+    db.add(course)
+    await db.commit()
+    await db.refresh(course)
+    assert course.id is not None
+    course_id = course.id
+
+    async def _mock_fetch() -> list[dict[str, object]]:
+        return [
+            {
+                "id": map_id,
+                "name": f"kz_bootstrap_{map_id}",
+                "filesize": 100,
+                "validated": True,
+                "difficulty": 7,
+                "created_on": "2021-01-01T00:00:00",
+                "updated_on": "2021-01-01T00:00:00",
+                "approved_by_steamid64": "0",
+                "workshop_url": None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_maps_from_globalapi",
+        _mock_fetch,
+    )
+
+    await sync_maps_from_globalapi(session=db)
+
+    assert (await db.get(MapCourseTier, (course_id, KZMode.KZT))) is not None
+    assert (await db.get(MapCourseTier, (course_id, KZMode.SKZ))) is not None
+    assert (await db.get(MapCourseTier, (course_id, KZMode.NKZ))) is not None
+    assert (await db.get(MapCourseTier, (course_id, KZMode.VNL))) is None
+    assert (await db.get(MapCourseTier, (course_id, KZMode.KZT))).tier == 7
+
+
+@pytest.mark.asyncio
+async def test_sync_maps_from_globalapi_does_not_overwrite_existing_non_vnl_main_course_tiers(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    map_id = int(datetime.now(UTC).timestamp()) % 100000 + 960000
+    await db.exec(delete(Map).where(Map.id == map_id))
+    await db.commit()
+
+    db.add(
+        Map(
+            id=map_id,
+            name=f"kz_seed_{map_id}",
+            filesize=1,
+            validated=False,
+            difficulty=1,
+            created_on=datetime(2020, 1, 1, tzinfo=UTC),
+            updated_on=datetime(2020, 1, 1, tzinfo=UTC),
+            approved_by_steamid64=0,
+            synced_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    course = MapCourse(map_id=map_id, stage=0)
+    db.add(course)
+    await db.commit()
+    await db.refresh(course)
+    assert course.id is not None
+    course_id = course.id
+
+    db.add(
+        MapCourseTier(
+            course_id=course_id,
+            mode=KZMode.KZT,
+            tier=3,
+            updated_by_id="existing",
+        )
+    )
+    await db.commit()
+
+    async def _mock_fetch() -> list[dict[str, object]]:
+        return [
+            {
+                "id": map_id,
+                "name": f"kz_existing_tiers_{map_id}",
+                "filesize": 100,
+                "validated": True,
+                "difficulty": 8,
+                "created_on": "2021-01-01T00:00:00",
+                "updated_on": "2021-01-01T00:00:00",
+                "approved_by_steamid64": "0",
+                "workshop_url": None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_maps_from_globalapi",
+        _mock_fetch,
+    )
+
+    await sync_maps_from_globalapi(session=db)
+
+    tier_rows = list(
+        (
+            await db.exec(
+                select(MapCourseTier).where(MapCourseTier.course_id == course_id)
+            )
+        ).all()
+    )
+    assert [(row.mode, row.tier) for row in tier_rows] == [(KZMode.KZT, 3)]
+
+
+@pytest.mark.asyncio
+async def test_sync_maps_from_globalapi_does_not_seed_non_main_course_tiers(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    map_id = int(datetime.now(UTC).timestamp()) % 100000 + 970000
+    await db.exec(delete(Map).where(Map.id == map_id))
+    await db.commit()
+
+    db.add(
+        Map(
+            id=map_id,
+            name=f"kz_seed_{map_id}",
+            filesize=1,
+            validated=False,
+            difficulty=1,
+            created_on=datetime(2020, 1, 1, tzinfo=UTC),
+            updated_on=datetime(2020, 1, 1, tzinfo=UTC),
+            approved_by_steamid64=0,
+            synced_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    db.add(MapCourse(map_id=map_id, stage=1))
+    await db.commit()
+
+    async def _mock_fetch() -> list[dict[str, object]]:
+        return [
+            {
+                "id": map_id,
+                "name": f"kz_stage_only_{map_id}",
+                "filesize": 100,
+                "validated": True,
+                "difficulty": 5,
+                "created_on": "2021-01-01T00:00:00",
+                "updated_on": "2021-01-01T00:00:00",
+                "approved_by_steamid64": "0",
+                "workshop_url": None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_maps_from_globalapi",
+        _mock_fetch,
+    )
+
+    await sync_maps_from_globalapi(session=db)
+
+    assert (await db.exec(select(MapCourseTier))).all() == []

@@ -112,7 +112,12 @@ async def read_maps_v1(
         difficulty=None,
         created_since=created_since,
         updated_since=updated_since,
-    ).offset(offset).limit(limit)
+    ).where(col(Map.id) > 0)
+
+    if is_validated is None:
+        statement = statement.where(col(Map.validated).is_(True))
+
+    statement = statement.offset(offset).limit(limit)
     return list((await session.exec(statement)).all())
 
 

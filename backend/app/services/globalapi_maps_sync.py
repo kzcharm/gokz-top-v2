@@ -4,19 +4,19 @@ from typing import Any
 
 import httpx
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Map, MapSyncResult
+from app.core.config import settings
+from app.models import KZMode, Map, MapCourse, MapCourseTier, MapSyncResult
 
-GLOBALAPI_MAPS_URL = "https://kztimerglobal.com/api/v2.0/maps"
 GLOBALAPI_MAPS_LIMIT = 9999
-GLOBALAPI_TIMEOUT_SECONDS = 45.0
 MAP_DATETIME_FALLBACK = "2018-01-09T10:45:50"
 _MAP_DATETIME_FALLBACK_VALUE = datetime.fromisoformat(MAP_DATETIME_FALLBACK).replace(
     tzinfo=UTC
 )
 _WORKSHOP_ID_PATTERN = re.compile(r"[?&]id=(\d+)")
+_NON_VNL_TIER_MODES = (KZMode.KZT, KZMode.SKZ, KZMode.NKZ)
 
 
 class GlobalAPIMapsSyncError(RuntimeError):
@@ -108,9 +108,12 @@ def _map_values_from_globalapi(payload: dict[str, Any]) -> dict[str, Any]:
 
 async def fetch_maps_from_globalapi() -> list[dict[str, Any]]:
     try:
-        async with httpx.AsyncClient(timeout=GLOBALAPI_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.GLOBALAPI_TIMEOUT_SECONDS,
+            trust_env=settings.GLOBALAPI_HTTPX_TRUST_ENV,
+        ) as client:
             response = await client.get(
-                GLOBALAPI_MAPS_URL,
+                f"{settings.GLOBALAPI_BASE_URL}/maps",
                 params={"limit": GLOBALAPI_MAPS_LIMIT},
             )
             response.raise_for_status()
@@ -126,6 +129,99 @@ async def fetch_maps_from_globalapi() -> list[dict[str, Any]]:
         raise GlobalAPIMapsSyncError("GlobalAPI returned unexpected map payload type")
 
     return [item for item in payload if isinstance(item, dict)]
+
+
+async def _mark_missing_maps_invalid(
+    *,
+    session: AsyncSession,
+    upstream_ids: set[int],
+    synced_at: datetime,
+) -> int:
+    missing_rows = list(
+        (
+            await session.exec(
+                select(Map).where(
+                    col(Map.id) > 0,
+                    col(Map.id).not_in(upstream_ids),
+                    col(Map.validated).is_(True),
+                )
+            )
+        ).all()
+    )
+    for map_obj in missing_rows:
+        map_obj.validated = False
+        map_obj.synced_at = synced_at
+        session.add(map_obj)
+    await session.flush()
+    return len(missing_rows)
+
+
+async def _seed_missing_main_course_tiers_from_map_difficulty(
+    *,
+    session: AsyncSession,
+    synced_map_ids: set[int],
+) -> None:
+    if not synced_map_ids:
+        return
+
+    main_courses = list(
+        (
+            await session.exec(
+                select(MapCourse, Map)
+                .join(Map, col(Map.id) == col(MapCourse.map_id))
+                .where(
+                    col(MapCourse.map_id).in_(synced_map_ids),
+                    col(MapCourse.stage) == 0,
+                    col(Map.id) > 0,
+                )
+            )
+        ).all()
+    )
+    if not main_courses:
+        return
+
+    course_ids = [course.id for course, _map_obj in main_courses if course.id is not None]
+    if not course_ids:
+        return
+
+    existing_non_vnl_course_ids = set(
+        (
+            await session.exec(
+                select(MapCourseTier.course_id).where(
+                    col(MapCourseTier.course_id).in_(course_ids),
+                    col(MapCourseTier.mode).in_(list(_NON_VNL_TIER_MODES)),
+                )
+            )
+        ).all()
+    )
+
+    now = datetime.now(UTC)
+    rows_to_insert: list[dict[str, Any]] = []
+    for course, map_obj in main_courses:
+        if course.id is None or course.id in existing_non_vnl_course_ids:
+            continue
+        for mode in _NON_VNL_TIER_MODES:
+            rows_to_insert.append(
+                {
+                    "course_id": course.id,
+                    "mode": mode,
+                    "tier": map_obj.difficulty,
+                    "created_at": now,
+                    "updated_at": now,
+                    "updated_by_id": "globalapi-map-sync-bootstrap",
+                }
+            )
+
+    if not rows_to_insert:
+        return
+
+    table = MapCourseTier.__table__
+    insert_statement = pg_insert(table).values(rows_to_insert)
+    await session.exec(
+        insert_statement.on_conflict_do_nothing(
+            index_elements=[table.c.course_id, table.c.mode]
+        )
+    )
 
 
 async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
@@ -181,6 +277,15 @@ async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
         },
     )
     await session.exec(upsert_statement)
+    updated += await _mark_missing_maps_invalid(
+        session=session,
+        upstream_ids=set(map_ids),
+        synced_at=now,
+    )
+    await _seed_missing_main_course_tiers_from_map_difficulty(
+        session=session,
+        synced_map_ids=set(map_ids),
+    )
 
     await session.commit()
     session.expire_all()
