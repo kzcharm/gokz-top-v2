@@ -141,6 +141,7 @@
   - `frontend/src/client/*`
   - `frontend/src/routeTree.gen.ts`
 - Keep compatibility behavior under `/v0` stable; project-native changes should go to `/v1`.
+- Treat 64-bit identifiers such as `steamid64` as strings at all API and frontend boundaries. Do not send them as JavaScript numbers, because precision loss can silently break queries and mutations. Convert to integers only inside backend internals when numeric DB comparisons are required.
 - `/v0/bans` remains a mirrored-GlobalAPI compatibility surface and excludes local manual bans, while `/v1/bans` returns both mirrored and local bans, exposes both `uuid` and nullable `id`, supports superuser `POST /v1/bans` manual creation, and uses UUIDs for `/v1/bans/{uuid}` detail reads.
 - Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
 - Frontend destructive actions should use the destructive red visual treatment consistently, including icon-only delete buttons in tables and settings surfaces.

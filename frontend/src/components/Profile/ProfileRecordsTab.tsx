@@ -9,6 +9,7 @@ import {
   useState,
 } from "react"
 import type { RecordPublic } from "@/client"
+import { useAdminMode } from "@/components/admin-mode-provider"
 import {
   ModeSelector,
   type ModeSelectorValue,
@@ -37,6 +38,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import {
+  DeleteCourseRecordsButton,
+  useRecordAdminActions,
+} from "../Records/admin-actions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import {
   getProfilePbRecordsQueryOptions,
@@ -252,7 +257,9 @@ export function ProfileRecordsTab({
   onPinRecord: (mapId: number, type: "NUB" | "PRO") => void
   onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
 }) {
+  const { enabled: adminModeEnabled } = useAdminMode()
   const { scope } = useScope()
+  const { bulkDeleteMutation } = useRecordAdminActions()
   const [mapSearch, setMapSearch] = useState("")
   const [selectedMode, setSelectedMode] = useState<ModeSelectorValue>("all")
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
@@ -272,6 +279,7 @@ export function ProfileRecordsTab({
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const deferredMapSearch = useDeferredValue(mapSearch)
   const deferredServerSearch = useDeferredValue(serverSearch)
+  const adminModeForRecords = adminModeEnabled && canManagePinnedRecords
 
   const recordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({
@@ -416,23 +424,27 @@ export function ProfileRecordsTab({
       : "No stage 0 records found for this player in the selected scope."
   const recordType = isProOnly ? "PRO" : "NUB"
   const getMapContextMenu = (record: RecordPublic) => {
-    if (!canManagePinnedRecords) {
+    if (!canManagePinnedRecords && !adminModeForRecords) {
       return null
     }
 
     return (
-      <DropdownMenuItem
-        onSelect={() => {
-          setReviewTarget({
-            mapId: record.map_id,
-            mapName: record.map_name,
-          })
-          setReviewDialogOpen(true)
-        }}
-      >
-        <MessageSquarePlus />
-        Add review
-      </DropdownMenuItem>
+      <>
+        {canManagePinnedRecords ? (
+          <DropdownMenuItem
+            onSelect={() => {
+              setReviewTarget({
+                mapId: record.map_id,
+                mapName: record.map_name,
+              })
+              setReviewDialogOpen(true)
+            }}
+          >
+            <MessageSquarePlus />
+            Add review
+          </DropdownMenuItem>
+        ) : null}
+      </>
     )
   }
 
@@ -465,6 +477,13 @@ export function ProfileRecordsTab({
       </DropdownMenuItem>
     )
   }
+
+  const renderAdminActions = (record: RecordPublic) => (
+    <DeleteCourseRecordsButton
+      bulkDeleteMutation={bulkDeleteMutation}
+      record={record}
+    />
+  )
 
   return (
     <div className="space-y-4">
@@ -545,6 +564,9 @@ export function ProfileRecordsTab({
             onSortChange={handleSortChange}
             getRowContextMenu={getRowContextMenu}
             getMapContextMenu={getMapContextMenu}
+            renderAdminActions={
+              adminModeForRecords ? renderAdminActions : undefined
+            }
           />
           {visibleCount < sortedRecords.length ? (
             <div

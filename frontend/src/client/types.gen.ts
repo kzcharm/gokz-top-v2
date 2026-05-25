@@ -992,8 +992,26 @@ export type RecentRecordsPublic = {
     count: number;
 };
 
+export type RecordBulkDeleteCourse = {
+    steamid64: string;
+    map_id: number;
+    stage: number;
+};
+
+export type RecordBulkDeleteResult = {
+    data: Array<RecordPublic>;
+    count: number;
+};
+
 export type RecordPatch = {
     is_valid: boolean;
+};
+
+export type RecordPbBucketRebuildResult = {
+    course_id: number;
+    scope: ModeScope;
+    type: RecordType;
+    updated_count: number;
 };
 
 export type RecordPublic = {
@@ -2083,6 +2101,21 @@ export type RecordsPatchRecordData = {
 };
 
 export type RecordsPatchRecordResponse = (RecordPublic);
+
+export type RecordsBulkDeleteCourseRecordsData = {
+    requestBody: RecordBulkDeleteCourse;
+};
+
+export type RecordsBulkDeleteCourseRecordsResponse = (RecordBulkDeleteResult);
+
+export type RecordsRebuildPbPointsBucketData = {
+    mapId: number;
+    scope?: ModeScope;
+    stage?: number;
+    type?: RecordType;
+};
+
+export type RecordsRebuildPbPointsBucketResponse = (RecordPbBucketRebuildResult);
 
 export type RegionsReadRegionsResponse = (RegionsPublic);
 

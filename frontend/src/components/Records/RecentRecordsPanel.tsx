@@ -1,8 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
 import { useEffect, useEffectEvent, useState } from "react"
 
+import { useAdminMode } from "@/components/admin-mode-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import useAuth from "@/hooks/useAuth"
+import { canModerateBansAndRecords } from "@/lib/user-roles"
 
+import {
+  DeleteCourseRecordsButton,
+  useRecordAdminActions,
+} from "./admin-actions"
 import { RecentRecordsTable } from "./RecentRecordsTable"
 import {
   buildRecentRecordsWebSocketUrl,
@@ -15,7 +22,12 @@ import {
 } from "./utils"
 
 export function RecentRecordsPanel() {
+  const { enabled: adminModeEnabled } = useAdminMode()
+  const { user } = useAuth()
+  const { bulkDeleteMutation } = useRecordAdminActions()
   const [records, setRecords] = useState<RecentRecord[]>([])
+  const canAdministerRecords =
+    adminModeEnabled && canModerateBansAndRecords(user)
 
   const recordsQuery = useQuery({
     queryKey: ["recent-records", "dashboard"],
@@ -114,7 +126,27 @@ export function RecentRecordsPanel() {
         </Alert>
       ) : null}
 
-      <RecentRecordsTable records={records} />
+      <RecentRecordsTable
+        records={records}
+        renderAdminActions={
+          canAdministerRecords
+            ? (record) => (
+                <DeleteCourseRecordsButton
+                  bulkDeleteMutation={bulkDeleteMutation}
+                  record={{
+                    player: {
+                      display_name: record.player.alias ?? record.player.name,
+                      steamid64: record.player.steamid64,
+                    },
+                    map_id: record.map.id,
+                    map_name: record.map.name,
+                    stage: record.stage,
+                  }}
+                />
+              )
+            : undefined
+        }
+      />
     </div>
   )
 }

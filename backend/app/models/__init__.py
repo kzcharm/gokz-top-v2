@@ -245,6 +245,9 @@ from .record import (
     RecentRecordUpsertEvent,
     Record,
     RecordBase,
+    RecordBulkDeleteCourse,
+    RecordBulkDeleteResult,
+    RecordPbBucketRebuildResult,
     RecordCompatPublicV0,
     RecordListQuery,
     RecordPatch,
@@ -262,6 +265,11 @@ from .record import (
     normalize_kz_mode,
     seconds_to_time_ms,
     time_ms_to_seconds,
+)
+from .record_moderation import (
+    RecordModerationAction,
+    RecordModerationActionRecord,
+    RecordModerationActionType,
 )
 from .record_filter import (
     AdminMapRecordFiltersPublic,
@@ -533,7 +541,13 @@ __all__ = [
     "PlayerLeaderboardsPublic",
     "Record",
     "RecordBase",
+    "RecordBulkDeleteCourse",
+    "RecordBulkDeleteResult",
+    "RecordPbBucketRebuildResult",
     "RecordCompatPublicV0",
+    "RecordModerationAction",
+    "RecordModerationActionRecord",
+    "RecordModerationActionType",
     "RecordPb",
     "RecentRecordListQuery",
     "RecentRecordMapPublic",

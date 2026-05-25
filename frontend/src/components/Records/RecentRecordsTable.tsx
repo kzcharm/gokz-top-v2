@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
@@ -21,9 +22,13 @@ import { formatRecordTime, type RecentRecord } from "./utils"
 
 interface RecentRecordsTableProps {
   records: RecentRecord[]
+  renderAdminActions?: (record: RecentRecord) => ReactNode
 }
 
-export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
+export function RecentRecordsTable({
+  records,
+  renderAdminActions,
+}: RecentRecordsTableProps) {
   const { t } = useTranslation()
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
 
@@ -65,6 +70,11 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
               <TableHead className={`min-w-32 ${tableHeadClassName}`}>
                 {t("labels.datetime")}
               </TableHead>
+              {renderAdminActions ? (
+                <TableHead className={`w-14 px-2 ${tableHeadClassName}`}>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -117,12 +127,19 @@ export function RecentRecordsTable({ records }: RecentRecordsTableProps) {
                       fallback="-"
                     />
                   </TableCell>
+                  {renderAdminActions ? (
+                    <TableCell className="w-14 px-2">
+                      <div className="flex justify-center">
+                        {renderAdminActions(record)}
+                      </div>
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={10}
+                  colSpan={renderAdminActions ? 11 : 10}
                   className="h-32 text-center text-muted-foreground"
                 >
                   No recent records yet.

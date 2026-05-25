@@ -4752,6 +4752,47 @@ export const RecentRecordsPublicSchema = {
     title: 'RecentRecordsPublic'
 } as const;
 
+export const RecordBulkDeleteCourseSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        stage: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Stage'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['steamid64', 'map_id', 'stage'],
+    title: 'RecordBulkDeleteCourse'
+} as const;
+
+export const RecordBulkDeleteResultSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RecordBulkDeleteResult'
+} as const;
+
 export const RecordPatchSchema = {
     properties: {
         is_valid: {
@@ -4763,6 +4804,28 @@ export const RecordPatchSchema = {
     type: 'object',
     required: ['is_valid'],
     title: 'RecordPatch'
+} as const;
+
+export const RecordPbBucketRebuildResultSchema = {
+    properties: {
+        course_id: {
+            type: 'integer',
+            title: 'Course Id'
+        },
+        scope: {
+            '$ref': '#/components/schemas/ModeScope'
+        },
+        type: {
+            '$ref': '#/components/schemas/RecordType'
+        },
+        updated_count: {
+            type: 'integer',
+            title: 'Updated Count'
+        }
+    },
+    type: 'object',
+    required: ['course_id', 'scope', 'type', 'updated_count'],
+    title: 'RecordPbBucketRebuildResult'
 } as const;
 
 export const RecordPublicSchema = {

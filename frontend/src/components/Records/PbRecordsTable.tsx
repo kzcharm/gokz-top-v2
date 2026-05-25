@@ -42,6 +42,7 @@ interface PbRecordsTableProps {
   getRowContextMenu?: (record: RecordPublic) => ReactNode
   getMapContextMenu?: (record: RecordPublic) => ReactNode
   showReplayColumn?: boolean
+  renderAdminActions?: (record: RecordPublic) => ReactNode
 }
 
 function PbRecordTableRow({
@@ -51,11 +52,13 @@ function PbRecordTableRow({
   record,
   showReplayColumn,
   visibleColumns,
+  renderAdminActions,
 }: {
   dateTimeDisplay: DateTimeDisplay
   getMapContextMenu?: (record: RecordPublic) => ReactNode
   getRowContextMenu?: (record: RecordPublic) => ReactNode
   record: RecordPublic
+  renderAdminActions?: (record: RecordPublic) => ReactNode
   showReplayColumn: boolean
   visibleColumns: Set<PbRecordsColumn>
 }) {
@@ -160,6 +163,13 @@ function PbRecordTableRow({
           </div>
         </TableCell>
       ) : null}
+      {renderAdminActions ? (
+        <TableCell className="w-14 px-2">
+          <div className="flex justify-center">
+            {renderAdminActions(record)}
+          </div>
+        </TableCell>
+      ) : null}
     </TableRow>
   )
 
@@ -249,11 +259,13 @@ export function PbRecordsTable({
   getRowContextMenu,
   getMapContextMenu,
   showReplayColumn = false,
+  renderAdminActions,
 }: PbRecordsTableProps) {
   const { t } = useTranslation()
   const visibleColumns = new Set(columns)
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
-  const colSpan = columns.length + (showReplayColumn ? 1 : 0)
+  const colSpan =
+    columns.length + (showReplayColumn ? 1 : 0) + (renderAdminActions ? 1 : 0)
   const hasColumnFilters = columns.some(
     (column) => columnFilters?.[column] !== undefined,
   )
@@ -370,6 +382,11 @@ export function PbRecordsTable({
                   <span className="sr-only">Replay</span>
                 </TableHead>
               ) : null}
+              {renderAdminActions ? (
+                <TableHead className={`w-14 px-2 ${tableHeadClassName}`}>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              ) : null}
             </TableRow>
             {hasColumnFilters ? (
               <TableRow className="hover:bg-transparent">
@@ -390,11 +407,22 @@ export function PbRecordsTable({
                         key="filter-replay"
                         className="h-auto w-10 border-t border-border/60 px-2 py-3 align-top"
                       />,
+                      ...(renderAdminActions
+                        ? [
+                            <TableHead
+                              key="filter-actions"
+                              className="h-auto w-14 border-t border-border/60 px-2 py-3 align-top"
+                            />,
+                          ]
+                        : []),
                     ]
                   }
 
                   return filterCell
                 })}
+                {!columns.includes("datetime") && renderAdminActions ? (
+                  <TableHead className="h-auto w-14 border-t border-border/60 px-2 py-3 align-top" />
+                ) : null}
               </TableRow>
             ) : null}
           </TableHeader>
@@ -407,6 +435,7 @@ export function PbRecordsTable({
                   getMapContextMenu={getMapContextMenu}
                   getRowContextMenu={getRowContextMenu}
                   record={record}
+                  renderAdminActions={renderAdminActions}
                   showReplayColumn={showReplayColumn}
                   visibleColumns={visibleColumns}
                 />

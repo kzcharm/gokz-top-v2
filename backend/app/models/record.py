@@ -508,6 +508,26 @@ class RecordPatch(SQLModel):
     is_valid: bool
 
 
+class RecordBulkDeleteCourse(SQLModel):
+    model_config = {"extra": "forbid"}
+
+    steamid64: str
+    map_id: int
+    stage: int = Field(ge=0)
+
+
+class RecordBulkDeleteResult(SQLModel):
+    data: list[RecordPublic]
+    count: int
+
+
+class RecordPbBucketRebuildResult(SQLModel):
+    course_id: int
+    scope: ModeScope
+    type: RecordType
+    updated_count: int
+
+
 class RecordPublic(SQLModel):
     uuid: uuid.UUID
     id: int | None = None
