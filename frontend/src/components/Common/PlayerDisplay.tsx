@@ -18,7 +18,6 @@ import type {
   MouseEvent,
   ReactNode,
   SVGProps,
-  UserRole,
 } from "react"
 import { Children, lazy, Suspense, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -30,6 +29,7 @@ import {
   type ModeScope,
   PlayerFollowsService,
   type RecordType,
+  type UserRole,
 } from "@/client"
 import EditPlayer from "@/components/AdminPlayers/EditPlayer"
 import { suppressRowInteractions } from "@/components/Common/interaction-suppression"
