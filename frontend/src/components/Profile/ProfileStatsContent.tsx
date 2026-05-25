@@ -81,9 +81,15 @@ function ProfileStatsPieCard({ stat }: { stat: PlayerMostPlayedServerPublic }) {
   const yearViewIds = useMemo(
     () =>
       (stat.years ?? [])
+        .filter((year) => {
+          const period = getViewEntry(stat, String(year))
+          return (
+            (period.total_seconds ?? 0) > 0 || (period.entries?.length ?? 0) > 0
+          )
+        })
         .map((year) => String(year))
         .sort((left, right) => Number(left) - Number(right)),
-    [stat.years],
+    [stat],
   )
   const orderedViewIds = useMemo(
     () => [...yearViewIds, LAST_365_DAYS_VIEW_ID, ALL_TIME_VIEW_ID],
