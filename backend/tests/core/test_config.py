@@ -1,0 +1,47 @@
+from app.core.config import Settings
+
+
+def _build_settings(**overrides: object) -> Settings:
+    data: dict[str, object] = {
+        "PROJECT_NAME": "test",
+        "POSTGRES_SERVER": "127.0.0.1",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "POSTGRES_DB": "app_test",
+        "SUPER_USER_STEAMID64": 76561197960265728,
+        "BACKEND_CORS_ORIGINS": [],
+    }
+    data.update(overrides)
+    return Settings(
+        **data,
+    )
+
+
+def test_all_cors_origins_adds_replay_viewer_for_non_local_deployments() -> None:
+    settings = _build_settings(
+        ENVIRONMENT="production",
+        FRONTEND_HOST="https://gokz.top",
+    )
+
+    assert settings.all_cors_origins == [
+        "https://gokz.top",
+        "https://replay-viewer.kzcharm.com",
+    ]
+
+
+def test_all_cors_origins_prefers_explicit_replay_viewer_host() -> None:
+    settings = _build_settings(
+        ENVIRONMENT="staging",
+        FRONTEND_HOST="https://staging.gokz.top",
+        REPLAY_VIEWER_HOST="https://replay-viewer-staging.kzcharm.com/",
+        BACKEND_CORS_ORIGINS=[
+            "https://api-console.kzcharm.com/",
+            "https://staging.gokz.top",
+        ],
+    )
+
+    assert settings.all_cors_origins == [
+        "https://api-console.kzcharm.com",
+        "https://staging.gokz.top",
+        "https://replay-viewer-staging.kzcharm.com",
+    ]
