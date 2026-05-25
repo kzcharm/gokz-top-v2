@@ -4,8 +4,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 
-from sqlalchemy import and_, bindparam, case, exists, func, or_, text, true, update
+from sqlalchemy import and_, bindparam, case, delete, exists, func, or_, text, true, update
 from sqlalchemy.orm import aliased
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -28,8 +29,12 @@ from app.models import (
     RecentRecordPublic,
     RecentRecordServerPublic,
     Record,
+    RecordBulkDeleteCourse,
     RecordCompatPublicV0,
     RecordListQuery,
+    RecordModerationAction,
+    RecordModerationActionRecord,
+    RecordModerationActionType,
     RecordPatch,
     RecordPb,
     RecordPublic,
@@ -102,6 +107,17 @@ def _record_tie_breakers() -> tuple:
         col(Record.id).asc().nullslast(),
         col(Record.uuid).asc(),
     )
+
+
+def _serialize_record_snapshot(record: Record | None) -> dict[str, object] | None:
+    if record is None:
+        return None
+
+    payload = record.model_dump(mode="json")
+    for key, value in list(payload.items()):
+        if isinstance(value, Enum):
+            payload[key] = value.value
+    return payload
 
 
 def _not_active_ban_exists_split_clause(*, steamid64_column):
@@ -186,10 +202,41 @@ def _ordered_point_updates(
     ]
 
 
+def _stored_points_for_banned_record() -> int:
+    return 1
+
+
 def _expunge_loaded_record_pbs(*, session: AsyncSession) -> None:
     for instance in list(session.sync_session.identity_map.values()):
         if isinstance(instance, RecordPb):
             session.sync_session.expunge(instance)
+
+
+async def _steamid64_has_active_ban(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+) -> bool:
+    statement = select(Ban.id).where(
+        col(Ban.steamid64) == steamid64,
+        or_(col(Ban.expires_on).is_(None), col(Ban.expires_on) >= func.now()),
+    )
+    return (await session.exec(statement.limit(1))).first() is not None
+
+
+async def _load_active_banned_steamid64s(
+    *,
+    session: AsyncSession,
+    steamid64s: Sequence[int],
+) -> set[int]:
+    if not steamid64s:
+        return set()
+
+    statement = select(Ban.steamid64).where(
+        col(Ban.steamid64).in_(list(dict.fromkeys(steamid64s))),
+        or_(col(Ban.expires_on).is_(None), col(Ban.expires_on) >= func.now()),
+    )
+    return set((await session.exec(statement)).all())
 
 
 async def _get_or_create_map_course(
@@ -221,7 +268,7 @@ async def _get_map_course_by_id(
     return await session.get(MapCourse, course_id)
 
 
-async def _get_map_course_by_map_stage(
+async def get_map_course_by_map_stage(
     *,
     session: AsyncSession,
     map_id: int,
@@ -458,6 +505,9 @@ async def _load_bucket_record_pb_entries(
             col(RecordPb.scope) == mode_scope_from_id(scope_id),
             col(RecordPb.course_id) == course_id,
             col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
+            _not_active_ban_exists_split_clause(
+                steamid64_column=col(RecordPb.steamid64)
+            ),
         )
         .order_by(col(Record.time).asc(), col(Record.uuid).asc())
     )
@@ -483,6 +533,9 @@ async def _estimate_record_pb_points(
     record_uuid: uuid.UUID,
     time_ms: int,
 ) -> int:
+    if await _steamid64_has_active_ban(session=session, steamid64=steamid64):
+        return _stored_points_for_banned_record()
+
     tier = await _load_bucket_course_tier(
         session=session,
         course_id=course_id,
@@ -667,6 +720,11 @@ async def rebuild_record_pb_points_bucket(
     if not rows:
         return 0
 
+    banned_steamid64s = await _load_active_banned_steamid64s(
+        session=session,
+        steamid64s=[steamid64 for _scope, _course, steamid64, *_rest in rows],
+    )
+
     resolved_tier = (
         tier
         if tier is not None
@@ -685,13 +743,14 @@ async def rebuild_record_pb_points_bucket(
             for (
                 _row_scope_id,
                 _row_course_id,
-                _steamid64,
+                steamid64,
                 _row_record_type,
                 record_uuid,
                 time_seconds,
                 _current_points,
                 _row_updated_on,
             ) in rows
+            if steamid64 not in banned_steamid64s
         ],
         tier=resolved_tier,
         is_pro_only=record_type.is_pro,
@@ -704,11 +763,17 @@ async def rebuild_record_pb_points_bucket(
                     course_id=row_course_id,
                     steamid64=steamid64,
                     record_type=RecordType.PRO if row_record_type else RecordType.NUB,
-                    points=points_by_uuid[record_uuid],
+                    points=(
+                        _stored_points_for_banned_record()
+                        if steamid64 in banned_steamid64s
+                        else points_by_uuid[record_uuid]
+                    ),
                     updated_at=row_updated_on,
                 ),
                 current_points,
-                points_by_uuid[record_uuid],
+                _stored_points_for_banned_record()
+                if steamid64 in banned_steamid64s
+                else points_by_uuid[record_uuid],
             )
             for (
                 row_scope_id,
@@ -720,7 +785,12 @@ async def rebuild_record_pb_points_bucket(
                 current_points,
                 row_updated_on,
             ) in rows
-            if current_points != points_by_uuid[record_uuid]
+            if current_points
+            != (
+                _stored_points_for_banned_record()
+                if steamid64 in banned_steamid64s
+                else points_by_uuid[record_uuid]
+            )
         ]
     )
     if updates:
@@ -1737,6 +1807,7 @@ async def update_record_validity(
     session: AsyncSession,
     record: Record,
     patch: RecordPatch,
+    actor_steamid64: int,
 ) -> Record:
     before_record = Record.model_validate(record.model_dump())
     record.is_valid = patch.is_valid
@@ -1747,9 +1818,103 @@ async def update_record_validity(
         before=before_record,
         after=record,
     )
+    action = RecordModerationAction(
+        actor_steamid64=actor_steamid64,
+        action_type=(
+            RecordModerationActionType.SINGLE_REENABLE
+            if patch.is_valid
+            else RecordModerationActionType.SINGLE_SOFT_DELETE
+        ),
+        target_record_uuid=record.uuid,
+        target_player_steamid64=record.steamid64,
+        target_map_id=record.map_id,
+        target_stage=record.stage,
+    )
+    session.add(action)
+    await session.flush()
+    session.add(
+        RecordModerationActionRecord(
+            action_id=action.id,
+            record_uuid=record.uuid,
+            record_id=record.id,
+            player_steamid64=record.steamid64,
+            map_id=record.map_id,
+            stage=record.stage,
+            before_snapshot=_serialize_record_snapshot(before_record),
+            after_snapshot=_serialize_record_snapshot(record),
+        )
+    )
     await session.commit()
     await session.refresh(record)
     return record
+
+
+async def bulk_soft_delete_course_records(
+    *,
+    session: AsyncSession,
+    payload: RecordBulkDeleteCourse,
+    actor_steamid64: int,
+) -> list[Record]:
+    target_steamid64 = int(payload.steamid64)
+    statement = (
+        select(Record)
+        .where(
+            col(Record.steamid64) == target_steamid64,
+            col(Record.map_id) == payload.map_id,
+            col(Record.stage) == payload.stage,
+            col(Record.is_valid).is_(True),
+        )
+        .order_by(*_record_tie_breakers())
+    )
+    records = list((await session.exec(statement)).all())
+    if not records:
+        return []
+
+    before_records = [Record.model_validate(record.model_dump()) for record in records]
+    changed_at = get_datetime_utc()
+    action = RecordModerationAction(
+        actor_steamid64=actor_steamid64,
+        action_type=RecordModerationActionType.BULK_SOFT_DELETE_COURSE,
+        target_player_steamid64=target_steamid64,
+        target_map_id=payload.map_id,
+        target_stage=payload.stage,
+    )
+    session.add(action)
+    await session.flush()
+
+    course = await get_map_course_by_map_stage(
+        session=session,
+        map_id=payload.map_id,
+        stage=payload.stage,
+    )
+    if course is not None:
+        await session.exec(
+            delete(RecordPb).where(
+                col(RecordPb.course_id) == course.id,
+                col(RecordPb.steamid64) == target_steamid64,
+            )
+        )
+        _expunge_loaded_record_pbs(session=session)
+
+    for before_record, record in zip(before_records, records, strict=True):
+        record.is_valid = False
+        record.updated_at = changed_at
+        session.add(record)
+        session.add(
+            RecordModerationActionRecord(
+                action_id=action.id,
+                record_uuid=record.uuid,
+                record_id=record.id,
+                player_steamid64=record.steamid64,
+                map_id=record.map_id,
+                stage=record.stage,
+                before_snapshot=_serialize_record_snapshot(before_record),
+                after_snapshot=_serialize_record_snapshot(record),
+            )
+        )
+
+    await session.commit()
+    return records
 
 
 async def get_max_record_globalapi_id(*, session: AsyncSession) -> int | None:
@@ -1857,7 +2022,7 @@ async def get_pb_records(
     limit: int = 100,
 ) -> list[Record]:
     if map_id is not None:
-        course = await _get_map_course_by_map_stage(
+        course = await get_map_course_by_map_stage(
             session=session,
             map_id=map_id,
             stage=stage,
@@ -2005,7 +2170,7 @@ async def get_pb_record_publics(
         resolved_map_id = map_obj.id
 
     if resolved_map_id is not None:
-        course = await _get_map_course_by_map_stage(
+        course = await get_map_course_by_map_stage(
             session=session,
             map_id=resolved_map_id,
             stage=stage,
@@ -2144,7 +2309,7 @@ async def read_map_pb_leaderboard(
     viewer_steamid64: int | None = None,
     friends_viewer_steamid64: int | None = None,
 ) -> MapPbLeaderboardPublic:
-    course = await _get_map_course_by_map_stage(
+    course = await get_map_course_by_map_stage(
         session=session,
         map_id=map_id,
         stage=stage,
