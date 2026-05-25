@@ -231,6 +231,25 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
   page,
 }) => {
   const createdBodies: Array<Record<string, unknown>> = []
+  const selectedPlayerBanHistory = [
+    {
+      ...buildBan(700, "globalapi"),
+      notes: "Previous bhop hack ban",
+      player: {
+        steamid64: "76561198000099999",
+        display_name: "Picked Player",
+      },
+    },
+    {
+      ...buildBan(701, "manual"),
+      expires_on: "2026-01-01T12:00:00Z",
+      notes: "Older expired manual ban",
+      player: {
+        steamid64: "76561198000099999",
+        display_name: "Picked Player",
+      },
+    },
+  ]
   const banRows = [buildBan(1), buildBan(2)]
 
   await stubAuthedViewer(page, ["superuser"])
@@ -263,6 +282,19 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
     const url = new URL(route.request().url())
     const offset = Number(url.searchParams.get("offset") ?? "0")
     const limit = Number(url.searchParams.get("limit") ?? "20")
+    const steamid64 = url.searchParams.get("steamid64")
+
+    if (steamid64 === "76561198000099999") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: selectedPlayerBanHistory.length,
+          data: selectedPlayerBanHistory,
+        }),
+      })
+      return
+    }
+
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -278,12 +310,16 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
 
   await page.getByRole("button", { name: "Add Ban" }).click()
   await expect(page.getByRole("heading", { name: "Add Ban" })).toBeVisible()
-  await expect(
-    page.getByText("Create an admin-only local ban.", { exact: false }),
-  ).toBeVisible()
 
   await page.getByRole("textbox", { name: "Player" }).fill("picked")
   await page.getByText("Picked Player", { exact: true }).click()
+  await expect(page.getByText("Ban History", { exact: true })).toBeVisible()
+  await expect(
+    page.getByText("Previous bhop hack ban", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Older expired manual ban", { exact: true }),
+  ).toBeVisible()
   await page.getByRole("combobox", { name: "Ban Type" }).click()
   await page.getByRole("option", { name: "Bhop Macro" }).click()
   await page.getByRole("combobox", { name: "Length" }).click()
@@ -317,9 +353,6 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
     .dispatchEvent("contextmenu")
   await page.getByRole("menuitem", { name: "Add Ban" }).click()
   await expect(page.getByRole("heading", { name: "Add Ban" })).toBeVisible()
-  await expect(
-    page.getByText("Create an admin-only local ban.", { exact: false }),
-  ).toBeVisible()
 })
 
 test("Non-superusers do not see Add Ban entry points", async ({ page }) => {

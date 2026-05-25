@@ -1,14 +1,16 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 
-import { BansService, type BanType } from "@/client"
+import { type BanListItemPublic, BansService, type BanType } from "@/client"
+import { OpenAPI } from "@/client/core/OpenAPI"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { suppressRowInteractions } from "@/components/Common/interaction-suppression"
 import type { PlayerDisplayPlayer } from "@/components/Common/PlayerDisplay"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -22,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useCustomToast from "@/hooks/useCustomToast"
+import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
 const BAN_TYPE_OPTIONS: Array<{ label: string; value: BanType }> = [
@@ -47,6 +50,17 @@ type BanLengthValue = (typeof BAN_LENGTH_OPTIONS)[number]["value"]
 
 type AddBanPlayer = PlayerDisplayPlayer & {
   steamid64: string
+}
+
+function formatBanTypeLabel(banType: string) {
+  return banType
+    .split("_")
+    .map((segment) =>
+      segment.length > 0
+        ? `${segment[0].toUpperCase()}${segment.slice(1)}`
+        : "",
+    )
+    .join(" ")
 }
 
 function getBanExpiryIso(length: BanLengthValue): string | null {
@@ -94,6 +108,31 @@ export function AddBanDialog({
   const [banLength, setBanLength] = useState<BanLengthValue>("permanent")
   const [notes, setNotes] = useState("")
   const [formError, setFormError] = useState<string | null>(null)
+
+  const selectedPlayerSteamid64 = selectedPlayer?.steamid64 ?? null
+
+  const banHistoryQuery = useQuery({
+    queryKey: ["add-ban-history", selectedPlayerSteamid64],
+    enabled: open && selectedPlayerSteamid64 !== null,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        steamid64: selectedPlayerSteamid64 as string,
+        offset: "0",
+        limit: "10",
+      })
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/bans?${params.toString()}`,
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load ban history")
+      }
+      return (await response.json()) as {
+        count: number
+        data: BanListItemPublic[]
+      }
+    },
+    staleTime: 30_000,
+  })
 
   useEffect(() => {
     if (!open) {
@@ -190,10 +229,6 @@ export function AddBanDialog({
       >
         <DialogHeader>
           <DialogTitle>Add Ban</DialogTitle>
-          <DialogDescription>
-            Create an admin-only local ban. This action does not require a
-            GlobalAPI id and does not change the upstream sync source.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
@@ -214,6 +249,32 @@ export function AddBanDialog({
               setFormError(null)
             }}
           />
+
+          {selectedPlayer ? (
+            <div className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-4">
+              <h3 className="text-sm font-semibold">Ban History</h3>
+
+              {banHistoryQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading ban history...
+                </p>
+              ) : banHistoryQuery.isError ? (
+                <p className="text-sm text-destructive">
+                  Unable to load ban history right now.
+                </p>
+              ) : (banHistoryQuery.data?.data.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No previous bans found.
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {banHistoryQuery.data?.data.map((ban) => (
+                    <BanHistoryEntry key={ban.uuid} ban={ban} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
 
           <div className="grid gap-2">
             <label className="text-sm font-medium" htmlFor="ban-type">
@@ -310,5 +371,49 @@ export function AddBanDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function BanHistoryEntry({ ban }: { ban: BanListItemPublic }) {
+  const expiresAt = ban.expires_on ? new Date(ban.expires_on) : null
+  const isExpired =
+    expiresAt !== null &&
+    !Number.isNaN(expiresAt.getTime()) &&
+    expiresAt.getTime() < Date.now()
+
+  return (
+    <div className="grid gap-2 rounded-lg border border-border/70 bg-background/80 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">{formatBanTypeLabel(ban.ban_type)}</Badge>
+        <Badge
+          className={cn(
+            "border-transparent text-white dark:text-white",
+            ban.expires_on === null
+              ? "bg-destructive hover:bg-destructive/90 dark:bg-destructive/60"
+              : isExpired
+                ? "bg-emerald-600 hover:bg-emerald-600/90 dark:bg-emerald-700"
+                : "bg-orange-500 hover:bg-orange-500/90 dark:bg-orange-600",
+          )}
+        >
+          {ban.expires_on === null
+            ? "Permanent"
+            : isExpired
+              ? "Expired"
+              : "Active"}
+        </Badge>
+      </div>
+      <div className="grid gap-1 text-sm text-muted-foreground">
+        <p>
+          Issued <FormattedDateTime value={ban.created_on} display="relative" />
+        </p>
+        {ban.expires_on ? (
+          <p>
+            Expires{" "}
+            <FormattedDateTime value={ban.expires_on} display="relative" />
+          </p>
+        ) : null}
+        <p>{ban.notes?.trim() || "No notes recorded."}</p>
+      </div>
+    </div>
   )
 }
