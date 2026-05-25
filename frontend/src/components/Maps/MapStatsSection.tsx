@@ -1,6 +1,5 @@
 import type { EChartsOption } from "echarts"
 import * as echarts from "echarts"
-import { useTheme } from "next-themes"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -8,6 +7,7 @@ import type {
   MapStatsPublic,
   MapWrGapDistributionContentPublic,
 } from "@/client"
+import { useTheme } from "@/components/theme-provider"
 import { Card, CardContent } from "@/components/ui/card"
 import { useMediaQuery } from "@/hooks/useMobile"
 
@@ -48,7 +48,9 @@ function formatChartTimeSeconds(value: number) {
     return `${new Intl.NumberFormat(undefined, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 1,
-    }).format(hours).replace(/\.0$/, "")} h`
+    })
+      .format(hours)
+      .replace(/\.0$/, "")} h`
   }
 
   const minutes = Math.floor(roundedSeconds / 60)
@@ -61,10 +63,12 @@ function formatBucketPercent(count: number, total: number) {
     return "0%"
   }
   const percent = (count / total) * 100
-  return new Intl.NumberFormat(undefined, {
+  return `${new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 1,
-  }).format(percent).replace(/\.0$/, "") + "%"
+  })
+    .format(percent)
+    .replace(/\.0$/, "")}%`
 }
 
 function wrGapBoundToRecordTime(
@@ -139,6 +143,10 @@ function valueToPlotX({
   return plotLeft + ((axisMax - value) / axisSpan) * plotWidth
 }
 
+function estimateMarkerLabelWidth(text: string, fontSize: number) {
+  return Math.ceil(text.length * fontSize * 0.62)
+}
+
 function WrGapDistributionChart({
   distribution,
   title,
@@ -160,8 +168,7 @@ function WrGapDistributionChart({
   const playerWrGap = recordTimeToWrGap(distribution.wr_time, playerRecordTime)
   const medianWrGap = distribution.median_wr_gap
   const medianStart =
-    medianWrGap == null ||
-    !Number.isFinite(medianWrGap)
+    medianWrGap == null || !Number.isFinite(medianWrGap)
       ? (bins[0]?.lower_bound ?? 0)
       : roundDownToBinStart(medianWrGap)
   const xAxisMin = medianStart - 6
@@ -185,14 +192,16 @@ function WrGapDistributionChart({
     const chart = echarts.init(element)
     const axisColor =
       resolvedTheme === "dark"
-        ? "rgba(255, 255, 255, 0.52)"
+        ? "rgba(255, 255, 255, 0.72)"
         : "rgba(15, 23, 42, 0.58)"
     const splitLineColor =
       resolvedTheme === "dark"
         ? "rgba(255, 255, 255, 0.08)"
         : "rgba(15, 23, 42, 0.08)"
     const markerColor =
-      resolvedTheme === "dark" ? "rgba(248, 113, 113, 0.95)" : "rgba(220, 38, 38, 0.95)"
+      resolvedTheme === "dark"
+        ? "rgba(248, 113, 113, 0.95)"
+        : "rgba(220, 38, 38, 0.95)"
     const markerTextColor = resolvedTheme === "dark" ? "#fecaca" : "#991b1b"
     const barColor =
       resolvedTheme === "dark"
@@ -222,86 +231,118 @@ function WrGapDistributionChart({
       const leftEdge = xAxisMin
       const rightEdge = xAxisMax
       const graphics: NonNullable<EChartsOption["graphic"]> = []
+      const markerLabels = [
+        medianWrGap != null && Number.isFinite(medianWrGap)
+          ? {
+              key: "median" as const,
+              x: Math.min(
+                Math.max(
+                  valueToPlotX({
+                    value: medianWrGap,
+                    plotLeft,
+                    plotWidth,
+                    axisMin: leftEdge,
+                    axisMax: rightEdge,
+                  }),
+                  plotLeft,
+                ),
+                plotRight,
+              ),
+              text: t("maps.stats.medianMarker"),
+              stroke:
+                resolvedTheme === "dark"
+                  ? "rgba(34, 197, 94, 0.95)"
+                  : "rgba(22, 163, 74, 0.95)",
+              fill: resolvedTheme === "dark" ? "#86efac" : "#166534",
+              lineDash: [4, 4] as [number, number],
+            }
+          : null,
+        showPlayerMarker && playerWrGap != null
+          ? {
+              key: "player" as const,
+              x: Math.min(
+                Math.max(
+                  valueToPlotX({
+                    value: playerWrGap,
+                    plotLeft,
+                    plotWidth,
+                    axisMin: leftEdge,
+                    axisMax: rightEdge,
+                  }),
+                  plotLeft,
+                ),
+                plotRight,
+              ),
+              text: t("maps.stats.youMarker"),
+              stroke: markerColor,
+              fill: markerTextColor,
+              lineDash: [6, 4] as [number, number],
+            }
+          : null,
+      ].filter((marker) => marker !== null)
 
-      if (medianWrGap != null && Number.isFinite(medianWrGap)) {
-        const medianX = valueToPlotX({
-          value: medianWrGap,
-          plotLeft,
-          plotWidth,
-          axisMin: leftEdge,
-          axisMax: rightEdge,
-        })
-        const clampedMedianX = Math.min(
-          Math.max(medianX, plotLeft),
+      const markerFontSize = 11
+      const markerLabelGap = 6
+      const markerLabelRowHeight = 16
+      const placedLabels = markerLabels
+        .map((marker) => ({
+          ...marker,
+          width: estimateMarkerLabelWidth(marker.text, markerFontSize),
+          xStart: Math.min(marker.x + markerLabelGap, plotRight),
+          row: 0,
+        }))
+        .sort((left, right) => left.x - right.x)
+
+      if (placedLabels.length === 2) {
+        const [leftLabel, rightLabel] = placedLabels
+        const leftDefaultEnd = Math.min(
+          leftLabel.xStart + leftLabel.width,
           plotRight,
         )
+
+        if (leftDefaultEnd + markerLabelGap > rightLabel.xStart) {
+          leftLabel.xStart = Math.max(
+            leftLabel.x - leftLabel.width - markerLabelGap,
+            plotLeft,
+          )
+
+          if (
+            leftLabel.xStart + leftLabel.width + markerLabelGap >
+            rightLabel.xStart
+          ) {
+            rightLabel.row = 1
+          }
+        }
+      }
+
+      for (const marker of markerLabels) {
         graphics.push({
           type: "line",
           silent: true,
           shape: {
-            x1: clampedMedianX,
+            x1: marker.x,
             y1: chartTop,
-            x2: clampedMedianX,
+            x2: marker.x,
             y2: Math.max(element.clientHeight - chartBottom, chartTop),
           },
           style: {
-            stroke:
-              resolvedTheme === "dark"
-                ? "rgba(34, 197, 94, 0.95)"
-                : "rgba(22, 163, 74, 0.95)",
+            stroke: marker.stroke,
             lineWidth: 2,
-            lineDash: [4, 4],
-          },
-        })
-        graphics.push({
-          type: "text",
-          silent: true,
-          style: {
-            x: Math.min(clampedMedianX + 6, plotRight - 40),
-            y: 4,
-            text: t("maps.stats.medianMarker"),
-            fill:
-              resolvedTheme === "dark" ? "#86efac" : "#166534",
-            fontSize: 11,
-            fontWeight: 600,
+            lineDash: marker.lineDash,
           },
         })
       }
 
-      if (showPlayerMarker && playerWrGap != null) {
-        const playerX = valueToPlotX({
-          value: playerWrGap,
-          plotLeft,
-          plotWidth,
-          axisMin: leftEdge,
-          axisMax: rightEdge,
-        })
-        const clampedPlayerX = Math.min(Math.max(playerX, plotLeft), plotRight)
-
-        graphics.push({
-          type: "line",
-          silent: true,
-          shape: {
-            x1: clampedPlayerX,
-            y1: chartTop,
-            x2: clampedPlayerX,
-            y2: Math.max(element.clientHeight - chartBottom, chartTop),
-          },
-          style: {
-            stroke: markerColor,
-            lineWidth: 2,
-            lineDash: [6, 4],
-          },
-        })
+      for (const placedLabel of placedLabels) {
         graphics.push({
           type: "text",
           silent: true,
           style: {
-            x: Math.min(clampedPlayerX + 6, plotRight - 24),
-            y: 4,
-            text: t("maps.stats.youMarker"),
-            fill: markerTextColor,
-            fontSize: 11,
+            x: Math.min(placedLabel.xStart, plotRight - placedLabel.width),
+            y: 4 + placedLabel.row * markerLabelRowHeight,
+            text: placedLabel.text,
+            fill: placedLabel.fill,
+            fontSize: markerFontSize,
             fontWeight: 600,
           },
         })
@@ -326,8 +367,9 @@ function WrGapDistributionChart({
             const dataIndex =
               typeof entry.dataIndex === "number" ? entry.dataIndex : -1
             const bin = dataIndex >= 0 ? visibleBins[dataIndex] : undefined
-            const value =
-              Array.isArray(entry.value) ? Number(entry.value[1]) : Number(entry.value)
+            const value = Array.isArray(entry.value)
+              ? Number(entry.value[1])
+              : Number(entry.value)
             const lowerTime = wrGapBoundToRecordTime(
               distribution.wr_time,
               bin?.lower_bound,
@@ -371,7 +413,7 @@ function WrGapDistributionChart({
                 fontSize: isNarrowViewport ? 9 : 10,
                 color:
                   resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.36)"
+                    ? "rgba(255, 255, 255, 0.56)"
                     : "rgba(15, 23, 42, 0.42)",
               },
             },
@@ -382,9 +424,7 @@ function WrGapDistributionChart({
                 numericValue,
               )
               const timeLabel =
-                timeValue == null
-                  ? "--:--"
-                  : formatChartTimeSeconds(timeValue)
+                timeValue == null ? "--:--" : formatChartTimeSeconds(timeValue)
               return `{gap|${formatWrGapAxisLabel(numericValue)}}\n{time|${timeLabel}}`
             },
           },
@@ -465,7 +505,20 @@ function WrGapDistributionChart({
       resizeObserver.disconnect()
       chart.dispose()
     }
-  }, [barData, distribution.wr_time, isNarrowViewport, medianWrGap, playerWrGap, resolvedTheme, showPlayerMarker, t, visibleBins, xAxisMax, xAxisMin])
+  }, [
+    barData,
+    distribution.wr_time,
+    isNarrowViewport,
+    medianWrGap,
+    playerWrGap,
+    resolvedTheme,
+    showPlayerMarker,
+    t,
+    visibleBins,
+    xAxisMax,
+    xAxisMin,
+    distribution.plotted_pb_count,
+  ])
 
   const medianLabel = formatMedianWrGap(distribution.median_wr_gap)
   const medianTime = medianWrGapToRecordTime(

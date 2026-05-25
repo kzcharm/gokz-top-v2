@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Copy, Eye, Search, UserRoundCheck, X } from "lucide-react"
+import {
+  Copy,
+  Eye,
+  Heart,
+  InfoIcon,
+  Search,
+  UserRoundCheck,
+  X,
+} from "lucide-react"
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -44,6 +52,10 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
+import {
+  getHighestPlayerPermission,
+  PLAYER_PERMISSION_RING_CLASS_NAMES,
+} from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -90,7 +102,8 @@ function ProfileIdentityCard({
   const { user } = useAuth()
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const avatarUrl = getAvatarUrl(player)
-  const showWebsiteUserRing = player.is_website_user === true
+  const highestPermission = getHighestPlayerPermission(player.roles)
+  const showRoleRing = highestPermission !== null
   const alias = player.alias?.trim() ?? ""
   const canonicalName = player.name.trim()
   const hasDistinctAlias =
@@ -164,14 +177,15 @@ function ProfileIdentityCard({
                     <button
                       type="button"
                       data-testid={
-                        showWebsiteUserRing
+                        showRoleRing
                           ? `profile-avatar-ring-${player.steamid64}`
                           : undefined
                       }
                       className={cn(
                         "relative flex h-32 w-32 cursor-zoom-in items-center justify-center overflow-hidden rounded-[28px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15 transition-transform hover:scale-[1.02] focus-visible:outline-none",
-                        showWebsiteUserRing &&
-                          "ring-4 ring-pink-400/90 ring-offset-4 ring-offset-card",
+                        showRoleRing && "ring-4 ring-offset-4 ring-offset-card",
+                        highestPermission &&
+                          PLAYER_PERMISSION_RING_CLASS_NAMES[highestPermission],
                       )}
                       aria-label={t("profile.zoomAvatar", {
                         name: player.name,
@@ -541,14 +555,20 @@ function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
 
 function SummaryMiniCard({
   dataTestId,
+  disabled = false,
   icon,
+  iconClassName,
   label,
+  labelHidden = false,
   onClick,
   value,
 }: {
   dataTestId?: string
+  disabled?: boolean
   icon?: ReactNode
+  iconClassName?: string
   label: string
+  labelHidden?: boolean
   onClick?: () => void
   value: ReactNode
 }) {
@@ -560,19 +580,32 @@ function SummaryMiniCard({
       className={cn(
         "rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5 text-left transition-colors",
         onClick
-          ? "cursor-pointer hover:bg-background/90 focus-visible:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          ? "cursor-pointer hover:bg-background/90 focus-visible:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-default disabled:hover:bg-background/65 disabled:opacity-70"
           : "",
       )}
       data-testid={dataTestId}
+      disabled={onClick ? disabled : undefined}
       onClick={onClick}
       type={onClick ? "button" : undefined}
     >
       {icon ? (
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center text-muted-foreground">
+          <span
+            className={cn(
+              "inline-flex items-center justify-center text-muted-foreground",
+              iconClassName,
+            )}
+          >
             {icon}
           </span>
-          <p className="min-w-0 text-xs text-muted-foreground">{label}</p>
+          <p
+            className={cn(
+              "min-w-0 text-xs text-muted-foreground",
+              labelHidden && "sr-only",
+            )}
+          >
+            {label}
+          </p>
           <p className="ml-auto text-lg font-semibold tracking-tight">
             {value}
           </p>
@@ -596,10 +629,10 @@ function SkillRadar() {
     ...skill,
     label: t(
       `profile.skillRadar.${skill.label.toLowerCase()}` as
-        | "profile.skillRadar.route"
+        | "profile.skillRadar.boxtech"
         | "profile.skillRadar.strafe"
         | "profile.skillRadar.bhop"
-        | "profile.skillRadar.micro"
+        | "profile.skillRadar.climb"
         | "profile.skillRadar.ladder"
         | "profile.skillRadar.slide",
     ),
@@ -696,10 +729,15 @@ function SkillRadar() {
 
 export function ProfileSidebar({
   identifier,
+  likeMutationPending,
+  onLike,
   playtimeError,
   playtimeLoading,
   playtimeSeconds,
   player,
+  playerLikes,
+  playerLikesError,
+  playerLikesLoading,
   profileViews,
   profileViewsError,
   profileViewsLoading,
@@ -707,10 +745,15 @@ export function ProfileSidebar({
   summaryLoading,
 }: {
   identifier: string
+  likeMutationPending: boolean
+  onLike: () => void
   playtimeError: boolean
   playtimeLoading: boolean
   playtimeSeconds: number | null
   player: ProfilePlayer
+  playerLikes: number
+  playerLikesError: boolean
+  playerLikesLoading: boolean
   profileViews: number
   profileViewsError: boolean
   profileViewsLoading: boolean
@@ -946,10 +989,11 @@ export function ProfileSidebar({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <SummaryMiniCard
                 dataTestId="profile-profile-views-card"
                 icon={<Eye className="size-3.5" />}
+                labelHidden
                 label={t("profile.summary.profileViews")}
                 value={
                   profileViewsLoading ? (
@@ -962,7 +1006,26 @@ export function ProfileSidebar({
                 }
               />
               <SummaryMiniCard
+                dataTestId="profile-player-likes-card"
+                disabled={likeMutationPending}
+                icon={<Heart className="size-3.5 fill-current" />}
+                iconClassName="text-rose-500"
+                labelHidden
+                label={t("profile.summary.likes")}
+                onClick={onLike}
+                value={
+                  playerLikesLoading ? (
+                    <Skeleton className="h-4 w-14" />
+                  ) : playerLikesError ? (
+                    t("profile.unavailable")
+                  ) : (
+                    formatNumber(playerLikes)
+                  )
+                }
+              />
+              <SummaryMiniCard
                 icon={<UserRoundCheck className="size-3.5" />}
+                labelHidden
                 label={t("profile.summary.followers")}
                 dataTestId="profile-followers-card"
                 onClick={() => handleOpenSocial("followers")}
@@ -975,9 +1038,27 @@ export function ProfileSidebar({
         <Card className="h-full min-w-0 gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
           <CardContent className="space-y-5 p-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                {t("profile.skillRadar.title")}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  {t("profile.skillRadar.title")}
+                </p>
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t(
+                        "profile.skillRadar.placeholderTooltipAria",
+                      )}
+                      className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <InfoIcon className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={8} className="max-w-56">
+                    {t("profile.skillRadar.placeholderTooltip")}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
             <SkillRadar />
           </CardContent>

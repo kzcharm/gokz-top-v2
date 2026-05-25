@@ -7,7 +7,7 @@ const MAP_SKILLS = [
   { color: "#8b72d9", key: "slide", label: "Slide" },
   { color: "#7fb77e", key: "climb", label: "Climb" },
   { color: "#58a6ff", key: "strafe", label: "Strafe" },
-  { color: "#e5534b", key: "route", label: "Route" },
+  { color: "#e5534b", key: "boxtech", label: "Boxtech" },
   { color: "#8b949e", key: "unknown", label: "Unknown" },
 ] as const
 
@@ -55,7 +55,7 @@ const mapSkillPortionsByName = new Map<string, Record<MapSkillKey, number>>(
         slide: 0,
         climb: 0,
         strafe: 0,
-        route: 0,
+        boxtech: 0,
         unknown: 0,
       },
     ),

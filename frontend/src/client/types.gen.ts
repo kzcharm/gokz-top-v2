@@ -194,7 +194,7 @@ export type AdminServerRole = 'root_admin' | 'server_owner';
 export type BanCreate = {
     steamid64: string;
     ban_type: BanType;
-    expires_on?: (string | null);
+    expires_at?: (string | null);
     notes?: (string | null);
     stats?: (string | null);
 };
@@ -202,30 +202,32 @@ export type BanCreate = {
 export type BanListItemPublic = {
     uuid: string;
     ban_type: BanType;
-    expires_on?: (string | null);
+    expires_at?: (string | null);
     ip?: (string | null);
     notes?: (string | null);
     stats?: (string | null);
     server_id?: (number | null);
-    updated_by_id?: (string | null);
-    created_on: string;
-    updated_on: string;
+    updated_by_steamid64?: (string | null);
+    created_at: string;
+    updated_at: string;
     player?: (PlayerRefPublic | null);
+    updated_by_player?: (PlayerRefPublic | null);
 };
 
 export type BanPublic = {
     uuid: string;
     id?: (number | null);
     ban_type: BanType;
-    expires_on?: (string | null);
+    expires_at?: (string | null);
     ip?: (string | null);
     notes?: (string | null);
     stats?: (string | null);
     server_id?: (number | null);
-    updated_by_id?: (string | null);
-    created_on: string;
-    updated_on: string;
+    updated_by_steamid64?: (string | null);
+    created_at: string;
+    updated_at: string;
     player?: (PlayerRefPublic | null);
+    updated_by_player?: (PlayerRefPublic | null);
 };
 
 export type BansPublic = {
@@ -234,6 +236,12 @@ export type BansPublic = {
 };
 
 export type BanType = 'ban_evasion' | 'bhop_hack' | 'bhop_macro' | 'exploiting' | 'strafe_hack' | 'strafe_macro' | 'other';
+
+export type BanUpdate = {
+    ban_type: BanType;
+    expires_at?: (string | null);
+    notes?: (string | null);
+};
 
 export type Body_jumpstats_create_jumpstat = {
     replay: (Blob | File);
@@ -409,7 +417,7 @@ export type LiveStreamPlayerPublic = {
     avatar_hash?: (string | null);
     country?: (string | null);
     custom_id?: (string | null);
-    is_website_user?: boolean;
+    roles?: (Array<UserRole> | null);
 };
 
 export type LiveStreamsPublic = {
@@ -615,6 +623,23 @@ export type PlayerBanStatusCheckPublic = {
     remaining_active_ban_count?: number;
 };
 
+export type PlayerCommentCreate = {
+    text: string;
+};
+
+export type PlayerCommentPublic = {
+    id: string;
+    text: string;
+    created_at: string;
+    updated_at: string;
+    author: PlayerRefPublic;
+};
+
+export type PlayerCommentsPublic = {
+    data: Array<PlayerCommentPublic>;
+    count: number;
+};
+
 export type PlayerDailyActivityDayPublic = {
     date: string;
     count: number;
@@ -636,7 +661,7 @@ export type PlayerDetailPublic = {
     last_played_at?: (string | null);
     updated_at?: (string | null);
     steamid64: string;
-    is_website_user?: boolean;
+    roles?: (Array<UserRole> | null);
 };
 
 export type PlayerFollowSummaryPublic = {
@@ -698,6 +723,11 @@ export type PlayerLeaderboardRankPublic = {
 export type PlayerLeaderboardsPublic = {
     data: Array<PlayerLeaderboardEntryPublic>;
     count: number;
+};
+
+export type PlayerLikesPublic = {
+    player_likes?: number;
+    created?: boolean;
 };
 
 export type PlayerMostPlayedServerEntryPublic = {
@@ -786,7 +816,7 @@ export type PlayerPublic = {
     last_played_at?: (string | null);
     updated_at?: (string | null);
     steamid64: string;
-    is_website_user?: boolean;
+    roles?: (Array<UserRole> | null);
     profile_views?: number;
 };
 
@@ -970,8 +1000,26 @@ export type RecentRecordsPublic = {
     count: number;
 };
 
+export type RecordBulkDeleteCourse = {
+    steamid64: string;
+    map_id: number;
+    stage: number;
+};
+
+export type RecordBulkDeleteResult = {
+    data: Array<RecordPublic>;
+    count: number;
+};
+
 export type RecordPatch = {
     is_valid: boolean;
+};
+
+export type RecordPbBucketRebuildResult = {
+    course_id: number;
+    scope: ModeScope;
+    type: RecordType;
+    updated_count: number;
 };
 
 export type RecordPublic = {
@@ -1245,7 +1293,7 @@ export type UserPublic = {
     player?: (PlayerRefPublic | null);
 };
 
-export type UserRole = 'superuser' | 'map_admin' | 'server_owner';
+export type UserRole = 'superuser' | 'admin' | 'map_admin' | 'server_owner';
 
 export type UsersPublic = {
     data: Array<UserPublic>;
@@ -1470,6 +1518,13 @@ export type BansReadBanData = {
 };
 
 export type BansReadBanResponse = (BanPublic);
+
+export type BansPatchBanData = {
+    banUuid: string;
+    requestBody: BanUpdate;
+};
+
+export type BansPatchBanResponse = (BanPublic);
 
 export type HandleHttpGetResponse = (unknown);
 
@@ -1805,6 +1860,40 @@ export type PlayersReadPlayerViewsData = {
 
 export type PlayersReadPlayerViewsResponse = (PlayerProfileViewsPublic);
 
+export type PlayersCreatePlayerLikeData = {
+    identifier: string;
+};
+
+export type PlayersCreatePlayerLikeResponse = (PlayerLikesPublic);
+
+export type PlayersReadPlayerLikesData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerLikesResponse = (PlayerLikesPublic);
+
+export type PlayersReadPlayerCommentsData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayersReadPlayerCommentsResponse = (PlayerCommentsPublic);
+
+export type PlayersCreatePlayerCommentData = {
+    identifier: string;
+    requestBody: PlayerCommentCreate;
+};
+
+export type PlayersCreatePlayerCommentResponse = (PlayerCommentPublic);
+
+export type PlayersDeletePlayerCommentData = {
+    commentId: string;
+    identifier: string;
+};
+
+export type PlayersDeletePlayerCommentResponse = (Message);
+
 export type PlayersReadPlayerPinnedRecordsData = {
     identifier: string;
     scope?: ModeScope;
@@ -2027,6 +2116,21 @@ export type RecordsPatchRecordData = {
 };
 
 export type RecordsPatchRecordResponse = (RecordPublic);
+
+export type RecordsBulkDeleteCourseRecordsData = {
+    requestBody: RecordBulkDeleteCourse;
+};
+
+export type RecordsBulkDeleteCourseRecordsResponse = (RecordBulkDeleteResult);
+
+export type RecordsRebuildPbPointsBucketData = {
+    mapId: number;
+    scope?: ModeScope;
+    stage?: number;
+    type?: RecordType;
+};
+
+export type RecordsRebuildPbPointsBucketResponse = (RecordPbBucketRebuildResult);
 
 export type RegionsReadRegionsResponse = (RegionsPublic);
 

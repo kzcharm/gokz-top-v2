@@ -11,13 +11,13 @@ import {
   UsersService,
   type UserUpdate,
 } from "@/client"
+import { UserRoleBadge } from "@/components/Admin/UserRoleBadge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -26,7 +26,6 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -37,7 +36,7 @@ import { USER_ROLE_OPTIONS } from "@/lib/user-roles"
 import { handleError } from "@/utils"
 
 const formSchema = z.object({
-  roles: z.array(z.enum(["superuser", "map_admin", "server_owner"])),
+  roles: z.array(z.enum(["superuser", "admin", "map_admin", "server_owner"])),
   is_active: z.boolean(),
 })
 
@@ -101,9 +100,6 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>
-                Update account permissions and activity status.
-              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <FormField
@@ -111,19 +107,14 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                 name="roles"
                 render={({ field }) => (
                   <FormItem className="gap-3">
-                    <div className="space-y-1">
-                      <FormLabel>Roles</FormLabel>
-                      <FormDescription>
-                        Choose one or more admin roles for this account.
-                      </FormDescription>
-                    </div>
+                    <FormLabel>Roles</FormLabel>
                     <div className="grid gap-3">
                       {USER_ROLE_OPTIONS.map((roleOption) => {
                         const checked = field.value.includes(roleOption.value)
                         return (
                           <div
                             key={roleOption.value}
-                            className="flex items-start gap-3 rounded-md border p-3"
+                            className="flex items-center gap-3 rounded-md border p-3"
                           >
                             <FormControl>
                               <Checkbox
@@ -139,14 +130,7 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                                 }}
                               />
                             </FormControl>
-                            <span className="grid gap-1">
-                              <span className="text-sm font-medium">
-                                {roleOption.label}
-                              </span>
-                              <span className="text-muted-foreground text-sm">
-                                {roleOption.description}
-                              </span>
-                            </span>
+                            <UserRoleBadge role={roleOption.value} />
                           </div>
                         )
                       })}

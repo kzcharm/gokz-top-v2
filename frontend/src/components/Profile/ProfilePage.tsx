@@ -14,10 +14,11 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import useAuth from "@/hooks/useAuth"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
+import { ProfileCommentsTab } from "./ProfileCommentsTab"
 import { ProfileFriendsTab } from "./ProfileFriendsTab"
 import {
   ProfileCompletionSection,
@@ -36,9 +37,11 @@ import {
   buildProfileTotalPoints,
   buildProfileTrophyCounts,
   checkProfileUnbanStatus,
+  createProfileLike,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfileFriendsQueryOptions,
+  getProfileLikesQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
@@ -47,6 +50,7 @@ import {
   getProfileStatsQueryOptions,
   getProfileValidatedMapsQueryOptions,
   getProfileViewsQueryOptions,
+  type ProfileLikeResult,
   type ProfileTab,
   pinProfileRecord,
   syncProfileFriends,
@@ -106,6 +110,9 @@ export function ProfilePage({
   const profileViewsQuery = useQuery(
     getProfileViewsQueryOptions(playerSteamid64),
   )
+  const profileLikesQuery = useQuery(
+    getProfileLikesQueryOptions(playerSteamid64),
+  )
   const playerStatsQuery = useQuery({
     ...getProfileStatsQueryOptions(
       canonicalIdentifier,
@@ -149,9 +156,11 @@ export function ProfilePage({
           ? "/profile/$identifier/stats"
           : activeTab === "jumpstats"
             ? "/profile/$identifier/jumpstats"
-            : activeTab === "friends"
-              ? "/profile/$identifier/friends"
-              : "/profile/$identifier"
+            : activeTab === "comments"
+              ? "/profile/$identifier/comments"
+              : activeTab === "friends"
+                ? "/profile/$identifier/friends"
+                : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {
@@ -369,6 +378,28 @@ export function ProfilePage({
       })
     },
   })
+  const likePlayerMutation = useMutation({
+    mutationFn: async () => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      return await createProfileLike(playerSteamid64)
+    },
+    onSuccess: (result: ProfileLikeResult) => {
+      queryClient.setQueryData(
+        ["profile-player-likes", playerSteamid64],
+        result,
+      )
+      if (!result.created) {
+        toast.warning(t("profile.likes.alreadyLikedToday"))
+      }
+    },
+    onError: (error) => {
+      toast.error(t("profile.likes.likeFailed"), {
+        description: extractErrorMessage(error),
+      })
+    },
+  })
   const summary = useMemo(() => {
     const totalPoints = buildProfileTotalPoints({
       nubRecords: nubRecordsQuery.data ?? [],
@@ -466,7 +497,7 @@ export function ProfilePage({
 
   const activeBans = activeBanCountQuery.data?.data ?? []
   const activeBanCount = activeBanCountQuery.data?.count ?? 0
-  const hasPermanentBan = activeBans.some((ban) => ban.expires_on == null)
+  const hasPermanentBan = activeBans.some((ban) => ban.expires_at == null)
   const showBanWarning = activeBanCount > 0
   const showUnbanCheckButton = isOwnProfile && showBanWarning
   const profileTabsTrailingContent =
@@ -543,13 +574,13 @@ export function ProfilePage({
                     <span>{formatBanType(ban.ban_type)}</span>
                     <span className="text-muted-foreground">•</span>
                     <FormattedDateTime
-                      value={ban.created_on}
+                      value={ban.created_at}
                       display="absolute"
                       fallback={t("profile.unknownDate")}
                     />
                     <span className="text-muted-foreground">•</span>
                     <span>
-                      {ban.expires_on == null
+                      {ban.expires_at == null
                         ? t("profile.ban.permanent")
                         : t("profile.ban.temporary")}
                     </span>
@@ -568,7 +599,19 @@ export function ProfilePage({
         <aside className="min-w-0">
           <ProfileSidebar
             identifier={canonicalIdentifier}
+            likeMutationPending={likePlayerMutation.isPending}
+            onLike={() => {
+              if (!isLoggedIn()) {
+                void navigate({ to: "/login" })
+                return
+              }
+
+              likePlayerMutation.mutate()
+            }}
             player={player}
+            playerLikes={profileLikesQuery.data?.player_likes ?? 0}
+            playerLikesError={profileLikesQuery.isError}
+            playerLikesLoading={profileLikesQuery.isLoading}
             playtimeError={playerStatsQuery.isError}
             playtimeLoading={playerStatsQuery.isLoading}
             playtimeSeconds={
@@ -680,6 +723,11 @@ export function ProfilePage({
                   </Button>
                 ) : null
               }
+            />
+          ) : activeTab === "comments" ? (
+            <ProfileCommentsTab
+              identifier={canonicalIdentifier}
+              targetSteamid64={player.steamid64}
             />
           ) : activeTab === "jumpstats" ? (
             <ProfileJumpstatsTab identifier={canonicalIdentifier} />

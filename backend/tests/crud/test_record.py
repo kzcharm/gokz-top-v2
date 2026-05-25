@@ -8,6 +8,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.models import (
+    Ban,
+    BanType,
     Map,
     MapCourse,
     MapCourseTier,
@@ -532,6 +534,96 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     assert refreshed_rows[1].points > 1
     assert refreshed_rows[0].updated_at == original_updated_on
     assert refreshed_rows[1].updated_at == original_updated_on
+
+
+async def test_rebuild_record_pb_points_bucket_excludes_actively_banned_rows(
+    db: AsyncSession,
+) -> None:
+    banned_player = random_steamid64()
+    visible_player = random_steamid64()
+    await _create_player(db, steamid64=banned_player, name="Banned Bucket")
+    await _create_player(db, steamid64=visible_player, name="Visible Bucket")
+    await _create_map(db, id=981026, name="kz_bucket_points_banned", difficulty=5)
+    await _create_server(db, id=981126, name="Bucket Ban Server")
+
+    await _create_record(
+        db,
+        id=981326,
+        steamid64=banned_player,
+        map_id=981026,
+        server_id=981126,
+        mode_id=201,
+        stage=0,
+        time="19.000",
+        teleports=150,
+    )
+    await _create_record(
+        db,
+        id=981327,
+        steamid64=visible_player,
+        map_id=981026,
+        server_id=981126,
+        mode_id=201,
+        stage=0,
+        time="25.000",
+        teleports=170,
+    )
+
+    db.add(
+        Ban(
+            id=981426,
+            steamid64=banned_player,
+            ban_type=BanType.EXPLOITING,
+        )
+    )
+    await db.commit()
+
+    course = (
+        await db.exec(
+            select(MapCourse).where(MapCourse.map_id == 981026, MapCourse.stage == 0)
+        )
+    ).one()
+    bucket_rows = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == ModeScope.SKZ,
+                RecordPb.is_pro_only.is_(False),
+            )
+        )
+    ).all()
+    for row in bucket_rows:
+        row.points = 1
+        db.add(row)
+    await db.commit()
+
+    updated_rows = await crud.rebuild_record_pb_points_bucket(
+        session=db,
+        course_id=course.id,
+        scope_id=ModeScope.SKZ.scope_id,
+        record_type=RecordType.NUB,
+    )
+    await db.commit()
+
+    refreshed_rows = (
+        await db.exec(
+            select(RecordPb)
+            .join(Record, Record.uuid == RecordPb.record_uuid)
+            .where(
+                RecordPb.course_id == course.id,
+                RecordPb.scope == ModeScope.SKZ,
+                RecordPb.is_pro_only.is_(False),
+            )
+            .order_by(Record.time.asc(), Record.uuid.asc())
+        )
+    ).all()
+
+    assert updated_rows == 1
+    assert len(refreshed_rows) == 2
+    assert refreshed_rows[0].steamid64 == banned_player
+    assert refreshed_rows[0].points == 1
+    assert refreshed_rows[1].steamid64 == visible_player
+    assert refreshed_rows[1].points == 1000
 
 
 async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(

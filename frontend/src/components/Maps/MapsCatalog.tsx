@@ -313,11 +313,14 @@ export function MapsCatalog() {
     retry: 1,
   })
 
-  useEffect(() => {
-    startTransition(() => {
-      setPage(1)
-    })
-  }, [])
+  const searchableMaps = useMemo(
+    () =>
+      (mapsQuery.data ?? []).map((map) => ({
+        map,
+        normalizedName: map.name.toLowerCase(),
+      })),
+    [mapsQuery.data],
+  )
 
   const wrByMapId = useMemo(() => {
     const nextMap = new Map<number, MapWrPublic>()
@@ -339,24 +342,21 @@ export function MapsCatalog() {
 
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
-    return (mapsQuery.data ?? []).filter((map) => {
-      if (
-        normalizedQuery !== "" &&
-        !map.name.toLowerCase().includes(normalizedQuery)
-      ) {
-        return false
+    return searchableMaps.flatMap(({ map, normalizedName }) => {
+      if (normalizedQuery !== "" && !normalizedName.includes(normalizedQuery)) {
+        return []
       }
 
       if (selectedTier !== "all") {
         const activeTier = normalizeTierValue(getMapTierForScope(map, scope))
         if (activeTier !== Number(selectedTier)) {
-          return false
+          return []
         }
       }
 
-      return true
+      return map
     })
-  }, [deferredSearch, mapsQuery.data, scope, selectedTier])
+  }, [deferredSearch, scope, searchableMaps, selectedTier])
 
   const sortedMaps = useMemo(
     () =>
@@ -390,6 +390,16 @@ export function MapsCatalog() {
       setPage(totalPages)
     })
   }, [page, totalPages])
+
+  useEffect(() => {
+    if (page === 1) {
+      return
+    }
+
+    startTransition(() => {
+      setPage(1)
+    })
+  }, [page])
 
   const visibleMaps = useMemo(() => {
     const startIndex = (page - 1) * PAGE_SIZE
@@ -545,10 +555,7 @@ export function MapsCatalog() {
               <Input
                 value={searchInput}
                 onChange={(event) => {
-                  const nextValue = event.target.value
-                  startTransition(() => {
-                    setSearchInput(nextValue)
-                  })
+                  setSearchInput(event.target.value)
                 }}
                 placeholder={t("maps.searchPlaceholder")}
                 aria-label={t("maps.searchAria")}

@@ -29,7 +29,7 @@ function buildPlayerRef(requestedSteamid64: string, displayName: string) {
     country: "DE",
     primary_scope: "OVR",
     rating: 1500,
-    is_website_user: false,
+    roles: null,
     last_played_at: "2026-03-31T12:00:00Z",
   }
 }

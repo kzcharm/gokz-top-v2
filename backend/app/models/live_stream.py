@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, Index
 from sqlmodel import Field, SQLModel
 
 from .player_social_link import PlayerSocialPlatform
+from .user_role import UserRole
 from .utils import get_datetime_utc
 
 
@@ -53,7 +54,7 @@ class LiveStreamPlayerPublic(SQLModel):
     avatar_hash: str | None = None
     country: str | None = None
     custom_id: str | None = None
-    is_website_user: bool = False
+    roles: list[UserRole] | None = None
 
 
 class LiveStreamCardPublic(SQLModel):

@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     FRONTEND_HOST: str = "http://localhost:5173"
+    REPLAY_VIEWER_HOST: str | None = None
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     ENABLE_TEST_AUTH_HELPERS: bool = False
@@ -45,9 +46,17 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def all_cors_origins(self) -> list[str]:
-        return [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS] + [
-            self.FRONTEND_HOST
-        ]
+        origins = [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS]
+        origins.append(self.FRONTEND_HOST.rstrip("/"))
+
+        replay_viewer_host = self.REPLAY_VIEWER_HOST
+        if replay_viewer_host is None and self.ENVIRONMENT != "local":
+            replay_viewer_host = "https://replay-viewer.kzcharm.com"
+
+        if replay_viewer_host:
+            origins.append(replay_viewer_host.rstrip("/"))
+
+        return list(dict.fromkeys(origins))
 
     @computed_field  # type: ignore[prop-decorator]
     @property

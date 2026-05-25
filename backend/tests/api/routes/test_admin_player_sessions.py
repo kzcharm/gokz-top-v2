@@ -64,6 +64,16 @@ async def test_admin_player_sessions_require_superuser(
     client: AsyncClient,
     normal_user_token_headers: dict[str, str],
 ) -> None:
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Admin Player Session Tester",
+        },
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_auth.json()['access_token']}"}
     unauthenticated_response = await client.get(
         f"{settings.API_V1_STR}/admin/player-sessions"
     )
@@ -71,9 +81,14 @@ async def test_admin_player_sessions_require_superuser(
         f"{settings.API_V1_STR}/admin/player-sessions",
         headers=normal_user_token_headers,
     )
+    admin_response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions",
+        headers=admin_headers,
+    )
 
     assert unauthenticated_response.status_code in {401, 403}
     assert normal_user_response.status_code == 403
+    assert admin_response.status_code == 403
 
 
 async def test_read_admin_player_sessions_lists_paginates_and_sorts(

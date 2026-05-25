@@ -79,7 +79,7 @@ async def test_graphql_player_fetches_by_steamid64_and_custom_id(
             country
             primaryScope
             rating
-            isWebsiteUser
+            roles
             profileViews
             lastPlayedAt
           }
@@ -98,7 +98,7 @@ async def test_graphql_player_fetches_by_steamid64_and_custom_id(
     assert player["country"] == "DE"
     assert player["primaryScope"] == "SKZ"
     assert player["rating"] > 0
-    assert player["isWebsiteUser"] is True
+    assert player["roles"] == []
     assert player["profileViews"] == 1
     assert player["lastPlayedAt"] == "2099-01-02T00:00:00+00:00"
 

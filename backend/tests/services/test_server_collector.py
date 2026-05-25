@@ -9,6 +9,7 @@ import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.crud import server as server_crud
 from app.models import ServerStatus
 from app.services import server_collector
 from app.services.server_query import A2SInfoResult
@@ -78,12 +79,12 @@ def test_build_scheduler_ring_spreads_same_ip_targets() -> None:
     assert [target.stable_id for target in ring] == ["a-1", "b-1", "a-2", "c-1"]
 
 
-async def test_apply_query_outcome_success_updates_db_and_broadcasts(
+async def test_apply_query_outcome_success_updates_db_and_notifies(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     server = await create_server(db, hostname="Old Host", map_name="kz_old")
-    events: list[str] = []
+    notified_server_ids: list[uuid.UUID] = []
 
     monkeypatch.setattr(
         server_collector,
@@ -91,10 +92,11 @@ async def test_apply_query_outcome_success_updates_db_and_broadcasts(
         _StaticSessionFactory(db),
     )
 
-    async def _fake_broadcast(updated_server) -> None:
-        events.append(updated_server.live_status.hostname if updated_server.live_status else "")
+    async def _fake_notify(*, session: AsyncSession, server_id: uuid.UUID) -> None:
+        del session
+        notified_server_ids.append(server_id)
 
-    monkeypatch.setattr(server_collector, "broadcast_server_update", _fake_broadcast)
+    monkeypatch.setattr(server_crud, "notify_server_status_updated", _fake_notify)
 
     await server_collector._apply_query_outcome(
         server_collector.CollectorQueryOutcome(
@@ -120,7 +122,7 @@ async def test_apply_query_outcome_success_updates_db_and_broadcasts(
     assert refreshed.live_status is not None
     assert refreshed.live_status.hostname == "New Host"
     assert refreshed.live_status.map == "kz_new"
-    assert events == ["New Host"]
+    assert notified_server_ids == [server.id]
 
 
 async def test_apply_query_outcome_failure_keeps_online_until_threshold_then_offline(
@@ -147,9 +149,9 @@ async def test_apply_query_outcome_failure_keeps_online_until_threshold_then_off
         _StaticSessionFactory(db),
     )
     monkeypatch.setattr(
-        server_collector,
-        "broadcast_server_update",
-        lambda updated_server: asyncio.sleep(0),
+        server_crud,
+        "notify_server_status_updated",
+        lambda **_: asyncio.sleep(0),
     )
     server_collector.SERVER_A2S_FAILURES_BEFORE_OFFLINE = 30
 

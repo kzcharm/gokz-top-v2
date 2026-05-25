@@ -4,7 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep, get_current_active_admin
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.crud.record import get_pb_record_publics
@@ -15,6 +15,9 @@ from app.models import (
     RecentRecordListQuery,
     RecentRecordsPublic,
     Record,
+    RecordBulkDeleteCourse,
+    RecordBulkDeleteResult,
+    RecordPbBucketRebuildResult,
     RecordListQuery,
     RecordPatch,
     RecordPublic,
@@ -28,7 +31,7 @@ from app.models import (
 
 router = APIRouter(prefix="/records", tags=["records"])
 
-CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+CurrentAdmin = Annotated[User, Depends(get_current_active_admin)]
 
 
 async def _resolve_player_identifier_to_steamid64_or_404(
@@ -229,7 +232,7 @@ async def read_record(
 
 @router.patch(
     "/{record_uuid}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(get_current_active_admin)],
     response_model=RecordPublic,
 )
 async def patch_record(
@@ -237,13 +240,76 @@ async def patch_record(
     session: SessionDep,
     record_uuid: uuid.UUID,
     patch: RecordPatch,
-    current_user: CurrentSuperuser,
+    current_user: CurrentAdmin,
 ) -> Any:
-    del current_user
     record = await crud.get_record_by_uuid(session=session, record_uuid=record_uuid)
     if record is None:
         raise HTTPException(status_code=404, detail="Record not found")
-    record = await crud.update_record_validity(session=session, record=record, patch=patch)
+    record = await crud.update_record_validity(
+        session=session,
+        record=record,
+        patch=patch,
+        actor_steamid64=current_user.steamid64,
+    )
     return (
         await _to_record_publics(session, [record], scope=ModeScope.OVR)
     )[0]
+
+
+@router.post(
+    "/bulk-delete-course",
+    dependencies=[Depends(get_current_active_admin)],
+    response_model=RecordBulkDeleteResult,
+)
+async def bulk_delete_course_records(
+    *,
+    session: SessionDep,
+    payload: RecordBulkDeleteCourse,
+    current_user: CurrentAdmin,
+) -> RecordBulkDeleteResult:
+    records = await crud.bulk_soft_delete_course_records(
+        session=session,
+        payload=payload,
+        actor_steamid64=current_user.steamid64,
+    )
+    return RecordBulkDeleteResult(
+        data=await _to_record_publics(session, records, scope=ModeScope.OVR),
+        count=len(records),
+    )
+
+
+@router.post(
+    "/rebuild-pb-points-bucket",
+    dependencies=[Depends(get_current_active_admin)],
+    response_model=RecordPbBucketRebuildResult,
+)
+async def rebuild_pb_points_bucket(
+    *,
+    session: SessionDep,
+    map_id: int,
+    stage: int = 0,
+    scope: ModeScope = ModeScope.OVR,
+    type: RecordType = RecordType.NUB,
+    _current_user: CurrentAdmin,
+) -> RecordPbBucketRebuildResult:
+    course = await crud.get_map_course_by_map_stage(
+        session=session,
+        map_id=map_id,
+        stage=stage,
+    )
+    if course is None or course.id is None:
+        raise HTTPException(status_code=404, detail="Map course not found")
+
+    updated_count = await crud.rebuild_record_pb_points_bucket(
+        session=session,
+        course_id=course.id,
+        scope_id=scope.scope_id,
+        record_type=type,
+    )
+    await session.commit()
+    return RecordPbBucketRebuildResult(
+        course_id=course.id,
+        scope=scope,
+        type=type,
+        updated_count=updated_count,
+    )

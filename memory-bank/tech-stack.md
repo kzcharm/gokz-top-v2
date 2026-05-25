@@ -32,6 +32,7 @@
   - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_action_timestamp(country_manual_override)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
   - KZ-only player friendships are stored in `player_friend` as directed edges, with sync flows maintaining both directions for active friendships and deleting stale edges only after a successful Steam friends fetch
   - `player` now persists Steam friends visibility state through `friends_visibility` and `friends_visibility_checked_at`, allowing public profile reads to explain whether a Steam profile or friends list is private without storing generic sync-failure state
+  - Player profile comments are stored in `player_comment`, keyed by UUIDv7 and linked to both author and target `player.steamid64`, with trimmed text validation, reverse-chronological profile reads, and owner-or-author deletion
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
@@ -140,6 +141,7 @@
   - `frontend/src/client/*`
   - `frontend/src/routeTree.gen.ts`
 - Keep compatibility behavior under `/v0` stable; project-native changes should go to `/v1`.
+- Treat 64-bit identifiers such as `steamid64` as strings at all API and frontend boundaries. Do not send them as JavaScript numbers, because precision loss can silently break queries and mutations. Convert to integers only inside backend internals when numeric DB comparisons are required.
 - `/v0/bans` remains a mirrored-GlobalAPI compatibility surface and excludes local manual bans, while `/v1/bans` returns both mirrored and local bans, exposes both `uuid` and nullable `id`, supports superuser `POST /v1/bans` manual creation, and uses UUIDs for `/v1/bans/{uuid}` detail reads.
 - Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
 - Frontend destructive actions should use the destructive red visual treatment consistently, including icon-only delete buttons in tables and settings surfaces.

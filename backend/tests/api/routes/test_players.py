@@ -17,6 +17,7 @@ from app.models import (
     LeaderboardPlayer,
     ModeScope,
     Player,
+    PlayerComment,
     PlayerFollow,
     PlayerProfileField,
     PlayerProfileHistory,
@@ -73,6 +74,28 @@ async def _create_profile_field_change(
     await db.commit()
 
 
+async def _create_player_comment(
+    *,
+    db: AsyncSession,
+    author_steamid64: int,
+    target_steamid64: int,
+    text: str,
+    created_at: datetime | None = None,
+) -> PlayerComment:
+    timestamp = created_at or datetime.now(UTC)
+    comment = PlayerComment(
+        author_steamid64=author_steamid64,
+        target_steamid64=target_steamid64,
+        text=text,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return comment
+
+
 async def _get_profile_history_rows(
     *,
     db: AsyncSession,
@@ -106,18 +129,18 @@ async def _create_ban(
     ban_id: int,
     steamid64: int,
     ban_type: BanType = BanType.BHOP_HACK,
-    expires_on: datetime | None = None,
+    expires_at: datetime | None = None,
     notes: str | None = None,
 ) -> Ban:
     ban = Ban(
         id=ban_id,
         ban_type=ban_type,
-        expires_on=expires_on,
+        expires_at=expires_at,
         steamid64=steamid64,
         notes=notes,
         stats="stats",
         server_id=1,
-        updated_by_id="1",
+        updated_by_steamid64=1,
         created_at=datetime.now(UTC) - timedelta(days=1),
         updated_at=datetime.now(UTC) - timedelta(hours=1),
     )
@@ -171,7 +194,7 @@ async def test_read_players_public_with_offset_and_limit(
     assert len(first_payload["data"]) == 3
     assert len(second_payload["data"]) == 2
     assert second_payload["data"] == first_payload["data"][1:3]
-    assert all("is_website_user" in item for item in first_payload["data"])
+    assert all("roles" in item for item in first_payload["data"])
 
 
 @pytest.mark.asyncio
@@ -335,7 +358,7 @@ async def test_search_players_ignores_active_ban_rating_tiebreaker(
         db=db,
         ban_id=9_820_001,
         steamid64=banned_player.steamid64,
-        expires_on=None,
+        expires_at=None,
     )
 
     response = await client.get(
@@ -642,7 +665,7 @@ async def test_read_player_views_returns_profile_view_count(
 
 
 @pytest.mark.asyncio
-async def test_read_player_includes_is_website_user(
+async def test_read_player_includes_roles_for_website_user(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -665,7 +688,34 @@ async def test_read_player_includes_is_website_user(
     )
 
     assert response.status_code == 200
-    assert response.json()["is_website_user"] is True
+    assert response.json()["roles"] == []
+
+
+@pytest.mark.asyncio
+async def test_read_player_includes_ordered_roles_for_elevated_user(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    elevated_user = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Elevated User Player",
+    )
+    db.add(
+        User(
+            steamid64=elevated_user.steamid64,
+            is_active=True,
+            roles=["server_owner", "superuser", "admin"],
+        )
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{elevated_user.steamid64}"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["roles"] == ["superuser", "admin", "server_owner"]
 
 
 @pytest.mark.asyncio
@@ -999,7 +1049,7 @@ async def test_update_player_identity_fields_skips_noop_history(
 
 
 @pytest.mark.asyncio
-async def test_read_players_list_includes_is_website_user(
+async def test_read_players_list_includes_roles(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -1031,8 +1081,8 @@ async def test_read_players_list_includes_is_website_user(
     players_by_id = {
         item["steamid64"]: item for item in response.json()["data"]
     }
-    assert players_by_id[str(website_user.steamid64)]["is_website_user"] is True
-    assert players_by_id[str(plain_player.steamid64)]["is_website_user"] is False
+    assert players_by_id[str(website_user.steamid64)]["roles"] == []
+    assert players_by_id[str(plain_player.steamid64)]["roles"] is None
 
 
 @pytest.mark.asyncio
@@ -2370,6 +2420,216 @@ async def test_follow_routes_return_not_found_for_missing_player(
 
 
 @pytest.mark.asyncio
+async def test_read_player_comments_orders_newest_first_and_counts_total(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Comment Target",
+    )
+    older_author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Older Author",
+    )
+    newer_author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Newer Author",
+    )
+    await _create_player_comment(
+        db=db,
+        author_steamid64=older_author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Older comment",
+        created_at=datetime(2026, 4, 1, 12, 0, tzinfo=UTC),
+    )
+    newer_comment = await _create_player_comment(
+        db=db,
+        author_steamid64=newer_author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Newer comment",
+        created_at=datetime(2026, 4, 2, 12, 0, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments",
+        params={"offset": 0, "limit": 1},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert len(payload["data"]) == 1
+    assert payload["data"][0]["id"] == str(newer_comment.id)
+    assert payload["data"][0]["text"] == "Newer comment"
+    assert payload["data"][0]["author"]["steamid64"] == str(newer_author.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_create_player_comment_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Unauthed Target",
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments",
+        json={"text": "Hello"},
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_create_player_comment_trims_text_and_returns_author(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Commented Player",
+    )
+    author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Comment Author",
+    )
+    headers = await get_user_token_headers(client, author.steamid64)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments",
+        json={"text": "  Nice profile.  "},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["text"] == "Nice profile."
+    assert payload["author"]["steamid64"] == str(author.steamid64)
+    assert payload["author"]["display_name"]
+
+
+@pytest.mark.asyncio
+async def test_create_player_comment_rejects_blank_and_self_comments(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Self Commenter",
+    )
+    headers = await get_user_token_headers(client, player.steamid64)
+
+    blank_response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/comments",
+        json={"text": "   "},
+        headers=headers,
+    )
+    self_response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/comments",
+        json={"text": "Hello self"},
+        headers=headers,
+    )
+
+    assert blank_response.status_code == 422
+    assert self_response.status_code == 400
+    assert self_response.json()["detail"] == "You cannot comment on your own profile"
+
+
+@pytest.mark.asyncio
+async def test_delete_player_comment_allows_author_and_target_owner(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Delete Target",
+    )
+    author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Delete Author",
+    )
+    author_comment = await _create_player_comment(
+        db=db,
+        author_steamid64=author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Author removable",
+    )
+    owner_comment = await _create_player_comment(
+        db=db,
+        author_steamid64=author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Owner removable",
+    )
+
+    author_headers = await get_user_token_headers(client, author.steamid64)
+    owner_headers = await get_user_token_headers(client, target.steamid64)
+
+    author_response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments/{author_comment.id}",
+        headers=author_headers,
+    )
+    owner_response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments/{owner_comment.id}",
+        headers=owner_headers,
+    )
+
+    assert author_response.status_code == 200
+    assert owner_response.status_code == 200
+    assert await db.get(PlayerComment, author_comment.id) is None
+    assert await db.get(PlayerComment, owner_comment.id) is None
+
+
+@pytest.mark.asyncio
+async def test_delete_player_comment_rejects_unrelated_user(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Protected Target",
+    )
+    author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Protected Author",
+    )
+    intruder = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Protected Intruder",
+    )
+    comment = await _create_player_comment(
+        db=db,
+        author_steamid64=author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Hands off",
+    )
+    intruder_headers = await get_user_token_headers(client, intruder.steamid64)
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments/{comment.id}",
+        headers=intruder_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "You cannot delete this player comment"
+    assert await db.get(PlayerComment, comment.id) is not None
+
+
+@pytest.mark.asyncio
 async def test_create_player_view_requires_authentication(
     client: AsyncClient,
     db: AsyncSession,
@@ -2488,6 +2748,157 @@ async def test_create_player_view_returns_not_found_for_missing_player(
 
 
 @pytest.mark.asyncio
+async def test_create_player_like_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Auth Like Target",
+    )
+
+    response = await client.post(f"{settings.API_V1_STR}/players/{target.steamid64}/likes")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_records_once_per_utc_day(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Daily Like Target",
+    )
+    viewer_headers = await get_user_token_headers(client, random_steamid64())
+
+    monkeypatch.setattr(
+        "app.crud.player_like.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 4, tzinfo=UTC).date(),
+    )
+
+    first_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+    second_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json()["created"] is True
+    assert second_response.json()["created"] is False
+    assert first_response.json()["player_likes"] == 1
+    assert second_response.json()["player_likes"] == 1
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_counts_again_after_utc_rollover(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Like Rollover Target",
+    )
+    viewer_steamid64 = random_steamid64()
+    viewer_headers = await get_user_token_headers(client, viewer_steamid64)
+
+    monkeypatch.setattr(
+        "app.crud.player_like.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 4, tzinfo=UTC).date(),
+    )
+    first_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+
+    monkeypatch.setattr(
+        "app.crud.player_like.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 5, tzinfo=UTC).date(),
+    )
+    second_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json()["created"] is True
+    assert second_response.json()["created"] is True
+    assert first_response.json()["player_likes"] == 1
+    assert second_response.json()["player_likes"] == 2
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_does_not_count_self_likes(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    headers = await get_user_token_headers(client, steamid64)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/likes",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["created"] is False
+    assert response.json()["player_likes"] == 0
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_returns_not_found_for_missing_player(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{random_steamid64()}/likes",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_read_player_likes_returns_like_count(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Like Count Target",
+    )
+    viewer = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{target.steamid64}/likes")
+
+    assert response.status_code == 200
+    assert response.json()["created"] is False
+    assert response.json()["player_likes"] == 1
+
+
+@pytest.mark.asyncio
 async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leaderboard(
     client: AsyncClient,
     db: AsyncSession,
@@ -2506,7 +2917,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
         db=db,
         ban_id=9_500,
         steamid64=player_steamid64,
-        expires_on=None,
+        expires_at=None,
         notes="locally active",
     )
     ban_id = ban.id
@@ -2574,7 +2985,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
     db.expire_all()
     refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
-    assert refreshed.expires_on == expired_at
+    assert refreshed.expires_at == expired_at
     assert refreshed.notes == "expired upstream"
 
 
@@ -2597,7 +3008,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
         db=db,
         ban_id=9_501,
         steamid64=player_steamid64,
-        expires_on=None,
+        expires_at=None,
     )
     ban_id = ban.id
     ban_uuid = ban.uuid
@@ -2664,7 +3075,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
     db.expire_all()
     refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
-    assert refreshed.expires_on == future_expiry
+    assert refreshed.expires_at == future_expiry
 
 
 @pytest.mark.asyncio

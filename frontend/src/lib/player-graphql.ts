@@ -1,4 +1,4 @@
-import type { ModeScope } from "@/client"
+import type { ModeScope, UserRole } from "@/client"
 import { requestGraphQL } from "@/lib/graphql"
 
 export type GraphqlPlayer = {
@@ -11,7 +11,7 @@ export type GraphqlPlayer = {
   country: string | null
   primaryScope: ModeScope
   rating: number
-  isWebsiteUser: boolean
+  roles: UserRole[] | null
   lastPlayedAt: string | null
   createdAt?: string | null
   updatedAt?: string | null
@@ -33,6 +33,13 @@ type PlayerQueryResponse = {
   player: GraphqlPlayer | null
 }
 
+const GRAPHQL_TO_USER_ROLE: Record<string, UserRole> = {
+  SUPERUSER: "superuser",
+  ADMIN: "admin",
+  MAP_ADMIN: "map_admin",
+  SERVER_OWNER: "server_owner",
+}
+
 type PendingPlayerBatchEntry = {
   reject: (reason?: unknown) => void
   resolve: (player: GraphqlPlayer | null) => void
@@ -50,8 +57,24 @@ const DISPLAY_PLAYER_FIELDS = `
   country
   primaryScope
   rating(scope: $scope)
-  isWebsiteUser
+  roles
 `
+
+function normalizeGraphqlPlayer(
+  player: GraphqlPlayer | null,
+): GraphqlPlayer | null {
+  if (player === null) {
+    return null
+  }
+
+  const normalizedRoles =
+    player.roles?.map((role) => GRAPHQL_TO_USER_ROLE[role] ?? role) ?? null
+
+  return {
+    ...player,
+    roles: normalizedRoles,
+  }
+}
 
 function getDisplayPlayerCacheKey(steamid64: string, scope?: ModeScope) {
   return `${steamid64}:${scope ?? "PRIMARY"}`
@@ -76,7 +99,7 @@ export async function fetchPlayerByIdentifier(
     { identifier, scope },
   )
 
-  return response.player
+  return normalizeGraphqlPlayer(response.player)
 }
 
 async function requestPlayersForDisplay(
@@ -99,7 +122,7 @@ async function requestPlayersForDisplay(
     { steamid64s, scope },
   )
 
-  return response.players
+  return response.players.map((player) => normalizeGraphqlPlayer(player))
 }
 
 let pendingPlayerBatch = new Map<string, PendingPlayerBatchEntry[]>()
@@ -221,5 +244,10 @@ export async function searchPlayersGraphql(q: string, limit = 10) {
     { q, limit },
   )
 
-  return response.searchPlayers
+  return {
+    ...response.searchPlayers,
+    data: response.searchPlayers.data
+      .map((player) => normalizeGraphqlPlayer(player))
+      .filter((player): player is GraphqlPlayer => player !== null),
+  }
 }

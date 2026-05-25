@@ -104,14 +104,14 @@ async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
         Ban(
             id=99,
             ban_type=BanType.BHOP_HACK,
-            expires_on=None,
+            expires_at=None,
             steamid64=76561198000000099,
             notes="existing",
             stats="existing",
             server_id=1,
-            updated_by_id="1",
-            created_on=datetime(2026, 4, 5, 10, 0, tzinfo=UTC),
-            updated_on=datetime(2026, 4, 5, 11, 0, tzinfo=UTC),
+            updated_by_steamid64=1,
+            created_at=datetime(2026, 4, 5, 10, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 5, 11, 0, tzinfo=UTC),
         )
     )
     await db.commit()
@@ -141,6 +141,67 @@ async def test_sync_bans_from_globalapi_uses_incremental_limit_and_overlap(
     assert calls[0][2] == datetime(2026, 4, 5, 10, 0, tzinfo=UTC) - timedelta(
         seconds=globalapi_ban_sync.settings.GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS
     )
+
+
+async def test_sync_bans_from_globalapi_skips_existing_rows_and_preserves_local_edits(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _clear_ban_sync_state(db)
+    steamid64 = 76561198000000077
+    db.add(Player(steamid64=steamid64, name="Existing"))
+    await db.flush()
+    db.add(
+        Ban(
+            id=77,
+            ban_type=BanType.BHOP_HACK,
+            expires_at=datetime(2026, 4, 20, tzinfo=UTC),
+            steamid64=steamid64,
+            notes="local note",
+            stats="local stats",
+            server_id=1,
+            updated_by_steamid64=76561198000000001,
+            created_at=datetime(2026, 4, 5, 10, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 5, 11, 0, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    async def _fake_fetch(
+        *,
+        client: object,
+        offset: int,
+        limit: int,
+        created_since: datetime | None = None,
+        updated_since: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        del client, offset, limit, created_since, updated_since
+        return [
+            _payload(
+                ban_id=77,
+                steamid64=steamid64,
+                updated_on="2026-04-10T12:00:00+00:00",
+            )
+            | {
+                "expires_on": "2026-05-01T00:00:00+00:00",
+                "notes": "upstream note",
+                "stats": "upstream stats",
+                "updated_by_id": "99",
+            }
+        ]
+
+    monkeypatch.setattr(globalapi_ban_sync, "fetch_bans_from_globalapi", _fake_fetch)
+
+    result = await globalapi_ban_sync.sync_bans_from_globalapi(session=db)
+
+    assert result.processed == 1
+    assert result.created == 0
+    assert result.updated == 0
+    refreshed = (await db.exec(select(Ban).where(Ban.id == 77))).one()
+    assert refreshed.notes == "local note"
+    assert refreshed.stats == "local stats"
+    assert refreshed.expires_at == datetime(2026, 4, 20, tzinfo=UTC)
+    assert refreshed.updated_by_steamid64 == 76561198000000001
 
 
 async def test_sync_bans_from_globalapi_backfills_when_state_exists_but_table_is_empty(
@@ -202,14 +263,14 @@ async def test_sync_bans_from_globalapi_pages_incremental_results(
         Ban(
             id=98,
             ban_type=BanType.BHOP_HACK,
-            expires_on=None,
+            expires_at=None,
             steamid64=76561198000000098,
             notes="existing",
             stats="existing",
             server_id=1,
-            updated_by_id="1",
-            created_on=datetime(2026, 4, 5, 10, 0, tzinfo=UTC),
-            updated_on=datetime(2026, 4, 5, 11, 0, tzinfo=UTC),
+            updated_by_steamid64=1,
+            created_at=datetime(2026, 4, 5, 10, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 5, 11, 0, tzinfo=UTC),
         )
     )
     await db.commit()
@@ -261,14 +322,14 @@ async def test_sync_bans_from_globalapi_keeps_local_rows_when_upstream_is_empty(
     existing_ban = Ban(
         id=500,
         ban_type=BanType.BHOP_HACK,
-        expires_on=None,
+        expires_at=None,
         steamid64=76561198000000500,
         notes="existing",
         stats="existing",
         server_id=1,
-        updated_by_id="1",
-        created_on=datetime(2026, 4, 1, tzinfo=UTC),
-        updated_on=datetime(2026, 4, 1, tzinfo=UTC),
+        updated_by_steamid64=1,
+        created_at=datetime(2026, 4, 1, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 1, tzinfo=UTC),
     )
     db.add(existing_ban)
     await db.commit()
@@ -404,7 +465,7 @@ async def test_sync_bans_from_globalapi_maps_9999_expiry_to_null(
     assert result.processed == 1
     stored = (await db.exec(select(Ban).where(Ban.id == 901))).first()
     assert stored is not None
-    assert stored.expires_on is None
+    assert stored.expires_at is None
 
 
 async def test_sync_bans_from_globalapi_does_not_match_manual_local_bans(
@@ -417,11 +478,11 @@ async def test_sync_bans_from_globalapi_does_not_match_manual_local_bans(
     await db.flush()
     manual_ban = Ban(
         ban_type=BanType.BHOP_MACRO,
-        expires_on=None,
+        expires_at=None,
         steamid64=steamid64,
         notes="manual local ban",
         stats="manual stats",
-        updated_by_id="76561198000000001",
+        updated_by_steamid64=76561198000000001,
         created_at=datetime(2026, 4, 1, tzinfo=UTC),
         updated_at=datetime(2026, 4, 1, tzinfo=UTC),
     )
@@ -556,12 +617,12 @@ async def test_sync_player_bans_from_globalapi_pages_by_player_and_upserts_updat
         Ban(
             id=1_010,
             ban_type=BanType.BHOP_HACK,
-            expires_on=None,
+            expires_at=None,
             steamid64=steamid64,
             notes="existing note",
             stats="existing stats",
             server_id=1,
-            updated_by_id="1",
+            updated_by_steamid64=1,
             created_at=datetime(2026, 4, 1, tzinfo=UTC),
             updated_at=datetime(2026, 4, 1, tzinfo=UTC),
         )
@@ -629,7 +690,8 @@ async def test_sync_player_bans_from_globalapi_pages_by_player_and_upserts_updat
     assert [row.id for row in rows] == [1_010, 1_011]
     assert rows[0].notes == "updated note"
     assert rows[0].stats == "updated stats"
-    assert rows[0].expires_on == active_until
+    assert rows[0].expires_at == active_until
+    assert rows[0].updated_by_steamid64 == 1
 
 
 async def test_sync_player_bans_from_globalapi_clears_active_ban_without_duplicates(
@@ -644,12 +706,12 @@ async def test_sync_player_bans_from_globalapi_clears_active_ban_without_duplica
         Ban(
             id=1_020,
             ban_type=BanType.BHOP_HACK,
-            expires_on=None,
+            expires_at=None,
             steamid64=steamid64,
             notes="existing",
             stats="existing",
             server_id=1,
-            updated_by_id="1",
+            updated_by_steamid64=1,
             created_at=datetime(2026, 4, 1, tzinfo=UTC),
             updated_at=datetime(2026, 4, 1, tzinfo=UTC),
         )
@@ -720,7 +782,7 @@ async def test_sync_player_bans_from_globalapi_clears_active_ban_without_duplica
     )
     assert len(rows) == 1
     assert rows[0].id == 1_020
-    assert rows[0].expires_on == expired_at
+    assert rows[0].expires_at == expired_at
 
 
 async def test_sync_player_bans_from_globalapi_ignores_manual_bans_for_status_counts(
@@ -734,22 +796,22 @@ async def test_sync_player_bans_from_globalapi_ignores_manual_bans_for_status_co
     mirrored_ban = Ban(
         id=1_021,
         ban_type=BanType.BHOP_HACK,
-        expires_on=None,
+        expires_at=None,
         steamid64=steamid64,
         notes="mirrored",
         stats="mirrored",
         server_id=1,
-        updated_by_id="1",
+        updated_by_steamid64=1,
         created_at=datetime(2026, 4, 1, tzinfo=UTC),
         updated_at=datetime(2026, 4, 1, tzinfo=UTC),
     )
     manual_ban = Ban(
         ban_type=BanType.BHOP_MACRO,
-        expires_on=None,
+        expires_at=None,
         steamid64=steamid64,
         notes="manual",
         stats="manual",
-        updated_by_id="76561198000000001",
+        updated_by_steamid64=76561198000000001,
         created_at=datetime(2026, 4, 2, tzinfo=UTC),
         updated_at=datetime(2026, 4, 2, tzinfo=UTC),
     )
@@ -796,5 +858,5 @@ async def test_sync_player_bans_from_globalapi_ignores_manual_bans_for_status_co
 
     refreshed_manual = await db.get(Ban, manual_ban_uuid)
     assert refreshed_manual is not None
-    assert refreshed_manual.expires_on is None
+    assert refreshed_manual.expires_at is None
     assert refreshed_manual.notes == "manual"

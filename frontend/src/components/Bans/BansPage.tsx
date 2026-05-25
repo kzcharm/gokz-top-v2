@@ -3,6 +3,7 @@ import { Plus, ShieldAlert } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { OpenAPI } from "@/client/core/OpenAPI"
+import { useAdminMode } from "@/components/admin-mode-provider"
 import { DataTable } from "@/components/Common/DataTable"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
@@ -11,12 +12,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import useAuth from "@/hooks/useAuth"
 import type { GraphqlPlayer } from "@/lib/player-graphql"
-import { isSuperuser } from "@/lib/user-roles"
+import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
 import { AddBanDialog } from "./AddBanDialog"
-import { type BanRow, banColumns } from "./columns"
+import { type BanRow, getBanColumns } from "./columns"
+import { EditBanDialog } from "./EditBanDialog"
 
 type BansResponse = {
   count: number
@@ -34,6 +36,7 @@ async function fetchBans({
   pageSize: number
   steamid64?: string | null
 }) {
+  const accessToken = localStorage.getItem("access_token")
   const params = new URLSearchParams({
     offset: `${pageIndex * pageSize}`,
     limit: `${pageSize}`,
@@ -41,7 +44,10 @@ async function fetchBans({
   if (steamid64) {
     params.set("steamid64", steamid64)
   }
-  const response = await fetch(`${OpenAPI.BASE}/v1/bans?${params.toString()}`)
+  const response = await fetch(`${OpenAPI.BASE}/v1/bans?${params.toString()}`, {
+    credentials: OpenAPI.CREDENTIALS,
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  })
   if (!response.ok) {
     throw new Error("Failed to load bans")
   }
@@ -51,10 +57,13 @@ async function fetchBans({
 
 export function BansPage() {
   const { user } = useAuth()
+  const { enabled: adminModeEnabled } = useAdminMode()
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [expandedBanUuid, setExpandedBanUuid] = useState<string | null>(null)
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
+  const [editBanDialogOpen, setEditBanDialogOpen] = useState(false)
+  const [editingBan, setEditingBan] = useState<BanRow | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<GraphqlPlayer | null>(
     null,
   )
@@ -98,7 +107,17 @@ export function BansPage() {
   const bans = bansQuery.data?.data ?? []
   const totalCount = bansQuery.data?.count ?? 0
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const canAddBan = isSuperuser(user)
+  const canAddBan = canModerateBansAndRecords(user)
+  const showUpdaterColumn = canAddBan
+  const showEditActions = canAddBan && adminModeEnabled
+  const columns = getBanColumns({
+    showUpdaterColumn,
+    showEditActions,
+    onEditBan: (ban) => {
+      setEditingBan(ban)
+      setEditBanDialogOpen(true)
+    },
+  })
 
   const handleSelectPlayer = (player: GraphqlPlayer) => {
     setSelectedPlayer(player)
@@ -147,7 +166,7 @@ export function BansPage() {
       <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-b-none">
           <DataTable
-            columns={banColumns}
+            columns={columns}
             data={bans}
             isLoading={bansQuery.isLoading}
             emptyText="No bans found."
@@ -204,6 +223,16 @@ export function BansPage() {
       <AddBanDialog
         open={addBanDialogOpen}
         onOpenChange={setAddBanDialogOpen}
+      />
+      <EditBanDialog
+        ban={editingBan}
+        open={editBanDialogOpen}
+        onOpenChange={(open) => {
+          setEditBanDialogOpen(open)
+          if (!open) {
+            setEditingBan(null)
+          }
+        }}
       />
     </div>
   )

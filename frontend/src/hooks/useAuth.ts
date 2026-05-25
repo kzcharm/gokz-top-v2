@@ -17,6 +17,11 @@ const useAuth = () => {
     queryFn: UsersService.readUserMe,
     enabled: isLoggedIn(),
     retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   const loginWithSteam = () => {

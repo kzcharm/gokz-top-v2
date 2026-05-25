@@ -19,6 +19,8 @@ import {
 import {
   type ComponentProps,
   Fragment,
+  type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
   useEffect,
   useRef,
@@ -27,6 +29,11 @@ import {
 import { useTranslation } from "react-i18next"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -58,6 +65,7 @@ interface DataTableProps<TData, TValue> {
   pageInputEnabled?: boolean
   getRowClassName?: (row: TData) => string | undefined
   getRowProps?: (row: TData) => ComponentProps<typeof TableRow> | undefined
+  getRowContextMenu?: (row: TData) => ReactNode
   getRowId?: (row: TData) => string
   expandedRowId?: string | null
   renderExpandedContent?: (row: TData) => ReactNode
@@ -75,6 +83,139 @@ interface DataTableProps<TData, TValue> {
   }
 }
 
+function DataTableBodyRow<TData, TValue>({
+  columns,
+  getColumnMeta,
+  getColumnSizeStyle,
+  getRowClassName,
+  renderExpandedContent,
+  row,
+  rowContextMenu,
+  rowProps,
+  expandedRowId,
+  getRowId,
+}: {
+  columns: ColumnDef<TData, TValue>[]
+  getColumnMeta: (columnDef: ColumnDef<TData, TValue>) =>
+    | {
+        headerClassName?: string
+        cellClassName?: string
+      }
+    | undefined
+  getColumnSizeStyle: (
+    columnDef: ColumnDef<TData, TValue>,
+  ) => { width: string; minWidth: string } | undefined
+  getRowClassName?: (row: TData) => string | undefined
+  renderExpandedContent?: (row: TData) => ReactNode
+  row: ReturnType<
+    ReturnType<typeof useReactTable<TData>>["getRowModel"]
+  >["rows"][number]
+  rowContextMenu: ReactNode
+  rowProps?: ComponentProps<typeof TableRow>
+  expandedRowId?: string | null
+  getRowId?: (row: TData) => string
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const contextMenuRequestedRef = useRef(false)
+  const resolvedRowId = getRowId?.(row.original) ?? row.id
+  const isExpanded =
+    renderExpandedContent !== undefined && expandedRowId === resolvedRowId
+  const rowClassName = rowProps?.className ?? getRowClassName?.(row.original)
+
+  const rowElement = (
+    <TableRow
+      {...rowProps}
+      className={rowClassName}
+      onContextMenu={
+        rowContextMenu
+          ? (event: MouseEvent<HTMLTableRowElement>) => {
+              rowProps?.onContextMenu?.(event)
+              if (event.defaultPrevented) {
+                return
+              }
+              event.preventDefault()
+              contextMenuRequestedRef.current = true
+              setMenuOpen(true)
+            }
+          : rowProps?.onContextMenu
+      }
+      onKeyDown={
+        rowContextMenu
+          ? (event: KeyboardEvent<HTMLTableRowElement>) => {
+              rowProps?.onKeyDown?.(event)
+              if (event.defaultPrevented) {
+                return
+              }
+              if (
+                event.key === "ContextMenu" ||
+                (event.shiftKey && event.key === "F10")
+              ) {
+                event.preventDefault()
+                contextMenuRequestedRef.current = true
+                setMenuOpen(true)
+              }
+            }
+          : rowProps?.onKeyDown
+      }
+      tabIndex={rowContextMenu ? 0 : rowProps?.tabIndex}
+    >
+      {row.getVisibleCells().map((cell) => {
+        const columnMeta = getColumnMeta(cell.column.columnDef)
+        return (
+          <TableCell
+            key={cell.id}
+            className={columnMeta?.cellClassName}
+            style={getColumnSizeStyle(cell.column.columnDef)}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        )
+      })}
+    </TableRow>
+  )
+
+  const rowFragment = (
+    <Fragment key={row.id}>
+      {rowElement}
+      {isExpanded ? (
+        <TableRow className="bg-muted/15 hover:bg-muted/15">
+          <TableCell colSpan={columns.length} className="px-4 py-4">
+            {renderExpandedContent(row.original)}
+          </TableCell>
+        </TableRow>
+      ) : null}
+    </Fragment>
+  )
+
+  if (rowContextMenu === null) {
+    return rowFragment
+  }
+
+  return (
+    <DropdownMenu
+      key={row.id}
+      modal={false}
+      open={menuOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          contextMenuRequestedRef.current = false
+          setMenuOpen(false)
+          return
+        }
+
+        if (contextMenuRequestedRef.current) {
+          setMenuOpen(true)
+        }
+      }}
+    >
+      <DropdownMenuTrigger asChild>{rowElement}</DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" sideOffset={8}>
+        {rowContextMenu}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -89,6 +230,7 @@ export function DataTable<TData, TValue>({
   pageInputEnabled = false,
   getRowClassName,
   getRowProps,
+  getRowContextMenu,
   getRowId,
   expandedRowId,
   renderExpandedContent,
@@ -292,42 +434,21 @@ export function DataTable<TData, TValue>({
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => {
               const rowProps = getRowProps?.(row.original)
-              const resolvedRowId = getRowId?.(row.original) ?? row.id
-              const isExpanded =
-                renderExpandedContent !== undefined &&
-                expandedRowId === resolvedRowId
+              const rowContextMenu = getRowContextMenu?.(row.original) ?? null
               return (
-                <Fragment key={row.id}>
-                  <TableRow
-                    {...rowProps}
-                    className={
-                      rowProps?.className ?? getRowClassName?.(row.original)
-                    }
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const columnMeta = getColumnMeta(cell.column.columnDef)
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className={columnMeta?.cellClassName}
-                          style={getColumnSizeStyle(cell.column.columnDef)}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      )
-                    })}
-                  </TableRow>
-                  {isExpanded ? (
-                    <TableRow className="bg-muted/15 hover:bg-muted/15">
-                      <TableCell colSpan={columns.length} className="px-4 py-4">
-                        {renderExpandedContent(row.original)}
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </Fragment>
+                <DataTableBodyRow
+                  key={row.id}
+                  columns={columns}
+                  expandedRowId={expandedRowId}
+                  getColumnMeta={getColumnMeta}
+                  getColumnSizeStyle={getColumnSizeStyle}
+                  getRowClassName={getRowClassName}
+                  getRowId={getRowId}
+                  renderExpandedContent={renderExpandedContent}
+                  row={row}
+                  rowContextMenu={rowContextMenu}
+                  rowProps={rowProps}
+                />
               )
             })
           ) : (

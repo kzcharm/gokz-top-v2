@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -13,19 +14,26 @@ from app.api.deps import (
 )
 from app.api.v1.player_api_helpers import (
     drop_null_group_ids,
+    ensure_current_user_can_manage_player_comment,
+    get_current_user_player_or_404,
     get_player_or_404,
     parse_steamid64,
     resolve_player_identifier_to_steamid64_or_404,
 )
-from app.crud import player as player_crud
 from app.models import (
     JumpstatListQuery,
     JumpstatsPublic,
+    Message,
+    ModeScope,
+    PlayerCommentCreate,
+    PlayerCommentListQuery,
+    PlayerCommentPublic,
+    PlayerCommentsPublic,
     PlayerDailyActivityPublic,
     PlayerDetailPublic,
     PlayerFriendsPublic,
+    PlayerLikesPublic,
     PlayerMostPlayedServerPublic,
-    ModeScope,
     PlayerPinnedRecordsPublic,
     PlayerPlaytimePublic,
     PlayerProfileHistoryListQuery,
@@ -91,7 +99,7 @@ async def search_players(
 async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> Any:
     steamid64s = [parse_steamid64(steamid64) for steamid64 in body.steamid64s]
     players = await crud.read_players_batch(session=session, steamid64s=steamid64s)
-    website_user_steamid64s = await crud.load_website_user_steamid64s(
+    roles_by_steamid64 = await crud.load_player_roles_by_steamid64(
         session=session,
         steamid64s=[player.steamid64 for player in players if player is not None],
     )
@@ -99,7 +107,7 @@ async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> 
         (
             crud.to_player_public(
                 player=player,
-                is_website_user=player.steamid64 in website_user_steamid64s,
+                roles=roles_by_steamid64.get(player.steamid64),
             )
             if player
             else None
@@ -128,6 +136,25 @@ async def create_player_view(
     return PlayerProfileViewsPublic(profile_views=profile_views)
 
 
+@router.post("/{identifier:path}/likes", response_model=PlayerLikesPublic)
+async def create_player_like(
+    identifier: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerLikesPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    created = await crud.create_player_like(
+        session=session,
+        viewer_steamid64=current_user.steamid64,
+        target_steamid64=player.steamid64,
+    )
+    player_likes = await crud.count_player_likes(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return PlayerLikesPublic(player_likes=player_likes, created=created)
+
+
 @router.get("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)
 async def read_player_views(
     identifier: str,
@@ -139,6 +166,92 @@ async def read_player_views(
         target_steamid64=player.steamid64,
     )
     return PlayerProfileViewsPublic(profile_views=profile_views)
+
+
+@router.get("/{identifier:path}/comments", response_model=PlayerCommentsPublic)
+async def read_player_comments(
+    *,
+    identifier: str,
+    session: SessionDep,
+    query: Annotated[PlayerCommentListQuery, Query()],
+) -> PlayerCommentsPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    rows, count = await crud.read_player_comments(
+        session=session,
+        target_steamid64=player.steamid64,
+        offset=query.offset,
+        limit=query.limit,
+    )
+    return PlayerCommentsPublic(
+        data=[
+            crud.to_player_comment_public(comment=comment, author=author)
+            for comment, author in rows
+        ],
+        count=count,
+    )
+
+
+@router.post("/{identifier:path}/comments", response_model=PlayerCommentPublic)
+async def create_player_comment(
+    *,
+    identifier: str,
+    session: SessionDep,
+    payload: PlayerCommentCreate,
+    current_user: CurrentUser,
+):
+    target_player = await get_player_or_404(session=session, identifier=identifier)
+    author_player = await get_current_user_player_or_404(
+        session=session,
+        current_user=current_user,
+    )
+    if author_player.steamid64 == target_player.steamid64:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot comment on your own profile",
+        )
+
+    comment = await crud.create_player_comment(
+        session=session,
+        author_steamid64=author_player.steamid64,
+        target_steamid64=target_player.steamid64,
+        text=payload.text,
+    )
+    return crud.to_player_comment_public(comment=comment, author=author_player)
+
+
+@router.delete("/{identifier:path}/comments/{comment_id}", response_model=Message)
+async def delete_player_comment(
+    *,
+    identifier: str,
+    comment_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Message:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    comment = await crud.get_player_comment(session=session, id=comment_id)
+    if comment is None or comment.target_steamid64 != player.steamid64:
+        raise HTTPException(status_code=404, detail="Player comment not found")
+
+    ensure_current_user_can_manage_player_comment(
+        current_user=current_user,
+        author_steamid64=comment.author_steamid64,
+        target_steamid64=comment.target_steamid64,
+    )
+    await crud.delete_player_comment(session=session, comment=comment)
+    return Message(message="Player comment deleted")
+
+
+@router.get("/{identifier:path}/likes", response_model=PlayerLikesPublic)
+async def read_player_likes(
+    identifier: str,
+    session: SessionDep,
+) -> PlayerLikesPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    player_likes = await crud.count_player_likes(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return PlayerLikesPublic(player_likes=player_likes)
 
 
 @router.get("/{identifier:path}/pinned-records", response_model=PlayerPinnedRecordsPublic)
@@ -282,13 +395,13 @@ async def read_player(
             sync_player_steam_profile_if_due,
             steamid64=player.steamid64,
         )
-    website_user_steamid64s = await crud.load_website_user_steamid64s(
+    roles_by_steamid64 = await crud.load_player_roles_by_steamid64(
         session=session,
         steamid64s=[player.steamid64],
     )
     return crud.to_player_detail_public(
         player=player,
-        is_website_user=player.steamid64 in website_user_steamid64s,
+        roles=roles_by_steamid64.get(player.steamid64),
     )
 
 

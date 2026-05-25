@@ -4,12 +4,25 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
-from app.models import BanCreate, BanListQuery, BanPublic, BansPublic, User
+from app.api.deps import (
+    OptionalCurrentUser,
+    SessionDep,
+    get_current_active_admin,
+    user_has_any_role,
+)
+from app.models import (
+    BanCreate,
+    BanListQuery,
+    BanPublic,
+    BanUpdate,
+    BansPublic,
+    User,
+    UserRole,
+)
 
 router = APIRouter(prefix="/bans", tags=["bans"])
 
-CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+CurrentAdmin = Annotated[User, Depends(get_current_active_admin)]
 
 
 def _parse_steamid64(value: str) -> int:
@@ -19,27 +32,40 @@ def _parse_steamid64(value: str) -> int:
     return int(normalized)
 
 
-@router.get("", response_model=BansPublic)
+def _can_view_ban_admin_fields(current_user: User | None) -> bool:
+    if current_user is None:
+        return False
+    return user_has_any_role(current_user, UserRole.SUPERUSER, UserRole.ADMIN)
+
+
+@router.get("", response_model=BansPublic, response_model_exclude_unset=True)
 async def read_bans(
     session: SessionDep,
     query: Annotated[BanListQuery, Query()],
+    current_user: OptionalCurrentUser,
 ) -> BansPublic:
+    include_admin_fields = _can_view_ban_admin_fields(current_user)
     bans, count = await crud.read_bans(session=session, query=query)
     return BansPublic(
         data=[
-            crud.to_ban_list_item_public(ban=ban, player=player)
-            for ban, player in bans
+            crud.to_ban_list_item_public(
+                ban=ban,
+                player=player,
+                updated_by_player=updated_by_player,
+                include_admin_fields=include_admin_fields,
+            )
+            for ban, player, updated_by_player in bans
         ],
         count=count,
     )
 
 
-@router.post("", response_model=BanPublic)
+@router.post("", response_model=BanPublic, response_model_exclude_unset=True)
 async def create_ban(
     *,
     session: SessionDep,
     body: BanCreate,
-    current_user: CurrentSuperuser,
+    current_user: CurrentAdmin,
 ) -> BanPublic:
     steamid64 = _parse_steamid64(body.steamid64)
     player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)
@@ -52,13 +78,27 @@ async def create_ban(
         steamid64=steamid64,
         updated_by_steamid64=current_user.steamid64,
     )
-    return crud.to_ban_public(ban=ban, player=player)
+    updated_by_player = await crud.get_player_by_steamid64(
+        session=session,
+        steamid64=current_user.steamid64,
+    )
+    return crud.to_ban_public(
+        ban=ban,
+        player=player,
+        updated_by_player=updated_by_player,
+        include_admin_fields=True,
+    )
 
 
-@router.get("/{ban_uuid}", response_model=BanPublic)
+@router.get(
+    "/{ban_uuid}",
+    response_model=BanPublic,
+    response_model_exclude_unset=True,
+)
 async def read_ban(
     session: SessionDep,
     ban_uuid: uuid.UUID,
+    current_user: OptionalCurrentUser,
 ) -> BanPublic:
     ban_with_player = await crud.get_ban_by_uuid(
         session=session,
@@ -66,5 +106,46 @@ async def read_ban(
     )
     if ban_with_player is None:
         raise HTTPException(status_code=404, detail="Ban not found")
-    ban, player = ban_with_player
-    return crud.to_ban_public(ban=ban, player=player)
+    include_admin_fields = _can_view_ban_admin_fields(current_user)
+    ban, player, updated_by_player = ban_with_player
+    return crud.to_ban_public(
+        ban=ban,
+        player=player,
+        updated_by_player=updated_by_player,
+        include_admin_fields=include_admin_fields,
+    )
+
+
+@router.patch(
+    "/{ban_uuid}",
+    response_model=BanPublic,
+    response_model_exclude_unset=True,
+)
+async def patch_ban(
+    *,
+    session: SessionDep,
+    ban_uuid: uuid.UUID,
+    body: BanUpdate,
+    current_user: CurrentAdmin,
+) -> BanPublic:
+    ban_with_player = await crud.get_ban_by_uuid(session=session, ban_uuid=ban_uuid)
+    if ban_with_player is None:
+        raise HTTPException(status_code=404, detail="Ban not found")
+
+    ban, player, _updated_by_player = ban_with_player
+    ban = await crud.update_ban(
+        session=session,
+        ban=ban,
+        body=body,
+        updated_by_steamid64=current_user.steamid64,
+    )
+    updated_by_player = await crud.get_player_by_steamid64(
+        session=session,
+        steamid64=current_user.steamid64,
+    )
+    return crud.to_ban_public(
+        ban=ban,
+        player=player,
+        updated_by_player=updated_by_player,
+        include_admin_fields=True,
+    )

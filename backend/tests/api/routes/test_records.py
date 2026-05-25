@@ -17,7 +17,11 @@ from app.models import (
     MapCourseTier,
     Player,
     Record,
+    RecordBulkDeleteCourse,
     RecordFilter,
+    RecordModerationAction,
+    RecordModerationActionRecord,
+    RecordModerationActionType,
     RecordPb,
     ServerGlobalapi,
     legacy_mode_id_to_kz_mode,
@@ -573,6 +577,177 @@ async def test_patch_record_v1_updates_validity(
     )
     assert response.status_code == 200
     assert response.json()["is_valid"] is False
+
+    action = (
+        await db.exec(select(RecordModerationAction))
+    ).one()
+    assert action.actor_steamid64 == settings.SUPER_USER_STEAMID64
+    assert action.action_type == RecordModerationActionType.SINGLE_SOFT_DELETE
+    assert action.target_record_uuid == record.uuid
+
+    action_record = (
+        await db.exec(select(RecordModerationActionRecord))
+    ).one()
+    assert action_record.record_uuid == record.uuid
+    assert action_record.before_snapshot is not None
+    assert action_record.after_snapshot is not None
+    assert action_record.before_snapshot["is_valid"] is True
+    assert action_record.after_snapshot["is_valid"] is False
+
+
+async def test_patch_record_v1_allows_admin_role(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(db, players=[(player_id, "Runner Admin Patch")])
+    record = await _create_record(
+        db,
+        id=980402,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="41.000",
+        teleports=0,
+    )
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Admin Record Moderator",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/records/{record.uuid}",
+        headers=admin_headers,
+        json={"is_valid": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_valid"] is False
+
+
+async def test_bulk_delete_course_records_soft_deletes_all_valid_matching_rows(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    player_id = random_steamid64()
+    other_player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (player_id, "Bulk Delete Runner"),
+            (other_player_id, "Other Runner"),
+        ],
+    )
+    first = await _create_record(
+        db,
+        id=980470,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="42.000",
+        teleports=0,
+    )
+    second = await _create_record(
+        db,
+        id=980471,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=201,
+        map_id=980200,
+        stage=0,
+        time="43.000",
+        teleports=2,
+    )
+    unaffected_stage = await _create_record(
+        db,
+        id=980472,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=1,
+        time="44.000",
+        teleports=0,
+    )
+    unaffected_player = await _create_record(
+        db,
+        id=980473,
+        steamid64=other_player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="45.000",
+        teleports=0,
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/records/bulk-delete-course",
+        headers=superuser_token_headers,
+        json=RecordBulkDeleteCourse(
+            steamid64=str(player_id),
+            map_id=980200,
+            stage=0,
+        ).model_dump(mode="json"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert {row["uuid"] for row in payload["data"]} == {
+        str(first.uuid),
+        str(second.uuid),
+    }
+    assert all(row["is_valid"] is False for row in payload["data"])
+
+    refreshed_first = await db.get(Record, first.uuid)
+    refreshed_second = await db.get(Record, second.uuid)
+    refreshed_unaffected_stage = await db.get(Record, unaffected_stage.uuid)
+    refreshed_unaffected_player = await db.get(Record, unaffected_player.uuid)
+    assert refreshed_first is not None and refreshed_first.is_valid is False
+    assert refreshed_second is not None and refreshed_second.is_valid is False
+    assert (
+        refreshed_unaffected_stage is not None
+        and refreshed_unaffected_stage.is_valid is True
+    )
+    assert (
+        refreshed_unaffected_player is not None
+        and refreshed_unaffected_player.is_valid is True
+    )
+
+    action = (
+        await db.exec(select(RecordModerationAction))
+    ).one()
+    assert action.action_type == RecordModerationActionType.BULK_SOFT_DELETE_COURSE
+    assert action.target_player_steamid64 == player_id
+    assert action.target_map_id == 980200
+    assert action.target_stage == 0
+
+    action_records = (
+        await db.exec(
+            select(RecordModerationActionRecord).order_by(
+                RecordModerationActionRecord.record_id
+            )
+        )
+    ).all()
+    assert [row.record_uuid for row in action_records] == [first.uuid, second.uuid]
+    assert all(row.before_snapshot is not None for row in action_records)
+    assert all(row.after_snapshot is not None for row in action_records)
+    assert all(row.before_snapshot["is_valid"] is True for row in action_records)
+    assert all(row.after_snapshot["is_valid"] is False for row in action_records)
 
 
 async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_modes(

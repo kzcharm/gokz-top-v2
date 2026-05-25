@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { LocateFixed, Users } from "lucide-react"
+import { Calculator, LocateFixed, Users } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -13,6 +13,7 @@ import {
   RecordsService,
 } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
+import { useAdminMode } from "@/components/admin-mode-provider"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -25,6 +26,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Select,
   SelectContent,
@@ -34,9 +36,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
+import useCustomToast from "@/hooks/useCustomToast"
 import { formatNumber, getLocale } from "@/i18n/locale"
 import { getRegionsQueryOptions } from "@/lib/regions"
+import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
+import {
+  DeleteCourseRecordsButton,
+  useRecordAdminActions,
+} from "../Records/admin-actions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapStatsSection } from "./MapStatsSection"
@@ -321,6 +329,10 @@ export function MapDetailPage({
   const { t } = useTranslation()
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
+  const { enabled: adminModeEnabled } = useAdminMode()
+  const { bulkDeleteMutation } = useRecordAdminActions()
+  const queryClient = useQueryClient()
+  const { showErrorToast, showSuccessToast } = useCustomToast()
   const [isProOnly, setIsProOnly] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
@@ -430,6 +442,49 @@ export function MapDetailPage({
       }),
     enabled: mapQuery.data !== undefined,
     staleTime: 30_000,
+  })
+  const rebuildPbPointsBucketMutation = useMutation({
+    mutationFn: async () => {
+      const [nubResponse, proResponse] = await Promise.all([
+        RecordsService.rebuildPbPointsBucket({
+          mapId: mapQuery.data!.id,
+          stage: 0,
+          scope,
+          type: "NUB",
+        }),
+        RecordsService.rebuildPbPointsBucket({
+          mapId: mapQuery.data!.id,
+          stage: 0,
+          scope,
+          type: "PRO",
+        }),
+      ])
+
+      return {
+        nubUpdatedCount: nubResponse.updated_count,
+        proUpdatedCount: proResponse.updated_count,
+        updatedCount: nubResponse.updated_count + proResponse.updated_count,
+      }
+    },
+    onSuccess: async (response) => {
+      showSuccessToast(
+        response.updatedCount === 1
+          ? "Recomputed PB points for 1 row across NUB and PRO."
+          : `Recomputed PB points for ${response.updatedCount} rows across NUB and PRO.`,
+      )
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["map", "leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["map", "wrs"] }),
+        queryClient.invalidateQueries({ queryKey: ["map", "stats"] }),
+      ])
+    },
+    onError: (error) => {
+      showErrorToast(
+        error instanceof Error
+          ? error.message
+          : "Failed to recompute PB points.",
+      )
+    },
   })
   const statsQuery = useQuery({
     queryKey: ["map", "stats", mapQuery.data?.id ?? null, scope],
@@ -562,6 +617,8 @@ export function MapDetailPage({
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
   const authenticatedUserSteamid64 = currentUser?.steamid64 ?? null
+  const canAdministerRecords =
+    adminModeEnabled && canModerateBansAndRecords(currentUser)
   const currentUserSteamid64 =
     leaderboardQuery.data?.current_user_steamid64 ?? null
   const nubRank =
@@ -598,6 +655,13 @@ export function MapDetailPage({
     setPendingSpotlightSteamid64(viewerSteamid64)
     setTopPageIndex(Math.floor((rank - 1) / topPageSize))
   }
+
+  const renderAdminActions = (record: RecordPublic) => (
+    <DeleteCourseRecordsButton
+      bulkDeleteMutation={bulkDeleteMutation}
+      record={record}
+    />
+  )
 
   return (
     <div className="space-y-6">
@@ -711,6 +775,18 @@ export function MapDetailPage({
                     </Select>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
+                    {canAdministerRecords ? (
+                      <LoadingButton
+                        type="button"
+                        variant="outline"
+                        loading={rebuildPbPointsBucketMutation.isPending}
+                        disabled={mapQuery.data === undefined}
+                        onClick={() => rebuildPbPointsBucketMutation.mutate()}
+                      >
+                        <Calculator />
+                        Recompute PB Points
+                      </LoadingButton>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -821,6 +897,9 @@ export function MapDetailPage({
               onPageChange={setTopPageIndex}
               onPageSizeChange={setTopPageSize}
               currentUserSteamid64={authenticatedUserSteamid64}
+              renderAdminActions={
+                canAdministerRecords ? renderAdminActions : undefined
+              }
             />
           )}
         </TabsContent>
@@ -856,8 +935,12 @@ export function MapDetailPage({
           ) : statsQuery.data ? (
             <MapStatsSection
               stats={statsQuery.data}
-              nubPlayerRecordTime={statsPlayerRecordsQuery.data?.nubTime ?? null}
-              proPlayerRecordTime={statsPlayerRecordsQuery.data?.proTime ?? null}
+              nubPlayerRecordTime={
+                statsPlayerRecordsQuery.data?.nubTime ?? null
+              }
+              proPlayerRecordTime={
+                statsPlayerRecordsQuery.data?.proTime ?? null
+              }
               showPlayerMarker={authenticatedUserSteamid64 !== null}
             />
           ) : null}

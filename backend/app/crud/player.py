@@ -34,6 +34,8 @@ from app.models import (
     PlayerSettingsUpdate,
     PlayerUpdate,
     User,
+    UserRole,
+    normalize_user_roles,
 )
 from app.models.player import validate_player_custom_id
 
@@ -601,8 +603,8 @@ async def search_players(
         select(Ban.uuid).where(
             col(Ban.steamid64) == col(Player.steamid64),
             or_(
-                col(Ban.expires_on).is_(None),
-                col(Ban.expires_on) >= datetime.now(UTC),
+                col(Ban.expires_at).is_(None),
+                col(Ban.expires_at) >= datetime.now(UTC),
             ),
         )
     )
@@ -1058,35 +1060,43 @@ async def update_player_settings(
     )
 
 
-async def load_website_user_steamid64s(
+async def load_player_roles_by_steamid64(
     *, session: AsyncSession, steamid64s: Sequence[int]
-) -> set[int]:
+) -> dict[int, list[UserRole]]:
     unique_steamid64s = tuple(dict.fromkeys(steamid64s))
     if not unique_steamid64s:
-        return set()
+        return {}
 
-    statement = select(User.steamid64).where(col(User.steamid64).in_(unique_steamid64s))
-    return set((await session.exec(statement)).all())
+    statement = select(User.steamid64, User.roles).where(
+        col(User.steamid64).in_(unique_steamid64s)
+    )
+    return {
+        steamid64: normalize_user_roles(roles)
+        for steamid64, roles in (await session.exec(statement)).all()
+    }
 
 
 async def to_player_publics(
     *, session: AsyncSession, players: Sequence[Player]
 ) -> list[PlayerPublic]:
-    website_user_steamid64s = await load_website_user_steamid64s(
+    roles_by_steamid64 = await load_player_roles_by_steamid64(
         session=session,
         steamid64s=[player.steamid64 for player in players],
     )
     return [
         to_player_public(
             player=player,
-            is_website_user=player.steamid64 in website_user_steamid64s,
+            roles=roles_by_steamid64.get(player.steamid64),
         )
         for player in players
     ]
 
 
 def to_player_public(
-    *, player: Player, profile_views: int = 0, is_website_user: bool = False
+    *,
+    player: Player,
+    profile_views: int = 0,
+    roles: list[UserRole] | None = None,
 ) -> PlayerPublic:
     return PlayerPublic(
         steamid64=str(player.steamid64),
@@ -1099,13 +1109,13 @@ def to_player_public(
         created_at=player.created_at,
         last_played_at=player.last_played_at,
         updated_at=player.updated_at,
-        is_website_user=is_website_user,
+        roles=roles,
         profile_views=profile_views,
     )
 
 
 def to_player_detail_public(
-    *, player: Player, is_website_user: bool = False
+    *, player: Player, roles: list[UserRole] | None = None
 ) -> PlayerDetailPublic:
     return PlayerDetailPublic(
         steamid64=str(player.steamid64),
@@ -1118,7 +1128,7 @@ def to_player_detail_public(
         created_at=player.created_at,
         last_played_at=player.last_played_at,
         updated_at=player.updated_at,
-        is_website_user=is_website_user,
+        roles=roles,
     )
 
 
@@ -1142,11 +1152,11 @@ async def to_player_public_with_profile_views(
         session=session,
         target_steamid64=player.steamid64,
     )
-    website_user_steamid64s = await load_website_user_steamid64s(
+    roles_by_steamid64 = await load_player_roles_by_steamid64(
         session=session, steamid64s=[player.steamid64]
     )
     return to_player_public(
         player=player,
         profile_views=profile_views,
-        is_website_user=player.steamid64 in website_user_steamid64s,
+        roles=roles_by_steamid64.get(player.steamid64),
     )

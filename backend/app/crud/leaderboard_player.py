@@ -117,8 +117,8 @@ async def _player_has_active_ban(
                 .where(
                     col(Ban.steamid64) == steamid64,
                     or_(
-                        col(Ban.expires_on).is_(None),
-                        col(Ban.expires_on) >= get_datetime_utc(),
+                        col(Ban.expires_at).is_(None),
+                        col(Ban.expires_at) >= get_datetime_utc(),
                     ),
                 )
             )
@@ -207,8 +207,8 @@ async def _count_active_banned_scope_players(
         select(col(Ban.steamid64).label("steamid64"))
         .where(
             or_(
-                col(Ban.expires_on).is_(None),
-                col(Ban.expires_on) >= get_datetime_utc(),
+                col(Ban.expires_at).is_(None),
+                col(Ban.expires_at) >= get_datetime_utc(),
             )
         )
         .distinct()

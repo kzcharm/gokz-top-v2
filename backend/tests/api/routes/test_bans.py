@@ -19,13 +19,14 @@ async def _create_ban(
     id: int | None,
     ban_type: BanType,
     steamid64: int,
-    expires_on: datetime | None,
+    expires_at: datetime | None,
     player_name: str,
     notes: str | None = None,
     stats: str | None = None,
     server_id: int | None = None,
-    created_on: datetime | None = None,
-    updated_on: datetime | None = None,
+    created_at: datetime | None = None,
+    updated_at: datetime | None = None,
+    updated_by_steamid64: int | None = None,
 ) -> Ban:
     if id is not None:
         await db.exec(delete(Ban).where(Ban.id == id))
@@ -36,14 +37,14 @@ async def _create_ban(
     ban = Ban(
         id=id,
         ban_type=ban_type,
-        expires_on=expires_on,
+        expires_at=expires_at,
         steamid64=steamid64,
         notes=notes,
         stats=stats,
         server_id=server_id,
-        updated_by_id=str(server_id or 0),
-        created_on=created_on or datetime(2026, 4, 1, tzinfo=UTC),
-        updated_on=updated_on or datetime(2026, 4, 1, tzinfo=UTC),
+        updated_by_steamid64=updated_by_steamid64,
+        created_at=created_at or datetime(2026, 4, 1, tzinfo=UTC),
+        updated_at=updated_at or datetime(2026, 4, 1, tzinfo=UTC),
     )
     db.add(ban)
     await db.commit()
@@ -98,26 +99,26 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
         id=1001,
         ban_type=BanType.BHOP_HACK,
         steamid64=76561198000000001,
-        expires_on=None,
+        expires_at=None,
         player_name="Permanent",
         notes="macro evidence",
         stats="pattern A",
         server_id=1,
-        created_on=datetime(2026, 4, 2, tzinfo=UTC),
-        updated_on=datetime(2026, 4, 2, tzinfo=UTC),
+        created_at=datetime(2026, 4, 2, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 2, tzinfo=UTC),
     )
     await _create_ban(
         db,
         id=1002,
         ban_type=BanType.BHOP_MACRO,
         steamid64=76561198000000002,
-        expires_on=active,
+        expires_at=active,
         player_name="Temporary",
         notes="scroll pattern",
         stats="pattern B",
         server_id=2,
-        created_on=datetime(2026, 4, 3, tzinfo=UTC),
-        updated_on=datetime(2026, 4, 3, tzinfo=UTC),
+        created_at=datetime(2026, 4, 3, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 3, tzinfo=UTC),
     )
     await _create_player(
         db,
@@ -132,13 +133,13 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
         id=1003,
         ban_type=BanType.OTHER,
         steamid64=76561198000000003,
-        expires_on=expired,
+        expires_at=expired,
         player_name="Expired",
         notes="old note",
         stats="pattern C",
         server_id=3,
-        created_on=datetime(2026, 4, 4, tzinfo=UTC),
-        updated_on=datetime(2026, 4, 4, tzinfo=UTC),
+        created_at=datetime(2026, 4, 4, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 4, tzinfo=UTC),
     )
 
     v0_response = await client.get(
@@ -165,6 +166,8 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert payload["data"][0]["ban_type"] == "other"
     assert payload["data"][0]["uuid"]
     assert "id" not in payload["data"][0]
+    assert "updated_by_steamid64" not in payload["data"][0]
+    assert "updated_by_player" not in payload["data"][0]
     assert payload["data"][1]["player"] == {
         "steamid64": "76561198000000002",
         "display_name": "TempAlias",
@@ -183,7 +186,7 @@ async def test_read_ban_v1_detail_and_missing(
         id=1101,
         ban_type=BanType.STRAFE_MACRO,
         steamid64=76561198000000101,
-        expires_on=None,
+        expires_at=None,
         player_name="Detail",
         notes="detail note",
         stats="detail stats",
@@ -206,6 +209,8 @@ async def test_read_ban_v1_detail_and_missing(
         "steamid64": "76561198000000101",
         "display_name": "DetailAlias",
     }
+    assert "updated_by_steamid64" not in response.json()
+    assert "updated_by_player" not in response.json()
     assert "steamid64" not in response.json()
     assert "player_name" not in response.json()
 
@@ -241,6 +246,44 @@ async def test_create_manual_ban_requires_superuser(
     assert response.json()["detail"] == "The user doesn't have enough privileges"
 
 
+async def test_create_manual_ban_allows_admin_role(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    steamid64 = random_steamid64()
+    await _create_player(
+        db,
+        steamid64=steamid64,
+        name="Admin Ban Target",
+    )
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Admin Ban Moderator",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/bans",
+        headers=admin_headers,
+        json={
+            "steamid64": str(steamid64),
+            "ban_type": "bhop_macro",
+            "notes": "manual admin ban",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] is None
+
+
 async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     client: AsyncClient,
     db: AsyncSession,
@@ -270,7 +313,9 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     created_payload = create_response.json()
     assert created_payload["uuid"]
     assert created_payload["id"] is None
-    assert created_payload["updated_by_id"] == str(settings.SUPER_USER_STEAMID64)
+    assert created_payload["updated_by_steamid64"] == str(
+        settings.SUPER_USER_STEAMID64
+    )
     assert created_payload["player"] == {
         "steamid64": str(player.steamid64),
         "display_name": "Admin Alias",
@@ -279,7 +324,7 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     created_ban = await db.get(Ban, uuid.UUID(created_payload["uuid"]))
     assert created_ban is not None
     assert created_ban.id is None
-    assert created_ban.updated_by_id == str(settings.SUPER_USER_STEAMID64)
+    assert created_ban.updated_by_steamid64 == settings.SUPER_USER_STEAMID64
 
     detail_response = await client.get(
         f"{settings.API_V1_STR}/bans/{created_payload['uuid']}"
@@ -287,6 +332,7 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     assert detail_response.status_code == 200
     assert detail_response.json()["uuid"] == created_payload["uuid"]
     assert detail_response.json()["id"] is None
+    assert "updated_by_steamid64" not in detail_response.json()
 
     v1_list = await client.get(
         f"{settings.API_V1_STR}/bans",
@@ -300,3 +346,146 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     v0_list = await client.get("/v0/bans", params={"steamid64": str(steamid64)})
     assert v0_list.status_code == 200
     assert v0_list.json() == []
+
+
+async def test_read_bans_v1_admin_includes_updater_player(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    updater_steamid64 = random_steamid64()
+    await _create_player(
+        db,
+        steamid64=updater_steamid64,
+        name="Updater",
+        alias="Updater Alias",
+    )
+    target_steamid64 = random_steamid64()
+    await _create_player(db, steamid64=target_steamid64, name="Target")
+    ban = await _create_ban(
+        db,
+        id=None,
+        ban_type=BanType.BHOP_MACRO,
+        steamid64=target_steamid64,
+        expires_at=None,
+        player_name="Target",
+        updated_by_steamid64=updater_steamid64,
+    )
+
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": updater_steamid64,
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Updater",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+
+    list_response = await client.get(
+        f"{settings.API_V1_STR}/bans",
+        headers=admin_headers,
+        params={"steamid64": str(target_steamid64)},
+    )
+    assert list_response.status_code == 200
+    assert list_response.json()["data"][0]["updated_by_steamid64"] == str(
+        updater_steamid64
+    )
+    assert list_response.json()["data"][0]["updated_by_player"] == {
+        "steamid64": str(updater_steamid64),
+        "display_name": "Updater Alias",
+    }
+
+    detail_response = await client.get(
+        f"{settings.API_V1_STR}/bans/{ban.uuid}",
+        headers=admin_headers,
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["updated_by_steamid64"] == str(updater_steamid64)
+    assert detail_response.json()["updated_by_player"] == {
+        "steamid64": str(updater_steamid64),
+        "display_name": "Updater Alias",
+    }
+
+
+async def test_patch_ban_updates_fields_and_supports_unban(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    target_steamid64 = random_steamid64()
+    await _create_player(db, steamid64=target_steamid64, name="Patch Target")
+    moderator_steamid64 = random_steamid64()
+    await _create_player(
+        db,
+        steamid64=moderator_steamid64,
+        name="Patch Admin",
+        alias="Patch Alias",
+    )
+    ban = await _create_ban(
+        db,
+        id=1201,
+        ban_type=BanType.BHOP_HACK,
+        steamid64=target_steamid64,
+        expires_at=datetime(2026, 5, 10, tzinfo=UTC),
+        player_name="Patch Target",
+        notes="before",
+        created_at=datetime(2026, 5, 1, tzinfo=UTC),
+        updated_at=datetime(2026, 5, 1, tzinfo=UTC),
+    )
+
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": moderator_steamid64,
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Patch Admin",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+
+    updated_response = await client.patch(
+        f"{settings.API_V1_STR}/bans/{ban.uuid}",
+        headers=admin_headers,
+        json={
+            "ban_type": "other",
+            "expires_at": "2026-05-20T00:00:00+00:00",
+            "notes": "after",
+        },
+    )
+    assert updated_response.status_code == 200
+    assert updated_response.json()["ban_type"] == "other"
+    assert updated_response.json()["expires_at"] == "2026-05-20T00:00:00Z"
+    assert updated_response.json()["notes"] == "after"
+    assert updated_response.json()["updated_by_steamid64"] == str(
+        moderator_steamid64
+    )
+    assert updated_response.json()["updated_by_player"] == {
+        "steamid64": str(moderator_steamid64),
+        "display_name": "Patch Alias",
+    }
+
+    unban_response = await client.patch(
+        f"{settings.API_V1_STR}/bans/{ban.uuid}",
+        headers=admin_headers,
+        json={
+            "ban_type": "other",
+            "expires_at": "2026-04-30T00:00:00+00:00",
+            "notes": "manually unbanned",
+        },
+    )
+    assert unban_response.status_code == 200
+    assert unban_response.json()["expires_at"] == "2026-04-30T00:00:00Z"
+
+    refreshed_ban = await db.get(Ban, ban.uuid)
+    assert refreshed_ban is not None
+    assert refreshed_ban.ban_type == BanType.OTHER
+    assert refreshed_ban.notes == "manually unbanned"
+    assert refreshed_ban.expires_at == datetime(2026, 4, 30, tzinfo=UTC)
+    assert refreshed_ban.updated_by_steamid64 == moderator_steamid64

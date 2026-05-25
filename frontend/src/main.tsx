@@ -8,6 +8,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { ApiError, OpenAPI } from "./client"
+import { AdminModeProvider } from "./components/admin-mode-provider"
 import { WASDNavigationProvider } from "./components/Common/WASDNavigation"
 import { DateTimeFormatProvider } from "./components/date-time-format-provider"
 import { ScopeProvider } from "./components/scope-provider"
@@ -72,9 +73,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <ScopeProvider defaultScope="OVR" storageKey="gokz-app-scope">
         <DateTimeFormatProvider>
           <QueryClientProvider client={queryClient}>
-            <WASDNavigationProvider>
-              <RouterProvider router={router} />
-            </WASDNavigationProvider>
+            <AdminModeProvider>
+              <WASDNavigationProvider>
+                <RouterProvider router={router} />
+              </WASDNavigationProvider>
+            </AdminModeProvider>
             <Toaster richColors closeButton />
           </QueryClientProvider>
         </DateTimeFormatProvider>

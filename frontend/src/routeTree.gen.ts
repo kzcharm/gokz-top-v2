@@ -50,6 +50,7 @@ import { Route as LayoutProfileIdentifierStatsRouteImport } from './routes/_layo
 import { Route as LayoutProfileIdentifierRecordsRouteImport } from './routes/_layout/profile.$identifier.records'
 import { Route as LayoutProfileIdentifierJumpstatsRouteImport } from './routes/_layout/profile.$identifier.jumpstats'
 import { Route as LayoutProfileIdentifierFriendsRouteImport } from './routes/_layout/profile.$identifier.friends'
+import { Route as LayoutProfileIdentifierCommentsRouteImport } from './routes/_layout/profile.$identifier.comments'
 
 const ServersRoute = ServersRouteImport.update({
   id: '/servers',
@@ -268,6 +269,12 @@ const LayoutProfileIdentifierFriendsRoute =
     path: '/friends',
     getParentRoute: () => LayoutProfileIdentifierRoute,
   } as any)
+const LayoutProfileIdentifierCommentsRoute =
+  LayoutProfileIdentifierCommentsRouteImport.update({
+    id: '/comments',
+    path: '/comments',
+    getParentRoute: () => LayoutProfileIdentifierRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -304,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
@@ -345,6 +353,7 @@ export interface FileRoutesByTo {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
@@ -389,6 +398,7 @@ export interface FileRoutesById {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/_layout/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/_layout/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/_layout/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
@@ -433,6 +443,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/profile/$identifier/comments'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
     | '/profile/$identifier/records'
@@ -474,6 +485,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/profile/$identifier/comments'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
     | '/profile/$identifier/records'
@@ -517,6 +529,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/_layout/profile/$identifier/comments'
     | '/_layout/profile/$identifier/friends'
     | '/_layout/profile/$identifier/jumpstats'
     | '/_layout/profile/$identifier/records'
@@ -822,6 +835,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierFriendsRouteImport
       parentRoute: typeof LayoutProfileIdentifierRoute
     }
+    '/_layout/profile/$identifier/comments': {
+      id: '/_layout/profile/$identifier/comments'
+      path: '/comments'
+      fullPath: '/profile/$identifier/comments'
+      preLoaderRoute: typeof LayoutProfileIdentifierCommentsRouteImport
+      parentRoute: typeof LayoutProfileIdentifierRoute
+    }
   }
 }
 
@@ -899,6 +919,7 @@ const LayoutSettingsRouteWithChildren = LayoutSettingsRoute._addFileChildren(
 )
 
 interface LayoutProfileIdentifierRouteChildren {
+  LayoutProfileIdentifierCommentsRoute: typeof LayoutProfileIdentifierCommentsRoute
   LayoutProfileIdentifierFriendsRoute: typeof LayoutProfileIdentifierFriendsRoute
   LayoutProfileIdentifierJumpstatsRoute: typeof LayoutProfileIdentifierJumpstatsRoute
   LayoutProfileIdentifierRecordsRoute: typeof LayoutProfileIdentifierRecordsRoute
@@ -909,6 +930,7 @@ interface LayoutProfileIdentifierRouteChildren {
 
 const LayoutProfileIdentifierRouteChildren: LayoutProfileIdentifierRouteChildren =
   {
+    LayoutProfileIdentifierCommentsRoute: LayoutProfileIdentifierCommentsRoute,
     LayoutProfileIdentifierFriendsRoute: LayoutProfileIdentifierFriendsRoute,
     LayoutProfileIdentifierJumpstatsRoute:
       LayoutProfileIdentifierJumpstatsRoute,

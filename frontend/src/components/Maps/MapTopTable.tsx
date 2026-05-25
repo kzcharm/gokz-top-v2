@@ -1,5 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { InfoIcon } from "lucide-react"
+import type { ReactNode } from "react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -13,7 +14,6 @@ import { PointsBadge } from "@/components/Records/PointsBadge"
 import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilityButton"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
-import { getLocale } from "@/i18n/locale"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { getLocale } from "@/i18n/locale"
 import { cn, truncateText } from "@/lib/utils"
 
 type MapTopTableRow = {
@@ -72,7 +73,9 @@ function WrGapHeader() {
           <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
             <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
               <p className="font-medium">{t("maps.wrGapInfoFormulaLabel")}</p>
-              <p className="font-mono text-sm">log2(record.time / wr.time - 1)</p>
+              <p className="font-mono text-sm">
+                log2(record.time / wr.time - 1)
+              </p>
             </div>
             <p>{t("maps.wrGapInfoCloser")}</p>
             <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
@@ -98,6 +101,8 @@ export function MapTopTable({
   onPageChange,
   onPageSizeChange,
   currentUserSteamid64,
+  renderAdminActions,
+  getRowContextMenu,
 }: {
   records: RecordPublic[]
   wrTime: number | null
@@ -109,6 +114,8 @@ export function MapTopTable({
   onPageChange: (pageIndex: number) => void
   onPageSizeChange: (pageSize: number) => void
   currentUserSteamid64: string | null
+  renderAdminActions?: (record: RecordPublic) => ReactNode
+  getRowContextMenu?: (record: RecordPublic) => ReactNode
 }) {
   const { t } = useTranslation()
   const wrGapFormatter = useMemo(
@@ -248,8 +255,26 @@ export function MapTopTable({
           </div>
         ),
       },
+      ...(renderAdminActions
+        ? [
+            {
+              id: "actions",
+              size: 56,
+              meta: {
+                headerClassName: "!px-2",
+                cellClassName: "!px-2",
+              },
+              header: () => <span className="sr-only">Actions</span>,
+              cell: ({ row }: { row: { original: MapTopTableRow } }) => (
+                <div className="flex justify-center">
+                  {renderAdminActions(row.original.record)}
+                </div>
+              ),
+            } satisfies ColumnDef<MapTopTableRow>,
+          ]
+        : []),
     ],
-    [t, wrGapFormatter, wrTime],
+    [renderAdminActions, t, wrGapFormatter, wrTime],
   )
 
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
@@ -267,6 +292,11 @@ export function MapTopTable({
           tableContainerClassName="md:overflow-visible"
           tableClassName="table-fixed border-separate border-spacing-0"
           showFooter={false}
+          getRowContextMenu={
+            getRowContextMenu
+              ? (row) => getRowContextMenu(row.record)
+              : undefined
+          }
           getRowProps={(row) => ({
             "data-player-steamid64": row.record.player.steamid64,
             className:

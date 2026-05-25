@@ -555,12 +555,14 @@ test("Superuser can edit a user and assign multiple roles", async ({
   await page.getByRole("menuitem", { name: "Edit User" }).click()
 
   await page.getByRole("checkbox", { name: "Superuser role" }).click()
+  await page.getByRole("checkbox", { name: "Admin role" }).click()
   await page.getByRole("checkbox", { name: "Map Admin role" }).click()
   await page.getByRole("checkbox", { name: "Server Owner role" }).click()
   await page.getByRole("button", { name: "Save" }).click()
 
   const roleTargetRow = page.getByRole("row", { name: /Role Target/ })
   await expect(roleTargetRow.getByText("Superuser")).toBeVisible()
+  await expect(roleTargetRow.getByText("Admin")).toBeVisible()
   await expect(roleTargetRow.getByText("Map Admin")).toBeVisible()
   await expect(roleTargetRow.getByText("Server Owner")).toBeVisible()
 })
@@ -628,7 +630,7 @@ function adminPlayerSessionPayload({
       created_at: "2026-04-01T00:00:00Z",
       last_played_at: "2026-04-28T12:00:00Z",
       updated_at: "2026-04-28T12:00:00Z",
-      is_website_user: false,
+      roles: null,
       profile_views: 0,
     },
     server_group_id: "01966858-7280-7000-8000-000000000010",

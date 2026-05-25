@@ -870,7 +870,7 @@ export const BanCreateSchema = {
         ban_type: {
             '$ref': '#/components/schemas/BanType'
         },
-        expires_on: {
+        expires_at: {
             anyOf: [
                 {
                     type: 'string',
@@ -880,7 +880,7 @@ export const BanCreateSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Expires On'
+            title: 'Expires At'
         },
         notes: {
             anyOf: [
@@ -920,7 +920,7 @@ export const BanListItemPublicSchema = {
         ban_type: {
             '$ref': '#/components/schemas/BanType'
         },
-        expires_on: {
+        expires_at: {
             anyOf: [
                 {
                     type: 'string',
@@ -930,7 +930,7 @@ export const BanListItemPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Expires On'
+            title: 'Expires At'
         },
         ip: {
             anyOf: [
@@ -976,7 +976,7 @@ export const BanListItemPublicSchema = {
             ],
             title: 'Server Id'
         },
-        updated_by_id: {
+        updated_by_steamid64: {
             anyOf: [
                 {
                     type: 'string'
@@ -985,19 +985,29 @@ export const BanListItemPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Updated By Id'
+            title: 'Updated By Steamid64'
         },
-        created_on: {
+        created_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Created On'
+            title: 'Created At'
         },
-        updated_on: {
+        updated_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Updated On'
+            title: 'Updated At'
         },
         player: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        updated_by_player: {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/PlayerRefPublic'
@@ -1009,7 +1019,7 @@ export const BanListItemPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'ban_type', 'created_on', 'updated_on'],
+    required: ['uuid', 'ban_type', 'created_at', 'updated_at'],
     title: 'BanListItemPublic'
 } as const;
 
@@ -1034,7 +1044,7 @@ export const BanPublicSchema = {
         ban_type: {
             '$ref': '#/components/schemas/BanType'
         },
-        expires_on: {
+        expires_at: {
             anyOf: [
                 {
                     type: 'string',
@@ -1044,7 +1054,7 @@ export const BanPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Expires On'
+            title: 'Expires At'
         },
         ip: {
             anyOf: [
@@ -1090,7 +1100,7 @@ export const BanPublicSchema = {
             ],
             title: 'Server Id'
         },
-        updated_by_id: {
+        updated_by_steamid64: {
             anyOf: [
                 {
                     type: 'string'
@@ -1099,19 +1109,29 @@ export const BanPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Updated By Id'
+            title: 'Updated By Steamid64'
         },
-        created_on: {
+        created_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Created On'
+            title: 'Created At'
         },
-        updated_on: {
+        updated_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Updated On'
+            title: 'Updated At'
         },
         player: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        updated_by_player: {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/PlayerRefPublic'
@@ -1123,7 +1143,7 @@ export const BanPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'ban_type', 'created_on', 'updated_on'],
+    required: ['uuid', 'ban_type', 'created_at', 'updated_at'],
     title: 'BanPublic'
 } as const;
 
@@ -1131,6 +1151,40 @@ export const BanTypeSchema = {
     type: 'string',
     enum: ['ban_evasion', 'bhop_hack', 'bhop_macro', 'exploiting', 'strafe_hack', 'strafe_macro', 'other'],
     title: 'BanType'
+} as const;
+
+export const BanUpdateSchema = {
+    properties: {
+        ban_type: {
+            '$ref': '#/components/schemas/BanType'
+        },
+        expires_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expires At'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        }
+    },
+    type: 'object',
+    required: ['ban_type'],
+    title: 'BanUpdate'
 } as const;
 
 export const BansPublicSchema = {
@@ -1970,10 +2024,19 @@ export const LiveStreamPlayerPublicSchema = {
             ],
             title: 'Custom Id'
         },
-        is_website_user: {
-            type: 'boolean',
-            title: 'Is Website User',
-            default: false
+        roles: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Roles'
         }
     },
     type: 'object',
@@ -2967,6 +3030,69 @@ export const PlayerBanStatusCheckPublicSchema = {
     title: 'PlayerBanStatusCheckPublic'
 } as const;
 
+export const PlayerCommentCreateSchema = {
+    properties: {
+        text: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Text'
+        }
+    },
+    type: 'object',
+    required: ['text'],
+    title: 'PlayerCommentCreate'
+} as const;
+
+export const PlayerCommentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        text: {
+            type: 'string',
+            title: 'Text'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        author: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        }
+    },
+    type: 'object',
+    required: ['id', 'text', 'created_at', 'updated_at', 'author'],
+    title: 'PlayerCommentPublic'
+} as const;
+
+export const PlayerCommentsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerCommentPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerCommentsPublic'
+} as const;
+
 export const PlayerDailyActivityDayPublicSchema = {
     properties: {
         date: {
@@ -3104,10 +3230,19 @@ export const PlayerDetailPublicSchema = {
             type: 'string',
             title: 'Steamid64'
         },
-        is_website_user: {
-            type: 'boolean',
-            title: 'Is Website User',
-            default: false
+        roles: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Roles'
         }
     },
     type: 'object',
@@ -3455,6 +3590,23 @@ export const PlayerLeaderboardsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'PlayerLeaderboardsPublic'
+} as const;
+
+export const PlayerLikesPublicSchema = {
+    properties: {
+        player_likes: {
+            type: 'integer',
+            title: 'Player Likes',
+            default: 0
+        },
+        created: {
+            type: 'boolean',
+            title: 'Created',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'PlayerLikesPublic'
 } as const;
 
 export const PlayerMostPlayedServerEntryPublicSchema = {
@@ -3880,10 +4032,19 @@ export const PlayerPublicSchema = {
             type: 'string',
             title: 'Steamid64'
         },
-        is_website_user: {
-            type: 'boolean',
-            title: 'Is Website User',
-            default: false
+        roles: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Roles'
         },
         profile_views: {
             type: 'integer',
@@ -4672,6 +4833,47 @@ export const RecentRecordsPublicSchema = {
     title: 'RecentRecordsPublic'
 } as const;
 
+export const RecordBulkDeleteCourseSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        stage: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Stage'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['steamid64', 'map_id', 'stage'],
+    title: 'RecordBulkDeleteCourse'
+} as const;
+
+export const RecordBulkDeleteResultSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecordPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RecordBulkDeleteResult'
+} as const;
+
 export const RecordPatchSchema = {
     properties: {
         is_valid: {
@@ -4683,6 +4885,28 @@ export const RecordPatchSchema = {
     type: 'object',
     required: ['is_valid'],
     title: 'RecordPatch'
+} as const;
+
+export const RecordPbBucketRebuildResultSchema = {
+    properties: {
+        course_id: {
+            type: 'integer',
+            title: 'Course Id'
+        },
+        scope: {
+            '$ref': '#/components/schemas/ModeScope'
+        },
+        type: {
+            '$ref': '#/components/schemas/RecordType'
+        },
+        updated_count: {
+            type: 'integer',
+            title: 'Updated Count'
+        }
+    },
+    type: 'object',
+    required: ['course_id', 'scope', 'type', 'updated_count'],
+    title: 'RecordPbBucketRebuildResult'
 } as const;
 
 export const RecordPublicSchema = {
@@ -6243,7 +6467,7 @@ export const UserPublicSchema = {
 
 export const UserRoleSchema = {
     type: 'string',
-    enum: ['superuser', 'map_admin', 'server_owner'],
+    enum: ['superuser', 'admin', 'map_admin', 'server_owner'],
     title: 'UserRole'
 } as const;
 

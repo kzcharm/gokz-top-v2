@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
-import type { ModeScope } from "@/client"
+import type { ModeScope, UserRole } from "@/client"
 import { issueSessionToken } from "./utils/privateApi"
 
 type GraphqlPlayer = {
@@ -12,7 +12,7 @@ type GraphqlPlayer = {
   country: string | null
   primaryScope: ModeScope
   rating: number
-  isWebsiteUser: boolean
+  roles: UserRole[] | null
   lastPlayedAt: string | null
 }
 
@@ -48,7 +48,7 @@ function buildGraphqlPlayer({
     country,
     primaryScope,
     rating,
-    isWebsiteUser: false,
+    roles: null,
     lastPlayedAt: null,
   }
 }

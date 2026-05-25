@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.crud.player import load_player_roles_by_steamid64
 from app.models import (
     LiveStreamCardPublic,
     LiveStreamPlayerPublic,
@@ -16,6 +17,7 @@ from app.models import (
     Player,
     PlayerSocialLink,
     PlayerSocialPlatform,
+    UserRole,
     get_datetime_utc,
 )
 from app.services.player_social_links import (
@@ -157,6 +159,10 @@ async def read_live_stream_cards(
         )
     )
     rows = list((await session.exec(statement)).all())
+    roles_by_steamid64 = await load_player_roles_by_steamid64(
+        session=session,
+        steamid64s=[player.steamid64 for _link, player, _state in rows],
+    )
 
     candidates_by_player: dict[int, list[LiveStreamCandidate]] = defaultdict(list)
     for link, player, state in rows:
@@ -189,6 +195,7 @@ async def read_live_stream_cards(
         _to_live_stream_card_public(
             candidate=_pick_best_candidate(candidates),
             preview_url_resolver=preview_url_resolver,
+            roles_by_steamid64=roles_by_steamid64,
         )
         for candidates in candidates_by_player.values()
         if candidates
@@ -237,6 +244,7 @@ def _to_live_stream_card_public(
     *,
     candidate: LiveStreamCandidate,
     preview_url_resolver: Callable[[str], str],
+    roles_by_steamid64: dict[int, list[UserRole]],
 ) -> LiveStreamCardPublic:
     raw_preview_image_url = candidate.state.last_preview_image_url
     return LiveStreamCardPublic(
@@ -247,7 +255,7 @@ def _to_live_stream_card_public(
             avatar_hash=candidate.player.avatar_hash,
             country=candidate.player.country,
             custom_id=candidate.player.custom_id,
-            is_website_user=False,
+            roles=roles_by_steamid64.get(candidate.player.steamid64),
         ),
         selected_platform=candidate.link.platform,
         selected_platform_account_identifier=candidate.link.account_identifier,
