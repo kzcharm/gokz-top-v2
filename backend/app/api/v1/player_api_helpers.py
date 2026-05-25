@@ -3,7 +3,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
 from fastapi import HTTPException, Request
 
 from app import crud
@@ -136,6 +135,20 @@ def ensure_current_user_can_sync_own_friends(
     raise HTTPException(
         status_code=403,
         detail="You cannot sync another player's friends list",
+    )
+
+
+def ensure_current_user_can_manage_player_comment(
+    *,
+    current_user: CurrentUser,
+    author_steamid64: int,
+    target_steamid64: int,
+) -> None:
+    if current_user.steamid64 in {author_steamid64, target_steamid64}:
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="You cannot delete this player comment",
     )
 
 

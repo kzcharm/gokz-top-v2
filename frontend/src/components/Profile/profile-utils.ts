@@ -28,6 +28,7 @@ export type ProfileTab =
   | "unfinished"
   | "stats"
   | "jumpstats"
+  | "comments"
   | "friends"
 
 export const PROFILE_QUERY_LIMIT = 10_000
@@ -122,6 +123,24 @@ export type ProfileFriendsResult = {
   data: ProfilePlayer[]
   count: number
   sync: ProfileFriendSync
+}
+
+export type ProfileCommentAuthor = {
+  steamid64: string
+  display_name: string
+}
+
+export type ProfileComment = {
+  id: string
+  text: string
+  created_at: string
+  updated_at: string
+  author: ProfileCommentAuthor
+}
+
+export type ProfileCommentsResult = {
+  data: ProfileComment[]
+  count: number
 }
 
 export type ProfileHistoryEntry = PlayerProfileHistoryEntryPublic
@@ -236,6 +255,102 @@ export function getProfileFriendsQueryOptions(identifier: string | null) {
     retry: false,
     staleTime: 30_000,
   })
+}
+
+export function getProfileCommentsQueryOptions({
+  identifier,
+  offset = 0,
+  limit = PROFILE_SOCIAL_PAGE_LIMIT,
+}: {
+  identifier: string | null
+  offset?: number
+  limit?: number
+}) {
+  return queryOptions({
+    queryKey: ["profile-comments", identifier, offset, limit],
+    queryFn: async (): Promise<ProfileCommentsResult | null> => {
+      if (!identifier) {
+        return null
+      }
+
+      const params = new URLSearchParams({
+        offset: `${offset}`,
+        limit: `${limit}`,
+      })
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/comments?${params.toString()}`,
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load comments")
+      }
+      return (await response.json()) as ProfileCommentsResult
+    },
+    enabled: identifier !== null,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+export async function createProfileComment({
+  identifier,
+  text,
+}: {
+  identifier: string
+  text: string
+}): Promise<ProfileComment> {
+  const accessToken = localStorage.getItem("access_token")
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/comments`,
+    {
+      method: "POST",
+      credentials: OpenAPI.CREDENTIALS,
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({ text }),
+    },
+  )
+  const payload = (await response.json().catch(() => null)) as
+    | ProfileComment
+    | { detail?: string }
+    | null
+  if (!response.ok) {
+    throw new Error(
+      payload && typeof payload === "object" && "detail" in payload
+        ? (payload.detail ?? "Failed to submit comment")
+        : "Failed to submit comment",
+    )
+  }
+  if (!payload || typeof payload !== "object" || !("id" in payload)) {
+    throw new Error("Failed to submit comment")
+  }
+  return payload as ProfileComment
+}
+
+export async function deleteProfileComment({
+  identifier,
+  commentId,
+}: {
+  identifier: string
+  commentId: string
+}): Promise<void> {
+  const accessToken = localStorage.getItem("access_token")
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/comments/${commentId}`,
+    {
+      method: "DELETE",
+      credentials: OpenAPI.CREDENTIALS,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
+  )
+  const payload = (await response.json().catch(() => null)) as {
+    message?: string
+    detail?: string
+  } | null
+  if (!response.ok) {
+    throw new Error(payload?.detail ?? "Failed to delete comment")
+  }
 }
 
 export async function syncProfileFriends({

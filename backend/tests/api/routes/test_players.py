@@ -17,6 +17,7 @@ from app.models import (
     LeaderboardPlayer,
     ModeScope,
     Player,
+    PlayerComment,
     PlayerFollow,
     PlayerProfileField,
     PlayerProfileHistory,
@@ -71,6 +72,28 @@ async def _create_profile_field_change(
         changed_at=changed_at,
     )
     await db.commit()
+
+
+async def _create_player_comment(
+    *,
+    db: AsyncSession,
+    author_steamid64: int,
+    target_steamid64: int,
+    text: str,
+    created_at: datetime | None = None,
+) -> PlayerComment:
+    timestamp = created_at or datetime.now(UTC)
+    comment = PlayerComment(
+        author_steamid64=author_steamid64,
+        target_steamid64=target_steamid64,
+        text=text,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return comment
 
 
 async def _get_profile_history_rows(
@@ -2367,6 +2390,216 @@ async def test_follow_routes_return_not_found_for_missing_player(
     assert summary_response.status_code == 404
     assert follow_response.status_code == 404
     assert followers_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_read_player_comments_orders_newest_first_and_counts_total(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Comment Target",
+    )
+    older_author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Older Author",
+    )
+    newer_author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Newer Author",
+    )
+    await _create_player_comment(
+        db=db,
+        author_steamid64=older_author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Older comment",
+        created_at=datetime(2026, 4, 1, 12, 0, tzinfo=UTC),
+    )
+    newer_comment = await _create_player_comment(
+        db=db,
+        author_steamid64=newer_author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Newer comment",
+        created_at=datetime(2026, 4, 2, 12, 0, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments",
+        params={"offset": 0, "limit": 1},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert len(payload["data"]) == 1
+    assert payload["data"][0]["id"] == str(newer_comment.id)
+    assert payload["data"][0]["text"] == "Newer comment"
+    assert payload["data"][0]["author"]["steamid64"] == str(newer_author.steamid64)
+
+
+@pytest.mark.asyncio
+async def test_create_player_comment_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Unauthed Target",
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments",
+        json={"text": "Hello"},
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_create_player_comment_trims_text_and_returns_author(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Commented Player",
+    )
+    author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Comment Author",
+    )
+    headers = await get_user_token_headers(client, author.steamid64)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments",
+        json={"text": "  Nice profile.  "},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["text"] == "Nice profile."
+    assert payload["author"]["steamid64"] == str(author.steamid64)
+    assert payload["author"]["display_name"]
+
+
+@pytest.mark.asyncio
+async def test_create_player_comment_rejects_blank_and_self_comments(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Self Commenter",
+    )
+    headers = await get_user_token_headers(client, player.steamid64)
+
+    blank_response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/comments",
+        json={"text": "   "},
+        headers=headers,
+    )
+    self_response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/comments",
+        json={"text": "Hello self"},
+        headers=headers,
+    )
+
+    assert blank_response.status_code == 422
+    assert self_response.status_code == 400
+    assert self_response.json()["detail"] == "You cannot comment on your own profile"
+
+
+@pytest.mark.asyncio
+async def test_delete_player_comment_allows_author_and_target_owner(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Delete Target",
+    )
+    author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Delete Author",
+    )
+    author_comment = await _create_player_comment(
+        db=db,
+        author_steamid64=author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Author removable",
+    )
+    owner_comment = await _create_player_comment(
+        db=db,
+        author_steamid64=author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Owner removable",
+    )
+
+    author_headers = await get_user_token_headers(client, author.steamid64)
+    owner_headers = await get_user_token_headers(client, target.steamid64)
+
+    author_response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments/{author_comment.id}",
+        headers=author_headers,
+    )
+    owner_response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments/{owner_comment.id}",
+        headers=owner_headers,
+    )
+
+    assert author_response.status_code == 200
+    assert owner_response.status_code == 200
+    assert await db.get(PlayerComment, author_comment.id) is None
+    assert await db.get(PlayerComment, owner_comment.id) is None
+
+
+@pytest.mark.asyncio
+async def test_delete_player_comment_rejects_unrelated_user(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Protected Target",
+    )
+    author = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Protected Author",
+    )
+    intruder = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Protected Intruder",
+    )
+    comment = await _create_player_comment(
+        db=db,
+        author_steamid64=author.steamid64,
+        target_steamid64=target.steamid64,
+        text="Hands off",
+    )
+    intruder_headers = await get_user_token_headers(client, intruder.steamid64)
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/comments/{comment.id}",
+        headers=intruder_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "You cannot delete this player comment"
+    assert await db.get(PlayerComment, comment.id) is not None
 
 
 @pytest.mark.asyncio

@@ -32,6 +32,7 @@
   - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_action_timestamp(country_manual_override)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
   - KZ-only player friendships are stored in `player_friend` as directed edges, with sync flows maintaining both directions for active friendships and deleting stale edges only after a successful Steam friends fetch
   - `player` now persists Steam friends visibility state through `friends_visibility` and `friends_visibility_checked_at`, allowing public profile reads to explain whether a Steam profile or friends list is private without storing generic sync-failure state
+  - Player profile comments are stored in `player_comment`, keyed by UUIDv7 and linked to both author and target `player.steamid64`, with trimmed text validation, reverse-chronological profile reads, and owner-or-author deletion
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards

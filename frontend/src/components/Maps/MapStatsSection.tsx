@@ -48,7 +48,9 @@ function formatChartTimeSeconds(value: number) {
     return `${new Intl.NumberFormat(undefined, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 1,
-    }).format(hours).replace(/\.0$/, "")} h`
+    })
+      .format(hours)
+      .replace(/\.0$/, "")} h`
   }
 
   const minutes = Math.floor(roundedSeconds / 60)
@@ -61,10 +63,12 @@ function formatBucketPercent(count: number, total: number) {
     return "0%"
   }
   const percent = (count / total) * 100
-  return new Intl.NumberFormat(undefined, {
+  return `${new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 1,
-  }).format(percent).replace(/\.0$/, "") + "%"
+  })
+    .format(percent)
+    .replace(/\.0$/, "")}%`
 }
 
 function wrGapBoundToRecordTime(
@@ -164,8 +168,7 @@ function WrGapDistributionChart({
   const playerWrGap = recordTimeToWrGap(distribution.wr_time, playerRecordTime)
   const medianWrGap = distribution.median_wr_gap
   const medianStart =
-    medianWrGap == null ||
-    !Number.isFinite(medianWrGap)
+    medianWrGap == null || !Number.isFinite(medianWrGap)
       ? (bins[0]?.lower_bound ?? 0)
       : roundDownToBinStart(medianWrGap)
   const xAxisMin = medianStart - 6
@@ -196,7 +199,9 @@ function WrGapDistributionChart({
         ? "rgba(255, 255, 255, 0.08)"
         : "rgba(15, 23, 42, 0.08)"
     const markerColor =
-      resolvedTheme === "dark" ? "rgba(248, 113, 113, 0.95)" : "rgba(220, 38, 38, 0.95)"
+      resolvedTheme === "dark"
+        ? "rgba(248, 113, 113, 0.95)"
+        : "rgba(220, 38, 38, 0.95)"
     const markerTextColor = resolvedTheme === "dark" ? "#fecaca" : "#991b1b"
     const barColor =
       resolvedTheme === "dark"
@@ -301,7 +306,10 @@ function WrGapDistributionChart({
             plotLeft,
           )
 
-          if (leftLabel.xStart + leftLabel.width + markerLabelGap > rightLabel.xStart) {
+          if (
+            leftLabel.xStart + leftLabel.width + markerLabelGap >
+            rightLabel.xStart
+          ) {
             rightLabel.row = 1
           }
         }
@@ -359,8 +367,9 @@ function WrGapDistributionChart({
             const dataIndex =
               typeof entry.dataIndex === "number" ? entry.dataIndex : -1
             const bin = dataIndex >= 0 ? visibleBins[dataIndex] : undefined
-            const value =
-              Array.isArray(entry.value) ? Number(entry.value[1]) : Number(entry.value)
+            const value = Array.isArray(entry.value)
+              ? Number(entry.value[1])
+              : Number(entry.value)
             const lowerTime = wrGapBoundToRecordTime(
               distribution.wr_time,
               bin?.lower_bound,
@@ -415,9 +424,7 @@ function WrGapDistributionChart({
                 numericValue,
               )
               const timeLabel =
-                timeValue == null
-                  ? "--:--"
-                  : formatChartTimeSeconds(timeValue)
+                timeValue == null ? "--:--" : formatChartTimeSeconds(timeValue)
               return `{gap|${formatWrGapAxisLabel(numericValue)}}\n{time|${timeLabel}}`
             },
           },
@@ -498,7 +505,20 @@ function WrGapDistributionChart({
       resizeObserver.disconnect()
       chart.dispose()
     }
-  }, [barData, distribution.wr_time, isNarrowViewport, medianWrGap, playerWrGap, resolvedTheme, showPlayerMarker, t, visibleBins, xAxisMax, xAxisMin])
+  }, [
+    barData,
+    distribution.wr_time,
+    isNarrowViewport,
+    medianWrGap,
+    playerWrGap,
+    resolvedTheme,
+    showPlayerMarker,
+    t,
+    visibleBins,
+    xAxisMax,
+    xAxisMin,
+    distribution.plotted_pb_count,
+  ])
 
   const medianLabel = formatMedianWrGap(distribution.median_wr_gap)
   const medianTime = medianWrGapToRecordTime(

@@ -2967,6 +2967,69 @@ export const PlayerBanStatusCheckPublicSchema = {
     title: 'PlayerBanStatusCheckPublic'
 } as const;
 
+export const PlayerCommentCreateSchema = {
+    properties: {
+        text: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Text'
+        }
+    },
+    type: 'object',
+    required: ['text'],
+    title: 'PlayerCommentCreate'
+} as const;
+
+export const PlayerCommentPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        text: {
+            type: 'string',
+            title: 'Text'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        author: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        }
+    },
+    type: 'object',
+    required: ['id', 'text', 'created_at', 'updated_at', 'author'],
+    title: 'PlayerCommentPublic'
+} as const;
+
+export const PlayerCommentsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerCommentPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerCommentsPublic'
+} as const;
+
 export const PlayerDailyActivityDayPublicSchema = {
     properties: {
         date: {

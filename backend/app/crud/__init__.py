@@ -113,6 +113,13 @@ from .player_follow import (
     get_player_following,
     is_player_following,
 )
+from .player_comment import (
+    create_player_comment,
+    delete_player_comment,
+    get_player_comment,
+    read_player_comments,
+    to_player_comment_public,
+)
 from .player_friend import (
     delete_player_friend_edges,
     get_player_friend_steamid64s,
@@ -305,6 +312,7 @@ __all__ = [
     "create_or_update_player_from_steam",
     "create_or_update_player_from_steam_data_if_fetched",
     "create_or_update_player_from_steam_if_fetched",
+    "create_player_comment",
     "create_player_follow",
     "delete_player_friend_edges",
     "create_player_pinned_record",
@@ -315,6 +323,7 @@ __all__ = [
     "create_player_webhook",
     "connect_player_session",
     "create_user",
+    "delete_player_comment",
     "delete_player_follow",
     "delete_player_pinned_record",
     "delete_player_social_link",
@@ -337,6 +346,7 @@ __all__ = [
     "get_player_action_timestamp",
     "get_player_action_timestamps",
     "get_player_by_steamid64",
+    "get_player_comment",
     "get_player_friend_steamid64s",
     "get_player_friends",
     "get_player_settings",
@@ -402,6 +412,7 @@ __all__ = [
     "search_players",
     "read_player_leaderboard",
     "read_player_leaderboard_rank",
+    "read_player_comments",
     "read_records",
     "read_record_ranks",
     "resolve_player_identifier_to_steamid64",
@@ -443,6 +454,7 @@ __all__ = [
     "has_finished_map_for_review",
     "to_mode_compat_public_v0",
     "to_mode_public",
+    "to_player_comment_public",
     "to_player_detail_public",
     "to_player_public",
     "to_player_profile_history_public",

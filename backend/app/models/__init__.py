@@ -120,6 +120,15 @@ from .player import (
     PlayersPublic,
     PlayerUpdate,
 )
+from .player_comment import (
+    MAX_PLAYER_COMMENT_LENGTH,
+    PlayerComment,
+    PlayerCommentCreate,
+    PlayerCommentListQuery,
+    PlayerCommentPublic,
+    PlayerCommentsPublic,
+    normalize_player_comment_text,
+)
 from .player_follow import (
     PlayerFollow,
     PlayerFollowListQuery,
@@ -436,6 +445,7 @@ __all__ = [
     "PlayerBanStatusCheckPublic",
     "PlayerBase",
     "PlayerDetailPublic",
+    "MAX_PLAYER_COMMENT_LENGTH",
     "PlayerFriend",
     "PlayerFriendsPublic",
     "PlayerFriendsVisibility",
@@ -443,6 +453,11 @@ __all__ = [
     "PlayerFriendSyncResult",
     "PLAYER_FRIEND_SYNC_COOLDOWN",
     "PLAYER_PROFILE_FIELD_ACTION_MAP",
+    "PlayerComment",
+    "PlayerCommentCreate",
+    "PlayerCommentListQuery",
+    "PlayerCommentPublic",
+    "PlayerCommentsPublic",
     "PlayerProfileView",
     "PlayerProfileViewCreate",
     "PlayerProfileViewsPublic",
@@ -475,6 +490,7 @@ __all__ = [
     "PlayersListQuery",
     "PlayersPublic",
     "PlayerUpdate",
+    "normalize_player_comment_text",
     "PlayerDailyActivityPublic",
     "PlayerDailyActivityContentPublic",
     "PlayerDailyActivityDayPublic",

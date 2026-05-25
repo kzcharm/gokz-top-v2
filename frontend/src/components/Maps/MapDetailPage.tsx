@@ -856,8 +856,12 @@ export function MapDetailPage({
           ) : statsQuery.data ? (
             <MapStatsSection
               stats={statsQuery.data}
-              nubPlayerRecordTime={statsPlayerRecordsQuery.data?.nubTime ?? null}
-              proPlayerRecordTime={statsPlayerRecordsQuery.data?.proTime ?? null}
+              nubPlayerRecordTime={
+                statsPlayerRecordsQuery.data?.nubTime ?? null
+              }
+              proPlayerRecordTime={
+                statsPlayerRecordsQuery.data?.proTime ?? null
+              }
               showPlayerMarker={authenticatedUserSteamid64 !== null}
             />
           ) : null}

@@ -18,6 +18,7 @@ import useAuth from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
+import { ProfileCommentsTab } from "./ProfileCommentsTab"
 import { ProfileFriendsTab } from "./ProfileFriendsTab"
 import {
   ProfileCompletionSection,
@@ -149,9 +150,11 @@ export function ProfilePage({
           ? "/profile/$identifier/stats"
           : activeTab === "jumpstats"
             ? "/profile/$identifier/jumpstats"
-            : activeTab === "friends"
-              ? "/profile/$identifier/friends"
-              : "/profile/$identifier"
+            : activeTab === "comments"
+              ? "/profile/$identifier/comments"
+              : activeTab === "friends"
+                ? "/profile/$identifier/friends"
+                : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {
@@ -680,6 +683,11 @@ export function ProfilePage({
                   </Button>
                 ) : null
               }
+            />
+          ) : activeTab === "comments" ? (
+            <ProfileCommentsTab
+              identifier={canonicalIdentifier}
+              targetSteamid64={player.steamid64}
             />
           ) : activeTab === "jumpstats" ? (
             <ProfileJumpstatsTab identifier={canonicalIdentifier} />

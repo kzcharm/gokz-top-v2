@@ -615,6 +615,23 @@ export type PlayerBanStatusCheckPublic = {
     remaining_active_ban_count?: number;
 };
 
+export type PlayerCommentCreate = {
+    text: string;
+};
+
+export type PlayerCommentPublic = {
+    id: string;
+    text: string;
+    created_at: string;
+    updated_at: string;
+    author: PlayerRefPublic;
+};
+
+export type PlayerCommentsPublic = {
+    data: Array<PlayerCommentPublic>;
+    count: number;
+};
+
 export type PlayerDailyActivityDayPublic = {
     date: string;
     count: number;
@@ -1804,6 +1821,28 @@ export type PlayersReadPlayerViewsData = {
 };
 
 export type PlayersReadPlayerViewsResponse = (PlayerProfileViewsPublic);
+
+export type PlayersReadPlayerCommentsData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayersReadPlayerCommentsResponse = (PlayerCommentsPublic);
+
+export type PlayersCreatePlayerCommentData = {
+    identifier: string;
+    requestBody: PlayerCommentCreate;
+};
+
+export type PlayersCreatePlayerCommentResponse = (PlayerCommentPublic);
+
+export type PlayersDeletePlayerCommentData = {
+    commentId: string;
+    identifier: string;
+};
+
+export type PlayersDeletePlayerCommentResponse = (Message);
 
 export type PlayersReadPlayerPinnedRecordsData = {
     identifier: string;
