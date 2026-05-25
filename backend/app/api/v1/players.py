@@ -143,7 +143,7 @@ async def create_player_like(
     current_user: CurrentUser,
 ) -> PlayerLikesPublic:
     player = await get_player_or_404(session=session, identifier=identifier)
-    await crud.create_player_like(
+    created = await crud.create_player_like(
         session=session,
         viewer_steamid64=current_user.steamid64,
         target_steamid64=player.steamid64,
@@ -152,7 +152,7 @@ async def create_player_like(
         session=session,
         target_steamid64=player.steamid64,
     )
-    return PlayerLikesPublic(player_likes=player_likes)
+    return PlayerLikesPublic(player_likes=player_likes, created=created)
 
 
 @router.get("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)

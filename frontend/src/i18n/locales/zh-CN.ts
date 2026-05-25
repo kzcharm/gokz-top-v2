@@ -289,6 +289,7 @@ export const zhCN = {
         "每页最多显示 {{count}} 位玩家。点击任意条目即可打开该玩家主页。",
     },
     likes: {
+      alreadyLikedToday: "这个资料每天只能点赞一次。",
       likeFailed: "点赞该玩家失败。",
     },
     history: {

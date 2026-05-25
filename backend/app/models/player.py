@@ -247,6 +247,7 @@ class PlayerProfileViewsPublic(SQLModel):
 
 class PlayerLikesPublic(SQLModel):
     player_likes: int = 0
+    created: bool = False
 
 
 class PlayerBanStatusCheckPublic(SQLModel):

@@ -2765,6 +2765,8 @@ async def test_create_player_like_records_once_per_utc_day(
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
+    assert first_response.json()["created"] is True
+    assert second_response.json()["created"] is False
     assert first_response.json()["player_likes"] == 1
     assert second_response.json()["player_likes"] == 1
 
@@ -2803,6 +2805,8 @@ async def test_create_player_like_counts_again_after_utc_rollover(
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
+    assert first_response.json()["created"] is True
+    assert second_response.json()["created"] is True
     assert first_response.json()["player_likes"] == 1
     assert second_response.json()["player_likes"] == 2
 
@@ -2822,6 +2826,7 @@ async def test_create_player_like_does_not_count_self_likes(
     )
 
     assert response.status_code == 200
+    assert response.json()["created"] is False
     assert response.json()["player_likes"] == 0
 
 
@@ -2862,6 +2867,7 @@ async def test_read_player_likes_returns_like_count(
     response = await client.get(f"{settings.API_V1_STR}/players/{target.steamid64}/likes")
 
     assert response.status_code == 200
+    assert response.json()["created"] is False
     assert response.json()["player_likes"] == 1
 
 

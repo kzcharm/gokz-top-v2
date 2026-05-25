@@ -36,17 +36,23 @@ async def test_create_player_like_is_idempotent_per_utc_day(
     )
     now = datetime(2026, 4, 4, 12, 0, tzinfo=UTC)
 
-    await crud.create_player_like(
-        session=db,
-        viewer_steamid64=viewer.steamid64,
-        target_steamid64=target.steamid64,
-        now=now,
+    assert (
+        await crud.create_player_like(
+            session=db,
+            viewer_steamid64=viewer.steamid64,
+            target_steamid64=target.steamid64,
+            now=now,
+        )
+        is True
     )
-    await crud.create_player_like(
-        session=db,
-        viewer_steamid64=viewer.steamid64,
-        target_steamid64=target.steamid64,
-        now=now.replace(hour=18),
+    assert (
+        await crud.create_player_like(
+            session=db,
+            viewer_steamid64=viewer.steamid64,
+            target_steamid64=target.steamid64,
+            now=now.replace(hour=18),
+        )
+        is False
     )
 
     assert (
@@ -76,23 +82,32 @@ async def test_create_player_like_counts_unique_viewer_days(
         name="Popular Player",
     )
 
-    await crud.create_player_like(
-        session=db,
-        viewer_steamid64=viewer.steamid64,
-        target_steamid64=target.steamid64,
-        now=datetime(2026, 4, 4, 23, 59, tzinfo=UTC),
+    assert (
+        await crud.create_player_like(
+            session=db,
+            viewer_steamid64=viewer.steamid64,
+            target_steamid64=target.steamid64,
+            now=datetime(2026, 4, 4, 23, 59, tzinfo=UTC),
+        )
+        is True
     )
-    await crud.create_player_like(
-        session=db,
-        viewer_steamid64=viewer.steamid64,
-        target_steamid64=target.steamid64,
-        now=datetime(2026, 4, 5, 0, 0, tzinfo=UTC),
+    assert (
+        await crud.create_player_like(
+            session=db,
+            viewer_steamid64=viewer.steamid64,
+            target_steamid64=target.steamid64,
+            now=datetime(2026, 4, 5, 0, 0, tzinfo=UTC),
+        )
+        is True
     )
-    await crud.create_player_like(
-        session=db,
-        viewer_steamid64=another_viewer.steamid64,
-        target_steamid64=target.steamid64,
-        now=datetime(2026, 4, 5, 9, 30, tzinfo=UTC),
+    assert (
+        await crud.create_player_like(
+            session=db,
+            viewer_steamid64=another_viewer.steamid64,
+            target_steamid64=target.steamid64,
+            now=datetime(2026, 4, 5, 9, 30, tzinfo=UTC),
+        )
+        is True
     )
 
     assert (
@@ -111,11 +126,14 @@ async def test_create_player_like_ignores_self_likes(db: AsyncSession) -> None:
         steamid64=random_steamid64(),
     )
 
-    await crud.create_player_like(
-        session=db,
-        viewer_steamid64=viewer.steamid64,
-        target_steamid64=viewer.steamid64,
-        now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+    assert (
+        await crud.create_player_like(
+            session=db,
+            viewer_steamid64=viewer.steamid64,
+            target_steamid64=viewer.steamid64,
+            now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+        )
+        is False
     )
 
     assert (

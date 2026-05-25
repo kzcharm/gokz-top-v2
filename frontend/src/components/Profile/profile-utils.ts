@@ -78,6 +78,8 @@ export async function fetchProfileLikes(identifier: string) {
   })
 }
 
+export type ProfileLikeResult = PlayerLikesPublic
+
 export async function createProfileLike(identifier: string) {
   return await PlayersService.createPlayerLike({
     identifier,

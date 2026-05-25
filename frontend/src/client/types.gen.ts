@@ -719,6 +719,7 @@ export type PlayerLeaderboardsPublic = {
 
 export type PlayerLikesPublic = {
     player_likes?: number;
+    created?: boolean;
 };
 
 export type PlayerMostPlayedServerEntryPublic = {

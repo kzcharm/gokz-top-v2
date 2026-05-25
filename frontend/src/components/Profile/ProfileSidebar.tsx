@@ -549,6 +549,7 @@ function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
 
 function SummaryMiniCard({
   dataTestId,
+  disabled = false,
   icon,
   iconClassName,
   label,
@@ -557,6 +558,7 @@ function SummaryMiniCard({
   value,
 }: {
   dataTestId?: string
+  disabled?: boolean
   icon?: ReactNode
   iconClassName?: string
   label: string
@@ -572,10 +574,11 @@ function SummaryMiniCard({
       className={cn(
         "rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5 text-left transition-colors",
         onClick
-          ? "cursor-pointer hover:bg-background/90 focus-visible:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          ? "cursor-pointer hover:bg-background/90 focus-visible:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-default disabled:hover:bg-background/65 disabled:opacity-70"
           : "",
       )}
       data-testid={dataTestId}
+      disabled={onClick ? disabled : undefined}
       onClick={onClick}
       type={onClick ? "button" : undefined}
     >
@@ -998,13 +1001,14 @@ export function ProfileSidebar({
               />
               <SummaryMiniCard
                 dataTestId="profile-player-likes-card"
+                disabled={likeMutationPending}
                 icon={<Heart className="size-3.5 fill-current" />}
                 iconClassName="text-rose-500"
                 labelHidden
                 label={t("profile.summary.likes")}
                 onClick={onLike}
                 value={
-                  playerLikesLoading || likeMutationPending ? (
+                  playerLikesLoading ? (
                     <Skeleton className="h-4 w-14" />
                   ) : playerLikesError ? (
                     t("profile.unavailable")

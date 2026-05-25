@@ -32,9 +32,9 @@ async def create_player_like(
     viewer_steamid64: int,
     target_steamid64: int,
     now: datetime | None = None,
-) -> None:
+) -> bool:
     if viewer_steamid64 == target_steamid64:
-        return
+        return False
 
     created_at = now or datetime.now(UTC)
     like_date = get_utc_today(now=created_at)
@@ -53,6 +53,8 @@ async def create_player_like(
                 PlayerLike.like_date,
             ]
         )
+        .returning(PlayerLike.viewer_steamid64)
     )
-    await session.exec(statement)
+    result = await session.exec(statement)
     await session.commit()
+    return result.one_or_none() is not None

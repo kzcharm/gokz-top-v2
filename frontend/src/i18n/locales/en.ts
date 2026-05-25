@@ -293,6 +293,7 @@ export const en = {
         "Showing up to {{count}} players per page. Click any entry to open that profile.",
     },
     likes: {
+      alreadyLikedToday: "You can only like this profile once per day.",
       likeFailed: "Failed to like this player.",
     },
     history: {

@@ -3526,6 +3526,11 @@ export const PlayerLikesPublicSchema = {
             type: 'integer',
             title: 'Player Likes',
             default: 0
+        },
+        created: {
+            type: 'boolean',
+            title: 'Created',
+            default: false
         }
     },
     type: 'object',

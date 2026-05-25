@@ -50,6 +50,7 @@ import {
   getProfileStatsQueryOptions,
   getProfileValidatedMapsQueryOptions,
   getProfileViewsQueryOptions,
+  type ProfileLikeResult,
   type ProfileTab,
   pinProfileRecord,
   syncProfileFriends,
@@ -384,11 +385,14 @@ export function ProfilePage({
       }
       return await createProfileLike(playerSteamid64)
     },
-    onSuccess: (result) => {
+    onSuccess: (result: ProfileLikeResult) => {
       queryClient.setQueryData(
         ["profile-player-likes", playerSteamid64],
         result,
       )
+      if (!result.created) {
+        toast.warning(t("profile.likes.alreadyLikedToday"))
+      }
     },
     onError: (error) => {
       toast.error(t("profile.likes.likeFailed"), {
