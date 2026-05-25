@@ -103,6 +103,7 @@ export const en = {
   },
   footer: {
     joinDiscord: "Join us on Discord",
+    joinQqGroup: "Join our QQ group",
   },
   titles: {
     login: "Login",
