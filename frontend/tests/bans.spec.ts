@@ -227,7 +227,7 @@ test("Bans table supports WASD pagination shortcuts without affecting typing", a
   await expect(page.getByText("Banned Player 1", { exact: true })).toBeVisible()
 })
 
-test("Bans page shows admin Add Ban flows only to superusers and refreshes after create", async ({
+test("Bans page shows Add Ban flows to admins and refreshes after create", async ({
   page,
 }) => {
   const createdBodies: Array<Record<string, unknown>> = []
@@ -252,7 +252,7 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
   ]
   const banRows = [buildBan(1), buildBan(2)]
 
-  await stubAuthedViewer(page, ["superuser"])
+  await stubAuthedViewer(page, ["admin"])
   await stubGraphqlPlayers(page)
 
   await page.route("**/v1/bans*", async (route) => {
@@ -355,7 +355,9 @@ test("Bans page shows admin Add Ban flows only to superusers and refreshes after
   await expect(page.getByRole("heading", { name: "Add Ban" })).toBeVisible()
 })
 
-test("Non-superusers do not see Add Ban entry points", async ({ page }) => {
+test("Users without admin moderation rights do not see Add Ban entry points", async ({
+  page,
+}) => {
   const banRows = [buildBan(1), buildBan(2)]
 
   await stubAuthedViewer(page, [])

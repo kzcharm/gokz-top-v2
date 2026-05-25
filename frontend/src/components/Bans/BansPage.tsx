@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import useAuth from "@/hooks/useAuth"
 import type { GraphqlPlayer } from "@/lib/player-graphql"
-import { isSuperuser } from "@/lib/user-roles"
+import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
@@ -98,7 +98,7 @@ export function BansPage() {
   const bans = bansQuery.data?.data ?? []
   const totalCount = bansQuery.data?.count ?? 0
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const canAddBan = isSuperuser(user)
+  const canAddBan = canModerateBansAndRecords(user)
 
   const handleSelectPlayer = (player: GraphqlPlayer) => {
     setSelectedPlayer(player)

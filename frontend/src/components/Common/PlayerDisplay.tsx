@@ -55,7 +55,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { loadPlayerForDisplay } from "@/lib/player-graphql"
-import { isSuperuser } from "@/lib/user-roles"
+import { canModerateBansAndRecords, isSuperuser } from "@/lib/user-roles"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -248,7 +248,8 @@ export function PlayerContextMenuItems({
   const { t } = useTranslation()
   const { user } = useAuth()
   const [, copyToClipboard] = useCopyToClipboard()
-  const canAddBan = isSuperuser(user) && steamid64Pattern.test(steamid64)
+  const canAddBan =
+    canModerateBansAndRecords(user) && steamid64Pattern.test(steamid64)
   const canViewProfileHistory =
     isSuperuser(user) && steamid64Pattern.test(steamid64)
   const adminItems = Children.toArray(adminChildren)

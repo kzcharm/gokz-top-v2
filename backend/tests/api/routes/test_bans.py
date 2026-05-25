@@ -241,6 +241,44 @@ async def test_create_manual_ban_requires_superuser(
     assert response.json()["detail"] == "The user doesn't have enough privileges"
 
 
+async def test_create_manual_ban_allows_admin_role(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    steamid64 = random_steamid64()
+    await _create_player(
+        db,
+        steamid64=steamid64,
+        name="Admin Ban Target",
+    )
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Admin Ban Moderator",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/bans",
+        headers=admin_headers,
+        json={
+            "steamid64": str(steamid64),
+            "ban_type": "bhop_macro",
+            "notes": "manual admin ban",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] is None
+
+
 async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     client: AsyncClient,
     db: AsyncSession,

@@ -575,6 +575,46 @@ async def test_patch_record_v1_updates_validity(
     assert response.json()["is_valid"] is False
 
 
+async def test_patch_record_v1_allows_admin_role(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(db, players=[(player_id, "Runner Admin Patch")])
+    record = await _create_record(
+        db,
+        id=980402,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="41.000",
+        teleports=0,
+    )
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Admin Record Moderator",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/records/{record.uuid}",
+        headers=admin_headers,
+        json={"is_valid": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_valid"] is False
+
+
 async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_modes(
     client: AsyncClient,
     db: AsyncSession,

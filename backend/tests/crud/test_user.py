@@ -102,6 +102,23 @@ async def test_update_user(db: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
+async def test_update_user_normalizes_admin_role_order(db: AsyncSession) -> None:
+    steamid64 = random_steamid64()
+    user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+
+    update = UserUpdate(
+        roles=[UserRole.SERVER_OWNER, UserRole.ADMIN, UserRole.MAP_ADMIN],
+    )
+    updated = await crud.update_user(session=db, db_user=user, user_in=update)
+
+    assert updated.roles == [
+        UserRole.ADMIN,
+        UserRole.MAP_ADMIN,
+        UserRole.SERVER_OWNER,
+    ]
+
+
+@pytest.mark.asyncio
 async def test_to_user_public_includes_player(db: AsyncSession) -> None:
     steamid64 = random_steamid64()
     user = await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)

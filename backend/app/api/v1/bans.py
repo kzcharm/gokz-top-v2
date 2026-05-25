@@ -4,12 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep, get_current_active_admin
 from app.models import BanCreate, BanListQuery, BanPublic, BansPublic, User
 
 router = APIRouter(prefix="/bans", tags=["bans"])
 
-CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+CurrentAdmin = Annotated[User, Depends(get_current_active_admin)]
 
 
 def _parse_steamid64(value: str) -> int:
@@ -39,7 +39,7 @@ async def create_ban(
     *,
     session: SessionDep,
     body: BanCreate,
-    current_user: CurrentSuperuser,
+    current_user: CurrentAdmin,
 ) -> BanPublic:
     steamid64 = _parse_steamid64(body.steamid64)
     player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)

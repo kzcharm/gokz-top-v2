@@ -18,12 +18,14 @@ def _enum_values(enum_class: type[StrEnum]) -> list[str]:
 
 class UserRole(StrEnum):
     SUPERUSER = "superuser"
+    ADMIN = "admin"
     MAP_ADMIN = "map_admin"
     SERVER_OWNER = "server_owner"
 
 
 USER_ROLE_ORDER: tuple[UserRole, ...] = (
     UserRole.SUPERUSER,
+    UserRole.ADMIN,
     UserRole.MAP_ADMIN,
     UserRole.SERVER_OWNER,
 )

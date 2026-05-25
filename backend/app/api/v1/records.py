@@ -4,7 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep, get_current_active_admin
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.crud.record import get_pb_record_publics
@@ -28,7 +28,7 @@ from app.models import (
 
 router = APIRouter(prefix="/records", tags=["records"])
 
-CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+CurrentAdmin = Annotated[User, Depends(get_current_active_admin)]
 
 
 async def _resolve_player_identifier_to_steamid64_or_404(
@@ -229,7 +229,7 @@ async def read_record(
 
 @router.patch(
     "/{record_uuid}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(get_current_active_admin)],
     response_model=RecordPublic,
 )
 async def patch_record(
@@ -237,7 +237,7 @@ async def patch_record(
     session: SessionDep,
     record_uuid: uuid.UUID,
     patch: RecordPatch,
-    current_user: CurrentSuperuser,
+    current_user: CurrentAdmin,
 ) -> Any:
     del current_user
     record = await crud.get_record_by_uuid(session=session, record_uuid=record_uuid)

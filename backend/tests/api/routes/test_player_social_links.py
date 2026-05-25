@@ -37,6 +37,7 @@ async def _create_social_link(
     headers: dict[str, str],
     url: str,
 ) -> dict[str, object]:
+    del steamid64
     response = await client.post(
         f"{settings.API_V1_STR}/player-social-links/me/social-links",
         headers=headers,
@@ -403,6 +404,31 @@ async def test_player_bilibili_social_link_verify_start_rejects_invalid_cases(
         headers=owner_headers,
     )
     assert verified.status_code == 409
+
+
+async def test_admin_player_social_links_require_superuser_not_admin(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Social Admin Target")
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Admin Social Links Tester",
+        },
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_auth.json()['access_token']}"}
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-social-links",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 403
 
 
 async def test_player_bilibili_social_link_verify_start_rejects_profile_fetch_failure(

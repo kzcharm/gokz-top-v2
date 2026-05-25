@@ -2,6 +2,7 @@ import type { UserPublic, UserRole } from "@/client"
 
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   superuser: "Superuser",
+  admin: "Admin",
   map_admin: "Map Admin",
   server_owner: "Server Owner",
 }
@@ -15,6 +16,12 @@ export const USER_ROLE_OPTIONS: Array<{
     value: "superuser",
     label: "Superuser",
     description: "Full access to all admin pages and user role management.",
+  },
+  {
+    value: "admin",
+    label: "Admin",
+    description:
+      "Can add bans and moderate record validity without root access.",
   },
   {
     value: "map_admin",
@@ -41,6 +48,12 @@ export function isSuperuser(
   user: Pick<UserPublic, "roles"> | null | undefined,
 ) {
   return hasRole(user, "superuser")
+}
+
+export function canModerateBansAndRecords(
+  user: Pick<UserPublic, "roles"> | null | undefined,
+) {
+  return hasRole(user, "superuser") || hasRole(user, "admin")
 }
 
 export function canAccessAdminMaps(

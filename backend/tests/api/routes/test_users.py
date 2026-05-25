@@ -192,7 +192,7 @@ async def test_retrieve_users_without_privileges(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("role", ["map_admin", "server_owner"])
+@pytest.mark.parametrize("role", ["admin", "map_admin", "server_owner"])
 async def test_retrieve_users_rejects_non_superuser_admin_roles(
     client: AsyncClient,
     role: str,
@@ -344,4 +344,3 @@ async def test_update_user_not_exists(
         response.json()["detail"]
         == "The user with this id does not exist in the system"
     )
-
