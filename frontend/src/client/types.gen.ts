@@ -717,6 +717,10 @@ export type PlayerLeaderboardsPublic = {
     count: number;
 };
 
+export type PlayerLikesPublic = {
+    player_likes?: number;
+};
+
 export type PlayerMostPlayedServerEntryPublic = {
     key: string;
     label: string;
@@ -1821,6 +1825,18 @@ export type PlayersReadPlayerViewsData = {
 };
 
 export type PlayersReadPlayerViewsResponse = (PlayerProfileViewsPublic);
+
+export type PlayersCreatePlayerLikeData = {
+    identifier: string;
+};
+
+export type PlayersCreatePlayerLikeResponse = (PlayerLikesPublic);
+
+export type PlayersReadPlayerLikesData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerLikesResponse = (PlayerLikesPublic);
 
 export type PlayersReadPlayerCommentsData = {
     identifier: string;

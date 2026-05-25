@@ -2721,6 +2721,151 @@ async def test_create_player_view_returns_not_found_for_missing_player(
 
 
 @pytest.mark.asyncio
+async def test_create_player_like_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Auth Like Target",
+    )
+
+    response = await client.post(f"{settings.API_V1_STR}/players/{target.steamid64}/likes")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_records_once_per_utc_day(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Daily Like Target",
+    )
+    viewer_headers = await get_user_token_headers(client, random_steamid64())
+
+    monkeypatch.setattr(
+        "app.crud.player_like.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 4, tzinfo=UTC).date(),
+    )
+
+    first_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+    second_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json()["player_likes"] == 1
+    assert second_response.json()["player_likes"] == 1
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_counts_again_after_utc_rollover(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Like Rollover Target",
+    )
+    viewer_steamid64 = random_steamid64()
+    viewer_headers = await get_user_token_headers(client, viewer_steamid64)
+
+    monkeypatch.setattr(
+        "app.crud.player_like.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 4, tzinfo=UTC).date(),
+    )
+    first_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+
+    monkeypatch.setattr(
+        "app.crud.player_like.get_utc_today",
+        lambda *, now=None: datetime(2026, 4, 5, tzinfo=UTC).date(),
+    )
+    second_response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes",
+        headers=viewer_headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json()["player_likes"] == 1
+    assert second_response.json()["player_likes"] == 2
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_does_not_count_self_likes(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await crud.get_or_create_user_from_steam(session=db, steamid64=steamid64)
+    headers = await get_user_token_headers(client, steamid64)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{steamid64}/likes",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["player_likes"] == 0
+
+
+@pytest.mark.asyncio
+async def test_create_player_like_returns_not_found_for_missing_player(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{random_steamid64()}/likes",
+        headers=normal_user_token_headers,
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_read_player_likes_returns_like_count(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Like Count Target",
+    )
+    viewer = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+    )
+
+    response = await client.get(f"{settings.API_V1_STR}/players/{target.steamid64}/likes")
+
+    assert response.status_code == 200
+    assert response.json()["player_likes"] == 1
+
+
+@pytest.mark.asyncio
 async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leaderboard(
     client: AsyncClient,
     db: AsyncSession,

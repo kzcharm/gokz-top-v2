@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import useAuth from "@/hooks/useAuth"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
@@ -37,9 +37,11 @@ import {
   buildProfileTotalPoints,
   buildProfileTrophyCounts,
   checkProfileUnbanStatus,
+  createProfileLike,
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfileFriendsQueryOptions,
+  getProfileLikesQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
@@ -106,6 +108,9 @@ export function ProfilePage({
   )
   const profileViewsQuery = useQuery(
     getProfileViewsQueryOptions(playerSteamid64),
+  )
+  const profileLikesQuery = useQuery(
+    getProfileLikesQueryOptions(playerSteamid64),
   )
   const playerStatsQuery = useQuery({
     ...getProfileStatsQueryOptions(
@@ -372,6 +377,25 @@ export function ProfilePage({
       })
     },
   })
+  const likePlayerMutation = useMutation({
+    mutationFn: async () => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      return await createProfileLike(playerSteamid64)
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        ["profile-player-likes", playerSteamid64],
+        result,
+      )
+    },
+    onError: (error) => {
+      toast.error(t("profile.likes.likeFailed"), {
+        description: extractErrorMessage(error),
+      })
+    },
+  })
   const summary = useMemo(() => {
     const totalPoints = buildProfileTotalPoints({
       nubRecords: nubRecordsQuery.data ?? [],
@@ -571,7 +595,19 @@ export function ProfilePage({
         <aside className="min-w-0">
           <ProfileSidebar
             identifier={canonicalIdentifier}
+            likeMutationPending={likePlayerMutation.isPending}
+            onLike={() => {
+              if (!isLoggedIn()) {
+                void navigate({ to: "/login" })
+                return
+              }
+
+              likePlayerMutation.mutate()
+            }}
             player={player}
+            playerLikes={profileLikesQuery.data?.player_likes ?? 0}
+            playerLikesError={profileLikesQuery.isError}
+            playerLikesLoading={profileLikesQuery.isLoading}
             playtimeError={playerStatsQuery.isError}
             playtimeLoading={playerStatsQuery.isLoading}
             playtimeSeconds={

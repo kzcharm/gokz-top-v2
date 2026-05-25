@@ -57,6 +57,7 @@ export const zhCN = {
     lastPlayed: "最近游玩",
     dateJoined: "加入时间",
     profileViews: "资料浏览量",
+    likes: "点赞",
     followers: "关注者",
     following: "关注中",
     maps: "地图",
@@ -256,6 +257,7 @@ export const zhCN = {
       playtime: "游玩时长",
       ljPb: "LJ PB",
       profileViews: "资料浏览量",
+      likes: "点赞",
       followers: "关注者",
       following: "关注中",
       global: "全球",
@@ -285,6 +287,9 @@ export const zhCN = {
       loadMore: "加载更多",
       pageHint:
         "每页最多显示 {{count}} 位玩家。点击任意条目即可打开该玩家主页。",
+    },
+    likes: {
+      likeFailed: "点赞该玩家失败。",
     },
     history: {
       menuAction: "资料历史",

@@ -3520,6 +3520,18 @@ export const PlayerLeaderboardsPublicSchema = {
     title: 'PlayerLeaderboardsPublic'
 } as const;
 
+export const PlayerLikesPublicSchema = {
+    properties: {
+        player_likes: {
+            type: 'integer',
+            title: 'Player Likes',
+            default: 0
+        }
+    },
+    type: 'object',
+    title: 'PlayerLikesPublic'
+} as const;
+
 export const PlayerMostPlayedServerEntryPublicSchema = {
     properties: {
         key: {

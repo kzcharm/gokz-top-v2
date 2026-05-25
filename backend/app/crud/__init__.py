@@ -126,6 +126,7 @@ from .player_friend import (
     get_player_friends,
     upsert_player_friend_edges,
 )
+from .player_like import count_player_likes, create_player_like
 from .player_pinned_record import (
     create_player_pinned_record,
     delete_player_pinned_record,
@@ -318,6 +319,7 @@ __all__ = [
     "create_player_pinned_record",
     "create_player_profile_history",
     "create_player_profile_history_if_changed",
+    "create_player_like",
     "create_player_profile_view",
     "create_player_social_link",
     "create_player_webhook",
@@ -359,6 +361,7 @@ __all__ = [
     "get_player_session_by_id",
     "get_player_social_link",
     "get_player_webhook",
+    "count_player_likes",
     "count_player_profile_views",
     "get_or_rebuild_player_daily_activity_stat",
     "get_or_rebuild_player_playtime_stat",

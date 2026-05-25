@@ -57,6 +57,7 @@ export const en = {
     lastPlayed: "Last Played",
     dateJoined: "Date Joined",
     profileViews: "Profile Views",
+    likes: "Likes",
     followers: "Followers",
     following: "Following",
     maps: "Maps",
@@ -260,6 +261,7 @@ export const en = {
       playtime: "Playtime",
       ljPb: "Long Jump",
       profileViews: "Profile Views",
+      likes: "Likes",
       followers: "Followers",
       following: "Following",
       global: "Global",
@@ -289,6 +291,9 @@ export const en = {
       loadMore: "Load more",
       pageHint:
         "Showing up to {{count}} players per page. Click any entry to open that profile.",
+    },
+    likes: {
+      likeFailed: "Failed to like this player.",
     },
     history: {
       menuAction: "Profile History",

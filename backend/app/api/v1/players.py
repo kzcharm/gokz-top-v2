@@ -32,6 +32,7 @@ from app.models import (
     PlayerDailyActivityPublic,
     PlayerDetailPublic,
     PlayerFriendsPublic,
+    PlayerLikesPublic,
     PlayerMostPlayedServerPublic,
     PlayerPinnedRecordsPublic,
     PlayerPlaytimePublic,
@@ -135,6 +136,25 @@ async def create_player_view(
     return PlayerProfileViewsPublic(profile_views=profile_views)
 
 
+@router.post("/{identifier:path}/likes", response_model=PlayerLikesPublic)
+async def create_player_like(
+    identifier: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerLikesPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    await crud.create_player_like(
+        session=session,
+        viewer_steamid64=current_user.steamid64,
+        target_steamid64=player.steamid64,
+    )
+    player_likes = await crud.count_player_likes(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return PlayerLikesPublic(player_likes=player_likes)
+
+
 @router.get("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)
 async def read_player_views(
     identifier: str,
@@ -219,6 +239,19 @@ async def delete_player_comment(
     )
     await crud.delete_player_comment(session=session, comment=comment)
     return Message(message="Player comment deleted")
+
+
+@router.get("/{identifier:path}/likes", response_model=PlayerLikesPublic)
+async def read_player_likes(
+    identifier: str,
+    session: SessionDep,
+) -> PlayerLikesPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    player_likes = await crud.count_player_likes(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return PlayerLikesPublic(player_likes=player_likes)
 
 
 @router.get("/{identifier:path}/pinned-records", response_model=PlayerPinnedRecordsPublic)

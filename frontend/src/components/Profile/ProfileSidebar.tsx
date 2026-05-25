@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Copy, Eye, InfoIcon, Search, UserRoundCheck, X } from "lucide-react"
+import {
+  Copy,
+  Eye,
+  Heart,
+  InfoIcon,
+  Search,
+  UserRoundCheck,
+  X,
+} from "lucide-react"
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -542,13 +550,17 @@ function SteamIdContextValue({ steamid64 }: { steamid64: string }) {
 function SummaryMiniCard({
   dataTestId,
   icon,
+  iconClassName,
   label,
+  labelHidden = false,
   onClick,
   value,
 }: {
   dataTestId?: string
   icon?: ReactNode
+  iconClassName?: string
   label: string
+  labelHidden?: boolean
   onClick?: () => void
   value: ReactNode
 }) {
@@ -569,10 +581,22 @@ function SummaryMiniCard({
     >
       {icon ? (
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center text-muted-foreground">
+          <span
+            className={cn(
+              "inline-flex items-center justify-center text-muted-foreground",
+              iconClassName,
+            )}
+          >
             {icon}
           </span>
-          <p className="min-w-0 text-xs text-muted-foreground">{label}</p>
+          <p
+            className={cn(
+              "min-w-0 text-xs text-muted-foreground",
+              labelHidden && "sr-only",
+            )}
+          >
+            {label}
+          </p>
           <p className="ml-auto text-lg font-semibold tracking-tight">
             {value}
           </p>
@@ -696,10 +720,15 @@ function SkillRadar() {
 
 export function ProfileSidebar({
   identifier,
+  likeMutationPending,
+  onLike,
   playtimeError,
   playtimeLoading,
   playtimeSeconds,
   player,
+  playerLikes,
+  playerLikesError,
+  playerLikesLoading,
   profileViews,
   profileViewsError,
   profileViewsLoading,
@@ -707,10 +736,15 @@ export function ProfileSidebar({
   summaryLoading,
 }: {
   identifier: string
+  likeMutationPending: boolean
+  onLike: () => void
   playtimeError: boolean
   playtimeLoading: boolean
   playtimeSeconds: number | null
   player: ProfilePlayer
+  playerLikes: number
+  playerLikesError: boolean
+  playerLikesLoading: boolean
   profileViews: number
   profileViewsError: boolean
   profileViewsLoading: boolean
@@ -946,10 +980,11 @@ export function ProfileSidebar({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <SummaryMiniCard
                 dataTestId="profile-profile-views-card"
                 icon={<Eye className="size-3.5" />}
+                labelHidden
                 label={t("profile.summary.profileViews")}
                 value={
                   profileViewsLoading ? (
@@ -962,7 +997,25 @@ export function ProfileSidebar({
                 }
               />
               <SummaryMiniCard
+                dataTestId="profile-player-likes-card"
+                icon={<Heart className="size-3.5 fill-current" />}
+                iconClassName="text-rose-500"
+                labelHidden
+                label={t("profile.summary.likes")}
+                onClick={onLike}
+                value={
+                  playerLikesLoading || likeMutationPending ? (
+                    <Skeleton className="h-4 w-14" />
+                  ) : playerLikesError ? (
+                    t("profile.unavailable")
+                  ) : (
+                    formatNumber(playerLikes)
+                  )
+                }
+              />
+              <SummaryMiniCard
                 icon={<UserRoundCheck className="size-3.5" />}
+                labelHidden
                 label={t("profile.summary.followers")}
                 dataTestId="profile-followers-card"
                 onClick={() => handleOpenSocial("followers")}
