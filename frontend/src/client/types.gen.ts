@@ -194,7 +194,7 @@ export type AdminServerRole = 'root_admin' | 'server_owner';
 export type BanCreate = {
     steamid64: string;
     ban_type: BanType;
-    expires_on?: (string | null);
+    expires_at?: (string | null);
     notes?: (string | null);
     stats?: (string | null);
 };
@@ -202,30 +202,32 @@ export type BanCreate = {
 export type BanListItemPublic = {
     uuid: string;
     ban_type: BanType;
-    expires_on?: (string | null);
+    expires_at?: (string | null);
     ip?: (string | null);
     notes?: (string | null);
     stats?: (string | null);
     server_id?: (number | null);
-    updated_by_id?: (string | null);
-    created_on: string;
-    updated_on: string;
+    updated_by_steamid64?: (string | null);
+    created_at: string;
+    updated_at: string;
     player?: (PlayerRefPublic | null);
+    updated_by_player?: (PlayerRefPublic | null);
 };
 
 export type BanPublic = {
     uuid: string;
     id?: (number | null);
     ban_type: BanType;
-    expires_on?: (string | null);
+    expires_at?: (string | null);
     ip?: (string | null);
     notes?: (string | null);
     stats?: (string | null);
     server_id?: (number | null);
-    updated_by_id?: (string | null);
-    created_on: string;
-    updated_on: string;
+    updated_by_steamid64?: (string | null);
+    created_at: string;
+    updated_at: string;
     player?: (PlayerRefPublic | null);
+    updated_by_player?: (PlayerRefPublic | null);
 };
 
 export type BansPublic = {
@@ -234,6 +236,12 @@ export type BansPublic = {
 };
 
 export type BanType = 'ban_evasion' | 'bhop_hack' | 'bhop_macro' | 'exploiting' | 'strafe_hack' | 'strafe_macro' | 'other';
+
+export type BanUpdate = {
+    ban_type: BanType;
+    expires_at?: (string | null);
+    notes?: (string | null);
+};
 
 export type Body_jumpstats_create_jumpstat = {
     replay: (Blob | File);
@@ -1510,6 +1518,13 @@ export type BansReadBanData = {
 };
 
 export type BansReadBanResponse = (BanPublic);
+
+export type BansPatchBanData = {
+    banUuid: string;
+    requestBody: BanUpdate;
+};
+
+export type BansPatchBanResponse = (BanPublic);
 
 export type HandleHttpGetResponse = (unknown);
 

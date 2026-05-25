@@ -98,13 +98,12 @@ def _ban_values_from_globalapi(
     return {
         "id": ban_id,
         "ban_type": ban_type,
-        "expires_on": _normalize_ban_expiry(payload.get("expires_on")),
+        "expires_at": _normalize_ban_expiry(payload.get("expires_on")),
         "ip": _parse_optional_string(payload.get("ip")),
         "steamid64": steamid64,
         "notes": _parse_optional_string(payload.get("notes")),
         "stats": _parse_optional_string(payload.get("stats")),
         "server_id": _parse_int(payload.get("server_id"), default=None),
-        "updated_by_id": _parse_optional_string(payload.get("updated_by_id")),
         "created_at": _normalize_datetime(payload.get("created_on"))
         or _BAN_DATETIME_FALLBACK,
         "updated_at": _normalize_datetime(payload.get("updated_on"))
@@ -255,6 +254,7 @@ async def _upsert_ban_payloads(
     payloads: list[dict[str, Any]],
     synced_at: datetime,
     seen_ids: set[int] | None = None,
+    update_existing: bool,
 ) -> tuple[int, int, int, int, int, set[int]]:
     rows_by_id: dict[int, dict[str, Any]] = {}
     player_payloads: list[dict[str, Any]] = []
@@ -291,7 +291,7 @@ async def _upsert_ban_payloads(
         (await session.exec(select(table.c.id).where(table.c.id.in_(ban_ids)))).all()
     )
     created = sum(1 for ban_id in ban_ids if ban_id not in existing_ids)
-    updated = sum(1 for ban_id in ban_ids if ban_id in existing_ids)
+    updated = sum(1 for ban_id in ban_ids if ban_id in existing_ids) if update_existing else 0
 
     await _upsert_players_for_bans(
         session=session,
@@ -299,25 +299,41 @@ async def _upsert_ban_payloads(
         synced_at=synced_at,
     )
 
-    insert_statement = pg_insert(table).values(list(rows_by_id.values()))
-    upsert_statement = insert_statement.on_conflict_do_update(
-        index_elements=[table.c.id],
-        index_where=table.c.id.is_not(None),
-        set_={
-            "ban_type": insert_statement.excluded.ban_type,
-            "expires_on": insert_statement.excluded.expires_on,
-            "ip": insert_statement.excluded.ip,
-            "steamid64": insert_statement.excluded.steamid64,
-            "notes": insert_statement.excluded.notes,
-            "stats": insert_statement.excluded.stats,
-            "server_id": insert_statement.excluded.server_id,
-            "updated_by_id": insert_statement.excluded.updated_by_id,
-            "created_at": insert_statement.excluded.created_at,
-            "updated_at": insert_statement.excluded.updated_at,
-            "synced_at": insert_statement.excluded.synced_at,
-        },
+    rows_to_write = (
+        list(rows_by_id.values())
+        if update_existing
+        else [
+            row for ban_id, row in rows_by_id.items() if ban_id not in existing_ids
+        ]
     )
-    await session.exec(upsert_statement)
+    if rows_to_write:
+        insert_statement = pg_insert(table).values(rows_to_write)
+        if update_existing:
+            statement = insert_statement.on_conflict_do_update(
+                index_elements=[table.c.id],
+                index_where=table.c.id.is_not(None),
+                set_={
+                    "ban_type": insert_statement.excluded.ban_type,
+                    "expires_at": insert_statement.excluded.expires_at,
+                    "ip": insert_statement.excluded.ip,
+                    "steamid64": insert_statement.excluded.steamid64,
+                    "notes": insert_statement.excluded.notes,
+                    "stats": insert_statement.excluded.stats,
+                    "server_id": insert_statement.excluded.server_id,
+                    "created_at": insert_statement.excluded.created_at,
+                    "updated_at": insert_statement.excluded.updated_at,
+                    "synced_at": insert_statement.excluded.synced_at,
+                },
+            )
+        else:
+            statement = insert_statement.on_conflict_do_nothing(
+                index_elements=[table.c.id],
+                index_where=table.c.id.is_not(None),
+            )
+            touched_steamid64s = {int(row["steamid64"]) for row in rows_to_write}
+        await session.exec(statement)
+    elif not update_existing:
+        touched_steamid64s = set()
 
     return len(rows_by_id), created, updated, errors, warnings, touched_steamid64s
 
@@ -333,8 +349,8 @@ async def _load_active_ban_ids_for_player(
     statement = select(Ban.id).where(
         Ban.steamid64 == steamid64,
         or_(
-            Ban.expires_on.is_(None),
-            Ban.expires_on >= current_time,
+            Ban.expires_at.is_(None),
+            Ban.expires_at >= current_time,
         ),
     )
     if external_only:
@@ -348,8 +364,8 @@ async def _load_active_ban_ids_for_player(
                 select(Ban.uuid).where(
                     Ban.steamid64 == steamid64,
                     or_(
-                        Ban.expires_on.is_(None),
-                        Ban.expires_on >= current_time,
+                        Ban.expires_at.is_(None),
+                        Ban.expires_at >= current_time,
                     ),
                 )
             )
@@ -419,6 +435,7 @@ async def sync_bans_from_globalapi(
                 payloads=payloads,
                 synced_at=synced_at,
                 seen_ids=seen_ids,
+                update_existing=False,
             )
             processed += processed_page
             created += created_page
@@ -490,6 +507,7 @@ async def sync_player_bans_from_globalapi(
                 payloads=payloads,
                 synced_at=synced_at,
                 seen_ids=seen_ids,
+                update_existing=True,
             )
             if processed_page > 0:
                 await session.commit()

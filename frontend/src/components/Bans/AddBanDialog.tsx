@@ -27,6 +27,14 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
+import {
+  BAN_LENGTH_OPTIONS,
+  type BanLengthValue,
+  formatBanTypeLabel,
+  getBanExpiryIsoFromDate,
+  getBanStatus,
+} from "./ban-status"
+
 const BAN_TYPE_OPTIONS: Array<{ label: string; value: BanType }> = [
   { value: "ban_evasion", label: "Ban Evasion" },
   { value: "bhop_hack", label: "Bhop Hack" },
@@ -37,57 +45,8 @@ const BAN_TYPE_OPTIONS: Array<{ label: string; value: BanType }> = [
   { value: "other", label: "Other" },
 ]
 
-const BAN_LENGTH_OPTIONS = [
-  { value: "permanent", label: "Permanent" },
-  { value: "1_week", label: "1 Week" },
-  { value: "1_month", label: "1 Month" },
-  { value: "3_months", label: "3 Months" },
-  { value: "1_year", label: "1 Year" },
-  { value: "3_years", label: "3 Years" },
-] as const
-
-type BanLengthValue = (typeof BAN_LENGTH_OPTIONS)[number]["value"]
-
 type AddBanPlayer = PlayerDisplayPlayer & {
   steamid64: string
-}
-
-function formatBanTypeLabel(banType: string) {
-  return banType
-    .split("_")
-    .map((segment) =>
-      segment.length > 0
-        ? `${segment[0].toUpperCase()}${segment.slice(1)}`
-        : "",
-    )
-    .join(" ")
-}
-
-function getBanExpiryIso(length: BanLengthValue): string | null {
-  if (length === "permanent") {
-    return null
-  }
-
-  const expiresAt = new Date()
-  switch (length) {
-    case "1_week":
-      expiresAt.setUTCDate(expiresAt.getUTCDate() + 7)
-      break
-    case "1_month":
-      expiresAt.setUTCMonth(expiresAt.getUTCMonth() + 1)
-      break
-    case "3_months":
-      expiresAt.setUTCMonth(expiresAt.getUTCMonth() + 3)
-      break
-    case "1_year":
-      expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1)
-      break
-    case "3_years":
-      expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 3)
-      break
-  }
-
-  return expiresAt.toISOString()
 }
 
 export function AddBanDialog({
@@ -179,7 +138,7 @@ export function AddBanDialog({
         requestBody: {
           steamid64: selectedPlayer.steamid64,
           ban_type: banType,
-          expires_on: getBanExpiryIso(banLength),
+          expires_at: getBanExpiryIsoFromDate(new Date(), banLength),
           notes: notes.trim() || null,
         },
       })
@@ -375,11 +334,10 @@ export function AddBanDialog({
 }
 
 function BanHistoryEntry({ ban }: { ban: BanListItemPublic }) {
-  const expiresAt = ban.expires_on ? new Date(ban.expires_on) : null
-  const isExpired =
-    expiresAt !== null &&
-    !Number.isNaN(expiresAt.getTime()) &&
-    expiresAt.getTime() < Date.now()
+  const status = getBanStatus({
+    createdAt: ban.created_at,
+    expiresAt: ban.expires_at ?? null,
+  })
 
   return (
     <div className="grid gap-2 rounded-lg border border-border/70 bg-background/80 p-3">
@@ -388,28 +346,32 @@ function BanHistoryEntry({ ban }: { ban: BanListItemPublic }) {
         <Badge
           className={cn(
             "border-transparent text-white dark:text-white",
-            ban.expires_on === null
+            status === "permanent"
               ? "bg-destructive hover:bg-destructive/90 dark:bg-destructive/60"
-              : isExpired
+              : status === "expired"
                 ? "bg-emerald-600 hover:bg-emerald-600/90 dark:bg-emerald-700"
-                : "bg-orange-500 hover:bg-orange-500/90 dark:bg-orange-600",
+                : status === "unbanned"
+                  ? "bg-sky-600 hover:bg-sky-600/90 dark:bg-sky-700"
+                  : "bg-orange-500 hover:bg-orange-500/90 dark:bg-orange-600",
           )}
         >
-          {ban.expires_on === null
+          {status === "permanent"
             ? "Permanent"
-            : isExpired
+            : status === "expired"
               ? "Expired"
-              : "Active"}
+              : status === "unbanned"
+                ? "Unbanned"
+                : "Active"}
         </Badge>
       </div>
       <div className="grid gap-1 text-sm text-muted-foreground">
         <p>
-          Issued <FormattedDateTime value={ban.created_on} display="relative" />
+          Issued <FormattedDateTime value={ban.created_at} display="relative" />
         </p>
-        {ban.expires_on ? (
+        {ban.expires_at ? (
           <p>
             Expires{" "}
-            <FormattedDateTime value={ban.expires_on} display="relative" />
+            <FormattedDateTime value={ban.expires_at} display="relative" />
           </p>
         ) : null}
         <p>{ban.notes?.trim() || "No notes recorded."}</p>

@@ -9,6 +9,7 @@ from .ban import (
     BanListItemPublic,
     BanListQuery,
     BanPublic,
+    BanUpdate,
     BansPublic,
     BanType,
 )

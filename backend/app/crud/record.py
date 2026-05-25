@@ -127,13 +127,13 @@ def _not_active_ban_exists_split_clause(*, steamid64_column):
         ~exists(
             select(Ban.id).where(
                 col(Ban.steamid64) == steamid64_column,
-                col(Ban.expires_on).is_(None),
+                col(Ban.expires_at).is_(None),
             )
         ),
         ~exists(
             select(Ban.id).where(
                 col(Ban.steamid64) == steamid64_column,
-                col(Ban.expires_on) >= func.now(),
+                col(Ban.expires_at) >= func.now(),
             )
         ),
     )
@@ -219,7 +219,7 @@ async def _steamid64_has_active_ban(
 ) -> bool:
     statement = select(Ban.id).where(
         col(Ban.steamid64) == steamid64,
-        or_(col(Ban.expires_on).is_(None), col(Ban.expires_on) >= func.now()),
+        or_(col(Ban.expires_at).is_(None), col(Ban.expires_at) >= func.now()),
     )
     return (await session.exec(statement.limit(1))).first() is not None
 
@@ -234,7 +234,7 @@ async def _load_active_banned_steamid64s(
 
     statement = select(Ban.steamid64).where(
         col(Ban.steamid64).in_(list(dict.fromkeys(steamid64s))),
-        or_(col(Ban.expires_on).is_(None), col(Ban.expires_on) >= func.now()),
+        or_(col(Ban.expires_at).is_(None), col(Ban.expires_at) >= func.now()),
     )
     return set((await session.exec(statement)).all())
 

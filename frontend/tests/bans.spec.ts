@@ -6,8 +6,8 @@ function buildBan(index: number, source: "globalapi" | "manual" = "globalapi") {
   return {
     uuid: `01966858-7280-7000-8000-${index.toString().padStart(12, "0")}`,
     ban_type: source === "globalapi" ? "bhop_hack" : "bhop_macro",
-    created_on: "2026-03-01T12:00:00Z",
-    expires_on: null,
+    created_at: "2026-03-01T12:00:00Z",
+    expires_at: null,
     notes: `Ban note ${index}`,
     player: {
       steamid64: `765611980000${index.toString().padStart(5, "0")}`,
@@ -242,7 +242,7 @@ test("Bans page shows Add Ban flows to admins and refreshes after create", async
     },
     {
       ...buildBan(701, "manual"),
-      expires_on: "2026-01-01T12:00:00Z",
+      expires_at: "2026-01-01T12:00:00Z",
       notes: "Older expired manual ban",
       player: {
         steamid64: "76561198000099999",
@@ -269,7 +269,7 @@ test("Bans page shows Add Ban flows to admins and refreshes after create", async
           steamid64: "76561198000099999",
           display_name: "Picked Player",
         },
-        updated_by_id: "76561198000000042",
+        updated_by_steamid64: "76561198000000042",
       }
       banRows.unshift(createdBan)
       await route.fulfill({
@@ -339,7 +339,7 @@ test("Bans page shows Add Ban flows to admins and refreshes after create", async
     ban_type: "bhop_macro",
     notes: "Admin-created local ban",
   })
-  expect(createdBodies[0].expires_on).toEqual(expect.any(String))
+  expect(createdBodies[0].expires_at).toEqual(expect.any(String))
   expect(createdBodies[0]).not.toHaveProperty("stats")
   expect(createdBodies[0]).not.toHaveProperty("id")
 
@@ -376,4 +376,86 @@ test("Users without admin moderation rights do not see Add Ban entry points", as
   await page.goto("/bans")
 
   await expect(page.getByRole("button", { name: "Add Ban" })).toHaveCount(0)
+})
+
+test("Admin mode shows updater and allows editing and unbanning bans", async ({
+  page,
+}) => {
+  const patchBodies: Array<Record<string, unknown>> = []
+  const banRows = [
+    {
+      ...buildBan(1, "manual"),
+      notes: "Needs update",
+      updated_by_steamid64: "76561198000000042",
+      updated_by_player: {
+        steamid64: "76561198000000042",
+        display_name: "Viewer",
+      },
+    },
+  ]
+
+  await stubAuthedViewer(page, ["admin"])
+  await stubGraphqlPlayers(page)
+
+  await page.route("**/v1/bans*", async (route) => {
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON() as Record<string, unknown>
+      patchBodies.push(body)
+      banRows[0] = {
+        ...banRows[0],
+        ban_type: String(body.ban_type),
+        expires_at:
+          typeof body.expires_at === "string" || body.expires_at === null
+            ? body.expires_at
+            : banRows[0].expires_at,
+        notes: typeof body.notes === "string" ? body.notes : null,
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(banRows[0]),
+      })
+      return
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: banRows.length,
+        data: banRows,
+      }),
+    })
+  })
+
+  await page.goto("/bans")
+  await page.getByRole("button", { name: "Admin mode" }).click()
+
+  await expect(
+    page.getByRole("columnheader", { name: "Updated By" }),
+  ).toBeVisible()
+  await expect(page.getByText("Viewer", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Edit ban" }).click()
+  await expect(page.getByRole("heading", { name: "Edit Ban" })).toBeVisible()
+
+  await page.getByRole("combobox", { name: "Ban Type" }).click()
+  await page.getByRole("option", { name: "Other" }).click()
+  await page.getByRole("combobox", { name: "Length" }).click()
+  await page.getByRole("option", { name: "1 Month" }).click()
+  await page.getByRole("textbox", { name: "Notes" }).fill("Edited note")
+  await page.getByRole("button", { name: "Save" }).click()
+
+  await expect(patchBodies).toHaveLength(1)
+  await expect(patchBodies[0]).toMatchObject({
+    ban_type: "other",
+    notes: "Edited note",
+    expires_at: "2026-04-01T12:00:00.000Z",
+  })
+  await expect(page.getByText("Edited note", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Edit ban" }).click()
+  await page.getByRole("button", { name: "Unban" }).click()
+
+  await expect(patchBodies).toHaveLength(2)
+  expect(patchBodies[1].expires_at).toEqual("2026-02-28T12:00:00.000Z")
+  await expect(page.getByText("Unbanned", { exact: true })).toBeVisible()
 })

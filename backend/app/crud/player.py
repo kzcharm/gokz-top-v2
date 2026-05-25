@@ -601,8 +601,8 @@ async def search_players(
         select(Ban.uuid).where(
             col(Ban.steamid64) == col(Player.steamid64),
             or_(
-                col(Ban.expires_on).is_(None),
-                col(Ban.expires_on) >= datetime.now(UTC),
+                col(Ban.expires_at).is_(None),
+                col(Ban.expires_at) >= datetime.now(UTC),
             ),
         )
     )

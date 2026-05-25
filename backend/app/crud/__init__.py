@@ -7,6 +7,7 @@ from .ban import (
     to_ban_compat_public_v0,
     to_ban_list_item_public,
     to_ban_public,
+    update_ban,
 )
 from .jumpstat import (
     get_jumpstat_by_id,

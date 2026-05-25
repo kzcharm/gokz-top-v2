@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, cast
 
 from sqlalchemy import and_, exists, func, not_, or_
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,10 +16,13 @@ from app.models import (
     BanListItemPublic,
     BanListQuery,
     BanPublic,
+    BanUpdate,
     BanType,
     Player,
 )
 from app.models.utils import get_datetime_utc
+
+type BanReadRow = tuple[Ban, Player | None, Player | None]
 
 
 def _parse_ban_type_values(
@@ -53,8 +57,8 @@ def active_ban_exists_clause(
         select(Ban.uuid).where(
             col(Ban.steamid64) == steamid64_column,
             or_(
-                col(Ban.expires_on).is_(None),
-                col(Ban.expires_on) >= current_time,
+                col(Ban.expires_at).is_(None),
+                col(Ban.expires_at) >= current_time,
             ),
         )
     )
@@ -78,13 +82,13 @@ def not_active_ban_exists_split_clause(
         ~exists(
             select(Ban.uuid).where(
                 col(Ban.steamid64) == steamid64_column,
-                col(Ban.expires_on).is_(None),
+                col(Ban.expires_at).is_(None),
             )
         ),
         ~exists(
             select(Ban.uuid).where(
                 col(Ban.steamid64) == steamid64_column,
-                col(Ban.expires_on) >= current_time,
+                col(Ban.expires_at) >= current_time,
             )
         ),
     )
@@ -106,52 +110,90 @@ def to_ban_compat_public_v0(
     return BanCompatPublicV0(
         id=ban.id,
         ban_type=ban.ban_type,
-        expires_on=ban.expires_on,
+        expires_on=ban.expires_at,
         ip=ban.ip,
         steamid64=str(ban.steamid64),
         player_name=player_name,
         notes=ban.notes,
         stats=ban.stats,
         server_id=ban.server_id,
-        updated_by_id=ban.updated_by_id,
+        updated_by_id=(
+            str(ban.updated_by_steamid64)
+            if ban.updated_by_steamid64 is not None
+            else None
+        ),
         created_on=ban.created_at,
         updated_on=ban.updated_at,
     )
 
 
-def to_ban_public(*, ban: Ban, player: Player | None = None) -> BanPublic:
-    return BanPublic(
-        uuid=ban.uuid,
-        id=ban.id,
-        ban_type=ban.ban_type,
-        expires_on=ban.expires_on,
-        ip=ban.ip,
-        notes=ban.notes,
-        stats=ban.stats,
-        server_id=ban.server_id,
-        updated_by_id=ban.updated_by_id,
-        created_on=ban.created_at,
-        updated_on=ban.updated_at,
-        player=to_player_ref_public(player=player) if player is not None else None,
-    )
+def to_ban_public(
+    *,
+    ban: Ban,
+    player: Player | None = None,
+    updated_by_player: Player | None = None,
+    include_admin_fields: bool = False,
+) -> BanPublic:
+    payload: dict[str, Any] = {
+        "uuid": ban.uuid,
+        "id": ban.id,
+        "ban_type": ban.ban_type,
+        "expires_at": ban.expires_at,
+        "ip": ban.ip,
+        "notes": ban.notes,
+        "stats": ban.stats,
+        "server_id": ban.server_id,
+        "created_at": ban.created_at,
+        "updated_at": ban.updated_at,
+        "player": to_player_ref_public(player=player) if player is not None else None,
+    }
+    if include_admin_fields:
+        payload["updated_by_steamid64"] = (
+            str(ban.updated_by_steamid64)
+            if ban.updated_by_steamid64 is not None
+            else None
+        )
+        payload["updated_by_player"] = (
+            to_player_ref_public(player=updated_by_player)
+            if updated_by_player is not None
+            else None
+        )
+
+    return BanPublic(**payload)
 
 
 def to_ban_list_item_public(
-    *, ban: Ban, player: Player | None = None
+    *,
+    ban: Ban,
+    player: Player | None = None,
+    updated_by_player: Player | None = None,
+    include_admin_fields: bool = False,
 ) -> BanListItemPublic:
-    return BanListItemPublic(
-        uuid=ban.uuid,
-        ban_type=ban.ban_type,
-        expires_on=ban.expires_on,
-        ip=ban.ip,
-        notes=ban.notes,
-        stats=ban.stats,
-        server_id=ban.server_id,
-        updated_by_id=ban.updated_by_id,
-        created_on=ban.created_at,
-        updated_on=ban.updated_at,
-        player=to_player_ref_public(player=player) if player is not None else None,
-    )
+    payload: dict[str, Any] = {
+        "uuid": ban.uuid,
+        "ban_type": ban.ban_type,
+        "expires_at": ban.expires_at,
+        "ip": ban.ip,
+        "notes": ban.notes,
+        "stats": ban.stats,
+        "server_id": ban.server_id,
+        "created_at": ban.created_at,
+        "updated_at": ban.updated_at,
+        "player": to_player_ref_public(player=player) if player is not None else None,
+    }
+    if include_admin_fields:
+        payload["updated_by_steamid64"] = (
+            str(ban.updated_by_steamid64)
+            if ban.updated_by_steamid64 is not None
+            else None
+        )
+        payload["updated_by_player"] = (
+            to_player_ref_public(player=updated_by_player)
+            if updated_by_player is not None
+            else None
+        )
+
+    return BanListItemPublic(**payload)
 
 
 async def read_bans(
@@ -159,7 +201,8 @@ async def read_bans(
     session: AsyncSession,
     query: BanListQuery,
     external_only: bool = False,
-) -> tuple[list[tuple[Ban, Player | None]], int]:
+) -> tuple[list[BanReadRow], int]:
+    updated_by_player = aliased(Player)
     filters: list[ColumnElement[bool]] = []
     ban_type_values = _parse_ban_type_values(
         ban_types=query.ban_types,
@@ -174,13 +217,13 @@ async def read_bans(
     if query.is_expired is not None:
         now = get_datetime_utc()
         if query.is_expired:
-            filters.append(col(Ban.expires_on).is_not(None))
-            filters.append(col(Ban.expires_on) < now)
+            filters.append(col(Ban.expires_at).is_not(None))
+            filters.append(col(Ban.expires_at) < now)
         else:
             filters.append(
                 or_(
-                    col(Ban.expires_on).is_(None),
-                    col(Ban.expires_on) >= now,
+                    col(Ban.expires_at).is_(None),
+                    col(Ban.expires_at) >= now,
                 )
             )
 
@@ -203,9 +246,13 @@ async def read_bans(
 
     count_statement = select(func.count()).select_from(Ban)
     statement = (
-        select(Ban, Player)
+        select(Ban, Player, updated_by_player)
         .select_from(Ban)
         .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
+        .outerjoin(
+            updated_by_player,
+            col(updated_by_player.steamid64) == col(Ban.updated_by_steamid64),
+        )
     )
     for condition in filters:
         count_statement = count_statement.where(condition)
@@ -213,7 +260,7 @@ async def read_bans(
 
     count = (await session.exec(count_statement)).one()
     bans = cast(
-        list[tuple[Ban, Player | None]],
+        list[BanReadRow],
         list(
             (
                 await session.exec(
@@ -234,11 +281,16 @@ async def get_ban_by_uuid(
     *,
     session: AsyncSession,
     ban_uuid: uuid.UUID,
-) -> tuple[Ban, Player | None] | None:
+) -> BanReadRow | None:
+    updated_by_player = aliased(Player)
     statement = (
-        select(Ban, Player)
+        select(Ban, Player, updated_by_player)
         .select_from(Ban)
         .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
+        .outerjoin(
+            updated_by_player,
+            col(updated_by_player.steamid64) == col(Ban.updated_by_steamid64),
+        )
         .where(col(Ban.uuid) == ban_uuid)
     )
     return (await session.exec(statement)).first()
@@ -254,15 +306,33 @@ async def create_manual_ban(
     now = get_datetime_utc()
     ban = Ban(
         ban_type=body.ban_type,
-        expires_on=body.expires_on,
+        expires_at=body.expires_at,
         steamid64=steamid64,
         notes=body.notes,
         stats=body.stats,
-        updated_by_id=str(updated_by_steamid64),
+        updated_by_steamid64=updated_by_steamid64,
         created_at=now,
         updated_at=now,
         synced_at=now,
     )
+    session.add(ban)
+    await session.commit()
+    await session.refresh(ban)
+    return ban
+
+
+async def update_ban(
+    *,
+    session: AsyncSession,
+    ban: Ban,
+    body: BanUpdate,
+    updated_by_steamid64: int,
+) -> Ban:
+    ban.ban_type = body.ban_type
+    ban.expires_at = body.expires_at
+    ban.notes = body.notes
+    ban.updated_by_steamid64 = updated_by_steamid64
+    ban.updated_at = get_datetime_utc()
     session.add(ban)
     await session.commit()
     await session.refresh(ban)

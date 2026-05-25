@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from sqlalchemy import BigInteger, Column, DateTime, Index, Text, text
 from sqlalchemy import Enum as SQLAlchemyEnum
+from pydantic import AliasChoices
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
@@ -37,8 +38,9 @@ class BanBase(LegacyDatetimeNamesMixin):
             nullable=False,
         ),
     )
-    expires_on: datetime | None = Field(  # type: ignore[call-overload]
+    expires_at: datetime | None = Field(  # type: ignore[call-overload]
         default=None,
+        validation_alias=AliasChoices("expires_at", "expires_on"),
         sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
     )
     ip: str | None = Field(default=None, max_length=64)
@@ -52,7 +54,11 @@ class BanBase(LegacyDatetimeNamesMixin):
         sa_column=Column(Text, nullable=True),
     )
     server_id: int | None = None
-    updated_by_id: str | None = Field(default=None, max_length=32)
+    updated_by_steamid64: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("updated_by_steamid64", "updated_by_id"),
+        sa_type=BigInteger,
+    )
     created_at: datetime = Field(  # type: ignore[call-overload]
         default_factory=get_datetime_utc,
         validation_alias="created_on",
@@ -78,7 +84,7 @@ class Ban(BanBase, table=True):
             unique=True,
             postgresql_where=text("id IS NOT NULL"),
         ),
-        Index("ix_ban_steamid64_expires_on", "steamid64", "expires_on"),
+        Index("ix_ban_steamid64_expires_at", "steamid64", "expires_at"),
         Index("ix_ban_ban_type", "ban_type"),
         Index("ix_ban_server_id", "server_id"),
         Index("ix_ban_created_at", "created_at"),
@@ -92,9 +98,21 @@ class Ban(BanBase, table=True):
 class BanCreate(SQLModel):
     steamid64: str
     ban_type: BanType
-    expires_on: datetime | None = None
+    expires_at: datetime | None = Field(
+        default=None,
+        validation_alias=AliasChoices("expires_at", "expires_on"),
+    )
     notes: str | None = None
     stats: str | None = None
+
+
+class BanUpdate(SQLModel):
+    ban_type: BanType
+    expires_at: datetime | None = Field(
+        default=None,
+        validation_alias=AliasChoices("expires_at", "expires_on"),
+    )
+    notes: str | None = None
 
 
 class BanCompatPublicV0(SQLModel):
@@ -116,29 +134,31 @@ class BanPublic(SQLModel):
     uuid: uuid_pkg.UUID
     id: int | None = None
     ban_type: BanType
-    expires_on: datetime | None = None
+    expires_at: datetime | None = None
     ip: str | None = None
     notes: str | None = None
     stats: str | None = None
     server_id: int | None = None
-    updated_by_id: str | None = None
-    created_on: datetime
-    updated_on: datetime
+    updated_by_steamid64: str | None = None
+    created_at: datetime
+    updated_at: datetime
     player: PlayerRefPublic | None = None
+    updated_by_player: PlayerRefPublic | None = None
 
 
 class BanListItemPublic(SQLModel):
     uuid: uuid_pkg.UUID
     ban_type: BanType
-    expires_on: datetime | None = None
+    expires_at: datetime | None = None
     ip: str | None = None
     notes: str | None = None
     stats: str | None = None
     server_id: int | None = None
-    updated_by_id: str | None = None
-    created_on: datetime
-    updated_on: datetime
+    updated_by_steamid64: str | None = None
+    created_at: datetime
+    updated_at: datetime
     player: PlayerRefPublic | None = None
+    updated_by_player: PlayerRefPublic | None = None
 
 
 class BansPublic(SQLModel):

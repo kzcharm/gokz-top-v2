@@ -122,8 +122,8 @@ export type ProfileBan = {
   uuid: string
   id: number | null
   ban_type: string
-  created_on: string
-  expires_on?: string | null
+  created_at: string
+  expires_at?: string | null
   notes?: string | null
 }
 

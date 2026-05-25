@@ -870,7 +870,7 @@ export const BanCreateSchema = {
         ban_type: {
             '$ref': '#/components/schemas/BanType'
         },
-        expires_on: {
+        expires_at: {
             anyOf: [
                 {
                     type: 'string',
@@ -880,7 +880,7 @@ export const BanCreateSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Expires On'
+            title: 'Expires At'
         },
         notes: {
             anyOf: [
@@ -920,7 +920,7 @@ export const BanListItemPublicSchema = {
         ban_type: {
             '$ref': '#/components/schemas/BanType'
         },
-        expires_on: {
+        expires_at: {
             anyOf: [
                 {
                     type: 'string',
@@ -930,7 +930,7 @@ export const BanListItemPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Expires On'
+            title: 'Expires At'
         },
         ip: {
             anyOf: [
@@ -976,7 +976,7 @@ export const BanListItemPublicSchema = {
             ],
             title: 'Server Id'
         },
-        updated_by_id: {
+        updated_by_steamid64: {
             anyOf: [
                 {
                     type: 'string'
@@ -985,19 +985,29 @@ export const BanListItemPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Updated By Id'
+            title: 'Updated By Steamid64'
         },
-        created_on: {
+        created_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Created On'
+            title: 'Created At'
         },
-        updated_on: {
+        updated_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Updated On'
+            title: 'Updated At'
         },
         player: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        updated_by_player: {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/PlayerRefPublic'
@@ -1009,7 +1019,7 @@ export const BanListItemPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'ban_type', 'created_on', 'updated_on'],
+    required: ['uuid', 'ban_type', 'created_at', 'updated_at'],
     title: 'BanListItemPublic'
 } as const;
 
@@ -1034,7 +1044,7 @@ export const BanPublicSchema = {
         ban_type: {
             '$ref': '#/components/schemas/BanType'
         },
-        expires_on: {
+        expires_at: {
             anyOf: [
                 {
                     type: 'string',
@@ -1044,7 +1054,7 @@ export const BanPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Expires On'
+            title: 'Expires At'
         },
         ip: {
             anyOf: [
@@ -1090,7 +1100,7 @@ export const BanPublicSchema = {
             ],
             title: 'Server Id'
         },
-        updated_by_id: {
+        updated_by_steamid64: {
             anyOf: [
                 {
                     type: 'string'
@@ -1099,19 +1109,29 @@ export const BanPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Updated By Id'
+            title: 'Updated By Steamid64'
         },
-        created_on: {
+        created_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Created On'
+            title: 'Created At'
         },
-        updated_on: {
+        updated_at: {
             type: 'string',
             format: 'date-time',
-            title: 'Updated On'
+            title: 'Updated At'
         },
         player: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        updated_by_player: {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/PlayerRefPublic'
@@ -1123,7 +1143,7 @@ export const BanPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'ban_type', 'created_on', 'updated_on'],
+    required: ['uuid', 'ban_type', 'created_at', 'updated_at'],
     title: 'BanPublic'
 } as const;
 
@@ -1131,6 +1151,40 @@ export const BanTypeSchema = {
     type: 'string',
     enum: ['ban_evasion', 'bhop_hack', 'bhop_macro', 'exploiting', 'strafe_hack', 'strafe_macro', 'other'],
     title: 'BanType'
+} as const;
+
+export const BanUpdateSchema = {
+    properties: {
+        ban_type: {
+            '$ref': '#/components/schemas/BanType'
+        },
+        expires_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expires At'
+        },
+        notes: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Notes'
+        }
+    },
+    type: 'object',
+    required: ['ban_type'],
+    title: 'BanUpdate'
 } as const;
 
 export const BansPublicSchema = {

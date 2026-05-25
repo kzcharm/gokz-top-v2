@@ -129,18 +129,18 @@ async def _create_ban(
     ban_id: int,
     steamid64: int,
     ban_type: BanType = BanType.BHOP_HACK,
-    expires_on: datetime | None = None,
+    expires_at: datetime | None = None,
     notes: str | None = None,
 ) -> Ban:
     ban = Ban(
         id=ban_id,
         ban_type=ban_type,
-        expires_on=expires_on,
+        expires_at=expires_at,
         steamid64=steamid64,
         notes=notes,
         stats="stats",
         server_id=1,
-        updated_by_id="1",
+        updated_by_steamid64=1,
         created_at=datetime.now(UTC) - timedelta(days=1),
         updated_at=datetime.now(UTC) - timedelta(hours=1),
     )
@@ -358,7 +358,7 @@ async def test_search_players_ignores_active_ban_rating_tiebreaker(
         db=db,
         ban_id=9_820_001,
         steamid64=banned_player.steamid64,
-        expires_on=None,
+        expires_at=None,
     )
 
     response = await client.get(
@@ -2890,7 +2890,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
         db=db,
         ban_id=9_500,
         steamid64=player_steamid64,
-        expires_on=None,
+        expires_at=None,
         notes="locally active",
     )
     ban_id = ban.id
@@ -2958,7 +2958,7 @@ async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leader
     db.expire_all()
     refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
-    assert refreshed.expires_on == expired_at
+    assert refreshed.expires_at == expired_at
     assert refreshed.notes == "expired upstream"
 
 
@@ -2981,7 +2981,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
         db=db,
         ban_id=9_501,
         steamid64=player_steamid64,
-        expires_on=None,
+        expires_at=None,
     )
     ban_id = ban.id
     ban_uuid = ban.uuid
@@ -3048,7 +3048,7 @@ async def test_check_player_ban_status_keeps_active_ban_when_globalapi_still_rep
     db.expire_all()
     refreshed = await db.get(Ban, ban_uuid)
     assert refreshed is not None
-    assert refreshed.expires_on == future_expiry
+    assert refreshed.expires_at == future_expiry
 
 
 @pytest.mark.asyncio

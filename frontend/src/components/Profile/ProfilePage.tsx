@@ -497,7 +497,7 @@ export function ProfilePage({
 
   const activeBans = activeBanCountQuery.data?.data ?? []
   const activeBanCount = activeBanCountQuery.data?.count ?? 0
-  const hasPermanentBan = activeBans.some((ban) => ban.expires_on == null)
+  const hasPermanentBan = activeBans.some((ban) => ban.expires_at == null)
   const showBanWarning = activeBanCount > 0
   const showUnbanCheckButton = isOwnProfile && showBanWarning
   const profileTabsTrailingContent =
@@ -574,13 +574,13 @@ export function ProfilePage({
                     <span>{formatBanType(ban.ban_type)}</span>
                     <span className="text-muted-foreground">•</span>
                     <FormattedDateTime
-                      value={ban.created_on}
+                      value={ban.created_at}
                       display="absolute"
                       fallback={t("profile.unknownDate")}
                     />
                     <span className="text-muted-foreground">•</span>
                     <span>
-                      {ban.expires_on == null
+                      {ban.expires_at == null
                         ? t("profile.ban.permanent")
                         : t("profile.ban.temporary")}
                     </span>
