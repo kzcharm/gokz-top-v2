@@ -245,6 +245,10 @@ class PlayerProfileViewsPublic(SQLModel):
     profile_views: int = 0
 
 
+class PlayerLikesPublic(SQLModel):
+    player_likes: int = 0
+
+
 class PlayerBanStatusCheckPublic(SQLModel):
     message: str
     cleared_ban_count: int = 0

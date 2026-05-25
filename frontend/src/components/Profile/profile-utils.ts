@@ -7,6 +7,7 @@ import {
   type PlayerDetailPublic,
   type PlayerFollowSummaryPublic,
   PlayerFollowsService,
+  type PlayerLikesPublic,
   type PlayerProfileHistoryEntryPublic,
   type PlayerProfileHistoryPublic,
   type PlayerProfileViewsPublic,
@@ -70,6 +71,18 @@ export async function fetchProfileViews(identifier: string) {
   })
 }
 
+export async function fetchProfileLikes(identifier: string) {
+  return await PlayersService.readPlayerLikes({
+    identifier,
+  })
+}
+
+export async function createProfileLike(identifier: string) {
+  return await PlayersService.createPlayerLike({
+    identifier,
+  })
+}
+
 export function getProfileViewsQueryOptions(identifier: string | null) {
   return queryOptions({
     queryKey: ["profile-player-views", identifier],
@@ -79,6 +92,22 @@ export function getProfileViewsQueryOptions(identifier: string | null) {
       }
 
       return await fetchProfileViews(identifier)
+    },
+    enabled: identifier !== null,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+export function getProfileLikesQueryOptions(identifier: string | null) {
+  return queryOptions({
+    queryKey: ["profile-player-likes", identifier],
+    queryFn: async (): Promise<PlayerLikesPublic | null> => {
+      if (!identifier) {
+        return null
+      }
+
+      return await fetchProfileLikes(identifier)
     },
     enabled: identifier !== null,
     retry: false,

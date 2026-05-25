@@ -17,15 +17,15 @@ from app.api.v1.player_api_helpers import (
     parse_steamid64,
     resolve_player_identifier_to_steamid64_or_404,
 )
-from app.crud import player as player_crud
 from app.models import (
     JumpstatListQuery,
     JumpstatsPublic,
+    ModeScope,
     PlayerDailyActivityPublic,
     PlayerDetailPublic,
     PlayerFriendsPublic,
+    PlayerLikesPublic,
     PlayerMostPlayedServerPublic,
-    ModeScope,
     PlayerPinnedRecordsPublic,
     PlayerPlaytimePublic,
     PlayerProfileHistoryListQuery,
@@ -128,6 +128,25 @@ async def create_player_view(
     return PlayerProfileViewsPublic(profile_views=profile_views)
 
 
+@router.post("/{identifier:path}/likes", response_model=PlayerLikesPublic)
+async def create_player_like(
+    identifier: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerLikesPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    await crud.create_player_like(
+        session=session,
+        viewer_steamid64=current_user.steamid64,
+        target_steamid64=player.steamid64,
+    )
+    player_likes = await crud.count_player_likes(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return PlayerLikesPublic(player_likes=player_likes)
+
+
 @router.get("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)
 async def read_player_views(
     identifier: str,
@@ -139,6 +158,19 @@ async def read_player_views(
         target_steamid64=player.steamid64,
     )
     return PlayerProfileViewsPublic(profile_views=profile_views)
+
+
+@router.get("/{identifier:path}/likes", response_model=PlayerLikesPublic)
+async def read_player_likes(
+    identifier: str,
+    session: SessionDep,
+) -> PlayerLikesPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    player_likes = await crud.count_player_likes(
+        session=session,
+        target_steamid64=player.steamid64,
+    )
+    return PlayerLikesPublic(player_likes=player_likes)
 
 
 @router.get("/{identifier:path}/pinned-records", response_model=PlayerPinnedRecordsPublic)

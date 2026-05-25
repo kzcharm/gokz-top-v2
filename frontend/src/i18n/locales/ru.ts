@@ -57,6 +57,7 @@ export const ru = {
     lastPlayed: "Последняя игра",
     dateJoined: "Дата регистрации",
     profileViews: "Просмотры профиля",
+    likes: "Лайки",
     followers: "Подписчики",
     following: "Подписки",
     maps: "Карты",
@@ -259,6 +260,7 @@ export const ru = {
       playtime: "Время в игре",
       ljPb: "LJ PB",
       profileViews: "Просмотры профиля",
+      likes: "Лайки",
       followers: "Подписчики",
       following: "Подписки",
       global: "Глобально",
@@ -290,6 +292,9 @@ export const ru = {
       loadMore: "Загрузить ещё",
       pageHint:
         "Показывается до {{count}} игроков на страницу. Нажмите на любую строку, чтобы открыть профиль.",
+    },
+    likes: {
+      likeFailed: "Не удалось поставить лайк этому игроку.",
     },
     history: {
       menuAction: "История профиля",
