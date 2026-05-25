@@ -103,6 +103,7 @@ export const zhCN = {
   },
   footer: {
     joinDiscord: "加入我们的 Discord",
+    joinQqGroup: "加入我们的 QQ 群",
   },
   titles: {
     login: "登录",

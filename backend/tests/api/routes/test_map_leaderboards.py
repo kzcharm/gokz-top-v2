@@ -243,6 +243,24 @@ async def test_read_map_leaderboard_returns_metrics_and_zero_rows(
     assert beta_entry["updated_at"] is None
 
 
+async def test_read_map_leaderboard_hides_non_positive_ids(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_map(db, map_id=-1, name="map_-1", difficulty=0, validated=True)
+    await _create_map(db, map_id=2_140_000_100, name="kz_api_visible", difficulty=3)
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/maps",
+        params={"scope": "KZT"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [entry["map"]["id"] for entry in payload["data"]] == [2_140_000_100]
+
+
 async def test_put_map_leaderboards_supports_targeted_rebuild(
     client: AsyncClient,
     db: AsyncSession,

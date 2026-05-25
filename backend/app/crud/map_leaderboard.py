@@ -79,7 +79,7 @@ async def _load_target_map_ids(
             select(Map.id).where(col(Map.id) > 0).order_by(col(Map.id).asc())
         )
     ).all()
-    return [map_id for map_id in rows]
+    return list(rows)
 
 
 async def _build_map_leaderboard_values_for_scope(
@@ -303,6 +303,7 @@ async def read_map_leaderboard(
         await session.exec(
             select(Map)
             .where(col(Map.validated).is_(True))
+            .where(col(Map.id) > 0)
             .order_by(col(Map.name).asc(), col(Map.id).asc())
         )
     ).all()

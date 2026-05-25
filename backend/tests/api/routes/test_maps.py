@@ -328,6 +328,29 @@ async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> N
 
 
 @pytest.mark.asyncio
+async def test_read_maps_v1_hides_invalid_and_non_positive_ids(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_map(db, id=930210)
+    hidden_invalid = await _create_map(db, id=930211)
+    hidden_invalid.validated = False
+    db.add(hidden_invalid)
+    hidden_non_positive = await _create_map(db, id=-1)
+    await db.commit()
+    assert hidden_non_positive.id == -1
+
+    response = await client.get(f"{settings.API_V1_STR}/maps", params={"limit": 10000})
+
+    assert response.status_code == 200
+    payload = response.json()
+    returned_ids = {row["id"] for row in payload}
+    assert 930210 in returned_ids
+    assert 930211 not in returned_ids
+    assert -1 not in returned_ids
+
+
+@pytest.mark.asyncio
 async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     await _create_map(db, id=930201)
 

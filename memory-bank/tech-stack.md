@@ -146,6 +146,7 @@
 - Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
 - Frontend destructive actions should use the destructive red visual treatment consistently, including icon-only delete buttons in tables and settings surfaces.
 - Short frontend field titles and settings/tab labels should use title case in English copy, capitalizing the first letter of each word (for example `Steam Name`, `Social Links`, `Country / Region`).
+- Avoid filler UI copy that restates obvious page behavior or adds generic descriptive text without helping the user complete a task; only add explanatory copy when it conveys concrete, decision-relevant information.
 
 ## Local Admin Testing
 - For manual local browser testing of admin-only pages, do not enable `/v1/private/auth/session` by default.

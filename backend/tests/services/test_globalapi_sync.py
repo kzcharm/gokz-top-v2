@@ -454,6 +454,103 @@ async def test_run_globalapi_sync_tasks_records_state_for_record_filters(
     assert state.last_warnings == 2
 
 
+async def test_globalapi_sync_tasks_include_maps() -> None:
+    maps_task = next(
+        task for task in globalapi_sync.GLOBALAPI_SYNC_TASKS if task.task_name == "maps"
+    )
+    assert maps_task.schedule_hour_utc == globalapi_sync.settings.GLOBALAPI_MAPS_SYNC_HOUR_UTC
+    assert (
+        maps_task.stale_after_seconds
+        == globalapi_sync.settings.GLOBALAPI_MAPS_SYNC_STALE_AFTER_SECONDS
+    )
+
+
+async def test_run_globalapi_sync_tasks_runs_scheduled_maps_after_configured_hour(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    calls = 0
+    now = datetime(2026, 4, 4, 1, 5, tzinfo=UTC)
+    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "maps"))
+    await db.commit()
+
+    db.add(
+        GlobalApiSyncState(
+            task_name="maps",
+            last_successful_at=datetime(2026, 4, 3, 1, 5, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    async def _maps(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal calls
+        del session
+        calls += 1
+        return GlobalApiSyncResult(processed=1, created=1, updated=0, errors=0)
+
+    monkeypatch.setattr(globalapi_sync, "get_datetime_utc", lambda: now)
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (
+            globalapi_sync.GlobalApiSyncTask(
+                "maps",
+                86_400,
+                _maps,
+                schedule_hour_utc=1,
+                startup_stale_after_seconds=86_400,
+            ),
+        ),
+    )
+
+    await globalapi_sync.run_globalapi_sync_tasks(only_stale=True)
+    assert calls == 1
+
+
+async def test_run_globalapi_sync_tasks_runs_maps_on_startup_when_stale(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    calls = 0
+    now = datetime(2026, 4, 4, 0, 30, tzinfo=UTC)
+    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "maps"))
+    await db.commit()
+
+    db.add(
+        GlobalApiSyncState(
+            task_name="maps",
+            last_successful_at=datetime(2026, 4, 2, 23, 59, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    async def _maps(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal calls
+        del session
+        calls += 1
+        return GlobalApiSyncResult(processed=1, created=0, updated=1, errors=0)
+
+    monkeypatch.setattr(globalapi_sync, "get_datetime_utc", lambda: now)
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (
+            globalapi_sync.GlobalApiSyncTask(
+                "maps",
+                86_400,
+                _maps,
+                schedule_hour_utc=1,
+                startup_stale_after_seconds=86_400,
+            ),
+        ),
+    )
+
+    await globalapi_sync.run_globalapi_sync_tasks(only_stale=True, startup=True)
+    assert calls == 1
+
+
 async def test_run_globalapi_sync_tasks_runs_scheduled_record_filters_after_2am_utc(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,

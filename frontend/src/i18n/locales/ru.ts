@@ -104,6 +104,7 @@ export const ru = {
   },
   footer: {
     joinDiscord: "Присоединяйтесь к нам в Discord",
+    joinQqGroup: "Вступайте в нашу группу QQ",
   },
   titles: {
     login: "Вход",

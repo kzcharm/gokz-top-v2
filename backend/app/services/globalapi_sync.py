@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import GlobalApiSyncResult, GlobalApiSyncState, get_datetime_utc
 from app.services.globalapi_ban_sync import sync_bans_from_globalapi
+from app.services.globalapi_maps_sync import sync_maps_from_globalapi
 from app.services.globalapi_record_filter_sync import sync_record_filters_from_globalapi
 from app.services.globalapi_record_sync import sync_records_from_globalapi
 from app.services.globalapi_server_sync import sync_servers_from_globalapi
@@ -33,6 +34,13 @@ class GlobalApiSyncTask:
 
 
 GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
+    GlobalApiSyncTask(
+        task_name="maps",
+        stale_after_seconds=settings.GLOBALAPI_MAPS_SYNC_STALE_AFTER_SECONDS,
+        run=sync_maps_from_globalapi,
+        schedule_hour_utc=settings.GLOBALAPI_MAPS_SYNC_HOUR_UTC,
+        startup_stale_after_seconds=86_400,
+    ),
     GlobalApiSyncTask(
         task_name="servers",
         stale_after_seconds=settings.GLOBALAPI_SERVERS_SYNC_STALE_AFTER_SECONDS,

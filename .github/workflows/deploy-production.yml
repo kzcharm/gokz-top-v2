@@ -16,6 +16,7 @@ jobs:
     env:
       ENVIRONMENT: production
       DOMAIN: ${{ secrets.DOMAIN_PRODUCTION }}
+      FRONTEND_HOST_ALIASES: ${{ secrets.FRONTEND_HOST_ALIASES_PRODUCTION }}
       STACK_NAME: ${{ secrets.STACK_NAME_PRODUCTION }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
       SUPER_USER_STEAMID64: ${{ secrets.SUPER_USER_STEAMID64 }}
@@ -64,6 +65,21 @@ jobs:
 
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
           frontend_host_rule="Host(\`${DOMAIN}\`)"
+          backend_cors_origins="https://${DOMAIN},https://api.${DOMAIN},https://replay-viewer.kzcharm.com"
+
+          if [ -n "${FRONTEND_HOST_ALIASES:-}" ]; then
+            IFS=',' read -r -a frontend_host_aliases <<< "${FRONTEND_HOST_ALIASES}"
+            for host in "${frontend_host_aliases[@]}"; do
+              host="${host//[[:space:]]/}"
+              if [ -z "${host}" ]; then
+                continue
+              fi
+
+              frontend_host_rule="${frontend_host_rule} || Host(\`${host}\`)"
+              backend_cors_origins="${backend_cors_origins},https://${host}"
+            done
+          fi
+
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
           API_HOST=api.${DOMAIN}
@@ -74,7 +90,7 @@ jobs:
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
-          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://api.${DOMAIN},https://replay-viewer.kzcharm.com
+          BACKEND_CORS_ORIGINS=${backend_cors_origins}
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}
