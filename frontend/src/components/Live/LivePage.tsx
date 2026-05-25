@@ -199,12 +199,7 @@ export function LivePage() {
     <section className="space-y-6">
       <div className="flex items-center gap-3">
         <Radio className="size-5 text-muted-foreground" />
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">Live</h1>
-          <p className="text-sm text-muted-foreground">
-            All verified streams, with online players shown first.
-          </p>
-        </div>
+        <h1 className="text-3xl font-semibold tracking-tight">Live</h1>
       </div>
 
       {streamsQuery.isError ? (
