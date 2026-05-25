@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
 
 from .mode_scope import ModeScope
+from .user_role import UserRole
 from .utils import get_datetime_utc
 
 MAX_PLAYER_CUSTOM_ID_LENGTH = 25
@@ -192,13 +193,13 @@ class Player(PlayerBase, table=True):
 
 class PlayerPublic(PlayerBase):
     steamid64: str
-    is_website_user: bool = False
+    roles: list[UserRole] | None = None
     profile_views: int = 0
 
 
 class PlayerDetailPublic(PlayerBase):
     steamid64: str
-    is_website_user: bool = False
+    roles: list[UserRole] | None = None
 
 
 class PlayerRefPublic(SQLModel):

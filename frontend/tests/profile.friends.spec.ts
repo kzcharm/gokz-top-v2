@@ -74,7 +74,7 @@ const graphqlPlayersBySteamid64 = {
     country: "DE",
     primaryScope: "OVR",
     rating: 1500,
-    isWebsiteUser: false,
+    roles: null,
     lastPlayedAt: "2026-03-31T12:00:00Z",
   },
   [friendSteamid64]: {
@@ -87,7 +87,7 @@ const graphqlPlayersBySteamid64 = {
     country: "SE",
     primaryScope: "OVR",
     rating: 1100,
-    isWebsiteUser: false,
+    roles: null,
     lastPlayedAt: "2026-03-30T12:00:00Z",
   },
   "76561198000000003": {
@@ -100,7 +100,7 @@ const graphqlPlayersBySteamid64 = {
     country: "US",
     primaryScope: "OVR",
     rating: 1000,
-    isWebsiteUser: false,
+    roles: null,
     lastPlayedAt: "2026-03-05T12:00:00Z",
   },
   "76561198000000001": {
@@ -113,7 +113,7 @@ const graphqlPlayersBySteamid64 = {
     country: "CA",
     primaryScope: "OVR",
     rating: 2000,
-    isWebsiteUser: false,
+    roles: null,
     lastPlayedAt: "2026-03-10T12:00:00Z",
   },
   "76561198000000002": {
@@ -126,7 +126,7 @@ const graphqlPlayersBySteamid64 = {
     country: "DE",
     primaryScope: "OVR",
     rating: 500,
-    isWebsiteUser: false,
+    roles: null,
     lastPlayedAt: null,
   },
 } as const

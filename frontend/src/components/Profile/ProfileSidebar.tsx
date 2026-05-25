@@ -52,6 +52,10 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
+import {
+  getHighestPlayerPermission,
+  PLAYER_PERMISSION_RING_CLASS_NAMES,
+} from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -98,7 +102,8 @@ function ProfileIdentityCard({
   const { user } = useAuth()
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const avatarUrl = getAvatarUrl(player)
-  const showWebsiteUserRing = player.is_website_user === true
+  const highestPermission = getHighestPlayerPermission(player.roles)
+  const showRoleRing = highestPermission !== null
   const alias = player.alias?.trim() ?? ""
   const canonicalName = player.name.trim()
   const hasDistinctAlias =
@@ -172,14 +177,15 @@ function ProfileIdentityCard({
                     <button
                       type="button"
                       data-testid={
-                        showWebsiteUserRing
+                        showRoleRing
                           ? `profile-avatar-ring-${player.steamid64}`
                           : undefined
                       }
                       className={cn(
                         "relative flex h-32 w-32 cursor-zoom-in items-center justify-center overflow-hidden rounded-[28px] border border-white/40 bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 shadow-lg shadow-primary/15 transition-transform hover:scale-[1.02] focus-visible:outline-none",
-                        showWebsiteUserRing &&
-                          "ring-4 ring-pink-400/90 ring-offset-4 ring-offset-card",
+                        showRoleRing && "ring-4 ring-offset-4 ring-offset-card",
+                        highestPermission &&
+                          PLAYER_PERMISSION_RING_CLASS_NAMES[highestPermission],
                       )}
                       aria-label={t("profile.zoomAvatar", {
                         name: player.name,

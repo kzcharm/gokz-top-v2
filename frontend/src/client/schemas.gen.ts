@@ -2024,10 +2024,19 @@ export const LiveStreamPlayerPublicSchema = {
             ],
             title: 'Custom Id'
         },
-        is_website_user: {
-            type: 'boolean',
-            title: 'Is Website User',
-            default: false
+        roles: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Roles'
         }
     },
     type: 'object',
@@ -3221,10 +3230,19 @@ export const PlayerDetailPublicSchema = {
             type: 'string',
             title: 'Steamid64'
         },
-        is_website_user: {
-            type: 'boolean',
-            title: 'Is Website User',
-            default: false
+        roles: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Roles'
         }
     },
     type: 'object',
@@ -4014,10 +4032,19 @@ export const PlayerPublicSchema = {
             type: 'string',
             title: 'Steamid64'
         },
-        is_website_user: {
-            type: 'boolean',
-            title: 'Is Website User',
-            default: false
+        roles: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Roles'
         },
         profile_views: {
             type: 'integer',

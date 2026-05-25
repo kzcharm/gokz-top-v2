@@ -417,7 +417,7 @@ export type LiveStreamPlayerPublic = {
     avatar_hash?: (string | null);
     country?: (string | null);
     custom_id?: (string | null);
-    is_website_user?: boolean;
+    roles?: (Array<UserRole> | null);
 };
 
 export type LiveStreamsPublic = {
@@ -661,7 +661,7 @@ export type PlayerDetailPublic = {
     last_played_at?: (string | null);
     updated_at?: (string | null);
     steamid64: string;
-    is_website_user?: boolean;
+    roles?: (Array<UserRole> | null);
 };
 
 export type PlayerFollowSummaryPublic = {
@@ -816,7 +816,7 @@ export type PlayerPublic = {
     last_played_at?: (string | null);
     updated_at?: (string | null);
     steamid64: string;
-    is_website_user?: boolean;
+    roles?: (Array<UserRole> | null);
     profile_views?: number;
 };
 

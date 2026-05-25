@@ -25,15 +25,15 @@ function createAccessToken(steamid64: string) {
 
 function buildPlayer({
   alias,
-  isWebsiteUser = false,
   name,
   profileViews = 0,
+  roles = null,
   steamid64,
 }: {
   alias: string
-  isWebsiteUser?: boolean
   name: string
   profileViews?: number
+  roles?: string[] | null
   steamid64: string
 }) {
   return {
@@ -46,7 +46,7 @@ function buildPlayer({
     last_played_at: "2026-03-31T12:00:00Z",
     updated_at: "2026-03-31T12:00:00Z",
     steamid64,
-    is_website_user: isWebsiteUser,
+    roles,
     profile_views: profileViews,
   }
 }
@@ -260,14 +260,64 @@ test("Logged-out profile shows the shared player context menu without follow", a
   await expect(page.getByTestId("profile-follow-menu-item")).toHaveCount(0)
 })
 
-test("Profile avatar shows a pink ring for website users", async ({ page }) => {
+test("Profile avatar shows the user ring for website users", async ({
+  page,
+}) => {
   await installProfileRoutes({
     page,
     player: buildPlayer({
       steamid64: targetSteamid64,
       name: "Target Runner",
       alias: "Target Alias",
-      isWebsiteUser: true,
+      roles: [],
+    }),
+    summary: {
+      follower_count: 12,
+      following_count: 4,
+      viewer_is_following: null,
+      viewer_is_self: false,
+    },
+  })
+
+  await page.goto(`/profile/${targetSteamid64}`)
+
+  const avatar = page.getByTestId(`profile-avatar-ring-${targetSteamid64}`)
+  await expect(avatar).toBeVisible()
+  await expect(avatar).toHaveAttribute("class", /ring-pink-400\/90/)
+})
+
+test("Profile avatar ring uses the highest role color", async ({ page }) => {
+  await installProfileRoutes({
+    page,
+    player: buildPlayer({
+      steamid64: targetSteamid64,
+      name: "Target Runner",
+      alias: "Target Alias",
+      roles: ["server_owner", "admin"],
+    }),
+    summary: {
+      follower_count: 12,
+      following_count: 4,
+      viewer_is_following: null,
+      viewer_is_self: false,
+    },
+  })
+
+  await page.goto(`/profile/${targetSteamid64}`)
+
+  const avatar = page.getByTestId(`profile-avatar-ring-${targetSteamid64}`)
+  await expect(avatar).toBeVisible()
+  await expect(avatar).toHaveAttribute("class", /ring-\[#b91c1c\]\/90/)
+})
+
+test("Profile avatar has no ring for non-users", async ({ page }) => {
+  await installProfileRoutes({
+    page,
+    player: buildPlayer({
+      steamid64: targetSteamid64,
+      name: "Target Runner",
+      alias: "Target Alias",
+      roles: null,
     }),
     summary: {
       follower_count: 12,
@@ -281,7 +331,7 @@ test("Profile avatar shows a pink ring for website users", async ({ page }) => {
 
   await expect(
     page.getByTestId(`profile-avatar-ring-${targetSteamid64}`),
-  ).toBeVisible()
+  ).toHaveCount(0)
 })
 
 test("Logged-in user can follow another player and sees state update", async ({

@@ -32,7 +32,7 @@ function buildGraphqlPlayer(
     country,
     primaryScope: "OVR",
     rating: 1000,
-    isWebsiteUser: false,
+    roles: null,
     lastPlayedAt: null,
   }
 }

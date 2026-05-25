@@ -12,10 +12,11 @@ from app.api.deps import get_db
 from app.crud import player as player_crud
 from app.crud.leaderboard_player import load_player_ratings_by_scope
 from app.crud.player_profile_view import count_player_profile_views_batch
-from app.models import ModeScope, Player
+from app.models import ModeScope, Player, UserRole
 from app.models.leaderboard_player import scale_public_rating
 
 strawberry.enum(ModeScope, name="ModeScope")
+strawberry.enum(UserRole, name="UserRole")
 
 
 @strawberry.type
@@ -28,7 +29,7 @@ class PlayerGQL:
     avatar_hash: str | None
     country: str | None
     primary_scope: ModeScope
-    is_website_user: bool
+    roles: list[UserRole] | None
     last_played_at: str | None
     created_at: str | None
     updated_at: str | None
@@ -66,7 +67,7 @@ async def _to_graphql_players(
         return [None for _player in players]
 
     steamid64s = [player.steamid64 for player in existing_players]
-    website_user_steamid64s = await player_crud.load_website_user_steamid64s(
+    roles_by_steamid64 = await player_crud.load_player_roles_by_steamid64(
         session=session,
         steamid64s=steamid64s,
     )
@@ -89,7 +90,7 @@ async def _to_graphql_players(
             avatar_hash=player.avatar_hash,
             country=player.country,
             primary_scope=player.primary_scope,
-            is_website_user=player.steamid64 in website_user_steamid64s,
+            roles=roles_by_steamid64.get(player.steamid64),
             last_played_at=_serialize_datetime(player.last_played_at),
             created_at=_serialize_datetime(player.created_at),
             updated_at=_serialize_datetime(player.updated_at),

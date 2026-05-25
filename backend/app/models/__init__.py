@@ -337,12 +337,11 @@ from .user import (
     UserBase,
     UserCreate,
     UserPublic,
-    UserRole,
     UsersListQuery,
     UsersPublic,
     UserUpdate,
-    normalize_user_roles,
 )
+from .user_role import UserRole, normalize_user_roles
 from .utils import generate_uuid7, get_datetime_utc
 
 __all__ = [

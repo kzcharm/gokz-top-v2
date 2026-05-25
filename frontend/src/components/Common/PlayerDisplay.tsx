@@ -18,6 +18,7 @@ import type {
   MouseEvent,
   ReactNode,
   SVGProps,
+  UserRole,
 } from "react"
 import { Children, lazy, Suspense, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -55,7 +56,12 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { loadPlayerForDisplay } from "@/lib/player-graphql"
-import { canModerateBansAndRecords, isSuperuser } from "@/lib/user-roles"
+import {
+  canModerateBansAndRecords,
+  getHighestPlayerPermission,
+  isSuperuser,
+  PLAYER_PERMISSION_RING_CLASS_NAMES,
+} from "@/lib/user-roles"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
@@ -96,11 +102,10 @@ export type PlayerDisplayPlayer = {
   avatarHash?: string | null
   avatar_hash?: string | null
   country?: string | null
+  roles?: UserRole[] | null
   primaryScope?: ModeScope | null
   primary_scope?: ModeScope | null
   rating?: number | null
-  isWebsiteUser?: boolean
-  is_website_user?: boolean
   lastPlayedAt?: string | null
   last_played_at?: string | null
 }
@@ -150,12 +155,6 @@ type PlayerContextMenuItemsProps = {
   }
   steamProfileUrl: string | null
   steamid64: string
-}
-
-function hasWebsiteUserAvatarRing(
-  player: PlayerDisplayProps["player"],
-): boolean {
-  return player?.isWebsiteUser === true || player?.is_website_user === true
 }
 
 export function getPlayerDisplayName(
@@ -217,8 +216,7 @@ function shouldHydratePlayer(
     Boolean(player.name?.trim())
   const hasCountry = Boolean(player.country?.trim())
   const hasAvatarHash = Boolean(getPlayerAvatarHash(player))
-  const hasWebsiteUserState =
-    player.isWebsiteUser !== undefined || player.is_website_user !== undefined
+  const hasRoleState = player.roles !== undefined
   const hasPrimaryScope =
     player.primaryScope !== undefined || player.primary_scope !== undefined
   const hasRating = player.rating !== undefined && player.rating !== null
@@ -227,7 +225,7 @@ function shouldHydratePlayer(
     !hasDisplayName ||
     !hasCountry ||
     !hasAvatarHash ||
-    !hasWebsiteUserState ||
+    !hasRoleState ||
     !hasPrimaryScope ||
     !hasRating
   )
@@ -484,7 +482,8 @@ export function PlayerDisplay({
           ...hydrationQuery.data,
         }
       : undefined
-  const showWebsiteUserRing = hasWebsiteUserAvatarRing(resolvedPlayer)
+  const highestPermission = getHighestPlayerPermission(resolvedPlayer?.roles)
+  const showRoleRing = highestPermission !== null
   const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
   const displayName = getPlayerDisplayName(resolvedPlayer, steamid64)
   const truncatedDisplayName = truncateText(displayName, nameMaxLength)
@@ -657,14 +656,13 @@ export function PlayerDisplay({
         {showAvatar ? (
           <Avatar
             data-testid={
-              showWebsiteUserRing
-                ? `player-avatar-ring-${steamid64}`
-                : undefined
+              showRoleRing ? `player-avatar-ring-${steamid64}` : undefined
             }
             className={cn(
               "size-8 rounded-lg transition-transform duration-200",
-              showWebsiteUserRing &&
-                "ring-2 ring-pink-400/90 ring-offset-2 ring-offset-background",
+              showRoleRing && "ring-2 ring-offset-2 ring-offset-background",
+              highestPermission &&
+                PLAYER_PERMISSION_RING_CLASS_NAMES[highestPermission],
               hasProfileLink &&
                 "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
             )}

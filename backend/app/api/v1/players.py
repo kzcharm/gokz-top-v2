@@ -99,7 +99,7 @@ async def search_players(
 async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> Any:
     steamid64s = [parse_steamid64(steamid64) for steamid64 in body.steamid64s]
     players = await crud.read_players_batch(session=session, steamid64s=steamid64s)
-    website_user_steamid64s = await crud.load_website_user_steamid64s(
+    roles_by_steamid64 = await crud.load_player_roles_by_steamid64(
         session=session,
         steamid64s=[player.steamid64 for player in players if player is not None],
     )
@@ -107,7 +107,7 @@ async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> 
         (
             crud.to_player_public(
                 player=player,
-                is_website_user=player.steamid64 in website_user_steamid64s,
+                roles=roles_by_steamid64.get(player.steamid64),
             )
             if player
             else None
@@ -395,13 +395,13 @@ async def read_player(
             sync_player_steam_profile_if_due,
             steamid64=player.steamid64,
         )
-    website_user_steamid64s = await crud.load_website_user_steamid64s(
+    roles_by_steamid64 = await crud.load_player_roles_by_steamid64(
         session=session,
         steamid64s=[player.steamid64],
     )
     return crud.to_player_detail_public(
         player=player,
-        is_website_user=player.steamid64 in website_user_steamid64s,
+        roles=roles_by_steamid64.get(player.steamid64),
     )
 
 

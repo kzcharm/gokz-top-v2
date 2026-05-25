@@ -343,10 +343,7 @@ export function MapsCatalog() {
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
     return searchableMaps.flatMap(({ map, normalizedName }) => {
-      if (
-        normalizedQuery !== "" &&
-        !normalizedName.includes(normalizedQuery)
-      ) {
+      if (normalizedQuery !== "" && !normalizedName.includes(normalizedQuery)) {
         return []
       }
 
@@ -402,7 +399,7 @@ export function MapsCatalog() {
     startTransition(() => {
       setPage(1)
     })
-  }, [deferredSearch, page, selectedTier])
+  }, [page])
 
   const visibleMaps = useMemo(() => {
     const startIndex = (page - 1) * PAGE_SIZE

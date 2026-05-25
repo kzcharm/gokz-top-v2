@@ -630,7 +630,7 @@ function adminPlayerSessionPayload({
       created_at: "2026-04-01T00:00:00Z",
       last_played_at: "2026-04-28T12:00:00Z",
       updated_at: "2026-04-28T12:00:00Z",
-      is_website_user: false,
+      roles: null,
       profile_views: 0,
     },
     server_group_id: "01966858-7280-7000-8000-000000000010",

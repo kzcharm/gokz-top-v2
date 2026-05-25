@@ -1,6 +1,4 @@
-from collections.abc import Iterable
 from datetime import datetime
-from enum import StrEnum
 from typing import Literal
 
 from sqlalchemy import BigInteger, Column, DateTime
@@ -9,36 +7,12 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
 
 from .player import Player, PlayerRefPublic
+from .user_role import UserRole
 from .utils import get_datetime_utc
 
 
-def _enum_values(enum_class: type[StrEnum]) -> list[str]:
+def _enum_values(enum_class: type[UserRole]) -> list[str]:
     return [member.value for member in enum_class]
-
-
-class UserRole(StrEnum):
-    SUPERUSER = "superuser"
-    ADMIN = "admin"
-    MAP_ADMIN = "map_admin"
-    SERVER_OWNER = "server_owner"
-
-
-USER_ROLE_ORDER: tuple[UserRole, ...] = (
-    UserRole.SUPERUSER,
-    UserRole.ADMIN,
-    UserRole.MAP_ADMIN,
-    UserRole.SERVER_OWNER,
-)
-
-
-def normalize_user_roles(
-    roles: Iterable[UserRole | str] | None,
-) -> list[UserRole]:
-    if roles is None:
-        return []
-
-    role_set = {role if isinstance(role, UserRole) else UserRole(role) for role in roles}
-    return [role for role in USER_ROLE_ORDER if role in role_set]
 
 
 class UserBase(SQLModel):

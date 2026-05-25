@@ -194,7 +194,7 @@ async def test_read_players_public_with_offset_and_limit(
     assert len(first_payload["data"]) == 3
     assert len(second_payload["data"]) == 2
     assert second_payload["data"] == first_payload["data"][1:3]
-    assert all("is_website_user" in item for item in first_payload["data"])
+    assert all("roles" in item for item in first_payload["data"])
 
 
 @pytest.mark.asyncio
@@ -665,7 +665,7 @@ async def test_read_player_views_returns_profile_view_count(
 
 
 @pytest.mark.asyncio
-async def test_read_player_includes_is_website_user(
+async def test_read_player_includes_roles_for_website_user(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -688,7 +688,34 @@ async def test_read_player_includes_is_website_user(
     )
 
     assert response.status_code == 200
-    assert response.json()["is_website_user"] is True
+    assert response.json()["roles"] == []
+
+
+@pytest.mark.asyncio
+async def test_read_player_includes_ordered_roles_for_elevated_user(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    elevated_user = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Elevated User Player",
+    )
+    db.add(
+        User(
+            steamid64=elevated_user.steamid64,
+            is_active=True,
+            roles=["server_owner", "superuser", "admin"],
+        )
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{elevated_user.steamid64}"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["roles"] == ["superuser", "admin", "server_owner"]
 
 
 @pytest.mark.asyncio
@@ -1022,7 +1049,7 @@ async def test_update_player_identity_fields_skips_noop_history(
 
 
 @pytest.mark.asyncio
-async def test_read_players_list_includes_is_website_user(
+async def test_read_players_list_includes_roles(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -1054,8 +1081,8 @@ async def test_read_players_list_includes_is_website_user(
     players_by_id = {
         item["steamid64"]: item for item in response.json()["data"]
     }
-    assert players_by_id[str(website_user.steamid64)]["is_website_user"] is True
-    assert players_by_id[str(plain_player.steamid64)]["is_website_user"] is False
+    assert players_by_id[str(website_user.steamid64)]["roles"] == []
+    assert players_by_id[str(plain_player.steamid64)]["roles"] is None
 
 
 @pytest.mark.asyncio
