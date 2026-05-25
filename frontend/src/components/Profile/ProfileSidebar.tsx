@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Copy, Eye, Search, UserRoundCheck, X } from "lucide-react"
+import { Copy, Eye, InfoIcon, Search, UserRoundCheck, X } from "lucide-react"
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -975,9 +975,27 @@ export function ProfileSidebar({
         <Card className="h-full min-w-0 gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
           <CardContent className="space-y-5 p-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                {t("profile.skillRadar.title")}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  {t("profile.skillRadar.title")}
+                </p>
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t(
+                        "profile.skillRadar.placeholderTooltipAria",
+                      )}
+                      className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <InfoIcon className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={8} className="max-w-56">
+                    {t("profile.skillRadar.placeholderTooltip")}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
             <SkillRadar />
           </CardContent>

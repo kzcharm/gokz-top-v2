@@ -263,6 +263,8 @@ export const zhCN = {
     skillRadar: {
       title: "技能雷达",
       ariaLabel: "个人主页技能雷达图",
+      placeholderTooltip: "这个区域目前显示的是占位数据。",
+      placeholderTooltipAria: "显示技能区域占位提示",
       boxtech: "Boxtech",
       strafe: "加速",
       bhop: "Bhop",

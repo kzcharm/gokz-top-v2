@@ -268,6 +268,9 @@ export const ru = {
     skillRadar: {
       title: "Радар навыков",
       ariaLabel: "Радар навыков профиля",
+      placeholderTooltip: "Этот раздел сейчас показывает заглушку.",
+      placeholderTooltipAria:
+        "Показать уведомление о заглушке в разделе навыков",
       boxtech: "Boxtech",
       strafe: "Стрейф",
       bhop: "Bhop",

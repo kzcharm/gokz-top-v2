@@ -267,6 +267,8 @@ export const en = {
     skillRadar: {
       title: "Skills",
       ariaLabel: "Profile skill radar",
+      placeholderTooltip: "This section currently shows placeholder data.",
+      placeholderTooltipAria: "Show skills placeholder notice",
       boxtech: "Boxtech",
       strafe: "Strafe",
       bhop: "Bhop",
