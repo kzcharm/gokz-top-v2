@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Calculator, LocateFixed, Users } from "lucide-react"
 import type { ReactNode } from "react"
@@ -27,6 +26,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Select,
   SelectContent,
@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LoadingButton } from "@/components/ui/loading-button"
 import useAuth from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatNumber, getLocale } from "@/i18n/locale"
@@ -446,22 +445,37 @@ export function MapDetailPage({
   })
   const rebuildPbPointsBucketMutation = useMutation({
     mutationFn: async () => {
-      return await RecordsService.rebuildPbPointsBucket({
-        mapId: mapQuery.data!.id,
-        stage: 0,
-        scope,
-        type: isProOnly ? "PRO" : "NUB",
-      })
+      const [nubResponse, proResponse] = await Promise.all([
+        RecordsService.rebuildPbPointsBucket({
+          mapId: mapQuery.data!.id,
+          stage: 0,
+          scope,
+          type: "NUB",
+        }),
+        RecordsService.rebuildPbPointsBucket({
+          mapId: mapQuery.data!.id,
+          stage: 0,
+          scope,
+          type: "PRO",
+        }),
+      ])
+
+      return {
+        nubUpdatedCount: nubResponse.updated_count,
+        proUpdatedCount: proResponse.updated_count,
+        updatedCount: nubResponse.updated_count + proResponse.updated_count,
+      }
     },
     onSuccess: async (response) => {
       showSuccessToast(
-        response.updated_count === 1
-          ? "Recomputed PB points for 1 row."
-          : `Recomputed PB points for ${response.updated_count} rows.`,
+        response.updatedCount === 1
+          ? "Recomputed PB points for 1 row across NUB and PRO."
+          : `Recomputed PB points for ${response.updatedCount} rows across NUB and PRO.`,
       )
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["map", "leaderboard"] }),
         queryClient.invalidateQueries({ queryKey: ["map", "wrs"] }),
+        queryClient.invalidateQueries({ queryKey: ["map", "stats"] }),
       ])
     },
     onError: (error) => {

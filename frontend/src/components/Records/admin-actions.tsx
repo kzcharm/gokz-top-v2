@@ -72,8 +72,8 @@ export function useRecordAdminActions() {
     onSuccess: (response) => {
       showSuccessToast(
         response.count === 1
-          ? "Deleted 1 course record."
-          : `Deleted ${response.count} course records.`,
+          ? "Deleted 1 record."
+          : `Deleted ${response.count} records.`,
       )
       invalidateAll()
     },
@@ -119,8 +119,7 @@ export function DeleteCourseRecordsButton({
         <DialogHeader>
           <DialogTitle>Delete course records?</DialogTitle>
           <DialogDescription>
-            This will soft-delete all records for{" "}
-            {buildCourseDeleteLabel(record)}.
+            This will delete all records for {buildCourseDeleteLabel(record)}.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
