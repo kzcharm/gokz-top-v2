@@ -187,7 +187,7 @@ async def test_connect_returns_localized_chinese_ban_enforcement_message(
         session_id=str(generate_uuid7(timestamp=connected_at)),
         steamid64=steamid64,
         connected_at=connected_at,
-        client_language="chi",
+        client_language="schinese",
     )
 
     assert payload["ban_enforcement"]["kick_message"] == (

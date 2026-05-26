@@ -26,9 +26,19 @@ BAN_APPEAL_URL = "https://kzcharm.com/bans"
 
 def _normalize_kick_message_language(client_language: str | None) -> str:
     language = (client_language or "").strip().lower()
-    if language in {"chi", "zh", "zh-cn", "zh-hans", "zh-hant", "zho"}:
+    if language in {
+        "chi",
+        "chinese",
+        "schinese",
+        "tchinese",
+        "zh",
+        "zh-cn",
+        "zh-hans",
+        "zh-hant",
+        "zho",
+    }:
         return "chi"
-    if language in {"ru", "rus"}:
+    if language in {"ru", "rus", "russian"}:
         return "ru"
     return "en"
 
