@@ -152,7 +152,7 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
             select(
                 RecordPb.course_id,
                 RecordPb.scope,
-                RecordPb.is_pro_only,
+                RecordPb.type,
                 RecordPb.steamid64,
             )
             .join(Record, Record.uuid == RecordPb.record_uuid)
@@ -163,7 +163,7 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
             .order_by(
                 col(RecordPb.course_id).asc(),
                 col(RecordPb.scope).asc(),
-                col(RecordPb.is_pro_only).asc(),
+                col(RecordPb.type).asc(),
                 col(RecordPb.steamid64).asc(),
             )
         )
@@ -171,20 +171,20 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
 
     point_buckets = sorted(
         {
-            (course_id, scope.scope_id, RecordType.PRO if is_pro_only else RecordType.NUB)
-            for course_id, scope, is_pro_only, _steamid64 in rows
+            (course_id, scope.scope_id, record_type)
+            for course_id, scope, record_type, _steamid64 in rows
         }
     )
     leaderboard_keys = sorted(
         {
             (scope.scope_id, steamid64)
-            for _course_id, scope, _is_pro_only, steamid64 in rows
+            for _course_id, scope, _record_type, steamid64 in rows
         }
     )
     steamid64s = sorted(
         {
             steamid64
-            for _course_id, _scope_id, _is_pro_only, steamid64 in rows
+            for _course_id, _scope_id, _record_type, steamid64 in rows
         }
     )
     map_leaderboard_keys = await crud.load_changed_map_leaderboard_keys(

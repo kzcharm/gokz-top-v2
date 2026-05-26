@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Plus, ShieldAlert } from "lucide-react"
+import { Plus, Search, ShieldAlert, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { OpenAPI } from "@/client/core/OpenAPI"
@@ -10,6 +10,7 @@ import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import useAuth from "@/hooks/useAuth"
 import type { GraphqlPlayer } from "@/lib/player-graphql"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
@@ -30,10 +31,12 @@ const DEFAULT_PAGE_SIZE = 20
 async function fetchBans({
   pageIndex,
   pageSize,
+  q,
   steamid64,
 }: {
   pageIndex: number
   pageSize: number
+  q?: string | null
   steamid64?: string | null
 }) {
   const accessToken = localStorage.getItem("access_token")
@@ -43,6 +46,9 @@ async function fetchBans({
   })
   if (steamid64) {
     params.set("steamid64", steamid64)
+  }
+  if (q?.trim()) {
+    params.set("q", q.trim())
   }
   const response = await fetch(`${OpenAPI.BASE}/v1/bans?${params.toString()}`, {
     credentials: OpenAPI.CREDENTIALS,
@@ -55,7 +61,11 @@ async function fetchBans({
   return (await response.json()) as BansResponse
 }
 
-export function BansPage() {
+export function BansPage({
+  initialSearchQuery,
+}: {
+  initialSearchQuery: string
+}) {
   const { user } = useAuth()
   const { enabled: adminModeEnabled } = useAdminMode()
   const [pageIndex, setPageIndex] = useState(0)
@@ -64,24 +74,47 @@ export function BansPage() {
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const [editBanDialogOpen, setEditBanDialogOpen] = useState(false)
   const [editingBan, setEditingBan] = useState<BanRow | null>(null)
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [selectedPlayer, setSelectedPlayer] = useState<GraphqlPlayer | null>(
     null,
   )
+  const normalizedSearchQuery = searchQuery.trim()
 
   const bansQuery = useQuery({
-    queryKey: ["bans", pageIndex, pageSize, selectedPlayer?.steamid64 ?? null],
+    queryKey: [
+      "bans",
+      pageIndex,
+      pageSize,
+      selectedPlayer?.steamid64 ?? null,
+      normalizedSearchQuery || null,
+    ],
     queryFn: () =>
       fetchBans({
         pageIndex,
         pageSize,
+        q: normalizedSearchQuery || null,
         steamid64: selectedPlayer?.steamid64 ?? null,
       }),
     staleTime: 30_000,
   })
 
   useEffect(() => {
+    setSearchQuery(initialSearchQuery)
+  }, [initialSearchQuery])
+
+  useEffect(() => {
+    const result = bansQuery.data
+    if (
+      normalizedSearchQuery &&
+      result?.count === 1 &&
+      result.data.length === 1
+    ) {
+      setExpandedBanUuid(result.data[0].uuid)
+      return
+    }
+
     setExpandedBanUuid(null)
-  }, [])
+  }, [bansQuery.data, normalizedSearchQuery])
 
   if (bansQuery.isError) {
     return (
@@ -129,6 +162,16 @@ export function BansPage() {
     setPageIndex(0)
   }
 
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query)
+    const normalized = query.trim()
+    const nextUrl = normalized
+      ? `/bans?q=${encodeURIComponent(normalized)}`
+      : "/bans"
+    window.history.replaceState(null, "", nextUrl)
+    setPageIndex(0)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -148,6 +191,28 @@ export function BansPage() {
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+            <div className="relative w-full lg:max-w-[22rem]">
+              <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+              <Input
+                aria-label="Search bans"
+                className="pr-9 pl-9"
+                placeholder="Search bans ..."
+                value={searchQuery}
+                onChange={(event) => handleSearchQueryChange(event.target.value)}
+              />
+              {searchQuery ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="-translate-y-1/2 absolute top-1/2 right-1 size-7"
+                  aria-label="Clear ban search"
+                  onClick={() => handleSearchQueryChange("")}
+                >
+                  <X className="size-4" />
+                </Button>
+              ) : null}
+            </div>
             <div className="w-full lg:max-w-[18rem]">
               <PlayerSearchSelect
                 ariaLabel="Search players"

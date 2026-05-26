@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app import crud
 from app.core.db import async_session_maker
-from app.models import ModeScope
+from app.models import ModeScope, RecordType
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class RecordPbBucket:
     course_id: int
     map_id: int
     stage: int
-    is_pro_only: bool
+    type: RecordType
     expected_rows: int
     existing_rows: int
 
@@ -42,7 +42,7 @@ class RecordPbBucket:
 
     @property
     def category_name(self) -> str:
-        return "PRO" if self.is_pro_only else "NUB"
+        return self.type.value
 
     @property
     def label(self) -> str:
@@ -117,7 +117,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         SELECT
                             scope_modes.scope,
                             map_course.id AS course_id,
-                            FALSE AS is_pro_only,
+                            'NUB'::record_type AS type,
                             COUNT(DISTINCT record.steamid64)::bigint AS expected_rows
                         FROM record
                         JOIN map_course
@@ -136,7 +136,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         SELECT
                             scope_modes.scope,
                             map_course.id AS course_id,
-                            TRUE AS is_pro_only,
+                            'PRO'::record_type AS type,
                             COUNT(DISTINCT record.steamid64)::bigint AS expected_rows
                         FROM record
                         JOIN map_course
@@ -155,30 +155,30 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         SELECT
                             record_pb.scope,
                             record_pb.course_id,
-                            record_pb.is_pro_only,
+                            record_pb.type,
                             COUNT(*)::bigint AS existing_rows
                         FROM record_pb
-                        GROUP BY record_pb.scope, record_pb.course_id, record_pb.is_pro_only
+                        GROUP BY record_pb.scope, record_pb.course_id, record_pb.type
                     ),
                     combined_counts AS (
                         SELECT
                             COALESCE(expected_counts.scope, existing_counts.scope) AS scope,
                             COALESCE(expected_counts.course_id, existing_counts.course_id) AS course_id,
-                            COALESCE(expected_counts.is_pro_only, existing_counts.is_pro_only) AS is_pro_only,
+                            COALESCE(expected_counts.type, existing_counts.type) AS type,
                             COALESCE(expected_counts.expected_rows, 0)::bigint AS expected_rows,
                             COALESCE(existing_counts.existing_rows, 0)::bigint AS existing_rows
                         FROM expected_counts
                         FULL OUTER JOIN existing_counts
                             ON existing_counts.scope = expected_counts.scope
                             AND existing_counts.course_id = expected_counts.course_id
-                            AND existing_counts.is_pro_only = expected_counts.is_pro_only
+                            AND existing_counts.type = expected_counts.type
                     )
                     SELECT
                         combined_counts.scope,
                         combined_counts.course_id,
                         map_course.map_id,
                         map_course.stage,
-                        combined_counts.is_pro_only,
+                        combined_counts.type,
                         combined_counts.expected_rows,
                         combined_counts.existing_rows
                     FROM combined_counts
@@ -190,7 +190,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
                         map_course.map_id,
                         map_course.stage,
                         combined_counts.scope,
-                        combined_counts.is_pro_only
+                        combined_counts.type
                     """
                 ),
                 {"force_all": force_all},
@@ -203,11 +203,11 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
             course_id=course_id,
             map_id=map_id,
             stage=stage,
-            is_pro_only=is_pro_only,
+            type=RecordType(record_type),
             expected_rows=int(expected_rows),
             existing_rows=int(existing_rows),
         )
-        for scope, course_id, map_id, stage, is_pro_only, expected_rows, existing_rows in rows
+        for scope, course_id, map_id, stage, record_type, expected_rows, existing_rows in rows
     ]
 
 
@@ -222,7 +222,7 @@ def format_bucket_plan(*, buckets: list[RecordPbBucket]) -> str:
             f"{bucket.course_id}\t"
             f"{bucket.map_id}\t"
             f"{bucket.stage}\t"
-            f"{str(bucket.is_pro_only).lower()}\t"
+            f"{bucket.category_name}\t"
             f"{bucket.expected_rows}\t"
             f"{bucket.existing_rows}"
         )

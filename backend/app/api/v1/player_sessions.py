@@ -5,8 +5,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.api.deps import SessionDep
+from app.core.config import settings
 from app.models import (
+    Ban,
+    PlayerSessionBanEnforcementBanPublic,
+    PlayerSessionBanEnforcementPublic,
     PlayerSessionConnect,
+    PlayerSessionConnectPublic,
     PlayerSessionDisconnect,
     PlayerSessionHeartbeat,
     PlayerSessionPublic,
@@ -15,6 +20,27 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/player-sessions", tags=["player-sessions"])
+
+BAN_APPEAL_URL = "https://kzcharm.com/bans"
+
+
+def _normalize_kick_message_language(client_language: str | None) -> str:
+    language = (client_language or "").strip().lower()
+    if language in {
+        "chi",
+        "chinese",
+        "schinese",
+        "tchinese",
+        "zh",
+        "zh-cn",
+        "zh-hans",
+        "zh-hant",
+        "zho",
+    }:
+        return "chi"
+    if language in {"ru", "rus", "russian"}:
+        return "ru"
+    return "en"
 
 
 def _resolve_server_group_api_key(
@@ -55,7 +81,52 @@ async def _get_server_group_from_api_key(
     return group
 
 
-@router.post("/connect", response_model=PlayerSessionPublic)
+def _ban_enforcement_for_ban(
+    *,
+    ban: Ban,
+    client_language: str | None,
+) -> PlayerSessionBanEnforcementPublic:
+    detail_url = f"{settings.FRONTEND_HOST.rstrip('/')}/bans?q={ban.uuid}"
+    ban_type = ban.ban_type.value
+    expires_at = ban.expires_at.date().isoformat() if ban.expires_at else None
+    reason = ban.notes.strip() if ban.notes and ban.notes.strip() else "-"
+    language = _normalize_kick_message_language(client_language)
+    kick_message_lines = {
+        "en": (
+            "You are banned from this server and cannot join!",
+            f"Ban type: {ban_type}",
+            f"Expires: {expires_at or 'permanent'}",
+            f"Reason: {reason}",
+            f"Appeal: visit {BAN_APPEAL_URL}",
+        ),
+        "chi": (
+            "您已被服务器封禁，禁止进入服务器！",
+            f"封禁类型：{ban_type}",
+            f"到期时间：{expires_at or '永久'}",
+            f"封禁原因：{reason}",
+            f"申诉解封：请访问 {BAN_APPEAL_URL}",
+        ),
+        "ru": (
+            "Вам запрещен вход на этот сервер!",
+            f"Тип блокировки: {ban_type}",
+            f"Истекает: {expires_at or 'навсегда'}",
+            f"Причина: {reason}",
+            f"Апелляция: посетите {BAN_APPEAL_URL}",
+        ),
+    }
+    kick_message = "\n".join(kick_message_lines[language])
+    return PlayerSessionBanEnforcementPublic(
+        ban=PlayerSessionBanEnforcementBanPublic(
+            uuid=ban.uuid,
+            ban_type=ban.ban_type,
+            expires_at=ban.expires_at,
+        ),
+        detail_url=detail_url,
+        kick_message=kick_message,
+    )
+
+
+@router.post("/connect", response_model=PlayerSessionConnectPublic)
 async def connect_player_session(
     *,
     session: SessionDep,
@@ -64,7 +135,7 @@ async def connect_player_session(
         str | None, Header(alias="X-Server-Group-Key")
     ] = None,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-) -> PlayerSessionPublic:
+) -> PlayerSessionConnectPublic:
     group = await _get_server_group_from_api_key(
         session=session,
         x_server_group_key=x_server_group_key,
@@ -78,7 +149,22 @@ async def connect_player_session(
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return crud.to_player_session_public(player_session=player_session)
+    session_public = crud.to_player_session_public(player_session=player_session)
+    active_ban = await crud.get_newest_active_ban_for_player(
+        session=session,
+        steamid64=player_session.player_steamid64,
+    )
+    return PlayerSessionConnectPublic(
+        **session_public.model_dump(),
+        ban_enforcement=(
+            _ban_enforcement_for_ban(
+                ban=active_ban,
+                client_language=payload.client_language,
+            )
+            if active_ban is not None
+            else None
+        ),
+    )
 
 
 @router.post("/heartbeat", response_model=PlayerSessionPublic)

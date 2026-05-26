@@ -7,6 +7,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import (
+    Ban,
+    BanType,
     Player,
     PlayerAction,
     PlayerActionTimestamp,
@@ -28,14 +30,18 @@ def _connect_payload(
     connected_at: datetime,
     ip_address: str = "127.0.0.42",
     map_name: str = "kz_beginner",
+    client_language: str | None = None,
 ) -> dict[str, str]:
-    return {
+    payload = {
         "session_id": session_id,
         "player_steamid64": str(steamid64),
         "connected_at": connected_at.isoformat(),
         "ip_address": ip_address,
         "map_name": map_name,
     }
+    if client_language is not None:
+        payload["client_language"] = client_language
+    return payload
 
 
 async def _connect_session(
@@ -46,6 +52,7 @@ async def _connect_session(
     steamid64: int,
     connected_at: datetime,
     ip_address: str = "127.0.0.42",
+    client_language: str | None = None,
 ) -> dict[str, object]:
     response = await client.post(
         f"{settings.API_V1_STR}/player-sessions/connect",
@@ -55,6 +62,7 @@ async def _connect_session(
             steamid64=steamid64,
             connected_at=connected_at,
             ip_address=ip_address,
+            client_language=client_language,
         ),
     )
     assert response.status_code == 200
@@ -91,6 +99,104 @@ async def test_connect_creates_player_session_and_placeholder_player(
     player = await db.get(Player, steamid64)
     assert player is not None
     assert player.name == str(steamid64)
+
+
+async def test_connect_persists_banned_player_session_and_returns_enforcement(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    steamid64 = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    db.add(Player(steamid64=steamid64, name="Banned Runner"))
+    await db.flush()
+
+    older_ban = Ban(
+        ban_type=BanType.BHOP_HACK,
+        steamid64=steamid64,
+        expires_at=None,
+        created_at=connected_at - timedelta(days=1),
+        updated_at=connected_at - timedelta(days=1),
+    )
+    newest_ban = Ban(
+        ban_type=BanType.BAN_EVASION,
+        steamid64=steamid64,
+        expires_at=connected_at + timedelta(days=30),
+        notes="Repeated bypassing of server bans",
+        created_at=connected_at,
+        updated_at=connected_at,
+    )
+    db.add(older_ban)
+    db.add(newest_ban)
+    await db.commit()
+    await db.refresh(newest_ban)
+
+    session_id = str(generate_uuid7(timestamp=connected_at))
+    payload = await _connect_session(
+        client=client,
+        api_key=api_key,
+        session_id=session_id,
+        steamid64=steamid64,
+        connected_at=connected_at,
+    )
+
+    assert payload["id"] == session_id
+    assert payload["server_group_id"] == str(group.id)
+    assert await db.get(PlayerSession, uuid.UUID(session_id)) is not None
+    assert payload["ban_enforcement"] == {
+        "required": True,
+        "ban": {
+            "uuid": str(newest_ban.uuid),
+            "ban_type": "ban_evasion",
+            "expires_at": newest_ban.expires_at.isoformat().replace("+00:00", "Z"),
+        },
+        "detail_url": f"{settings.FRONTEND_HOST.rstrip('/')}/bans?q={newest_ban.uuid}",
+        "kick_message": (
+            "You are banned from this server and cannot join!\n"
+            "Ban type: ban_evasion\n"
+            "Expires: 2026-05-28\n"
+            "Reason: Repeated bypassing of server bans\n"
+            "Appeal: visit https://kzcharm.com/bans"
+        ),
+    }
+
+
+async def test_connect_returns_localized_chinese_ban_enforcement_message(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    steamid64 = random_steamid64()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+    db.add(Player(steamid64=steamid64, name="Banned Runner"))
+    await db.flush()
+    ban = Ban(
+        ban_type=BanType.BHOP_HACK,
+        steamid64=steamid64,
+        expires_at=None,
+        notes="autostrafe evidence",
+        created_at=connected_at,
+        updated_at=connected_at,
+    )
+    db.add(ban)
+    await db.commit()
+
+    payload = await _connect_session(
+        client=client,
+        api_key=api_key,
+        session_id=str(generate_uuid7(timestamp=connected_at)),
+        steamid64=steamid64,
+        connected_at=connected_at,
+        client_language="schinese",
+    )
+
+    assert payload["ban_enforcement"]["kick_message"] == (
+        "您已被服务器封禁，禁止进入服务器！\n"
+        "封禁类型：bhop_hack\n"
+        "到期时间：永久\n"
+        "封禁原因：autostrafe evidence\n"
+        "申诉解封：请访问 https://kzcharm.com/bans"
+    )
 
 
 async def test_connect_accepts_bearer_server_group_key(

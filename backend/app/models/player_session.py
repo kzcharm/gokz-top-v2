@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import INET
 from sqlmodel import Field, SQLModel
 
+from .ban import BanType
 from .player import PlayerPublic
 
 
@@ -137,6 +138,7 @@ class PlayerSessionConnect(SQLModel):
     connected_at: datetime
     ip_address: IPv4Address
     map_name: str = Field(min_length=1, max_length=255)
+    client_language: str | None = Field(default=None, max_length=16)
 
     @field_validator("session_id")
     @classmethod
@@ -202,6 +204,23 @@ class PlayerSessionPublic(SQLModel):
     ip_address: str
     map_name: str
     duration_seconds: int | None = None
+
+
+class PlayerSessionBanEnforcementBanPublic(SQLModel):
+    uuid: uuid.UUID
+    ban_type: BanType
+    expires_at: datetime | None = None
+
+
+class PlayerSessionBanEnforcementPublic(SQLModel):
+    required: bool = True
+    ban: PlayerSessionBanEnforcementBanPublic
+    detail_url: str
+    kick_message: str
+
+
+class PlayerSessionConnectPublic(PlayerSessionPublic):
+    ban_enforcement: PlayerSessionBanEnforcementPublic | None = None
 
 
 class AdminPlayerSessionPublic(SQLModel):

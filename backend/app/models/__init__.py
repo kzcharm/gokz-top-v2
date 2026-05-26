@@ -9,9 +9,9 @@ from .ban import (
     BanListItemPublic,
     BanListQuery,
     BanPublic,
-    BanUpdate,
     BansPublic,
     BanType,
+    BanUpdate,
 )
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .jumpstat import (
@@ -177,7 +177,10 @@ from .player_session import (
     AdminPlayerSessionPublic,
     AdminPlayerSessionsPublic,
     PlayerSession,
+    PlayerSessionBanEnforcementBanPublic,
+    PlayerSessionBanEnforcementPublic,
     PlayerSessionConnect,
+    PlayerSessionConnectPublic,
     PlayerSessionDisconnect,
     PlayerSessionHeartbeat,
     PlayerSessionPublic,
@@ -248,11 +251,11 @@ from .record import (
     RecordBase,
     RecordBulkDeleteCourse,
     RecordBulkDeleteResult,
-    RecordPbBucketRebuildResult,
     RecordCompatPublicV0,
     RecordListQuery,
     RecordPatch,
     RecordPb,
+    RecordPbBucketRebuildResult,
     RecordPublic,
     RecordRankPublic,
     RecordRanksPublic,
@@ -267,11 +270,6 @@ from .record import (
     seconds_to_time_ms,
     time_ms_to_seconds,
 )
-from .record_moderation import (
-    RecordModerationAction,
-    RecordModerationActionRecord,
-    RecordModerationActionType,
-)
 from .record_filter import (
     AdminMapRecordFiltersPublic,
     AdminRecordFilterPublic,
@@ -279,6 +277,11 @@ from .record_filter import (
     RecordFilter,
     RecordFilterBase,
     RecordFilterCompatPublicV0,
+)
+from .record_moderation import (
+    RecordModerationAction,
+    RecordModerationActionRecord,
+    RecordModerationActionType,
 )
 from .region import RegionCode, RegionPublic, RegionsPublic
 from .server import (
@@ -356,6 +359,7 @@ __all__ = [
     "BanListItemPublic",
     "BanListQuery",
     "BanPublic",
+    "BanUpdate",
     "BansPublic",
     "BanType",
     "GlobalApiSyncResult",
@@ -484,7 +488,10 @@ __all__ = [
     "PlayerSettingsPublic",
     "PlayerSettingsUpdate",
     "PlayerSession",
+    "PlayerSessionBanEnforcementBanPublic",
+    "PlayerSessionBanEnforcementPublic",
     "PlayerSessionConnect",
+    "PlayerSessionConnectPublic",
     "PlayerSessionDisconnect",
     "PlayerSessionHeartbeat",
     "PlayerSessionPublic",

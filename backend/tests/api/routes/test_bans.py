@@ -219,6 +219,36 @@ async def test_read_ban_v1_detail_and_missing(
     assert missing.json() == {"detail": "Ban not found"}
 
 
+async def test_read_bans_v1_q_matches_identifiers_and_player_text(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    steamid64 = random_steamid64()
+    ban = await _create_ban(
+        db,
+        id=12001,
+        ban_type=BanType.BHOP_MACRO,
+        steamid64=steamid64,
+        expires_at=None,
+        player_name="Search Target",
+        notes="searchable",
+    )
+    await _create_player(
+        db,
+        steamid64=steamid64,
+        name="Search Target",
+        alias="Needle Alias",
+    )
+
+    for query in (str(ban.uuid), str(steamid64), "12001", "needle"):
+        response = await client.get(f"{settings.API_V1_STR}/bans", params={"q": query})
+
+        assert response.status_code == 200
+        assert response.json()["count"] == 1
+        assert response.json()["data"][0]["uuid"] == str(ban.uuid)
+
+
 async def test_create_manual_ban_requires_superuser(
     client: AsyncClient,
     db: AsyncSession,

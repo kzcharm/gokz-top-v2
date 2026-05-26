@@ -227,6 +227,61 @@ test("Bans table supports WASD pagination shortcuts without affecting typing", a
   await expect(page.getByText("Banned Player 1", { exact: true })).toBeVisible()
 })
 
+test("Bans page reads q from the URL, sends it to the API, and expands one match", async ({
+  page,
+}) => {
+  const banRequests: Array<string | null> = []
+  const matchedBan = {
+    ...buildBan(42),
+    stats: "Exact ban evidence",
+  }
+
+  await page.addInitScript(() => {
+    localStorage.clear()
+    localStorage.setItem("gokz-datetime-format", "iso")
+  })
+
+  await page.route("**/v1/bans*", async (route) => {
+    const url = new URL(route.request().url())
+    banRequests.push(url.searchParams.get("q"))
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: url.searchParams.get("q") ? 1 : 0,
+        data: url.searchParams.get("q") ? [matchedBan] : [],
+      }),
+    })
+  })
+
+  await page.route("**/v1/graphql", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          searchPlayers: {
+            count: 0,
+            data: [],
+          },
+        },
+      }),
+    })
+  })
+
+  await page.goto(`/bans?q=${matchedBan.uuid}`)
+
+  await expect(page.getByRole("textbox", { name: "Search bans" })).toHaveValue(
+    matchedBan.uuid,
+  )
+  await expect(page.getByText("Banned Player 42", { exact: true })).toBeVisible()
+  await expect(page.getByText("Exact ban evidence")).toBeVisible()
+  await expect.poll(() => banRequests.at(-1)).toBe(matchedBan.uuid)
+
+  await page.getByRole("textbox", { name: "Search bans" }).fill("765611")
+  await expect(page).toHaveURL(/\/bans\?q=765611$/)
+  await expect.poll(() => banRequests.includes("765611")).toBe(true)
+})
+
 test("Bans page shows Add Ban flows to admins and refreshes after create", async ({
   page,
 }) => {
