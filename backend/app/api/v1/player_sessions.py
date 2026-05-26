@@ -21,6 +21,8 @@ from app.models import (
 
 router = APIRouter(prefix="/player-sessions", tags=["player-sessions"])
 
+BAN_APPEAL_URL = "https://kzcharm.com/bans"
+
 
 def _resolve_server_group_api_key(
     *,
@@ -62,14 +64,30 @@ async def _get_server_group_from_api_key(
 
 def _ban_enforcement_for_ban(*, ban: Ban) -> PlayerSessionBanEnforcementPublic:
     detail_url = f"{settings.FRONTEND_HOST.rstrip('/')}/bans?q={ban.uuid}"
-    ban_type = ban.ban_type.value.replace("_", " ")
-    if ban.expires_at is None:
-        kick_message = f"Active GOKZ.TOP ban ({ban_type}). Details: {detail_url}"
-    else:
-        kick_message = (
-            f"Active GOKZ.TOP ban ({ban_type}) until "
-            f"{ban.expires_at.isoformat()}. Details: {detail_url}"
+    ban_type = ban.ban_type.value
+    expires_at = ban.expires_at.date().isoformat() if ban.expires_at else None
+    reason = ban.notes.strip() if ban.notes and ban.notes.strip() else "-"
+    kick_message = "\n".join(
+        (
+            "You are banned from this server and cannot join!",
+            f"Ban type: {ban_type}",
+            f"Expires: {expires_at or 'permanent'}",
+            f"Reason: {reason}",
+            f"Appeal: visit {BAN_APPEAL_URL}",
+            "",
+            "您已被服务器封禁，禁止进入服务器！",
+            f"封禁类型：{ban_type}",
+            f"到期时间：{expires_at or '永久'}",
+            f"封禁原因：{reason}",
+            f"申诉解封：请访问 {BAN_APPEAL_URL}",
+            "",
+            "Вам запрещен вход на этот сервер!",
+            f"Тип блокировки: {ban_type}",
+            f"Истекает: {expires_at or 'навсегда'}",
+            f"Причина: {reason}",
+            f"Апелляция: посетите {BAN_APPEAL_URL}",
         )
+    )
     return PlayerSessionBanEnforcementPublic(
         ban=PlayerSessionBanEnforcementBanPublic(
             uuid=ban.uuid,
