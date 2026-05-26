@@ -93,6 +93,10 @@ def _normalize_record_pb_payload(data: dict[str, object]) -> dict[str, object]:
     payload = dict(data)
     if "scope" in payload:
         payload["scope"] = normalize_mode_scope(payload["scope"])
+    if "type" not in payload and "is_pro_only" in payload:
+        payload["type"] = normalize_record_type(payload.pop("is_pro_only"))
+    elif "type" in payload:
+        payload["type"] = normalize_record_type(payload["type"])
     return payload
 
 
@@ -102,6 +106,14 @@ def normalize_kz_mode(value: KZMode | str | int) -> KZMode:
     if isinstance(value, int):
         return legacy_mode_id_to_kz_mode(value)
     return KZMode(value)
+
+
+def normalize_record_type(value: RecordType | str | bool) -> RecordType:
+    if isinstance(value, RecordType):
+        return value
+    if isinstance(value, bool):
+        return RecordType.PRO if value else RecordType.NUB
+    return RecordType(value)
 
 
 def seconds_to_time_ms(value: Decimal | float | int | str) -> int:
@@ -400,8 +412,17 @@ class RecordPbBase(LegacyDatetimeNamesMixin):
         sa_type=BigInteger,
         primary_key=True,
     )
-    is_pro_only: bool = Field(primary_key=True)
+    type: RecordType = Field(
+        sa_column=Column(
+            SqlEnum(RecordType, name="record_type"),
+            primary_key=True,
+            nullable=False,
+        )
+    )
     record_uuid: uuid.UUID = Field(foreign_key="record.uuid", nullable=False)
+    time: Decimal = Field(
+        sa_type=Numeric(12, 3),
+    )
     points: int = Field(
         default=1,
         ge=1,
@@ -436,25 +457,33 @@ class RecordPb(RecordPbBase, table=True):
             "points >= 1 AND points <= 1000", name="ck_record_pb_points_range"
         ),
         Index(
-            "ix_record_pb_scope_course_pro_record_uuid",
+            "ix_record_pb_scope_course_type_record_uuid",
             "scope",
             "course_id",
-            "is_pro_only",
+            "type",
             "record_uuid",
         ),
         Index(
-            "ix_record_pb_player_scope_pro_course_record_uuid",
+            "ix_record_pb_scope_course_type_time_record_uuid",
+            "scope",
+            "course_id",
+            "type",
+            "time",
+            "record_uuid",
+        ),
+        Index(
+            "ix_record_pb_player_scope_type_course_record_uuid",
             "steamid64",
             "scope",
-            "is_pro_only",
+            "type",
             "course_id",
             "record_uuid",
         ),
         Index(
-            "ix_record_pb_record_uuid_scope_pro",
+            "ix_record_pb_record_uuid_scope_type",
             "record_uuid",
             "scope",
-            "is_pro_only",
+            "type",
         ),
         Index(
             "ix_record_pb_updated_at_desc",
@@ -464,7 +493,7 @@ class RecordPb(RecordPbBase, table=True):
             "ux_record_pb_wr_scope_course_type",
             "scope",
             "course_id",
-            "is_pro_only",
+            "type",
             unique=True,
             postgresql_where=text("points = 1000"),
         ),

@@ -29,6 +29,7 @@ from app.models import (
     PlayerLeaderboardRankPublic,
     Record,
     RecordPb,
+    RecordType,
     legacy_mode_id_to_kz_mode,
     mode_scope_from_id,
     mode_scope_modes,
@@ -309,14 +310,14 @@ async def _load_player_pb_rows(
     session: AsyncSession,
     scope_id: int,
     steamid64: int,
-) -> list[tuple[int, int, bool, int]]:
+) -> list[tuple[int, int, RecordType, int]]:
     return list(
         (
             await session.exec(
                 select(
                     col(RecordPb.course_id),
                     col(MapCourse.map_id),
-                    col(RecordPb.is_pro_only),
+                    col(RecordPb.type),
                     col(RecordPb.points),
                 )
                 .join(MapCourse, col(RecordPb.course_id) == col(MapCourse.id))
@@ -327,7 +328,7 @@ async def _load_player_pb_rows(
                     col(MapCourse.stage) == 0,
                     col(Map.validated).is_(True),
                 )
-                .order_by(col(RecordPb.course_id).asc(), col(RecordPb.is_pro_only).asc())
+                .order_by(col(RecordPb.course_id).asc(), col(RecordPb.type).asc())
             )
         ).all()
     )
@@ -335,18 +336,18 @@ async def _load_player_pb_rows(
 
 def _build_leaderboard_values(
     *,
-    rows: Sequence[tuple[int, int, bool, int]],
+    rows: Sequence[tuple[int, int, RecordType, int]],
     tiers_by_course_id: dict[int, int],
 ) -> dict[str, int]:
-    points_by_course_id: dict[int, dict[bool, int]] = defaultdict(dict)
+    points_by_course_id: dict[int, dict[RecordType, int]] = defaultdict(dict)
     total_points = 0
     wrs_nub = 0
     wrs_pro = 0
 
-    for course_id, _map_id, is_pro_only, points in rows:
+    for course_id, _map_id, record_type, points in rows:
         total_points += points
-        points_by_course_id[course_id][is_pro_only] = points
-        if is_pro_only:
+        points_by_course_id[course_id][record_type] = points
+        if record_type is RecordType.PRO:
             if points == 1000:
                 wrs_pro += 1
         elif points == 1000:
@@ -420,7 +421,7 @@ async def rebuild_leaderboard_player(
         await session.delete(existing)
         return "deleted"
 
-    if len({course_id for course_id, _map_id, _is_pro_only, _points in rows}) < (
+    if len({course_id for course_id, _map_id, _record_type, _points in rows}) < (
         ELIGIBLE_UNIQUE_MAP_FINISHES
     ):
         if existing is None:
@@ -428,7 +429,7 @@ async def rebuild_leaderboard_player(
         await session.delete(existing)
         return "deleted"
 
-    course_keys = [(map_id, 0) for _course_id, map_id, _is_pro_only, _points in rows]
+    course_keys = [(map_id, 0) for _course_id, map_id, _record_type, _points in rows]
     tiers_by_map = await load_scoped_course_tiers(
         session=session,
         course_keys=course_keys,
@@ -436,7 +437,7 @@ async def rebuild_leaderboard_player(
     )
     tiers_by_course_id = {
         course_id: tiers_by_map[(map_id, 0)]
-        for course_id, map_id, _is_pro_only, _points in rows
+        for course_id, map_id, _record_type, _points in rows
     }
     values = _build_leaderboard_values(rows=rows, tiers_by_course_id=tiers_by_course_id)
 

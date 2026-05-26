@@ -162,26 +162,20 @@ async def _get_stage_zero_course_id(
 async def _load_wr_gap_record_times(
     *,
     session: AsyncSession,
-    map_id: int,
     course_id: int,
     scope: ModeScope,
     record_type: RecordType,
 ) -> list[float]:
     rows = (
         await session.exec(
-            select(Record.time)
-            .join(RecordPb, RecordPb.record_uuid == Record.uuid)
+            select(RecordPb.time)
             .where(
                 col(RecordPb.course_id) == course_id,
                 col(RecordPb.scope) == scope,
-                col(RecordPb.is_pro_only).is_(record_type.is_pro),
-                col(Record.map_id) == map_id,
-                col(Record.stage) == 0,
-                col(Record.is_valid).is_(True),
-                col(Record.mode).in_(list(mode_scope_modes(scope))),
-                not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
+                col(RecordPb.type) == record_type,
+                not_active_ban_exists_clause(steamid64_column=col(RecordPb.steamid64)),
             )
-            .order_by(col(Record.time).asc(), col(Record.uuid).asc())
+            .order_by(col(RecordPb.time).asc(), col(RecordPb.record_uuid).asc())
         )
     ).all()
     return [float(record_time) for record_time in rows]
@@ -201,7 +195,6 @@ async def rebuild_map_wr_gap_distribution_stat(
     if course_id is not None:
         record_times = await _load_wr_gap_record_times(
             session=session,
-            map_id=map_id,
             course_id=course_id,
             scope=scope,
             record_type=record_type,

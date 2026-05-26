@@ -6,7 +6,18 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import and_, bindparam, case, delete, exists, func, or_, text, true, update
+from sqlalchemy import (
+    and_,
+    bindparam,
+    case,
+    delete,
+    exists,
+    func,
+    or_,
+    text,
+    true,
+    update,
+)
 from sqlalchemy.orm import aliased
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -75,7 +86,7 @@ _RECORD_PB_POINTS_BULK_UPDATE = (
         _record_pb_table.c.scope == bindparam("pk_scope"),
         _record_pb_table.c.course_id == bindparam("pk_course_id"),
         _record_pb_table.c.steamid64 == bindparam("pk_steamid64"),
-        _record_pb_table.c.is_pro_only == bindparam("pk_type"),
+        _record_pb_table.c["type"] == bindparam("pk_type"),
     )
     .values(
         points=bindparam("next_points"),
@@ -87,6 +98,7 @@ _RECORD_PB_POINTS_BULK_UPDATE = (
 @dataclass(frozen=True, slots=True)
 class _WinnerPbEntry:
     record_uuid: uuid.UUID
+    time: Decimal
     time_ms: int
     created_at: datetime
 
@@ -163,10 +175,6 @@ def _resolve_scoped_points(
     return 0
 
 
-def _is_pro_only_from_record_type(record_type: RecordType) -> bool:
-    return record_type is RecordType.PRO
-
-
 def _record_pb_points_update_params(
     *,
     scope: int | ModeScope,
@@ -180,7 +188,7 @@ def _record_pb_points_update_params(
         "pk_scope": scope if isinstance(scope, ModeScope) else mode_scope_from_id(scope),
         "pk_course_id": course_id,
         "pk_steamid64": steamid64,
-        "pk_type": _is_pro_only_from_record_type(record_type),
+        "pk_type": record_type,
         "next_points": points,
         "next_updated_on": updated_at,
     }
@@ -293,7 +301,7 @@ async def _load_pb_points_by_record_uuid(
 
     statement = select(
         RecordPb.record_uuid,
-        RecordPb.is_pro_only,
+        RecordPb.type,
         case(
             (active_ban_exists_clause(steamid64_column=col(RecordPb.steamid64)), 0),
             else_=RecordPb.points,
@@ -302,15 +310,15 @@ async def _load_pb_points_by_record_uuid(
         col(RecordPb.record_uuid).in_(list(record_uuids)),
         col(RecordPb.scope) == scope,
     )
-    points_by_uuid: dict[uuid.UUID, dict[bool, int]] = {}
-    for record_uuid, is_pro_only, points in (await session.exec(statement)).all():
+    points_by_uuid: dict[uuid.UUID, dict[RecordType, int]] = {}
+    for record_uuid, row_record_type, points in (await session.exec(statement)).all():
         current = points_by_uuid.setdefault(record_uuid, {})
-        current[is_pro_only] = points
+        current[row_record_type] = points
 
     return {
         record_uuid: _resolve_scoped_points(
-            pro_points=values.get(True),
-            ovr_points=values.get(False),
+            pro_points=values.get(RecordType.PRO),
+            ovr_points=values.get(RecordType.NUB),
         )
         for record_uuid, values in points_by_uuid.items()
     }
@@ -482,6 +490,7 @@ async def _load_bucket_winner_entries(
             steamid64,
             _WinnerPbEntry(
                 record_uuid=record_uuid,
+                time=time_seconds,
                 time_ms=seconds_to_time_ms(time_seconds),
                 created_at=created_at,
             ),
@@ -499,17 +508,16 @@ async def _load_bucket_record_pb_entries(
     exclude_steamid64: int | None = None,
 ) -> list[CoursePbEntry]:
     statement = (
-        select(RecordPb.record_uuid, Record.time)
-        .join(Record, Record.uuid == RecordPb.record_uuid)
+        select(RecordPb.record_uuid, RecordPb.time)
         .where(
             col(RecordPb.scope) == mode_scope_from_id(scope_id),
             col(RecordPb.course_id) == course_id,
-            col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
+            col(RecordPb.type) == record_type,
             _not_active_ban_exists_split_clause(
                 steamid64_column=col(RecordPb.steamid64)
             ),
         )
-        .order_by(col(Record.time).asc(), col(Record.uuid).asc())
+        .order_by(col(RecordPb.time).asc(), col(RecordPb.record_uuid).asc())
     )
     if exclude_steamid64 is not None:
         statement = statement.where(col(RecordPb.steamid64) != exclude_steamid64)
@@ -571,7 +579,7 @@ async def _sync_record_pb_bucket(
             select(RecordPb).where(
                 col(RecordPb.scope) == mode_scope_from_id(scope_id),
                 col(RecordPb.course_id) == course_id,
-                col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
+                col(RecordPb.type) == record_type,
             )
         )
     ).all()
@@ -601,6 +609,7 @@ async def _sync_record_pb_bucket(
             ):
                 continue
             existing.record_uuid = winner.record_uuid
+            existing.time = winner.time
             existing.updated_at = get_datetime_utc()
             if existing.points < 1:
                 existing.points = 1
@@ -612,8 +621,9 @@ async def _sync_record_pb_bucket(
                 scope=mode_scope_from_id(scope_id),
                 course_id=course_id,
                 steamid64=steamid64,
-                is_pro_only=_is_pro_only_from_record_type(record_type),
+                type=record_type,
                 record_uuid=winner.record_uuid,
+                time=winner.time,
                 points=1,
                 updated_at=winner.created_at,
             )
@@ -635,7 +645,7 @@ async def _sync_record_pb_key(
             mode_scope_from_id(scope_id),
             course_id,
             steamid64,
-            _is_pro_only_from_record_type(record_type),
+            record_type,
         ),
     )
     winner = await _select_pb_winner(
@@ -670,6 +680,7 @@ async def _sync_record_pb_key(
     )
     if existing is not None:
         existing.record_uuid = winner.uuid
+        existing.time = winner.time
         existing.points = estimated_points
         existing.updated_at = get_datetime_utc()
         session.add(existing)
@@ -680,8 +691,9 @@ async def _sync_record_pb_key(
             scope=mode_scope_from_id(scope_id),
             course_id=course_id,
             steamid64=steamid64,
-            is_pro_only=_is_pro_only_from_record_type(record_type),
+            type=record_type,
             record_uuid=winner.uuid,
+            time=winner.time,
             points=estimated_points,
             updated_at=winner.created_at,
         )
@@ -702,19 +714,18 @@ async def rebuild_record_pb_points_bucket(
                 RecordPb.scope,
                 RecordPb.course_id,
                 RecordPb.steamid64,
-                RecordPb.is_pro_only,
+                RecordPb.type,
                 RecordPb.record_uuid,
-                Record.time,
+                RecordPb.time,
                 RecordPb.points,
                 RecordPb.updated_at,
             )
-            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 col(RecordPb.scope) == mode_scope_from_id(scope_id),
                 col(RecordPb.course_id) == course_id,
-                col(RecordPb.is_pro_only).is_(_is_pro_only_from_record_type(record_type)),
+                col(RecordPb.type) == record_type,
             )
-            .order_by(col(Record.time).asc(), col(Record.uuid).asc())
+            .order_by(col(RecordPb.time).asc(), col(RecordPb.record_uuid).asc())
         )
     ).all()
     if not rows:
@@ -762,7 +773,7 @@ async def rebuild_record_pb_points_bucket(
                     scope=row_scope_id,
                     course_id=row_course_id,
                     steamid64=steamid64,
-                    record_type=RecordType.PRO if row_record_type else RecordType.NUB,
+                    record_type=row_record_type,
                     points=(
                         _stored_points_for_banned_record()
                         if steamid64 in banned_steamid64s
@@ -811,19 +822,18 @@ async def rebuild_record_pb_points_for_course(
             RecordPb.scope,
             RecordPb.course_id,
             RecordPb.steamid64,
-            RecordPb.is_pro_only,
+            RecordPb.type,
             RecordPb.record_uuid,
-            Record.time,
+            RecordPb.time,
             RecordPb.points,
             RecordPb.updated_at,
         )
-        .join(Record, Record.uuid == RecordPb.record_uuid)
         .where(col(RecordPb.course_id) == course_id)
         .order_by(
             col(RecordPb.scope).asc(),
-            col(RecordPb.is_pro_only).asc(),
-            col(Record.time).asc(),
-            col(Record.uuid).asc(),
+            col(RecordPb.type).asc(),
+            col(RecordPb.time).asc(),
+            col(RecordPb.record_uuid).asc(),
         )
     )
     if scope_ids is not None:
@@ -837,8 +847,8 @@ async def rebuild_record_pb_points_for_course(
 
     normalized_tiers = dict(tiers_by_scope or {})
     grouped_rows: dict[
-        tuple[ModeScope, bool],
-        list[tuple[ModeScope, int, int, bool, uuid.UUID, Decimal, int, datetime]],
+        tuple[ModeScope, RecordType],
+        list[tuple[ModeScope, int, int, RecordType, uuid.UUID, Decimal, int, datetime]],
     ] = defaultdict(list)
     for row in rows:
         grouped_rows[(row[0], row[3])].append(row)
@@ -866,7 +876,7 @@ async def rebuild_record_pb_points_for_course(
             )[course_key]
 
     raw_updates: list[tuple[dict[str, object], int, int]] = []
-    for (scope, is_pro_only), bucket_rows in grouped_rows.items():
+    for (scope, row_record_type), bucket_rows in grouped_rows.items():
         points_by_uuid = calculate_bucket_points(
             entries=[
                 _course_pb_entry_for_record_time(
@@ -885,7 +895,7 @@ async def rebuild_record_pb_points_for_course(
                 ) in bucket_rows
             ],
             tier=normalized_tiers[scope.scope_id],
-            is_pro_only=is_pro_only,
+            is_pro_only=row_record_type.is_pro,
         )
         raw_updates.extend(
             (
@@ -893,7 +903,7 @@ async def rebuild_record_pb_points_for_course(
                     scope=row_scope_id,
                     course_id=row_course_id,
                     steamid64=steamid64,
-                    record_type=RecordType.PRO if row_record_type else RecordType.NUB,
+                    record_type=row_record_type,
                     points=points_by_uuid[record_uuid],
                     updated_at=row_updated_on,
                 ),
@@ -1051,12 +1061,12 @@ async def read_map_wrs(
         select(
             MapCourse.map_id,
             RecordPb.scope,
-            RecordPb.is_pro_only,
+            RecordPb.type,
             RecordPb.record_uuid,
             RecordPb.updated_at,
             Record.mode,
             Record.steamid64,
-            Record.time,
+            RecordPb.time,
         )
         .join(MapCourse, MapCourse.id == RecordPb.course_id)
         .join(Map, Map.id == MapCourse.map_id)
@@ -1067,14 +1077,12 @@ async def read_map_wrs(
             MapCourse.stage == 0,
             Map.validated.is_(True),
         )
-        .order_by(RecordPb.is_pro_only.asc(), MapCourse.map_id.asc())
+        .order_by(RecordPb.type.asc(), MapCourse.map_id.asc())
     )
     if map_id is not None:
         statement = statement.where(MapCourse.map_id == map_id)
     if record_type is not None:
-        statement = statement.where(
-            RecordPb.is_pro_only.is_(_is_pro_only_from_record_type(record_type))
-        )
+        statement = statement.where(RecordPb.type == record_type)
 
     rows = (await session.exec(statement)).all()
     unique_steamid64s = list(dict.fromkeys(row[6] for row in rows))
@@ -1088,7 +1096,7 @@ async def read_map_wrs(
             record_uuid=record_uuid,
             map_id=row_map_id,
             scope=row_scope,
-            type=RecordType.PRO if row_is_pro_only else RecordType.NUB,
+            type=row_record_type,
             mode_id=mode.mode_id,
             player=to_player_ref_public(player=players_by_steamid64[player_steamid64]),
             time=float(record_time),
@@ -1097,7 +1105,7 @@ async def read_map_wrs(
         for (
             row_map_id,
             row_scope,
-            row_is_pro_only,
+            row_record_type,
             record_uuid,
             updated_at,
             mode,
@@ -1543,7 +1551,6 @@ async def read_recent_records(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=scoped_points,
     )
-
     statement = (
         select(
             Record,
@@ -1562,7 +1569,7 @@ async def read_recent_records(
             and_(
                 pro_pb.record_uuid == Record.uuid,
                 pro_pb.scope == query.scope,
-                pro_pb.is_pro_only.is_(True),
+                pro_pb.type == RecordType.PRO,
             ),
         )
         .outerjoin(
@@ -1570,7 +1577,7 @@ async def read_recent_records(
             and_(
                 ovr_pb.record_uuid == Record.uuid,
                 ovr_pb.scope == query.scope,
-                ovr_pb.is_pro_only.is_(False),
+                ovr_pb.type == RecordType.NUB,
             ),
         )
         .where(col(Record.is_valid).is_(True))
@@ -1599,7 +1606,7 @@ async def read_recent_records(
                 and_(
                     pro_pb.record_uuid == Record.uuid,
                     pro_pb.scope == query.scope,
-                    pro_pb.is_pro_only.is_(True),
+                    pro_pb.type == RecordType.PRO,
                 ),
             )
             .outerjoin(
@@ -1607,7 +1614,7 @@ async def read_recent_records(
                 and_(
                     ovr_pb.record_uuid == Record.uuid,
                     ovr_pb.scope == query.scope,
-                    ovr_pb.is_pro_only.is_(False),
+                    ovr_pb.type == RecordType.NUB,
                 ),
             )
             .where(col(Record.is_valid).is_(True))
@@ -2032,13 +2039,14 @@ async def get_pb_records(
 
         statement = (
             select(Record)
-            .join(RecordPb, RecordPb.record_uuid == Record.uuid)
+            .select_from(RecordPb)
+            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 RecordPb.scope == scope,
                 RecordPb.course_id == course.id,
-                RecordPb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
+                RecordPb.type == record_type,
             )
-            .order_by(Record.time.asc(), Record.uuid.asc())
+            .order_by(RecordPb.time.asc(), RecordPb.record_uuid.asc())
             .offset(offset)
             .limit(limit)
         )
@@ -2054,19 +2062,20 @@ async def get_pb_records(
         course = aliased(MapCourse)
         statement = (
             select(Record)
-            .join(RecordPb, RecordPb.record_uuid == Record.uuid)
+            .select_from(RecordPb)
+            .join(Record, Record.uuid == RecordPb.record_uuid)
             .join(course, course.id == RecordPb.course_id)
             .where(
                 RecordPb.scope == scope,
                 RecordPb.steamid64 == steamid64,
-                RecordPb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
+                RecordPb.type == record_type,
                 course.stage == stage,
             )
             .order_by(
                 course.map_id.asc(),
                 course.stage.asc(),
-                Record.time.asc(),
-                Record.uuid.asc(),
+                RecordPb.time.asc(),
+                RecordPb.record_uuid.asc(),
             )
             .offset(offset)
             .limit(limit)
@@ -2105,7 +2114,6 @@ async def get_pb_record_publics(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=scoped_points,
     )
-
     statement = (
         select(
             Record.uuid,
@@ -2121,7 +2129,7 @@ async def get_pb_record_publics(
             Record.mode,
             Mode.name_short,
             Record.stage,
-            Record.time,
+            anchor_pb.time,
             Record.teleports,
             public_scoped_points.label("points"),
             Record.created_at,
@@ -2130,7 +2138,8 @@ async def get_pb_record_publics(
             Record.replay_id,
             Record.is_valid,
         )
-        .join(anchor_pb, anchor_pb.record_uuid == Record.uuid)
+        .select_from(anchor_pb)
+        .join(Record, Record.uuid == anchor_pb.record_uuid)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .join(Map, col(Record.map_id) == col(Map.id))
@@ -2140,7 +2149,7 @@ async def get_pb_record_publics(
             and_(
                 pro_pb.record_uuid == Record.uuid,
                 pro_pb.scope == scope,
-                pro_pb.is_pro_only.is_(True),
+                pro_pb.type == RecordType.PRO,
             ),
         )
         .outerjoin(
@@ -2148,7 +2157,7 @@ async def get_pb_record_publics(
             and_(
                 ovr_pb.record_uuid == Record.uuid,
                 ovr_pb.scope == scope,
-                ovr_pb.is_pro_only.is_(False),
+                ovr_pb.type == RecordType.NUB,
             ),
         )
     )
@@ -2181,11 +2190,11 @@ async def get_pb_record_publics(
         statement = statement.where(
             anchor_pb.scope == scope,
             anchor_pb.course_id == course.id,
-            anchor_pb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
+            anchor_pb.type == record_type,
         )
         if steamid64 is not None:
             statement = statement.where(anchor_pb.steamid64 == steamid64)
-        statement = statement.order_by(Record.time.asc(), Record.uuid.asc())
+        statement = statement.order_by(anchor_pb.time.asc(), anchor_pb.record_uuid.asc())
     elif steamid64 is not None:
         course = aliased(MapCourse)
         statement = (
@@ -2193,14 +2202,14 @@ async def get_pb_record_publics(
             .where(
                 anchor_pb.scope == scope,
                 anchor_pb.steamid64 == steamid64,
-                anchor_pb.is_pro_only.is_(_is_pro_only_from_record_type(record_type)),
+                anchor_pb.type == record_type,
                 course.stage == stage,
             )
             .order_by(
                 course.map_id.asc(),
                 course.stage.asc(),
-                Record.time.asc(),
-                Record.uuid.asc(),
+                anchor_pb.time.asc(),
+                anchor_pb.record_uuid.asc(),
             )
         )
     else:
@@ -2327,11 +2336,9 @@ async def read_map_pb_leaderboard(
     geography_country_codes = (
         (country,) if country is not None else get_region_country_codes(region)
     )
-    is_pro_only = _is_pro_only_from_record_type(record_type)
-
     counts_statement = (
         select(
-            RecordPb.is_pro_only.label("is_pro_only"),
+            RecordPb.type.label("type"),
             func.count().label("count"),
         )
         .select_from(RecordPb)
@@ -2339,7 +2346,7 @@ async def read_map_pb_leaderboard(
             col(RecordPb.scope) == scope,
             col(RecordPb.course_id) == course.id,
         )
-        .group_by(RecordPb.is_pro_only)
+        .group_by(RecordPb.type)
     )
     if geography_country_codes is not None:
         counts_statement = counts_statement.join(
@@ -2359,19 +2366,17 @@ async def read_map_pb_leaderboard(
         )
 
     counts_by_type = {
-        bool(result_is_pro_only): int(result_count or 0)
-        for result_is_pro_only, result_count in (await session.exec(counts_statement)).all()
+        result_record_type: int(result_count or 0)
+        for result_record_type, result_count in (await session.exec(counts_statement)).all()
     }
-    unique_nub_finishes = counts_by_type.get(False, 0)
-    unique_pro_finishes = counts_by_type.get(True, 0)
-    total_count = counts_by_type.get(is_pro_only, 0)
+    unique_nub_finishes = counts_by_type.get(RecordType.NUB, 0)
+    unique_pro_finishes = counts_by_type.get(RecordType.PRO, 0)
+    total_count = counts_by_type.get(record_type, 0)
 
     anchor_pb = aliased(RecordPb)
     pro_pb = aliased(RecordPb)
     ovr_pb = aliased(RecordPb)
-    scoped_points = (
-        pro_pb.points if is_pro_only else func.coalesce(ovr_pb.points, 0)
-    )
+    scoped_points = pro_pb.points if record_type.is_pro else func.coalesce(ovr_pb.points, 0)
     public_scoped_points = case(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=scoped_points,
@@ -2392,7 +2397,7 @@ async def read_map_pb_leaderboard(
             Record.mode,
             Mode.name_short,
             Record.stage,
-            Record.time,
+            anchor_pb.time,
             Record.teleports,
             public_scoped_points.label("points"),
             Record.created_at,
@@ -2401,8 +2406,8 @@ async def read_map_pb_leaderboard(
             Record.replay_id,
             Record.is_valid,
         )
-        .select_from(Record)
-        .join(anchor_pb, anchor_pb.record_uuid == Record.uuid)
+        .select_from(anchor_pb)
+        .join(Record, Record.uuid == anchor_pb.record_uuid)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .join(Map, col(Record.map_id) == col(Map.id))
@@ -2412,7 +2417,7 @@ async def read_map_pb_leaderboard(
             and_(
                 pro_pb.record_uuid == Record.uuid,
                 pro_pb.scope == scope,
-                pro_pb.is_pro_only.is_(True),
+                pro_pb.type == RecordType.PRO,
             ),
         )
         .outerjoin(
@@ -2420,15 +2425,15 @@ async def read_map_pb_leaderboard(
             and_(
                 ovr_pb.record_uuid == Record.uuid,
                 ovr_pb.scope == scope,
-                ovr_pb.is_pro_only.is_(False),
+                ovr_pb.type == RecordType.NUB,
             ),
         )
         .where(
             anchor_pb.scope == scope,
             anchor_pb.course_id == course.id,
-            anchor_pb.is_pro_only.is_(is_pro_only),
+            anchor_pb.type == record_type,
         )
-        .order_by(Record.time.asc(), Record.uuid.asc())
+        .order_by(anchor_pb.time.asc(), anchor_pb.record_uuid.asc())
         .offset(offset)
         .limit(limit)
     )
@@ -2539,15 +2544,14 @@ async def read_map_pb_leaderboard(
             select(
                 RecordPb.steamid64.label("steamid64"),
                 func.row_number()
-                .over(order_by=(Record.time.asc(), Record.uuid.asc()))
+                .over(order_by=(RecordPb.time.asc(), RecordPb.record_uuid.asc()))
                 .label("rank"),
             )
             .select_from(RecordPb)
-            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 col(RecordPb.scope) == scope,
                 col(RecordPb.course_id) == course.id,
-                col(RecordPb.is_pro_only).is_(is_pro_only),
+                col(RecordPb.type) == record_type,
             )
         )
         if geography_country_codes is not None:
@@ -2598,7 +2602,6 @@ async def read_record_ranks(
     if not record_uuids:
         return []
 
-    is_pro_only = _is_pro_only_from_record_type(record_type)
     unique_record_uuids = list(dict.fromkeys(record_uuids))
     target_statement = (
         select(
@@ -2609,7 +2612,7 @@ async def read_record_ranks(
         .where(
             col(RecordPb.record_uuid).in_(unique_record_uuids),
             col(RecordPb.scope) == scope,
-            col(RecordPb.is_pro_only).is_(is_pro_only),
+            col(RecordPb.type) == record_type,
             _not_active_ban_exists_split_clause(
                 steamid64_column=col(RecordPb.steamid64)
             ),
@@ -2634,8 +2637,8 @@ async def read_record_ranks(
             .over(
                 partition_by=RecordPb.course_id,
                 order_by=(
-                    Record.time.asc(),
-                    Record.uuid.asc(),
+                    RecordPb.time.asc(),
+                    RecordPb.record_uuid.asc(),
                 ),
             )
             .label("rank"),
@@ -2644,10 +2647,9 @@ async def read_record_ranks(
             .label("total_count"),
         )
         .select_from(RecordPb)
-        .join(Record, Record.uuid == RecordPb.record_uuid)
         .where(
             col(RecordPb.scope) == scope,
-            col(RecordPb.is_pro_only).is_(is_pro_only),
+            col(RecordPb.type) == record_type,
             col(RecordPb.course_id).in_(target_course_ids),
             _not_active_ban_exists_split_clause(
                 steamid64_column=col(RecordPb.steamid64)

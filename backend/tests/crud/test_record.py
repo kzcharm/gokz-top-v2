@@ -498,7 +498,7 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
             select(RecordPb).where(
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.OVR,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
         )
     ).all()
@@ -520,18 +520,19 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     refreshed_rows = (
         await db.exec(
             select(RecordPb)
-            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.OVR,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
-            .order_by(Record.time.asc(), Record.uuid.asc())
+            .order_by(RecordPb.time.asc(), RecordPb.record_uuid.asc())
         )
     ).all()
     assert updated_rows == 2
     assert refreshed_rows[0].points == 1000
+    assert refreshed_rows[0].time == Decimal("10.000")
     assert refreshed_rows[1].points > 1
+    assert refreshed_rows[1].time == Decimal("12.000")
     assert refreshed_rows[0].updated_at == original_updated_on
     assert refreshed_rows[1].updated_at == original_updated_on
 
@@ -588,7 +589,7 @@ async def test_rebuild_record_pb_points_bucket_excludes_actively_banned_rows(
             select(RecordPb).where(
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.SKZ,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
         )
     ).all()
@@ -608,13 +609,12 @@ async def test_rebuild_record_pb_points_bucket_excludes_actively_banned_rows(
     refreshed_rows = (
         await db.exec(
             select(RecordPb)
-            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.SKZ,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
-            .order_by(Record.time.asc(), Record.uuid.asc())
+            .order_by(RecordPb.time.asc(), RecordPb.record_uuid.asc())
         )
     ).all()
 
@@ -690,16 +690,15 @@ async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(
     refreshed_rows = (
         await db.exec(
             select(RecordPb)
-            .join(Record, Record.uuid == RecordPb.record_uuid)
             .where(
                 RecordPb.course_id == course.id,
                 RecordPb.scope.in_([ModeScope.OVR, ModeScope.KZT]),
             )
             .order_by(
                 RecordPb.scope.asc(),
-                RecordPb.is_pro_only.asc(),
-                Record.time.asc(),
-                Record.uuid.asc(),
+                RecordPb.type.asc(),
+                RecordPb.time.asc(),
+                RecordPb.record_uuid.asc(),
             )
         )
     ).all()
@@ -749,12 +748,13 @@ async def test_record_pb_updated_at_uses_record_created_at_for_new_rows_and_now_
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.OVR,
                 RecordPb.steamid64 == player_id,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
         )
     ).one()
 
     assert initial_pb.record_uuid == first_record.uuid
+    assert initial_pb.time == Decimal("12.000")
     assert initial_pb.updated_at == datetime(2026, 1, 1, tzinfo=UTC)
 
     next_updated_on = datetime(2026, 3, 2, tzinfo=UTC)
@@ -777,13 +777,14 @@ async def test_record_pb_updated_at_uses_record_created_at_for_new_rows_and_now_
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.OVR,
                 RecordPb.steamid64 == player_id,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
         )
     ).one()
 
     assert refreshed_pb.record_uuid == second_record.uuid
     assert refreshed_pb.record_uuid != first_record.uuid
+    assert refreshed_pb.time == Decimal("11.000")
     assert refreshed_pb.updated_at == next_updated_on
 
 
@@ -840,7 +841,7 @@ async def test_record_pb_updated_at_and_points_refresh_when_record_time_changes_
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.OVR,
                 RecordPb.steamid64 == second_player,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
         )
     ).one()
@@ -878,11 +879,12 @@ async def test_record_pb_updated_at_and_points_refresh_when_record_time_changes_
                 RecordPb.course_id == course.id,
                 RecordPb.scope == ModeScope.OVR,
                 RecordPb.steamid64 == second_player,
-                RecordPb.is_pro_only.is_(False),
+                RecordPb.type == RecordType.NUB,
             )
         )
     ).one()
     assert refreshed_pb.record_uuid == second_record.uuid
+    assert refreshed_pb.time == Decimal("9.500")
     assert refreshed_pb.updated_at == edited_updated_at
     assert refreshed_pb.updated_at != original_updated_at
 
@@ -1123,16 +1125,16 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
                 FROM pg_indexes
                 WHERE schemaname = 'public'
                   AND tablename = 'record_pb'
-                  AND indexname = 'ix_record_pb_scope_course_pro_record_uuid'
+                  AND indexname = 'ix_record_pb_scope_course_type_record_uuid'
                 """
             )
         )
     ).one()
     assert (
-        "INDEX ix_record_pb_scope_course_pro_record_uuid"
+        "INDEX ix_record_pb_scope_course_type_record_uuid"
         in record_pb_course_record_uuid_index[0]
     )
-    assert "(scope, course_id, is_pro_only, record_uuid)" in (
+    assert "(scope, course_id, type, record_uuid)" in (
         record_pb_course_record_uuid_index[0]
     )
 
@@ -1144,17 +1146,37 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
                 FROM pg_indexes
                 WHERE schemaname = 'public'
                   AND tablename = 'record_pb'
-                  AND indexname = 'ix_record_pb_player_scope_pro_course_record_uuid'
+                  AND indexname = 'ix_record_pb_player_scope_type_course_record_uuid'
                 """
             )
         )
     ).one()
     assert (
-        "INDEX ix_record_pb_player_scope_pro_course_record_uuid"
+        "INDEX ix_record_pb_player_scope_type_course_record_uuid"
         in record_pb_player_record_uuid_index[0]
     )
-    assert "(steamid64, scope, is_pro_only, course_id, record_uuid)" in (
+    assert "(steamid64, scope, type, course_id, record_uuid)" in (
         record_pb_player_record_uuid_index[0]
+    )
+    record_pb_time_order_index = (
+        await db.exec(
+            text(
+                """
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = 'record_pb'
+                  AND indexname = 'ix_record_pb_scope_course_type_time_record_uuid'
+                """
+            )
+        )
+    ).one()
+    assert (
+        "INDEX ix_record_pb_scope_course_type_time_record_uuid"
+        in record_pb_time_order_index[0]
+    )
+    assert "(scope, course_id, type, \"time\", record_uuid)" in (
+        record_pb_time_order_index[0]
     )
 
     record_pb_index = (
