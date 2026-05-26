@@ -138,6 +138,7 @@ class PlayerSessionConnect(SQLModel):
     connected_at: datetime
     ip_address: IPv4Address
     map_name: str = Field(min_length=1, max_length=255)
+    client_language: str | None = Field(default=None, max_length=16)
 
     @field_validator("session_id")
     @classmethod
