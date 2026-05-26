@@ -5,8 +5,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.api.deps import SessionDep
+from app.core.config import settings
 from app.models import (
+    Ban,
+    PlayerSessionBanEnforcementBanPublic,
+    PlayerSessionBanEnforcementPublic,
     PlayerSessionConnect,
+    PlayerSessionConnectPublic,
     PlayerSessionDisconnect,
     PlayerSessionHeartbeat,
     PlayerSessionPublic,
@@ -55,7 +60,28 @@ async def _get_server_group_from_api_key(
     return group
 
 
-@router.post("/connect", response_model=PlayerSessionPublic)
+def _ban_enforcement_for_ban(*, ban: Ban) -> PlayerSessionBanEnforcementPublic:
+    detail_url = f"{settings.FRONTEND_HOST.rstrip('/')}/bans?q={ban.uuid}"
+    ban_type = ban.ban_type.value.replace("_", " ")
+    if ban.expires_at is None:
+        kick_message = f"Active GOKZ.TOP ban ({ban_type}). Details: {detail_url}"
+    else:
+        kick_message = (
+            f"Active GOKZ.TOP ban ({ban_type}) until "
+            f"{ban.expires_at.isoformat()}. Details: {detail_url}"
+        )
+    return PlayerSessionBanEnforcementPublic(
+        ban=PlayerSessionBanEnforcementBanPublic(
+            uuid=ban.uuid,
+            ban_type=ban.ban_type,
+            expires_at=ban.expires_at,
+        ),
+        detail_url=detail_url,
+        kick_message=kick_message,
+    )
+
+
+@router.post("/connect", response_model=PlayerSessionConnectPublic)
 async def connect_player_session(
     *,
     session: SessionDep,
@@ -64,7 +90,7 @@ async def connect_player_session(
         str | None, Header(alias="X-Server-Group-Key")
     ] = None,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-) -> PlayerSessionPublic:
+) -> PlayerSessionConnectPublic:
     group = await _get_server_group_from_api_key(
         session=session,
         x_server_group_key=x_server_group_key,
@@ -78,7 +104,19 @@ async def connect_player_session(
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return crud.to_player_session_public(player_session=player_session)
+    session_public = crud.to_player_session_public(player_session=player_session)
+    active_ban = await crud.get_newest_active_ban_for_player(
+        session=session,
+        steamid64=player_session.player_steamid64,
+    )
+    return PlayerSessionConnectPublic(
+        **session_public.model_dump(),
+        ban_enforcement=(
+            _ban_enforcement_for_ban(ban=active_ban)
+            if active_ban is not None
+            else None
+        ),
+    )
 
 
 @router.post("/heartbeat", response_model=PlayerSessionPublic)

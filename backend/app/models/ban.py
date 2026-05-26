@@ -4,9 +4,9 @@ import uuid as uuid_pkg
 from datetime import datetime
 from enum import StrEnum
 
+from pydantic import AliasChoices
 from sqlalchemy import BigInteger, Column, DateTime, Index, Text, text
 from sqlalchemy import Enum as SQLAlchemyEnum
-from pydantic import AliasChoices
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
@@ -169,6 +169,7 @@ class BansPublic(SQLModel):
 class BanListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=10000)
+    q: str | None = Field(default=None, max_length=255)
     ban_types: str | None = None
     ban_types_list: list[str] | None = None
     is_expired: bool | None = None

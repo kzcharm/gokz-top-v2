@@ -16,8 +16,8 @@ from app.models import (
     BanListItemPublic,
     BanListQuery,
     BanPublic,
-    BanUpdate,
     BanType,
+    BanUpdate,
     Player,
 )
 from app.models.utils import get_datetime_utc
@@ -241,10 +241,35 @@ async def read_bans(
         filters.append(col(Ban.created_at) >= query.created_since)
     if query.updated_since is not None:
         filters.append(col(Ban.updated_at) >= query.updated_since)
+    if query.q is not None and (q := query.q.strip()):
+        search_filters: list[ColumnElement[bool]] = []
+        try:
+            search_filters.append(col(Ban.uuid) == uuid.UUID(q))
+        except ValueError:
+            pass
+
+        if q.isdigit():
+            exact_number = int(q)
+            search_filters.append(col(Ban.steamid64) == exact_number)
+            search_filters.append(col(Ban.id) == exact_number)
+
+        text_pattern = f"%{q}%"
+        search_filters.extend(
+            [
+                col(Player.name).ilike(text_pattern),
+                col(Player.alias).ilike(text_pattern),
+                col(Player.custom_id).ilike(text_pattern),
+            ]
+        )
+        filters.append(or_(*search_filters))
     if external_only:
         filters.append(col(Ban.id).is_not(None))
 
-    count_statement = select(func.count()).select_from(Ban)
+    count_statement = (
+        select(func.count())
+        .select_from(Ban)
+        .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
+    )
     statement = (
         select(Ban, Player, updated_by_player)
         .select_from(Ban)
@@ -275,6 +300,28 @@ async def read_bans(
         ),
     )
     return bans, count
+
+
+async def get_newest_active_ban_for_player(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    now: datetime | None = None,
+) -> Ban | None:
+    current_time = now or get_datetime_utc()
+    statement = (
+        select(Ban)
+        .where(
+            col(Ban.steamid64) == steamid64,
+            or_(
+                col(Ban.expires_at).is_(None),
+                col(Ban.expires_at) >= current_time,
+            ),
+        )
+        .order_by(col(Ban.created_at).desc(), col(Ban.uuid).desc())
+        .limit(1)
+    )
+    return (await session.exec(statement)).first()
 
 
 async def get_ban_by_uuid(
