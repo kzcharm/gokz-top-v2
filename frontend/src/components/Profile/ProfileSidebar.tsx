@@ -64,6 +64,7 @@ import {
   type ProfileSocialTab,
 } from "./ProfileSocialDialog"
 import { profileHomePlaceholder } from "./profile-home-placeholder"
+import { getRatingRankLevel, ratingRankBadgeClasses } from "./profile-ranks"
 import {
   formatNumber,
   formatRating,
@@ -131,6 +132,10 @@ function ProfileIdentityCard({
     profileSummary.regionalStanding === null
       ? t("profile.unranked")
       : `${regionalStandingPrefix} #${formatNumber(profileSummary.regionalStanding)}`
+  const rankBadgeClassName =
+    profileSummary.rating === null
+      ? "border-border/70 bg-background/80 text-foreground"
+      : ratingRankBadgeClasses[getRatingRankLevel(profileSummary.rating)]
   const viewerSteamid64 = authenticated
     ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
     : null
@@ -319,18 +324,22 @@ function ProfileIdentityCard({
             </div>
 
             <div className="flex flex-wrap justify-center gap-2 pt-2">
-              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                {profileSummaryLoading
-                  ? `${t("labels.points")} ...`
-                  : `${profileSummary.rankLabel} ${formatNumber(profileSummary.totalPoints)}`}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                {t("profile.summary.rating")}{" "}
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
+                  rankBadgeClassName,
+                )}
+              >
                 {profileSummaryLoading
                   ? "..."
                   : profileSummary.rating === null
                     ? t("profile.unranked")
-                    : formatRating(profileSummary.rating)}
+                    : `${profileSummary.rankLabel} ${formatRating(profileSummary.rating)}`}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
+                {profileSummaryLoading
+                  ? `${t("labels.points")} ...`
+                  : `${formatNumber(profileSummary.totalPoints)} Pts`}
               </span>
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
                 {t("profile.summary.global")}{" "}

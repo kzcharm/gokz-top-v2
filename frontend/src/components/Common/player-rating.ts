@@ -12,7 +12,7 @@ import level10 from "@/assets/faceit-levels/10.svg"
 import level11 from "@/assets/faceit-levels/11.svg"
 
 const FACEIT_LEVEL_THRESHOLDS = [
-  2.01, 3.67, 4.55, 5.2, 6.04, 6.84, 7.74, 8.64, 9.54, 10.5,
+  2, 3, 4, 5, 6, 7, 8, 9, 10, 10.5,
 ] as const
 
 const FACEIT_LEVEL_ICON_BY_LEVEL = {
@@ -31,6 +31,21 @@ const FACEIT_LEVEL_ICON_BY_LEVEL = {
 } as const
 
 export type PlayerRatingLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
+
+export type RatingRankLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
+
+export const RATING_RANK_COLORS: Record<RatingRankLevel, string> = {
+  1: "#CCCCCC",
+  2: "#FFFFFF",
+  3: "#99CCFF",
+  4: "#99FF99",
+  5: "#00FF00",
+  6: "#CC99FF",
+  7: "#FF66CC",
+  8: "#FF4040",
+  9: "#FF0000",
+  10: "#FFCC00",
+}
 
 export function getPlayerRatingLevel(
   rating: number | null | undefined,
