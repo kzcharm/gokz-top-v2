@@ -16,6 +16,7 @@ export type ServerPlayer = NonNullable<
 export interface ServersSearchState {
   q: string
   status: ServerStatusFilter
+  group: string
   region: string
   view: ServerViewMode
   sort: ServerSortKey
@@ -35,6 +36,7 @@ export type ServerRealtimeEvent =
 export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
   q: "",
   status: "online",
+  group: "all",
   region: "all",
   view: "grid",
   sort: "players",
@@ -73,6 +75,7 @@ export function normalizeServersSearch(
 ): ServersSearchState {
   const rawRegion =
     typeof search.region === "string" ? search.region.trim().toUpperCase() : ""
+  const rawGroup = typeof search.group === "string" ? search.group.trim() : ""
   const rawStatus =
     typeof search.status === "string" ? search.status.trim().toLowerCase() : ""
 
@@ -84,6 +87,10 @@ export function normalizeServersSearch(
         : isServerStatusFilter(rawStatus)
           ? rawStatus
           : DEFAULT_SERVERS_SEARCH.status,
+    group:
+      rawGroup && rawGroup.toLowerCase() !== "all"
+        ? rawGroup
+        : DEFAULT_SERVERS_SEARCH.group,
     region:
       rawRegion && rawRegion !== "ALL"
         ? rawRegion
@@ -111,6 +118,7 @@ export function createServersSearchParams(
   const entries = [
     ["q", normalizedSearch.q, DEFAULT_SERVERS_SEARCH.q],
     ["status", normalizedSearch.status, DEFAULT_SERVERS_SEARCH.status],
+    ["group", normalizedSearch.group, DEFAULT_SERVERS_SEARCH.group],
     ["region", normalizedSearch.region, DEFAULT_SERVERS_SEARCH.region],
     ["view", normalizedSearch.view, DEFAULT_SERVERS_SEARCH.view],
     ["sort", normalizedSearch.sort, DEFAULT_SERVERS_SEARCH.sort],
@@ -128,6 +136,14 @@ export function createServersSearchParams(
 
 export function getServerAddress(server: ServerPublic) {
   return `${server.ip}:${server.port}`
+}
+
+export function getServerGroupId(server: ServerPublic) {
+  return server.group_id ?? null
+}
+
+export function getServerGroupName(server: ServerPublic) {
+  return server.group?.name?.trim() || null
 }
 
 export function getServerHostname(server: ServerPublic) {
@@ -155,6 +171,13 @@ export function matchesServerStatusFilter(
   return statusFilter === "online"
     ? isServerOnline(server)
     : !isServerOnline(server)
+}
+
+export function matchesServerGroupFilter(
+  server: ServerPublic,
+  groupFilter: string,
+) {
+  return groupFilter === "all" || getServerGroupId(server) === groupFilter
 }
 
 export function getServerPlayerCount(server: ServerPublic) {
@@ -317,6 +340,33 @@ export function getRegionCounts(
   return Array.from(counts.entries()).sort((left, right) =>
     left[0].localeCompare(right[0]),
   )
+}
+
+export function getServerGroupCounts(
+  servers: ServerPublic[],
+  statusFilter: ServerStatusFilter,
+) {
+  const counts = new Map<string, { count: number; name: string }>()
+
+  for (const server of servers) {
+    const groupId = getServerGroupId(server)
+    const groupName = getServerGroupName(server)
+    if (!groupId || !groupName) {
+      continue
+    }
+
+    const current = counts.get(groupId)
+    counts.set(groupId, {
+      count:
+        (current?.count || 0) +
+        (matchesServerStatusFilter(server, statusFilter) ? 1 : 0),
+      name: groupName,
+    })
+  }
+
+  return Array.from(counts.entries())
+    .sort((left, right) => left[1].name.localeCompare(right[1].name))
+    .filter(([, group]) => group.count > 0)
 }
 
 export function getCountryPlayerCounts(servers: ServerPublic[]) {
