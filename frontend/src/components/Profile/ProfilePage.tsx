@@ -30,7 +30,7 @@ import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileStatsContent } from "./ProfileStatsContent"
 import { ProfileTabs } from "./ProfileTabs"
 import { ProfileUnfinishedTab } from "./ProfileUnfinishedTab"
-import { getPointsRankLabel } from "./profile-ranks"
+import { getRatingRankLabel } from "./profile-ranks"
 import { buildProfileRecordDistribution } from "./profile-record-distribution"
 import {
   buildProfileCompletionData,
@@ -408,18 +408,13 @@ export function ProfilePage({
 
     return {
       totalPoints,
-      rankLabel: getPointsRankLabel(totalPoints, scope),
+      rankLabel: getRatingRankLabel(pointsStandingQuery.data?.rating),
       globalStanding: pointsStandingQuery.data?.rank ?? null,
       regionalStanding: pointsStandingQuery.data?.regionalRank ?? null,
       region: pointsStandingQuery.data?.region ?? null,
       rating: pointsStandingQuery.data?.rating ?? null,
     }
-  }, [
-    nubRecordsQuery.data,
-    pointsStandingQuery.data,
-    proRecordsQuery.data,
-    scope,
-  ])
+  }, [nubRecordsQuery.data, pointsStandingQuery.data, proRecordsQuery.data])
   const completionTrophies = useMemo(() => {
     return {
       nub: buildProfileTrophyCounts(nubRecordsQuery.data ?? []),
