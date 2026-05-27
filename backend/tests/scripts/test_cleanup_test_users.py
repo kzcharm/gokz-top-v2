@@ -54,7 +54,7 @@ async def test_find_cleanup_candidates_only_selects_disposable_test_users(
             id=server_id,
             ip="127.0.0.1",
             port=27015,
-            owner_steamid64=0,
+            owner_steamid64=None,
         )
     )
     await db.commit()

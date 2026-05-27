@@ -4,7 +4,7 @@ import pytest
 from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import ServerGlobalapi
+from app.models import Player, ServerGlobalapi
 from app.services.globalapi_server_sync import (
     SERVER_DATETIME_FALLBACK,
     _normalize_datetime,
@@ -36,6 +36,13 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
 
     group, _ = await create_server_group(db, name="mirrored-group")
     group_id = group.id
+    db.add_all(
+        [
+            Player(steamid64=76561198000001000, name="Existing Owner"),
+            Player(steamid64=76561198000001003, name="Stale Owner"),
+            Player(steamid64=76561198000001004, name="Unchanged Owner"),
+        ]
+    )
     existing_server = ServerGlobalapi(
         id=existing_id,
         group_id=group_id,
@@ -44,7 +51,7 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
         name="Existing Replica",
         owner_steamid64=76561198000001000,
         approval_status=0,
-        approved_by_steamid64=0,
+        approved_by_steamid64=None,
         created_on=datetime(2020, 1, 1, tzinfo=UTC),
         updated_on=datetime(2020, 1, 1, tzinfo=UTC),
         synced_at=datetime(2020, 1, 1, tzinfo=UTC),
@@ -56,7 +63,7 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
         name="Historical Replica",
         owner_steamid64=76561198000001003,
         approval_status=0,
-        approved_by_steamid64=0,
+        approved_by_steamid64=None,
         created_on=datetime(2020, 1, 1, tzinfo=UTC),
         updated_on=datetime(2020, 1, 1, tzinfo=UTC),
         synced_at=datetime(2020, 1, 1, tzinfo=UTC),
@@ -68,7 +75,7 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
         name="Approval Unchanged",
         owner_steamid64=76561198000001004,
         approval_status=1,
-        approved_by_steamid64=0,
+        approved_by_steamid64=None,
         created_on=datetime(2020, 1, 2, tzinfo=UTC),
         updated_on=datetime(2020, 1, 2, tzinfo=UTC),
         synced_at=datetime(2020, 1, 2, tzinfo=UTC),

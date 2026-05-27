@@ -24,6 +24,9 @@ from app.models.utils import get_datetime_utc
 
 type BanReadRow = tuple[Ban, Player | None, Player | None]
 
+_INT32_MAX = 2_147_483_647
+_INT64_MAX = 9_223_372_036_854_775_807
+
 
 def _parse_ban_type_values(
     *,
@@ -250,8 +253,10 @@ async def read_bans(
 
         if q.isdigit():
             exact_number = int(q)
-            search_filters.append(col(Ban.steamid64) == exact_number)
-            search_filters.append(col(Ban.id) == exact_number)
+            if exact_number <= _INT64_MAX:
+                search_filters.append(col(Ban.steamid64) == exact_number)
+            if exact_number <= _INT32_MAX:
+                search_filters.append(col(Ban.id) == exact_number)
 
         text_pattern = f"%{q}%"
         search_filters.extend(

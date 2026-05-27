@@ -15,11 +15,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   fetchProfileFollowers,
   fetchProfileFollowing,
+  fetchProfileLikers,
   formatNumber,
-  PROFILE_SOCIAL_PAGE_LIMIT,
 } from "./profile-utils"
 
-export type ProfileSocialTab = "followers" | "following"
+export type ProfileSocialTab = "likes" | "followers" | "following"
 
 type SocialPage = {
   data: PlayerPublic[]
@@ -123,9 +123,11 @@ function useSocialList({
     queryKey: ["profile-social", kind, identifier],
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
-      kind === "followers"
-        ? fetchProfileFollowers({ identifier, offset: pageParam })
-        : fetchProfileFollowing({ identifier, offset: pageParam }),
+      kind === "likes"
+        ? fetchProfileLikers({ identifier, offset: pageParam })
+        : kind === "followers"
+          ? fetchProfileFollowers({ identifier, offset: pageParam })
+          : fetchProfileFollowing({ identifier, offset: pageParam }),
     getNextPageParam: (lastPage: SocialPage, allPages: SocialPage[]) => {
       const loadedCount = allPages.reduce(
         (total, page) => total + page.data.length,
@@ -142,6 +144,7 @@ export function ProfileSocialDialog({
   followerCount,
   followingCount,
   identifier,
+  likeCount,
   onOpenChange,
   open,
   tab,
@@ -150,12 +153,18 @@ export function ProfileSocialDialog({
   followerCount: number
   followingCount: number
   identifier: string
+  likeCount: number
   onOpenChange: (open: boolean) => void
   open: boolean
   tab: ProfileSocialTab
   onTabChange: (tab: ProfileSocialTab) => void
 }) {
   const { t } = useTranslation()
+  const likesQuery = useSocialList({
+    enabled: open && tab === "likes",
+    identifier,
+    kind: "likes",
+  })
   const followersQuery = useSocialList({
     enabled: open && tab === "followers",
     identifier,
@@ -167,8 +176,10 @@ export function ProfileSocialDialog({
     kind: "following",
   })
 
+  const likePages = likesQuery.data?.pages ?? []
   const followerPages = followersQuery.data?.pages ?? []
   const followingPages = followingQuery.data?.pages ?? []
+  const likers = likePages.flatMap((page) => page.data)
   const followers = followerPages.flatMap((page) => page.data)
   const following = followingPages.flatMap((page) => page.data)
 
@@ -190,7 +201,12 @@ export function ProfileSocialDialog({
           onValueChange={(value) => onTabChange(value as ProfileSocialTab)}
           className="gap-4"
         >
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="likes">
+              {t("profile.socialDialog.likesTab", {
+                count: formatNumber(likeCount),
+              })}
+            </TabsTrigger>
             <TabsTrigger value="followers">
               {t("profile.socialDialog.followersTab", {
                 count: formatNumber(followerCount),
@@ -202,6 +218,21 @@ export function ProfileSocialDialog({
               })}
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="likes" className="space-y-4">
+            <SocialList
+              active={tab === "likes"}
+              emptyLabel={t("profile.socialDialog.emptyLikes")}
+              hasMore={likesQuery.hasNextPage ?? false}
+              isError={likesQuery.isError}
+              isFetchingNextPage={likesQuery.isFetchingNextPage}
+              isLoading={likesQuery.isLoading}
+              players={likers}
+              onLoadMore={() => {
+                void likesQuery.fetchNextPage()
+              }}
+            />
+          </TabsContent>
 
           <TabsContent value="followers" className="space-y-4">
             <SocialList
@@ -233,12 +264,6 @@ export function ProfileSocialDialog({
             />
           </TabsContent>
         </Tabs>
-
-        <p className="text-xs text-muted-foreground">
-          {t("profile.socialDialog.pageHint", {
-            count: PROFILE_SOCIAL_PAGE_LIMIT,
-          })}
-        </p>
       </DialogContent>
     </Dialog>
   )

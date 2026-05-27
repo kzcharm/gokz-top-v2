@@ -143,3 +143,52 @@ async def test_create_player_like_ignores_self_likes(db: AsyncSession) -> None:
         )
         == 0
     )
+
+
+@pytest.mark.asyncio
+async def test_get_player_likers_returns_unique_players_by_latest_like(
+    db: AsyncSession,
+) -> None:
+    older_viewer = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    newer_viewer = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Liker List Target",
+    )
+
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=older_viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+    )
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=newer_viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 5, 12, 0, tzinfo=UTC),
+    )
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=older_viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 6, 12, 0, tzinfo=UTC),
+    )
+
+    likers, count = await crud.get_player_likers(
+        session=db,
+        target_steamid64=target.steamid64,
+    )
+
+    assert count == 2
+    assert [liker.steamid64 for liker in likers] == [
+        older_viewer.steamid64,
+        newer_viewer.steamid64,
+    ]

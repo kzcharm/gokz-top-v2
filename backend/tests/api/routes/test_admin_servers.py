@@ -7,6 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import (
+    Player,
     Server,
     ServerGlobalapi,
     ServerGroup,
@@ -34,6 +35,8 @@ async def _create_globalapi_server(
     created_at: datetime | None = None,
     updated_at: datetime | None = None,
 ) -> ServerGlobalapi:
+    if await db.get(Player, owner_steamid64) is None:
+        db.add(Player(steamid64=owner_steamid64, name=str(owner_steamid64)))
     server = ServerGlobalapi(
         id=id,
         group_id=group_id,
@@ -42,7 +45,7 @@ async def _create_globalapi_server(
         name=name or f"Admin Test Server {id}",
         owner_steamid64=owner_steamid64,
         approval_status=approval_status,
-        approved_by_steamid64=0,
+        approved_by_steamid64=None,
         created_at=created_at or datetime(2021, 1, 1, tzinfo=UTC),
         updated_at=updated_at or datetime(2021, 1, 2, tzinfo=UTC),
         synced_at=datetime(2021, 1, 3, tzinfo=UTC),
@@ -624,6 +627,7 @@ async def test_globalapi_server_sync_preserves_local_approval(
         owner_steamid64=random_steamid64(),
         approval_status=1,
     )
+    db.add(Player(steamid64=76561198000000001, name="Approver"))
     server.approved_by_steamid64 = 76561198000000001
     db.add(server)
     await db.commit()

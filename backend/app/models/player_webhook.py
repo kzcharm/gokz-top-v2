@@ -67,19 +67,19 @@ class PlayerWebhook(SQLModel, table=True):
     __table_args__ = (
         Index(
             "ux_player_webhook_owner_provider_url",
-            "user_steamid64",
+            "player_steamid64",
             "provider",
             "url",
             unique=True,
         ),
-        Index("ix_player_webhook_owner_enabled", "user_steamid64", "enabled"),
+        Index("ix_player_webhook_owner_enabled", "player_steamid64", "enabled"),
     )
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
-    user_steamid64: int = Field(
+    player_steamid64: int = Field(
         sa_column=Column(
             BigInteger,
-            ForeignKey("user.steamid64", ondelete="CASCADE"),
+            ForeignKey("player.steamid64", ondelete="CASCADE"),
             nullable=False,
         )
     )

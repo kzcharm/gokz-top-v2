@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, String
+from sqlalchemy import BigInteger, Column, DateTime, Index, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -38,7 +38,7 @@ class RecordModerationAction(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
     actor_steamid64: int = Field(
-        foreign_key="user.steamid64",
+        foreign_key="player.steamid64",
         nullable=False,
         sa_type=BigInteger,
     )

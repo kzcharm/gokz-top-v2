@@ -78,6 +78,32 @@ export async function fetchProfileLikes(identifier: string) {
   })
 }
 
+export async function fetchProfileLikers({
+  identifier,
+  offset = 0,
+  limit = PROFILE_SOCIAL_PAGE_LIMIT,
+}: {
+  identifier: string
+  offset?: number
+  limit?: number
+}) {
+  const encodedIdentifier = encodeURIComponent(identifier)
+  const accessToken = localStorage.getItem("access_token")
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/players/${encodedIdentifier}/likes/players?offset=${offset}&limit=${limit}`,
+    {
+      credentials: OpenAPI.CREDENTIALS,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch profile likers")
+  }
+
+  return (await response.json()) as PlayersPublic
+}
+
 export type ProfileLikeResult = PlayerLikesPublic
 
 export async function createProfileLike(identifier: string) {

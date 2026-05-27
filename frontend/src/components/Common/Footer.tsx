@@ -4,7 +4,8 @@ import { FaDiscord, FaQq } from "react-icons/fa"
 import { getCopyrightYearRange, SITE_NAME } from "@/lib/site"
 
 export function Footer() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const showQqGroup = i18n.resolvedLanguage === "zh-CN"
 
   return (
     <footer className="shrink-0 border-t px-6 py-3">
@@ -23,17 +24,21 @@ export function Footer() {
             <span>{t("footer.joinDiscord")}</span>
             <FaDiscord className="h-4 w-4" />
           </a>
-          <span>|</span>
-          <a
-            href="https://qm.qq.com/q/VCLUknWuoo"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t("footer.joinQqGroup")}
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
-          >
-            <span>{t("footer.joinQqGroup")}</span>
-            <FaQq className="h-4 w-4" />
-          </a>
+          {showQqGroup ? (
+            <>
+              <span>|</span>
+              <a
+                href="https://qm.qq.com/q/VCLUknWuoo"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t("footer.joinQqGroup")}
+                className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+              >
+                <span>{t("footer.joinQqGroup")}</span>
+                <FaQq className="h-4 w-4" />
+              </a>
+            </>
+          ) : null}
         </div>
       </div>
     </footer>

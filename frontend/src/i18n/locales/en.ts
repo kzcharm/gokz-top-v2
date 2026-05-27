@@ -283,9 +283,11 @@ export const en = {
     },
     socialDialog: {
       title: "Profile Connections",
-      description: "Browse who follows this player and who they follow.",
+      description: "Browse who liked this player and who follows them.",
+      likesTab: "Likes {{count}}",
       followersTab: "Followers {{count}}",
       followingTab: "Following {{count}}",
+      emptyLikes: "No likes yet.",
       emptyFollowers: "No followers yet.",
       emptyFollowing: "This player is not following anyone yet.",
       loadFailed: "Failed to load this list.",
@@ -296,6 +298,11 @@ export const en = {
     likes: {
       alreadyLikedToday: "You can only like this profile once per day.",
       likeFailed: "Failed to like this player.",
+    },
+    follow: {
+      follow: "Follow",
+      unfollow: "Unfollow",
+      updateFailed: "Failed to update follow.",
     },
     history: {
       menuAction: "Profile History",

@@ -54,12 +54,28 @@ test("Language selector switches locale and persists after reload", async ({
   await page.goto("/maps")
 
   await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "Join our QQ group" }),
+  ).toBeHidden()
   await page.getByRole("button", { name: /Select language/ }).click()
-  await page.getByText("Русский").click()
+  await page.getByText("简体中文").click()
+
+  await expect(page.getByRole("heading", { name: "地图" })).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "加入我们的 QQ 群" }),
+  ).toBeVisible()
+
+  await page.evaluate(() => {
+    localStorage.setItem("gokz-language", "ru")
+  })
+  await page.reload()
 
   await expect(page.getByRole("heading", { name: "Карты" })).toBeVisible()
   await expect(page.getByText("Загружено карт: 12")).toBeVisible()
   await expect(page.getByText("Показано карт: 12")).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "Вступайте в нашу группу QQ" }),
+  ).toBeHidden()
 
   await page.reload()
 

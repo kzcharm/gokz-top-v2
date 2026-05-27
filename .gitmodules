@@ -3,4 +3,4 @@
 	url = git@github.com:kzcharm/gokz-top-docs.git
 [submodule "sourcemod"]
 	path = sourcemod
-	url = git@github.com:kzcharm/gokz-top-plugins-v2.git
+	url = git@github.com:kzcharm/gokz-top-plugins.git

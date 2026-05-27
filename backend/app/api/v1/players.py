@@ -11,6 +11,7 @@ from app.api.deps import (
     OptionalCurrentUser,
     SessionDep,
     get_current_active_superuser,
+    get_current_user,
 )
 from app.api.v1.player_api_helpers import (
     drop_null_group_ids,
@@ -31,6 +32,7 @@ from app.models import (
     PlayerCommentsPublic,
     PlayerDailyActivityPublic,
     PlayerDetailPublic,
+    PlayerFollowListQuery,
     PlayerFriendsPublic,
     PlayerLikesPublic,
     PlayerMostPlayedServerPublic,
@@ -252,6 +254,29 @@ async def read_player_likes(
         target_steamid64=player.steamid64,
     )
     return PlayerLikesPublic(player_likes=player_likes)
+
+
+@router.get(
+    "/{identifier:path}/likes/players",
+    dependencies=[Depends(get_current_user)],
+    response_model=PlayersPublic,
+)
+async def read_player_likers(
+    identifier: str,
+    session: SessionDep,
+    query: Annotated[PlayerFollowListQuery, Query()],
+) -> PlayersPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    likers, count = await crud.get_player_likers(
+        session=session,
+        target_steamid64=player.steamid64,
+        offset=query.offset,
+        limit=query.limit,
+    )
+    return PlayersPublic(
+        data=await crud.to_player_publics(session=session, players=likers),
+        count=count,
+    )
 
 
 @router.get("/{identifier:path}/pinned-records", response_model=PlayerPinnedRecordsPublic)

@@ -2899,6 +2899,76 @@ async def test_read_player_likes_returns_like_count(
 
 
 @pytest.mark.asyncio
+async def test_read_player_likers_requires_authentication(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Private Likers Target",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes/players"
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_read_player_likers_returns_unique_likers(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Likers Target",
+    )
+    viewer = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    another_viewer = await crud.get_or_create_user_from_steam(
+        session=db,
+        steamid64=random_steamid64(),
+    )
+    headers = await get_user_token_headers(client, viewer.steamid64)
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+    )
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=another_viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 5, 12, 0, tzinfo=UTC),
+    )
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=datetime(2026, 4, 6, 12, 0, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/likes/players",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 2
+    assert [row["steamid64"] for row in body["data"]] == [
+        str(viewer.steamid64),
+        str(another_viewer.steamid64),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_check_player_ban_status_clears_own_active_ban_and_rebuilds_leaderboard(
     client: AsyncClient,
     db: AsyncSession,

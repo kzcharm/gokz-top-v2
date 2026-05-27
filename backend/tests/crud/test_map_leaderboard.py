@@ -61,9 +61,9 @@ async def _create_server(db: AsyncSession, *, server_id: int) -> None:
             port=27015,
             ip="203.0.113.90",
             name="Map Leaderboard Server",
-            owner_steamid64=0,
+            owner_steamid64=None,
             approval_status=1,
-            approved_by_steamid64=0,
+            approved_by_steamid64=None,
         )
     )
     await db.flush()
@@ -610,6 +610,7 @@ async def test_update_record_validity_refreshes_map_leaderboard_row(
         session=db,
         record=record,
         patch=RecordPatch(is_valid=False),
+        actor_steamid64=player_id,
     )
 
     assert await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT)) is None

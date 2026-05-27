@@ -70,7 +70,7 @@ def _ensure_local_superuser_test_webhook_sync(*, session: Session) -> None:
         return
 
     statement = select(PlayerWebhook).where(
-        PlayerWebhook.user_steamid64 == settings.SUPER_USER_STEAMID64,
+        PlayerWebhook.player_steamid64 == settings.SUPER_USER_STEAMID64,
         PlayerWebhook.url == LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
     )
     if session.exec(statement).first() is not None:
@@ -78,7 +78,7 @@ def _ensure_local_superuser_test_webhook_sync(*, session: Session) -> None:
 
     session.add(
         PlayerWebhook(
-            user_steamid64=settings.SUPER_USER_STEAMID64,
+            player_steamid64=settings.SUPER_USER_STEAMID64,
             url=LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
         )
     )
@@ -101,7 +101,7 @@ async def _ensure_local_superuser_test_webhook_async(
         return
 
     statement = select(PlayerWebhook).where(
-        PlayerWebhook.user_steamid64 == settings.SUPER_USER_STEAMID64,
+        PlayerWebhook.player_steamid64 == settings.SUPER_USER_STEAMID64,
         PlayerWebhook.url == LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
     )
     if (await session.exec(statement)).first() is not None:
@@ -109,7 +109,7 @@ async def _ensure_local_superuser_test_webhook_async(
 
     session.add(
         PlayerWebhook(
-            user_steamid64=settings.SUPER_USER_STEAMID64,
+            player_steamid64=settings.SUPER_USER_STEAMID64,
             url=LOCAL_DEV_SUPERUSER_TEST_WEBHOOK_URL,
         )
     )

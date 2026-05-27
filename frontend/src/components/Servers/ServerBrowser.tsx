@@ -52,11 +52,12 @@ import {
   buildServerConfigFile,
   buildServersWebSocketUrl,
   countOnlinePlayers,
-  countOnlineServers,
   createServersSearchParams,
   getRegionCounts,
   getSelectedServerAddress,
   getServerAddress,
+  getServerGroupCounts,
+  matchesServerGroupFilter,
   matchesServerSearch,
   matchesServerStatusFilter,
   normalizeServersSearch,
@@ -264,6 +265,10 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         return false
       }
 
+      if (!matchesServerGroupFilter(server, search.group)) {
+        return false
+      }
+
       if (
         search.region !== "all" &&
         server.region?.toUpperCase() !== search.region
@@ -273,22 +278,28 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
       return matchesServerSearch(server, deferredSearchInput)
     })
-  }, [deferredSearchInput, search.region, search.status, servers])
+  }, [deferredSearchInput, search.region, search.status, servers, search.group])
 
   const sortedServers = useMemo(
     () => sortServers(filteredServers, search.sort, search.dir),
     [filteredServers, search.dir, search.sort],
   )
 
-  const regionOptions = useMemo(
-    () => getRegionCounts(servers, search.status),
+  const groupOptions = useMemo(
+    () => getServerGroupCounts(servers, search.status),
     [search.status, servers],
   )
-  const totalOnlineServerCount = useMemo(
-    () => countOnlineServers(servers),
-    [servers],
+  const regionSourceServers = useMemo(
+    () =>
+      servers.filter((server) =>
+        matchesServerGroupFilter(server, search.group),
+      ),
+    [search.group, servers],
   )
-  const totalOfflineServerCount = servers.length - totalOnlineServerCount
+  const regionOptions = useMemo(
+    () => getRegionCounts(regionSourceServers, search.status),
+    [regionSourceServers, search.status],
+  )
   const filteredPlayerCount = useMemo(
     () => countOnlinePlayers(filteredServers),
     [filteredServers],
@@ -331,6 +342,32 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
           : nextSortKey === "players"
             ? "desc"
             : "asc",
+    })
+  }
+
+  const handleGroupChange = (groupId: string) => {
+    const nextGroup = search.group === groupId ? "all" : groupId
+    const nextPatch: Partial<ServersSearchState> = { group: nextGroup }
+
+    if (search.region !== "all" && nextGroup !== "all") {
+      const groupHasSelectedRegion = servers.some(
+        (server) =>
+          matchesServerStatusFilter(server, search.status) &&
+          matchesServerGroupFilter(server, nextGroup) &&
+          server.region?.toUpperCase() === search.region,
+      )
+
+      if (!groupHasSelectedRegion) {
+        nextPatch.region = "all"
+      }
+    }
+
+    handleSearchPatch(nextPatch)
+  }
+
+  const handleRegionChange = (regionCode: string) => {
+    handleSearchPatch({
+      region: search.region === regionCode ? "all" : regionCode,
     })
   }
 
@@ -407,8 +444,15 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     <>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Servers</h1>
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search servers..."
+              aria-label="Search servers"
+              className="h-9 bg-[#f5f5f4] pl-8 text-sm text-gray-950 dark:bg-[#f5f5f4] dark:text-gray-950"
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Badge
@@ -459,16 +503,32 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
           <CardContent className={SERVER_BROWSER_CARD_CONTENT_CLASS_NAME}>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="relative w-full max-w-sm">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder="Search servers..."
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
+                {groupOptions.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {groupOptions.map(([groupId, group]) => (
+                      <Button
+                        key={groupId}
+                        type="button"
+                        variant={
+                          search.group === groupId ? "default" : "outline"
+                        }
+                        size="sm"
+                        onClick={() => handleGroupChange(groupId)}
+                        title={
+                          search.group === groupId
+                            ? "Show all server groups"
+                            : `Filter by ${group.name}`
+                        }
+                      >
+                        <span className="max-w-40 truncate">{group.name}</span>
+                        <span className="text-xs opacity-80">
+                          ({group.count})
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap items-center justify-end gap-2 lg:ml-auto">
                   <button
                     type="button"
                     className={cn(
@@ -529,22 +589,6 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
               {regionOptions.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant={search.region === "all" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleSearchPatch({ region: "all" })}
-                  >
-                    <div className="flex items-center gap-2 whitespace-nowrap">
-                      <span>All</span>
-                      <span className="text-xs opacity-80">
-                        (
-                        {search.status === "online"
-                          ? totalOnlineServerCount
-                          : totalOfflineServerCount}
-                        )
-                      </span>
-                    </div>
-                  </Button>
                   {regionOptions.map(([regionCode, count]) => {
                     const region =
                       regionsQuery.data?.find(
@@ -557,9 +601,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                           search.region === regionCode ? "default" : "outline"
                         }
                         size="sm"
-                        onClick={() =>
-                          handleSearchPatch({ region: regionCode })
-                        }
+                        onClick={() => handleRegionChange(regionCode)}
                       >
                         <div className="flex items-center gap-2 whitespace-nowrap">
                           <RegionBadge

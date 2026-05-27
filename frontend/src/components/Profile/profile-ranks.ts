@@ -1,3 +1,8 @@
+import {
+  RATING_RANK_COLORS,
+  getPlayerRatingLevel,
+  type RatingRankLevel,
+} from "@/components/Common/player-rating"
 import type { AppScope } from "@/components/scope-provider"
 
 const LEGACY_RANK_THRESHOLDS = {
@@ -44,6 +49,34 @@ const LEGACY_RANK_NAMES = [
   "Legend",
 ] as const
 
+const RATING_RANK_NAMES = [
+  "New",
+  "Beginner",
+  "Amateur",
+  "Casual",
+  "Regular",
+  "Skilled",
+  "Expert",
+  "Pro",
+  "Master",
+  "Legend",
+] as const
+
+export const ratingRankBadgeClasses: Record<RatingRankLevel, string> = {
+  1: "border-[#CCCCCC]/70 bg-[#CCCCCC]/20 text-zinc-800 dark:text-[#CCCCCC]",
+  2: "border-[#FFFFFF]/70 bg-[#FFFFFF]/80 text-zinc-950 dark:bg-[#FFFFFF]/15 dark:text-[#FFFFFF]",
+  3: "border-[#99CCFF]/70 bg-[#99CCFF]/20 text-sky-950 dark:text-[#99CCFF]",
+  4: "border-[#99FF99]/70 bg-[#99FF99]/20 text-green-950 dark:text-[#99FF99]",
+  5: "border-[#00FF00]/70 bg-[#00FF00]/20 text-green-950 dark:text-[#00FF00]",
+  6: "border-[#CC99FF]/70 bg-[#CC99FF]/20 text-purple-950 dark:text-[#CC99FF]",
+  7: "border-[#FF66CC]/70 bg-[#FF66CC]/20 text-fuchsia-950 dark:text-[#FF66CC]",
+  8: "border-[#FF4040]/70 bg-[#FF4040]/20 text-red-950 dark:text-[#FF4040]",
+  9: "border-[#FF0000]/70 bg-[#FF0000]/20 text-red-950 dark:text-[#FF0000]",
+  10: "border-[#FFE45C]/80 bg-[linear-gradient(135deg,rgba(255,248,184,0.72),rgba(255,204,0,0.32)_42%,rgba(184,120,0,0.28))] text-yellow-950 shadow-[0_0_18px_rgba(255,204,0,0.24)] dark:text-[#FFE45C]",
+}
+
+export { RATING_RANK_COLORS }
+
 function getLegacyThresholds(scope: AppScope) {
   switch (scope) {
     case "VNL":
@@ -68,4 +101,24 @@ export function getPointsRankLabel(points: number, scope: AppScope) {
   }
 
   return LEGACY_RANK_NAMES[0]
+}
+
+export function getRatingRankLevel(
+  rating: number | null | undefined,
+): RatingRankLevel {
+  const level = getPlayerRatingLevel(rating)
+
+  if (level <= 1) {
+    return 1
+  }
+
+  if (level >= RATING_RANK_NAMES.length) {
+    return 10
+  }
+
+  return level as RatingRankLevel
+}
+
+export function getRatingRankLabel(rating: number | null | undefined) {
+  return RATING_RANK_NAMES[getRatingRankLevel(rating) - 1]
 }

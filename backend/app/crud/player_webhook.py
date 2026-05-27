@@ -25,11 +25,11 @@ async def get_player_webhook(
 
 
 async def list_player_webhooks(
-    *, session: AsyncSession, user_steamid64: int
+    *, session: AsyncSession, player_steamid64: int
 ) -> list[PlayerWebhook]:
     statement = (
         select(PlayerWebhook)
-        .where(col(PlayerWebhook.user_steamid64) == user_steamid64)
+        .where(col(PlayerWebhook.player_steamid64) == player_steamid64)
         .order_by(
             col(PlayerWebhook.created_at).asc(),
             col(PlayerWebhook.id).asc(),
@@ -39,12 +39,12 @@ async def list_player_webhooks(
 
 
 async def list_enabled_player_webhooks(
-    *, session: AsyncSession, user_steamid64: int
+    *, session: AsyncSession, player_steamid64: int
 ) -> list[PlayerWebhook]:
     statement = (
         select(PlayerWebhook)
         .where(
-            col(PlayerWebhook.user_steamid64) == user_steamid64,
+            col(PlayerWebhook.player_steamid64) == player_steamid64,
             col(PlayerWebhook.enabled).is_(True),
         )
         .order_by(
@@ -73,11 +73,11 @@ async def list_all_enabled_player_webhooks(
 async def create_player_webhook(
     *,
     session: AsyncSession,
-    user_steamid64: int,
+    player_steamid64: int,
     url: str,
 ) -> PlayerWebhook:
     webhook = PlayerWebhook(
-        user_steamid64=user_steamid64,
+        player_steamid64=player_steamid64,
         provider=PlayerWebhookProvider.DISCORD,
         url=normalize_discord_webhook_url(url),
     )
@@ -86,7 +86,7 @@ async def create_player_webhook(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise PlayerWebhookConflictError("Webhook already exists for this user") from exc
+        raise PlayerWebhookConflictError("Webhook already exists for this player") from exc
 
     await session.refresh(webhook)
     return webhook
@@ -110,7 +110,7 @@ async def update_player_webhook(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise PlayerWebhookConflictError("Webhook already exists for this user") from exc
+        raise PlayerWebhookConflictError("Webhook already exists for this player") from exc
 
     await session.refresh(webhook)
     return webhook

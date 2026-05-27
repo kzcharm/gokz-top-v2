@@ -49,4 +49,6 @@ class LegacyDatetimeNamesMixin(SQLModel):
             normalized["created_at"] = normalized.pop("created_on")
         if "updated_at" not in normalized and "updated_on" in normalized:
             normalized["updated_at"] = normalized.pop("updated_on")
+        if "expires_at" not in normalized and "expires_on" in normalized:
+            normalized["expires_at"] = normalized.pop("expires_on")
         return normalized

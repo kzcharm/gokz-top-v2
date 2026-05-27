@@ -111,7 +111,7 @@ class ServerGroup(ServerGroupBase, table=True):
     api_key: str = Field(max_length=36)
     owner_steamid64: int | None = Field(
         default=None,
-        foreign_key="user.steamid64",
+        foreign_key="player.steamid64",
         sa_type=BigInteger,
     )
     status: ServerGroupStatus = Field(

@@ -7,7 +7,7 @@
 - Monorepo with:
   - FastAPI backend in `backend/`
   - React + TypeScript frontend in `frontend/`
-  - SourceMod plugin code tracked in the `sourcemod/` git submodule (`kzcharm/gokz-top-plugins-v2`)
+  - SourceMod plugin code tracked in the `sourcemod/` git submodule (`kzcharm/gokz-top-plugins`)
 - API surfaces:
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
