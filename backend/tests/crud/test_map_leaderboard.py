@@ -610,6 +610,7 @@ async def test_update_record_validity_refreshes_map_leaderboard_row(
         session=db,
         record=record,
         patch=RecordPatch(is_valid=False),
+        actor_steamid64=player_id,
     )
 
     assert await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT)) is None
