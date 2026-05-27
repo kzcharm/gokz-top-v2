@@ -173,7 +173,7 @@ async def get_current_user_webhook_or_404(
     webhook_id: uuid.UUID,
 ):
     webhook = await crud.get_player_webhook(session=session, id=webhook_id)
-    if webhook is None or webhook.user_steamid64 != current_user.steamid64:
+    if webhook is None or webhook.player_steamid64 != current_user.steamid64:
         raise HTTPException(status_code=404, detail="Webhook not found")
     return webhook
 

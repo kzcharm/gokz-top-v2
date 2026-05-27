@@ -151,7 +151,7 @@ async def update_admin_globalapi_server(
             raise HTTPException(status_code=403, detail="Cannot approve servers")
         server.approval_status = update_data["approval_status"]
         server.approved_by_steamid64 = (
-            principal.user.steamid64 if server.approval_status == 1 else 0
+            principal.user.steamid64 if server.approval_status == 1 else None
         )
 
     server.updated_at = get_datetime_utc()

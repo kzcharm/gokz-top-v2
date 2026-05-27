@@ -63,9 +63,9 @@ async def _create_server(db: AsyncSession, *, server_id: int, name: str) -> None
             port=27015,
             ip="203.0.113.60",
             name=name,
-            owner_steamid64=0,
+            owner_steamid64=None,
             approval_status=1,
-            approved_by_steamid64=0,
+            approved_by_steamid64=None,
         )
     )
     await db.flush()

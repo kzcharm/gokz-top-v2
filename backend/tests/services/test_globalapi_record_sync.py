@@ -103,9 +103,9 @@ async def _create_local_record(
             port=27015,
             ip=None,
             name=f"server_{server_id}",
-            owner_steamid64=0,
+            owner_steamid64=None,
             approval_status=0,
-            approved_by_steamid64=0,
+            approved_by_steamid64=None,
         )
     )
     await db.commit()

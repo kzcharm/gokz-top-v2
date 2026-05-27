@@ -218,9 +218,9 @@ async def _create_ovr_pb(
                 port=27015,
                 ip=f"203.0.113.{map_id % 200 + 1}",
                 name=f"Test Server {map_id}",
-                owner_steamid64=0,
+                owner_steamid64=None,
                 approval_status=1,
-                approved_by_steamid64=0,
+                approved_by_steamid64=None,
             )
         )
         await db.commit()
@@ -280,9 +280,9 @@ async def _create_map_record(
                 port=27015,
                 ip=f"203.0.113.{record_id % 200 + 1}",
                 name=f"Leaderboard Server {record_id}",
-                owner_steamid64=0,
+                owner_steamid64=None,
                 approval_status=1,
-                approved_by_steamid64=0,
+                approved_by_steamid64=None,
             )
         )
         await db.commit()
@@ -624,9 +624,9 @@ async def test_read_map_wrs_v1_returns_nub_and_pro_rows(
             port=27015,
             ip="203.0.113.88",
             name="WR Server",
-            owner_steamid64=0,
+            owner_steamid64=None,
             approval_status=1,
-            approved_by_steamid64=0,
+            approved_by_steamid64=None,
         )
     )
     await db.commit()
@@ -704,9 +704,9 @@ async def test_read_map_wrs_v1_supports_map_name_scope_type_and_updates_without_
             port=27015,
             ip="203.0.113.89",
             name="WR Update Server",
-            owner_steamid64=0,
+            owner_steamid64=None,
             approval_status=1,
-            approved_by_steamid64=0,
+            approved_by_steamid64=None,
         )
     )
     await db.commit()

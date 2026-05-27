@@ -5,7 +5,7 @@ from httpx import AsyncClient
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import ServerGlobalapi
+from app.models import Player, ServerGlobalapi
 
 pytestmark = pytest.mark.asyncio
 
@@ -17,12 +17,14 @@ async def _create_server_globalapi(
     port: int,
     ip: str,
     name: str,
-    owner_steamid64: int,
+    owner_steamid64: int | None,
     approval_status: int,
-    approved_by_steamid64: int,
+    approved_by_steamid64: int | None,
 ) -> ServerGlobalapi:
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
+    for steamid64 in {owner_steamid64, approved_by_steamid64} - {None}:
+        db.add(Player(steamid64=steamid64, name=str(steamid64)))
 
     server = ServerGlobalapi(
         id=id,
@@ -88,7 +90,7 @@ async def test_read_servers_v0_filters(client: AsyncClient, db: AsyncSession) ->
         name="ztest-beta-climb-940111",
         owner_steamid64=76561198000000111,
         approval_status=0,
-        approved_by_steamid64=0,
+        approved_by_steamid64=None,
     )
     await _create_server_globalapi(
         db,
@@ -166,7 +168,7 @@ async def test_read_servers_v0_by_name_returns_matches(
         name="ztest-network-940121",
         owner_steamid64=76561198000000121,
         approval_status=0,
-        approved_by_steamid64=0,
+        approved_by_steamid64=None,
     )
 
     response = await client.get("/v0/servers/name/ztest-network-94012")

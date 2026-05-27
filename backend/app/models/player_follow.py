@@ -28,7 +28,7 @@ class PlayerFollow(SQLModel, table=True):
     follower_steamid64: int = Field(
         sa_column=Column(
             BigInteger,
-            ForeignKey("user.steamid64", ondelete="CASCADE"),
+            ForeignKey("player.steamid64", ondelete="CASCADE"),
             primary_key=True,
         )
     )

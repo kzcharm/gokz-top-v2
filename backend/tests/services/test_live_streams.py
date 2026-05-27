@@ -236,13 +236,13 @@ async def _create_live_stream_state(
 async def _create_player_webhook(
     db: AsyncSession,
     *,
-    user_steamid64: int,
+    player_steamid64: int,
     url: str,
     enabled: bool = True,
 ) -> PlayerWebhook:
-    await crud.get_or_create_user_from_steam(session=db, steamid64=user_steamid64)
+    await crud.get_or_create_user_from_steam(session=db, steamid64=player_steamid64)
     webhook = PlayerWebhook(
-        user_steamid64=user_steamid64,
+        player_steamid64=player_steamid64,
         url=url,
         enabled=enabled,
     )
@@ -627,7 +627,7 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
     )
     webhook = await _create_player_webhook(
         db,
-        user_steamid64=player.steamid64,
+        player_steamid64=player.steamid64,
         url=(
             "https://discord.com/api/webhooks/523456789012345678/"
             "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
@@ -717,7 +717,7 @@ async def test_refresh_live_streams_broadcasts_new_live_transition_to_all_enable
     )
     streamed_webhook = await _create_player_webhook(
         db,
-        user_steamid64=streamed_player.steamid64,
+        player_steamid64=streamed_player.steamid64,
         url=(
             "https://discord.com/api/webhooks/623456789012345678/"
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -725,7 +725,7 @@ async def test_refresh_live_streams_broadcasts_new_live_transition_to_all_enable
     )
     watcher_webhook = await _create_player_webhook(
         db,
-        user_steamid64=watcher_player.steamid64,
+        player_steamid64=watcher_player.steamid64,
         url=(
             "https://discord.com/api/webhooks/723456789012345678/"
             "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -814,9 +814,9 @@ async def test_refresh_live_streams_does_not_resend_webhook_while_already_live(
         last_live_started_at=checked_at,
         last_stream_url="https://www.twitch.tv/streamer",
     )
-    failing_webhook = await _create_player_webhook(
+    await _create_player_webhook(
         db,
-        user_steamid64=player.steamid64,
+        player_steamid64=player.steamid64,
         url=(
             "https://discord.com/api/webhooks/623456789012345678/"
             "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
@@ -885,9 +885,9 @@ async def test_refresh_live_streams_sends_webhook_when_existing_state_turns_live
         last_live_seen_at=None,
         last_live_started_at=None,
     )
-    successful_webhook = await _create_player_webhook(
+    await _create_player_webhook(
         db,
-        user_steamid64=player.steamid64,
+        player_steamid64=player.steamid64,
         url=(
             "https://discord.com/api/webhooks/523456789012345678/"
             "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -969,9 +969,9 @@ async def test_refresh_live_streams_sends_webhook_for_new_session_while_state_wa
         last_live_started_at=previous_started_at,
         last_stream_url="https://live.bilibili.com/42",
     )
-    disabled_webhook = await _create_player_webhook(
+    await _create_player_webhook(
         db,
-        user_steamid64=player.steamid64,
+        player_steamid64=player.steamid64,
         url=(
             "https://discord.com/api/webhooks/723456789012345678/"
             "abababababababababababababababababababababababababababababababab"
@@ -1035,7 +1035,7 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
     )
     failing_webhook = await _create_player_webhook(
         db,
-        user_steamid64=player.steamid64,
+        player_steamid64=player.steamid64,
         url=(
             "https://discord.com/api/webhooks/723456789012345678/"
             "1111111111111111111111111111111111111111111111111111111111111111"
@@ -1044,7 +1044,7 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
     )
     successful_webhook = await _create_player_webhook(
         db,
-        user_steamid64=player.steamid64,
+        player_steamid64=player.steamid64,
         url=(
             "https://discord.com/api/webhooks/823456789012345678/"
             "2222222222222222222222222222222222222222222222222222222222222222"
@@ -1053,7 +1053,7 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
     )
     disabled_webhook = await _create_player_webhook(
         db,
-        user_steamid64=player.steamid64,
+        player_steamid64=player.steamid64,
         url=(
             "https://discord.com/api/webhooks/923456789012345678/"
             "3333333333333333333333333333333333333333333333333333333333333333"

@@ -89,6 +89,12 @@ async def _create_server_globalapi(
 ) -> ServerGlobalapi:
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
+    for steamid64 in (76561198000000010, 76561198000000020):
+
+        if await db.get(Player, steamid64) is None:
+
+            db.add(Player(steamid64=steamid64, name=str(steamid64)))
+
     server = ServerGlobalapi(
         id=id,
         port=27015,

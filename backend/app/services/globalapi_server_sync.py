@@ -8,7 +8,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import GlobalApiSyncResult, ServerGlobalapi
+from app.models import GlobalApiSyncResult, Player, ServerGlobalapi
 
 DEFAULT_SERVER_PORT = 27015
 SERVER_DATETIME_FALLBACK = "2018-01-09T10:45:50"
@@ -48,6 +48,11 @@ def _parse_int(value: Any, *, default: int = 0) -> int:
         return default
 
 
+def _parse_optional_steamid64(value: Any) -> int | None:
+    parsed = _parse_int(value, default=0)
+    return parsed if parsed > 0 else None
+
+
 def _parse_optional_string(value: Any) -> str | None:
     if value is None:
         return None
@@ -72,10 +77,10 @@ def _server_values_from_globalapi(
         "port": _normalize_port(payload.get("port")),
         "ip": _parse_optional_string(payload.get("ip")),
         "name": _parse_optional_string(payload.get("name")),
-        "owner_steamid64": _parse_int(payload.get("owner_steamid64"), default=0),
+        "owner_steamid64": _parse_optional_steamid64(payload.get("owner_steamid64")),
         "approval_status": approval_status,
-        "approved_by_steamid64": _parse_int(
-            payload.get("approved_by_steamid64"), default=0
+        "approved_by_steamid64": _parse_optional_steamid64(
+            payload.get("approved_by_steamid64")
         ),
         "created_at": _normalize_datetime(payload.get("created_on")),
         "updated_at": _normalize_datetime(payload.get("updated_on")),
@@ -198,6 +203,30 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
     updated = 0
 
     if rows_to_insert:
+        referenced_steamid64s = {
+            steamid64
+            for row in rows_to_insert
+            for steamid64 in (row["owner_steamid64"], row["approved_by_steamid64"])
+            if steamid64 is not None
+        }
+        if referenced_steamid64s:
+            player_rows = [
+                {
+                    "steamid64": steamid64,
+                    "name": str(steamid64),
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                for steamid64 in sorted(referenced_steamid64s)
+            ]
+            player_table = Player.__table__
+            player_insert = pg_insert(player_table).values(player_rows)
+            await session.exec(
+                player_insert.on_conflict_do_nothing(
+                    index_elements=[player_table.c.steamid64]
+                )
+            )
+
         insert_statement = pg_insert(server_table).values(rows_to_insert)
         await session.exec(insert_statement.on_conflict_do_nothing(index_elements=[server_table.c.id]))
 

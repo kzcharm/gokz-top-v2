@@ -17,7 +17,10 @@ from app.models import (
     PlayerWebhooksPublic,
     PlayerWebhookUpdate,
 )
-from app.services.player_webhooks import build_discord_embed_payload, send_discord_webhook
+from app.services.player_webhooks import (
+    build_discord_embed_payload,
+    send_discord_webhook,
+)
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -29,7 +32,7 @@ async def read_current_player_webhooks(
 ) -> PlayerWebhooksPublic:
     webhooks = await crud.list_player_webhooks(
         session=session,
-        user_steamid64=current_user.steamid64,
+        player_steamid64=current_user.steamid64,
     )
     return PlayerWebhooksPublic(
         data=crud.to_player_webhook_publics(webhooks=webhooks),
@@ -46,7 +49,7 @@ async def create_current_player_webhook(
     try:
         await crud.create_player_webhook(
             session=session,
-            user_steamid64=current_user.steamid64,
+            player_steamid64=current_user.steamid64,
             url=body.url,
         )
     except crud.PlayerWebhookConflictError as exc:
@@ -56,7 +59,7 @@ async def create_current_player_webhook(
 
     webhooks = await crud.list_player_webhooks(
         session=session,
-        user_steamid64=current_user.steamid64,
+        player_steamid64=current_user.steamid64,
     )
     return PlayerWebhooksPublic(
         data=crud.to_player_webhook_publics(webhooks=webhooks),
@@ -90,7 +93,7 @@ async def update_current_player_webhook(
 
     webhooks = await crud.list_player_webhooks(
         session=session,
-        user_steamid64=current_user.steamid64,
+        player_steamid64=current_user.steamid64,
     )
     return PlayerWebhooksPublic(
         data=crud.to_player_webhook_publics(webhooks=webhooks),
@@ -112,7 +115,7 @@ async def delete_current_player_webhook(
     await crud.delete_player_webhook(session=session, webhook=webhook)
     webhooks = await crud.list_player_webhooks(
         session=session,
-        user_steamid64=current_user.steamid64,
+        player_steamid64=current_user.steamid64,
     )
     return PlayerWebhooksPublic(
         data=crud.to_player_webhook_publics(webhooks=webhooks),

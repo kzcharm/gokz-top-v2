@@ -1303,7 +1303,9 @@ def _to_server_globalapi_compat_public_v0(
         port=server.port,
         ip=server.ip,
         name=server.name,
-        owner_steamid64=str(server.owner_steamid64),
+        owner_steamid64=(
+            str(server.owner_steamid64) if server.owner_steamid64 is not None else "0"
+        ),
     )
 
 

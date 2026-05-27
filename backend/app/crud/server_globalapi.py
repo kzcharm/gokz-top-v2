@@ -9,6 +9,10 @@ from app.models import (
 )
 
 
+def _compat_steamid64(value: int | None) -> str:
+    return str(value) if value is not None else "0"
+
+
 async def read_server_globalapi(
     *,
     session: AsyncSession,
@@ -27,9 +31,12 @@ async def read_server_globalapi(
     if query.name is not None:
         statement = statement.where(col(ServerGlobalapi.name).ilike(f"%{query.name}%"))
     if query.owner_steamid64 is not None:
-        statement = statement.where(
-            col(ServerGlobalapi.owner_steamid64) == query.owner_steamid64
-        )
+        if query.owner_steamid64 == 0:
+            statement = statement.where(col(ServerGlobalapi.owner_steamid64).is_(None))
+        else:
+            statement = statement.where(
+                col(ServerGlobalapi.owner_steamid64) == query.owner_steamid64
+            )
     if query.approval_status is not None:
         statement = statement.where(
             col(ServerGlobalapi.approval_status) == query.approval_status
@@ -94,7 +101,7 @@ def to_server_globalapi_compat_public_v0(
         port=server.port,
         ip=server.ip,
         name=server.name,
-        owner_steamid64=str(server.owner_steamid64),
+        owner_steamid64=_compat_steamid64(server.owner_steamid64),
     )
 
 
@@ -108,9 +115,15 @@ def to_server_globalapi_admin_public(
         port=server.port,
         ip=server.ip,
         name=server.name,
-        owner_steamid64=str(server.owner_steamid64),
+        owner_steamid64=(
+            str(server.owner_steamid64) if server.owner_steamid64 is not None else None
+        ),
         approval_status=server.approval_status,
-        approved_by_steamid64=str(server.approved_by_steamid64),
+        approved_by_steamid64=(
+            str(server.approved_by_steamid64)
+            if server.approved_by_steamid64 is not None
+            else None
+        ),
         created_at=server.created_at,
         updated_at=server.updated_at,
         synced_at=server.synced_at,
