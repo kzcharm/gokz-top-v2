@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import {
   Copy,
@@ -6,6 +6,8 @@ import {
   Heart,
   InfoIcon,
   Search,
+  UserCheck,
+  UserPlus,
   UserRoundCheck,
   X,
 } from "lucide-react"
@@ -21,7 +23,12 @@ import {
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { PlayerSocialLinksService, PlayersService } from "@/client"
+import {
+  type PlayerFollowSummaryPublic,
+  PlayerFollowsService,
+  PlayerSocialLinksService,
+  PlayersService,
+} from "@/client"
 import { AddBanDialog } from "@/components/Bans/AddBanDialog"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -772,6 +779,8 @@ export function ProfileSidebar({
   const { t } = useTranslation()
   const authenticated = isLoggedIn()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
   const [identityContextMenuOpen, setIdentityContextMenuOpen] = useState(false)
@@ -806,9 +815,70 @@ export function ProfileSidebar({
   const followSummary = followSummaryQuery.data
   const followerCount = getFollowSummaryCount(followSummary, "follower_count")
   const followingCount = getFollowSummaryCount(followSummary, "following_count")
+  const viewerSteamid64 = authenticated
+    ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
+    : null
+  const isOwnProfile =
+    viewerSteamid64 === player.steamid64 ||
+    user?.steamid64 === player.steamid64 ||
+    followSummary?.viewer_is_self === true
+  const isFollowing = followSummary?.viewer_is_following === true
   const ljPbDistance = ljPbQuery.data?.data?.[0]?.distance ?? null
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      return isFollowing
+        ? await PlayerFollowsService.unfollowPlayer({
+            identifier: player.steamid64,
+          })
+        : await PlayerFollowsService.followPlayer({
+            identifier: player.steamid64,
+          })
+    },
+    onMutate: () => {
+      const queryKeys = [
+        ["profile-follow-summary", player.steamid64],
+        ["profile-follow-summary", identifier],
+      ] as const
+
+      for (const queryKey of queryKeys) {
+        queryClient.setQueryData<PlayerFollowSummaryPublic>(
+          queryKey,
+          (previous) => {
+            if (!previous) {
+              return previous
+            }
+
+            return {
+              ...previous,
+              follower_count: Math.max(
+                0,
+                (previous.follower_count ?? 0) + (isFollowing ? -1 : 1),
+              ),
+              viewer_is_following: !isFollowing,
+            }
+          },
+        )
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(
+        ["profile-follow-summary", player.steamid64],
+        data,
+      )
+      queryClient.setQueryData(["profile-follow-summary", identifier], data)
+      void queryClient.invalidateQueries({
+        queryKey: ["profile-follow-summary"],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ["profile-social"],
+      })
+    },
+    onError: () => {
+      toast.error(t("profile.follow.updateFailed"))
+    },
+  })
 
   useEffect(() => {
     return () => {
@@ -831,6 +901,38 @@ export function ProfileSidebar({
 
     setSocialTab(tab)
     setSocialDialogOpen(true)
+  }
+
+  const handleLikeClick = () => {
+    if (isOwnProfile) {
+      handleOpenSocial("likes")
+      return
+    }
+
+    if (!authenticated) {
+      void navigate({ to: "/login" })
+      return
+    }
+
+    onLike()
+  }
+
+  const handleFollowClick = () => {
+    if (isOwnProfile) {
+      handleOpenSocial("followers")
+      return
+    }
+
+    if (!authenticated) {
+      void navigate({ to: "/login" })
+      return
+    }
+
+    if (followSummaryQuery.isLoading || followMutation.isPending) {
+      return
+    }
+
+    followMutation.mutate()
   }
 
   const handleSelectPlayer = (nextPlayer: GraphqlPlayer) => {
@@ -1021,7 +1123,7 @@ export function ProfileSidebar({
                 iconClassName="text-rose-500"
                 labelHidden
                 label={t("profile.summary.likes")}
-                onClick={onLike}
+                onClick={handleLikeClick}
                 value={
                   playerLikesLoading ? (
                     <Skeleton className="h-4 w-14" />
@@ -1033,11 +1135,28 @@ export function ProfileSidebar({
                 }
               />
               <SummaryMiniCard
-                icon={<UserRoundCheck className="size-3.5" />}
+                disabled={
+                  followSummaryQuery.isLoading || followMutation.isPending
+                }
+                icon={
+                  isOwnProfile ? (
+                    <UserRoundCheck className="size-3.5" />
+                  ) : isFollowing ? (
+                    <UserCheck className="size-3.5" />
+                  ) : (
+                    <UserPlus className="size-3.5" />
+                  )
+                }
                 labelHidden
-                label={t("profile.summary.followers")}
+                label={
+                  isOwnProfile
+                    ? t("profile.summary.followers")
+                    : isFollowing
+                      ? t("profile.follow.unfollow")
+                      : t("profile.follow.follow")
+                }
                 dataTestId="profile-followers-card"
-                onClick={() => handleOpenSocial("followers")}
+                onClick={handleFollowClick}
                 value={formatNumber(followerCount)}
               />
             </div>
@@ -1077,6 +1196,7 @@ export function ProfileSidebar({
         followerCount={followerCount}
         followingCount={followingCount}
         identifier={identifier}
+        likeCount={playerLikes}
         onOpenChange={setSocialDialogOpen}
         onTabChange={setSocialTab}
         open={socialDialogOpen}

@@ -279,9 +279,11 @@ export const zhCN = {
     },
     socialDialog: {
       title: "社交关系",
-      description: "查看谁关注了这位玩家，以及这位玩家关注了谁。",
+      description: "查看谁点赞或关注了这位玩家。",
+      likesTab: "点赞 {{count}}",
       followersTab: "关注者 {{count}}",
       followingTab: "关注中 {{count}}",
+      emptyLikes: "暂时还没有点赞。",
       emptyFollowers: "暂时还没有关注者。",
       emptyFollowing: "这位玩家暂时还没有关注任何人。",
       loadFailed: "加载列表失败。",
@@ -292,6 +294,11 @@ export const zhCN = {
     likes: {
       alreadyLikedToday: "这个资料每天只能点赞一次。",
       likeFailed: "点赞该玩家失败。",
+    },
+    follow: {
+      follow: "关注",
+      unfollow: "取消关注",
+      updateFailed: "关注状态更新失败。",
     },
     history: {
       menuAction: "资料历史",

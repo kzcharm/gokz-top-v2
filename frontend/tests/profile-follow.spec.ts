@@ -76,6 +76,7 @@ async function installProfileRoutes({
   currentUser,
   followers = [],
   following = [],
+  likers = [],
   player = buildPlayer({
     steamid64: targetSteamid64,
     name: "Target Runner",
@@ -88,11 +89,12 @@ async function installProfileRoutes({
   currentUser?: ReturnType<typeof buildPlayer>
   followers?: Array<ReturnType<typeof buildPlayer>>
   following?: Array<ReturnType<typeof buildPlayer>>
+  likers?: Array<ReturnType<typeof buildPlayer>>
   player?: ReturnType<typeof buildPlayer>
   summary: FollowSummary
 }) {
   const playersBySteamid64 = new Map(
-    [player, currentUser, ...followers, ...following]
+    [player, currentUser, ...followers, ...following, ...likers]
       .filter(
         (entry): entry is ReturnType<typeof buildPlayer> => entry !== undefined,
       )
@@ -145,13 +147,50 @@ async function installProfileRoutes({
     })
   })
 
+  await page.route(/\/v1\/players\/[^/]+\/likes$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ player_likes: likers.length, created: false }),
+    })
+  })
+
   await page.route(
-    /\/v1\/players\/[^/]+\/follow-summary$/,
+    /\/v1\/players\/[^/]+\/likes\/players(\?.*)?$/,
     async (route: Route) => {
+      const url = new URL(route.request().url())
+      const offset = Number(url.searchParams.get("offset") ?? "0")
+      const limit = Number(url.searchParams.get("limit") ?? "20")
+      const data = likers.slice(offset, offset + limit)
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(summary),
+        body: JSON.stringify({
+          data,
+          count: likers.length,
+        }),
+      })
+    },
+  )
+
+  await page.route(
+    /\/v1\/player-follows\/players\/[^/]+\/summary$/,
+    async (route: Route) => {
+      const identifier = route.request().url().split("/").at(-2)
+      const responseSummary =
+        identifier === otherFollowingSteamid64
+          ? {
+              follower_count: 0,
+              following_count: 0,
+              viewer_is_following: false,
+              viewer_is_self: false,
+            }
+          : summary
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(responseSummary),
       })
     },
   )
@@ -168,7 +207,7 @@ async function installProfileRoutes({
   })
 
   await page.route(
-    /\/v1\/players\/[^/]+\/followers(\?.*)?$/,
+    /\/v1\/player-follows\/players\/[^/]+\/followers(\?.*)?$/,
     async (route: Route) => {
       const url = new URL(route.request().url())
       const offset = Number(url.searchParams.get("offset") ?? "0")
@@ -187,7 +226,7 @@ async function installProfileRoutes({
   )
 
   await page.route(
-    /\/v1\/players\/[^/]+\/following(\?.*)?$/,
+    /\/v1\/player-follows\/players\/[^/]+\/following(\?.*)?$/,
     async (route: Route) => {
       const url = new URL(route.request().url())
       const offset = Number(url.searchParams.get("offset") ?? "0")
@@ -307,7 +346,7 @@ test("Profile avatar ring uses the highest role color", async ({ page }) => {
 
   const avatar = page.getByTestId(`profile-avatar-ring-${targetSteamid64}`)
   await expect(avatar).toBeVisible()
-  await expect(avatar).toHaveAttribute("class", /ring-\[#b91c1c\]\/90/)
+  await expect(avatar).toHaveAttribute("class", /ring-\[#ef4444\]\/90/)
 })
 
 test("Profile avatar has no ring for non-users", async ({ page }) => {
@@ -362,28 +401,31 @@ test("Logged-in user can follow another player and sees state update", async ({
   })
 
   let followRequests = 0
-  await page.route(/\/v1\/players\/[^/]+\/follow$/, async (route: Route) => {
-    if (route.request().method() === "POST") {
-      followRequests += 1
-      summary = {
-        ...summary,
-        follower_count: summary.follower_count + 1,
-        viewer_is_following: true,
+  await page.route(
+    /\/v1\/player-follows\/players\/[^/]+$/,
+    async (route: Route) => {
+      if (route.request().method() === "PUT") {
+        followRequests += 1
+        summary = {
+          ...summary,
+          follower_count: summary.follower_count + 1,
+          viewer_is_following: true,
+        }
       }
-    }
 
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(summary),
-    })
-  })
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(summary),
+      })
+    },
+  )
 
   const followSummaryResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url())
     return (
       response.request().method() === "GET" &&
-      /\/v1\/players\/[^/]+\/follow-summary$/.test(url.pathname)
+      /\/v1\/player-follows\/players\/[^/]+\/summary$/.test(url.pathname)
     )
   })
   await page.goto(`/profile/${targetSteamid64}`)
@@ -437,28 +479,31 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
   })
 
   let unfollowRequests = 0
-  await page.route(/\/v1\/players\/[^/]+\/follow$/, async (route: Route) => {
-    if (route.request().method() === "DELETE") {
-      unfollowRequests += 1
-      summary = {
-        ...summary,
-        follower_count: summary.follower_count - 1,
-        viewer_is_following: false,
+  await page.route(
+    /\/v1\/player-follows\/players\/[^/]+$/,
+    async (route: Route) => {
+      if (route.request().method() === "DELETE") {
+        unfollowRequests += 1
+        summary = {
+          ...summary,
+          follower_count: summary.follower_count - 1,
+          viewer_is_following: false,
+        }
       }
-    }
 
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(summary),
-    })
-  })
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(summary),
+      })
+    },
+  )
 
   const followSummaryResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url())
     return (
       response.request().method() === "GET" &&
-      /\/v1\/players\/[^/]+\/follow-summary$/.test(url.pathname)
+      /\/v1\/player-follows\/players\/[^/]+\/summary$/.test(url.pathname)
     )
   })
   await page.goto(`/profile/${targetSteamid64}`)
@@ -484,6 +529,60 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
   await followMenuItem.click()
 
   await expect.poll(() => unfollowRequests).toBe(1)
+})
+
+test("Logged-in user toggles follow from another profile summary card", async ({
+  page,
+}) => {
+  let summary: FollowSummary = {
+    follower_count: 2,
+    following_count: 7,
+    viewer_is_following: false,
+    viewer_is_self: false,
+  }
+  const currentUser = buildPlayer({
+    steamid64: currentUserSteamid64,
+    name: "Viewer Runner",
+    alias: "Viewer Alias",
+  })
+
+  await page.addInitScript((token) => {
+    localStorage.setItem("access_token", token)
+  }, createAccessToken(currentUserSteamid64))
+  await stubSidebarServerAccess(page)
+  await installProfileRoutes({
+    page,
+    currentUser,
+    summary,
+  })
+
+  let followRequests = 0
+  await page.route(
+    /\/v1\/player-follows\/players\/[^/]+$/,
+    async (route: Route) => {
+      if (route.request().method() === "PUT") {
+        followRequests += 1
+        summary = {
+          ...summary,
+          follower_count: summary.follower_count + 1,
+          viewer_is_following: true,
+        }
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(summary),
+      })
+    },
+  )
+
+  await page.goto(`/profile/${targetSteamid64}`)
+  await expect(page.getByTestId("profile-followers-card")).toContainText("2")
+  await page.getByTestId("profile-followers-card").click()
+
+  await expect.poll(() => followRequests).toBe(1)
+  await expect(page.getByTestId("profile-followers-card")).toContainText("3")
 })
 
 test("Own profile keeps the shared player context menu without follow", async ({
@@ -536,10 +635,17 @@ test("Logged-in user can browse social lists and navigate to another profile", a
   page,
 }) => {
   const currentUser = buildPlayer({
-    steamid64: currentUserSteamid64,
-    name: "Viewer Runner",
-    alias: "Viewer Alias",
+    steamid64: targetSteamid64,
+    name: "Target Runner",
+    alias: "Target Alias",
   })
+  const likers = [
+    buildPlayer({
+      steamid64: currentUserSteamid64,
+      name: "Like Runner",
+      alias: "Like Alias",
+    }),
+  ]
   const followers = Array.from({ length: 21 }, (_, index) =>
     buildPlayer({
       steamid64: (BigInt("76561198010000000") + BigInt(index)).toString(),
@@ -558,24 +664,26 @@ test("Logged-in user can browse social lists and navigate to another profile", a
 
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
-  }, createAccessToken(currentUserSteamid64))
+  }, createAccessToken(targetSteamid64))
   await stubSidebarServerAccess(page)
 
   await installProfileRoutes({
     page,
     currentUser,
+    likers,
     followers,
     following,
+    player: currentUser,
     summary: {
       follower_count: followers.length,
       following_count: following.length,
       viewer_is_following: false,
-      viewer_is_self: false,
+      viewer_is_self: true,
     },
   })
 
   await page.route(
-    /\/v1\/players\/[^/]+\/followers(\?.*)?$/,
+    /\/v1\/player-follows\/players\/[^/]+\/followers(\?.*)?$/,
     async (route: Route) => {
       const url = new URL(route.request().url())
       const offset = Number(url.searchParams.get("offset") ?? "0")
@@ -595,8 +703,13 @@ test("Logged-in user can browse social lists and navigate to another profile", a
 
   await page.goto(`/profile/${targetSteamid64}`)
 
-  await page.getByTestId("profile-followers-card").click()
+  await page.getByTestId("profile-player-likes-card").click()
   await expect(page.getByTestId("profile-social-dialog")).toBeVisible()
+  await expect(
+    page.getByTestId(`profile-social-row-${currentUserSteamid64}`),
+  ).toBeVisible()
+  await page.getByRole("tab", { name: /Followers 21/ }).click()
+
   await expect(
     page.getByTestId(`profile-social-row-${followers[0].steamid64}`),
   ).toBeVisible()
@@ -621,6 +734,7 @@ test("Logged-in user can browse social lists and navigate to another profile", a
   await expect(page.getByTestId("player-follow-menu-item")).toBeVisible()
   await expect(page.getByTestId("player-follow-menu-item")).toHaveText("Follow")
 
+  await page.keyboard.press("Escape")
   await page.getByRole("link", { name: /Following Alias/ }).click()
   await expect(page).toHaveURL(
     new RegExp(`/profile/${otherFollowingSteamid64}$`),

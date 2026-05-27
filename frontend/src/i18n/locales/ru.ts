@@ -285,10 +285,11 @@ export const ru = {
     },
     socialDialog: {
       title: "Связи профиля",
-      description:
-        "Посмотрите, кто подписан на этого игрока и на кого подписан он.",
+      description: "Посмотрите, кто лайкнул этого игрока или подписан на него.",
+      likesTab: "Лайки {{count}}",
       followersTab: "Подписчики {{count}}",
       followingTab: "Подписки {{count}}",
+      emptyLikes: "Пока нет лайков.",
       emptyFollowers: "Пока нет подписчиков.",
       emptyFollowing: "Этот игрок пока ни на кого не подписан.",
       loadFailed: "Не удалось загрузить этот список.",
@@ -299,6 +300,11 @@ export const ru = {
     likes: {
       alreadyLikedToday: "Этот профиль можно лайкнуть только один раз в день.",
       likeFailed: "Не удалось поставить лайк этому игроку.",
+    },
+    follow: {
+      follow: "Подписаться",
+      unfollow: "Отписаться",
+      updateFailed: "Не удалось обновить подписку.",
     },
     history: {
       menuAction: "История профиля",
