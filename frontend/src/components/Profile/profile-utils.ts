@@ -29,7 +29,6 @@ export type ProfileTab =
   | "unfinished"
   | "stats"
   | "jumpstats"
-  | "comments"
   | "friends"
 
 export const PROFILE_QUERY_LIMIT = 10_000

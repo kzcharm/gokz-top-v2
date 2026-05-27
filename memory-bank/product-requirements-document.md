@@ -84,7 +84,7 @@ Scope model:
 - Player profiles now expose a dedicated Friends tab at `/profile/{identifier}/friends`, showing only mutual website-known KZ players from the target player's Steam friends list.
 - Owners should auto-attempt one friends sync the first time they open their Friends tab if no earlier `friends_sync` action has been recorded, while still retaining a manual Sync button for later refreshes.
 - Friends-tab reads must show a public privacy warning when the player's Steam profile or Steam friends list is private, because that Steam visibility state is itself public.
-- Player profiles now expose a dedicated Comments tab at `/profile/{identifier}/comments`, where authenticated users can leave short public comments for another player.
+- Player profiles expose comments at the bottom of the Home tab, where authenticated users can leave short public comments for another player.
 - Player-comment writes must trim whitespace, reject blank input, and enforce a bounded text length; both the comment author and the target profile owner can delete a posted comment.
 - `/live` lists player-centric verified stream cards sourced from verified Bilibili and Twitch links, with filters for live versus previously streamed players.
 - Offline `/live` cards must show the most recently observed stream across a player's enabled platforms, so future multi-platform support can prefer the newest Twitch/YouTube/Bilibili activity rather than a fixed platform order.

@@ -1,8 +1,11 @@
 import { expect, type Page, type Route, test } from "@playwright/test"
 
+test.use({ storageState: { cookies: [], origins: [] } })
+
 const targetSteamid64 = "76561198000000001"
 const viewerSteamid64 = "76561198000000002"
-const accessToken = "test-access-token"
+const accessToken =
+  "test.eyJzdWIiOiI3NjU2MTE5ODAwMDAwMDAwMiJ9.signature"
 
 const player = {
   name: "Comment Target",
@@ -105,7 +108,7 @@ async function installProfileCommentsRoutes(
   )
 
   await page.route(
-    /\/v1\/players\/[^/]+\/follow-summary$/,
+    /\/v1\/player-follows\/players\/[^/]+\/summary$/,
     async (route: Route) => {
       await route.fulfill({
         status: 200,
@@ -119,6 +122,14 @@ async function installProfileCommentsRoutes(
       })
     },
   )
+
+  await page.route(/\/v1\/players\/[^/]+\/likes$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ player_likes: 0 }),
+    })
+  })
 
   await page.route(
     /\/v1\/players\/[^/]+\/pinned-records(\?.*)?$/,
@@ -146,7 +157,7 @@ async function installProfileCommentsRoutes(
   )
 
   await page.route(
-    /\/v1\/players\/[^/]+\/comments(\/[^/]+)?$/,
+    /\/v1\/players\/[^/]+\/comments(?:\/[^/?]+)?(?:\?.*)?$/,
     async (route: Route) => {
       const request = route.request()
       const method = request.method()
@@ -264,12 +275,13 @@ test("Logged-out viewer sees comments and login prompt", async ({ page }) => {
     ],
   })
 
-  await page.goto(`/profile/${targetSteamid64}/comments`)
+  await page.goto(`/profile/${targetSteamid64}`)
 
-  await expect(page.getByRole("tab", { name: "Comments" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "Home" })).toHaveAttribute(
     "data-state",
     "active",
   )
+  await expect(page.getByRole("tab", { name: "Comments" })).toHaveCount(0)
   await expect(page.getByTestId("profile-comments-login")).toBeVisible()
   await expect(page.getByTestId("profile-comments-list")).toContainText(
     "Welcome to the profile.",
@@ -285,7 +297,7 @@ test("Logged-in viewer can post and delete a comment", async ({ page }) => {
 
   page.on("dialog", (dialog) => dialog.accept())
 
-  await page.goto(`/profile/${targetSteamid64}/comments`)
+  await page.goto(`/profile/${targetSteamid64}`)
 
   await page.getByTestId("profile-comments-form").fill("  Great progress.  ")
   await page.getByRole("button", { name: "Post Comment" }).click()
@@ -300,4 +312,19 @@ test("Logged-in viewer can post and delete a comment", async ({ page }) => {
     .click()
 
   await expect(page.getByTestId("profile-comments-empty")).toBeVisible()
+})
+
+test("Legacy comments route redirects to profile home", async ({ page }) => {
+  await installProfileCommentsRoutes(page, {
+    currentUserSteamid64: null,
+    initialComments: [],
+  })
+
+  await page.goto(`/profile/${targetSteamid64}/comments`)
+
+  await expect(page).toHaveURL(new RegExp(`/profile/${targetSteamid64}/?$`))
+  await expect(page.getByRole("tab", { name: "Home" })).toHaveAttribute(
+    "data-state",
+    "active",
+  )
 })

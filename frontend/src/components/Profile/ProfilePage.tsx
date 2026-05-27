@@ -156,11 +156,9 @@ export function ProfilePage({
           ? "/profile/$identifier/stats"
           : activeTab === "jumpstats"
             ? "/profile/$identifier/jumpstats"
-            : activeTab === "comments"
-              ? "/profile/$identifier/comments"
-              : activeTab === "friends"
-                ? "/profile/$identifier/friends"
-                : "/profile/$identifier"
+            : activeTab === "friends"
+              ? "/profile/$identifier/friends"
+              : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {
@@ -635,33 +633,40 @@ export function ProfilePage({
           />
 
           {activeTab === "home" ? (
-            <ProfileHomeContent
-              activityError={playerStatsQuery.isError}
-              activityLoading={playerStatsQuery.isLoading}
-              activityStat={playerStatsQuery.data?.daily_activity ?? null}
-              canManagePinnedRecords={isOwnProfile}
-              nubRecordDistribution={nubRecordDistribution}
-              pinnedRecords={pinnedRecords}
-              pinnedRecordsError={
-                pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
-              }
-              pinnedRecordsLoading={
-                pinnedRecordsQuery.isLoading || pinnedRecordRanksQuery.isLoading
-              }
-              pinnedRecordsMutating={
-                pinRecordMutation.isPending || unpinRecordMutation.isPending
-              }
-              proRecordDistribution={proRecordDistribution}
-              recordDistributionError={
-                nubRecordsQuery.isError || proRecordsQuery.isError
-              }
-              recordDistributionLoading={
-                nubRecordsQuery.isLoading || proRecordsQuery.isLoading
-              }
-              onUnpinRecord={(mapId, type) => {
-                unpinRecordMutation.mutate({ mapId, type })
-              }}
-            />
+            <>
+              <ProfileHomeContent
+                activityError={playerStatsQuery.isError}
+                activityLoading={playerStatsQuery.isLoading}
+                activityStat={playerStatsQuery.data?.daily_activity ?? null}
+                canManagePinnedRecords={isOwnProfile}
+                nubRecordDistribution={nubRecordDistribution}
+                pinnedRecords={pinnedRecords}
+                pinnedRecordsError={
+                  pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
+                }
+                pinnedRecordsLoading={
+                  pinnedRecordsQuery.isLoading ||
+                  pinnedRecordRanksQuery.isLoading
+                }
+                pinnedRecordsMutating={
+                  pinRecordMutation.isPending || unpinRecordMutation.isPending
+                }
+                proRecordDistribution={proRecordDistribution}
+                recordDistributionError={
+                  nubRecordsQuery.isError || proRecordsQuery.isError
+                }
+                recordDistributionLoading={
+                  nubRecordsQuery.isLoading || proRecordsQuery.isLoading
+                }
+                onUnpinRecord={(mapId, type) => {
+                  unpinRecordMutation.mutate({ mapId, type })
+                }}
+              />
+              <ProfileCommentsTab
+                identifier={canonicalIdentifier}
+                targetSteamid64={player.steamid64}
+              />
+            </>
           ) : activeTab === "records" ? (
             <ProfileRecordsTab
               steamid64={player.steamid64}
@@ -718,11 +723,6 @@ export function ProfilePage({
                   </Button>
                 ) : null
               }
-            />
-          ) : activeTab === "comments" ? (
-            <ProfileCommentsTab
-              identifier={canonicalIdentifier}
-              targetSteamid64={player.steamid64}
             />
           ) : activeTab === "jumpstats" ? (
             <ProfileJumpstatsTab identifier={canonicalIdentifier} />
