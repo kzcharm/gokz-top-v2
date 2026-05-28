@@ -153,6 +153,7 @@ async def connect_player_session(
     active_ban = await crud.get_newest_active_ban_for_player(
         session=session,
         steamid64=player_session.player_steamid64,
+        now=player_session.connected_at,
     )
     return PlayerSessionConnectPublic(
         **session_public.model_dump(),
