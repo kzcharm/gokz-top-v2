@@ -52,6 +52,8 @@ const TROPHY_ASSETS = {
 const PROFILE_COMPLETION_TWO_COLUMN_MIN_WIDTH = 960
 const ROLLING_ACTIVITY_WINDOW_ID = "last-365-days"
 const PROFILE_DISTRIBUTION_TWO_COLUMN_MIN_WIDTH = 1080
+const ACTIVITY_WEEK_WIDTH_PX = 13
+const ACTIVITY_MONTH_LABEL_MIN_WEEK_GAP = 3
 
 type ActivityCell = {
   date: string
@@ -325,8 +327,29 @@ function buildActivityCalendar({
     }
   }
 
+  const spacedMonthLabels = monthLabels.reduce<ActivityMonthLabel[]>(
+    (labels, label) => {
+      const previousLabel = labels[labels.length - 1]
+      if (
+        previousLabel &&
+        label.weekIndex - previousLabel.weekIndex <
+          ACTIVITY_MONTH_LABEL_MIN_WEEK_GAP
+      ) {
+        if (previousLabel.weekIndex === 0) {
+          labels[labels.length - 1] = label
+        }
+
+        return labels
+      }
+
+      labels.push(label)
+      return labels
+    },
+    [],
+  )
+
   return {
-    monthLabels,
+    monthLabels: spacedMonthLabels,
     weeks,
     hasActivity: Array.from(countsByDate.values()).some((count) => count > 0),
   }
@@ -475,13 +498,16 @@ function ActivityCard({
             <div className="min-w-fit">
               <div
                 className="relative ml-8 h-4"
-                style={{ width: `${weeks.length * 13}px` }}
+                style={{ width: `${weeks.length * ACTIVITY_WEEK_WIDTH_PX}px` }}
               >
                 {monthLabels.map((label) => (
                   <span
                     key={`${rangeKey}-${label.month}-${label.weekIndex}`}
+                    data-testid={`profile-activity-month-${label.month}`}
                     className="absolute top-0 text-[11px] leading-4 text-muted-foreground"
-                    style={{ left: `${label.weekIndex * 13}px` }}
+                    style={{
+                      left: `${label.weekIndex * ACTIVITY_WEEK_WIDTH_PX}px`,
+                    }}
                   >
                     {label.month}
                   </span>

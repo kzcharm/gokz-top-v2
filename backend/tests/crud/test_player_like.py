@@ -188,7 +188,11 @@ async def test_get_player_likers_returns_unique_players_by_latest_like(
     )
 
     assert count == 2
-    assert [liker.steamid64 for liker in likers] == [
+    assert [liker.steamid64 for liker, _latest_like_at in likers] == [
         older_viewer.steamid64,
         newer_viewer.steamid64,
+    ]
+    assert [latest_like_at for _liker, latest_like_at in likers] == [
+        datetime(2026, 4, 6, 12, 0, tzinfo=UTC),
+        datetime(2026, 4, 5, 12, 0, tzinfo=UTC),
     ]

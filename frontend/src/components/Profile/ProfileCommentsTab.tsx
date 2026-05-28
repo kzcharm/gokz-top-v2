@@ -184,20 +184,26 @@ export function ProfileCommentsTab({
   return (
     <div className="space-y-4">
       <Card
-        className="rounded-[28px] border border-border/70 bg-card/70"
+        className="gap-0 rounded-[28px] border border-border/70 bg-card/70 py-0"
         data-testid="profile-comments-card"
       >
         <CardContent className="p-0">
+          <div className="px-6 pt-4 sm:px-8">
+            <h2 className="text-lg font-semibold tracking-normal">
+              {t("profile.tabs.comments")}
+            </h2>
+          </div>
+
           {comments.length === 0 ? (
             <div
-              className="px-6 py-10 text-sm text-muted-foreground sm:px-8"
+              className="px-6 pt-8 pb-9 text-sm text-muted-foreground sm:px-8"
               data-testid="profile-comments-empty"
             >
               {t("profile.comments.empty")}
             </div>
           ) : (
             <div
-              className="px-6 py-6 sm:px-8"
+              className="px-6 pt-4 pb-5 sm:px-8"
               data-testid="profile-comments-list"
             >
               <div className="space-y-5">
@@ -276,8 +282,8 @@ export function ProfileCommentsTab({
           </AlertDescription>
         </Alert>
       ) : canPost ? (
-        <Card className="rounded-[28px] border border-border/70 bg-card/70">
-          <CardContent className="space-y-4 p-6">
+        <Card className="gap-0 rounded-[28px] border border-border/70 bg-card/70 py-0">
+          <CardContent className="space-y-3 p-4 sm:p-5">
             <div className="space-y-2">
               <Label htmlFor="profile-comment-input">
                 {t("profile.comments.formLabel")}

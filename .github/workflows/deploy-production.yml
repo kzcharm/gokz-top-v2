@@ -87,10 +87,13 @@ jobs:
           FRONTEND_HOST_RULE=${frontend_host_rule}
           FRONTEND_HOST=https://${DOMAIN}
           ADMINER_HOST=adminer.${DOMAIN}
+          API_REDIRECT_HOST=api.kzcharm.com
+          FRONTEND_REDIRECT_HOST=kzcharm.com
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
           BACKEND_CORS_ORIGINS=${backend_cors_origins}
+          BACKEND_PUBLIC_URL=https://api.${DOMAIN}
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}

@@ -1,20 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router"
-
-import { ProfilePage } from "@/components/Profile/ProfilePage"
-import { getPageTitle } from "@/lib/site"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_layout/profile/$identifier/comments")({
-  component: ProfileCommentsRoute,
-  head: () => ({
-    meta: [
-      {
-        title: getPageTitle("Profile Comments"),
-      },
-    ],
-  }),
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/profile/$identifier",
+      params: { identifier: params.identifier },
+    })
+  },
+  component: ProfileCommentsRedirect,
 })
 
-function ProfileCommentsRoute() {
-  const { identifier } = Route.useParams()
-  return <ProfilePage identifier={identifier} activeTab="comments" />
+function ProfileCommentsRedirect() {
+  return null
 }

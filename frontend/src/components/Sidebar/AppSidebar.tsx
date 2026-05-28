@@ -103,14 +103,24 @@ export function AppSidebar() {
           icon: Clock3,
         },
         { title: t("nav.maps"), path: "/admin/maps", icon: MapIcon },
-        { title: t("nav.servers"), path: "/admin/servers", icon: Server },
+        {
+          title: t("nav.servers"),
+          path: "/admin/servers/globalapi-server",
+          icon: Server,
+        },
       ]
     : [
         ...(hasRole(currentUser, "map_admin")
           ? [{ title: t("nav.maps"), path: "/admin/maps", icon: MapIcon }]
           : []),
         ...(serverAdminAccessQuery.data
-          ? [{ title: t("nav.servers"), path: "/admin/servers", icon: Server }]
+          ? [
+              {
+                title: t("nav.servers"),
+                path: "/admin/servers/globalapi-server",
+                icon: Server,
+              },
+            ]
           : []),
       ]
 

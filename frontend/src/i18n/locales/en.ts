@@ -283,7 +283,6 @@ export const en = {
     },
     socialDialog: {
       title: "Profile Connections",
-      description: "Browse who liked this player and who follows them.",
       likesTab: "Likes {{count}}",
       followersTab: "Followers {{count}}",
       followingTab: "Following {{count}}",

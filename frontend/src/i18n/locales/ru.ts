@@ -285,7 +285,6 @@ export const ru = {
     },
     socialDialog: {
       title: "Связи профиля",
-      description: "Посмотрите, кто лайкнул этого игрока или подписан на него.",
       likesTab: "Лайки {{count}}",
       followersTab: "Подписчики {{count}}",
       followingTab: "Подписки {{count}}",

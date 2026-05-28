@@ -7,7 +7,7 @@ import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.import_records_archive import import_records_from_path, iter_record_payloads
+from app.importers.records_archive import import_records_from_path, iter_record_payloads
 from app.models import Player
 
 pytestmark = pytest.mark.asyncio
@@ -22,7 +22,7 @@ def _bind_import_session(
         yield db
 
     monkeypatch.setattr(
-        "app.import_records_archive.async_session_maker", _session_maker
+        "app.importers.records_archive.async_session_maker", _session_maker
     )
 
 

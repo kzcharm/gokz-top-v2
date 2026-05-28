@@ -51,6 +51,9 @@ import { Route as LayoutProfileIdentifierRecordsRouteImport } from './routes/_la
 import { Route as LayoutProfileIdentifierJumpstatsRouteImport } from './routes/_layout/profile.$identifier.jumpstats'
 import { Route as LayoutProfileIdentifierFriendsRouteImport } from './routes/_layout/profile.$identifier.friends'
 import { Route as LayoutProfileIdentifierCommentsRouteImport } from './routes/_layout/profile.$identifier.comments'
+import { Route as LayoutAdminServersServerGroupRouteImport } from './routes/_layout/admin.servers.server-group'
+import { Route as LayoutAdminServersPublicServerRouteImport } from './routes/_layout/admin.servers.public-server'
+import { Route as LayoutAdminServersGlobalapiServerRouteImport } from './routes/_layout/admin.servers.globalapi-server'
 
 const ServersRoute = ServersRouteImport.update({
   id: '/servers',
@@ -275,6 +278,24 @@ const LayoutProfileIdentifierCommentsRoute =
     path: '/comments',
     getParentRoute: () => LayoutProfileIdentifierRoute,
   } as any)
+const LayoutAdminServersServerGroupRoute =
+  LayoutAdminServersServerGroupRouteImport.update({
+    id: '/server-group',
+    path: '/server-group',
+    getParentRoute: () => LayoutAdminServersRoute,
+  } as any)
+const LayoutAdminServersPublicServerRoute =
+  LayoutAdminServersPublicServerRouteImport.update({
+    id: '/public-server',
+    path: '/public-server',
+    getParentRoute: () => LayoutAdminServersRoute,
+  } as any)
+const LayoutAdminServersGlobalapiServerRoute =
+  LayoutAdminServersGlobalapiServerRouteImport.update({
+    id: '/globalapi-server',
+    path: '/globalapi-server',
+    getParentRoute: () => LayoutAdminServersRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -294,7 +315,7 @@ export interface FileRoutesByFullPath {
   '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
-  '/admin/servers': typeof LayoutAdminServersRoute
+  '/admin/servers': typeof LayoutAdminServersRouteWithChildren
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
@@ -311,6 +332,9 @@ export interface FileRoutesByFullPath {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
+  '/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
+  '/admin/servers/server-group': typeof LayoutAdminServersServerGroupRoute
   '/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
@@ -337,7 +361,7 @@ export interface FileRoutesByTo {
   '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
-  '/admin/servers': typeof LayoutAdminServersRoute
+  '/admin/servers': typeof LayoutAdminServersRouteWithChildren
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
@@ -353,6 +377,9 @@ export interface FileRoutesByTo {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
+  '/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
+  '/admin/servers/server-group': typeof LayoutAdminServersServerGroupRoute
   '/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
@@ -381,7 +408,7 @@ export interface FileRoutesById {
   '/_layout/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/_layout/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
-  '/_layout/admin/servers': typeof LayoutAdminServersRoute
+  '/_layout/admin/servers': typeof LayoutAdminServersRouteWithChildren
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/_layout/dashboard/reviews': typeof LayoutDashboardReviewsRoute
@@ -398,6 +425,9 @@ export interface FileRoutesById {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/_layout/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
+  '/_layout/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
+  '/_layout/admin/servers/server-group': typeof LayoutAdminServersServerGroupRoute
   '/_layout/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/_layout/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/_layout/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
@@ -443,6 +473,9 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/admin/servers/globalapi-server'
+    | '/admin/servers/public-server'
+    | '/admin/servers/server-group'
     | '/profile/$identifier/comments'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
@@ -485,6 +518,9 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/admin/servers/globalapi-server'
+    | '/admin/servers/public-server'
+    | '/admin/servers/server-group'
     | '/profile/$identifier/comments'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
@@ -529,6 +565,9 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/_layout/admin/servers/globalapi-server'
+    | '/_layout/admin/servers/public-server'
+    | '/_layout/admin/servers/server-group'
     | '/_layout/profile/$identifier/comments'
     | '/_layout/profile/$identifier/friends'
     | '/_layout/profile/$identifier/jumpstats'
@@ -842,15 +881,52 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierCommentsRouteImport
       parentRoute: typeof LayoutProfileIdentifierRoute
     }
+    '/_layout/admin/servers/server-group': {
+      id: '/_layout/admin/servers/server-group'
+      path: '/server-group'
+      fullPath: '/admin/servers/server-group'
+      preLoaderRoute: typeof LayoutAdminServersServerGroupRouteImport
+      parentRoute: typeof LayoutAdminServersRoute
+    }
+    '/_layout/admin/servers/public-server': {
+      id: '/_layout/admin/servers/public-server'
+      path: '/public-server'
+      fullPath: '/admin/servers/public-server'
+      preLoaderRoute: typeof LayoutAdminServersPublicServerRouteImport
+      parentRoute: typeof LayoutAdminServersRoute
+    }
+    '/_layout/admin/servers/globalapi-server': {
+      id: '/_layout/admin/servers/globalapi-server'
+      path: '/globalapi-server'
+      fullPath: '/admin/servers/globalapi-server'
+      preLoaderRoute: typeof LayoutAdminServersGlobalapiServerRouteImport
+      parentRoute: typeof LayoutAdminServersRoute
+    }
   }
 }
+
+interface LayoutAdminServersRouteChildren {
+  LayoutAdminServersGlobalapiServerRoute: typeof LayoutAdminServersGlobalapiServerRoute
+  LayoutAdminServersPublicServerRoute: typeof LayoutAdminServersPublicServerRoute
+  LayoutAdminServersServerGroupRoute: typeof LayoutAdminServersServerGroupRoute
+}
+
+const LayoutAdminServersRouteChildren: LayoutAdminServersRouteChildren = {
+  LayoutAdminServersGlobalapiServerRoute:
+    LayoutAdminServersGlobalapiServerRoute,
+  LayoutAdminServersPublicServerRoute: LayoutAdminServersPublicServerRoute,
+  LayoutAdminServersServerGroupRoute: LayoutAdminServersServerGroupRoute,
+}
+
+const LayoutAdminServersRouteWithChildren =
+  LayoutAdminServersRoute._addFileChildren(LayoutAdminServersRouteChildren)
 
 interface LayoutAdminRouteChildren {
   LayoutAdminMapsRoute: typeof LayoutAdminMapsRoute
   LayoutAdminPlayerSessionsRoute: typeof LayoutAdminPlayerSessionsRoute
   LayoutAdminPlayerSocialLinksRoute: typeof LayoutAdminPlayerSocialLinksRoute
   LayoutAdminPlayersRoute: typeof LayoutAdminPlayersRoute
-  LayoutAdminServersRoute: typeof LayoutAdminServersRoute
+  LayoutAdminServersRoute: typeof LayoutAdminServersRouteWithChildren
   LayoutAdminUsersRoute: typeof LayoutAdminUsersRoute
 }
 
@@ -859,7 +935,7 @@ const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminPlayerSessionsRoute: LayoutAdminPlayerSessionsRoute,
   LayoutAdminPlayerSocialLinksRoute: LayoutAdminPlayerSocialLinksRoute,
   LayoutAdminPlayersRoute: LayoutAdminPlayersRoute,
-  LayoutAdminServersRoute: LayoutAdminServersRoute,
+  LayoutAdminServersRoute: LayoutAdminServersRouteWithChildren,
   LayoutAdminUsersRoute: LayoutAdminUsersRoute,
 }
 

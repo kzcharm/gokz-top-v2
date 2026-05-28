@@ -1,12 +1,12 @@
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import type { PlayerPublic } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -17,13 +17,20 @@ import {
   fetchProfileFollowing,
   fetchProfileLikers,
   formatNumber,
+  type ProfileLikerPublic,
 } from "./profile-utils"
 
 export type ProfileSocialTab = "likes" | "followers" | "following"
 
 type SocialPage = {
-  data: PlayerPublic[]
+  data: Array<PlayerPublic | ProfileLikerPublic>
   count: number
+}
+
+function isProfileLiker(
+  player: PlayerPublic | ProfileLikerPublic,
+): player is ProfileLikerPublic {
+  return "latest_like_at" in player
 }
 
 function SocialList({
@@ -34,6 +41,7 @@ function SocialList({
   isFetchingNextPage,
   isLoading,
   players,
+  showLikeTimestamps = false,
   onLoadMore,
 }: {
   active: boolean
@@ -42,7 +50,8 @@ function SocialList({
   isError: boolean
   isFetchingNextPage: boolean
   isLoading: boolean
-  players: PlayerPublic[]
+  players: Array<PlayerPublic | ProfileLikerPublic>
+  showLikeTimestamps?: boolean
   onLoadMore: () => void
 }) {
   const { t } = useTranslation()
@@ -85,10 +94,23 @@ function SocialList({
         {players.map((player) => (
           <div
             key={player.steamid64}
-            className="rounded-2xl border border-border/70 bg-card/70 p-3"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/70 p-3"
             data-testid={`profile-social-row-${player.steamid64}`}
           >
-            <PlayerDisplay player={player} showSteamid />
+            <div className="min-w-0">
+              <PlayerDisplay player={player} showSteamid />
+            </div>
+            {showLikeTimestamps &&
+            isProfileLiker(player) &&
+            player.latest_like_at ? (
+              <div className="shrink-0 text-right text-xs text-muted-foreground">
+                <FormattedDateTime
+                  value={player.latest_like_at}
+                  display="relative"
+                  tickerMs={60_000}
+                />
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
@@ -191,9 +213,6 @@ export function ProfileSocialDialog({
       >
         <DialogHeader>
           <DialogTitle>{t("profile.socialDialog.title")}</DialogTitle>
-          <DialogDescription>
-            {t("profile.socialDialog.description")}
-          </DialogDescription>
         </DialogHeader>
 
         <Tabs
@@ -228,6 +247,7 @@ export function ProfileSocialDialog({
               isFetchingNextPage={likesQuery.isFetchingNextPage}
               isLoading={likesQuery.isLoading}
               players={likers}
+              showLikeTimestamps
               onLoadMore={() => {
                 void likesQuery.fetchNextPage()
               }}

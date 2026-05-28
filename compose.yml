@@ -73,6 +73,7 @@ services:
     environment:
       - DOMAIN=${DOMAIN}
       - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
+      - BACKEND_PUBLIC_URL=${BACKEND_PUBLIC_URL}
       - ENVIRONMENT=${ENVIRONMENT}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
       - SECRET_KEY=${SECRET_KEY?Variable not set}
@@ -102,6 +103,7 @@ services:
     environment:
       - DOMAIN=${DOMAIN}
       - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
+      - BACKEND_PUBLIC_URL=${BACKEND_PUBLIC_URL}
       - ENVIRONMENT=${ENVIRONMENT}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
       - SECRET_KEY=${SECRET_KEY?Variable not set}
@@ -146,6 +148,18 @@ services:
       # Enable redirection for HTTP and HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect
 
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-api-redirect.redirectregex.regex=^https?://${API_REDIRECT_HOST:-redirect-disabled.localhost}/?(.*)
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-api-redirect.redirectregex.replacement=https://${API_HOST?Variable not set}/$${1}
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-api-redirect.redirectregex.permanent=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-http.rule=Host(`${API_REDIRECT_HOST:-redirect-disabled.localhost}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-http.middlewares=${STACK_NAME?Variable not set}-api-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-https.rule=Host(`${API_REDIRECT_HOST:-redirect-disabled.localhost}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-https.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-https.tls.certresolver=le
+      - traefik.http.routers.${STACK_NAME?Variable not set}-api-redirect-https.middlewares=${STACK_NAME?Variable not set}-api-redirect
+
   frontend:
     image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
     restart: always
@@ -177,6 +191,18 @@ services:
 
       # Enable redirection for HTTP and HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
+
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-frontend-redirect.redirectregex.regex=^https?://${FRONTEND_REDIRECT_HOST:-redirect-disabled.localhost}/?(.*)
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-frontend-redirect.redirectregex.replacement=https://${FRONTEND_HOSTNAME?Variable not set}/$${1}
+      - traefik.http.middlewares.${STACK_NAME?Variable not set}-frontend-redirect.redirectregex.permanent=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-http.rule=Host(`${FRONTEND_REDIRECT_HOST:-redirect-disabled.localhost}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-http.middlewares=${STACK_NAME?Variable not set}-frontend-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-https.rule=Host(`${FRONTEND_REDIRECT_HOST:-redirect-disabled.localhost}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-https.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-https.tls.certresolver=le
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-https.middlewares=${STACK_NAME?Variable not set}-frontend-redirect
 volumes:
   app-db-data:
 

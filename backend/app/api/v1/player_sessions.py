@@ -21,8 +21,6 @@ from app.models import (
 
 router = APIRouter(prefix="/player-sessions", tags=["player-sessions"])
 
-BAN_APPEAL_URL = "https://kzcharm.com/bans"
-
 
 def _normalize_kick_message_language(client_language: str | None) -> str:
     language = (client_language or "").strip().lower()
@@ -86,7 +84,9 @@ def _ban_enforcement_for_ban(
     ban: Ban,
     client_language: str | None,
 ) -> PlayerSessionBanEnforcementPublic:
-    detail_url = f"{settings.FRONTEND_HOST.rstrip('/')}/bans?q={ban.uuid}"
+    frontend_host = settings.FRONTEND_HOST.rstrip("/")
+    detail_url = f"{frontend_host}/bans?q={ban.uuid}"
+    appeal_url = f"{frontend_host}/bans"
     ban_type = ban.ban_type.value
     expires_at = ban.expires_at.date().isoformat() if ban.expires_at else None
     reason = ban.notes.strip() if ban.notes and ban.notes.strip() else "-"
@@ -97,21 +97,21 @@ def _ban_enforcement_for_ban(
             f"Ban type: {ban_type}",
             f"Expires: {expires_at or 'permanent'}",
             f"Reason: {reason}",
-            f"Appeal: visit {BAN_APPEAL_URL}",
+            f"Appeal: visit {appeal_url}",
         ),
         "chi": (
             "您已被服务器封禁，禁止进入服务器！",
             f"封禁类型：{ban_type}",
             f"到期时间：{expires_at or '永久'}",
             f"封禁原因：{reason}",
-            f"申诉解封：请访问 {BAN_APPEAL_URL}",
+            f"申诉解封：请访问 {appeal_url}",
         ),
         "ru": (
             "Вам запрещен вход на этот сервер!",
             f"Тип блокировки: {ban_type}",
             f"Истекает: {expires_at or 'навсегда'}",
             f"Причина: {reason}",
-            f"Апелляция: посетите {BAN_APPEAL_URL}",
+            f"Апелляция: посетите {appeal_url}",
         ),
     }
     kick_message = "\n".join(kick_message_lines[language])
@@ -153,6 +153,7 @@ async def connect_player_session(
     active_ban = await crud.get_newest_active_ban_for_player(
         session=session,
         steamid64=player_session.player_steamid64,
+        now=player_session.connected_at,
     )
     return PlayerSessionConnectPublic(
         **session_public.model_dump(),

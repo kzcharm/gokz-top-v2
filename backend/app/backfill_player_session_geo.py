@@ -21,8 +21,14 @@ SELECT_BATCH_SQL = text(
       AND geo_region IS NULL
       AND geo_city IS NULL
       AND (
-        :last_connected_at IS NULL
-        OR (connected_at, id::text) < (:last_connected_at, :last_id)
+        CAST(:last_connected_at AS timestamptz) IS NULL
+        OR (
+          connected_at,
+          id::text
+        ) < (
+          CAST(:last_connected_at AS timestamptz),
+          CAST(:last_id AS text)
+        )
       )
     ORDER BY connected_at DESC, id::text DESC
     LIMIT :limit

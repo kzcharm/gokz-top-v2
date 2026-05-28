@@ -11,6 +11,7 @@ import {
   type PlayerProfileHistoryEntryPublic,
   type PlayerProfileHistoryPublic,
   type PlayerProfileViewsPublic,
+  type PlayerPublic,
   type PlayerStatsPublic,
   type PlayerStatType,
   type PlayersPublic,
@@ -29,7 +30,6 @@ export type ProfileTab =
   | "unfinished"
   | "stats"
   | "jumpstats"
-  | "comments"
   | "friends"
 
 export const PROFILE_QUERY_LIMIT = 10_000
@@ -101,10 +101,19 @@ export async function fetchProfileLikers({
     throw new Error("Failed to fetch profile likers")
   }
 
-  return (await response.json()) as PlayersPublic
+  return (await response.json()) as ProfileLikersPublic
 }
 
 export type ProfileLikeResult = PlayerLikesPublic
+
+export type ProfileLikerPublic = PlayerPublic & {
+  latest_like_at: string | null
+}
+
+export type ProfileLikersPublic = {
+  data: ProfileLikerPublic[]
+  count: number
+}
 
 export async function createProfileLike(identifier: string) {
   return await PlayersService.createPlayerLike({

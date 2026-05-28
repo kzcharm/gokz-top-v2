@@ -279,7 +279,6 @@ export const zhCN = {
     },
     socialDialog: {
       title: "社交关系",
-      description: "查看谁点赞或关注了这位玩家。",
       likesTab: "点赞 {{count}}",
       followersTab: "关注者 {{count}}",
       followingTab: "关注中 {{count}}",

@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.import_run_replays import import_run_replays_from_paths
+from app.importers.run_replays import import_run_replays_from_paths
 from app.models import Map, Player, Record, RecordPb, ServerGlobalapi
 from app.services.run_replay_storage import get_run_replay_path
 from tests.utils.run_replay import build_synthetic_run_replay
@@ -26,7 +26,7 @@ def _bind_import_session(
     async def _session_maker():
         yield db
 
-    monkeypatch.setattr("app.import_run_replays.async_session_maker", _session_maker)
+    monkeypatch.setattr("app.importers.run_replays.async_session_maker", _session_maker)
 
 
 async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None:
