@@ -82,6 +82,19 @@ def _resolve_server_location(
     )
 
 
+def normalize_server_map_name(map_name: str | None) -> str | None:
+    if map_name is None:
+        return None
+    normalized_parts = [
+        part.strip()
+        for part in map_name.strip().replace("\\", "/").split("/")
+        if part.strip()
+    ]
+    if not normalized_parts:
+        return None
+    return normalized_parts[-1]
+
+
 def _build_server_live_status_public(
     status: ServerLiveStatus | None,
 ) -> ServerLiveStatusPublic | None:
@@ -90,7 +103,7 @@ def _build_server_live_status_public(
     state = _get_live_status_state(status)
     return ServerLiveStatusPublic(
         hostname=status.hostname,
-        map=status.map,
+        map=normalize_server_map_name(status.map),
         player_count=status.player_count,
         max_players=status.max_players,
         players=_build_server_player_public_list(status.players),
@@ -1228,7 +1241,7 @@ async def _record_server_status(
 
 
 def server_status_is_valid(*, map_name: str) -> bool:
-    normalized_map_name = map_name.strip().casefold()
+    normalized_map_name = (normalize_server_map_name(map_name) or "").casefold()
     return normalized_map_name.startswith(
         ("kz_", "bkz_", "vnl_", "skz_", "xc_", "kzpro_")
     )
@@ -1277,9 +1290,9 @@ async def _hydrate_servers(
     statuses_by_server_id = {status.server_id: status for status in statuses}
 
     live_map_names = {
-        status.map.strip()
+        normalized_map_name
         for status in statuses
-        if status.map is not None and status.map.strip()
+        if (normalized_map_name := normalize_server_map_name(status.map)) is not None
     }
     map_tiers_by_name: dict[str, int] = {}
     if live_map_names:
@@ -1290,10 +1303,8 @@ async def _hydrate_servers(
     for server in servers:
         server.group = groups_by_id.get(server.group_id) if server.group_id else None
         server.live_status = statuses_by_server_id.get(server.id)
-        live_map_name = (
-            server.live_status.map.strip()
-            if server.live_status and server.live_status.map
-            else None
+        live_map_name = normalize_server_map_name(
+            server.live_status.map if server.live_status else None
         )
         server.__dict__["map_tier"] = (
             map_tiers_by_name.get(live_map_name) if live_map_name else None

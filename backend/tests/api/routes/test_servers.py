@@ -899,6 +899,30 @@ async def test_read_servers_returns_map_tier_for_known_map(
     assert matching["map_tier"] == 6
 
 
+async def test_read_servers_normalizes_prefixed_live_map_for_display_and_tier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_map(db, id=930211, name="kz_dakow", difficulty=5)
+    await create_server(
+        db,
+        hostname="Workshop Host",
+        map_name="workshop/123456789/kz_dakow",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers",
+        params={"limit": 200},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    matching = next(
+        item for item in payload["data"] if item["live_status"]["map"] == "kz_dakow"
+    )
+    assert matching["map_tier"] == 5
+
+
 async def test_read_server_returns_null_map_tier_for_unknown_map(
     client: AsyncClient,
     db: AsyncSession,

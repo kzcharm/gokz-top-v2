@@ -68,8 +68,22 @@ class SteamServerListCandidate:
     player_count: int
     max_players: int
 
+
+def normalize_server_map_name(map_name: str | None) -> str | None:
+    if map_name is None:
+        return None
+    normalized_parts = [
+        part.strip()
+        for part in map_name.strip().replace("\\", "/").split("/")
+        if part.strip()
+    ]
+    if not normalized_parts:
+        return None
+    return normalized_parts[-1]
+
+
 def is_supported_kz_map_name(map_name: str) -> bool:
-    normalized_map_name = map_name.strip().casefold()
+    normalized_map_name = (normalize_server_map_name(map_name) or "").casefold()
     return normalized_map_name.startswith(SUPPORTED_KZ_MAP_PREFIXES)
 
 

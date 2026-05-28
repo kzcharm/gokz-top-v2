@@ -150,8 +150,23 @@ export function getServerHostname(server: ServerPublic) {
   return server.live_status?.hostname?.trim() || getServerAddress(server)
 }
 
+export function normalizeServerMapName(mapName: string | null | undefined) {
+  if (!mapName) {
+    return null
+  }
+
+  const normalizedParts = mapName
+    .trim()
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  return normalizedParts[normalizedParts.length - 1] ?? null
+}
+
 export function getServerMapName(server: ServerPublic) {
-  return server.live_status?.map?.trim() || null
+  return normalizeServerMapName(server.live_status?.map)
 }
 
 export function getServerPlayers(server: ServerPublic) {
@@ -212,11 +227,12 @@ export function getServerLocation(server: ServerPublic) {
 }
 
 export function getServerMapImageUrl(mapName: string | null) {
-  if (!mapName) {
+  const normalizedMapName = normalizeServerMapName(mapName)
+  if (!normalizedMapName) {
     return null
   }
 
-  return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${mapName}.webp`
+  return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${normalizedMapName}.webp`
 }
 
 export function buildServersWebSocketUrl() {
