@@ -65,7 +65,7 @@ jobs:
 
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
           frontend_host_rule="Host(\`${DOMAIN}\`)"
-          backend_cors_origins="https://${DOMAIN},https://api.${DOMAIN},https://replay-viewer.kzcharm.com"
+          backend_cors_origins="https://${DOMAIN},https://api.${DOMAIN},https://replay-viewer.kzcharm.com,https://cs2kz.org"
 
           if [ -n "${FRONTEND_HOST_ALIASES:-}" ]; then
             IFS=',' read -r -a frontend_host_aliases <<< "${FRONTEND_HOST_ALIASES}"
