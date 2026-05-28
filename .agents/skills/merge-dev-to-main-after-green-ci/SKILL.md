@@ -107,6 +107,13 @@ Typical production fallback on `kzcharm-v2`:
 ```bash
 cp /root/code/gokz-top-v2/.env /root/code/gokz-top-v2-manual/.env
 cd /root/code/gokz-top-v2-manual
+mkdir -p /root/code/gokz-top-v2/.geoip
+if grep -q '^GEOIP_DATA_DIR=' .env; then
+  sed -i 's#^GEOIP_DATA_DIR=.*#GEOIP_DATA_DIR=/root/code/gokz-top-v2/.geoip#' .env
+else
+  printf '\nGEOIP_DATA_DIR=/root/code/gokz-top-v2/.geoip\n' >> .env
+fi
+test -s /root/code/gokz-top-v2/.geoip/GeoLite2-City.mmdb
 export VITE_APP_VERSION=vX.Y.Z
 docker compose -f compose.yml --project-name gokz-top-v2 build
 docker compose -f compose.yml --project-name gokz-top-v2 up -d
