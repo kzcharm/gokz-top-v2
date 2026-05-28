@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_layout/admin")({
         .catch(() => false)
 
       throw redirect({
-        to: hasServerAccess ? "/admin/servers" : "/",
+        to: hasServerAccess ? "/admin/servers/globalapi-server" : "/",
       })
     }
   },

@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useRouterState,
+} from "@tanstack/react-router"
 import {
   type ColumnDef,
   functionalUpdate,
@@ -57,7 +62,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -69,9 +74,27 @@ const NO_GROUP = "__none"
 const GOKZ_TOP_PLUGINS_URL = "https://github.com/kzcharm/gokz-top-plugins"
 type GlobalApiSortBy = "id" | "server" | "updated_at" | "created_at"
 
+const ADMIN_SERVER_TAB_OPTIONS = [
+  {
+    value: "globalapi",
+    label: "GlobalAPI Server",
+    to: "/admin/servers/globalapi-server",
+  },
+  {
+    value: "public",
+    label: "Public Server",
+    to: "/admin/servers/public-server",
+  },
+  {
+    value: "groups",
+    label: "Server Group",
+    to: "/admin/servers/server-group",
+  },
+] as const
+
 export const Route = createFileRoute("/_layout/admin/servers")({
   component: AdminServers,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     if (!isLoggedIn()) {
       throw redirect({ to: "/login" })
     }
@@ -79,6 +102,9 @@ export const Route = createFileRoute("/_layout/admin/servers")({
       localStorage.removeItem("access_token")
       throw redirect({ to: "/login" })
     })
+    if (location.pathname === "/admin/servers") {
+      throw redirect({ to: "/admin/servers/globalapi-server" })
+    }
     if (isSuperuser(user)) {
       return
     }
@@ -96,7 +122,9 @@ export const Route = createFileRoute("/_layout/admin/servers")({
 })
 
 function AdminServers() {
-  const [tab, setTab] = useState("globalapi")
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const accessQuery = useQuery({
     queryKey: ["admin-servers-access"],
     queryFn: () => AdminServersService.readAdminServerAccess(),
@@ -108,6 +136,9 @@ function AdminServers() {
 
   const access = accessQuery.data
   const groups = groupsQuery.data?.data ?? []
+  const activeTab =
+    ADMIN_SERVER_TAB_OPTIONS.find((tab) => pathname.startsWith(tab.to))
+      ?.value ?? "globalapi"
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,26 +147,26 @@ function AdminServers() {
         aside={access ? <RoleBadge access={access} /> : null}
       />
 
-      <Tabs value={tab} onValueChange={setTab} className="gap-5">
+      <Tabs value={activeTab} className="gap-5">
         <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
-          <TabsTrigger value="globalapi">GlobalAPI Server</TabsTrigger>
-          <TabsTrigger value="public">Public Server</TabsTrigger>
-          <TabsTrigger value="groups">Server Group</TabsTrigger>
+          {ADMIN_SERVER_TAB_OPTIONS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} asChild>
+              <Link to={tab.to}>{tab.label}</Link>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="globalapi">
+        {activeTab === "globalapi" ? (
           <GlobalApiServersTab
             access={access}
             groups={groups}
             groupsLoading={groupsQuery.isLoading}
           />
-        </TabsContent>
-        <TabsContent value="public">
+        ) : null}
+        {activeTab === "public" ? (
           <PublicServersTab access={access} groups={groups} />
-        </TabsContent>
-        <TabsContent value="groups">
-          <ServerGroupsTab groups={groups} />
-        </TabsContent>
+        ) : null}
+        {activeTab === "groups" ? <ServerGroupsTab groups={groups} /> : null}
       </Tabs>
     </div>
   )
@@ -149,7 +180,7 @@ function RoleBadge({ access }: { access: AdminServerAccessPublic }) {
   )
 }
 
-function GlobalApiServersTab({
+export function GlobalApiServersTab({
   access,
   groups,
   groupsLoading,
@@ -453,7 +484,7 @@ function SortableHeader({
   )
 }
 
-function PublicServersTab({
+export function PublicServersTab({
   access,
   groups,
 }: {
@@ -681,7 +712,11 @@ function PublicServersTab({
   )
 }
 
-function ServerGroupsTab({ groups }: { groups: AdminServerGroupPublic[] }) {
+export function ServerGroupsTab({
+  groups,
+}: {
+  groups: AdminServerGroupPublic[]
+}) {
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [, copyToClipboard] = useCopyToClipboard()
