@@ -212,6 +212,15 @@ class PlayersPublic(SQLModel):
     count: int
 
 
+class PlayerLikerPublic(PlayerPublic):
+    latest_like_at: datetime | None = None
+
+
+class PlayerLikersPublic(SQLModel):
+    data: list[PlayerLikerPublic]
+    count: int
+
+
 class PlayersListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)

@@ -34,6 +34,8 @@ from app.models import (
     PlayerDetailPublic,
     PlayerFollowListQuery,
     PlayerFriendsPublic,
+    PlayerLikerPublic,
+    PlayerLikersPublic,
     PlayerLikesPublic,
     PlayerMostPlayedServerPublic,
     PlayerPinnedRecordsPublic,
@@ -259,22 +261,34 @@ async def read_player_likes(
 @router.get(
     "/{identifier:path}/likes/players",
     dependencies=[Depends(get_current_user)],
-    response_model=PlayersPublic,
+    response_model=PlayerLikersPublic,
 )
 async def read_player_likers(
     identifier: str,
     session: SessionDep,
     query: Annotated[PlayerFollowListQuery, Query()],
-) -> PlayersPublic:
+) -> PlayerLikersPublic:
     player = await get_player_or_404(session=session, identifier=identifier)
-    likers, count = await crud.get_player_likers(
+    liker_rows, count = await crud.get_player_likers(
         session=session,
         target_steamid64=player.steamid64,
         offset=query.offset,
         limit=query.limit,
     )
-    return PlayersPublic(
-        data=await crud.to_player_publics(session=session, players=likers),
+    liker_players = [liker for liker, _latest_like_at in liker_rows]
+    public_likers = await crud.to_player_publics(session=session, players=liker_players)
+    return PlayerLikersPublic(
+        data=[
+            PlayerLikerPublic(
+                **public_liker.model_dump(),
+                latest_like_at=latest_like_at,
+            )
+            for public_liker, (_liker, latest_like_at) in zip(
+                public_likers,
+                liker_rows,
+                strict=True,
+            )
+        ],
         count=count,
     )
 

@@ -2966,6 +2966,10 @@ async def test_read_player_likers_returns_unique_likers(
         str(viewer.steamid64),
         str(another_viewer.steamid64),
     ]
+    assert [row["latest_like_at"] for row in body["data"]] == [
+        "2026-04-06T12:00:00Z",
+        "2026-04-05T12:00:00Z",
+    ]
 
 
 @pytest.mark.asyncio

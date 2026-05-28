@@ -32,7 +32,7 @@ async def get_player_likers(
     target_steamid64: int,
     offset: int = 0,
     limit: int = 20,
-) -> tuple[list[Player], int]:
+) -> tuple[list[tuple[Player, datetime | None]], int]:
     latest_like_subquery = (
         select(
             PlayerLike.viewer_steamid64,
@@ -45,7 +45,7 @@ async def get_player_likers(
     count_statement = select(func.count()).select_from(latest_like_subquery)
     count = int((await session.exec(count_statement)).one())
     statement = (
-        select(Player)
+        select(Player, latest_like_subquery.c.latest_like_at)
         .join(
             latest_like_subquery,
             col(Player.steamid64) == latest_like_subquery.c.viewer_steamid64,
