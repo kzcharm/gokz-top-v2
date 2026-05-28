@@ -148,6 +148,7 @@ class BanPublic(SQLModel):
 
 class BanListItemPublic(SQLModel):
     uuid: uuid_pkg.UUID
+    id: int | None = None
     ban_type: BanType
     expires_at: datetime | None = None
     ip: str | None = None

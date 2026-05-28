@@ -5,6 +5,7 @@ test.use({ storageState: { cookies: [], origins: [] } })
 function buildBan(index: number, source: "globalapi" | "manual" = "globalapi") {
   return {
     uuid: `01966858-7280-7000-8000-${index.toString().padStart(12, "0")}`,
+    id: source === "globalapi" ? index : null,
     ban_type: source === "globalapi" ? "bhop_hack" : "bhop_macro",
     created_at: "2026-03-01T12:00:00Z",
     expires_at: null,
@@ -76,12 +77,14 @@ async function stubGraphqlPlayers(page: Parameters<typeof test>[0]["page"]) {
       body: JSON.stringify({
         data: {
           players: steamid64s.map((steamid64) =>
-            steamid64 === "76561198000099999"
-              ? buildGraphqlPlayer(steamid64, "Picked Player")
-              : buildGraphqlPlayer(
-                  steamid64,
-                  `Banned Player ${steamid64.slice(-1)}`,
-                ),
+            steamid64 === "76561198000000042"
+              ? buildGraphqlPlayer(steamid64, "Viewer")
+              : steamid64 === "76561198000099999"
+                ? buildGraphqlPlayer(steamid64, "Picked Player")
+                : buildGraphqlPlayer(
+                    steamid64,
+                    `Banned Player ${steamid64.slice(-1)}`,
+                  ),
           ),
         },
       }),
@@ -158,7 +161,7 @@ test("Bans table supports WASD pagination shortcuts without affecting typing", a
     localStorage.setItem("gokz-datetime-format", "iso")
   })
 
-  await page.route("**/v1/bans*", async (route) => {
+  await page.route(/\/v1\/bans(?:\/[^?]+)?(?:\?.*)?$/, async (route) => {
     const url = new URL(route.request().url())
     const offset = Number(url.searchParams.get("offset") ?? "0")
     const limit = Number(url.searchParams.get("limit") ?? "20")
@@ -241,7 +244,7 @@ test("Bans page reads q from the URL, sends it to the API, and expands one match
     localStorage.setItem("gokz-datetime-format", "iso")
   })
 
-  await page.route("**/v1/bans*", async (route) => {
+  await page.route(/\/v1\/bans(?:\/[^?]+)?(?:\?.*)?$/, async (route) => {
     const url = new URL(route.request().url())
     banRequests.push(url.searchParams.get("q"))
 
@@ -273,7 +276,9 @@ test("Bans page reads q from the URL, sends it to the API, and expands one match
   await expect(page.getByRole("textbox", { name: "Search bans" })).toHaveValue(
     matchedBan.uuid,
   )
-  await expect(page.getByText("Banned Player 42", { exact: true })).toBeVisible()
+  await expect(
+    page.getByText("Banned Player 42", { exact: true }),
+  ).toBeVisible()
   await expect(page.getByText("Exact ban evidence")).toBeVisible()
   await expect.poll(() => banRequests.at(-1)).toBe(matchedBan.uuid)
 
@@ -310,7 +315,7 @@ test("Bans page shows Add Ban flows to admins and refreshes after create", async
   await stubAuthedViewer(page, ["admin"])
   await stubGraphqlPlayers(page)
 
-  await page.route("**/v1/bans*", async (route) => {
+  await page.route(/\/v1\/bans(?:\/[^?]+)?(?:\?.*)?$/, async (route) => {
     if (route.request().method() === "POST") {
       const body = route.request().postDataJSON() as Record<string, unknown>
       createdBodies.push(body)
@@ -418,7 +423,7 @@ test("Users without admin moderation rights do not see Add Ban entry points", as
   await stubAuthedViewer(page, [])
   await stubGraphqlPlayers(page)
 
-  await page.route("**/v1/bans*", async (route) => {
+  await page.route(/\/v1\/bans(?:\/[^?]+)?(?:\?.*)?$/, async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -452,7 +457,7 @@ test("Admin mode shows updater and allows editing and unbanning bans", async ({
   await stubAuthedViewer(page, ["admin"])
   await stubGraphqlPlayers(page)
 
-  await page.route("**/v1/bans*", async (route) => {
+  await page.route(/\/v1\/bans(?:\/[^?]+)?(?:\?.*)?$/, async (route) => {
     if (route.request().method() === "PATCH") {
       const body = route.request().postDataJSON() as Record<string, unknown>
       patchBodies.push(body)
@@ -513,4 +518,71 @@ test("Admin mode shows updater and allows editing and unbanning bans", async ({
   await expect(patchBodies).toHaveLength(2)
   expect(patchBodies[1].expires_at).toEqual("2026-02-28T12:00:00.000Z")
   await expect(page.getByText("Unbanned", { exact: true })).toBeVisible()
+})
+
+test("Superuser admin mode can delete local bans without external ids", async ({
+  page,
+}) => {
+  const deletedBanUuids: string[] = []
+  let banRows = [
+    {
+      ...buildBan(1, "globalapi"),
+      notes: "Mirrored ban",
+    },
+    {
+      ...buildBan(2, "manual"),
+      notes: "Local ban",
+    },
+  ]
+
+  await stubAuthedViewer(page, ["superuser"])
+  await stubGraphqlPlayers(page)
+
+  await page.route(/\/v1\/bans(?:\/[^?]+)?(?:\?.*)?$/, async (route) => {
+    if (route.request().method() === "DELETE") {
+      const uuid = route.request().url().split("/").at(-1)
+      if (uuid) {
+        deletedBanUuids.push(uuid)
+        banRows = banRows.filter((ban) => ban.uuid !== uuid)
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ message: "Ban deleted successfully" }),
+      })
+      return
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: banRows.length,
+        data: banRows,
+      }),
+    })
+  })
+
+  page.on("dialog", (dialog) => {
+    void dialog.accept()
+  })
+
+  await page.goto("/bans")
+  await page.getByRole("button", { name: "Admin mode" }).click()
+
+  await page
+    .getByRole("row", { name: /Banned Player 1/ })
+    .getByRole("button", { name: "Edit ban" })
+    .click()
+  await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0)
+  await page.getByRole("button", { name: "Cancel" }).click()
+
+  await page
+    .getByRole("row", { name: /Banned Player 2/ })
+    .getByRole("button", { name: "Edit ban" })
+    .click()
+  await page.getByRole("button", { name: "Delete" }).click()
+
+  await expect.poll(() => deletedBanUuids).toEqual([buildBan(2, "manual").uuid])
+  await expect(page.getByText("Banned Player 2", { exact: true })).toHaveCount(
+    0,
+  )
 })

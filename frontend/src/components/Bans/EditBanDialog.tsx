@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { BansService, type BanType } from "@/client"
@@ -46,10 +47,12 @@ const BAN_TYPE_OPTIONS: BanType[] = [
 
 export function EditBanDialog({
   ban,
+  canDeleteLocalBan,
   open,
   onOpenChange,
 }: {
   ban: BanRow | null
+  canDeleteLocalBan: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -121,7 +124,30 @@ export function EditBanDialog({
     },
   })
 
-  const pending = updateBanMutation.isPending
+  const deleteBanMutation = useMutation({
+    mutationFn: async () => {
+      if (!ban) {
+        throw new Error("Choose a ban before deleting.")
+      }
+
+      await BansService.deleteBan({ banUuid: ban.uuid })
+    },
+    onSuccess: () => {
+      showSuccessToast("Ban deleted.")
+      onOpenChange(false)
+    },
+    onError: (error) => {
+      const message = extractErrorMessage(error)
+      setFormError(message)
+      showErrorToast(message)
+    },
+    onSettled: () => {
+      invalidateBans()
+    },
+  })
+
+  const pending = updateBanMutation.isPending || deleteBanMutation.isPending
+  const canDeleteCurrentBan = canDeleteLocalBan && ban?.id == null
 
   const submit = async () => {
     setFormError(null)
@@ -167,6 +193,22 @@ export function EditBanDialog({
     await updateBanMutation.mutateAsync({
       expiresAt: getUnbanExpiresAtIso(ban.created_at),
     })
+  }
+
+  const deleteBan = async () => {
+    if (!ban || !canDeleteCurrentBan) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      "Delete this local ban? This cannot be undone.",
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setFormError(null)
+    await deleteBanMutation.mutateAsync()
   }
 
   return (
@@ -285,17 +327,32 @@ export function EditBanDialog({
         ) : null}
 
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            className="sm:mr-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={pending || ban === null}
-            onClick={() => {
-              void unban()
-            }}
-          >
-            Unban
-          </Button>
+          <div className="flex flex-wrap gap-2 sm:mr-auto">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={pending || ban === null}
+              onClick={() => {
+                void unban()
+              }}
+            >
+              Unban
+            </Button>
+            {canDeleteCurrentBan ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={pending}
+                onClick={() => {
+                  void deleteBan()
+                }}
+              >
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+            ) : null}
+          </div>
           <div className="flex gap-2">
             <Button
               type="button"

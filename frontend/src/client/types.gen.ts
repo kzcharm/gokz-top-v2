@@ -201,6 +201,7 @@ export type BanCreate = {
 
 export type BanListItemPublic = {
     uuid: string;
+    id?: (number | null);
     ban_type: BanType;
     expires_at?: (string | null);
     ip?: (string | null);
@@ -725,6 +726,27 @@ export type PlayerLeaderboardsPublic = {
     count: number;
 };
 
+export type PlayerLikerPublic = {
+    name: string;
+    alias?: (string | null);
+    custom_id?: (string | null);
+    avatar_hash?: (string | null);
+    country?: (string | null);
+    primary_scope?: ModeScope;
+    created_at?: (string | null);
+    last_played_at?: (string | null);
+    updated_at?: (string | null);
+    steamid64: string;
+    roles?: (Array<UserRole> | null);
+    profile_views?: number;
+    latest_like_at?: (string | null);
+};
+
+export type PlayerLikersPublic = {
+    data: Array<PlayerLikerPublic>;
+    count: number;
+};
+
 export type PlayerLikesPublic = {
     player_likes?: number;
     created?: boolean;
@@ -834,12 +856,39 @@ export type PlayersBatchRead = {
     steamid64s: Array<(string)>;
 };
 
+export type PlayerSessionBanEnforcementBanPublic = {
+    uuid: string;
+    ban_type: BanType;
+    expires_at?: (string | null);
+};
+
+export type PlayerSessionBanEnforcementPublic = {
+    required?: boolean;
+    ban: PlayerSessionBanEnforcementBanPublic;
+    detail_url: string;
+    kick_message: string;
+};
+
 export type PlayerSessionConnect = {
     session_id: string;
     player_steamid64: string;
     connected_at: string;
     ip_address: string;
     map_name: string;
+    client_language?: (string | null);
+};
+
+export type PlayerSessionConnectPublic = {
+    id: string;
+    player_steamid64: string;
+    server_group_id: string;
+    connected_at: string;
+    disconnect_at?: (string | null);
+    last_heartbeat_at: string;
+    ip_address: string;
+    map_name: string;
+    duration_seconds?: (number | null);
+    ban_enforcement?: (PlayerSessionBanEnforcementPublic | null);
 };
 
 export type PlayerSessionDisconnect = {
@@ -1101,9 +1150,9 @@ export type ServerGlobalapiAdminPublic = {
     port: number;
     ip?: (string | null);
     name?: (string | null);
-    owner_steamid64: string;
+    owner_steamid64: (string | null);
     approval_status: number;
-    approved_by_steamid64: string;
+    approved_by_steamid64: (string | null);
     created_at: string;
     updated_at: string;
     synced_at: string;
@@ -1499,6 +1548,7 @@ export type BansReadBansData = {
     limit?: number;
     notesContains?: (string | null);
     offset?: number;
+    q?: (string | null);
     serverId?: (number | null);
     statsContains?: (string | null);
     steamid64?: (number | null);
@@ -1525,6 +1575,12 @@ export type BansPatchBanData = {
 };
 
 export type BansPatchBanResponse = (BanPublic);
+
+export type BansDeleteBanData = {
+    banUuid: string;
+};
+
+export type BansDeleteBanResponse = (Message);
 
 export type HandleHttpGetResponse = (unknown);
 
@@ -1767,6 +1823,8 @@ export type MeDeleteCurrentPlayerPinnedRecordData = {
 
 export type MeDeleteCurrentPlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
 
+export type MiscLookupRequestIpResponse = (IPLookupResponse);
+
 export type MiscLookupIpListData = {
     requestBody: IPLookupRequest;
 };
@@ -1894,6 +1952,14 @@ export type PlayersDeletePlayerCommentData = {
 
 export type PlayersDeletePlayerCommentResponse = (Message);
 
+export type PlayersReadPlayerLikersData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayersReadPlayerLikersResponse = (PlayerLikersPublic);
+
 export type PlayersReadPlayerPinnedRecordsData = {
     identifier: string;
     scope?: ModeScope;
@@ -1962,7 +2028,7 @@ export type PlayerSessionsConnectPlayerSessionData = {
     xServerGroupKey?: (string | null);
 };
 
-export type PlayerSessionsConnectPlayerSessionResponse = (PlayerSessionPublic);
+export type PlayerSessionsConnectPlayerSessionResponse = (PlayerSessionConnectPublic);
 
 export type PlayerSessionsHeartbeatPlayerSessionData = {
     authorization?: (string | null);

@@ -23,6 +23,7 @@ type BanPlayer = {
 
 export interface BanRow {
   uuid: string
+  id?: number | null
   ban_type: string
   created_at: string
   expires_at: string | null

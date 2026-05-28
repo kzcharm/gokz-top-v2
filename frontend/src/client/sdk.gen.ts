@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { AdminMapsReadAdminMapsData, AdminMapsReadAdminMapsResponse, AdminMapsUpdateAdminMapData, AdminMapsUpdateAdminMapResponse, AdminMapsReadAdminMapCourseTiersData, AdminMapsReadAdminMapCourseTiersResponse, AdminMapsReadAdminMapRecordFiltersData, AdminMapsReadAdminMapRecordFiltersResponse, AdminMapsUpdateAdminCourseTierData, AdminMapsUpdateAdminCourseTierResponse, AdminModesUpdateModeData, AdminModesUpdateModeResponse, AdminPlayerSessionsReadAdminPlayerSessionsData, AdminPlayerSessionsReadAdminPlayerSessionsResponse, AdminPlayerSessionsReadAdminPlayerSessionIpLinksData, AdminPlayerSessionsReadAdminPlayerSessionIpLinksResponse, AdminPlayerSocialLinksReadAdminPlayerSocialLinksData, AdminPlayerSocialLinksReadAdminPlayerSocialLinksResponse, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkData, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkData, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkData, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkResponse, AdminServersTriggerServerDiscoveryResponse, AdminServersReadAdminServerAccessResponse, AdminServersReadAdminGlobalapiServersData, AdminServersReadAdminGlobalapiServersResponse, AdminServersUpdateAdminGlobalapiServerData, AdminServersUpdateAdminGlobalapiServerResponse, AdminServersReadAdminPublicServersData, AdminServersReadAdminPublicServersResponse, AdminServersUpdateAdminPublicServerData, AdminServersUpdateAdminPublicServerResponse, AdminServersDeleteAdminPublicServerData, AdminServersDeleteAdminPublicServerResponse, AdminServersReadAdminServerGroupsResponse, AdminServersCreateAdminServerGroupData, AdminServersCreateAdminServerGroupResponse, AdminServersUpdateAdminServerGroupData, AdminServersUpdateAdminServerGroupResponse, AdminServersDeleteAdminServerGroupData, AdminServersDeleteAdminServerGroupResponse, AdminServersRotateAdminServerGroupApiKeyData, AdminServersRotateAdminServerGroupApiKeyResponse, BansReadBansData, BansReadBansResponse, BansCreateBanData, BansCreateBanResponse, BansReadBanData, BansReadBanResponse, BansPatchBanData, BansPatchBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, JumpstatsCreateJumpstatData, JumpstatsCreateJumpstatResponse, JumpstatsReadJumpstatsData, JumpstatsReadJumpstatsResponse, JumpstatsReadJumpstatData, JumpstatsReadJumpstatResponse, JumpstatsReadJumpstatVisualizationData, JumpstatsReadJumpstatVisualizationResponse, LeaderboardsReadJumpstatLeaderboardData, LeaderboardsReadJumpstatLeaderboardResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LeaderboardsReadMapLeaderboardData, LeaderboardsReadMapLeaderboardResponse, LeaderboardsUpsertMapLeaderboardsData, LeaderboardsUpsertMapLeaderboardsResponse, LiveReadLiveStreamsData, LiveReadLiveStreamsResponse, LiveProxyLivePreviewImageData, LiveProxyLivePreviewImageResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapPbLeaderboardData, MapsReadMapPbLeaderboardResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapStatsData, MapsReadMapStatsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsDeleteMapReviewCommentsData, MapsDeleteMapReviewCommentsResponse, MapsTriggerMapSyncResponse, MeReadCurrentPlayerSettingsResponse, MeUpdateCurrentPlayerSettingsData, MeUpdateCurrentPlayerSettingsResponse, MeReadCurrentPlayerWebhooksResponse, MeCreateCurrentPlayerWebhookData, MeCreateCurrentPlayerWebhookResponse, MeUpdateCurrentPlayerWebhookData, MeUpdateCurrentPlayerWebhookResponse, MeDeleteCurrentPlayerWebhookData, MeDeleteCurrentPlayerWebhookResponse, MeTestCurrentPlayerWebhookData, MeTestCurrentPlayerWebhookResponse, MeSyncCurrentPlayerFriendsResponse, MeCheckCurrentPlayerBanStatusResponse, MeCreateCurrentPlayerPinnedRecordData, MeCreateCurrentPlayerPinnedRecordResponse, MeDeleteCurrentPlayerPinnedRecordData, MeDeleteCurrentPlayerPinnedRecordResponse, MiscLookupIpListData, MiscLookupIpListResponse, MiscLookupIpData, MiscLookupIpResponse, ModesReadModesData, ModesReadModesResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayerFollowsReadPlayerFollowSummaryData, PlayerFollowsReadPlayerFollowSummaryResponse, PlayerFollowsFollowPlayerData, PlayerFollowsFollowPlayerResponse, PlayerFollowsUnfollowPlayerData, PlayerFollowsUnfollowPlayerResponse, PlayerFollowsReadPlayerFollowersData, PlayerFollowsReadPlayerFollowersResponse, PlayerFollowsReadPlayerFollowingData, PlayerFollowsReadPlayerFollowingResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerViewsData, PlayersReadPlayerViewsResponse, PlayersCreatePlayerLikeData, PlayersCreatePlayerLikeResponse, PlayersReadPlayerLikesData, PlayersReadPlayerLikesResponse, PlayersReadPlayerCommentsData, PlayersReadPlayerCommentsResponse, PlayersCreatePlayerCommentData, PlayersCreatePlayerCommentResponse, PlayersDeletePlayerCommentData, PlayersDeletePlayerCommentResponse, PlayersReadPlayerPinnedRecordsData, PlayersReadPlayerPinnedRecordsResponse, PlayersReadPlayerStatsData, PlayersReadPlayerStatsResponse, PlayersReadPlayerJumpstatsData, PlayersReadPlayerJumpstatsResponse, PlayersReadPlayerFriendsData, PlayersReadPlayerFriendsResponse, PlayersReadPlayerProfileHistoryData, PlayersReadPlayerProfileHistoryResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayerSessionsConnectPlayerSessionData, PlayerSessionsConnectPlayerSessionResponse, PlayerSessionsHeartbeatPlayerSessionData, PlayerSessionsHeartbeatPlayerSessionResponse, PlayerSessionsDisconnectPlayerSessionData, PlayerSessionsDisconnectPlayerSessionResponse, PlayerSocialLinksReadPlayerSocialLinksData, PlayerSocialLinksReadPlayerSocialLinksResponse, PlayerSocialLinksCreatePlayerSocialLinkData, PlayerSocialLinksCreatePlayerSocialLinkResponse, PlayerSocialLinksUpdatePlayerSocialLinkData, PlayerSocialLinksUpdatePlayerSocialLinkResponse, PlayerSocialLinksDeletePlayerSocialLinkData, PlayerSocialLinksDeletePlayerSocialLinkResponse, PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationData, PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationResponse, PlayerSocialLinksStartPlayerTwitchSocialLinkAddResponse, PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationData, PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationResponse, PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationData, PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationResponse, PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationData, PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationResponse, PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationData, PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RecordsBulkDeleteCourseRecordsData, RecordsBulkDeleteCourseRecordsResponse, RecordsRebuildPbPointsBucketData, RecordsRebuildPbPointsBucketResponse, RegionsReadRegionsResponse, ReplaysReadReplaysData, ReplaysReadReplaysResponse, ReplaysReadJumpReplayData, ReplaysReadJumpReplayResponse, ReplaysReadRunReplayData, ReplaysReadRunReplayResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse } from './types.gen';
+import type { AdminMapsReadAdminMapsData, AdminMapsReadAdminMapsResponse, AdminMapsUpdateAdminMapData, AdminMapsUpdateAdminMapResponse, AdminMapsReadAdminMapCourseTiersData, AdminMapsReadAdminMapCourseTiersResponse, AdminMapsReadAdminMapRecordFiltersData, AdminMapsReadAdminMapRecordFiltersResponse, AdminMapsUpdateAdminCourseTierData, AdminMapsUpdateAdminCourseTierResponse, AdminModesUpdateModeData, AdminModesUpdateModeResponse, AdminPlayerSessionsReadAdminPlayerSessionsData, AdminPlayerSessionsReadAdminPlayerSessionsResponse, AdminPlayerSessionsReadAdminPlayerSessionIpLinksData, AdminPlayerSessionsReadAdminPlayerSessionIpLinksResponse, AdminPlayerSocialLinksReadAdminPlayerSocialLinksData, AdminPlayerSocialLinksReadAdminPlayerSocialLinksResponse, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkData, AdminPlayerSocialLinksCreateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkData, AdminPlayerSocialLinksUpdateAdminPlayerSocialLinkResponse, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkData, AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkResponse, AdminServersTriggerServerDiscoveryResponse, AdminServersReadAdminServerAccessResponse, AdminServersReadAdminGlobalapiServersData, AdminServersReadAdminGlobalapiServersResponse, AdminServersUpdateAdminGlobalapiServerData, AdminServersUpdateAdminGlobalapiServerResponse, AdminServersReadAdminPublicServersData, AdminServersReadAdminPublicServersResponse, AdminServersUpdateAdminPublicServerData, AdminServersUpdateAdminPublicServerResponse, AdminServersDeleteAdminPublicServerData, AdminServersDeleteAdminPublicServerResponse, AdminServersReadAdminServerGroupsResponse, AdminServersCreateAdminServerGroupData, AdminServersCreateAdminServerGroupResponse, AdminServersUpdateAdminServerGroupData, AdminServersUpdateAdminServerGroupResponse, AdminServersDeleteAdminServerGroupData, AdminServersDeleteAdminServerGroupResponse, AdminServersRotateAdminServerGroupApiKeyData, AdminServersRotateAdminServerGroupApiKeyResponse, BansReadBansData, BansReadBansResponse, BansCreateBanData, BansCreateBanResponse, BansReadBanData, BansReadBanResponse, BansPatchBanData, BansPatchBanResponse, BansDeleteBanData, BansDeleteBanResponse, HandleHttpGetResponse, HandleHttpPostResponse, JumpstatsCreateJumpstatData, JumpstatsCreateJumpstatResponse, JumpstatsReadJumpstatsData, JumpstatsReadJumpstatsResponse, JumpstatsReadJumpstatData, JumpstatsReadJumpstatResponse, JumpstatsReadJumpstatVisualizationData, JumpstatsReadJumpstatVisualizationResponse, LeaderboardsReadJumpstatLeaderboardData, LeaderboardsReadJumpstatLeaderboardResponse, LeaderboardsReadPlayerLeaderboardData, LeaderboardsReadPlayerLeaderboardResponse, LeaderboardsReadPlayerLeaderboardRankData, LeaderboardsReadPlayerLeaderboardRankResponse, LeaderboardsUpsertPlayerLeaderboardsData, LeaderboardsUpsertPlayerLeaderboardsResponse, LeaderboardsReadMapLeaderboardData, LeaderboardsReadMapLeaderboardResponse, LeaderboardsUpsertMapLeaderboardsData, LeaderboardsUpsertMapLeaderboardsResponse, LiveReadLiveStreamsData, LiveReadLiveStreamsResponse, LiveProxyLivePreviewImageData, LiveProxyLivePreviewImageResponse, LoginLoginSteamResponse, LoginSteamCallbackResponse, LoginTestTokenResponse, MapsReadMapsData, MapsReadMapsResponse, MapsReadMapPbLeaderboardData, MapsReadMapPbLeaderboardResponse, MapsReadMapWrsData, MapsReadMapWrsResponse, MapsReadMapStatsData, MapsReadMapStatsResponse, MapsReadMapByIdData, MapsReadMapByIdResponse, MapsReadMapReviewsData, MapsReadMapReviewsResponse, MapsPutMapReviewData, MapsPutMapReviewResponse, MapsDeleteMapReviewCommentsData, MapsDeleteMapReviewCommentsResponse, MapsTriggerMapSyncResponse, MeReadCurrentPlayerSettingsResponse, MeUpdateCurrentPlayerSettingsData, MeUpdateCurrentPlayerSettingsResponse, MeReadCurrentPlayerWebhooksResponse, MeCreateCurrentPlayerWebhookData, MeCreateCurrentPlayerWebhookResponse, MeUpdateCurrentPlayerWebhookData, MeUpdateCurrentPlayerWebhookResponse, MeDeleteCurrentPlayerWebhookData, MeDeleteCurrentPlayerWebhookResponse, MeTestCurrentPlayerWebhookData, MeTestCurrentPlayerWebhookResponse, MeSyncCurrentPlayerFriendsResponse, MeCheckCurrentPlayerBanStatusResponse, MeCreateCurrentPlayerPinnedRecordData, MeCreateCurrentPlayerPinnedRecordResponse, MeDeleteCurrentPlayerPinnedRecordData, MeDeleteCurrentPlayerPinnedRecordResponse, MiscLookupRequestIpResponse, MiscLookupIpListData, MiscLookupIpListResponse, MiscLookupIpData, MiscLookupIpResponse, ModesReadModesData, ModesReadModesResponse, ModesReadModeByIdData, ModesReadModeByIdResponse, PlayerFollowsReadPlayerFollowSummaryData, PlayerFollowsReadPlayerFollowSummaryResponse, PlayerFollowsFollowPlayerData, PlayerFollowsFollowPlayerResponse, PlayerFollowsUnfollowPlayerData, PlayerFollowsUnfollowPlayerResponse, PlayerFollowsReadPlayerFollowersData, PlayerFollowsReadPlayerFollowersResponse, PlayerFollowsReadPlayerFollowingData, PlayerFollowsReadPlayerFollowingResponse, PlayersReadPlayersData, PlayersReadPlayersResponse, PlayersReadPlayersBatchData, PlayersReadPlayersBatchResponse, PlayersSearchPlayersData, PlayersSearchPlayersResponse, PlayersCreatePlayerViewData, PlayersCreatePlayerViewResponse, PlayersReadPlayerViewsData, PlayersReadPlayerViewsResponse, PlayersCreatePlayerLikeData, PlayersCreatePlayerLikeResponse, PlayersReadPlayerLikesData, PlayersReadPlayerLikesResponse, PlayersReadPlayerCommentsData, PlayersReadPlayerCommentsResponse, PlayersCreatePlayerCommentData, PlayersCreatePlayerCommentResponse, PlayersDeletePlayerCommentData, PlayersDeletePlayerCommentResponse, PlayersReadPlayerLikersData, PlayersReadPlayerLikersResponse, PlayersReadPlayerPinnedRecordsData, PlayersReadPlayerPinnedRecordsResponse, PlayersReadPlayerStatsData, PlayersReadPlayerStatsResponse, PlayersReadPlayerJumpstatsData, PlayersReadPlayerJumpstatsResponse, PlayersReadPlayerFriendsData, PlayersReadPlayerFriendsResponse, PlayersReadPlayerProfileHistoryData, PlayersReadPlayerProfileHistoryResponse, PlayersReadPlayerData, PlayersReadPlayerResponse, PlayersUpdatePlayerData, PlayersUpdatePlayerResponse, PlayersUpsertPlayerFromSteamData, PlayersUpsertPlayerFromSteamResponse, PlayerSessionsConnectPlayerSessionData, PlayerSessionsConnectPlayerSessionResponse, PlayerSessionsHeartbeatPlayerSessionData, PlayerSessionsHeartbeatPlayerSessionResponse, PlayerSessionsDisconnectPlayerSessionData, PlayerSessionsDisconnectPlayerSessionResponse, PlayerSocialLinksReadPlayerSocialLinksData, PlayerSocialLinksReadPlayerSocialLinksResponse, PlayerSocialLinksCreatePlayerSocialLinkData, PlayerSocialLinksCreatePlayerSocialLinkResponse, PlayerSocialLinksUpdatePlayerSocialLinkData, PlayerSocialLinksUpdatePlayerSocialLinkResponse, PlayerSocialLinksDeletePlayerSocialLinkData, PlayerSocialLinksDeletePlayerSocialLinkResponse, PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationData, PlayerSocialLinksStartPlayerTwitchSocialLinkVerificationResponse, PlayerSocialLinksStartPlayerTwitchSocialLinkAddResponse, PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationData, PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationResponse, PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationData, PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationResponse, PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationData, PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationResponse, PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationData, PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationResponse, RecordsReadRecordsData, RecordsReadRecordsResponse, RecordsReadRecentRecordsData, RecordsReadRecentRecordsResponse, RecordsReadPbRecordsData, RecordsReadPbRecordsResponse, RecordsReadRecordRanksData, RecordsReadRecordRanksResponse, RecordsReadRecordData, RecordsReadRecordResponse, RecordsPatchRecordData, RecordsPatchRecordResponse, RecordsBulkDeleteCourseRecordsData, RecordsBulkDeleteCourseRecordsResponse, RecordsRebuildPbPointsBucketData, RecordsRebuildPbPointsBucketResponse, RegionsReadRegionsResponse, ReplaysReadReplaysData, ReplaysReadReplaysResponse, ReplaysReadJumpReplayData, ReplaysReadJumpReplayResponse, ReplaysReadRunReplayData, ReplaysReadRunReplayResponse, ServerGroupsReadServerGroupsResponse, ServerGroupsCreateServerGroupData, ServerGroupsCreateServerGroupResponse, ServerGroupsUpdateServerGroupData, ServerGroupsUpdateServerGroupResponse, ServerGroupsDeleteServerGroupData, ServerGroupsDeleteServerGroupResponse, ServerGroupsRotateServerGroupApiKeyData, ServerGroupsRotateServerGroupApiKeyResponse, ServersPutServerStatusData, ServersPutServerStatusResponse, ServersReadServersData, ServersReadServersResponse, ServersCreateServerData, ServersCreateServerResponse, ServersReadServerHistoryData, ServersReadServerHistoryResponse, ServersReadServerData, ServersReadServerResponse, ServersUpdateServerData, ServersUpdateServerResponse, ServersDeleteServerData, ServersDeleteServerResponse, UsersReadUsersData, UsersReadUsersResponse, UsersReadUserMeResponse, UsersReadUserByIdData, UsersReadUserByIdResponse, UsersUpdateUserData, UsersUpdateUserResponse, UtilsHealthCheckResponse } from './types.gen';
 
 export class AdminMapsService {
     /**
@@ -565,6 +565,7 @@ export class BansService {
      * @param data The data for the request.
      * @param data.offset
      * @param data.limit
+     * @param data.q
      * @param data.banTypes
      * @param data.banTypesList
      * @param data.isExpired
@@ -585,6 +586,7 @@ export class BansService {
             query: {
                 offset: data.offset,
                 limit: data.limit,
+                q: data.q,
                 ban_types: data.banTypes,
                 ban_types_list: data.banTypesList,
                 is_expired: data.isExpired,
@@ -658,6 +660,26 @@ export class BansService {
             },
             body: data.requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Delete Ban
+     * @param data The data for the request.
+     * @param data.banUuid
+     * @returns Message Successful Response
+     * @throws ApiError
+     */
+    public static deleteBan(data: BansDeleteBanData): CancelablePromise<BansDeleteBanResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/v1/bans/{ban_uuid}',
+            path: {
+                ban_uuid: data.banUuid
+            },
             errors: {
                 422: 'Validation Error'
             }
@@ -1474,6 +1496,18 @@ export class MeService {
 
 export class MiscService {
     /**
+     * Lookup Request Ip
+     * @returns IPLookupResponse Successful Response
+     * @throws ApiError
+     */
+    public static lookupRequestIp(): CancelablePromise<MiscLookupRequestIpResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/misc/ip'
+        });
+    }
+    
+    /**
      * Lookup Ip List
      * @param data The data for the request.
      * @param data.requestBody
@@ -1893,6 +1927,32 @@ export class PlayersService {
     }
     
     /**
+     * Read Player Likers
+     * @param data The data for the request.
+     * @param data.identifier
+     * @param data.offset
+     * @param data.limit
+     * @returns PlayerLikersPublic Successful Response
+     * @throws ApiError
+     */
+    public static readPlayerLikers(data: PlayersReadPlayerLikersData): CancelablePromise<PlayersReadPlayerLikersResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/players/{identifier}/likes/players',
+            path: {
+                identifier: data.identifier
+            },
+            query: {
+                offset: data.offset,
+                limit: data.limit
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Read Player Pinned Records
      * @param data The data for the request.
      * @param data.identifier
@@ -2097,7 +2157,7 @@ export class PlayerSessionsService {
      * @param data.requestBody
      * @param data.xServerGroupKey
      * @param data.authorization
-     * @returns PlayerSessionPublic Successful Response
+     * @returns PlayerSessionConnectPublic Successful Response
      * @throws ApiError
      */
     public static connectPlayerSession(data: PlayerSessionsConnectPlayerSessionData): CancelablePromise<PlayerSessionsConnectPlayerSessionResponse> {

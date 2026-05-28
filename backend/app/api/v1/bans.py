@@ -8,14 +8,16 @@ from app.api.deps import (
     OptionalCurrentUser,
     SessionDep,
     get_current_active_admin,
+    get_current_active_superuser,
     user_has_any_role,
 )
 from app.models import (
     BanCreate,
     BanListQuery,
     BanPublic,
-    BanUpdate,
     BansPublic,
+    BanUpdate,
+    Message,
     User,
     UserRole,
 )
@@ -23,6 +25,7 @@ from app.models import (
 router = APIRouter(prefix="/bans", tags=["bans"])
 
 CurrentAdmin = Annotated[User, Depends(get_current_active_admin)]
+CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
 
 
 def _parse_steamid64(value: str) -> int:
@@ -149,3 +152,25 @@ async def patch_ban(
         updated_by_player=updated_by_player,
         include_admin_fields=True,
     )
+
+
+@router.delete("/{ban_uuid}", response_model=Message)
+async def delete_ban(
+    *,
+    session: SessionDep,
+    ban_uuid: uuid.UUID,
+    _current_user: CurrentSuperuser,
+) -> Message:
+    ban_with_player = await crud.get_ban_by_uuid(session=session, ban_uuid=ban_uuid)
+    if ban_with_player is None:
+        raise HTTPException(status_code=404, detail="Ban not found")
+
+    ban, _player, _updated_by_player = ban_with_player
+    if ban.id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Only bans without a GlobalAPI id can be deleted",
+        )
+
+    await crud.delete_ban(session=session, ban=ban)
+    return Message(message="Ban deleted successfully")

@@ -174,6 +174,7 @@ def to_ban_list_item_public(
 ) -> BanListItemPublic:
     payload: dict[str, Any] = {
         "uuid": ban.uuid,
+        "id": ban.id,
         "ban_type": ban.ban_type,
         "expires_at": ban.expires_at,
         "ip": ban.ip,
@@ -371,6 +372,15 @@ async def create_manual_ban(
     await session.commit()
     await session.refresh(ban)
     return ban
+
+
+async def delete_ban(
+    *,
+    session: AsyncSession,
+    ban: Ban,
+) -> None:
+    await session.delete(ban)
+    await session.commit()
 
 
 async def update_ban(

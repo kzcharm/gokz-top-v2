@@ -165,7 +165,7 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert payload["count"] == 3
     assert payload["data"][0]["ban_type"] == "other"
     assert payload["data"][0]["uuid"]
-    assert "id" not in payload["data"][0]
+    assert payload["data"][0]["id"] == 1003
     assert "updated_by_steamid64" not in payload["data"][0]
     assert "updated_by_player" not in payload["data"][0]
     assert payload["data"][1]["player"] == {
@@ -371,7 +371,7 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     assert v1_list.status_code == 200
     assert v1_list.json()["count"] == 1
     assert v1_list.json()["data"][0]["uuid"] == created_payload["uuid"]
-    assert "id" not in v1_list.json()["data"][0]
+    assert v1_list.json()["data"][0]["id"] is None
 
     v0_list = await client.get("/v0/bans", params={"steamid64": str(steamid64)})
     assert v0_list.status_code == 200
@@ -519,3 +519,87 @@ async def test_patch_ban_updates_fields_and_supports_unban(
     assert refreshed_ban.notes == "manually unbanned"
     assert refreshed_ban.expires_at == datetime(2026, 4, 30, tzinfo=UTC)
     assert refreshed_ban.updated_by_steamid64 == moderator_steamid64
+
+
+async def test_delete_ban_allows_superuser_for_bans_without_external_id(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    await _clear_bans(db)
+    target_steamid64 = random_steamid64()
+    await _create_player(db, steamid64=target_steamid64, name="Delete Target")
+    ban = await _create_ban(
+        db,
+        id=None,
+        ban_type=BanType.BHOP_MACRO,
+        steamid64=target_steamid64,
+        expires_at=None,
+        player_name="Delete Target",
+    )
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/bans/{ban.uuid}",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Ban deleted successfully"}
+    assert await db.get(Ban, ban.uuid) is None
+
+
+async def test_delete_ban_rejects_admin_and_mirrored_bans(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    target_steamid64 = random_steamid64()
+    await _create_player(db, steamid64=target_steamid64, name="Delete Guard")
+    mirrored_ban = await _create_ban(
+        db,
+        id=1202,
+        ban_type=BanType.STRAFE_HACK,
+        steamid64=target_steamid64,
+        expires_at=None,
+        player_name="Delete Guard",
+    )
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Delete Admin",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+    superuser_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": settings.SUPER_USER_STEAMID64,
+            "roles": ["superuser"],
+            "is_active": True,
+            "name": "Delete Superuser",
+        },
+    )
+    superuser_headers = {
+        "Authorization": f"Bearer {superuser_auth.json()['access_token']}"
+    }
+
+    admin_response = await client.delete(
+        f"{settings.API_V1_STR}/bans/{mirrored_ban.uuid}",
+        headers=admin_headers,
+    )
+    assert admin_response.status_code == 403
+
+    mirrored_response = await client.delete(
+        f"{settings.API_V1_STR}/bans/{mirrored_ban.uuid}",
+        headers=superuser_headers,
+    )
+    assert mirrored_response.status_code == 409
+    assert mirrored_response.json() == {
+        "detail": "Only bans without a GlobalAPI id can be deleted"
+    }
+    assert await db.get(Ban, mirrored_ban.uuid) is not None

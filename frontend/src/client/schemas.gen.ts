@@ -917,6 +917,17 @@ export const BanListItemPublicSchema = {
             format: 'uuid',
             title: 'Uuid'
         },
+        id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Id'
+        },
         ban_type: {
             '$ref': '#/components/schemas/BanType'
         },
@@ -3592,6 +3603,161 @@ export const PlayerLeaderboardsPublicSchema = {
     title: 'PlayerLeaderboardsPublic'
 } as const;
 
+export const PlayerLikerPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            title: 'Name'
+        },
+        alias: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alias'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Avatar Hash'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        primary_scope: {
+            '$ref': '#/components/schemas/ModeScope',
+            default: 'OVR'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        last_played_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Played At'
+        },
+        updated_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Updated At'
+        },
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        roles: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/UserRole'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Roles'
+        },
+        profile_views: {
+            type: 'integer',
+            title: 'Profile Views',
+            default: 0
+        },
+        latest_like_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latest Like At'
+        }
+    },
+    type: 'object',
+    required: ['name', 'steamid64'],
+    title: 'PlayerLikerPublic'
+} as const;
+
+export const PlayerLikersPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerLikerPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerLikersPublic'
+} as const;
+
 export const PlayerLikesPublicSchema = {
     properties: {
         player_likes: {
@@ -4073,6 +4239,58 @@ export const PlayerRefPublicSchema = {
     title: 'PlayerRefPublic'
 } as const;
 
+export const PlayerSessionBanEnforcementBanPublicSchema = {
+    properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
+        ban_type: {
+            '$ref': '#/components/schemas/BanType'
+        },
+        expires_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expires At'
+        }
+    },
+    type: 'object',
+    required: ['uuid', 'ban_type'],
+    title: 'PlayerSessionBanEnforcementBanPublic'
+} as const;
+
+export const PlayerSessionBanEnforcementPublicSchema = {
+    properties: {
+        required: {
+            type: 'boolean',
+            title: 'Required',
+            default: true
+        },
+        ban: {
+            '$ref': '#/components/schemas/PlayerSessionBanEnforcementBanPublic'
+        },
+        detail_url: {
+            type: 'string',
+            title: 'Detail Url'
+        },
+        kick_message: {
+            type: 'string',
+            title: 'Kick Message'
+        }
+    },
+    type: 'object',
+    required: ['ban', 'detail_url', 'kick_message'],
+    title: 'PlayerSessionBanEnforcementPublic'
+} as const;
+
 export const PlayerSessionConnectSchema = {
     properties: {
         session_id: {
@@ -4099,11 +4317,96 @@ export const PlayerSessionConnectSchema = {
             maxLength: 255,
             minLength: 1,
             title: 'Map Name'
+        },
+        client_language: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 16
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Client Language'
         }
     },
     type: 'object',
     required: ['session_id', 'player_steamid64', 'connected_at', 'ip_address', 'map_name'],
     title: 'PlayerSessionConnect'
+} as const;
+
+export const PlayerSessionConnectPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player_steamid64: {
+            type: 'string',
+            title: 'Player Steamid64'
+        },
+        server_group_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Group Id'
+        },
+        connected_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Connected At'
+        },
+        disconnect_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Disconnect At'
+        },
+        last_heartbeat_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Last Heartbeat At'
+        },
+        ip_address: {
+            type: 'string',
+            title: 'Ip Address'
+        },
+        map_name: {
+            type: 'string',
+            title: 'Map Name'
+        },
+        duration_seconds: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Duration Seconds'
+        },
+        ban_enforcement: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerSessionBanEnforcementPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['id', 'player_steamid64', 'server_group_id', 'connected_at', 'last_heartbeat_at', 'ip_address', 'map_name'],
+    title: 'PlayerSessionConnectPublic'
 } as const;
 
 export const PlayerSessionDisconnectSchema = {
@@ -5290,7 +5593,14 @@ export const ServerGlobalapiAdminPublicSchema = {
             title: 'Name'
         },
         owner_steamid64: {
-            type: 'string',
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Owner Steamid64'
         },
         approval_status: {
@@ -5298,7 +5608,14 @@ export const ServerGlobalapiAdminPublicSchema = {
             title: 'Approval Status'
         },
         approved_by_steamid64: {
-            type: 'string',
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Approved By Steamid64'
         },
         created_at: {
