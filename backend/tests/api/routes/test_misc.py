@@ -106,6 +106,38 @@ async def test_lookup_ip_get_geoip_miss_returns_null_location_fields(
     }
 
 
+async def test_lookup_ip_get_without_address_uses_forwarded_client_ip(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        misc_routes,
+        "lookup_geoip_details",
+        lambda ip: GeoIPLookupDetails(
+            country_name="Germany",
+            country_code="DE",
+            subdivision_name="Berlin",
+            city_name="Berlin",
+        ),
+    )
+
+    response = await client.get(
+        "/v1/misc/ip",
+        headers={"CF-Connecting-IP": "8.8.8.8"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ip": "8.8.8.8",
+        "country": "Germany",
+        "country_code": "DE",
+        "region": "Berlin",
+        "city": "Berlin",
+        "region_name": "Europe",
+        "region_code": "EU",
+    }
+
+
 async def test_lookup_ip_get_unresolvable_hostname_returns_400(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -241,6 +273,40 @@ async def test_lookup_ip_post_legacy_gokz_top_v1_path(
             "region_code": "EU",
         }
     ]
+
+
+async def test_lookup_ip_get_without_address_legacy_gokz_top_v1_path(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        misc_routes,
+        "lookup_geoip_details",
+        lambda ip: GeoIPLookupDetails(
+            country_name="Germany",
+            country_code="DE",
+            subdivision_name="Berlin",
+            city_name="Berlin",
+        ),
+    )
+
+    response = await client.get(
+        "/api/v1/misc/ip",
+        headers={"X-Forwarded-For": "8.8.8.8, 1.1.1.1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "ip": "8.8.8.8",
+            "country": "Germany",
+            "country_code": "DE",
+            "region": "Berlin",
+            "city": "Berlin",
+            "region_name": "Europe",
+            "region_code": "EU",
+        }
+    ][0]
 
 
 async def test_lookup_ip_post_fails_on_first_invalid_item(
