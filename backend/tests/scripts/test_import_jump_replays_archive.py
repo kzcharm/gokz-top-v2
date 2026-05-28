@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
-from app.import_jump_replays_archive import import_jump_replays_archive_from_path
+from app.importers.jump_replays_archive import import_jump_replays_archive_from_path
 from app.models import Jumpstat, ServerGroupUpdate
 from app.services.jump_replay_storage import get_jump_replay_path
 from tests.utils.jump_replay import (
@@ -36,7 +36,7 @@ def _bind_import_session(
         yield db
 
     monkeypatch.setattr(
-        "app.import_jump_replays_archive.async_session_maker",
+        "app.importers.jump_replays_archive.async_session_maker",
         _session_maker,
     )
 
