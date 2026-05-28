@@ -10,6 +10,7 @@ import {
   ArrowDown,
   ArrowUp,
   Copy,
+  Github,
   KeyRound,
   Pencil,
   Plus,
@@ -65,6 +66,7 @@ import { isSuperuser } from "@/lib/user-roles"
 import { extractErrorMessage } from "@/utils"
 
 const NO_GROUP = "__none"
+const GOKZ_TOP_PLUGINS_URL = "https://github.com/kzcharm/gokz-top-plugins"
 type GlobalApiSortBy = "id" | "server" | "updated_at" | "created_at"
 
 export const Route = createFileRoute("/_layout/admin/servers")({
@@ -833,7 +835,13 @@ function ServerGroupsTab({ groups }: { groups: AdminServerGroupPublic[] }) {
   return (
     <div className="flex flex-col gap-4">
       <AdminControlsCard>
-        <div className="flex items-center justify-start gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Button type="button" variant="outline" asChild>
+            <a href={GOKZ_TOP_PLUGINS_URL} target="_blank" rel="noreferrer">
+              <Github />
+              Install gokz-top-plugins
+            </a>
+          </Button>
           <Button type="button" onClick={() => setCreating(true)}>
             <Plus />
             Create group
