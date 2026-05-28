@@ -1,6 +1,7 @@
 from .ban import (
     active_ban_exists_clause,
     create_manual_ban,
+    delete_ban,
     get_ban_by_uuid,
     get_newest_active_ban_for_player,
     not_active_ban_exists_clause,
@@ -330,6 +331,7 @@ __all__ = [
     "connect_player_session",
     "create_user",
     "delete_player_comment",
+    "delete_ban",
     "delete_player_follow",
     "delete_player_pinned_record",
     "delete_player_social_link",

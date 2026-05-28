@@ -300,7 +300,7 @@ export function GlobalApiServersTab({
         header: "Owner",
         cell: ({ row }) => (
           <PlayerDisplay
-            fallbackSteamid64={row.original.owner_steamid64}
+            fallbackSteamid64={row.original.owner_steamid64 ?? undefined}
             nameMaxLength={22}
           />
         ),

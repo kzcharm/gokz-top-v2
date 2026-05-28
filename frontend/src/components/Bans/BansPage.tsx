@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import useAuth from "@/hooks/useAuth"
 import type { GraphqlPlayer } from "@/lib/player-graphql"
-import { canModerateBansAndRecords } from "@/lib/user-roles"
+import { canModerateBansAndRecords, isSuperuser } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
@@ -198,7 +198,9 @@ export function BansPage({
                 className="pr-9 pl-9"
                 placeholder="Search bans ..."
                 value={searchQuery}
-                onChange={(event) => handleSearchQueryChange(event.target.value)}
+                onChange={(event) =>
+                  handleSearchQueryChange(event.target.value)
+                }
               />
               {searchQuery ? (
                 <Button
@@ -291,6 +293,7 @@ export function BansPage({
       />
       <EditBanDialog
         ban={editingBan}
+        canDeleteLocalBan={isSuperuser(user)}
         open={editBanDialogOpen}
         onOpenChange={(open) => {
           setEditBanDialogOpen(open)
