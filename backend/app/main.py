@@ -14,6 +14,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.api.v0.main import router as v0_router
+from app.api.v1.misc import router as misc_router
 from app.core.config import settings
 from app.core.logging import configure_app_logging
 from app.services.daily_rank_pipeline_task import (
@@ -112,6 +113,7 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(misc_router, prefix="/api/v1", include_in_schema=False)
 app.include_router(v0_router)
 
 _openapi_v0_schema: dict[str, Any] | None = None

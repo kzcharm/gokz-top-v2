@@ -22,6 +22,9 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+EXTRA_CORS_ORIGINS = ("https://cs2kz.org",)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         # Use top level .env file (one level above ./backend/)
@@ -55,6 +58,8 @@ class Settings(BaseSettings):
 
         if replay_viewer_host:
             origins.append(replay_viewer_host.rstrip("/"))
+
+        origins.extend(EXTRA_CORS_ORIGINS)
 
         return list(dict.fromkeys(origins))
 
