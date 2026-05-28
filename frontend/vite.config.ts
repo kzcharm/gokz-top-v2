@@ -3,7 +3,7 @@ import path from "node:path"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react-swc"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 
 function getAppVersion(): string {
   const envVersion = process.env.VITE_APP_VERSION?.trim()
@@ -27,6 +27,19 @@ function getAppVersion(): string {
   }
 }
 
+function localDevFavicon(): Plugin {
+  return {
+    name: "local-dev-favicon",
+    apply: "serve",
+    transformIndexHtml(html) {
+      return html.replace(
+        /<link rel="icon" type="image\/png" sizes="32x32" href="\/favicon-32x32\.png" \/>/,
+        '<link rel="icon" type="image/svg+xml" href="/favicon-dev.svg" />',
+      )
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   define: {
@@ -38,6 +51,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    localDevFavicon(),
     tanstackRouter({
       target: "react",
       autoCodeSplitting: true,
