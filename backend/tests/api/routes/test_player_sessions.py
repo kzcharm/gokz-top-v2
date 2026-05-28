@@ -156,7 +156,7 @@ async def test_connect_persists_banned_player_session_and_returns_enforcement(
             "Ban type: ban_evasion\n"
             "Expires: 2026-05-28\n"
             "Reason: Repeated bypassing of server bans\n"
-            "Appeal: visit https://kzcharm.com/bans"
+            f"Appeal: visit {settings.FRONTEND_HOST.rstrip('/')}/bans"
         ),
     }
 
@@ -195,7 +195,7 @@ async def test_connect_returns_localized_chinese_ban_enforcement_message(
         "封禁类型：bhop_hack\n"
         "到期时间：永久\n"
         "封禁原因：autostrafe evidence\n"
-        "申诉解封：请访问 https://kzcharm.com/bans"
+        f"申诉解封：请访问 {settings.FRONTEND_HOST.rstrip('/')}/bans"
     )
 
 

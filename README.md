@@ -48,12 +48,12 @@ bash scripts/generate-client.sh
 
 ## SourceMod Plugin Setup
 
-Server-side integration is provided by [`kzcharm/gokz-top-plugins`](https://github.com/kzcharm/gokz-top-plugins). The admin server page at `https://kzcharm.com/admin/servers` includes an install link to that repository.
+Server-side integration is provided by [`kzcharm/gokz-top-plugins`](https://github.com/kzcharm/gokz-top-plugins). The admin server page at `https://gokz.top/admin/servers` includes an install link to that repository.
 
 ### 1. Create Or Select A Server Group
 
-1. Sign in to `https://kzcharm.com`.
-2. Open `https://kzcharm.com/admin/servers`.
+1. Sign in to `https://gokz.top`.
+2. Open `https://gokz.top/admin/servers`.
 3. Go to the `Server Group` tab.
 4. Create a group for your community or select an existing group you own.
 5. Copy the group API key from the `API Key` column.
@@ -93,7 +93,7 @@ The default API base URL points at production. For a custom deployment, set `gok
 
 ### 4. Link Servers To The Group
 
-Back on `https://kzcharm.com/admin/servers`, assign your GlobalAPI or public server rows to the same server group. Once the plugin is running with the API key, the site can accept live server status, player-session events, reviews, and other authenticated server-side submissions for that group.
+Back on `https://gokz.top/admin/servers`, assign your GlobalAPI or public server rows to the same server group. Once the plugin is running with the API key, the site can accept live server status, player-session events, reviews, and other authenticated server-side submissions for that group.
 
 ## Deployment Configuration
 
