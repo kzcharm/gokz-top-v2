@@ -89,7 +89,7 @@ VITE_REPLAY_VIEWER_URL=http://localhost:5180
 ```
 
 If it is not set, the frontend defaults to `http://localhost:5180` in dev and
-`https://replay-viewer.kzcharm.com` outside dev mode.
+`https://replays.gokz.top` outside dev mode.
 
 ## Code Structure
 

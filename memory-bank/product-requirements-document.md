@@ -121,6 +121,7 @@ Scope model:
 - Replay files are stored locally under a shared replay root with type-specific subdirectories, with jump replays under `jumps/<jumpstat-id>.replay` and run replays under `runs/<normalized-map-name>/<record-uuid>.replay`.
 - Manual import tooling now supports historical run replay backfills from `.replay` files, directories, `.zip` archives, and `.7z` archives, matching exact player/mode/map/stage/time plus a 24-hour `created_at` window and rejecting ambiguous or non-`NRM` v2 replays.
 - `/v1` record-shaped responses now expose `is_replay_available` so replay visibility is integrated into player and map workflows without changing `/v0` compatibility payloads.
+- Run and jump replay playback opens the standalone replay viewer at `replays.gokz.top`, backed by the `replay-viewer/` submodule and host-mounted exported map resources.
 
 ### 5.7 Auth, Roles, and Settings
 - User auth/session flows and API key support.

@@ -27,6 +27,8 @@ jobs:
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       GEOIPUPDATE_ACCOUNT_ID: ${{ secrets.GEOIPUPDATE_ACCOUNT_ID }}
       GEOIPUPDATE_LICENSE_KEY: ${{ secrets.GEOIPUPDATE_LICENSE_KEY }}
+      REPLAY_VIEWER_HOSTNAME_PRODUCTION: ${{ secrets.REPLAY_VIEWER_HOSTNAME_PRODUCTION }}
+      REPLAY_VIEWER_RESOURCES_DIR_PRODUCTION: ${{ secrets.REPLAY_VIEWER_RESOURCES_DIR_PRODUCTION }}
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
       - name: Checkout
@@ -35,6 +37,7 @@ jobs:
           clean: false
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
+          submodules: recursive
       - name: Resolve release tag
         id: version
         run: |
@@ -64,8 +67,10 @@ jobs:
           set -euo pipefail
 
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
+          replay_viewer_hostname="${REPLAY_VIEWER_HOSTNAME_PRODUCTION:-replays.gokz.top}"
+          replay_viewer_resources_dir="${REPLAY_VIEWER_RESOURCES_DIR_PRODUCTION:-/root/code/gokz-replay-viewer-export/local-src/.local/replayviewer-data-volume/resources}"
           frontend_host_rule="Host(\`${DOMAIN}\`)"
-          backend_cors_origins="https://${DOMAIN},https://api.${DOMAIN},https://replay-viewer.kzcharm.com,https://cs2kz.org"
+          backend_cors_origins="https://${DOMAIN},https://api.${DOMAIN},https://${replay_viewer_hostname},https://cs2kz.org"
 
           if [ -n "${FRONTEND_HOST_ALIASES:-}" ]; then
             IFS=',' read -r -a frontend_host_aliases <<< "${FRONTEND_HOST_ALIASES}"
@@ -94,6 +99,9 @@ jobs:
           STACK_NAME=${STACK_NAME}
           BACKEND_CORS_ORIGINS=${backend_cors_origins}
           BACKEND_PUBLIC_URL=https://api.${DOMAIN}
+          REPLAY_VIEWER_HOST=https://${replay_viewer_hostname}
+          REPLAY_VIEWER_HOSTNAME=${replay_viewer_hostname}
+          REPLAY_VIEWER_RESOURCES_DIR=${replay_viewer_resources_dir}
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}
@@ -110,6 +118,7 @@ jobs:
           GEOIPUPDATE_LICENSE_KEY=${GEOIPUPDATE_LICENSE_KEY}
           DOCKER_IMAGE_BACKEND=${STACK_NAME}-backend
           DOCKER_IMAGE_FRONTEND=${STACK_NAME}-frontend
+          DOCKER_IMAGE_REPLAY_VIEWER=${STACK_NAME}-replayviewer
           VITE_APP_VERSION=${VITE_APP_VERSION}
           EOF
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build

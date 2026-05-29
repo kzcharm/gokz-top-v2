@@ -24,6 +24,8 @@ jobs:
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       GEOIPUPDATE_ACCOUNT_ID: ${{ secrets.GEOIPUPDATE_ACCOUNT_ID }}
       GEOIPUPDATE_LICENSE_KEY: ${{ secrets.GEOIPUPDATE_LICENSE_KEY }}
+      REPLAY_VIEWER_HOSTNAME_STAGING: ${{ secrets.REPLAY_VIEWER_HOSTNAME_STAGING }}
+      REPLAY_VIEWER_RESOURCES_DIR_STAGING: ${{ secrets.REPLAY_VIEWER_RESOURCES_DIR_STAGING }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -31,6 +33,7 @@ jobs:
           clean: false
           fetch-depth: 0
           ref: ${{ github.sha }}
+          submodules: recursive
       - name: Resolve app version
         id: version
         run: echo "app_version=$(bash scripts/get-app-version.sh)" >> "${GITHUB_OUTPUT}"
@@ -43,6 +46,8 @@ jobs:
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
           api_host="${API_HOST_STAGING:-api.${DOMAIN}}"
           adminer_host="${ADMINER_HOST_STAGING:-adminer.${DOMAIN}}"
+          replay_viewer_hostname="${REPLAY_VIEWER_HOSTNAME_STAGING:-replays.${DOMAIN}}"
+          replay_viewer_resources_dir="${REPLAY_VIEWER_RESOURCES_DIR_STAGING:-/root/code/gokz-replay-viewer-export/local-src/.local/replayviewer-data-volume/resources}"
           frontend_host_rule="Host(\`${DOMAIN}\`)"
           cat > .env <<EOF
           DOMAIN=${DOMAIN}
@@ -54,8 +59,11 @@ jobs:
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
-          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://${api_host},https://replay-viewer.kzcharm.com
+          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://${api_host},https://${replay_viewer_hostname}
           BACKEND_PUBLIC_URL=https://${api_host}
+          REPLAY_VIEWER_HOST=https://${replay_viewer_hostname}
+          REPLAY_VIEWER_HOSTNAME=${replay_viewer_hostname}
+          REPLAY_VIEWER_RESOURCES_DIR=${replay_viewer_resources_dir}
           SECRET_KEY=${SECRET_KEY}
           SUPER_USER_STEAMID64=${SUPER_USER_STEAMID64}
           STEAM_API_KEY=${STEAM_API_KEY}
@@ -71,6 +79,7 @@ jobs:
           GEOIPUPDATE_LICENSE_KEY=${GEOIPUPDATE_LICENSE_KEY}
           DOCKER_IMAGE_BACKEND=${STACK_NAME}-backend
           DOCKER_IMAGE_FRONTEND=${STACK_NAME}-frontend
+          DOCKER_IMAGE_REPLAY_VIEWER=${STACK_NAME}-replayviewer
           VITE_APP_VERSION=${VITE_APP_VERSION}
           EOF
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build

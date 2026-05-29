@@ -54,7 +54,7 @@ class Settings(BaseSettings):
 
         replay_viewer_host = self.REPLAY_VIEWER_HOST
         if replay_viewer_host is None and self.ENVIRONMENT != "local":
-            replay_viewer_host = "https://replay-viewer.kzcharm.com"
+            replay_viewer_host = "https://replays.gokz.top"
 
         if replay_viewer_host:
             origins.append(replay_viewer_host.rstrip("/"))

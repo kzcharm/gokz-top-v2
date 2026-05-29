@@ -4,3 +4,6 @@
 [submodule "sourcemod"]
 	path = sourcemod
 	url = git@github.com:kzcharm/gokz-top-plugins.git
+[submodule "replay-viewer"]
+	path = replay-viewer
+	url = git@github.com:kzcharm/replay-viewer.git

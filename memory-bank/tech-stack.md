@@ -8,6 +8,7 @@
   - FastAPI backend in `backend/`
   - React + TypeScript frontend in `frontend/`
   - SourceMod plugin code tracked in the `sourcemod/` git submodule (`kzcharm/gokz-top-plugins`)
+  - GOKZ replay viewer tracked in the `replay-viewer/` git submodule (`kzcharm/replay-viewer`) and deployed as a separate Traefik-routed frontend service
 - API surfaces:
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
@@ -129,6 +130,7 @@
 - Traefik for reverse proxy/routing
 - Adminer for DB admin
 - Frontend served by Nginx in production container
+- Replay viewer served by its own Nginx production container at `replays.gokz.top`, with exported map resources mounted read-only from the host instead of copied into git or baked into the image
 
 ## External Integrations
 - Steam OpenID and Steam Web API integration paths exist in backend flows.

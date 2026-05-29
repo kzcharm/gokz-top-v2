@@ -25,7 +25,7 @@ def test_all_cors_origins_adds_replay_viewer_for_non_local_deployments() -> None
 
     assert settings.all_cors_origins == [
         "https://gokz.top",
-        "https://replay-viewer.kzcharm.com",
+        "https://replays.gokz.top",
         "https://cs2kz.org",
     ]
 
