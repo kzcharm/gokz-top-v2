@@ -11,9 +11,7 @@ import level9 from "@/assets/faceit-levels/9.svg"
 import level10 from "@/assets/faceit-levels/10.svg"
 import level11 from "@/assets/faceit-levels/11.svg"
 
-const FACEIT_LEVEL_THRESHOLDS = [
-  2, 3, 4, 5, 6, 7, 8, 9, 10, 10.5,
-] as const
+const FACEIT_LEVEL_THRESHOLDS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10.5] as const
 
 const FACEIT_LEVEL_ICON_BY_LEVEL = {
   0: level0,
