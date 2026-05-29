@@ -189,8 +189,8 @@ function ProfileRatingLadderDialog({
                   className={cn(
                     "grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-md border px-4 py-2 transition-colors",
                     isActive
-                      ? "border-primary/70 bg-primary/10"
-                      : "border-transparent bg-transparent hover:bg-muted/45",
+                      ? "border-primary/70 bg-transparent"
+                      : "border-transparent bg-transparent",
                   )}
                 >
                   <div className="flex min-w-0 items-center gap-3">
