@@ -270,6 +270,11 @@ export const ru = {
       regional: "Регион",
       rating: "Rating",
     },
+    ratingLadder: {
+      title: "Ранги рейтинга",
+      description: "Текущий рейтинг: {{rating}}",
+      ratingLabel: "Рейтинг",
+    },
     skillRadar: {
       title: "Радар навыков",
       ariaLabel: "Радар навыков профиля",

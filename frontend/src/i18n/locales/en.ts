@@ -269,6 +269,11 @@ export const en = {
       regional: "Regional",
       rating: "Rating",
     },
+    ratingLadder: {
+      title: "Rating Ranks",
+      description: "Current rating: {{rating}}",
+      ratingLabel: "Rating",
+    },
     skillRadar: {
       title: "Skills",
       ariaLabel: "Profile skill radar",
