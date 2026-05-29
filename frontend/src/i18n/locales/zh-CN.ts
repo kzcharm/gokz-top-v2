@@ -265,6 +265,11 @@ export const zhCN = {
       regional: "地区",
       rating: "Rating",
     },
+    ratingLadder: {
+      title: "Rating 段位",
+      description: "当前 Rating：{{rating}}",
+      ratingLabel: "Rating",
+    },
     skillRadar: {
       title: "技能雷达",
       ariaLabel: "个人主页技能雷达图",

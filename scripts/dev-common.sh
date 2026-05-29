@@ -131,6 +131,26 @@ read_dotenv_value() {
   printf '%s' "$value"
 }
 
+ensure_docker_cli() {
+  if command -v docker >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local docker_candidate=""
+  for docker_candidate in \
+    /usr/local/bin/docker \
+    /opt/homebrew/bin/docker \
+    /Applications/Docker.app/Contents/Resources/bin/docker
+  do
+    if [[ -x "$docker_candidate" ]]; then
+      export PATH="$(dirname "$docker_candidate"):$PATH"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 ensure_compose_local_defaults() {
   if [[ -n "${FRONTEND_HOST_RULE-}" ]]; then
     return 0
@@ -177,7 +197,7 @@ prepare_backend_dev() {
 
   ensure_compose_local_defaults
 
-  if ! command -v docker >/dev/null 2>&1; then
+  if ! ensure_docker_cli; then
     echo "Error: docker is required to run the local database."
     exit 1
   fi

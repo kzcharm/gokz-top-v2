@@ -39,7 +39,14 @@ import {
   PlayerFollowContextMenuItem,
 } from "@/components/Common/PlayerDisplay"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,7 +78,11 @@ import {
   type ProfileSocialTab,
 } from "./ProfileSocialDialog"
 import { profileHomePlaceholder } from "./profile-home-placeholder"
-import { getRatingRankLevel, ratingRankBadgeClasses } from "./profile-ranks"
+import {
+  getRatingRankLadder,
+  getRatingRankLevel,
+  ratingRankBadgeClasses,
+} from "./profile-ranks"
 import {
   formatNumber,
   formatRating,
@@ -88,6 +99,127 @@ function formatJumpDistance(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+type RatingLadderEntry = ReturnType<typeof getRatingRankLadder>[number]
+
+function getRatingMarkerTopPercent(
+  rating: number,
+  ladder: RatingLadderEntry[],
+) {
+  if (rating >= ladder[0].minimumRating) {
+    return 0
+  }
+
+  const lastRank = ladder[ladder.length - 1]
+  if (rating <= lastRank.minimumRating) {
+    return 100
+  }
+
+  for (let index = 0; index < ladder.length - 1; index += 1) {
+    const upperRank = ladder[index]
+    const lowerRank = ladder[index + 1]
+
+    if (
+      rating <= upperRank.minimumRating &&
+      rating >= lowerRank.minimumRating
+    ) {
+      const upperTop = (index / (ladder.length - 1)) * 100
+      const lowerTop = ((index + 1) / (ladder.length - 1)) * 100
+      const ratingSpan = upperRank.minimumRating - lowerRank.minimumRating
+      const rankProgress =
+        ratingSpan === 0
+          ? 0
+          : (rating - lowerRank.minimumRating) / ratingSpan
+
+      return lowerTop + (upperTop - lowerTop) * rankProgress
+    }
+  }
+
+  return 100
+}
+
+function ProfileRatingLadderDialog({
+  children,
+  rating,
+}: {
+  children: ReactNode
+  rating: number
+}) {
+  const { t } = useTranslation()
+  const ladder = getRatingRankLadder()
+  const activeLevel = getRatingRankLevel(rating)
+  const markerTop = getRatingMarkerTopPercent(rating, ladder)
+  const progressHeight = 100 - markerTop
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="max-h-[min(86vh,44rem)] overflow-y-auto p-0 sm:max-w-md">
+        <DialogHeader className="border-b border-border/70 px-6 py-5">
+          <DialogTitle>{t("profile.ratingLadder.title")}</DialogTitle>
+          <DialogDescription>
+            {t("profile.ratingLadder.description", {
+              rating: formatRating(rating),
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="px-6 pb-6 pt-5">
+          <div className="relative space-y-2 pr-9">
+            <div
+              className="absolute bottom-6 right-2 top-6 w-1 rounded-full bg-muted"
+              aria-hidden="true"
+            >
+              <div
+                className="absolute bottom-0 left-0 w-full rounded-full bg-primary"
+                style={{ height: `${progressHeight}%` }}
+              />
+              <div
+                className="-left-1.5 absolute size-4 rounded-full border-2 border-background bg-primary shadow-sm shadow-primary/30"
+                style={{ top: `calc(${markerTop}% - 0.5rem)` }}
+              />
+            </div>
+
+            {ladder.map((rank) => {
+              const isActive = rank.level === activeLevel
+
+              return (
+                <div
+                  key={rank.level}
+                  className={cn(
+                    "grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-md border px-4 py-2 transition-colors",
+                    isActive
+                      ? "border-primary/70 bg-transparent"
+                      : "border-transparent bg-transparent",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <img
+                      src={rank.iconSrc}
+                      alt=""
+                      className="size-7 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate text-sm font-semibold">
+                      {rank.name}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2 text-right">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      {t("profile.ratingLadder.ratingLabel")}
+                    </span>
+                    <span className="tabular-nums text-sm font-semibold">
+                      {formatRating(rank.minimumRating)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 function ProfileIdentityCard({
@@ -331,18 +463,30 @@ function ProfileIdentityCard({
             </div>
 
             <div className="flex flex-wrap justify-center gap-2 pt-2">
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
-                  rankBadgeClassName,
-                )}
-              >
-                {profileSummaryLoading
-                  ? "..."
-                  : profileSummary.rating === null
-                    ? t("profile.unranked")
-                    : `${profileSummary.rankLabel} ${formatRating(profileSummary.rating)}`}
-              </span>
+              {profileSummary.rating === null ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
+                    rankBadgeClassName,
+                  )}
+                >
+                  {profileSummaryLoading ? "..." : t("profile.unranked")}
+                </span>
+              ) : (
+                <ProfileRatingLadderDialog rating={profileSummary.rating}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                      rankBadgeClassName,
+                    )}
+                  >
+                    {profileSummaryLoading
+                      ? "..."
+                      : `${profileSummary.rankLabel} ${formatRating(profileSummary.rating)}`}
+                  </button>
+                </ProfileRatingLadderDialog>
+              )}
               <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
                 {profileSummaryLoading
                   ? `${t("labels.points")} ...`

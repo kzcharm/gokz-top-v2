@@ -43,6 +43,21 @@ shutdown_children() {
 
 trap shutdown_children EXIT INT TERM
 
+wait_for_first_child_exit() {
+  local pid=""
+
+  while true; do
+    for pid in "$backend_pid" "$frontend_pid"; do
+      [[ -z "$pid" ]] && continue
+      if ! jobs -pr | grep -qx "$pid"; then
+        wait "$pid"
+        return "$?"
+      fi
+    done
+    sleep 1
+  done
+}
+
 echo "Starting backend and frontend dev servers..."
 (
   cd "$ROOT_DIR"
@@ -60,7 +75,7 @@ backend_pid="$!"
 frontend_pid="$!"
 
 set +e
-wait -n "$backend_pid" "$frontend_pid"
+wait_for_first_child_exit
 exit_code="$?"
 set -e
 

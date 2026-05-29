@@ -1,6 +1,8 @@
 import {
-  RATING_RANK_COLORS,
   getPlayerRatingLevel,
+  getPlayerRatingBadgeIcon,
+  RATING_RANK_COLORS,
+  type PlayerRatingLevel,
   type RatingRankLevel,
 } from "@/components/Common/player-rating"
 import type { AppScope } from "@/components/scope-provider"
@@ -49,7 +51,7 @@ const LEGACY_RANK_NAMES = [
   "Legend",
 ] as const
 
-const RATING_RANK_NAMES = [
+export const RATING_RANK_NAMES = [
   "New",
   "Beginner",
   "Amateur",
@@ -60,6 +62,10 @@ const RATING_RANK_NAMES = [
   "Pro",
   "Master",
   "Legend",
+] as const
+
+const RATING_RANK_MINIMUMS = [
+  0, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 ] as const
 
 export const ratingRankBadgeClasses: Record<RatingRankLevel, string> = {
@@ -121,4 +127,22 @@ export function getRatingRankLevel(
 
 export function getRatingRankLabel(rating: number | null | undefined) {
   return RATING_RANK_NAMES[getRatingRankLevel(rating) - 1]
+}
+
+export function getRatingRankMinimum(level: RatingRankLevel) {
+  return RATING_RANK_MINIMUMS[level - 1]
+}
+
+export function getRatingRankLadder() {
+  return RATING_RANK_NAMES.map((name, index) => {
+    const level = (index + 1) as RatingRankLevel
+
+    return {
+      level,
+      name,
+      minimumRating: getRatingRankMinimum(level),
+      color: RATING_RANK_COLORS[level],
+      iconSrc: getPlayerRatingBadgeIcon(level as PlayerRatingLevel),
+    }
+  }).reverse()
 }

@@ -52,7 +52,7 @@ function formatViewerCount(viewerCount: number) {
   return `${new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 1,
-  }).format(viewerCount)} views`
+  }).format(viewerCount)} viewers`
 }
 
 function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
@@ -75,7 +75,14 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
       : "No stream history"
 
   return (
-    <article className="overflow-hidden rounded-[24px] border border-border/80 bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
+    <article
+      className={cn(
+        "overflow-hidden rounded-[24px] border-2 bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg",
+        stream.is_live
+          ? "border-pink-500/75"
+          : "border-muted-foreground/35 bg-muted/30",
+      )}
+    >
       <a
         href={stream.stream_url}
         target="_blank"
@@ -90,6 +97,7 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
               className={cn(
                 "h-full w-full object-cover transition-all duration-300 group-hover:scale-[1.03]",
                 hoverPreviewImageUrl ? "group-hover:opacity-0" : "",
+                !stream.is_live ? "grayscale saturate-0 opacity-65" : "",
               )}
               loading="lazy"
             />
@@ -98,7 +106,12 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
             <img
               src={hoverPreviewImageUrl}
               alt={`${stream.player.alias || stream.player.name} live keyframe preview`}
-              className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-300 group-hover:scale-[1.03] group-hover:opacity-100"
+              className={cn(
+                "absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-300 group-hover:scale-[1.03] group-hover:opacity-100",
+                !stream.is_live
+                  ? "grayscale saturate-0 group-hover:opacity-65"
+                  : "",
+              )}
               loading="lazy"
             />
           ) : null}

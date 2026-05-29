@@ -24,6 +24,7 @@ jobs:
           changed:
             - backend/**
             - frontend/**
+            - replay-viewer
             - .env
             - compose*.yml
             - .github/workflows/playwright.yml
@@ -45,6 +46,8 @@ jobs:
       fail-fast: false
     steps:
     - uses: actions/checkout@v6
+      with:
+        submodules: recursive
     - name: Seed CI env
       run: cp .env.example .env
     - uses: oven-sh/setup-bun@v2

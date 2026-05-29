@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import {
   startTransition,
+  useCallback,
   useDeferredValue,
   useEffect,
   useEffectEvent,
@@ -61,8 +62,10 @@ import {
   matchesServerSearch,
   matchesServerStatusFilter,
   normalizeServersSearch,
+  readServersFilterPreferences,
   SERVER_CONFIG_FILENAME,
   sortServers,
+  writeServersFilterPreferences,
 } from "./utils"
 
 interface ServerBrowserProps {
@@ -112,13 +115,22 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   })
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const selectedAddress = getSelectedServerAddress(pathname)
-  const hydratedInitialSearch = useMemo(
-    () =>
-      normalizeServersSearch(
-        Object.fromEntries(new URLSearchParams(initialSearchString)),
-      ),
-    [initialSearchString],
-  )
+  const hydratedInitialSearch = useMemo(() => {
+    const searchParams = new URLSearchParams(initialSearchString)
+    const urlSearch = Object.fromEntries(searchParams)
+    const savedFilters = readServersFilterPreferences()
+    const searchWithSavedFilters = {
+      ...urlSearch,
+      group: searchParams.has("group")
+        ? urlSearch.group
+        : (savedFilters?.group ?? urlSearch.group),
+      region: searchParams.has("region")
+        ? urlSearch.region
+        : (savedFilters?.region ?? urlSearch.region),
+    }
+
+    return normalizeServersSearch(searchWithSavedFilters)
+  }, [initialSearchString])
 
   const [search, setSearch] = useState<ServersSearchState>(
     () => hydratedInitialSearch,
@@ -126,6 +138,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   const [searchInput, setSearchInput] = useState(() => hydratedInitialSearch.q)
   const deferredSearchInput = useDeferredValue(searchInput)
   const [servers, setServers] = useState<ServerPublic[]>([])
+  const [serversSeeded, setServersSeeded] = useState(false)
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting")
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
@@ -154,6 +167,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
     seededRef.current = true
     setServers(serversQuery.data.data)
+    setServersSeeded(true)
   }, [serversQuery.data])
 
   useEffect(() => {
@@ -306,16 +320,70 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   )
   const filteredServerCount = filteredServers.length
 
-  const handleSearchPatch = (patch: Partial<ServersSearchState>) => {
-    startTransition(() => {
-      setSearch((currentSearch) =>
-        normalizeServersSearch({
-          ...currentSearch,
-          ...patch,
-        }),
-      )
+  const handleSearchPatch = useCallback(
+    (patch: Partial<ServersSearchState>) => {
+      startTransition(() => {
+        setSearch((currentSearch) =>
+          normalizeServersSearch({
+            ...currentSearch,
+            ...patch,
+          }),
+        )
+      })
+    },
+    [],
+  )
+
+  useEffect(() => {
+    writeServersFilterPreferences({
+      group: search.group,
+      region: search.region,
     })
-  }
+  }, [search.group, search.region])
+
+  useEffect(() => {
+    if (!serversSeeded) {
+      return
+    }
+
+    const nextPatch: Partial<ServersSearchState> = {}
+    const nextGroup =
+      search.group !== "all" &&
+      !groupOptions.some(([groupId]) => groupId === search.group)
+        ? "all"
+        : search.group
+
+    const regionIsAvailable =
+      nextGroup === search.group
+        ? regionOptions.some(([regionCode]) => regionCode === search.region)
+        : servers.some(
+            (server) =>
+              matchesServerStatusFilter(server, search.status) &&
+              matchesServerGroupFilter(server, nextGroup) &&
+              server.region?.toUpperCase() === search.region,
+          )
+
+    if (search.group !== "all" && nextGroup !== search.group) {
+      nextPatch.group = nextGroup
+    }
+
+    if (search.region !== "all" && !regionIsAvailable) {
+      nextPatch.region = "all"
+    }
+
+    if (nextPatch.group || nextPatch.region) {
+      handleSearchPatch(nextPatch)
+    }
+  }, [
+    serversSeeded,
+    groupOptions,
+    regionOptions,
+    servers,
+    search.group,
+    search.region,
+    search.status,
+    handleSearchPatch,
+  ])
 
   const handleSelectServer = (server: ServerPublic) => {
     navigate({

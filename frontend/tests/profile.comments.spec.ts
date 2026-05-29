@@ -4,8 +4,7 @@ test.use({ storageState: { cookies: [], origins: [] } })
 
 const targetSteamid64 = "76561198000000001"
 const viewerSteamid64 = "76561198000000002"
-const accessToken =
-  "test.eyJzdWIiOiI3NjU2MTE5ODAwMDAwMDAwMiJ9.signature"
+const accessToken = "test.eyJzdWIiOiI3NjU2MTE5ODAwMDAwMDAwMiJ9.signature"
 
 const player = {
   name: "Comment Target",

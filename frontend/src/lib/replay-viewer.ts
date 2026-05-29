@@ -2,7 +2,7 @@ function getReplayViewerBaseUrl() {
   const configuredBase = import.meta.env.VITE_REPLAY_VIEWER_URL?.trim()
   const fallbackBase = import.meta.env.DEV
     ? "http://localhost:5180"
-    : "https://replay-viewer.kzcharm.com"
+    : "https://replays.gokz.top"
 
   return new URL(configuredBase || fallbackBase, window.location.origin)
 }

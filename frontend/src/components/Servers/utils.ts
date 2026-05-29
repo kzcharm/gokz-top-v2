@@ -44,6 +44,14 @@ export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
 }
 
 export const SERVER_CONFIG_FILENAME = "servers.cfg"
+const SERVERS_FILTER_PREFERENCES_STORAGE_KEY = "gokz-server-browser-filters"
+const SERVERS_FILTER_PREFERENCES_VERSION = 1
+
+interface ServersFilterPreferences {
+  version: typeof SERVERS_FILTER_PREFERENCES_VERSION
+  group: string
+  region: string
+}
 
 interface CreateServersSearchParamsOptions {
   includeDefaults?: boolean
@@ -132,6 +140,72 @@ export function createServersSearchParams(
   }
 
   return params
+}
+
+function getStorage() {
+  return typeof window === "undefined" ? null : window.localStorage
+}
+
+export function readServersFilterPreferences() {
+  const storage = getStorage()
+  if (!storage) {
+    return null
+  }
+
+  try {
+    const rawPreferences = storage.getItem(
+      SERVERS_FILTER_PREFERENCES_STORAGE_KEY,
+    )
+    if (!rawPreferences) {
+      return null
+    }
+
+    const preferences = JSON.parse(
+      rawPreferences,
+    ) as Partial<ServersFilterPreferences>
+    if (preferences.version !== SERVERS_FILTER_PREFERENCES_VERSION) {
+      return null
+    }
+
+    return {
+      group: normalizeServersSearch({ group: preferences.group }).group,
+      region: normalizeServersSearch({ region: preferences.region }).region,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function writeServersFilterPreferences(
+  search: Pick<ServersSearchState, "group" | "region">,
+) {
+  const storage = getStorage()
+  if (!storage) {
+    return
+  }
+
+  try {
+    const preferences: ServersFilterPreferences = {
+      version: SERVERS_FILTER_PREFERENCES_VERSION,
+      group: normalizeServersSearch({ group: search.group }).group,
+      region: normalizeServersSearch({ region: search.region }).region,
+    }
+
+    if (
+      preferences.group === DEFAULT_SERVERS_SEARCH.group &&
+      preferences.region === DEFAULT_SERVERS_SEARCH.region
+    ) {
+      storage.removeItem(SERVERS_FILTER_PREFERENCES_STORAGE_KEY)
+      return
+    }
+
+    storage.setItem(
+      SERVERS_FILTER_PREFERENCES_STORAGE_KEY,
+      JSON.stringify(preferences),
+    )
+  } catch {
+    // Ignore storage failures so private browsing or quota issues do not break filtering.
+  }
 }
 
 export function getServerAddress(server: ServerPublic) {

@@ -92,6 +92,7 @@ async def upsert_live_stream_state(
     hover_preview_image_url: str | None = None,
     channel_display_name: str | None = None,
     viewer_count: int | None = None,
+    update_viewer_count: bool = False,
     started_at: datetime | None = None,
     commit: bool = True,
 ) -> LiveStreamState:
@@ -102,6 +103,8 @@ async def upsert_live_stream_state(
     state.last_checked_at = checked_at
     state.is_live = is_live
     state.updated_at = checked_at
+    if update_viewer_count:
+        state.last_viewer_count = viewer_count
 
     if is_live:
         state.last_live_seen_at = checked_at
@@ -117,8 +120,6 @@ async def upsert_live_stream_state(
             state.last_keyframe_image_url = hover_preview_image_url
         if channel_display_name is not None:
             state.last_channel_display_name = channel_display_name
-        if viewer_count is not None:
-            state.last_viewer_count = viewer_count
 
     session.add(state)
     if commit:
