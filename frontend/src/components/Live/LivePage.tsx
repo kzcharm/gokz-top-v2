@@ -52,7 +52,7 @@ function formatViewerCount(viewerCount: number) {
   return `${new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 1,
-  }).format(viewerCount)} views`
+  }).format(viewerCount)} viewers`
 }
 
 function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {

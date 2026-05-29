@@ -140,6 +140,19 @@ def _parse_bilibili_started_at(value: object | None) -> datetime | None:
         return None
 
 
+def _parse_non_negative_int(value: object | None) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized.isdecimal():
+            parsed = int(normalized)
+            return parsed if parsed >= 0 else None
+    return None
+
+
 async def check_bilibili_live_status(
     uids: Sequence[int],
 ) -> dict[int, BilibiliLiveStatus]:
@@ -151,6 +164,8 @@ async def check_bilibili_live_status(
         for uid in uids
     }
     response_data = await _fetch_bilibili_live_status_payload(list(uids))
+    live_infos: list[tuple[int, dict[str, Any], int | None]] = []
+    viewer_count_tasks: dict[int, asyncio.Task[int | None]] = {}
     for uid_str, info in response_data.items():
         try:
             uid = int(uid_str)
@@ -163,12 +178,32 @@ async def check_bilibili_live_status(
         if live_status != 1:
             continue
 
-        room_id = info.get("room_id")
+        room_id = _parse_non_negative_int(info.get("room_id"))
+        if room_id is not None:
+            viewer_count_tasks[uid] = asyncio.create_task(
+                _fetch_bilibili_room_viewer_count(
+                    room_id=room_id,
+                    ruid=uid,
+                )
+            )
+        live_infos.append((uid, info, room_id))
+
+    for uid, info, room_id in live_infos:
+        viewer_count = None
+        viewer_count_task = viewer_count_tasks.get(uid)
+        if viewer_count_task is not None:
+            try:
+                viewer_count = await viewer_count_task
+            except Exception:
+                logger.exception(
+                    "Failed to refresh Bilibili room viewer count",
+                    extra={"room_id": room_id, "ruid": uid},
+                )
         stream_url = f"https://live.bilibili.com/{room_id}" if room_id else None
         result[uid] = BilibiliLiveStatus(
             is_live=True,
             stream_title=info.get("title"),
-            viewer_count=info.get("online"),
+            viewer_count=viewer_count,
             preview_image_url=info.get("cover_from_user") or info.get("keyframe"),
             hover_preview_image_url=info.get("keyframe") or None,
             stream_url=stream_url,
@@ -364,6 +399,35 @@ async def _fetch_bilibili_live_status_payload(uids: list[int]) -> dict[str, Any]
     return data
 
 
+async def _fetch_bilibili_room_viewer_count(*, room_id: int, ruid: int) -> int | None:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            "https://api.live.bilibili.com/xlive/general-interface/v1/rank/getOnlineGoldRank",
+            params={
+                "roomId": room_id,
+                "ruid": ruid,
+                "page": 1,
+                "pageSize": 1,
+            },
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/91.0.4472.124 Safari/537.36"
+                ),
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    if payload.get("code") != 0:
+        raise ValueError(payload.get("message") or "Bilibili viewer API error")
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise ValueError("Bilibili viewer API returned an invalid payload")
+    return _parse_non_negative_int(data.get("onlineNum"))
+
+
 async def refresh_live_streams_once(
     *,
     session: AsyncSession | None = None,
@@ -430,6 +494,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     hover_preview_image_url=status.hover_preview_image_url,
                     channel_display_name=status.channel_display_name,
                     viewer_count=status.viewer_count,
+                    update_viewer_count=True,
                     started_at=status.started_at,
                     commit=False,
                 )
@@ -493,6 +558,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     hover_preview_image_url=status.hover_preview_image_url,
                     channel_display_name=status.channel_display_name,
                     viewer_count=status.viewer_count,
+                    update_viewer_count=status.is_live,
                     started_at=status.started_at,
                     commit=False,
                 )

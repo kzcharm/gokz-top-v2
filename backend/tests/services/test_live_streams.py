@@ -62,8 +62,23 @@ async def test_check_bilibili_live_status_prefers_keyframe_preview(
         _fake_fetch,
     )
 
+    viewer_count_requests: list[tuple[int, int]] = []
+
+    async def _fake_fetch_viewer_count(*, room_id: int, ruid: int) -> int | None:
+        viewer_count_requests.append((room_id, ruid))
+        return {42: 37, 84: 12}[room_id]
+
+    monkeypatch.setattr(
+        live_streams,
+        "_fetch_bilibili_room_viewer_count",
+        _fake_fetch_viewer_count,
+    )
+
     statuses = await live_streams.check_bilibili_live_status([123456, 654321])
 
+    assert viewer_count_requests == [(42, 123456), (84, 654321)]
+    assert statuses[123456].viewer_count == 37
+    assert statuses[654321].viewer_count == 12
     assert (
         statuses[123456].preview_image_url
         == "https://i0.hdslb.com/bfs/live/cover.jpg"
@@ -77,6 +92,45 @@ async def test_check_bilibili_live_status_prefers_keyframe_preview(
         == "https://i0.hdslb.com/bfs/live/fallback-cover.jpg"
     )
     assert statuses[654321].hover_preview_image_url is None
+
+
+async def test_check_bilibili_live_status_does_not_fallback_to_popularity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_fetch(_uids: list[int]) -> dict[str, object]:
+        return {
+            "123456": {
+                "live_status": 1,
+                "room_id": 42,
+                "title": "On air",
+                "online": 912,
+                "keyframe": "",
+                "cover_from_user": "",
+                "uname": "Streamer CN",
+                "live_time": 1778153349,
+            }
+        }
+
+    async def _failing_fetch_viewer_count(*, room_id: int, ruid: int) -> int | None:
+        assert room_id == 42
+        assert ruid == 123456
+        raise httpx.ConnectError("viewer count unavailable")
+
+    monkeypatch.setattr(
+        live_streams,
+        "_fetch_bilibili_live_status_payload",
+        _fake_fetch,
+    )
+    monkeypatch.setattr(
+        live_streams,
+        "_fetch_bilibili_room_viewer_count",
+        _failing_fetch_viewer_count,
+    )
+
+    statuses = await live_streams.check_bilibili_live_status([123456])
+
+    assert statuses[123456].is_live is True
+    assert statuses[123456].viewer_count is None
 
 
 async def test_get_twitch_app_access_token_reuses_cached_token(
@@ -216,6 +270,7 @@ async def _create_live_stream_state(
     last_live_started_at: datetime | None = None,
     last_stream_url: str | None = None,
     last_preview_image_url: str | None = None,
+    viewer_count: int | None = None,
 ) -> LiveStreamState:
     state = LiveStreamState(
         social_link_id=social_link_id,
@@ -225,6 +280,7 @@ async def _create_live_stream_state(
         last_live_started_at=last_live_started_at,
         last_stream_url=last_stream_url,
         last_preview_image_url=last_preview_image_url,
+        last_viewer_count=viewer_count,
         updated_at=last_checked_at,
     )
     db.add(state)
@@ -509,6 +565,107 @@ async def test_refresh_live_streams_does_not_flip_live_state_on_transport_failur
     assert state.is_live is True
     assert state.last_checked_at == checked_at
     assert state.last_live_seen_at == checked_at
+
+
+async def test_refresh_live_streams_clears_stale_bilibili_popularity_count(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="123456",
+        verified=True,
+    )
+    previous_checked_at = datetime(2026, 5, 6, 20, 0, tzinfo=UTC)
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=True,
+        last_checked_at=previous_checked_at,
+        last_live_seen_at=previous_checked_at,
+        last_live_started_at=previous_checked_at,
+        last_stream_url="https://live.bilibili.com/42",
+        viewer_count=839,
+    )
+
+    async def _fake_check_bilibili_live_status(
+        uids: list[int],
+    ) -> dict[int, BilibiliLiveStatus]:
+        assert uids == [123456]
+        return {
+            123456: BilibiliLiveStatus(
+                is_live=True,
+                stream_title="Still live",
+                viewer_count=None,
+                preview_image_url="https://i0.hdslb.com/bfs/live/test-cover.jpg",
+                hover_preview_image_url=None,
+                stream_url="https://live.bilibili.com/42",
+                channel_display_name="Streamer CN",
+                started_at=previous_checked_at,
+            )
+        }
+
+    monkeypatch.setattr(
+        live_streams,
+        "check_bilibili_live_status",
+        _fake_check_bilibili_live_status,
+    )
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 1
+    state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
+    assert state is not None
+    assert state.is_live is True
+    assert state.last_viewer_count is None
+
+
+async def test_refresh_live_streams_clears_stale_bilibili_popularity_when_offline(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="123456",
+        verified=True,
+    )
+    previous_checked_at = datetime(2026, 5, 6, 20, 0, tzinfo=UTC)
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=True,
+        last_checked_at=previous_checked_at,
+        last_live_seen_at=previous_checked_at,
+        last_live_started_at=previous_checked_at,
+        last_stream_url="https://live.bilibili.com/42",
+        viewer_count=839,
+    )
+
+    async def _fake_check_bilibili_live_status(
+        uids: list[int],
+    ) -> dict[int, BilibiliLiveStatus]:
+        assert uids == [123456]
+        return {123456: BilibiliLiveStatus(is_live=False)}
+
+    monkeypatch.setattr(
+        live_streams,
+        "check_bilibili_live_status",
+        _fake_check_bilibili_live_status,
+    )
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 1
+    state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
+    assert state is not None
+    assert state.is_live is False
+    assert state.last_viewer_count is None
 
 
 async def test_refresh_live_streams_isolates_twitch_failures_from_bilibili(

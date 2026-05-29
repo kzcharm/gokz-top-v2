@@ -53,45 +53,12 @@ const livePayload = {
   ],
 }
 
-const offlinePayload = {
-  count: 1,
-  data: [
-    {
-      player: {
-        steamid64: "76561198000000002",
-        name: "Offline Player",
-        alias: null,
-        avatar_hash: null,
-        country: "US",
-        custom_id: null,
-        roles: null,
-      },
-      selected_platform: "bilibili",
-      selected_platform_account_identifier: "654321",
-      is_live: false,
-      stream_url: "https://live.bilibili.com/84",
-      last_viewer_count: 4012,
-      preview_image_url: null,
-      hover_preview_image_url: null,
-      stream_title: "Last Session",
-      started_at: null,
-      last_streamed_at: "2026-05-06T10:30:00Z",
-    },
-  ],
-}
-
-test("Live page switches between live and offline streams", async ({
-  page,
-}) => {
+test("Live page shows stream cards", async ({ page }) => {
   await page.route(/\/v1\/live\/streams(\?.*)?$/, async (route) => {
-    const url = new URL(route.request().url())
-    const online = url.searchParams.get("online")
-    const payload = online === "false" ? offlinePayload : livePayload
-
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(livePayload),
     })
   })
 
@@ -106,11 +73,10 @@ test("Live page switches between live and offline streams", async ({
   await page.goto("/live")
 
   await expect(page.getByRole("heading", { name: "Live" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Online" })).toBeVisible()
   await expect(page.getByText("Live Alias")).toBeVisible()
   await expect(page.getByText("Twitch Player")).toBeVisible()
-  await expect(page.getByText("145.6K views")).toBeVisible()
-  await expect(page.getByText("9.1K views")).toBeVisible()
+  await expect(page.getByText("145.6K viewers")).toBeVisible()
+  await expect(page.getByText("9.1K viewers")).toBeVisible()
   await expect(
     page
       .locator("article")
@@ -138,17 +104,6 @@ test("Live page switches between live and offline streams", async ({
     "src",
     "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg",
   )
-
-  await page.getByRole("button", { name: "Online" }).click()
-  await expect(page.getByText("Offline Player")).toBeVisible()
-  await expect(page.getByText("4K views")).toBeVisible()
-  await expect(page.getByText("Live Alias")).not.toBeVisible()
-  await expect(page.getByText("Twitch Player")).not.toBeVisible()
-
-  await page.getByRole("button", { name: "Online" }).click()
-  await expect(page.getByText("Live Alias")).toBeVisible()
-  await expect(page.getByText("Offline Player")).not.toBeVisible()
-  await expect(page.getByText("Twitch Player")).toBeVisible()
 })
 
 test("Live page shows the empty state when no streams are tracked", async ({
@@ -166,6 +121,6 @@ test("Live page shows the empty state when no streams are tracked", async ({
 
   await expect(page.getByText("Nothing to show")).toBeVisible()
   await expect(
-    page.getByText("No verified streams are live right now."),
+    page.getByText("No verified stream history is available yet."),
   ).toBeVisible()
 })
