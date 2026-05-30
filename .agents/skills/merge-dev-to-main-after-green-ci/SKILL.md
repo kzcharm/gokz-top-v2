@@ -12,6 +12,7 @@ Use it when the task is to:
 - monitor the workflows triggered by that push
 - inspect and fix failing GitHub Actions checks
 - merge `dev` into `main` only after the pushed `dev` SHA is fully green
+- verify the resulting `main` release is actually deployed to production
 
 ## Expected workflow set
 
@@ -24,6 +25,14 @@ Expected workflows:
 - `Test Backend`
 
 Do not merge based on branch-level status alone. Confirm the exact workflow runs attached to the pushed SHA.
+
+After pushing or fetching, also check whether `origin/dev` is already contained in `origin/main`:
+
+```bash
+git merge-base --is-ancestor origin/dev origin/main
+```
+
+If `dev` is already merged, do not stop there. Continue with the production release/deploy verification below, because `main` may still not be live on `gokz.top`.
 
 ## GitHub auth and repo targeting
 
@@ -98,26 +107,100 @@ When that happens:
 7. If the release workflow is unavailable, create the release tag manually with `gh release create`.
 8. Deploy production manually on `kzcharm-v2` and verify container health plus at least one live public surface.
 
+## Production release and deploy verification
+
+Merging `dev` into `main` is not complete until production is proven to serve the expected version.
+
+After `main` is pushed, always:
+
+1. Capture the final `origin/main` SHA.
+2. Inspect the `Release Version` workflow for that exact SHA.
+3. Inspect recent releases and tags:
+
+```bash
+GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh api \
+  'repos/kzcharm/gokz-top-v2/releases?per_page=5'
+```
+
+4. Verify the production host is serving a frontend built from the expected release:
+
+```bash
+curl -sS https://gokz.top | rg -o 'assets/index-[^" ]+\.js|v[0-9]+\.[0-9]+\.[0-9]+'
+curl -sS https://gokz.top/assets/<index-asset>.js | rg -o 'v[0-9]+\.[0-9]+\.[0-9]+'
+```
+
+5. Verify production health:
+
+```bash
+curl -sS https://api.gokz.top/v1/utils/health-check/
+ssh -o BatchMode=yes kzcharm-v2 \
+  'docker compose -f /root/code/gokz-top-v2-manual/compose.yml --project-name gokz-top-v2 ps'
+```
+
+If `gokz.top` still shows an older version, or the latest `main` changes are not visible, treat the task as not done even if the merge succeeded.
+
+### Manual release fallback
+
+Use this when the `Release Version` workflow fails or cannot run, especially when jobs fail immediately with no logs.
+
+1. Determine the next patch version from the latest semver release.
+2. Create the missing release/tag against the exact final `origin/main` SHA:
+
+```bash
+GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh release create vX.Y.Z \
+  --repo kzcharm/gokz-top-v2 \
+  --target <main_sha> \
+  --title vX.Y.Z \
+  --notes '<short release notes>'
+```
+
+3. Use `VITE_APP_VERSION=vX.Y.Z` for the production frontend build.
+
 ### Manual deploy fallback for this repo
 
 If the server checkout cannot fetch from GitHub directly, sync a clean local tree to the server and deploy from that synced tree instead of relying on `git fetch` on the host.
 
-Typical production fallback on `kzcharm-v2`:
+Typical production fallback on `kzcharm-v2`.
+
+Use a fresh directory named for the release, for example `/root/code/gokz-top-v2-manual-vX.Y.Z`. If `rsync` is unavailable on the server, use tar over SSH. On macOS, set `COPYFILE_DISABLE=1` or delete `._*` files after extraction; otherwise AppleDouble metadata files can be baked into the backend image and break Alembic with `SyntaxError: source code string cannot contain null bytes`.
+
+If private submodule commits are not fetchable, and the change does not affect the replay viewer, deploy the app services only:
 
 ```bash
-cp /root/code/gokz-top-v2/.env /root/code/gokz-top-v2-manual/.env
-cd /root/code/gokz-top-v2-manual
-mkdir -p /root/code/gokz-top-v2/.geoip
+docker compose -f compose.yml --project-name gokz-top-v2 build backend frontend
+docker compose -f compose.yml --project-name gokz-top-v2 up -d backend frontend
+```
+
+Do not run `docker compose down -v`.
+
+General production fallback:
+
+```bash
+cp /root/code/gokz-top-v2-manual-v<previous>/.env /root/code/gokz-top-v2-manual-vX.Y.Z/.env
+cd /root/code/gokz-top-v2-manual-vX.Y.Z
+mkdir -p /root/code/gokz-top-v2/.geoip /root/code/gokz-top-v2/.replays
 if grep -q '^GEOIP_DATA_DIR=' .env; then
   sed -i 's#^GEOIP_DATA_DIR=.*#GEOIP_DATA_DIR=/root/code/gokz-top-v2/.geoip#' .env
 else
   printf '\nGEOIP_DATA_DIR=/root/code/gokz-top-v2/.geoip\n' >> .env
 fi
+if grep -q '^REPLAY_DATA_DIR=' .env; then
+  sed -i 's#^REPLAY_DATA_DIR=.*#REPLAY_DATA_DIR=/root/code/gokz-top-v2/.replays#' .env
+else
+  printf '\nREPLAY_DATA_DIR=/root/code/gokz-top-v2/.replays\n' >> .env
+fi
+if grep -q '^VITE_APP_VERSION=' .env; then
+  sed -i 's#^VITE_APP_VERSION=.*#VITE_APP_VERSION=vX.Y.Z#' .env
+else
+  printf '\nVITE_APP_VERSION=vX.Y.Z\n' >> .env
+fi
 test -s /root/code/gokz-top-v2/.geoip/GeoLite2-City.mmdb
-export VITE_APP_VERSION=vX.Y.Z
-docker compose -f compose.yml --project-name gokz-top-v2 build
-docker compose -f compose.yml --project-name gokz-top-v2 up -d
+find . -name '._*' -delete
+docker compose -f compose.yml --project-name gokz-top-v2 build backend frontend
+docker compose -f compose.yml --project-name gokz-top-v2 up -d backend frontend
 docker compose -f compose.yml --project-name gokz-top-v2 ps
+docker compose -f compose.yml --project-name gokz-top-v2 exec -T backend \
+  curl -fsS http://localhost:8000/v1/utils/health-check/
 ```
 
 Typical staging fallback on `kzcharm-v2`:
@@ -136,12 +219,15 @@ Before merging or deploying under this fallback path, gather all of:
 - the exact local verification commands that passed
 - proof that staging for that SHA is healthy
 - proof that production after deploy is healthy
+- the final `main` SHA and release tag deployed to production
+- proof that the live frontend bundle contains the expected `VITE_APP_VERSION`
 
 In the final report, explicitly state:
 - which workflows were unavailable and why
 - which manual verifications replaced them
 - the `dev` SHA used for the manual path
 - the final `main` merge commit SHA
+- the production release tag and whether `gokz.top` serves that tag
 
 ## Clean-worktree pattern
 
@@ -210,6 +296,9 @@ Report all of the following:
 - the final merge status
 - the final `dev` SHA that went green
 - the final `main` merge commit SHA
+- the release tag created or detected for final `main`
+- proof that production is serving the expected version
+- production health checks and any services intentionally left untouched
 
 ## Example from this repo
 
