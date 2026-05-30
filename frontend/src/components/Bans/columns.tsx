@@ -21,6 +21,11 @@ type BanPlayer = {
   steamid64: string
 }
 
+type BanServer = {
+  id: number
+  name?: string | null
+}
+
 export interface BanRow {
   uuid: string
   id?: number | null
@@ -29,6 +34,8 @@ export interface BanRow {
   expires_at: string | null
   notes: string | null
   player: BanPlayer | null
+  server?: BanServer | null
+  server_id?: number | null
   stats: string | null
   updated_by_player?: BanPlayer | null
   updated_by_steamid64?: string | null
@@ -121,6 +128,14 @@ function toPlayerDisplay(player: BanPlayer | null | undefined) {
   }
 }
 
+function getServerLabel(row: BanRow) {
+  if (row.server) {
+    return row.server.name?.trim() || `Server ${row.server.id}`
+  }
+
+  return row.server_id ? `Server ${row.server_id}` : null
+}
+
 export function getBanColumns({
   showUpdaterColumn,
   showEditActions,
@@ -172,6 +187,24 @@ export function getBanColumns({
           {row.original.notes?.trim() || "No notes"}
         </div>
       ),
+    },
+    {
+      id: "server",
+      header: "Server",
+      cell: ({ row }) => {
+        const serverLabel = getServerLabel(row.original)
+
+        return serverLabel ? (
+          <span
+            className="block max-w-[240px] truncate text-sm text-foreground"
+            title={serverLabel}
+          >
+            {serverLabel}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">-</span>
+        )
+      },
     },
     {
       accessorKey: "created_at",

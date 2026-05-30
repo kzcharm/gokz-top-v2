@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test"
 
+import { COMMUNITY_LINKS } from "../src/lib/community-links"
+
 test.use({ storageState: { cookies: [], origins: [] } })
 
 function buildBan(index: number, source: "globalapi" | "manual" = "globalapi") {
@@ -418,7 +420,17 @@ test("Bans page shows Add Ban flows to admins and refreshes after create", async
 test("Users without admin moderation rights do not see Add Ban entry points", async ({
   page,
 }) => {
-  const banRows = [buildBan(1), buildBan(2)]
+  const banRows = [
+    {
+      ...buildBan(1),
+      server_id: 321,
+      server: {
+        id: 321,
+        name: "KZCharm Public Server",
+      },
+    },
+    buildBan(2),
+  ]
 
   await stubAuthedViewer(page, [])
   await stubGraphqlPlayers(page)
@@ -436,9 +448,59 @@ test("Users without admin moderation rights do not see Add Ban entry points", as
   await page.goto("/bans")
 
   await expect(page.getByRole("button", { name: "Add Ban" })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Report" })).toHaveAttribute(
+    "href",
+    COMMUNITY_LINKS.discord,
+  )
+  await expect(
+    page.getByRole("columnheader", { name: "Updated By" }),
+  ).toHaveCount(0)
+  await expect(page.getByRole("columnheader", { name: "Server" })).toBeVisible()
+  await expect(page.getByText("KZCharm Public Server")).toBeVisible()
 })
 
-test("Admin mode shows updater and allows editing and unbanning bans", async ({
+test("Chinese users get the QQ report link on the bans page", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.clear()
+    localStorage.setItem("gokz-datetime-format", "iso")
+    localStorage.setItem("gokz-language", "zh-CN")
+  })
+
+  await page.route(/\/v1\/bans(?:\/[^?]+)?(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 0,
+        data: [],
+      }),
+    })
+  })
+
+  await page.route("**/v1/graphql", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          searchPlayers: {
+            count: 0,
+            data: [],
+          },
+        },
+      }),
+    })
+  })
+
+  await page.goto("/bans")
+
+  await expect(page.getByRole("link", { name: "Report" })).toHaveAttribute(
+    "href",
+    COMMUNITY_LINKS.qq,
+  )
+})
+
+test("Admins see updater and can edit and unban bans directly", async ({
   page,
 }) => {
   const patchBodies: Array<Record<string, unknown>> = []
@@ -487,8 +549,8 @@ test("Admin mode shows updater and allows editing and unbanning bans", async ({
   })
 
   await page.goto("/bans")
-  await page.getByRole("button", { name: "Admin mode" }).click()
 
+  await expect(page.getByRole("button", { name: "Admin mode" })).toHaveCount(0)
   await expect(
     page.getByRole("columnheader", { name: "Updated By" }),
   ).toBeVisible()
@@ -520,7 +582,7 @@ test("Admin mode shows updater and allows editing and unbanning bans", async ({
   await expect(page.getByText("Unbanned", { exact: true })).toBeVisible()
 })
 
-test("Superuser admin mode can delete local bans without external ids", async ({
+test("Superusers can directly delete local bans without external ids", async ({
   page,
 }) => {
   const deletedBanUuids: string[] = []
@@ -566,8 +628,8 @@ test("Superuser admin mode can delete local bans without external ids", async ({
   })
 
   await page.goto("/bans")
-  await page.getByRole("button", { name: "Admin mode" }).click()
 
+  await expect(page.getByRole("button", { name: "Admin mode" })).toHaveCount(0)
   await page
     .getByRole("row", { name: /Banned Player 1/ })
     .getByRole("button", { name: "Edit ban" })

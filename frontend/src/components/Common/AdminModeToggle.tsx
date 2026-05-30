@@ -7,10 +7,10 @@ import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 
 export function AdminModeToggle() {
-  const { enabled, toggle } = useAdminMode()
+  const { available, enabled, toggle } = useAdminMode()
   const { user } = useAuth()
 
-  if (!canModerateBansAndRecords(user)) {
+  if (!available || !canModerateBansAndRecords(user)) {
     return null
   }
 

@@ -1,7 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { useEffect, useEffectEvent, useState } from "react"
 
-import { useAdminMode } from "@/components/admin-mode-provider"
+import {
+  useAdminMode,
+  useAdminModeSurface,
+} from "@/components/admin-mode-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import useAuth from "@/hooks/useAuth"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
@@ -26,8 +29,9 @@ export function RecentRecordsPanel() {
   const { user } = useAuth()
   const { bulkDeleteMutation } = useRecordAdminActions()
   const [records, setRecords] = useState<RecentRecord[]>([])
-  const canAdministerRecords =
-    adminModeEnabled && canModerateBansAndRecords(user)
+  const canUseRecordAdminActions = canModerateBansAndRecords(user)
+  useAdminModeSurface(canUseRecordAdminActions)
+  const canAdministerRecords = adminModeEnabled && canUseRecordAdminActions
 
   const recordsQuery = useQuery({
     queryKey: ["recent-records", "dashboard"],

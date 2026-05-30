@@ -9,7 +9,10 @@ import {
   useState,
 } from "react"
 import type { RecordPublic } from "@/client"
-import { useAdminMode } from "@/components/admin-mode-provider"
+import {
+  useAdminMode,
+  useAdminModeSurface,
+} from "@/components/admin-mode-provider"
 import {
   ModeSelector,
   type ModeSelectorValue,
@@ -37,6 +40,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import useAuth from "@/hooks/useAuth"
+import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import {
   DeleteCourseRecordsButton,
@@ -258,6 +263,7 @@ export function ProfileRecordsTab({
   onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
 }) {
   const { enabled: adminModeEnabled } = useAdminMode()
+  const { user } = useAuth()
   const { scope } = useScope()
   const { bulkDeleteMutation } = useRecordAdminActions()
   const [mapSearch, setMapSearch] = useState("")
@@ -279,7 +285,10 @@ export function ProfileRecordsTab({
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const deferredMapSearch = useDeferredValue(mapSearch)
   const deferredServerSearch = useDeferredValue(serverSearch)
-  const adminModeForRecords = adminModeEnabled && canManagePinnedRecords
+  const canUseRecordAdminActions =
+    canManagePinnedRecords && canModerateBansAndRecords(user)
+  useAdminModeSurface(canUseRecordAdminActions)
+  const adminModeForRecords = adminModeEnabled && canUseRecordAdminActions
 
   const recordsQuery = useQuery({
     ...getProfilePbRecordsQueryOptions({

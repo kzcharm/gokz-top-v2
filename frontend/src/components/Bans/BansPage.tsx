@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { Plus, Search, ShieldAlert, X } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { FaDiscord, FaQq } from "react-icons/fa"
 
 import { OpenAPI } from "@/client/core/OpenAPI"
-import { useAdminMode } from "@/components/admin-mode-provider"
 import { DataTable } from "@/components/Common/DataTable"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import useAuth from "@/hooks/useAuth"
+import { COMMUNITY_LINKS } from "@/lib/community-links"
 import type { GraphqlPlayer } from "@/lib/player-graphql"
 import { canModerateBansAndRecords, isSuperuser } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
@@ -66,8 +68,13 @@ export function BansPage({
 }: {
   initialSearchQuery: string
 }) {
+  const { i18n } = useTranslation()
   const { user } = useAuth()
-  const { enabled: adminModeEnabled } = useAdminMode()
+  const reportLink =
+    i18n.resolvedLanguage === "zh-CN"
+      ? COMMUNITY_LINKS.qq
+      : COMMUNITY_LINKS.discord
+  const ReportIcon = i18n.resolvedLanguage === "zh-CN" ? FaQq : FaDiscord
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [expandedBanUuid, setExpandedBanUuid] = useState<string | null>(null)
@@ -142,7 +149,7 @@ export function BansPage({
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const canAddBan = canModerateBansAndRecords(user)
   const showUpdaterColumn = canAddBan
-  const showEditActions = canAddBan && adminModeEnabled
+  const showEditActions = canAddBan
   const columns = getBanColumns({
     showUpdaterColumn,
     showEditActions,
@@ -176,16 +183,28 @@ export function BansPage({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Bans</h1>
-        {canAddBan ? (
+        <div className="flex flex-wrap items-center gap-2">
           <Button
+            asChild
             type="button"
-            variant="destructive"
-            onClick={() => setAddBanDialogOpen(true)}
+            className="bg-yellow-500 text-white hover:bg-yellow-500/90 focus-visible:ring-yellow-500/30 dark:bg-yellow-500 dark:text-white dark:hover:bg-yellow-400"
           >
-            <Plus className="size-4" />
-            Add Ban
+            <a href={reportLink} target="_blank" rel="noreferrer">
+              <ReportIcon className="size-4" />
+              Report
+            </a>
           </Button>
-        ) : null}
+          {canAddBan ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setAddBanDialogOpen(true)}
+            >
+              <Plus className="size-4" />
+              Add Ban
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">

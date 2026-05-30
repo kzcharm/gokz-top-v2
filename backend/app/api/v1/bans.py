@@ -55,9 +55,10 @@ async def read_bans(
                 ban=ban,
                 player=player,
                 updated_by_player=updated_by_player,
+                server=server,
                 include_admin_fields=include_admin_fields,
             )
-            for ban, player, updated_by_player in bans
+            for ban, player, updated_by_player, server in bans
         ],
         count=count,
     )
@@ -110,11 +111,12 @@ async def read_ban(
     if ban_with_player is None:
         raise HTTPException(status_code=404, detail="Ban not found")
     include_admin_fields = _can_view_ban_admin_fields(current_user)
-    ban, player, updated_by_player = ban_with_player
+    ban, player, updated_by_player, server = ban_with_player
     return crud.to_ban_public(
         ban=ban,
         player=player,
         updated_by_player=updated_by_player,
+        server=server,
         include_admin_fields=include_admin_fields,
     )
 
@@ -135,7 +137,7 @@ async def patch_ban(
     if ban_with_player is None:
         raise HTTPException(status_code=404, detail="Ban not found")
 
-    ban, player, _updated_by_player = ban_with_player
+    ban, player, _updated_by_player, server = ban_with_player
     ban = await crud.update_ban(
         session=session,
         ban=ban,
@@ -150,6 +152,7 @@ async def patch_ban(
         ban=ban,
         player=player,
         updated_by_player=updated_by_player,
+        server=server,
         include_admin_fields=True,
     )
 
@@ -165,7 +168,7 @@ async def delete_ban(
     if ban_with_player is None:
         raise HTTPException(status_code=404, detail="Ban not found")
 
-    ban, _player, _updated_by_player = ban_with_player
+    ban, _player, _updated_by_player, _server = ban_with_player
     if ban.id is not None:
         raise HTTPException(
             status_code=409,

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { FaDiscord, FaQq } from "react-icons/fa"
 
+import { COMMUNITY_LINKS } from "@/lib/community-links"
 import { getCopyrightYearRange, SITE_NAME } from "@/lib/site"
 
 export function Footer() {
@@ -15,7 +16,7 @@ export function Footer() {
             {SITE_NAME} {getCopyrightYearRange()} |
           </span>
           <a
-            href="https://discord.gg/RmkKqq9GBk"
+            href={COMMUNITY_LINKS.discord}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t("footer.joinDiscord")}
@@ -28,7 +29,7 @@ export function Footer() {
             <>
               <span>|</span>
               <a
-                href="https://qm.qq.com/q/VCLUknWuoo"
+                href={COMMUNITY_LINKS.qq}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={t("footer.joinQqGroup")}

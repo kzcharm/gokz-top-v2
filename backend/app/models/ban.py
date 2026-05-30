@@ -130,6 +130,11 @@ class BanCompatPublicV0(SQLModel):
     updated_on: datetime
 
 
+class BanServerPublic(SQLModel):
+    id: int
+    name: str | None = None
+
+
 class BanPublic(SQLModel):
     uuid: uuid_pkg.UUID
     id: int | None = None
@@ -144,6 +149,7 @@ class BanPublic(SQLModel):
     updated_at: datetime
     player: PlayerRefPublic | None = None
     updated_by_player: PlayerRefPublic | None = None
+    server: BanServerPublic | None = None
 
 
 class BanListItemPublic(SQLModel):
@@ -160,6 +166,7 @@ class BanListItemPublic(SQLModel):
     updated_at: datetime
     player: PlayerRefPublic | None = None
     updated_by_player: PlayerRefPublic | None = None
+    server: BanServerPublic | None = None
 
 
 class BansPublic(SQLModel):

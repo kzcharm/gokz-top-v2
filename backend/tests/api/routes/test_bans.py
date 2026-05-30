@@ -7,7 +7,7 @@ from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Ban, BanType, Player
+from app.models import Ban, BanType, Player, ServerGlobalapi
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -84,6 +84,23 @@ async def _create_player(
     await db.commit()
     await db.refresh(player)
     return player
+
+
+async def _create_server(
+    db: AsyncSession,
+    *,
+    server_id: int,
+    name: str,
+) -> ServerGlobalapi:
+    server = await db.get(ServerGlobalapi, server_id)
+    if server is None:
+        server = ServerGlobalapi(id=server_id, name=name)
+    else:
+        server.name = name
+    db.add(server)
+    await db.commit()
+    await db.refresh(server)
+    return server
 
 
 async def test_read_bans_v0_and_v1_list_filters_and_shapes(
@@ -438,6 +455,78 @@ async def test_read_bans_v1_admin_includes_updater_player(
     assert detail_response.json()["updated_by_player"] == {
         "steamid64": str(updater_steamid64),
         "display_name": "Updater Alias",
+    }
+
+
+async def test_read_bans_v1_exposes_server_updater_to_all_users_but_admin_player_only(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    server_id = 987_654
+    await _create_server(db, server_id=server_id, name="KZCharm Test Server")
+    updater_steamid64 = random_steamid64()
+    await _create_player(
+        db,
+        steamid64=updater_steamid64,
+        name="Hidden Updater",
+        alias="Hidden Alias",
+    )
+    target_steamid64 = random_steamid64()
+    await _create_player(db, steamid64=target_steamid64, name="Server Ban Target")
+    ban = await _create_ban(
+        db,
+        id=987_654,
+        ban_type=BanType.BHOP_MACRO,
+        steamid64=target_steamid64,
+        expires_at=None,
+        player_name="Server Ban Target",
+        server_id=server_id,
+        updated_by_steamid64=updater_steamid64,
+    )
+
+    public_response = await client.get(
+        f"{settings.API_V1_STR}/bans",
+        params={"steamid64": str(target_steamid64)},
+    )
+
+    assert public_response.status_code == 200
+    public_ban = public_response.json()["data"][0]
+    assert public_ban["uuid"] == str(ban.uuid)
+    assert public_ban["server"] == {
+        "id": server_id,
+        "name": "KZCharm Test Server",
+    }
+    assert "updated_by_steamid64" not in public_ban
+    assert "updated_by_player" not in public_ban
+
+    admin_auth = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": updater_steamid64,
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Hidden Updater",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
+    }
+    admin_response = await client.get(
+        f"{settings.API_V1_STR}/bans/{ban.uuid}",
+        headers=admin_headers,
+    )
+
+    assert admin_response.status_code == 200
+    admin_ban = admin_response.json()
+    assert admin_ban["server"] == {
+        "id": server_id,
+        "name": "KZCharm Test Server",
+    }
+    assert admin_ban["updated_by_steamid64"] == str(updater_steamid64)
+    assert admin_ban["updated_by_player"] == {
+        "steamid64": str(updater_steamid64),
+        "display_name": "Hidden Alias",
     }
 
 

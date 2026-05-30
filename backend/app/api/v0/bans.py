@@ -46,5 +46,5 @@ async def read_bans(
     )
     return [
         crud.to_ban_compat_public_v0(ban=ban, player=player)
-        for ban, player, _updated_by_player in bans
+        for ban, player, _updated_by_player, _server in bans
     ]

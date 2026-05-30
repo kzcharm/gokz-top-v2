@@ -16,13 +16,15 @@ from app.models import (
     BanListItemPublic,
     BanListQuery,
     BanPublic,
+    BanServerPublic,
     BanType,
     BanUpdate,
     Player,
+    ServerGlobalapi,
 )
 from app.models.utils import get_datetime_utc
 
-type BanReadRow = tuple[Ban, Player | None, Player | None]
+type BanReadRow = tuple[Ban, Player | None, Player | None, ServerGlobalapi | None]
 
 _INT32_MAX = 2_147_483_647
 _INT64_MAX = 9_223_372_036_854_775_807
@@ -135,6 +137,7 @@ def to_ban_public(
     ban: Ban,
     player: Player | None = None,
     updated_by_player: Player | None = None,
+    server: ServerGlobalapi | None = None,
     include_admin_fields: bool = False,
 ) -> BanPublic:
     payload: dict[str, Any] = {
@@ -149,6 +152,11 @@ def to_ban_public(
         "created_at": ban.created_at,
         "updated_at": ban.updated_at,
         "player": to_player_ref_public(player=player) if player is not None else None,
+        "server": (
+            BanServerPublic(id=server.id, name=server.name)
+            if server is not None
+            else None
+        ),
     }
     if include_admin_fields:
         payload["updated_by_steamid64"] = (
@@ -170,6 +178,7 @@ def to_ban_list_item_public(
     ban: Ban,
     player: Player | None = None,
     updated_by_player: Player | None = None,
+    server: ServerGlobalapi | None = None,
     include_admin_fields: bool = False,
 ) -> BanListItemPublic:
     payload: dict[str, Any] = {
@@ -184,6 +193,11 @@ def to_ban_list_item_public(
         "created_at": ban.created_at,
         "updated_at": ban.updated_at,
         "player": to_player_ref_public(player=player) if player is not None else None,
+        "server": (
+            BanServerPublic(id=server.id, name=server.name)
+            if server is not None
+            else None
+        ),
     }
     if include_admin_fields:
         payload["updated_by_steamid64"] = (
@@ -277,13 +291,14 @@ async def read_bans(
         .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
     )
     statement = (
-        select(Ban, Player, updated_by_player)
+        select(Ban, Player, updated_by_player, ServerGlobalapi)
         .select_from(Ban)
         .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
         .outerjoin(
             updated_by_player,
             col(updated_by_player.steamid64) == col(Ban.updated_by_steamid64),
         )
+        .outerjoin(ServerGlobalapi, col(ServerGlobalapi.id) == col(Ban.server_id))
     )
     for condition in filters:
         count_statement = count_statement.where(condition)
@@ -337,13 +352,14 @@ async def get_ban_by_uuid(
 ) -> BanReadRow | None:
     updated_by_player = aliased(Player)
     statement = (
-        select(Ban, Player, updated_by_player)
+        select(Ban, Player, updated_by_player, ServerGlobalapi)
         .select_from(Ban)
         .outerjoin(Player, col(Player.steamid64) == col(Ban.steamid64))
         .outerjoin(
             updated_by_player,
             col(updated_by_player.steamid64) == col(Ban.updated_by_steamid64),
         )
+        .outerjoin(ServerGlobalapi, col(ServerGlobalapi.id) == col(Ban.server_id))
         .where(col(Ban.uuid) == ban_uuid)
     )
     return (await session.exec(statement)).first()

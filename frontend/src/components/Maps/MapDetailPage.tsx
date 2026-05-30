@@ -14,7 +14,10 @@ import {
   RecordsService,
 } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
-import { useAdminMode } from "@/components/admin-mode-provider"
+import {
+  useAdminMode,
+  useAdminModeSurface,
+} from "@/components/admin-mode-provider"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -370,6 +373,8 @@ export function MapDetailPage({
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
   const { enabled: adminModeEnabled } = useAdminMode()
+  const canUseRecordAdminActions = canModerateBansAndRecords(currentUser)
+  useAdminModeSurface(canUseRecordAdminActions && activeTab === "top")
   const { bulkDeleteMutation } = useRecordAdminActions()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
@@ -657,8 +662,7 @@ export function MapDetailPage({
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
   const authenticatedUserSteamid64 = currentUser?.steamid64 ?? null
-  const canAdministerRecords =
-    adminModeEnabled && canModerateBansAndRecords(currentUser)
+  const canAdministerRecords = adminModeEnabled && canUseRecordAdminActions
   const currentUserSteamid64 =
     leaderboardQuery.data?.current_user_steamid64 ?? null
   const nubRank =
