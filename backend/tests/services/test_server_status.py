@@ -201,6 +201,43 @@ async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
     assert stale_server.id in due_server_ids
 
 
+async def test_read_servers_due_for_a2s_poll_includes_invalid_servers(
+    db: AsyncSession,
+) -> None:
+    invalid_server = await create_server(db)
+    disabled_server = await create_server(db)
+    now = datetime.now(UTC)
+
+    invalid_server.status = ServerStatus.INVALID
+    disabled_server.status = ServerStatus.DISABLED
+    assert invalid_server.live_status is not None
+    assert disabled_server.live_status is not None
+    invalid_server.live_status.state = {
+        **invalid_server.live_status.state,
+        "last_a2s_seen_at": (now - timedelta(seconds=10)).isoformat(),
+    }
+    disabled_server.live_status.state = {
+        **disabled_server.live_status.state,
+        "last_a2s_seen_at": (now - timedelta(seconds=10)).isoformat(),
+    }
+    db.add(invalid_server)
+    db.add(disabled_server)
+    db.add(invalid_server.live_status)
+    db.add(disabled_server.live_status)
+    await db.commit()
+
+    due_servers = await crud.read_servers_due_for_a2s_poll(
+        session=db,
+        now=now,
+        plugin_stale_after_seconds=5,
+        a2s_poll_after_seconds=5,
+    )
+
+    due_server_ids = {server.id for server in due_servers}
+    assert invalid_server.id in due_server_ids
+    assert disabled_server.id not in due_server_ids
+
+
 async def test_run_server_discovery_cycle_only_tracks_supported_kz_prefixes(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,

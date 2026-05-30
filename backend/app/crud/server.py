@@ -1088,7 +1088,9 @@ async def read_servers_due_for_a2s_poll(
     plugin_cutoff_dt = now - timedelta(seconds=plugin_stale_after_seconds)
     a2s_cutoff_dt = now - timedelta(seconds=a2s_poll_after_seconds)
 
-    statement = select(Server).where(col(Server.status) == ServerStatus.ENABLED)
+    statement = select(Server).where(
+        col(Server.status).in_([ServerStatus.ENABLED, ServerStatus.INVALID])
+    )
     servers = list((await session.exec(statement)).all())
     await _hydrate_servers(session=session, servers=servers)
 
