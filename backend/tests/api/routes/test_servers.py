@@ -764,6 +764,71 @@ async def test_put_server_status_claims_unassigned_server_for_group(
     assert payload["live_status"]["map"] == "kz_claimed"
 
 
+async def test_put_server_status_reenables_disabled_server_for_matching_group(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    server = await create_server(db, group_id=group.id, status=ServerStatus.DISABLED)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": datetime.now(UTC).isoformat(),
+            "hostname": "Reenabled Host",
+            "map": "kz_reenabled",
+            "player_count": 2,
+            "max_players": 24,
+            "players": [_plugin_player()],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == str(server.id)
+    assert payload["group_id"] == str(group.id)
+    assert payload["status"] == "enabled"
+    assert payload["source"]["type"] == "manual"
+    assert payload["source"]["origin"] == "plugin"
+    assert payload["live_status"]["hostname"] == "Reenabled Host"
+    assert payload["live_status"]["map"] == "kz_reenabled"
+
+
+async def test_put_server_status_rejects_disabled_server_owned_by_other_group(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    owning_group, _ = await create_server_group(db)
+    other_group, api_key = await create_server_group(db)
+    server = await create_server(
+        db,
+        group_id=owning_group.id,
+        status=ServerStatus.DISABLED,
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": datetime.now(UTC).isoformat(),
+            "hostname": "Wrong Group Host",
+            "map": "kz_wrong_group",
+            "player_count": 2,
+            "max_players": 24,
+            "players": [_plugin_player()],
+        },
+    )
+
+    assert other_group.id != owning_group.id
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Server does not belong to this server group"
+
+
 async def test_put_server_status_accepts_bearer_server_group_key(
     client: AsyncClient,
     db: AsyncSession,

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Annotated, Any
 
@@ -27,6 +28,7 @@ from app.services.server_query import (
 )
 
 router = APIRouter(prefix="/servers", tags=["servers"])
+logger = logging.getLogger(__name__)
 
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
 
@@ -55,6 +57,12 @@ async def put_server_status(
     if group is None:
         raise HTTPException(status_code=401, detail="Invalid server group API key")
     if group.status == ServerGroupStatus.INVALIDATED:
+        logger.warning(
+            "Rejected server heartbeat ip=%s port=%s group_id=%s reason=group_invalidated",
+            payload.ip,
+            payload.port,
+            group.id,
+        )
         raise HTTPException(status_code=403, detail="Server group is invalidated")
 
     existing_server = await crud.get_server_by_endpoint(
@@ -76,8 +84,20 @@ async def put_server_status(
         )
     except ValueError as exc:
         if str(exc) == "Server is disabled":
+            logger.warning(
+                "Rejected server heartbeat ip=%s port=%s group_id=%s reason=server_disabled",
+                payload.ip,
+                payload.port,
+                group.id,
+            )
             raise HTTPException(status_code=403, detail="Server is not enabled") from exc
         if str(exc) == "Server does not belong to this server group":
+            logger.warning(
+                "Rejected server heartbeat ip=%s port=%s group_id=%s reason=group_mismatch",
+                payload.ip,
+                payload.port,
+                group.id,
+            )
             raise HTTPException(
                 status_code=403,
                 detail="Server does not belong to this server group",
