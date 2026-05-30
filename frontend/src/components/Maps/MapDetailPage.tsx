@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { Calculator, LocateFixed, Users } from "lucide-react"
+import { Calculator, Copy, LocateFixed, Users } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { FaSteam } from "react-icons/fa"
 import { toast } from "sonner"
 
 import {
@@ -36,6 +37,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { formatNumber, getLocale } from "@/i18n/locale"
 import { getRegionsQueryOptions } from "@/lib/regions"
@@ -211,6 +213,30 @@ function MapHero({
   const authorsList = map.authors ?? []
   const authors =
     authorsList.length > 0 ? authorsList.join(", ") : t("maps.unknownAuthor")
+  const [, copyToClipboard] = useCopyToClipboard()
+  const workshopId =
+    map.workshop_id !== null && map.workshop_id !== undefined
+      ? String(map.workshop_id)
+      : null
+
+  const handleCopyWorkshopId = async () => {
+    if (!workshopId) {
+      return
+    }
+
+    const didCopy = await copyToClipboard(workshopId)
+
+    if (didCopy) {
+      toast.success(t("common.copied", { label: t("maps.workshopId") }), {
+        description: workshopId,
+      })
+      return
+    }
+
+    toast.error(t("common.copyFailed", { label: t("maps.workshopId") }), {
+      description: workshopId,
+    })
+  }
 
   return (
     <section className="overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm">
@@ -271,6 +297,7 @@ function MapHero({
             {map.workshop_url ? (
               <Button asChild variant="outline" className="rounded-full">
                 <a href={map.workshop_url} target="_blank" rel="noreferrer">
+                  <FaSteam className="h-4 w-4" aria-hidden="true" />
                   {t("maps.openWorkshop")}
                 </a>
               </Button>
@@ -287,9 +314,22 @@ function MapHero({
             <MapMetaItem
               label={t("maps.workshopId")}
               value={
-                map.workshop_id !== null && map.workshop_id !== undefined
-                  ? formatNumber(map.workshop_id)
-                  : "-"
+                workshopId ? (
+                  <button
+                    type="button"
+                    className="inline-flex min-h-7 items-center gap-2 rounded-md px-0.5 text-left font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    title={t("common.copy")}
+                    aria-label={`${t("common.copy")} ${t("maps.workshopId")}`}
+                    onClick={() => {
+                      void handleCopyWorkshopId()
+                    }}
+                  >
+                    <span>{workshopId}</span>
+                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : (
+                  "-"
+                )
               }
               labelClassName="text-muted-foreground"
               valueClassName="text-foreground"
