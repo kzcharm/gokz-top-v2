@@ -2146,6 +2146,7 @@ async def get_pb_record_publics(
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
+        .where(Map.validated.is_(True))
         .outerjoin(
             pro_pb,
             and_(

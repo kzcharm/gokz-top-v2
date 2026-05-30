@@ -949,6 +949,60 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     assert [row["id"] for row in skz_response.json()] == [980420]
 
 
+async def test_read_pb_records_v1_player_anchor_excludes_invalidated_maps(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[(player_id, "Valid Map Runner")],
+    )
+    await _create_map(db, id=980202, name="kz_record_invalidated")
+    await _create_record(
+        db,
+        id=980426,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="24.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=980427,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980202,
+        stage=0,
+        time="23.000",
+        teleports=0,
+    )
+    invalidated_map = await db.get(Map, 980202)
+    assert invalidated_map is not None
+    invalidated_map.validated = False
+    db.add(invalidated_map)
+    await db.commit()
+    assert (
+        await db.exec(select(Map.validated).where(Map.id == 980202))
+    ).one() is False
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params=[
+            ("identifier", str(player_id)),
+            ("scope", "OVR"),
+            ("stage", 0),
+        ],
+    )
+
+    assert response.status_code == 200
+    assert [row["map_id"] for row in response.json()] == [980200]
+
+
 async def test_read_pb_records_v1_uses_nub_points_when_type_is_nub(
     client: AsyncClient,
     db: AsyncSession,

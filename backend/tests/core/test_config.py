@@ -1,3 +1,5 @@
+import re
+
 from app.core.config import Settings
 
 
@@ -10,6 +12,7 @@ def _build_settings(**overrides: object) -> Settings:
         "POSTGRES_DB": "app_test",
         "SUPER_USER_STEAMID64": 76561197960265728,
         "BACKEND_CORS_ORIGINS": [],
+        "REPLAY_VIEWER_HOST": None,
     }
     data.update(overrides)
     return Settings(
@@ -47,3 +50,21 @@ def test_all_cors_origins_prefers_explicit_replay_viewer_host() -> None:
         "https://replay-viewer-staging.kzcharm.com",
         "https://cs2kz.org",
     ]
+
+
+def test_cors_allow_origin_regex_allows_localhost_and_axekz_hosts() -> None:
+    settings = _build_settings()
+
+    assert settings.cors_allow_origin_regex is not None
+    assert settings.cors_allow_origin_regex
+
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:8000",
+        "https://axekz.com",
+        "https://www.axekz.com",
+        "https://api.axekz.com",
+    ]
+
+    for origin in allowed_origins:
+        assert re.fullmatch(settings.cors_allow_origin_regex, origin)
