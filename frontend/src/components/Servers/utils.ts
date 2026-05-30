@@ -277,19 +277,45 @@ export function getServerMaxPlayers(server: ServerPublic) {
   return server.live_status?.max_players ?? 0
 }
 
+const SERVER_STATUS_STALE_AFTER_MS = 60_000
+
 export function isServerStatusRefreshing(server: ServerPublic) {
   if (!isServerOnline(server)) {
     return false
   }
 
   const lastA2SSeenAt = server.live_status?.state?.last_a2s_seen_at
+  const lastPluginSeenAt = server.live_status?.state?.last_plugin_seen_at
   const lastSuccessfulSeenAt =
     server.live_status?.state?.last_successful_seen_at
-  if (!lastA2SSeenAt || !lastSuccessfulSeenAt) {
+  if (lastA2SSeenAt && lastSuccessfulSeenAt) {
+    const lastA2SSeenAtMs = Date.parse(lastA2SSeenAt)
+    const lastSuccessfulSeenAtMs = Date.parse(lastSuccessfulSeenAt)
+    if (
+      Number.isFinite(lastA2SSeenAtMs) &&
+      Number.isFinite(lastSuccessfulSeenAtMs) &&
+      lastA2SSeenAtMs > lastSuccessfulSeenAtMs
+    ) {
+      return true
+    }
+  }
+
+  const observedTimes = [
+    lastA2SSeenAt,
+    lastPluginSeenAt,
+    server.live_status?.updated_at,
+  ]
+    .map((value) => (value ? Date.parse(value) : Number.NaN))
+    .filter((value) => Number.isFinite(value))
+
+  if (observedTimes.length === 0) {
     return false
   }
 
-  return Date.parse(lastA2SSeenAt) > Date.parse(lastSuccessfulSeenAt)
+  return (
+    server.status === "invalid" &&
+    Date.now() - Math.max(...observedTimes) > SERVER_STATUS_STALE_AFTER_MS
+  )
 }
 
 export function getServerLastSuccessfulQueryAt(server: ServerPublic) {
