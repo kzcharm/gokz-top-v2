@@ -778,8 +778,6 @@ async def upsert_server_from_plugin_heartbeat(
             if server is None:
                 raise ValueError("Server already exists") from exc
 
-            if server.status == ServerStatus.DISABLED:
-                raise ValueError("Server is disabled") from exc
             if server.group_id is not None and server.group_id != group.id:
                 raise ValueError("Server does not belong to this server group") from exc
 
@@ -794,8 +792,6 @@ async def upsert_server_from_plugin_heartbeat(
             server.updated_at = now
             session.add(server)
     else:
-        if server.status == ServerStatus.DISABLED:
-            raise ValueError("Server is disabled")
         if server.group_id is not None and server.group_id != group.id:
             raise ValueError("Server does not belong to this server group")
 
