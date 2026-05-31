@@ -1268,6 +1268,7 @@ export type ServerHistoryPublic = {
 export type ServerLiveStatusPublic = {
     hostname?: (string | null);
     map?: (string | null);
+    workshop_id?: (string | null);
     player_count?: number;
     max_players?: number;
     players?: Array<ServerPlayerPublic>;
@@ -1772,6 +1773,12 @@ export type MapsReadMapsData = {
 };
 
 export type MapsReadMapsResponse = (Array<MapPublic>);
+
+export type MapsReadWorkshopPreviewImageData = {
+    workshopId: string;
+};
+
+export type MapsReadWorkshopPreviewImageResponse = (unknown);
 
 export type MapsReadMapPbLeaderboardData = {
     country?: (string | null);

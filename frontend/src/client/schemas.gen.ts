@@ -6272,6 +6272,17 @@ export const ServerLiveStatusPublicSchema = {
             ],
             title: 'Map'
         },
+        workshop_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Workshop Id'
+        },
         player_count: {
             type: 'integer',
             minimum: 0,

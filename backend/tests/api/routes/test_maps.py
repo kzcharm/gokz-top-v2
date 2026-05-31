@@ -9,6 +9,7 @@ from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.api.v1 import maps as maps_route
 from app.core.config import settings
 from app.models import (
     Map,
@@ -53,6 +54,61 @@ async def _create_map(db: AsyncSession, *, id: int = 930200) -> Map:
     await db.commit()
     await db.refresh(map_obj)
     return map_obj
+
+
+@pytest.mark.asyncio
+async def test_read_workshop_preview_image_redirects_to_steam_preview(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
+        assert workshop_id == "123456789"
+        return "https://steamuserimages-a.akamaihd.net/preview.jpg"
+
+    monkeypatch.setattr(
+        maps_route, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/workshop/123456789/preview-image",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"] == (
+        "https://steamuserimages-a.akamaihd.net/preview.jpg"
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_workshop_preview_image_returns_not_found_for_missing_preview(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
+        assert workshop_id == "123456789"
+        return None
+
+    monkeypatch.setattr(
+        maps_route, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/workshop/123456789/preview-image"
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_read_workshop_preview_image_rejects_invalid_workshop_id(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/workshop/not-a-number/preview-image"
+    )
+
+    assert response.status_code == 422
 
 
 async def _create_record_filter(

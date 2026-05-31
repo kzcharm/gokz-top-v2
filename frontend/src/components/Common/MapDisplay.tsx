@@ -18,6 +18,7 @@ interface MapDisplayProps {
   mapName: string | null | undefined
   className?: string
   contextMenuItems?: ReactNode
+  imageUrls?: string[]
 }
 
 export function getMapImageUrl(mapName: string | null | undefined) {
@@ -32,6 +33,7 @@ export function MapDisplay({
   mapName,
   className,
   contextMenuItems,
+  imageUrls,
 }: MapDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [, copyToClipboard] = useCopyToClipboard()
@@ -41,7 +43,10 @@ export function MapDisplay({
     return <span className="text-muted-foreground">-</span>
   }
 
-  const imageUrl = getMapImageUrl(mapName)
+  const resolvedImageUrls =
+    imageUrls && imageUrls.length > 0
+      ? imageUrls
+      : [getMapImageUrl(mapName)].filter((url): url is string => Boolean(url))
   const mapParams = { mapName }
 
   const handleGoToMapPage = () => {
@@ -105,9 +110,11 @@ export function MapDisplay({
               className,
             )}
             style={
-              imageUrl
+              resolvedImageUrls.length > 0
                 ? {
-                    backgroundImage: `url(${imageUrl})`,
+                    backgroundImage: resolvedImageUrls
+                      .map((url) => `url("${url.replace(/"/g, "%22")}")`)
+                      .join(", "),
                     backgroundPosition: "center",
                     backgroundSize: "cover",
                   }
