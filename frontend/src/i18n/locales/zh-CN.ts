@@ -149,6 +149,12 @@ export const zhCN = {
     userAvatarAlt: "{{name}} 的头像",
     anonymousUser: "用户",
   },
+  analyticsConsent: {
+    message:
+      "我们使用 Google Analytics 来改善你的体验。你是否接受我们使用 Cookie？",
+    accept: "接受",
+    reject: "拒绝",
+  },
   dashboard: {
     records: "记录",
     reviews: "评论",
