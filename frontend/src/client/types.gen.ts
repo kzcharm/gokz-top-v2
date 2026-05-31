@@ -213,6 +213,7 @@ export type BanListItemPublic = {
     updated_at: string;
     player?: (PlayerRefPublic | null);
     updated_by_player?: (PlayerRefPublic | null);
+    server?: (BanServerPublic | null);
 };
 
 export type BanPublic = {
@@ -229,6 +230,12 @@ export type BanPublic = {
     updated_at: string;
     player?: (PlayerRefPublic | null);
     updated_by_player?: (PlayerRefPublic | null);
+    server?: (BanServerPublic | null);
+};
+
+export type BanServerPublic = {
+    id: number;
+    name?: (string | null);
 };
 
 export type BansPublic = {
@@ -246,6 +253,20 @@ export type BanUpdate = {
 
 export type Body_jumpstats_create_jumpstat = {
     replay: (Blob | File);
+};
+
+export type CommunityLeaderboardEntryPublic = {
+    rank: number;
+    player: PlayerRefPublic;
+    views_count: number;
+    unique_visitors: number;
+    likes: number;
+    unique_likers: number;
+};
+
+export type CommunityLeaderboardsPublic = {
+    data: Array<CommunityLeaderboardEntryPublic>;
+    count: number;
 };
 
 export type HTTPValidationError = {
@@ -1630,6 +1651,15 @@ export type LeaderboardsReadJumpstatLeaderboardData = {
 };
 
 export type LeaderboardsReadJumpstatLeaderboardResponse = (JumpstatLeaderboardsPublic);
+
+export type LeaderboardsReadCommunityLeaderboardData = {
+    includeCount?: boolean;
+    limit?: number;
+    offset?: number;
+    sortBy?: 'views_count' | 'unique_visitors' | 'likes' | 'unique_likers';
+};
+
+export type LeaderboardsReadCommunityLeaderboardResponse = (CommunityLeaderboardsPublic);
 
 export type LeaderboardsReadPlayerLeaderboardData = {
     country?: (string | null);

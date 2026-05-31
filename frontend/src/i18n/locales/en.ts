@@ -512,6 +512,7 @@ export const en = {
   leaderboards: {
     tabs: {
       players: "Players",
+      community: "Community",
       pow: "POW",
       jumpstats: "Jumpstats",
       servers: "Servers",
@@ -610,6 +611,20 @@ export const en = {
         loginRequiredTitle: "Login required",
         loginRequiredDescription:
           "Log in first to find yourself on the leaderboard.",
+      },
+    },
+    community: {
+      title: "Community Rankings",
+      subtitle: "All-time profile attention across GOKZ.TOP.",
+      metricAria: "Select community ranking",
+      entries: "entries",
+      empty: "No community ranking entries found.",
+      loadFailedTitle: "Unable to load community rankings",
+      metrics: {
+        viewsCount: "Views Count",
+        uniqueVisitors: "Unique Visitors",
+        likes: "Likes",
+        uniqueLikers: "Unique Likers",
       },
     },
     mapColumns: {

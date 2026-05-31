@@ -17,6 +17,11 @@ const LEADERBOARD_TAB_OPTIONS = [
     to: "/leaderboards/players",
   },
   {
+    value: "community",
+    labelKey: "leaderboards.tabs.community",
+    to: "/leaderboards/community",
+  },
+  {
     value: "jumpstats",
     labelKey: "leaderboards.tabs.jumpstats",
     to: "/leaderboards/jumpstats",

@@ -519,6 +519,7 @@ export const ru = {
   leaderboards: {
     tabs: {
       players: "Игроки",
+      community: "Сообщество",
       pow: "POW",
       jumpstats: "Jumpstats",
       servers: "Серверы",
@@ -617,6 +618,20 @@ export const ru = {
         loginRequiredTitle: "Требуется вход",
         loginRequiredDescription:
           "Сначала войдите в аккаунт, чтобы найти себя в таблице лидеров.",
+      },
+    },
+    community: {
+      title: "Рейтинги сообщества",
+      subtitle: "Общая активность вокруг профилей на GOKZ.TOP.",
+      metricAria: "Выбрать рейтинг сообщества",
+      entries: "записей",
+      empty: "Записи рейтинга сообщества не найдены.",
+      loadFailedTitle: "Не удалось загрузить рейтинги сообщества",
+      metrics: {
+        viewsCount: "Просмотры",
+        uniqueVisitors: "Уникальные посетители",
+        likes: "Лайки",
+        uniqueLikers: "Уникальные лайкнувшие",
       },
     },
     mapColumns: {

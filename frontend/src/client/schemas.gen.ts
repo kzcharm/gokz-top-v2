@@ -1027,6 +1027,16 @@ export const BanListItemPublicSchema = {
                     type: 'null'
                 }
             ]
+        },
+        server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/BanServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
@@ -1151,11 +1161,44 @@ export const BanPublicSchema = {
                     type: 'null'
                 }
             ]
+        },
+        server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/BanServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
     required: ['uuid', 'ban_type', 'created_at', 'updated_at'],
     title: 'BanPublic'
+} as const;
+
+export const BanServerPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id'],
+    title: 'BanServerPublic'
 } as const;
 
 export const BanTypeSchema = {
@@ -1228,6 +1271,56 @@ export const Body_jumpstats_create_jumpstatSchema = {
     type: 'object',
     required: ['replay'],
     title: 'Body_jumpstats-create_jumpstat'
+} as const;
+
+export const CommunityLeaderboardEntryPublicSchema = {
+    properties: {
+        rank: {
+            type: 'integer',
+            title: 'Rank'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        views_count: {
+            type: 'integer',
+            title: 'Views Count'
+        },
+        unique_visitors: {
+            type: 'integer',
+            title: 'Unique Visitors'
+        },
+        likes: {
+            type: 'integer',
+            title: 'Likes'
+        },
+        unique_likers: {
+            type: 'integer',
+            title: 'Unique Likers'
+        }
+    },
+    type: 'object',
+    required: ['rank', 'player', 'views_count', 'unique_visitors', 'likes', 'unique_likers'],
+    title: 'CommunityLeaderboardEntryPublic'
+} as const;
+
+export const CommunityLeaderboardsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/CommunityLeaderboardEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'CommunityLeaderboardsPublic'
 } as const;
 
 export const HTTPValidationErrorSchema = {

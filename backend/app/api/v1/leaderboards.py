@@ -7,6 +7,8 @@ from app.api.deps import OptionalCurrentUser, SessionDep, get_current_active_sup
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.models import (
+    CommunityLeaderboardListQuery,
+    CommunityLeaderboardsPublic,
     JumpstatLeaderboardListQuery,
     JumpstatLeaderboardsPublic,
     MapLeaderboardsPublic,
@@ -72,6 +74,18 @@ async def read_jumpstat_leaderboard(
     query: Annotated[JumpstatLeaderboardListQuery, Query()],
 ) -> JumpstatLeaderboardsPublic:
     return await crud.read_jumpstat_leaderboard(session=session, query=query)
+
+
+@router.get("/community", response_model=CommunityLeaderboardsPublic)
+async def read_community_leaderboard(
+    session: SessionDep,
+    query: Annotated[CommunityLeaderboardListQuery, Query()],
+) -> CommunityLeaderboardsPublic:
+    data, count = await crud.read_community_leaderboard(
+        session=session,
+        query=query,
+    )
+    return CommunityLeaderboardsPublic(data=data, count=count)
 
 
 @router.get("/players", response_model=PlayerLeaderboardsPublic)
