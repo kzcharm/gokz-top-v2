@@ -46,10 +46,12 @@ function setStoredConsent(value: string) {
 
 function ensureGtag() {
   window.dataLayer = window.dataLayer ?? []
-  const fallbackGtag: Gtag = (...args: Parameters<Gtag>) => {
-    window.dataLayer?.push(args)
-  }
-  window.gtag = window.gtag ?? fallbackGtag
+  window.gtag =
+    window.gtag ??
+    (function gtag() {
+      // biome-ignore lint/complexity/noArguments: Match Google's official gtag snippet shape.
+      window.dataLayer?.push(arguments)
+    } as Gtag)
 
   return window.gtag
 }
