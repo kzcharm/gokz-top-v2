@@ -149,6 +149,12 @@ export const en = {
     userAvatarAlt: "{{name}} avatar",
     anonymousUser: "User",
   },
+  analyticsConsent: {
+    message:
+      "We use Google Analytics to improve your experience. Do you accept our use of cookies?",
+    accept: "Accept",
+    reject: "No, thanks",
+  },
   dashboard: {
     records: "Records",
     reviews: "Reviews",

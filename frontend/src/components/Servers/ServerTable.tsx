@@ -21,6 +21,7 @@ import {
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
+  getServerMapImageUrls,
   getServerMapName,
   isServerOnline,
   isServerStatusRefreshing,
@@ -200,7 +201,11 @@ export function ServerTable({
                     </div>
                   </TableCell>
                   <TableCell className="pr-5">
-                    <MapDisplay mapName={mapName} className="w-full max-w-56" />
+                    <MapDisplay
+                      mapName={mapName}
+                      imageUrls={getServerMapImageUrls(server)}
+                      className="w-full max-w-56"
+                    />
                   </TableCell>
                   <TableCell className="pl-1">
                     {server.map_tier === null ||

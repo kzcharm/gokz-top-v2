@@ -308,6 +308,10 @@ The current Github Actions workflows expect these secrets:
 * `LATEST_CHANGES`
 * `SMOKESHOW_AUTH_KEY`
 
+Google Analytics pageview tracking is configured in the frontend source with
+the public GA4 measurement ID `G-SD145MZQDR`. It does not require a deployment
+secret, and it only loads in production builds after visitor consent.
+
 ## GitHub Action Deployment Workflows
 
 There are GitHub Action workflows in the `.github/workflows` directory already configured for deploying to the environments (GitHub Actions runners with the labels):

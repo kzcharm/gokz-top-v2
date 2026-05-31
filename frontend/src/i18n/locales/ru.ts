@@ -150,6 +150,12 @@ export const ru = {
     userAvatarAlt: "Аватар {{name}}",
     anonymousUser: "Пользователь",
   },
+  analyticsConsent: {
+    message:
+      "Мы используем Google Analytics, чтобы улучшать ваш опыт. Вы принимаете использование cookies?",
+    accept: "Принять",
+    reject: "Отклонить",
+  },
   dashboard: {
     records: "Рекорды",
     reviews: "Отзывы",

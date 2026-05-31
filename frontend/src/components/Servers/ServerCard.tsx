@@ -21,7 +21,7 @@ import {
   getPlayerStatusSurfaceClass,
   getPlayerStringValue,
   getServerHostname,
-  getServerMapImageUrl,
+  getServerMapImageUrls,
   getServerMapName,
   getServerPlayerCount,
   getServerPlayers,
@@ -131,7 +131,7 @@ export const ServerCard = memo(function ServerCard({
   onSteamConnect,
 }: ServerCardProps) {
   const mapName = getServerMapName(server)
-  const mapImageUrl = useMemo(() => getServerMapImageUrl(mapName), [mapName])
+  const mapImageUrls = useMemo(() => getServerMapImageUrls(server), [server])
   const playerCount = getServerPlayerCount(server)
   const maxPlayers = server.live_status?.max_players ?? 0
   const isFull = maxPlayers > 0 && playerCount >= maxPlayers
@@ -188,10 +188,14 @@ export const ServerCard = memo(function ServerCard({
         onClick={() => onSelect(server)}
       >
         <div className="relative aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
-          {mapImageUrl ? (
+          {mapImageUrls.length > 0 ? (
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-              style={{ backgroundImage: `url(${mapImageUrl})` }}
+              style={{
+                backgroundImage: mapImageUrls
+                  .map((url) => `url("${url.replace(/"/g, "%22")}")`)
+                  .join(", "),
+              }}
             />
           ) : null}
           <div

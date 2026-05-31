@@ -26,6 +26,7 @@ const seedServers = {
       live_status: {
         hostname: "Alpha Seed",
         map: "kz_seed",
+        workshop_id: "123456789",
         player_count: 5,
         max_players: 16,
         players: [],
@@ -66,6 +67,7 @@ const snapshotServers = {
       live_status: {
         hostname: "Bravo Offline",
         map: "kz_bravo",
+        workshop_id: null,
         player_count: 0,
         max_players: 16,
         players: [],
@@ -99,6 +101,7 @@ const snapshotServers = {
       live_status: {
         hostname: "Gamma Live",
         map: "kz_gamma",
+        workshop_id: null,
         player_count: 7,
         max_players: 24,
         players: [
@@ -145,6 +148,7 @@ const updatedGammaServer = {
     live_status: {
       hostname: "Gamma Live Updated",
       map: "kz_gamma",
+      workshop_id: null,
       player_count: 9,
       max_players: 24,
       players: [
@@ -187,6 +191,7 @@ const addedServer = {
   live_status: {
     hostname: "Delta Added",
     map: "bkz_delta",
+    workshop_id: null,
     player_count: 4,
     max_players: 16,
     players: [],
@@ -280,6 +285,30 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
   await expect(page.getByRole("button", { name: /All/ })).toBeVisible()
+  await expect
+    .poll(async () =>
+      page
+        .getByTestId("server-card-10.0.0.1:27015")
+        .locator(".bg-cover")
+        .first()
+        .evaluate(
+          (element) => window.getComputedStyle(element).backgroundImage,
+        ),
+    )
+    .toContain("/v1/maps/workshop/123456789/preview-image")
+  await expect
+    .poll(async () =>
+      page
+        .getByTestId("server-card-10.0.0.1:27015")
+        .locator(".bg-cover")
+        .first()
+        .evaluate(
+          (element) => window.getComputedStyle(element).backgroundImage,
+        ),
+    )
+    .toContain(
+      "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_seed.webp",
+    )
 
   await page.waitForFunction(() => {
     return (
@@ -297,6 +326,19 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByText("12 Players")).toBeVisible()
   await expect(page.getByText("2 Servers")).toBeVisible()
   await expect(page.getByTitle("Refreshing server status")).toHaveCount(1)
+  await expect
+    .poll(async () =>
+      page
+        .getByTestId("server-card-10.0.0.3:27017")
+        .locator(".bg-cover")
+        .first()
+        .evaluate(
+          (element) => window.getComputedStyle(element).backgroundImage,
+        ),
+    )
+    .toBe(
+      'url("https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_gamma.webp")',
+    )
 
   const hoverCard = page.getByTestId("server-card-10.0.0.3:27017")
   await hoverCard.hover()

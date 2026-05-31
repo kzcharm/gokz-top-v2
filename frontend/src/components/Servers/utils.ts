@@ -335,6 +335,35 @@ export function getServerMapImageUrl(mapName: string | null) {
   return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${normalizedMapName}.webp`
 }
 
+function buildApiUrl(path: string) {
+  const configuredBase = OpenAPI.BASE || window.location.origin
+  const baseUrl = new URL(configuredBase, window.location.origin)
+  const normalizedBasePath =
+    baseUrl.pathname === "/" ? "" : baseUrl.pathname.replace(/\/$/, "")
+
+  return `${baseUrl.origin}${normalizedBasePath}${path}`
+}
+
+export function getWorkshopPreviewImageUrl(workshopId: string | null) {
+  const normalizedWorkshopId = workshopId?.trim()
+  if (!normalizedWorkshopId || !/^\d+$/.test(normalizedWorkshopId)) {
+    return null
+  }
+
+  return buildApiUrl(
+    `/v1/maps/workshop/${encodeURIComponent(normalizedWorkshopId)}/preview-image`,
+  )
+}
+
+export function getServerMapImageUrls(server: ServerPublic) {
+  const urls = [
+    getWorkshopPreviewImageUrl(server.live_status?.workshop_id ?? null),
+    getServerMapImageUrl(getServerMapName(server)),
+  ]
+
+  return urls.filter((url): url is string => Boolean(url))
+}
+
 export function buildServersWebSocketUrl() {
   const configuredBase = OpenAPI.BASE || window.location.origin
   const baseUrl = new URL(configuredBase, window.location.origin)
