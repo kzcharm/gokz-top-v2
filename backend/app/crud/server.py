@@ -95,6 +95,23 @@ def normalize_server_map_name(map_name: str | None) -> str | None:
     return normalized_parts[-1]
 
 
+def parse_server_workshop_id(map_name: str | None) -> str | None:
+    if map_name is None:
+        return None
+    normalized_parts = [
+        part.strip()
+        for part in map_name.strip().replace("\\", "/").split("/")
+        if part.strip()
+    ]
+    if (
+        len(normalized_parts) >= 3
+        and normalized_parts[0].casefold() == "workshop"
+        and normalized_parts[1].isdigit()
+    ):
+        return normalized_parts[1]
+    return None
+
+
 def _build_server_live_status_public(
     status: ServerLiveStatus | None,
 ) -> ServerLiveStatusPublic | None:
@@ -104,6 +121,7 @@ def _build_server_live_status_public(
     return ServerLiveStatusPublic(
         hostname=status.hostname,
         map=normalize_server_map_name(status.map),
+        workshop_id=parse_server_workshop_id(status.map),
         player_count=status.player_count,
         max_players=status.max_players,
         players=_build_server_player_public_list(status.players),

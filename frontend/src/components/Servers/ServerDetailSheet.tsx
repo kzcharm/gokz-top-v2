@@ -21,7 +21,7 @@ import {
   getServerAddress,
   getServerHostname,
   getServerLastSuccessfulQueryAt,
-  getServerMapImageUrl,
+  getServerMapImageUrls,
   getServerMapName,
   getServerPlayerCount,
   getServerPlayers,
@@ -47,7 +47,7 @@ export function ServerDetailSheet({
   onSteamConnect,
 }: ServerDetailSheetProps) {
   const mapName = server ? getServerMapName(server) : null
-  const mapImageUrl = getServerMapImageUrl(mapName)
+  const mapImageUrls = server ? getServerMapImageUrls(server) : []
   const isRefreshing = server ? isServerStatusRefreshing(server) : false
   const lastSuccessfulQueryAt = server
     ? getServerLastSuccessfulQueryAt(server)
@@ -110,10 +110,16 @@ export function ServerDetailSheet({
                 <div className="space-y-4">
                   <div className="flex justify-center">
                     <div className="group relative aspect-video w-full max-w-xl overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                      {mapImageUrl ? (
+                      {mapImageUrls.length > 0 ? (
                         <div
                           className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                          style={{ backgroundImage: `url(${mapImageUrl})` }}
+                          style={{
+                            backgroundImage: mapImageUrls
+                              .map(
+                                (url) => `url("${url.replace(/"/g, "%22")}")`,
+                              )
+                              .join(", "),
+                          }}
                         />
                       ) : null}
                       <div

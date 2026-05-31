@@ -965,6 +965,7 @@ async def test_read_servers_returns_map_tier_for_known_map(
         item for item in payload["data"] if item["live_status"]["map"] == "kz_tiered"
     )
     assert matching["map_tier"] == 6
+    assert matching["live_status"]["workshop_id"] is None
 
 
 async def test_read_servers_normalizes_prefixed_live_map_for_display_and_tier(
@@ -988,6 +989,7 @@ async def test_read_servers_normalizes_prefixed_live_map_for_display_and_tier(
     matching = next(
         item for item in payload["data"] if item["live_status"]["map"] == "kz_dakow"
     )
+    assert matching["live_status"]["workshop_id"] == "123456789"
     assert matching["map_tier"] == 5
 
 

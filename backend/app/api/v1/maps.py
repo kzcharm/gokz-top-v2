@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query
+from fastapi.responses import RedirectResponse
 
 from app import crud
 from app.api.deps import (
@@ -32,6 +33,7 @@ from app.services.globalapi_maps_sync import (
     GlobalAPIMapsSyncError,
     sync_maps_from_globalapi,
 )
+from app.services.steam_workshop import fetch_workshop_preview_url
 
 router = APIRouter(prefix="/maps", tags=["maps"])
 logger = logging.getLogger(__name__)
@@ -112,6 +114,16 @@ async def read_maps(
         updated_since=_parse_datetime(updated_since),
     )
     return await crud.to_map_publics(session=session, maps=maps)
+
+
+@router.get("/workshop/{workshop_id}/preview-image", response_model=None)
+async def read_workshop_preview_image(
+    workshop_id: Annotated[str, Path(pattern=r"^\d+$")],
+) -> RedirectResponse:
+    preview_url = await fetch_workshop_preview_url(workshop_id=workshop_id)
+    if preview_url is None:
+        raise HTTPException(status_code=404, detail="Workshop preview not found")
+    return RedirectResponse(url=preview_url)
 
 
 @router.get("/{map_id:int}/leaderboard", response_model=MapPbLeaderboardPublic)

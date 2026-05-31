@@ -382,6 +382,7 @@ class ServerLiveStatusStatePublic(SQLModel):
 class ServerLiveStatusPublic(SQLModel):
     hostname: str | None = None
     map: str | None = None
+    workshop_id: str | None = None
     player_count: int = Field(default=0, ge=0)
     max_players: int = Field(default=0, ge=0)
     players: list[ServerPlayerPublic] = Field(default_factory=list)
