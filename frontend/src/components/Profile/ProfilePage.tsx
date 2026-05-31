@@ -700,6 +700,7 @@ export function ProfilePage({
           ) : activeTab === "friends" ? (
             <ProfileFriendsTab
               friends={friendsQuery.data?.data ?? []}
+              friendsCount={friendsQuery.data?.count ?? 0}
               sync={friendsQuery.data?.sync ?? null}
               loading={friendsQuery.isLoading}
               error={friendsQuery.isError}

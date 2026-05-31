@@ -12,6 +12,8 @@ jobs:
     env:
       ENVIRONMENT: staging
       DOMAIN: ${{ secrets.DOMAIN_STAGING }}
+      BASE_DOMAIN_STAGING: ${{ secrets.BASE_DOMAIN_STAGING }}
+      FRONTEND_HOSTNAME_STAGING: ${{ secrets.FRONTEND_HOSTNAME_STAGING }}
       API_HOST_STAGING: ${{ secrets.API_HOST_STAGING }}
       ADMINER_HOST_STAGING: ${{ secrets.ADMINER_HOST_STAGING }}
       STACK_NAME: ${{ secrets.STACK_NAME_STAGING }}
@@ -44,17 +46,19 @@ jobs:
           set -euo pipefail
 
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
-          api_host="${API_HOST_STAGING:-api.${DOMAIN}}"
-          adminer_host="${ADMINER_HOST_STAGING:-adminer.${DOMAIN}}"
-          replay_viewer_hostname="${REPLAY_VIEWER_HOSTNAME_STAGING:-replays.${DOMAIN}}"
+          base_domain="${BASE_DOMAIN_STAGING:-${DOMAIN#staging.}}"
+          frontend_hostname="${FRONTEND_HOSTNAME_STAGING:-staging.${base_domain}}"
+          api_host="${API_HOST_STAGING:-staging-api.${base_domain}}"
+          adminer_host="${ADMINER_HOST_STAGING:-adminer-staging.${base_domain}}"
+          replay_viewer_hostname="${REPLAY_VIEWER_HOSTNAME_STAGING:-replays-staging.${base_domain}}"
           replay_viewer_resources_dir="${REPLAY_VIEWER_RESOURCES_DIR_STAGING:-/root/code/gokz-replay-viewer-export/local-src/.local/replayviewer-data-volume/resources}"
-          frontend_host_rule="Host(\`${DOMAIN}\`)"
+          frontend_host_rule="Host(\`${frontend_hostname}\`)"
           cat > .env <<EOF
-          DOMAIN=${DOMAIN}
+          DOMAIN=${base_domain}
           API_HOST=${api_host}
-          FRONTEND_HOSTNAME=${DOMAIN}
+          FRONTEND_HOSTNAME=${frontend_hostname}
           FRONTEND_HOST_RULE=${frontend_host_rule}
-          FRONTEND_HOST=https://${DOMAIN}
+          FRONTEND_HOST=https://${frontend_hostname}
           ADMINER_HOST=${adminer_host}
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP

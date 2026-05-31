@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.services.geoip import GeoIPLocation
 from app.services.jump_replay_parser import ParsedJumpReplay, parse_jump_replay_bytes
+from app.services.jump_replay_retention import is_parsed_jump_replay_eligible
 from app.services.jump_replay_storage import save_jump_replay
 
 
@@ -25,6 +26,10 @@ from app.services.jump_replay_storage import save_jump_replay
 class IngestJumpReplayResult:
     jumpstat: Jumpstat
     created: bool
+
+
+class JumpReplayIneligibleError(ValueError):
+    pass
 
 
 async def _ensure_placeholder_player(
@@ -127,6 +132,25 @@ async def ingest_jump_replay(
     source_name: str,
 ) -> IngestJumpReplayResult:
     parsed = parse_jump_replay_bytes(data=replay_bytes, source_name=source_name)
+    if not await is_parsed_jump_replay_eligible(
+        session=session,
+        player_steamid64=parsed.steamid64,
+        mode=parsed.mode,
+        jump_type=parsed.type,
+        distance=parsed.distance,
+        jumped_at=parsed.jumped_at,
+    ):
+        raise JumpReplayIneligibleError("Jump replay is not eligible for retention")
+
+    existing = await find_jumpstat_by_signature(
+        session=session,
+        server_group_id=group.id,
+        replay=parsed,
+    )
+    if existing is not None:
+        save_jump_replay(jumpstat_id=existing.id, replay_bytes=replay_bytes)
+        return IngestJumpReplayResult(jumpstat=existing, created=False)
+
     await _ensure_placeholder_player(
         session=session,
         steamid64=parsed.steamid64,

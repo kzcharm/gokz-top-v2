@@ -322,6 +322,8 @@ export const en = {
       syncing: "Syncing...",
       synced: "Friends synced",
       syncFailed: "Failed to sync friends",
+      kzRatio:
+        "{{kzFriends}} / {{totalFriends}} ({{percent}}% friends are playing KZ)",
       sortFields: {
         name: "Name",
         steamid64: "SteamID64",
@@ -512,6 +514,7 @@ export const en = {
   leaderboards: {
     tabs: {
       players: "Players",
+      community: "Community",
       pow: "POW",
       jumpstats: "Jumpstats",
       servers: "Servers",
@@ -592,8 +595,8 @@ export const en = {
         LAJ: "Ladder Jump",
         LAH: "Ladderhop",
         JB: "Jumpbug",
-        LBH: "Ladder Bunnyhop",
-        LWJ: "Ladder Weird Jump",
+        LBH: "Lowpre Bunnyhop",
+        LWJ: "Lowpre Weird Jump",
         FL: "Fall",
         UNK: "Unknown",
         INV: "Invalid",
@@ -612,13 +615,26 @@ export const en = {
           "Log in first to find yourself on the leaderboard.",
       },
     },
+    community: {
+      title: "Community Rankings",
+      subtitle: "All-time profile attention across GOKZ.TOP.",
+      metricAria: "Select community ranking",
+      entries: "entries",
+      empty: "No community ranking entries found.",
+      loadFailedTitle: "Unable to load community rankings",
+      metrics: {
+        platformFollowers: "Platform Followers",
+        viewsCount: "Views Count",
+        uniqueVisitors: "Unique Visitors",
+        likes: "Likes",
+        uniqueLikers: "Unique Likers",
+      },
+    },
     mapColumns: {
       playtime: "Playtime",
       averagePlaytime: "Avg Playtime",
       proRatio: "PRO Ratio",
       finishes: "Finishes",
-      averageFinishes: "Avg Fin",
-      firstAverage: "1st Avg",
       firstMedian: "1st Med",
     },
   },

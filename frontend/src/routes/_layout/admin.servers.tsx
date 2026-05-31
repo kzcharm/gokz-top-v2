@@ -812,6 +812,16 @@ export function ServerGroupsTab({
         cell: ({ row }) => row.original.server_count ?? 0,
       },
       {
+        accessorKey: "last_api_key_used_at",
+        header: "Last API Key Used",
+        cell: ({ row }) =>
+          row.original.last_api_key_used_at ? (
+            <FormattedDateTime value={row.original.last_api_key_used_at} />
+          ) : (
+            <span className="text-muted-foreground">Never</span>
+          ),
+      },
+      {
         accessorKey: "created_at",
         header: "Created",
         cell: ({ row }) => (

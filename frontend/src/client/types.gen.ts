@@ -179,6 +179,7 @@ export type AdminServerGroupPublic = {
     owner_steamid64?: (string | null);
     status: ServerGroupStatus;
     server_count?: number;
+    last_api_key_used_at?: (string | null);
     created_at: string;
     updated_at: string;
     api_key: string;
@@ -213,6 +214,7 @@ export type BanListItemPublic = {
     updated_at: string;
     player?: (PlayerRefPublic | null);
     updated_by_player?: (PlayerRefPublic | null);
+    server?: (BanServerPublic | null);
 };
 
 export type BanPublic = {
@@ -229,6 +231,12 @@ export type BanPublic = {
     updated_at: string;
     player?: (PlayerRefPublic | null);
     updated_by_player?: (PlayerRefPublic | null);
+    server?: (BanServerPublic | null);
+};
+
+export type BanServerPublic = {
+    id: number;
+    name?: (string | null);
 };
 
 export type BansPublic = {
@@ -246,6 +254,21 @@ export type BanUpdate = {
 
 export type Body_jumpstats_create_jumpstat = {
     replay: (Blob | File);
+};
+
+export type CommunityLeaderboardEntryPublic = {
+    rank: number;
+    player: PlayerRefPublic;
+    views_count: number;
+    unique_visitors: number;
+    likes: number;
+    unique_likers: number;
+    video_platform_followers?: (VideoPlatformFollowerPublic | null);
+};
+
+export type CommunityLeaderboardsPublic = {
+    data: Array<CommunityLeaderboardEntryPublic>;
+    count: number;
 };
 
 export type HTTPValidationError = {
@@ -343,6 +366,14 @@ export type JumpstatPublic = {
     jumped_at: string;
     created_at: string;
     updated_at: string;
+};
+
+export type JumpstatReplayEligibilityPublic = {
+    eligible: boolean;
+    keep_limit: number;
+    rank?: (number | null);
+    cutoff_distance?: (number | null);
+    cutoff_jumped_at?: (string | null);
 };
 
 export type JumpstatsPublic = {
@@ -685,6 +716,7 @@ export type PlayerFriendSyncPublic = {
     last_checked_at?: (string | null);
     last_attempted_at?: (string | null);
     next_allowed_at?: (string | null);
+    steam_friends_count?: (number | null);
 };
 
 export type PlayerLeaderboardEntryPublic = {
@@ -1191,6 +1223,7 @@ export type ServerGroupPublic = {
     owner_steamid64?: (string | null);
     status: ServerGroupStatus;
     server_count?: number;
+    last_api_key_used_at?: (string | null);
     created_at: string;
     updated_at: string;
 };
@@ -1362,6 +1395,13 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+export type VideoPlatformFollowerPublic = {
+    platform: PlayerSocialPlatform;
+    followers_count: number;
+    url: string;
+    updated_at: string;
 };
 
 export type AdminMapsReadAdminMapsData = {
@@ -1608,6 +1648,24 @@ export type JumpstatsReadJumpstatsData = {
 
 export type JumpstatsReadJumpstatsResponse = (JumpstatsPublic);
 
+export type JumpstatsCreateJumpstatReplayData = {
+    authorization?: (string | null);
+    xServerGroupKey?: (string | null);
+};
+
+export type JumpstatsCreateJumpstatReplayResponse = (JumpstatDetailPublic);
+
+export type JumpstatsReadJumpReplayEligibilityData = {
+    distance: (number | string);
+    jumpedAt?: (string | null);
+    jumpedAtUnix?: (number | null);
+    mode: KZMode;
+    playerSteamid64: number;
+    type: JumpstatType;
+};
+
+export type JumpstatsReadJumpReplayEligibilityResponse = (JumpstatReplayEligibilityPublic);
+
 export type JumpstatsReadJumpstatData = {
     jumpstatId: string;
 };
@@ -1630,6 +1688,15 @@ export type LeaderboardsReadJumpstatLeaderboardData = {
 };
 
 export type LeaderboardsReadJumpstatLeaderboardResponse = (JumpstatLeaderboardsPublic);
+
+export type LeaderboardsReadCommunityLeaderboardData = {
+    includeCount?: boolean;
+    limit?: number;
+    offset?: number;
+    sortBy?: 'views_count' | 'unique_visitors' | 'likes' | 'unique_likers' | 'platform_followers';
+};
+
+export type LeaderboardsReadCommunityLeaderboardResponse = (CommunityLeaderboardsPublic);
 
 export type LeaderboardsReadPlayerLeaderboardData = {
     country?: (string | null);

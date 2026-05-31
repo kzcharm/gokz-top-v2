@@ -816,6 +816,18 @@ export const AdminServerGroupPublicSchema = {
             title: 'Server Count',
             default: 0
         },
+        last_api_key_used_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Api Key Used At'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -1027,6 +1039,16 @@ export const BanListItemPublicSchema = {
                     type: 'null'
                 }
             ]
+        },
+        server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/BanServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
@@ -1151,11 +1173,44 @@ export const BanPublicSchema = {
                     type: 'null'
                 }
             ]
+        },
+        server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/BanServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
     required: ['uuid', 'ban_type', 'created_at', 'updated_at'],
     title: 'BanPublic'
+} as const;
+
+export const BanServerPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id'],
+    title: 'BanServerPublic'
 } as const;
 
 export const BanTypeSchema = {
@@ -1228,6 +1283,66 @@ export const Body_jumpstats_create_jumpstatSchema = {
     type: 'object',
     required: ['replay'],
     title: 'Body_jumpstats-create_jumpstat'
+} as const;
+
+export const CommunityLeaderboardEntryPublicSchema = {
+    properties: {
+        rank: {
+            type: 'integer',
+            title: 'Rank'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        views_count: {
+            type: 'integer',
+            title: 'Views Count'
+        },
+        unique_visitors: {
+            type: 'integer',
+            title: 'Unique Visitors'
+        },
+        likes: {
+            type: 'integer',
+            title: 'Likes'
+        },
+        unique_likers: {
+            type: 'integer',
+            title: 'Unique Likers'
+        },
+        video_platform_followers: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/VideoPlatformFollowerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['rank', 'player', 'views_count', 'unique_visitors', 'likes', 'unique_likers'],
+    title: 'CommunityLeaderboardEntryPublic'
+} as const;
+
+export const CommunityLeaderboardsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/CommunityLeaderboardEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'CommunityLeaderboardsPublic'
 } as const;
 
 export const HTTPValidationErrorSchema = {
@@ -1691,6 +1806,56 @@ export const JumpstatPublicSchema = {
     type: 'object',
     required: ['id', 'player', 'server_group_id', 'server_group', 'mode', 'type', 'distance', 'strafes', 'sync_percent', 'pre_speed', 'max_speed', 'w_count', 'overlap_count', 'dead_air_count', 'width', 'height', 'airtime_percent', 'offset', 'crouched_ticks', 'jumped_at', 'created_at', 'updated_at'],
     title: 'JumpstatPublic'
+} as const;
+
+export const JumpstatReplayEligibilityPublicSchema = {
+    properties: {
+        eligible: {
+            type: 'boolean',
+            title: 'Eligible'
+        },
+        keep_limit: {
+            type: 'integer',
+            title: 'Keep Limit'
+        },
+        rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rank'
+        },
+        cutoff_distance: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cutoff Distance'
+        },
+        cutoff_jumped_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cutoff Jumped At'
+        }
+    },
+    type: 'object',
+    required: ['eligible', 'keep_limit'],
+    title: 'JumpstatReplayEligibilityPublic'
 } as const;
 
 export const JumpstatStrafeStatSchema = {
@@ -3341,6 +3506,17 @@ export const PlayerFriendSyncPublicSchema = {
                 }
             ],
             title: 'Next Allowed At'
+        },
+        steam_friends_count: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Friends Count'
         }
     },
     type: 'object',
@@ -5847,6 +6023,18 @@ export const ServerGroupPublicSchema = {
             title: 'Server Count',
             default: 0
         },
+        last_api_key_used_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Api Key Used At'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -6874,4 +7062,29 @@ export const ValidationErrorSchema = {
     type: 'object',
     required: ['loc', 'msg', 'type'],
     title: 'ValidationError'
+} as const;
+
+export const VideoPlatformFollowerPublicSchema = {
+    properties: {
+        platform: {
+            '$ref': '#/components/schemas/PlayerSocialPlatform'
+        },
+        followers_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Followers Count'
+        },
+        url: {
+            type: 'string',
+            title: 'Url'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['platform', 'followers_count', 'url', 'updated_at'],
+    title: 'VideoPlatformFollowerPublic'
 } as const;

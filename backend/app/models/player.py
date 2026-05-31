@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Literal
 
 from pydantic import ConfigDict, field_validator
-from sqlalchemy import BigInteger, Column, Computed, DateTime, Index, text
+from sqlalchemy import BigInteger, Column, Computed, DateTime, Index, Integer, text
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
@@ -173,6 +173,11 @@ class Player(PlayerBase, table=True):
     friends_visibility_checked_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    steam_friends_count: int | None = Field(
+        default=None,
+        ge=0,
+        sa_column=Column(Integer, nullable=True),
     )
     search_vector: str | None = Field(
         default=None,

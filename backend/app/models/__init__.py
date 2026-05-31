@@ -14,6 +14,12 @@ from .ban import (
     BanType,
     BanUpdate,
 )
+from .community_leaderboard import (
+    CommunityLeaderboardEntryPublic,
+    CommunityLeaderboardListQuery,
+    CommunityLeaderboardSortBy,
+    CommunityLeaderboardsPublic,
+)
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .jumpstat import (
     Jumpstat,
@@ -23,6 +29,8 @@ from .jumpstat import (
     JumpstatLeaderboardsPublic,
     JumpstatListQuery,
     JumpstatPublic,
+    JumpstatReplayEligibilityPublic,
+    JumpstatReplayEligibilityQuery,
     JumpstatsPublic,
     JumpstatStrafeStat,
     JumpstatType,
@@ -349,6 +357,10 @@ from .user import (
 )
 from .user_role import UserRole, normalize_user_roles
 from .utils import generate_uuid7, get_datetime_utc
+from .video_platform_followers import (
+    PlayerVideoPlatformFollowerCache,
+    VideoPlatformFollowerPublic,
+)
 
 __all__ = [
     "AdminServerAccessPublic",
@@ -366,6 +378,10 @@ __all__ = [
     "BanUpdate",
     "BansPublic",
     "BanType",
+    "CommunityLeaderboardEntryPublic",
+    "CommunityLeaderboardListQuery",
+    "CommunityLeaderboardSortBy",
+    "CommunityLeaderboardsPublic",
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
     "Jumpstat",
@@ -375,6 +391,8 @@ __all__ = [
     "JumpstatDetailPublic",
     "JumpstatListQuery",
     "JumpstatPublic",
+    "JumpstatReplayEligibilityPublic",
+    "JumpstatReplayEligibilityQuery",
     "JumpstatsPublic",
     "JumpstatStrafeStat",
     "JumpstatType",
@@ -535,6 +553,8 @@ __all__ = [
     "PlayerStatCache",
     "PlayerStatType",
     "PlayerStatsPublic",
+    "PlayerVideoPlatformFollowerCache",
+    "VideoPlatformFollowerPublic",
     "PlayerWebhook",
     "PlayerWebhookCreate",
     "PlayerWebhookProvider",

@@ -622,7 +622,7 @@ async def test_create_jumpstat_upload_creates_row_and_replay_file(
 
 
 @pytest.mark.asyncio
-async def test_create_jumpstat_upload_is_not_deduplicated(
+async def test_create_jumpstat_upload_deduplicates_matching_replay(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -657,11 +657,121 @@ async def test_create_jumpstat_upload_is_not_deduplicated(
 
     assert first.status_code == 201
     assert second.status_code == 201
-    assert first.json()["id"] != second.json()["id"]
+    assert first.json()["id"] == second.json()["id"]
     jumpstats = list(
         (await db.exec(select(Jumpstat).order_by(Jumpstat.created_at))).all()
     )
-    assert len(jumpstats) == 2
+    assert len(jumpstats) == 1
+
+
+@pytest.mark.asyncio
+async def test_create_jumpstat_raw_replay_upload_creates_row_and_replay_file(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    group, api_key = await create_test_server_group(db, name="Raw Upload Group")
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
+    synthetic = build_synthetic_jump_replay()
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/jumpstats/replay",
+        content=synthetic.replay_bytes,
+        headers={
+            "Content-Type": "application/octet-stream",
+            "X-Server-Group-Key": api_key,
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["player"]["steamid64"] == str(synthetic.steamid64)
+    assert payload["server_group"]["id"] == str(group.id)
+    assert get_jump_replay_path(jumpstat_id=uuid.UUID(payload["id"])).read_bytes() == (
+        synthetic.replay_bytes
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_jump_replay_eligibility_returns_keep_decision(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, _api_key = await create_test_server_group(db, name="Eligibility Group")
+    player = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Eligibility Runner",
+    )
+    for index in range(10):
+        await _create_jumpstat(
+            db,
+            player_steamid64=player.steamid64,
+            server_group_id=group.id,
+            distance=str(300 - index),
+            jumped_at=datetime(2026, 5, 1, 12, index, tzinfo=UTC),
+        )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/jumpstats/replay-eligibility",
+        params={
+            "player_steamid64": str(player.steamid64),
+            "mode": "KZT",
+            "type": "LJ",
+            "distance": "281.0000",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "eligible": False,
+        "keep_limit": 10,
+        "rank": 11,
+        "cutoff_distance": 291.0,
+        "cutoff_jumped_at": "2026-05-01T12:09:00Z",
+    }
+
+
+@pytest.mark.asyncio
+async def test_create_jumpstat_upload_rejects_replay_below_retention_cutoff(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    group, api_key = await create_test_server_group(db, name="Retention Upload Group")
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
+    synthetic = build_synthetic_jump_replay()
+    await _create_player(
+        db,
+        steamid64=synthetic.steamid64,
+        name="Retention Runner",
+    )
+    for index in range(10):
+        await _create_jumpstat(
+            db,
+            player_steamid64=synthetic.steamid64,
+            server_group_id=group.id,
+            distance=str(400 - index),
+            jumped_at=datetime(2026, 5, 1, 12, index, tzinfo=UTC),
+        )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/jumpstats",
+        files={
+            "replay": (
+                "synthetic.replay",
+                synthetic.replay_bytes,
+                "application/octet-stream",
+            )
+        },
+        headers={"X-Server-Group-Key": api_key},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Jump replay is not eligible for retention"
+    assert list(tmp_path.rglob("*.replay")) == []
 
 
 @pytest.mark.asyncio

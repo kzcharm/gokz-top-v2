@@ -259,7 +259,7 @@ async def _fetch_twitch_app_access_token() -> TwitchAppAccessToken:
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.post(
             "https://id.twitch.tv/oauth2/token",
-            params={
+            data={
                 "client_id": settings.TWITCH_CLIENT_ID,
                 "client_secret": settings.TWITCH_CLIENT_SECRET,
                 "grant_type": "client_credentials",

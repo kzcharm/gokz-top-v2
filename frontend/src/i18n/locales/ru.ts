@@ -324,6 +324,8 @@ export const ru = {
       syncing: "Синхронизация...",
       synced: "Друзья синхронизированы",
       syncFailed: "Не удалось синхронизировать друзей",
+      kzRatio:
+        "{{kzFriends}} / {{totalFriends}} ({{percent}}% друзей играют в KZ)",
       sortFields: {
         name: "Имя",
         steamid64: "SteamID64",
@@ -519,6 +521,7 @@ export const ru = {
   leaderboards: {
     tabs: {
       players: "Игроки",
+      community: "Сообщество",
       pow: "POW",
       jumpstats: "Jumpstats",
       servers: "Серверы",
@@ -599,8 +602,8 @@ export const ru = {
         LAJ: "Ladder Jump",
         LAH: "Ladderhop",
         JB: "Jumpbug",
-        LBH: "Ladder Bunnyhop",
-        LWJ: "Ladder Weird Jump",
+        LBH: "Lowpre Bunnyhop",
+        LWJ: "Lowpre Weird Jump",
         FL: "Fall",
         UNK: "Unknown",
         INV: "Invalid",
@@ -619,13 +622,26 @@ export const ru = {
           "Сначала войдите в аккаунт, чтобы найти себя в таблице лидеров.",
       },
     },
+    community: {
+      title: "Рейтинги сообщества",
+      subtitle: "Общая активность вокруг профилей на GOKZ.TOP.",
+      metricAria: "Выбрать рейтинг сообщества",
+      entries: "записей",
+      empty: "Записи рейтинга сообщества не найдены.",
+      loadFailedTitle: "Не удалось загрузить рейтинги сообщества",
+      metrics: {
+        platformFollowers: "Подписчики платформы",
+        viewsCount: "Просмотры",
+        uniqueVisitors: "Уникальные посетители",
+        likes: "Лайки",
+        uniqueLikers: "Уникальные лайкнувшие",
+      },
+    },
     mapColumns: {
       playtime: "Время в игре",
       averagePlaytime: "Среднее время",
       proRatio: "Доля PRO",
       finishes: "Финиши",
-      averageFinishes: "Ср. финишей",
-      firstAverage: "1-й ср.",
       firstMedian: "1-й медиана",
     },
   },

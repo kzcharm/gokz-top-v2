@@ -26,6 +26,11 @@ const LEADERBOARD_TAB_OPTIONS = [
     labelKey: "leaderboards.tabs.maps",
     to: "/leaderboards/maps",
   },
+  {
+    value: "community",
+    labelKey: "leaderboards.tabs.community",
+    to: "/leaderboards/community",
+  },
 ] as const
 
 export const Route = createFileRoute("/_layout/leaderboards")({

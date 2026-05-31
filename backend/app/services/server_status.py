@@ -18,6 +18,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
+from app.crud.server import mark_server_group_api_key_used
 from app.models import ServerGroupStatus, ServerStatusPut
 from app.services.server_query import A2SInfoResult, ServerQueryError
 
@@ -669,6 +670,7 @@ async def put_server_status_from_plugin(
             raise ServerQueryError("Invalid server group API key")
         if group.status == ServerGroupStatus.INVALIDATED:
             raise ServerQueryError("Server group is invalidated")
+        mark_server_group_api_key_used(session=session, group=group)
 
         try:
             await crud.upsert_server_from_plugin_heartbeat(

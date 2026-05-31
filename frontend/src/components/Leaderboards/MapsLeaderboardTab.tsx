@@ -179,9 +179,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
       case "total_finishes":
       case "total_playtime":
       case "average_playtime_per_player":
-      case "average_first_completion_time":
       case "median_first_completion_time":
-      case "average_finishes_per_player":
       case "pro_nub_ratio":
       case "unique_pro_finishes":
       case "unique_nub_finishes":
@@ -200,7 +198,13 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
   )
 
   const visibleRows = useMemo<MapLeaderboardTableRow[]>(
-    () => sortedRows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
+    () =>
+      sortedRows
+        .slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
+        .map((row, index) => ({
+          ...row,
+          rank: pageIndex * pageSize + index + 1,
+        })),
     [pageIndex, pageSize, sortedRows],
   )
   const columns = useMemo(() => getMapLeaderboardColumns(t), [t])
@@ -348,7 +352,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
             stickyHeader
             stickyHeaderTopClassName="top-16"
             tableContainerClassName="md:overflow-visible"
-            tableClassName="border-separate border-spacing-0"
+            tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             serverPagination={{
               pageIndex,

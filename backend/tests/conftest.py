@@ -116,11 +116,15 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
         settings.RUN_PLAYER_SESSION_TIMEOUT_RUNNER_IN_APP
     )
     previous_live_stream_runner_setting = settings.RUN_LIVE_STREAM_RUNNER_IN_APP
+    previous_jump_replay_cleanup_runner_setting = (
+        settings.RUN_JUMP_REPLAY_CLEANUP_RUNNER_IN_APP
+    )
     settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP = False
     settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP = False
     settings.RUN_DAILY_RANK_PIPELINE_TASK_RUNNER_IN_APP = False
     settings.RUN_PLAYER_SESSION_TIMEOUT_RUNNER_IN_APP = False
     settings.RUN_LIVE_STREAM_RUNNER_IN_APP = False
+    settings.RUN_JUMP_REPLAY_CLEANUP_RUNNER_IN_APP = False
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://testserver") as c:
@@ -135,6 +139,9 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
             previous_player_session_timeout_setting
         )
         settings.RUN_LIVE_STREAM_RUNNER_IN_APP = previous_live_stream_runner_setting
+        settings.RUN_JUMP_REPLAY_CLEANUP_RUNNER_IN_APP = (
+            previous_jump_replay_cleanup_runner_setting
+        )
         app.dependency_overrides.pop(get_db, None)
 
 

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.api.v1.player_sessions import _resolve_server_group_api_key
+from app.crud.server import mark_server_group_api_key_used
 from app.models import (
     Message,
     ServerCreate,
@@ -64,6 +65,7 @@ async def put_server_status(
             group.id,
         )
         raise HTTPException(status_code=403, detail="Server group is invalidated")
+    mark_server_group_api_key_used(session=session, group=group)
 
     existing_server = await crud.get_server_by_endpoint(
         session=session,

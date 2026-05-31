@@ -54,7 +54,7 @@ function formatRawRating(value: number | null) {
   return formatMetric(value)
 }
 
-function SortableHeader({
+export function SortableHeader({
   title,
   column,
   align = "center",
