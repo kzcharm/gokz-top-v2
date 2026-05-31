@@ -263,6 +263,7 @@ export type CommunityLeaderboardEntryPublic = {
     unique_visitors: number;
     likes: number;
     unique_likers: number;
+    video_platform_followers?: (VideoPlatformFollowerPublic | null);
 };
 
 export type CommunityLeaderboardsPublic = {
@@ -365,6 +366,14 @@ export type JumpstatPublic = {
     jumped_at: string;
     created_at: string;
     updated_at: string;
+};
+
+export type JumpstatReplayEligibilityPublic = {
+    eligible: boolean;
+    keep_limit: number;
+    rank?: (number | null);
+    cutoff_distance?: (number | null);
+    cutoff_jumped_at?: (string | null);
 };
 
 export type JumpstatsPublic = {
@@ -1387,6 +1396,13 @@ export type ValidationError = {
     };
 };
 
+export type VideoPlatformFollowerPublic = {
+    platform: PlayerSocialPlatform;
+    followers_count: number;
+    url: string;
+    updated_at: string;
+};
+
 export type AdminMapsReadAdminMapsData = {
     limit?: number;
     offset?: number;
@@ -1631,6 +1647,24 @@ export type JumpstatsReadJumpstatsData = {
 
 export type JumpstatsReadJumpstatsResponse = (JumpstatsPublic);
 
+export type JumpstatsCreateJumpstatReplayData = {
+    authorization?: (string | null);
+    xServerGroupKey?: (string | null);
+};
+
+export type JumpstatsCreateJumpstatReplayResponse = (JumpstatDetailPublic);
+
+export type JumpstatsReadJumpReplayEligibilityData = {
+    distance: (number | string);
+    jumpedAt?: (string | null);
+    jumpedAtUnix?: (number | null);
+    mode: KZMode;
+    playerSteamid64: number;
+    type: JumpstatType;
+};
+
+export type JumpstatsReadJumpReplayEligibilityResponse = (JumpstatReplayEligibilityPublic);
+
 export type JumpstatsReadJumpstatData = {
     jumpstatId: string;
 };
@@ -1658,7 +1692,7 @@ export type LeaderboardsReadCommunityLeaderboardData = {
     includeCount?: boolean;
     limit?: number;
     offset?: number;
-    sortBy?: 'views_count' | 'unique_visitors' | 'likes' | 'unique_likers';
+    sortBy?: 'views_count' | 'unique_visitors' | 'likes' | 'unique_likers' | 'platform_followers';
 };
 
 export type LeaderboardsReadCommunityLeaderboardResponse = (CommunityLeaderboardsPublic);

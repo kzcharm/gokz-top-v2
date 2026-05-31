@@ -621,6 +621,7 @@ export const en = {
       empty: "No community ranking entries found.",
       loadFailedTitle: "Unable to load community rankings",
       metrics: {
+        platformFollowers: "Platform Followers",
         viewsCount: "Views Count",
         uniqueVisitors: "Unique Visitors",
         likes: "Likes",

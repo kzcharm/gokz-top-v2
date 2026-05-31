@@ -22,6 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatNumber } from "@/i18n/locale"
 import { fetchPlayersForDisplay } from "@/lib/player-graphql"
+import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
 import { extractErrorMessage } from "@/utils"
 
 type CommunitySortBy =
@@ -29,13 +30,15 @@ type CommunitySortBy =
   | "unique_visitors"
   | "likes"
   | "unique_likers"
+  | "platform_followers"
+type CommunityMetricSortBy = Exclude<CommunitySortBy, "platform_followers">
 
 type CommunityLeaderboardTableRow = CommunityLeaderboardEntryPublic & {
   playerData: PlayerDisplayPlayer
 }
 
 type CommunityMetricColumn = {
-  value: CommunitySortBy
+  value: CommunityMetricSortBy
   labelKey: string
   size: number
 }
@@ -66,7 +69,10 @@ const COMMUNITY_METRIC_COLUMNS: readonly CommunityMetricColumn[] = [
 function isCommunitySortBy(
   value: string | undefined,
 ): value is CommunitySortBy {
-  return COMMUNITY_METRIC_COLUMNS.some((column) => column.value === value)
+  return (
+    value === "platform_followers" ||
+    COMMUNITY_METRIC_COLUMNS.some((column) => column.value === value)
+  )
 }
 
 function getCommunityLeaderboardColumns({
@@ -94,6 +100,48 @@ function getCommunityLeaderboardColumns({
       size: 240,
       header: () => playerLabel,
       cell: ({ row }) => <PlayerDisplay player={row.original.playerData} />,
+    },
+    {
+      accessorKey: "platform_followers",
+      size: 156,
+      header: ({ column }) => (
+        <SortableHeader
+          title={t("leaderboards.community.metrics.platformFollowers")}
+          column={column}
+          align="center"
+        />
+      ),
+      cell: ({ row }) => {
+        const followers = row.original.video_platform_followers
+        if (!followers) {
+          return (
+            <div className="flex w-full justify-center text-muted-foreground">
+              -
+            </div>
+          )
+        }
+        const platformLabel = getSocialPlatformLabel(followers.platform)
+        return (
+          <div className="flex w-full items-center justify-center gap-2">
+            <a
+              aria-label={`Open ${platformLabel} profile`}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              href={followers.url}
+              rel="noreferrer"
+              target="_blank"
+              title={platformLabel}
+            >
+              <SocialPlatformIcon
+                platform={followers.platform}
+                className="size-4"
+              />
+            </a>
+            <span className="font-semibold tabular-nums">
+              {formatNumber(followers.followers_count)}
+            </span>
+          </div>
+        )
+      },
     },
     ...COMMUNITY_METRIC_COLUMNS.map(
       (column): ColumnDef<CommunityLeaderboardTableRow> => ({
@@ -232,7 +280,7 @@ export function CommunityLeaderboardTab() {
             stickyHeader
             stickyHeaderTopClassName="top-16"
             tableContainerClassName="overflow-x-auto md:overflow-visible"
-            tableClassName="min-w-[820px] border-separate border-spacing-0"
+            tableClassName="min-w-[980px] border-separate border-spacing-0"
             showFooter={false}
             serverPagination={{
               pageIndex: 0,

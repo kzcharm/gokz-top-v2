@@ -1309,6 +1309,16 @@ export const CommunityLeaderboardEntryPublicSchema = {
         unique_likers: {
             type: 'integer',
             title: 'Unique Likers'
+        },
+        video_platform_followers: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/VideoPlatformFollowerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
@@ -1796,6 +1806,56 @@ export const JumpstatPublicSchema = {
     type: 'object',
     required: ['id', 'player', 'server_group_id', 'server_group', 'mode', 'type', 'distance', 'strafes', 'sync_percent', 'pre_speed', 'max_speed', 'w_count', 'overlap_count', 'dead_air_count', 'width', 'height', 'airtime_percent', 'offset', 'crouched_ticks', 'jumped_at', 'created_at', 'updated_at'],
     title: 'JumpstatPublic'
+} as const;
+
+export const JumpstatReplayEligibilityPublicSchema = {
+    properties: {
+        eligible: {
+            type: 'boolean',
+            title: 'Eligible'
+        },
+        keep_limit: {
+            type: 'integer',
+            title: 'Keep Limit'
+        },
+        rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rank'
+        },
+        cutoff_distance: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cutoff Distance'
+        },
+        cutoff_jumped_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Cutoff Jumped At'
+        }
+    },
+    type: 'object',
+    required: ['eligible', 'keep_limit'],
+    title: 'JumpstatReplayEligibilityPublic'
 } as const;
 
 export const JumpstatStrafeStatSchema = {
@@ -6991,4 +7051,29 @@ export const ValidationErrorSchema = {
     type: 'object',
     required: ['loc', 'msg', 'type'],
     title: 'ValidationError'
+} as const;
+
+export const VideoPlatformFollowerPublicSchema = {
+    properties: {
+        platform: {
+            '$ref': '#/components/schemas/PlayerSocialPlatform'
+        },
+        followers_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Followers Count'
+        },
+        url: {
+            type: 'string',
+            title: 'Url'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['platform', 'followers_count', 'url', 'updated_at'],
+    title: 'VideoPlatformFollowerPublic'
 } as const;

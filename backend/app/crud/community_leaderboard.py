@@ -12,6 +12,12 @@ from app.models import (
     Player,
     PlayerLike,
     PlayerProfileView,
+    PlayerSocialLink,
+    PlayerVideoPlatformFollowerCache,
+)
+from app.services.video_platform_followers import (
+    VIDEO_FOLLOWER_PLATFORMS,
+    load_best_video_platform_followers_for_players,
 )
 
 
@@ -21,6 +27,7 @@ def _sort_column(*, query: CommunityLeaderboardListQuery, subquery: Any) -> Any:
         "unique_visitors": subquery.c.unique_visitors,
         "likes": subquery.c.likes,
         "unique_likers": subquery.c.unique_likers,
+        "platform_followers": subquery.c.platform_followers,
     }
     return sort_columns[query.sort_by]
 
@@ -52,9 +59,33 @@ async def read_community_leaderboard(
         .group_by(col(PlayerLike.target_steamid64))
         .subquery()
     )
+    platform_follower_metrics = (
+        select(
+            col(PlayerVideoPlatformFollowerCache.player_steamid64).label(
+                "steamid64"
+            ),
+            func.max(PlayerVideoPlatformFollowerCache.follower_count).label(
+                "platform_followers"
+            ),
+        )
+        .join(
+            PlayerSocialLink,
+            col(PlayerSocialLink.id)
+            == PlayerVideoPlatformFollowerCache.social_link_id,
+        )
+        .where(
+            col(PlayerSocialLink.verified).is_(True),
+            col(PlayerSocialLink.platform).in_(VIDEO_FOLLOWER_PLATFORMS),
+            col(PlayerVideoPlatformFollowerCache.follower_count).is_not(None),
+            col(PlayerVideoPlatformFollowerCache.fetched_at).is_not(None),
+        )
+        .group_by(col(PlayerVideoPlatformFollowerCache.player_steamid64))
+        .subquery()
+    )
     targets = union(
         select(profile_view_metrics.c.steamid64),
         select(like_metrics.c.steamid64),
+        select(platform_follower_metrics.c.steamid64),
     ).subquery()
     all_metrics = (
         select(
@@ -67,6 +98,9 @@ async def read_community_leaderboard(
             ),
             func.coalesce(like_metrics.c.likes, 0).label("likes"),
             func.coalesce(like_metrics.c.unique_likers, 0).label("unique_likers"),
+            func.coalesce(platform_follower_metrics.c.platform_followers, 0).label(
+                "platform_followers"
+            ),
         )
         .select_from(targets)
         .outerjoin(
@@ -74,6 +108,10 @@ async def read_community_leaderboard(
             profile_view_metrics.c.steamid64 == targets.c.steamid64,
         )
         .outerjoin(like_metrics, like_metrics.c.steamid64 == targets.c.steamid64)
+        .outerjoin(
+            platform_follower_metrics,
+            platform_follower_metrics.c.steamid64 == targets.c.steamid64,
+        )
         .subquery()
     )
     metrics = (
@@ -83,6 +121,7 @@ async def read_community_leaderboard(
             all_metrics.c.unique_visitors,
             all_metrics.c.likes,
             all_metrics.c.unique_likers,
+            all_metrics.c.platform_followers,
         )
         .where(
             not_active_ban_exists_split_clause(
@@ -105,6 +144,7 @@ async def read_community_leaderboard(
             metrics.c.unique_visitors,
             metrics.c.likes,
             metrics.c.unique_likers,
+            metrics.c.platform_followers,
         )
         .order_by(sort_column.desc(), metrics.c.steamid64.asc())
         .offset(query.offset)
@@ -124,6 +164,10 @@ async def read_community_leaderboard(
         .order_by(_sort_column(query=query, subquery=page).desc(), page.c.steamid64.asc())
     )
     rows = (await session.execute(statement)).all()
+    video_followers_by_steamid64 = await load_best_video_platform_followers_for_players(
+        session=session,
+        steamid64s=[player.steamid64 for player, *_metrics in rows],
+    )
 
     return (
         [
@@ -134,6 +178,9 @@ async def read_community_leaderboard(
                 unique_visitors=int(unique_visitors),
                 likes=int(likes),
                 unique_likers=int(unique_likers),
+                video_platform_followers=video_followers_by_steamid64.get(
+                    player.steamid64
+                ),
             )
             for index, (
                 player,

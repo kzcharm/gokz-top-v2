@@ -9,6 +9,9 @@ from app.models import (
     BanType,
     CommunityLeaderboardListQuery,
     Player,
+    PlayerSocialLink,
+    PlayerSocialPlatform,
+    PlayerVideoPlatformFollowerCache,
 )
 from tests.utils.utils import random_steamid64
 
@@ -163,6 +166,169 @@ async def test_read_community_leaderboard_ranks_likes(
     ] == [
         (1, str(liked.steamid64), 0, 0, 4, 3),
         (2, str(less_liked.steamid64), 0, 0, 1, 1),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_read_community_leaderboard_returns_highest_verified_video_followers(
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Streamer",
+    )
+    viewer = await _create_viewer(db=db)
+    now = datetime(2026, 5, 2, 12, 0, tzinfo=UTC)
+
+    await crud.create_player_like(
+        session=db,
+        viewer_steamid64=viewer.steamid64,
+        target_steamid64=target.steamid64,
+        now=now,
+    )
+    bilibili_link = PlayerSocialLink(
+        player_steamid64=target.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="123456",
+        verified=True,
+    )
+    youtube_link = PlayerSocialLink(
+        player_steamid64=target.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@streamer",
+        verified=True,
+    )
+    twitch_link = PlayerSocialLink(
+        player_steamid64=target.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=False,
+    )
+    db.add_all([bilibili_link, youtube_link, twitch_link])
+    await db.commit()
+    for link in (bilibili_link, youtube_link, twitch_link):
+        await db.refresh(link)
+
+    fetched_at = datetime(2100, 1, 1, tzinfo=UTC)
+    db.add_all(
+        [
+            PlayerVideoPlatformFollowerCache(
+                social_link_id=bilibili_link.id,
+                player_steamid64=target.steamid64,
+                platform=bilibili_link.platform,
+                account_identifier=bilibili_link.account_identifier,
+                follower_count=250,
+                fetched_at=fetched_at,
+                last_attempted_at=fetched_at,
+            ),
+            PlayerVideoPlatformFollowerCache(
+                social_link_id=youtube_link.id,
+                player_steamid64=target.steamid64,
+                platform=youtube_link.platform,
+                account_identifier=youtube_link.account_identifier,
+                follower_count=900,
+                fetched_at=fetched_at,
+                last_attempted_at=fetched_at,
+            ),
+            PlayerVideoPlatformFollowerCache(
+                social_link_id=twitch_link.id,
+                player_steamid64=target.steamid64,
+                platform=twitch_link.platform,
+                account_identifier=twitch_link.account_identifier,
+                follower_count=2000,
+                fetched_at=fetched_at,
+                last_attempted_at=fetched_at,
+            ),
+        ]
+    )
+    await db.commit()
+
+    data, count = await crud.read_community_leaderboard(
+        session=db,
+        query=CommunityLeaderboardListQuery(sort_by="likes"),
+    )
+
+    assert count == 1
+    assert data[0].video_platform_followers is not None
+    assert data[0].video_platform_followers.platform == PlayerSocialPlatform.YOUTUBE
+    assert data[0].video_platform_followers.followers_count == 900
+    assert data[0].video_platform_followers.url == "https://www.youtube.com/@streamer"
+
+
+@pytest.mark.asyncio
+async def test_read_community_leaderboard_sorts_by_platform_followers(
+    db: AsyncSession,
+) -> None:
+    most_followed = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Most Followed",
+    )
+    less_followed = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Less Followed",
+    )
+    fetched_at = datetime(2100, 1, 1, tzinfo=UTC)
+    most_link = PlayerSocialLink(
+        player_steamid64=most_followed.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="mostfollowed",
+        verified=True,
+    )
+    less_link = PlayerSocialLink(
+        player_steamid64=less_followed.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="123456",
+        verified=True,
+    )
+    db.add_all([most_link, less_link])
+    await db.commit()
+    await db.refresh(most_link)
+    await db.refresh(less_link)
+    db.add_all(
+        [
+            PlayerVideoPlatformFollowerCache(
+                social_link_id=most_link.id,
+                player_steamid64=most_followed.steamid64,
+                platform=most_link.platform,
+                account_identifier=most_link.account_identifier,
+                follower_count=10_000,
+                fetched_at=fetched_at,
+                last_attempted_at=fetched_at,
+            ),
+            PlayerVideoPlatformFollowerCache(
+                social_link_id=less_link.id,
+                player_steamid64=less_followed.steamid64,
+                platform=less_link.platform,
+                account_identifier=less_link.account_identifier,
+                follower_count=500,
+                fetched_at=fetched_at,
+                last_attempted_at=fetched_at,
+            ),
+        ]
+    )
+    await db.commit()
+
+    data, count = await crud.read_community_leaderboard(
+        session=db,
+        query=CommunityLeaderboardListQuery(sort_by="platform_followers"),
+    )
+
+    assert count == 2
+    assert [
+        (
+            entry.rank,
+            entry.player.steamid64,
+            entry.video_platform_followers.followers_count
+            if entry.video_platform_followers
+            else None,
+        )
+        for entry in data
+    ] == [
+        (1, str(most_followed.steamid64), 10_000),
+        (2, str(less_followed.steamid64), 500),
     ]
 
 

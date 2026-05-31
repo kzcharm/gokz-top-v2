@@ -186,7 +186,7 @@ async def _mark_task_finished(
             state.last_created = result.created
             state.last_updated = result.updated
             state.last_errors = result.errors
-            state.last_warnings = result.warnings
+            state.last_warnings = getattr(result, "warnings", 0)
         elif error is not None:
             state.last_error = str(error)
         session.add(state)

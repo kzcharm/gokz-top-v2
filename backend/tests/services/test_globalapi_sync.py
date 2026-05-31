@@ -6,7 +6,12 @@ import pytest
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import GlobalApiSyncResult, GlobalApiSyncState, get_datetime_utc
+from app.models import (
+    GlobalApiSyncResult,
+    GlobalApiSyncState,
+    MapSyncResult,
+    get_datetime_utc,
+)
 from app.services import globalapi_sync
 
 pytestmark = pytest.mark.asyncio
@@ -319,6 +324,33 @@ async def test_run_globalapi_sync_tasks_records_state(
     assert state.last_updated == 3
     assert state.last_errors == 1
     assert state.last_warnings == 4
+
+
+async def test_run_globalapi_sync_tasks_defaults_missing_warning_count(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+
+    async def _task(*, session: AsyncSession) -> MapSyncResult:
+        del session
+        return MapSyncResult(processed=5, created=2, updated=3, errors=1)
+
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (globalapi_sync.GlobalApiSyncTask("maps", 86_400, _task),),
+    )
+
+    await globalapi_sync.run_globalapi_sync_tasks(only_stale=False)
+
+    state = await db.get(GlobalApiSyncState, "maps")
+    assert state is not None
+    assert state.last_processed == 5
+    assert state.last_created == 2
+    assert state.last_updated == 3
+    assert state.last_errors == 1
+    assert state.last_warnings == 0
 
 
 async def test_run_globalapi_sync_tasks_honors_per_task_staleness(

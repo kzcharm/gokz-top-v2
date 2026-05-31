@@ -164,6 +164,48 @@ async def test_get_twitch_app_access_token_reuses_cached_token(
     assert fetch_calls == 1
 
 
+async def test_fetch_twitch_app_access_token_sends_secret_in_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(
+        live_streams.settings,
+        "TWITCH_CLIENT_SECRET",
+        "client-secret",
+    )
+    captured_kwargs: dict[str, object] = {}
+
+    class _FakeAsyncClient:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def __aenter__(self) -> _FakeAsyncClient:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def post(self, url: str, **kwargs: object) -> httpx.Response:
+            captured_kwargs.update(kwargs)
+            return httpx.Response(
+                status_code=200,
+                json={"access_token": "app-token", "expires_in": 3600},
+                request=httpx.Request("POST", url),
+            )
+
+    monkeypatch.setattr(live_streams.httpx, "AsyncClient", _FakeAsyncClient)
+
+    token = await live_streams._fetch_twitch_app_access_token()
+
+    assert token.access_token == "app-token"
+    assert captured_kwargs.get("params") is None
+    assert captured_kwargs["data"] == {
+        "client_id": "client-id",
+        "client_secret": "client-secret",
+        "grant_type": "client_credentials",
+    }
+
+
 async def test_check_twitch_live_status_maps_live_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

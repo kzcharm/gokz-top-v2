@@ -628,6 +628,7 @@ export const ru = {
       empty: "Записи рейтинга сообщества не найдены.",
       loadFailedTitle: "Не удалось загрузить рейтинги сообщества",
       metrics: {
+        platformFollowers: "Подписчики платформы",
         viewsCount: "Просмотры",
         uniqueVisitors: "Уникальные посетители",
         likes: "Лайки",

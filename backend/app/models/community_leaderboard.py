@@ -3,12 +3,14 @@ from typing import Literal
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
+from .video_platform_followers import VideoPlatformFollowerPublic
 
 CommunityLeaderboardSortBy = Literal[
     "views_count",
     "unique_visitors",
     "likes",
     "unique_likers",
+    "platform_followers",
 ]
 
 
@@ -19,6 +21,7 @@ class CommunityLeaderboardEntryPublic(SQLModel):
     unique_visitors: int
     likes: int
     unique_likers: int
+    video_platform_followers: VideoPlatformFollowerPublic | None = None
 
 
 class CommunityLeaderboardsPublic(SQLModel):

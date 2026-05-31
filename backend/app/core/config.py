@@ -129,10 +129,13 @@ class Settings(BaseSettings):
     PLAYER_SESSION_TIMEOUT_SECONDS: int = 60
     PLAYER_SESSION_TIMEOUT_POLL_SECONDS: int = 15
     LIVE_STREAM_POLL_SECONDS: int = 30
+    VIDEO_PLATFORM_FOLLOWER_CACHE_TTL_SECONDS: int = 86_400
+    VIDEO_PLATFORM_FOLLOWER_REFRESH_LIMIT: int = 10
     JUMP_REPLAY_CLEANUP_POLL_SECONDS: int = 3600
     JUMP_REPLAY_CLEANUP_GRACE_DAYS: int = 7
     TWITCH_CLIENT_ID: str | None = None
     TWITCH_CLIENT_SECRET: str | None = None
+    YOUTUBE_API_KEY: str | None = None
     LOG_LEVEL: str = "INFO"
     GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")
     REPLAY_STORAGE_DIR: Path = Path("../.replays")

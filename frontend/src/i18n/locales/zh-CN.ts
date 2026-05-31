@@ -607,6 +607,7 @@ export const zhCN = {
       empty: "暂无社区排行数据。",
       loadFailedTitle: "无法加载社区排行",
       metrics: {
+        platformFollowers: "平台粉丝",
         viewsCount: "浏览次数",
         uniqueVisitors: "独立访客",
         likes: "喜欢",

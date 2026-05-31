@@ -55,9 +55,22 @@ async function installCommonRoutes(page: Page) {
       variables?: { steamid64s?: string[] }
     }
     const steamid64s = requestBody.variables?.steamid64s ?? []
-    const players = steamid64s.map((steamid64) =>
-      steamid64 === likedPlayer.steamid64 ? likedPlayer : viewedPlayer,
-    )
+    const players = steamid64s.map((steamid64) => {
+      if (steamid64 === likedPlayer.steamid64) {
+        return likedPlayer
+      }
+      if (steamid64 === viewedPlayer.steamid64) {
+        return viewedPlayer
+      }
+      const index = Number.parseInt(steamid64.slice(-3), 10) + 1
+      const displayName = `Community Player ${index}`
+      return {
+        ...viewedPlayer,
+        steamid64,
+        displayName,
+        name: displayName,
+      }
+    })
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -76,7 +89,7 @@ test("Community leaderboard sorts by selected community field", async ({
       const url = new URL(route.request().url())
       const sortBy = url.searchParams.get("sort_by")
       const row =
-        sortBy === "likes"
+        sortBy === "platform_followers"
           ? {
               rank: 1,
               player: {
@@ -87,18 +100,48 @@ test("Community leaderboard sorts by selected community field", async ({
               unique_visitors: 3,
               likes: 77,
               unique_likers: 25,
-            }
-          : {
-              rank: 1,
-              player: {
-                steamid64: viewedPlayer.steamid64,
-                display_name: viewedPlayer.displayName,
+              video_platform_followers: {
+                platform: "bilibili",
+                followers_count: 987654,
+                url: "https://space.bilibili.com/123456",
+                updated_at: "2026-05-01T12:00:00Z",
               },
-              views_count: 1234,
-              unique_visitors: 321,
-              likes: 12,
-              unique_likers: 8,
             }
+          : sortBy === "likes"
+            ? {
+                rank: 1,
+                player: {
+                  steamid64: likedPlayer.steamid64,
+                  display_name: likedPlayer.displayName,
+                },
+                views_count: 5,
+                unique_visitors: 3,
+                likes: 77,
+                unique_likers: 25,
+                video_platform_followers: {
+                  platform: "bilibili",
+                  followers_count: 54321,
+                  url: "https://space.bilibili.com/123456",
+                  updated_at: "2026-05-01T12:00:00Z",
+                },
+              }
+            : {
+                rank: 1,
+                player: {
+                  steamid64: viewedPlayer.steamid64,
+                  display_name: viewedPlayer.displayName,
+                },
+                views_count: 1234,
+                unique_visitors: 321,
+                likes: 12,
+                unique_likers: 8,
+                video_platform_followers: {
+                  platform: "youtube",
+                  followers_count: 123456,
+                  url: "https://www.youtube.com/@viewhero",
+                  updated_at: "2026-05-01T12:00:00Z",
+                },
+              }
 
       await route.fulfill({
         status: 200,
@@ -117,6 +160,9 @@ test("Community leaderboard sorts by selected community field", async ({
   await expect(page.getByText("Community Rankings")).toBeVisible()
   await expect(page.getByRole("button", { name: /Views Count/ })).toBeVisible()
   await expect(
+    page.getByRole("button", { name: /Platform Followers/ }),
+  ).toBeVisible()
+  await expect(
     page.getByRole("button", { name: /Unique Visitors/ }),
   ).toBeVisible()
   await expect(page.getByRole("button", { name: /Likes/ })).toBeVisible()
@@ -126,12 +172,25 @@ test("Community leaderboard sorts by selected community field", async ({
   await expect(page.getByText("View Hero")).toBeVisible()
   await expect(page.getByText("1,234", { exact: true })).toBeVisible()
   await expect(page.getByText("321", { exact: true })).toBeVisible()
+  await expect(page.getByText("123,456", { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "Open YouTube profile" }),
+  ).toHaveAttribute("href", "https://www.youtube.com/@viewhero")
+
+  await page.getByRole("button", { name: /Platform Followers/ }).click()
+
+  await expect(page.getByText("Like Hero")).toBeVisible()
+  await expect(page.getByText("987,654", { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "Open Bilibili profile" }),
+  ).toHaveAttribute("href", "https://space.bilibili.com/123456")
 
   await page.getByRole("button", { name: /Likes/ }).click()
 
   await expect(page.getByText("Like Hero")).toBeVisible()
   await expect(page.getByText("77", { exact: true })).toBeVisible()
   await expect(page.getByText("25", { exact: true })).toBeVisible()
+  await expect(page.getByText("54,321", { exact: true })).toBeVisible()
 })
 
 test("Community leaderboard shows more than ten rows", async ({ page }) => {
@@ -156,6 +215,7 @@ test("Community leaderboard shows more than ten rows", async ({ page }) => {
             unique_visitors: 50 - index,
             likes: 25 - index,
             unique_likers: 10 - index,
+            video_platform_followers: null,
           })),
           count: -1,
         }),
@@ -168,6 +228,7 @@ test("Community leaderboard shows more than ten rows", async ({ page }) => {
   await expect(
     page.getByText("Community Player 11", { exact: true }),
   ).toBeVisible()
+  await expect(page.getByRole("cell", { name: "-", exact: true })).toHaveCount(11)
   await expect(page.getByText("Rows per page")).toHaveCount(0)
 })
 

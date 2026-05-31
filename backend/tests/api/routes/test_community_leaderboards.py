@@ -5,7 +5,12 @@ from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.models import Player
+from app.models import (
+    Player,
+    PlayerSocialLink,
+    PlayerSocialPlatform,
+    PlayerVideoPlatformFollowerCache,
+)
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -72,6 +77,7 @@ async def test_read_community_leaderboard_returns_profile_views(
                 "unique_visitors": 2,
                 "likes": 0,
                 "unique_likers": 0,
+                "video_platform_followers": None,
             }
         ],
         "count": 1,
@@ -97,6 +103,27 @@ async def test_read_community_leaderboard_returns_likes(
         target_steamid64=target.steamid64,
         now=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
     )
+    link = PlayerSocialLink(
+        player_steamid64=target.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="123456",
+        verified=True,
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    db.add(
+        PlayerVideoPlatformFollowerCache(
+            social_link_id=link.id,
+            player_steamid64=target.steamid64,
+            platform=link.platform,
+            account_identifier=link.account_identifier,
+            follower_count=12345,
+            fetched_at=datetime(2100, 1, 1, tzinfo=UTC),
+            last_attempted_at=datetime(2100, 1, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
 
     response = await client.get(
         "/v1/leaderboards/community",
@@ -107,6 +134,12 @@ async def test_read_community_leaderboard_returns_likes(
     assert response.json()["count"] == -1
     assert response.json()["data"][0]["likes"] == 1
     assert response.json()["data"][0]["unique_likers"] == 1
+    assert response.json()["data"][0]["video_platform_followers"] == {
+        "platform": "bilibili",
+        "followers_count": 12345,
+        "url": "https://space.bilibili.com/123456",
+        "updated_at": "2100-01-01T00:00:00Z",
+    }
 
 
 async def test_read_community_leaderboard_filters_zero_value_sort_results(
