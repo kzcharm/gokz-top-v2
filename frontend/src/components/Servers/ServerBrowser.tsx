@@ -519,7 +519,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Search servers..."
               aria-label="Search servers"
-              className="h-9 bg-[#f5f5f4] pl-8 text-sm text-gray-950 dark:bg-[#f5f5f4] dark:text-gray-950"
+              className="h-9 bg-[#f5f5f4] pl-8 text-sm dark:bg-input/30"
             />
           </div>
           <div className="flex flex-wrap items-center gap-3">
