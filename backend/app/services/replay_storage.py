@@ -74,3 +74,21 @@ def save_replay(
 
     os.replace(temp_path, destination)
     return destination
+
+
+def delete_replay(
+    *,
+    namespace: ReplayNamespace,
+    replay_id: uuid.UUID,
+    relative_dir: Path | None = None,
+) -> bool:
+    path = get_replay_path(
+        namespace=namespace,
+        replay_id=replay_id,
+        relative_dir=relative_dir,
+    )
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True

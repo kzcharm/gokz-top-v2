@@ -25,6 +25,10 @@ from app.services.globalapi_sync import (
     run_globalapi_sync_runner_in_app,
     stop_globalapi_sync_runner,
 )
+from app.services.jump_replay_cleanup import (
+    run_jump_replay_cleanup_runner_in_app,
+    stop_jump_replay_cleanup_runner,
+)
 from app.services.live_streams import (
     run_live_stream_runner_in_app,
     stop_live_stream_runner,
@@ -67,6 +71,7 @@ async def lifespan(_: FastAPI):
     daily_rank_pipeline_task: asyncio.Task[None] | None = None
     player_session_timeout_task: asyncio.Task[None] | None = None
     live_stream_task: asyncio.Task[None] | None = None
+    jump_replay_cleanup_task: asyncio.Task[None] | None = None
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
         collector_task = asyncio.create_task(run_server_query_collector_in_app())
     if settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP:
@@ -81,6 +86,10 @@ async def lifespan(_: FastAPI):
         )
     if settings.RUN_LIVE_STREAM_RUNNER_IN_APP:
         live_stream_task = asyncio.create_task(run_live_stream_runner_in_app())
+    if settings.RUN_JUMP_REPLAY_CLEANUP_RUNNER_IN_APP:
+        jump_replay_cleanup_task = asyncio.create_task(
+            run_jump_replay_cleanup_runner_in_app()
+        )
     try:
         yield
     finally:
@@ -91,6 +100,7 @@ async def lifespan(_: FastAPI):
         await stop_daily_rank_pipeline_runner(daily_rank_pipeline_task)
         await stop_player_session_timeout_runner(player_session_timeout_task)
         await stop_live_stream_runner(live_stream_task)
+        await stop_jump_replay_cleanup_runner(jump_replay_cleanup_task)
 
 
 app = FastAPI(

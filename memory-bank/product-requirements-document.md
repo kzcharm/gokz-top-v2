@@ -114,6 +114,8 @@ Scope model:
   - `/v1/jumpstats/{id}/visualization` for replay-derived route visualization payloads
   - `/v1/players/{identifier}/jumpstats` for per-player history
 - SourceMod plugins can now submit jump replays through server-group-authenticated `POST /v1/jumpstats` multipart uploads; the backend derives the persisted jumpstat payload from the replay file instead of trusting separate client-reported stats.
+- SourceMod plugins can pre-check jump replay retention eligibility with `GET /v1/jumpstats/replay-eligibility` and upload eligible raw replay files to `POST /v1/jumpstats/replay`.
+- Jump replay retention keeps each player's best 10 Long Jump replay files and best replay file for each other supported jump type in every mode; cleanup removes old replay files that fall outside those keep sets without deleting jumpstat rows.
 - Jumpstat persistence is v2-native, keyed by UUIDv7 and server-group ownership rather than mirrored GlobalAPI server IDs.
 - Per-strafe breakdown rows are stored inline in PostgreSQL JSONB on the parent jumpstat row; there is no separate strafe detail table.
 - Replay-derived route visualizations are cached as versioned JSONB on the parent jumpstat row, rebuilt lazily from the stored replay when the cache is missing or stale, and surfaced on the public jumpstats leaderboard dialog.

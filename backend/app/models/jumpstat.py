@@ -346,6 +346,23 @@ class JumpstatsPublic(SQLModel):
     count: int
 
 
+class JumpstatReplayEligibilityQuery(SQLModel):
+    player_steamid64: int = Field(ge=1)
+    mode: KZMode
+    type: JumpstatType
+    distance: Decimal = Field(sa_column=Column(Numeric(8, 4)))
+    jumped_at: datetime | None = None
+    jumped_at_unix: int | None = Field(default=None, ge=0)
+
+
+class JumpstatReplayEligibilityPublic(SQLModel):
+    eligible: bool
+    keep_limit: int
+    rank: int | None = None
+    cutoff_distance: float | None = None
+    cutoff_jumped_at: datetime | None = None
+
+
 JumpstatSortBy = Literal["distance", "block", "jumped_at", "created_at"]
 
 
