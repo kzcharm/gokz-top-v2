@@ -18,7 +18,6 @@ from app.models import (
     VideoPlatformFollowerPublic,
     get_datetime_utc,
 )
-from app.services.live_streams import _get_twitch_app_access_token
 from app.services.player_social_links import build_player_social_link_url
 
 logger = logging.getLogger(__name__)
@@ -162,6 +161,8 @@ async def _fetch_twitch_user_id(
 async def fetch_twitch_follower_count(*, account_identifier: str) -> int:
     if not settings.TWITCH_CLIENT_ID or not settings.TWITCH_CLIENT_SECRET:
         raise RuntimeError("Twitch follower refresh credentials are not configured")
+
+    from app.services.live_streams import _get_twitch_app_access_token
 
     access_token = await _get_twitch_app_access_token()
     broadcaster_id = await _fetch_twitch_user_id(
