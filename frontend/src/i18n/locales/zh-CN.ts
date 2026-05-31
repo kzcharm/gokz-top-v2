@@ -619,8 +619,6 @@ export const zhCN = {
       averagePlaytime: "平均时长",
       proRatio: "PRO 比例",
       finishes: "完成次数",
-      averageFinishes: "人均完成",
-      firstAverage: "首通均值",
       firstMedian: "首通中位数",
     },
   },

@@ -633,8 +633,6 @@ export const en = {
       averagePlaytime: "Avg Playtime",
       proRatio: "PRO Ratio",
       finishes: "Finishes",
-      averageFinishes: "Avg Fin",
-      firstAverage: "1st Avg",
       firstMedian: "1st Med",
     },
   },

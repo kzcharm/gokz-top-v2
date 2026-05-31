@@ -640,8 +640,6 @@ export const ru = {
       averagePlaytime: "Среднее время",
       proRatio: "Доля PRO",
       finishes: "Финиши",
-      averageFinishes: "Ср. финишей",
-      firstAverage: "1-й ср.",
       firstMedian: "1-й медиана",
     },
   },
