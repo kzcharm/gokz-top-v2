@@ -13,6 +13,7 @@ from app.api.deps import (
     get_current_active_superuser,
 )
 from app.core.regions import is_valid_region_code
+from app.crud.server import mark_server_group_api_key_used
 from app.models import (
     MapPbLeaderboardPublic,
     MapPublic,
@@ -287,6 +288,7 @@ async def put_map_review(
             raise HTTPException(status_code=401, detail="Invalid server group API key")
         if group.status == ServerGroupStatus.INVALIDATED:
             raise HTTPException(status_code=403, detail="Server group is invalidated")
+        mark_server_group_api_key_used(session=session, group=group)
         server_group_id = group.id
 
     steamid64 = _resolve_review_target_steamid64(

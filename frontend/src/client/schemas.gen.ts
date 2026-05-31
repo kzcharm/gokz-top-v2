@@ -816,6 +816,18 @@ export const AdminServerGroupPublicSchema = {
             title: 'Server Count',
             default: 0
         },
+        last_api_key_used_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Api Key Used At'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -5939,6 +5951,18 @@ export const ServerGroupPublicSchema = {
             type: 'integer',
             title: 'Server Count',
             default: 0
+        },
+        last_api_key_used_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Api Key Used At'
         },
         created_at: {
             type: 'string',

@@ -676,7 +676,10 @@ async def test_put_server_status_updates_live_status_from_plugin(
 
     refreshed_group = await db.get(ServerGroup, group.id)
     assert refreshed_group is not None
+    await db.refresh(refreshed_group)
     assert refreshed_group.status == ServerGroupStatus.VALIDATED
+    assert refreshed_group.last_api_key_used_at is not None
+    assert refreshed_group.last_api_key_used_at >= observed_at
 
 
 async def test_put_server_status_auto_creates_missing_server_for_group(

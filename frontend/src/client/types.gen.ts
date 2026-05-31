@@ -179,6 +179,7 @@ export type AdminServerGroupPublic = {
     owner_steamid64?: (string | null);
     status: ServerGroupStatus;
     server_count?: number;
+    last_api_key_used_at?: (string | null);
     created_at: string;
     updated_at: string;
     api_key: string;
@@ -1212,6 +1213,7 @@ export type ServerGroupPublic = {
     owner_steamid64?: (string | null);
     status: ServerGroupStatus;
     server_count?: number;
+    last_api_key_used_at?: (string | null);
     created_at: string;
     updated_at: string;
 };

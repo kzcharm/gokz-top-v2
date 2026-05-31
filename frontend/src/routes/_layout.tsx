@@ -17,6 +17,7 @@ function Layout() {
         pathname.startsWith("/dashboard") ||
         pathname.startsWith("/profile") ||
         pathname.startsWith("/leaderboards") ||
+        pathname.startsWith("/admin/servers") ||
         pathname.startsWith("/bans") ||
         pathname.startsWith("/live")
           ? "max-w-[1600px]"

@@ -220,6 +220,7 @@ def to_server_group_public(
         ),
         status=group.status,
         server_count=server_count,
+        last_api_key_used_at=group.last_api_key_used_at,
         created_at=group.created_at,
         updated_at=group.updated_at,
     )
@@ -304,6 +305,11 @@ async def get_server_group_by_api_key(
 ) -> ServerGroup | None:
     statement = select(ServerGroup).where(ServerGroup.api_key == api_key)
     return (await session.exec(statement)).first()
+
+
+def mark_server_group_api_key_used(*, session: AsyncSession, group: ServerGroup) -> None:
+    group.last_api_key_used_at = get_datetime_utc()
+    session.add(group)
 
 
 async def get_server_groups_by_custom_id_or_name(
