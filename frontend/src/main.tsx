@@ -16,7 +16,10 @@ import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./i18n"
 import "./index.css"
+import { applyDevBranding } from "./lib/dev-branding"
 import { routeTree } from "./routeTree.gen"
+
+applyDevBranding()
 
 OpenAPI.BASE = import.meta.env.VITE_API_URL
 OpenAPI.TOKEN = async () => {

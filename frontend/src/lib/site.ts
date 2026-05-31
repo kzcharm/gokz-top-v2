@@ -1,8 +1,15 @@
 export const SITE_NAME = "GOKZ.TOP"
 export const SITE_START_YEAR = 2024
+export const IS_LOCAL_DEV = import.meta.env.DEV
+export const BRAND_MARK_SRC = IS_LOCAL_DEV
+  ? "/apple-touch-icon-dev.png"
+  : "/apple-touch-icon.png"
+export const COMPACT_BRAND_MARK_SRC = IS_LOCAL_DEV
+  ? "/logo-mark-square-dev.png"
+  : "/logo-mark-square.png"
 
 function getAppVersionLabel(version: string): string {
-  if (import.meta.env.DEV) {
+  if (IS_LOCAL_DEV) {
     return "dev"
   }
 

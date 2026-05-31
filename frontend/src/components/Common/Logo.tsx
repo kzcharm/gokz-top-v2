@@ -1,6 +1,11 @@
 import { Link } from "@tanstack/react-router"
 
-import { APP_VERSION_LABEL, SITE_NAME } from "@/lib/site"
+import {
+  APP_VERSION_LABEL,
+  BRAND_MARK_SRC,
+  COMPACT_BRAND_MARK_SRC,
+  SITE_NAME,
+} from "@/lib/site"
 import { cn } from "@/lib/utils"
 
 interface LogoProps {
@@ -15,7 +20,7 @@ export function Logo({
   asLink = true,
 }: LogoProps) {
   const logoSrc =
-    variant === "responsive" ? "/logo-mark-square.png" : "/apple-touch-icon.png"
+    variant === "responsive" ? COMPACT_BRAND_MARK_SRC : BRAND_MARK_SRC
   const markClassName =
     variant === "responsive"
       ? "size-8 rounded-lg shadow-[0_1px_2px_rgb(0_0_0_/_0.08)]"
@@ -48,7 +53,7 @@ export function Logo({
       <>
         <span className="group-data-[collapsible=icon]:hidden">{fullLogo}</span>
         <img
-          src="/logo-mark-square.png"
+          src={COMPACT_BRAND_MARK_SRC}
           alt={SITE_NAME}
           className={cn(
             "size-8 rounded-lg shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] hidden group-data-[collapsible=icon]:block",
