@@ -816,6 +816,18 @@ export const AdminServerGroupPublicSchema = {
             title: 'Server Count',
             default: 0
         },
+        last_api_key_used_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Api Key Used At'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -1027,6 +1039,16 @@ export const BanListItemPublicSchema = {
                     type: 'null'
                 }
             ]
+        },
+        server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/BanServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
@@ -1151,11 +1173,44 @@ export const BanPublicSchema = {
                     type: 'null'
                 }
             ]
+        },
+        server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/BanServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
     required: ['uuid', 'ban_type', 'created_at', 'updated_at'],
     title: 'BanPublic'
+} as const;
+
+export const BanServerPublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id'],
+    title: 'BanServerPublic'
 } as const;
 
 export const BanTypeSchema = {
@@ -5846,6 +5901,18 @@ export const ServerGroupPublicSchema = {
             type: 'integer',
             title: 'Server Count',
             default: 0
+        },
+        last_api_key_used_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Api Key Used At'
         },
         created_at: {
             type: 'string',

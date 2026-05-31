@@ -109,6 +109,10 @@ class ServerGroup(ServerGroupBase, table=True):
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
     api_key: str = Field(max_length=36)
+    last_api_key_used_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+    )
     owner_steamid64: int | None = Field(
         default=None,
         foreign_key="player.steamid64",
@@ -411,6 +415,7 @@ class ServerGroupPublic(ServerGroupBase):
     owner_steamid64: str | None = None
     status: ServerGroupStatus
     server_count: int = 0
+    last_api_key_used_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

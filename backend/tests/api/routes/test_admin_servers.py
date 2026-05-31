@@ -504,6 +504,7 @@ async def test_admin_server_groups_owner_scope_and_metadata_update(
     assert payload["count"] == 1
     assert payload["data"][0]["id"] == str(owned_group.id)
     assert payload["data"][0]["api_key"]
+    assert payload["data"][0]["last_api_key_used_at"] is None
 
     ignored_status_response = await client.patch(
         f"{settings.API_V1_STR}/admin/servers/groups/{owned_group.id}",
