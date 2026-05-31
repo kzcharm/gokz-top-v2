@@ -14,6 +14,12 @@ from .ban import (
     BanType,
     BanUpdate,
 )
+from .community_leaderboard import (
+    CommunityLeaderboardEntryPublic,
+    CommunityLeaderboardListQuery,
+    CommunityLeaderboardSortBy,
+    CommunityLeaderboardsPublic,
+)
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .jumpstat import (
     Jumpstat,
@@ -368,6 +374,10 @@ __all__ = [
     "BanUpdate",
     "BansPublic",
     "BanType",
+    "CommunityLeaderboardEntryPublic",
+    "CommunityLeaderboardListQuery",
+    "CommunityLeaderboardSortBy",
+    "CommunityLeaderboardsPublic",
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
     "Jumpstat",

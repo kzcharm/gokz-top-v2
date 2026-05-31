@@ -502,6 +502,7 @@ export const zhCN = {
   leaderboards: {
     tabs: {
       players: "玩家",
+      community: "社区",
       pow: "POW",
       jumpstats: "Jumpstats",
       servers: "服务器",
@@ -596,6 +597,20 @@ export const zhCN = {
       findMe: {
         loginRequiredTitle: "需要登录",
         loginRequiredDescription: "请先登录，再在排行榜中查找自己。",
+      },
+    },
+    community: {
+      title: "社区排行",
+      subtitle: "GOKZ.TOP 个人主页互动的历史总榜。",
+      metricAria: "选择社区排行",
+      entries: "条",
+      empty: "暂无社区排行数据。",
+      loadFailedTitle: "无法加载社区排行",
+      metrics: {
+        viewsCount: "浏览次数",
+        uniqueVisitors: "独立访客",
+        likes: "喜欢",
+        uniqueLikers: "独立点赞者",
       },
     },
     mapColumns: {

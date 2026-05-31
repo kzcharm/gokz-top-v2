@@ -36,6 +36,7 @@ import { Route as LayoutLeaderboardsPowRouteImport } from './routes/_layout/lead
 import { Route as LayoutLeaderboardsPlayersRouteImport } from './routes/_layout/leaderboards.players'
 import { Route as LayoutLeaderboardsMapsRouteImport } from './routes/_layout/leaderboards.maps'
 import { Route as LayoutLeaderboardsJumpstatsRouteImport } from './routes/_layout/leaderboards.jumpstats'
+import { Route as LayoutLeaderboardsCommunityRouteImport } from './routes/_layout/leaderboards.community'
 import { Route as LayoutDashboardReviewsRouteImport } from './routes/_layout/dashboard.reviews'
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
@@ -194,6 +195,12 @@ const LayoutLeaderboardsJumpstatsRoute =
     path: '/jumpstats',
     getParentRoute: () => LayoutLeaderboardsRoute,
   } as any)
+const LayoutLeaderboardsCommunityRoute =
+  LayoutLeaderboardsCommunityRouteImport.update({
+    id: '/community',
+    path: '/community',
+    getParentRoute: () => LayoutLeaderboardsRoute,
+  } as any)
 const LayoutDashboardReviewsRoute = LayoutDashboardReviewsRouteImport.update({
   id: '/reviews',
   path: '/reviews',
@@ -319,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
+  '/leaderboards/community': typeof LayoutLeaderboardsCommunityRoute
   '/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
   '/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
   '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
@@ -365,6 +373,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/dashboard/reviews': typeof LayoutDashboardReviewsRoute
+  '/leaderboards/community': typeof LayoutLeaderboardsCommunityRoute
   '/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
   '/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
   '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
@@ -412,6 +421,7 @@ export interface FileRoutesById {
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
   '/_layout/dashboard/reviews': typeof LayoutDashboardReviewsRoute
+  '/_layout/leaderboards/community': typeof LayoutLeaderboardsCommunityRoute
   '/_layout/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
   '/_layout/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
   '/_layout/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
@@ -460,6 +470,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/dashboard/records'
     | '/dashboard/reviews'
+    | '/leaderboards/community'
     | '/leaderboards/jumpstats'
     | '/leaderboards/maps'
     | '/leaderboards/players'
@@ -506,6 +517,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/dashboard/records'
     | '/dashboard/reviews'
+    | '/leaderboards/community'
     | '/leaderboards/jumpstats'
     | '/leaderboards/maps'
     | '/leaderboards/players'
@@ -552,6 +564,7 @@ export interface FileRouteTypes {
     | '/_layout/admin/users'
     | '/_layout/dashboard/records'
     | '/_layout/dashboard/reviews'
+    | '/_layout/leaderboards/community'
     | '/_layout/leaderboards/jumpstats'
     | '/_layout/leaderboards/maps'
     | '/_layout/leaderboards/players'
@@ -776,6 +789,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutLeaderboardsJumpstatsRouteImport
       parentRoute: typeof LayoutLeaderboardsRoute
     }
+    '/_layout/leaderboards/community': {
+      id: '/_layout/leaderboards/community'
+      path: '/community'
+      fullPath: '/leaderboards/community'
+      preLoaderRoute: typeof LayoutLeaderboardsCommunityRouteImport
+      parentRoute: typeof LayoutLeaderboardsRoute
+    }
     '/_layout/dashboard/reviews': {
       id: '/_layout/dashboard/reviews'
       path: '/reviews'
@@ -958,6 +978,7 @@ const LayoutDashboardRouteWithChildren = LayoutDashboardRoute._addFileChildren(
 )
 
 interface LayoutLeaderboardsRouteChildren {
+  LayoutLeaderboardsCommunityRoute: typeof LayoutLeaderboardsCommunityRoute
   LayoutLeaderboardsJumpstatsRoute: typeof LayoutLeaderboardsJumpstatsRoute
   LayoutLeaderboardsMapsRoute: typeof LayoutLeaderboardsMapsRoute
   LayoutLeaderboardsPlayersRoute: typeof LayoutLeaderboardsPlayersRoute
@@ -966,6 +987,7 @@ interface LayoutLeaderboardsRouteChildren {
 }
 
 const LayoutLeaderboardsRouteChildren: LayoutLeaderboardsRouteChildren = {
+  LayoutLeaderboardsCommunityRoute: LayoutLeaderboardsCommunityRoute,
   LayoutLeaderboardsJumpstatsRoute: LayoutLeaderboardsJumpstatsRoute,
   LayoutLeaderboardsMapsRoute: LayoutLeaderboardsMapsRoute,
   LayoutLeaderboardsPlayersRoute: LayoutLeaderboardsPlayersRoute,

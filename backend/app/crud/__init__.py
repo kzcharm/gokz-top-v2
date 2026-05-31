@@ -11,6 +11,7 @@ from .ban import (
     to_ban_public,
     update_ban,
 )
+from .community_leaderboard import read_community_leaderboard
 from .jumpstat import (
     get_jumpstat_by_id,
     read_jumpstat_leaderboard,
@@ -388,6 +389,7 @@ __all__ = [
     "get_max_record_globalapi_id",
     "read_maps",
     "read_admin_maps",
+    "read_community_leaderboard",
     "read_admin_player_sessions",
     "read_admin_player_session_ip_links",
     "read_admin_player_social_links",
