@@ -17,8 +17,10 @@ import { Toaster } from "./components/ui/sonner"
 import "./i18n"
 import "./index.css"
 import { applyDevBranding } from "./lib/dev-branding"
+import { bootstrapAnalyticsConsentPreview } from "./lib/google-analytics"
 import { routeTree } from "./routeTree.gen"
 
+bootstrapAnalyticsConsentPreview()
 applyDevBranding()
 
 OpenAPI.BASE = import.meta.env.VITE_API_URL

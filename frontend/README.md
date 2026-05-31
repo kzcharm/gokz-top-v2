@@ -91,6 +91,30 @@ VITE_REPLAY_VIEWER_URL=http://localhost:5180
 If it is not set, the frontend defaults to `http://localhost:5180` in dev and
 `https://replays.gokz.top` outside dev mode.
 
+## Google Analytics
+
+Production builds include consent-gated GA4 pageview tracking with measurement
+ID `G-SD145MZQDR`. Google Analytics is only loaded after a visitor accepts the
+analytics banner, and local dev builds never load the Google tag.
+
+To preview the consent banner locally, open any frontend route with:
+
+```text
+?analytics-consent-preview=1
+```
+
+For example:
+
+```text
+http://localhost:5173/?analytics-consent-preview=1
+```
+
+You can also trigger the preview from the browser console in local dev:
+
+```js
+previewAnalyticsConsentBanner()
+```
+
 ## Code Structure
 
 The frontend code is structured as follows:
