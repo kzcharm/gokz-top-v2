@@ -158,6 +158,7 @@ async def build_player_friend_sync_public(
             action_timestamp.recorded_at if action_timestamp is not None else None
         ),
         next_allowed_at=next_allowed_at,
+        steam_friends_count=player.steam_friends_count,
     )
 
 
@@ -264,6 +265,7 @@ async def sync_player_friends(
 
     player.friends_visibility = PlayerFriendsVisibility.PUBLIC
     player.friends_visibility_checked_at = now
+    player.steam_friends_count = len(steam_friend_ids)
     session.add(player)
     await session.commit()
     await session.refresh(player)

@@ -324,6 +324,8 @@ export const ru = {
       syncing: "Синхронизация...",
       synced: "Друзья синхронизированы",
       syncFailed: "Не удалось синхронизировать друзей",
+      kzRatio:
+        "{{kzFriends}} / {{totalFriends}} ({{percent}}% друзей играют в KZ)",
       sortFields: {
         name: "Имя",
         steamid64: "SteamID64",

@@ -39,6 +39,7 @@ class PlayerFriendSyncPublic(SQLModel):
     last_checked_at: datetime | None = None
     last_attempted_at: datetime | None = None
     next_allowed_at: datetime | None = None
+    steam_friends_count: int | None = None
 
 
 class PlayerFriendsPublic(SQLModel):

@@ -317,6 +317,7 @@ export const zhCN = {
       syncing: "同步中...",
       synced: "好友已同步",
       syncFailed: "同步好友失败",
+      kzRatio: "{{kzFriends}} / {{totalFriends}}（{{percent}}% 好友在玩 KZ）",
       sortFields: {
         name: "名称",
         steamid64: "SteamID64",

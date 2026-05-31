@@ -322,6 +322,8 @@ export const en = {
       syncing: "Syncing...",
       synced: "Friends synced",
       syncFailed: "Failed to sync friends",
+      kzRatio:
+        "{{kzFriends}} / {{totalFriends}} ({{percent}}% friends are playing KZ)",
       sortFields: {
         name: "Name",
         steamid64: "SteamID64",

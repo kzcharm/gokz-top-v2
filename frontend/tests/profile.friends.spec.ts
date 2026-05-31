@@ -1,7 +1,18 @@
 import { expect, type Page, test } from "@playwright/test"
 
 const steamid64 = "76561198000000001"
-const friendSteamid64 = "76561198000000002"
+const friendSteamid64 = "76561198000000004"
+
+function createAccessToken(steamid64Value: string) {
+  const encodeBase64Url = (value: string) =>
+    Buffer.from(value)
+      .toString("base64")
+      .replace(/=/g, "")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+
+  return `${encodeBase64Url(JSON.stringify({ alg: "none" }))}.${encodeBase64Url(JSON.stringify({ sub: steamid64Value }))}.`
+}
 
 const player = {
   name: "Owner",
@@ -143,8 +154,28 @@ async function installProfileShellRoutes(
     onSync?: () => object
   },
 ) {
+  await page.addInitScript(
+    (accessToken) => {
+      if (accessToken) {
+        localStorage.setItem("access_token", accessToken)
+        return
+      }
+
+      localStorage.removeItem("access_token")
+    },
+    currentUserSteamid64 ? createAccessToken(currentUserSteamid64) : null,
+  )
+
+  await page.route("**/v1/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    })
+  })
+
   if (currentUserSteamid64) {
-    await page.route(/\/v1\/users\/me$/, async (route) => {
+    await page.route("**/v1/users/me**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -156,7 +187,7 @@ async function installProfileShellRoutes(
       })
     })
   } else {
-    await page.route(/\/v1\/users\/me$/, async (route) => {
+    await page.route("**/v1/users/me**", async (route) => {
       await route.fulfill({
         status: 401,
         contentType: "application/json",
@@ -178,6 +209,14 @@ async function installProfileShellRoutes(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ profile_views: 0 }),
+    })
+  })
+
+  await page.route(/\/v1\/players\/[^/]+\/likes$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ player_likes: 0, viewer_liked_today: false }),
     })
   })
 
@@ -231,7 +270,7 @@ async function installProfileShellRoutes(
     })
   })
 
-  await page.route(/\/v1\/players\/[^/]+\/friends$/, async (route) => {
+  await page.route("**/v1/players/*/friends**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -239,7 +278,7 @@ async function installProfileShellRoutes(
     })
   })
 
-  await page.route(/\/v1\/players\/[^/]+\/friends\/sync$/, async (route) => {
+  await page.route("**/v1/me/friend-sync-requests**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -347,6 +386,7 @@ test("Own friends tab auto-syncs once and supports manual sync", async ({
               last_checked_at: null,
               last_attempted_at: null,
               next_allowed_at: null,
+              steam_friends_count: null,
             },
           }
         : {
@@ -357,6 +397,7 @@ test("Own friends tab auto-syncs once and supports manual sync", async ({
               last_checked_at: "2026-05-13T12:00:00Z",
               last_attempted_at: "2026-05-13T12:00:00Z",
               next_allowed_at: null,
+              steam_friends_count: 2,
             },
           }
     },
@@ -370,6 +411,7 @@ test("Own friends tab auto-syncs once and supports manual sync", async ({
           last_checked_at: "2026-05-13T12:00:00Z",
           last_attempted_at: "2026-05-13T12:00:00Z",
           next_allowed_at: null,
+          steam_friends_count: 2,
         },
       }
     },
@@ -383,6 +425,9 @@ test("Own friends tab auto-syncs once and supports manual sync", async ({
   )
   await expect(page.getByTestId("profile-friends-sync-button")).toHaveText(
     "Sync",
+  )
+  await expect(page.getByTestId("profile-friends-kz-ratio")).toHaveText(
+    "1 / 2 (50% friends are playing KZ)",
   )
   await expect(page.getByTestId("profile-friends-list")).toBeVisible()
   await expect(page.getByText("Friend Alias")).toBeVisible()
@@ -411,6 +456,7 @@ test("Public visitor sees privacy warning and no sync button", async ({
         last_checked_at: "2026-05-13T12:00:00Z",
         last_attempted_at: "2026-05-13T12:00:00Z",
         next_allowed_at: null,
+        steam_friends_count: null,
       },
     }),
   })
@@ -419,6 +465,37 @@ test("Public visitor sees privacy warning and no sync button", async ({
 
   await expect(page.getByTestId("profile-friends-warning")).toBeVisible()
   await expect(page.getByTestId("profile-friends-sync-button")).toHaveCount(0)
+  await expect(page.getByTestId("profile-friends-kz-ratio")).toHaveCount(0)
+})
+
+test("Own empty friends tab keeps sync row and shows KZ ratio", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page, {
+    currentUserSteamid64: steamid64,
+    friendsPayload: () => ({
+      data: [],
+      count: 0,
+      sync: {
+        visibility: "public",
+        last_checked_at: "2026-05-13T12:00:00Z",
+        last_attempted_at: "2026-05-13T12:00:00Z",
+        next_allowed_at: null,
+        steam_friends_count: 2,
+      },
+    }),
+  })
+
+  await page.goto(`/profile/${steamid64}/friends`)
+
+  await expect(page.getByTestId("profile-friends-kz-ratio")).toHaveText(
+    "0 / 2 (0% friends are playing KZ)",
+  )
+  await expect(page.getByTestId("profile-friends-sync-button")).toHaveText(
+    "Sync",
+  )
+  await expect(page.getByTestId("profile-friends-empty")).toBeVisible()
+  await expect(page.getByTestId("profile-friends-sort-bar")).toHaveCount(0)
 })
 
 test("Friends tab supports client-side sorting fields and directions", async ({
@@ -434,6 +511,7 @@ test("Friends tab supports client-side sorting fields and directions", async ({
         last_checked_at: "2026-05-13T12:00:00Z",
         last_attempted_at: "2026-05-13T12:00:00Z",
         next_allowed_at: null,
+        steam_friends_count: sortableFriends.length,
       },
     }),
   })
@@ -445,10 +523,10 @@ test("Friends tab supports client-side sorting fields and directions", async ({
   await expect(rows.first()).toContainText("Alpha")
 
   await page.getByTestId("profile-friends-sort-name").click()
-  await expect(rows.first()).toContainText("Zulu")
+  await expect(rows.first()).toContainText("Alpha")
 
   await page.getByTestId("profile-friends-sort-name").click()
-  await expect(rows.first()).toContainText("Alpha")
+  await expect(rows.first()).toContainText("Zulu")
 
   await page.getByTestId("profile-friends-sort-country").click()
   await expect(rows.first()).toContainText("Alpha")

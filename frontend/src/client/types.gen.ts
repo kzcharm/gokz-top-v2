@@ -716,6 +716,7 @@ export type PlayerFriendSyncPublic = {
     last_checked_at?: (string | null);
     last_attempted_at?: (string | null);
     next_allowed_at?: (string | null);
+    steam_friends_count?: (number | null);
 };
 
 export type PlayerLeaderboardEntryPublic = {

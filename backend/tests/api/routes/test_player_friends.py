@@ -27,12 +27,14 @@ async def _create_player(
     name: str,
     friends_visibility: PlayerFriendsVisibility | None = None,
     friends_visibility_checked_at: datetime | None = None,
+    steam_friends_count: int | None = None,
 ) -> Player:
     player = Player(
         steamid64=steamid64,
         name=name,
         friends_visibility=friends_visibility,
         friends_visibility_checked_at=friends_visibility_checked_at,
+        steam_friends_count=steam_friends_count,
     )
     db.add(player)
     await db.commit()
@@ -81,6 +83,7 @@ async def test_read_player_friends_returns_public_sync_metadata(
         name="Owner",
         friends_visibility=PlayerFriendsVisibility.PUBLIC,
         friends_visibility_checked_at=datetime.now(UTC) - timedelta(seconds=10),
+        steam_friends_count=3,
     )
     friend = await _create_player(
         db,
@@ -109,6 +112,7 @@ async def test_read_player_friends_returns_public_sync_metadata(
     assert payload["sync"]["visibility"] == "public"
     assert payload["sync"]["last_attempted_at"] is not None
     assert payload["sync"]["next_allowed_at"] is not None
+    assert payload["sync"]["steam_friends_count"] == 3
 
 
 async def test_sync_player_friends_reconciles_known_friends_and_deletes_stale_edges(
@@ -169,6 +173,7 @@ async def test_sync_player_friends_reconciles_known_friends_and_deletes_stale_ed
     assert payload["count"] == 1
     assert payload["data"][0]["steamid64"] == str(current_friend.steamid64)
     assert payload["sync"]["visibility"] == "public"
+    assert payload["sync"]["steam_friends_count"] == 2
 
     assert await db.get(PlayerFriend, (owner.steamid64, current_friend.steamid64)) is not None
     assert await db.get(PlayerFriend, (current_friend.steamid64, owner.steamid64)) is not None
@@ -182,7 +187,12 @@ async def test_sync_player_friends_private_result_preserves_existing_edges(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    owner = await _create_player(db, steamid64=random_steamid64(), name="Owner")
+    owner = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Owner",
+        steam_friends_count=7,
+    )
     stale_friend = await _create_player(
         db,
         steamid64=random_steamid64(),
@@ -222,6 +232,8 @@ async def test_sync_player_friends_private_result_preserves_existing_edges(
 
     assert response.status_code == 200
     assert response.json()["sync"]["visibility"] == "private_friends"
+    await db.refresh(owner)
+    assert owner.steam_friends_count == 7
     assert await db.get(PlayerFriend, (owner.steamid64, stale_friend.steamid64)) is not None
     assert await db.get(PlayerFriend, (stale_friend.steamid64, owner.steamid64)) is not None
 

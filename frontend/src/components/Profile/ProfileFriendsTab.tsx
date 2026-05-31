@@ -101,12 +101,14 @@ function FriendCard({ friend }: { friend: PlayerPublic }) {
 
 export function ProfileFriendsTab({
   friends,
+  friendsCount,
   sync,
   loading,
   error,
   actions,
 }: {
   friends: PlayerPublic[]
+  friendsCount: number
   sync: ProfileFriendSync | null
   loading: boolean
   error: boolean
@@ -135,6 +137,21 @@ export function ProfileFriendsTab({
       ),
     [friendDisplayPlayersQuery.data],
   )
+  const friendsRatio = useMemo(() => {
+    if (sync?.visibility !== "public" || sync.steam_friends_count == null) {
+      return null
+    }
+
+    const totalFriends = sync.steam_friends_count
+    const percent =
+      totalFriends === 0 ? 0 : Math.round((friendsCount / totalFriends) * 100)
+
+    return t("profile.friends.kzRatio", {
+      kzFriends: friendsCount,
+      totalFriends,
+      percent,
+    })
+  }, [friendsCount, sync?.steam_friends_count, sync?.visibility, t])
 
   const handleSortChange = (nextSortField: FriendSortField) => {
     setSortField(nextSortField)
@@ -165,7 +182,7 @@ export function ProfileFriendsTab({
       if (right === null) {
         return -1
       }
-      return left - right
+      return (left - right) * directionMultiplier
     }
 
     return [...friends].sort((left, right) => {
@@ -202,7 +219,9 @@ export function ProfileFriendsTab({
       }
 
       if (comparison !== 0) {
-        return comparison * directionMultiplier
+        return sortField === "rating" || sortField === "last_played"
+          ? comparison
+          : comparison * directionMultiplier
       }
 
       return left.steamid64.localeCompare(right.steamid64) * directionMultiplier
@@ -252,76 +271,92 @@ export function ProfileFriendsTab({
     )
   }
 
-  if (friends.length === 0) {
-    return (
-      <div
-        className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-sm text-muted-foreground"
-        data-testid="profile-friends-empty"
-      >
-        {t("profile.friends.empty")}
-      </div>
-    )
-  }
+  const showHeader = friends.length > 0 || actions || friendsRatio
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          className="rounded-[20px] border border-border/70 bg-muted/95 px-6 py-3 shadow-sm"
-          data-testid="profile-friends-sort-bar"
-        >
-          <div className="flex flex-wrap gap-4">
-            <FriendSortControl
-              active={sortField === "name"}
-              direction={sortDirection}
-              label={t("profile.friends.sortFields.name")}
-              testId="profile-friends-sort-name"
-              onClick={() => handleSortChange("name")}
-            />
-            <FriendSortControl
-              active={sortField === "steamid64"}
-              direction={sortDirection}
-              label={t("profile.friends.sortFields.steamid64")}
-              testId="profile-friends-sort-steamid64"
-              onClick={() => handleSortChange("steamid64")}
-            />
-            <FriendSortControl
-              active={sortField === "country"}
-              direction={sortDirection}
-              label={t("profile.friends.sortFields.country")}
-              testId="profile-friends-sort-country"
-              onClick={() => handleSortChange("country")}
-            />
-            <FriendSortControl
-              active={sortField === "rating"}
-              direction={sortDirection}
-              label={t("profile.friends.sortFields.rating")}
-              testId="profile-friends-sort-rating"
-              onClick={() => handleSortChange("rating")}
-            />
-            <FriendSortControl
-              active={sortField === "last_played"}
-              direction={sortDirection}
-              label={t("profile.friends.sortFields.lastPlayed")}
-              testId="profile-friends-sort-last-played"
-              onClick={() => handleSortChange("last_played")}
-            />
-          </div>
+      {showHeader ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {friends.length > 0 ? (
+            <div
+              className="rounded-[20px] border border-border/70 bg-muted/95 px-6 py-3 shadow-sm"
+              data-testid="profile-friends-sort-bar"
+            >
+              <div className="flex flex-wrap gap-4">
+                <FriendSortControl
+                  active={sortField === "name"}
+                  direction={sortDirection}
+                  label={t("profile.friends.sortFields.name")}
+                  testId="profile-friends-sort-name"
+                  onClick={() => handleSortChange("name")}
+                />
+                <FriendSortControl
+                  active={sortField === "steamid64"}
+                  direction={sortDirection}
+                  label={t("profile.friends.sortFields.steamid64")}
+                  testId="profile-friends-sort-steamid64"
+                  onClick={() => handleSortChange("steamid64")}
+                />
+                <FriendSortControl
+                  active={sortField === "country"}
+                  direction={sortDirection}
+                  label={t("profile.friends.sortFields.country")}
+                  testId="profile-friends-sort-country"
+                  onClick={() => handleSortChange("country")}
+                />
+                <FriendSortControl
+                  active={sortField === "rating"}
+                  direction={sortDirection}
+                  label={t("profile.friends.sortFields.rating")}
+                  testId="profile-friends-sort-rating"
+                  onClick={() => handleSortChange("rating")}
+                />
+                <FriendSortControl
+                  active={sortField === "last_played"}
+                  direction={sortDirection}
+                  label={t("profile.friends.sortFields.lastPlayed")}
+                  testId="profile-friends-sort-last-played"
+                  onClick={() => handleSortChange("last_played")}
+                />
+              </div>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {friendsRatio || actions ? (
+            <div className="flex flex-wrap items-center justify-start gap-3 sm:justify-end">
+              {friendsRatio ? (
+                <p
+                  className="text-sm font-medium text-muted-foreground"
+                  data-testid="profile-friends-kz-ratio"
+                >
+                  {friendsRatio}
+                </p>
+              ) : null}
+              {actions}
+            </div>
+          ) : null}
         </div>
+      ) : null}
 
-        {actions ? (
-          <div className="flex justify-start sm:justify-end">{actions}</div>
-        ) : null}
-      </div>
-
-      <div
-        className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3"
-        data-testid="profile-friends-list"
-      >
-        {sortedFriends.map((friend) => (
-          <FriendCard key={friend.steamid64} friend={friend} />
-        ))}
-      </div>
+      {friends.length === 0 ? (
+        <div
+          className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-sm text-muted-foreground"
+          data-testid="profile-friends-empty"
+        >
+          {t("profile.friends.empty")}
+        </div>
+      ) : (
+        <div
+          className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3"
+          data-testid="profile-friends-list"
+        >
+          {sortedFriends.map((friend) => (
+            <FriendCard key={friend.steamid64} friend={friend} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

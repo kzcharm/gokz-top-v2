@@ -3506,6 +3506,17 @@ export const PlayerFriendSyncPublicSchema = {
                 }
             ],
             title: 'Next Allowed At'
+        },
+        steam_friends_count: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Friends Count'
         }
     },
     type: 'object',
