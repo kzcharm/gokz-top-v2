@@ -12,6 +12,7 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
     get_current_user,
+    user_has_role,
 )
 from app.api.v1.player_api_helpers import (
     drop_null_group_ids,
@@ -53,6 +54,7 @@ from app.models import (
     PlayerStatType,
     PlayerUpdate,
     User,
+    UserRole,
 )
 from app.services.player_friends import read_player_friends_public
 from app.services.player_steam_profile import (
@@ -128,11 +130,12 @@ async def create_player_view(
     current_user: CurrentUser,
 ) -> PlayerProfileViewsPublic:
     player = await get_player_or_404(session=session, identifier=identifier)
-    await crud.create_player_profile_view(
-        session=session,
-        viewer_steamid64=current_user.steamid64,
-        target_steamid64=player.steamid64,
-    )
+    if not user_has_role(current_user, UserRole.SUPERUSER):
+        await crud.create_player_profile_view(
+            session=session,
+            viewer_steamid64=current_user.steamid64,
+            target_steamid64=player.steamid64,
+        )
     profile_views = await crud.count_player_profile_views(
         session=session,
         target_steamid64=player.steamid64,

@@ -2735,6 +2735,27 @@ async def test_create_player_view_does_not_count_self_views(
 
 
 @pytest.mark.asyncio
+async def test_create_player_view_does_not_count_superuser_views(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Superuser View Target",
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/players/{target.steamid64}/views",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["profile_views"] == 0
+
+
+@pytest.mark.asyncio
 async def test_create_player_view_returns_not_found_for_missing_player(
     client: AsyncClient,
     normal_user_token_headers: dict[str, str],
