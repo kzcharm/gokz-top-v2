@@ -63,7 +63,7 @@ async def test_sync_bans_from_globalapi_backfills_with_large_limit(
         if offset == 0:
             return [
                 _payload(ban_id=1, steamid64=76561198000000001),
-                _payload(ban_id=2, steamid64=76561198000000002, ban_type="bhop_macro"),
+                _payload(ban_id=2, steamid64=76561198000000002, ban_type="boosting"),
             ]
         return []
 
@@ -80,7 +80,7 @@ async def test_sync_bans_from_globalapi_backfills_with_large_limit(
     )
     stored = list((await db.exec(select(Ban).order_by(Ban.id.asc()))).all())
     assert [ban.id for ban in stored] == [1, 2]
-    assert stored[1].ban_type == BanType.BHOP_MACRO
+    assert stored[1].ban_type == BanType.BOOSTING
     player = await db.get(Player, 76561198000000001)
     assert player is not None
     assert player.name == "Player 76561198000000001"

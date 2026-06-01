@@ -39,6 +39,7 @@ const BAN_TYPE_OPTIONS: BanType[] = [
   "ban_evasion",
   "bhop_hack",
   "bhop_macro",
+  "boosting",
   "exploiting",
   "strafe_hack",
   "strafe_macro",

@@ -39,6 +39,7 @@ const BAN_TYPE_OPTIONS: Array<{ label: string; value: BanType }> = [
   { value: "ban_evasion", label: "Ban Evasion" },
   { value: "bhop_hack", label: "Bhop Hack" },
   { value: "bhop_macro", label: "Bhop Macro" },
+  { value: "boosting", label: "Boosting" },
   { value: "exploiting", label: "Exploiting" },
   { value: "strafe_hack", label: "Strafe Hack" },
   { value: "strafe_macro", label: "Strafe Macro" },

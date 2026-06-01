@@ -350,7 +350,7 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
         headers=superuser_token_headers,
         json={
             "steamid64": str(steamid64),
-            "ban_type": "bhop_macro",
+            "ban_type": "boosting",
             "notes": "manual admin ban",
             "stats": "admin evidence",
         },
@@ -360,6 +360,7 @@ async def test_create_manual_ban_persists_null_external_id_and_v0_excludes_it(
     created_payload = create_response.json()
     assert created_payload["uuid"]
     assert created_payload["id"] is None
+    assert created_payload["ban_type"] == "boosting"
     assert created_payload["updated_by_steamid64"] == str(
         settings.SUPER_USER_STEAMID64
     )

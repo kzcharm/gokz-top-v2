@@ -21,6 +21,7 @@ class BanType(StrEnum):
     BAN_EVASION = "ban_evasion"
     BHOP_HACK = "bhop_hack"
     BHOP_MACRO = "bhop_macro"
+    BOOSTING = "boosting"
     EXPLOITING = "exploiting"
     STRAFE_HACK = "strafe_hack"
     STRAFE_MACRO = "strafe_macro"

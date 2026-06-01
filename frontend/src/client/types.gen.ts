@@ -244,7 +244,7 @@ export type BansPublic = {
     count: number;
 };
 
-export type BanType = 'ban_evasion' | 'bhop_hack' | 'bhop_macro' | 'exploiting' | 'strafe_hack' | 'strafe_macro' | 'other';
+export type BanType = 'ban_evasion' | 'bhop_hack' | 'bhop_macro' | 'boosting' | 'exploiting' | 'strafe_hack' | 'strafe_macro' | 'other';
 
 export type BanUpdate = {
     ban_type: BanType;

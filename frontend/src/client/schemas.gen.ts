@@ -1215,7 +1215,7 @@ export const BanServerPublicSchema = {
 
 export const BanTypeSchema = {
     type: 'string',
-    enum: ['ban_evasion', 'bhop_hack', 'bhop_macro', 'exploiting', 'strafe_hack', 'strafe_macro', 'other'],
+    enum: ['ban_evasion', 'bhop_hack', 'bhop_macro', 'boosting', 'exploiting', 'strafe_hack', 'strafe_macro', 'other'],
     title: 'BanType'
 } as const;
 
