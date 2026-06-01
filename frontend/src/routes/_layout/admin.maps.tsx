@@ -47,6 +47,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { getPageTitle } from "@/lib/site"
 import { canAccessAdminMaps } from "@/lib/user-roles"
 import { handleError } from "@/utils"
@@ -119,7 +120,9 @@ function AdminMaps() {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-admin-maps",
+  })
   const [searchInput, setSearchInput] = useState("")
   const [validatedFilter, setValidatedFilter] = useState<
     "all" | "validated" | "unvalidated"

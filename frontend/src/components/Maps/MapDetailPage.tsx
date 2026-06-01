@@ -42,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { formatNumber, getLocale } from "@/i18n/locale"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
@@ -383,9 +384,13 @@ export function MapDetailPage({
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [isFriendsOnly, setIsFriendsOnly] = useState(false)
   const [topPageIndex, setTopPageIndex] = useState(0)
-  const [topPageSize, setTopPageSize] = useState(20)
+  const [topPageSize, setTopPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-map-top",
+  })
   const [reviewsPageIndex, setReviewsPageIndex] = useState(0)
-  const [reviewsPageSize, setReviewsPageSize] = useState(20)
+  const [reviewsPageSize, setReviewsPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-map-reviews",
+  })
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [pendingSpotlightSteamid64, setPendingSpotlightSteamid64] = useState<
     string | null

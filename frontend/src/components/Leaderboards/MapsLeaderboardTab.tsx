@@ -24,6 +24,7 @@ import type { AppScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { extractErrorMessage } from "@/utils"
 
 type SortDirection = "asc" | "desc"
@@ -120,7 +121,9 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
   const [minPlaytime, setMinPlaytime] = useState("")
   const [maxPlaytime, setMaxPlaytime] = useState("")
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-leaderboards-maps",
+  })
   const [sorting, setSorting] = useState<SortingState>([
     { id: "unique_nub_finishes", desc: true },
   ])

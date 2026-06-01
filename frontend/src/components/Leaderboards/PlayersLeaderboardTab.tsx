@@ -37,6 +37,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import {
   fetchPlayersForDisplay,
   type GraphqlPlayer,
@@ -46,7 +47,6 @@ import { getRegionsQueryOptions } from "@/lib/regions"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
-const LEADERBOARDS_PAGE_SIZE_STORAGE_KEY = "gokz-leaderboards-page-size"
 const LEADERBOARDS_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
 
 type LeaderboardFetchParams = {
@@ -118,20 +118,9 @@ export function PlayersLeaderboardTab() {
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(() => {
-    if (typeof window === "undefined") {
-      return 20
-    }
-
-    const storedPageSize = Number(
-      window.localStorage.getItem(LEADERBOARDS_PAGE_SIZE_STORAGE_KEY),
-    )
-
-    return LEADERBOARDS_PAGE_SIZE_OPTIONS.includes(
-      storedPageSize as (typeof LEADERBOARDS_PAGE_SIZE_OPTIONS)[number],
-    )
-      ? storedPageSize
-      : 20
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-leaderboards-players",
+    pageSizeOptions: LEADERBOARDS_PAGE_SIZE_OPTIONS,
   })
   const [searchInput, setSearchInput] = useState("")
   const [isLocatingPlayer, setIsLocatingPlayer] = useState(false)
@@ -309,13 +298,6 @@ export function PlayersLeaderboardTab() {
       }
     }
   }, [])
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      LEADERBOARDS_PAGE_SIZE_STORAGE_KEY,
-      `${pageSize}`,
-    )
-  }, [pageSize])
 
   useEffect(() => {
     if (!leaderboardQuery.isError || !leaderboardQuery.error) {

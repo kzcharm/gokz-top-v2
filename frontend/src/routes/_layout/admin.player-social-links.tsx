@@ -40,6 +40,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { getPageTitle } from "@/lib/site"
 import {
   getSocialPlatformLabel,
@@ -224,7 +225,9 @@ function LinkDialog({
 
 function AdminPlayerSocialLinks() {
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-admin-player-social-links",
+  })
   const [steamid64, setSteamid64] = useState("")
   const [platform, setPlatform] = useState<PlayerSocialPlatform | "all">("all")
   const [verified, setVerified] = useState<"all" | "true" | "false">("all")

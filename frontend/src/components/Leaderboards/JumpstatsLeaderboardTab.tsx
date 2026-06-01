@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { extractErrorMessage } from "@/utils"
 
 const MIN_RATING_OPTIONS = [6, 7, 8, 9, 10] as const
@@ -33,7 +34,9 @@ const MIN_RATING_OPTIONS = [6, 7, 8, 9, 10] as const
 export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
   const { t } = useTranslation()
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-leaderboards-jumpstats",
+  })
   const [selectedType, setSelectedType] = useState<JumpstatType>("LJ")
   const [selectedMinRating, setSelectedMinRating] = useState(7)
   const [blockEnabled, setBlockEnabled] = useState(false)

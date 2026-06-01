@@ -59,6 +59,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { getPageTitle } from "@/lib/site"
 import { isSuperuser } from "@/lib/user-roles"
 
@@ -96,7 +97,9 @@ export const Route = createFileRoute("/_layout/admin/player-sessions")({
 
 function AdminPlayerSessions() {
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-admin-player-sessions",
+  })
   const [latestOnly, setLatestOnly] = useState(false)
   const [revealedSessionIds, setRevealedSessionIds] = useState<Set<string>>(
     () => new Set(),

@@ -66,6 +66,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { getPageTitle } from "@/lib/site"
 import { isSuperuser } from "@/lib/user-roles"
 import { extractErrorMessage } from "@/utils"
@@ -192,7 +193,9 @@ export function GlobalApiServersTab({
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-admin-globalapi-servers",
+  })
   const [search, setSearch] = useState("")
   const [approvalFilter, setApprovalFilter] = useState("1")
   const [sorting, setSorting] = useState<SortingState>([
@@ -494,7 +497,9 @@ export function PublicServersTab({
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-admin-public-servers",
+  })
   const [groupFilter, setGroupFilter] = useState("all")
   const canClearGroup = access?.role !== "server_owner"
 

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { extractErrorMessage } from "@/utils"
 
 import { getReviewColumns, type ReviewTableRow } from "./columns"
@@ -45,7 +46,10 @@ function mapReviewRow(review: MapReviewPublic): ReviewTableRow {
 export function ReviewsDashboardPanel() {
   const { t } = useTranslation()
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-dashboard-reviews",
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+  })
   const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null)
   const [withCommentsOnly, setWithCommentsOnly] = useState(true)
   const [languagePreset, setLanguagePreset] = useState<LanguagePreset>("all")

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import useAuth from "@/hooks/useAuth"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { COMMUNITY_LINKS } from "@/lib/community-links"
 import type { GraphqlPlayer } from "@/lib/player-graphql"
 import { canModerateBansAndRecords, isSuperuser } from "@/lib/user-roles"
@@ -76,7 +77,10 @@ export function BansPage({
       : COMMUNITY_LINKS.discord
   const ReportIcon = i18n.resolvedLanguage === "zh-CN" ? FaQq : FaDiscord
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-bans",
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+  })
   const [expandedBanUuid, setExpandedBanUuid] = useState<string | null>(null)
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const [editBanDialogOpen, setEditBanDialogOpen] = useState(false)

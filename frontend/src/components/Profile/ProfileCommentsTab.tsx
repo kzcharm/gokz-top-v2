@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { extractErrorMessage } from "@/utils"
 
 import {
@@ -103,7 +104,11 @@ export function ProfileCommentsTab({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(PROFILE_SOCIAL_PAGE_LIMIT)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-profile-comments",
+    defaultPageSize: PROFILE_SOCIAL_PAGE_LIMIT,
+    pageSizeOptions: [10, 20, 50],
+  })
 
   const offset = pageIndex * pageSize
   const commentsQuery = useQuery(

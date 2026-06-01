@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { extractErrorMessage } from "@/utils"
 
 export function ProfileJumpstatsTab({
@@ -26,7 +27,9 @@ export function ProfileJumpstatsTab({
 }) {
   const { t } = useTranslation()
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-profile-jumpstats",
+  })
   const [selectedType, setSelectedType] =
     useState<(typeof JUMPSTAT_TYPE_OPTIONS)[number]>("LJ")
   const [blockEnabled, setBlockEnabled] = useState(false)

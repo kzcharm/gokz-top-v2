@@ -18,6 +18,7 @@ import { DataTable } from "@/components/Common/DataTable"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Input } from "@/components/ui/input"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { getPageTitle } from "@/lib/site"
 import { isSuperuser } from "@/lib/user-roles"
 
@@ -52,7 +53,9 @@ export const Route = createFileRoute("/_layout/admin/players")({
 
 function AdminPlayers() {
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-admin-players",
+  })
   const [searchInput, setSearchInput] = useState("")
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created_at", desc: true },
