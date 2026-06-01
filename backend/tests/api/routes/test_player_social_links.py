@@ -19,6 +19,12 @@ from app.services.twitch_social_link_verification import (
     create_twitch_verification_state_token,
     decode_twitch_verification_state_token,
 )
+from app.services.youtube_social_link_verification import (
+    YoutubeAuthenticatedChannel,
+    create_youtube_pending_confirmation_token,
+    create_youtube_verification_state_token,
+    decode_youtube_verification_state_token,
+)
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_superuser_token_headers, random_steamid64
 
@@ -124,6 +130,13 @@ async def test_player_social_links_reject_non_profile_url(
     )
 
     assert response.status_code == 422
+
+    youtube_custom_url = await client.post(
+        f"{settings.API_V1_STR}/player-social-links/me/social-links",
+        headers=headers,
+        json={"url": "https://www.youtube.com/c/LegacyCustomUrl"},
+    )
+    assert youtube_custom_url.status_code == 422
 
 
 async def test_player_social_links_create_uses_current_user_identity(
@@ -507,6 +520,51 @@ async def test_player_twitch_social_link_verify_start_returns_authorization_url(
         == f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{settings.API_V1_STR}/social-link-verifications/twitch/callback"
     )
     state = decode_twitch_verification_state_token(params["state"][0])
+    assert state.steamid64 == steamid64
+    assert state.link_id == link["id"]
+    assert state.return_path == "/settings?tab=social-links"
+
+
+async def test_player_youtube_social_link_verify_start_returns_authorization_url(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="YouTube Verify")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://www.youtube.com/@cinyan10",
+    )
+    monkeypatch.setattr(settings, "YOUTUBE_CLIENT_ID", "test-client")
+    monkeypatch.setattr(settings, "YOUTUBE_CLIENT_SECRET", "test-secret")
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/youtube-verification-requests",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    parsed = urlparse(payload["authorization_url"])
+    params = parse_qs(parsed.query)
+    assert parsed.netloc == "accounts.google.com"
+    assert parsed.path == "/o/oauth2/v2/auth"
+    assert params["client_id"] == ["test-client"]
+    assert params["response_type"] == ["code"]
+    assert (
+        params["redirect_uri"][0]
+        == f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{settings.API_V1_STR}/social-link-verifications/youtube/callback"
+    )
+    assert params["scope"] == ["https://www.googleapis.com/auth/youtube.readonly"]
+    state = decode_youtube_verification_state_token(params["state"][0])
     assert state.steamid64 == steamid64
     assert state.link_id == link["id"]
     assert state.return_path == "/settings?tab=social-links"
@@ -901,6 +959,117 @@ async def test_player_twitch_social_link_add_callback_creates_verified_link(
     assert payload["data"][0]["verified"] is True
 
 
+async def test_player_youtube_social_link_add_callback_creates_verified_link(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="YouTube Add Callback")
+    state = create_youtube_verification_state_token(
+        steamid64=steamid64,
+        return_path="/settings?tab=social-links",
+        mode="add",
+    )
+
+    async def _fake_exchange(**_: object) -> str:
+        return "youtube-access-token"
+
+    async def _fake_channels(**_: object) -> list[YoutubeAuthenticatedChannel]:
+        return [
+            YoutubeAuthenticatedChannel(
+                account_identifier="channel/UC12345678901234567890AB",
+                display_name="Verified Channel",
+                matching_identifiers=frozenset(
+                    {"channel/UC12345678901234567890AB", "@verified"}
+                ),
+            )
+        ]
+
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "exchange_youtube_code_for_access_token",
+        _fake_exchange,
+    )
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "fetch_youtube_authenticated_channels",
+        _fake_channels,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/social-link-verifications/youtube/callback",
+        params={"state": state, "code": "oauth-code"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert (
+        response.headers["location"]
+        == f"{settings.FRONTEND_HOST}/settings?tab=social-links&youtubeVerification=success"
+    )
+    payload = (
+        await client.get(f"{settings.API_V1_STR}/player-social-links/players/{steamid64}")
+    ).json()
+    assert payload["data"][0]["platform"] == "youtube"
+    assert payload["data"][0]["account_identifier"] == (
+        "channel/UC12345678901234567890AB"
+    )
+    assert payload["data"][0]["verified"] is True
+
+
+async def test_player_youtube_social_link_add_callback_rejects_multiple_channels(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="YouTube Multi")
+    state = create_youtube_verification_state_token(
+        steamid64=steamid64,
+        return_path="/settings?tab=social-links",
+        mode="add",
+    )
+
+    async def _fake_exchange(**_: object) -> str:
+        return "youtube-access-token"
+
+    async def _fake_channels(**_: object) -> list[YoutubeAuthenticatedChannel]:
+        return [
+            YoutubeAuthenticatedChannel(
+                account_identifier="channel/UC11111111111111111111AB",
+                display_name="First",
+                matching_identifiers=frozenset({"channel/UC11111111111111111111AB"}),
+            ),
+            YoutubeAuthenticatedChannel(
+                account_identifier="channel/UC22222222222222222222AB",
+                display_name="Second",
+                matching_identifiers=frozenset({"channel/UC22222222222222222222AB"}),
+            ),
+        ]
+
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "exchange_youtube_code_for_access_token",
+        _fake_exchange,
+    )
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "fetch_youtube_authenticated_channels",
+        _fake_channels,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/social-link-verifications/youtube/callback",
+        params={"state": state, "code": "oauth-code"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert "youtubeVerification=error" in response.headers["location"]
+    assert "Multiple+YouTube+channels" in response.headers["location"]
+
+
 async def test_player_twitch_social_link_callback_verifies_matching_account(
     client: AsyncClient,
     db: AsyncSession,
@@ -961,6 +1130,75 @@ async def test_player_twitch_social_link_callback_verifies_matching_account(
         f"{settings.API_V1_STR}/player-social-links/players/{steamid64}"
     )
     assert links_response.json()["data"][0]["verified"] is True
+
+
+async def test_player_youtube_social_link_callback_verifies_matching_channel(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="YouTube Callback")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://www.youtube.com/@verified",
+    )
+    state = create_youtube_verification_state_token(
+        steamid64=steamid64,
+        link_id=str(link["id"]),
+        return_path="/settings?tab=social-links",
+        mode="verify",
+    )
+
+    async def _fake_exchange(**_: object) -> str:
+        return "youtube-access-token"
+
+    async def _fake_channels(**_: object) -> list[YoutubeAuthenticatedChannel]:
+        return [
+            YoutubeAuthenticatedChannel(
+                account_identifier="channel/UC12345678901234567890AB",
+                display_name="Verified Channel",
+                matching_identifiers=frozenset(
+                    {"channel/UC12345678901234567890AB", "@verified"}
+                ),
+            )
+        ]
+
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "exchange_youtube_code_for_access_token",
+        _fake_exchange,
+    )
+    monkeypatch.setattr(
+        player_social_links_routes,
+        "fetch_youtube_authenticated_channels",
+        _fake_channels,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/social-link-verifications/youtube/callback",
+        params={"state": state, "code": "oauth-code"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code in {302, 307}
+    assert response.headers["location"] == (
+        f"{settings.FRONTEND_HOST.rstrip('/')}/settings"
+        "?tab=social-links&youtubeVerification=success"
+    )
+    links_response = await client.get(
+        f"{settings.API_V1_STR}/player-social-links/players/{steamid64}"
+    )
+    link_payload = links_response.json()["data"][0]
+    assert link_payload["account_identifier"] == "channel/UC12345678901234567890AB"
+    assert link_payload["verified"] is True
 
 
 async def test_player_twitch_social_link_callback_redirects_mismatch_without_mutation(
@@ -1063,6 +1301,49 @@ async def test_player_twitch_social_link_confirm_replaces_identifier_and_verifie
     assert response.status_code == 200
     payload = response.json()
     assert payload["data"][0]["account_identifier"] == "newname"
+    assert payload["data"][0]["verified"] is True
+
+
+async def test_player_youtube_social_link_confirm_replaces_identifier_and_verifies(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="YouTube Confirm")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+    link = await _create_social_link(
+        client,
+        steamid64=steamid64,
+        headers=headers,
+        url="https://www.youtube.com/@oldchannel",
+    )
+    pending_token = create_youtube_pending_confirmation_token(
+        steamid64=steamid64,
+        link_id=str(link["id"]),
+        current_account_identifier="@oldchannel",
+        authenticated_channel=YoutubeAuthenticatedChannel(
+            account_identifier="channel/UC12345678901234567890AB",
+            display_name="Verified Channel",
+            matching_identifiers=frozenset({"channel/UC12345678901234567890AB"}),
+        ),
+        return_path="/settings?tab=social-links",
+    )
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/youtube-verification-confirmations",
+        headers=headers,
+        json={"pending_token": pending_token},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"][0]["account_identifier"] == (
+        "channel/UC12345678901234567890AB"
+    )
     assert payload["data"][0]["verified"] is True
 
 

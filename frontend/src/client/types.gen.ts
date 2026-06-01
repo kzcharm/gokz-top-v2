@@ -2164,6 +2164,25 @@ export type PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationData = {
 
 export type PlayerSocialLinksConfirmPlayerTwitchSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
 
+export type PlayerSocialLinksStartPlayerYoutubeSocialLinkVerificationData = {
+    linkId: string;
+};
+
+export type PlayerSocialLinksStartPlayerYoutubeSocialLinkVerificationResponse = ({
+    [key: string]: (string);
+});
+
+export type PlayerSocialLinksStartPlayerYoutubeSocialLinkAddResponse = ({
+    [key: string]: (string);
+});
+
+export type PlayerSocialLinksConfirmPlayerYoutubeSocialLinkVerificationData = {
+    linkId: string;
+    requestBody: PlayerSocialLinkVerifyConfirm;
+};
+
+export type PlayerSocialLinksConfirmPlayerYoutubeSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
+
 export type PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationData = {
     linkId: string;
 };
@@ -2185,6 +2204,15 @@ export type PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationData = {
 };
 
 export type PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationResponse = (unknown);
+
+export type PlayerSocialLinksCompletePlayerYoutubeSocialLinkVerificationData = {
+    code?: (string | null);
+    error?: (string | null);
+    errorDescription?: (string | null);
+    state: string;
+};
+
+export type PlayerSocialLinksCompletePlayerYoutubeSocialLinkVerificationResponse = (unknown);
 
 export type RecordsReadRecordsData = {
     createdSince?: (string | null);

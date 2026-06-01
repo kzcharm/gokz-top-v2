@@ -135,6 +135,8 @@ class Settings(BaseSettings):
     JUMP_REPLAY_CLEANUP_GRACE_DAYS: int = 7
     TWITCH_CLIENT_ID: str | None = None
     TWITCH_CLIENT_SECRET: str | None = None
+    YOUTUBE_CLIENT_ID: str | None = None
+    YOUTUBE_CLIENT_SECRET: str | None = None
     YOUTUBE_API_KEY: str | None = None
     LOG_LEVEL: str = "INFO"
     GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")

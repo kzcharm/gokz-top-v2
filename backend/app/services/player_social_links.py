@@ -163,7 +163,7 @@ def _parse_youtube_path(
             account_identifier=f"channel/{channel_id}",
         )
 
-    if first_segment in {"c", "user"} and len(path_segments) >= 2:
+    if first_segment == "user" and len(path_segments) >= 2:
         name = path_segments[1]
         if not _YOUTUBE_NAME_RE.fullmatch(name):
             return None

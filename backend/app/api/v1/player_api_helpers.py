@@ -194,6 +194,39 @@ def twitch_callback_url(_request: Request) -> str:
     )
 
 
+def youtube_return_path() -> str:
+    return "/settings?tab=social-links"
+
+
+def youtube_callback_url(_request: Request) -> str:
+    return (
+        f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}"
+        f"{settings.API_V1_STR}"
+        "/social-link-verifications/youtube/callback"
+    )
+
+
+def ensure_link_is_youtube_and_unverified(*, link: PlayerSocialLink) -> None:
+    if link.platform != PlayerSocialPlatform.YOUTUBE:
+        raise HTTPException(status_code=422, detail="Social link is not a YouTube link")
+    if link.verified:
+        raise HTTPException(status_code=409, detail="YouTube link is already verified")
+
+
+def ensure_link_is_twitch_and_unverified(*, link: PlayerSocialLink) -> None:
+    if link.platform != PlayerSocialPlatform.TWITCH:
+        raise HTTPException(status_code=422, detail="Social link is not a Twitch link")
+    if link.verified:
+        raise HTTPException(status_code=409, detail="Twitch link is already verified")
+
+
+def ensure_link_is_bilibili_and_unverified(*, link: PlayerSocialLink) -> None:
+    if link.platform != PlayerSocialPlatform.BILIBILI:
+        raise HTTPException(status_code=422, detail="Social link is not a Bilibili link")
+    if link.verified:
+        raise HTTPException(status_code=409, detail="Bilibili link is already verified")
+
+
 async def build_test_webhook_event(
     *,
     session: SessionDep,
@@ -282,23 +315,3 @@ async def build_test_webhook_event(
         viewer_count=None,
         started_at=datetime.now(UTC),
     )
-
-
-def ensure_link_is_twitch_and_unverified(*, link: Any) -> None:
-    if link.platform != PlayerSocialPlatform.TWITCH:
-        raise HTTPException(
-            status_code=422,
-            detail="Only Twitch links can be verified with this flow",
-        )
-    if link.verified:
-        raise HTTPException(status_code=409, detail="Social link is already verified")
-
-
-def ensure_link_is_bilibili_and_unverified(*, link: Any) -> None:
-    if link.platform != PlayerSocialPlatform.BILIBILI:
-        raise HTTPException(
-            status_code=422,
-            detail="Only Bilibili links can be verified with this flow",
-        )
-    if link.verified:
-        raise HTTPException(status_code=409, detail="Social link is already verified")

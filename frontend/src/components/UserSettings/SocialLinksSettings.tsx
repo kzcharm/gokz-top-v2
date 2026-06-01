@@ -54,6 +54,8 @@ type TwitchMismatchState = {
   pendingToken: string
 }
 
+type YoutubeMismatchState = TwitchMismatchState
+
 type SocialLinkDialogState =
   | { mode: "add" }
   | { mode: "edit"; link: PlayerSocialLinkPublic }
@@ -81,6 +83,26 @@ type TwitchVerificationMessage =
     }
   | {
       type: "twitch-social-link-verification"
+      status: "mismatch"
+      pendingToken: string
+      linkId: string
+      currentAccount: string
+      authenticatedAccount: string
+      authenticatedDisplayName: string
+    }
+
+type YoutubeVerificationMessage =
+  | {
+      type: "youtube-social-link-verification"
+      status: "success"
+    }
+  | {
+      type: "youtube-social-link-verification"
+      status: "error"
+      message: string
+    }
+  | {
+      type: "youtube-social-link-verification"
       status: "mismatch"
       pendingToken: string
       linkId: string
@@ -174,6 +196,51 @@ async function startTwitchAdd(identifier: string): Promise<string> {
   return payload.authorization_url
 }
 
+async function startYoutubeVerification(
+  identifier: string,
+  linkId: string,
+): Promise<string> {
+  void identifier
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/youtube-verification-requests`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  const payload = (await response.json()) as { authorization_url: string }
+  return payload.authorization_url
+}
+
+async function startYoutubeAdd(identifier: string): Promise<string> {
+  void identifier
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/youtube/connection-requests`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  const payload = (await response.json()) as { authorization_url: string }
+  return payload.authorization_url
+}
+
 async function confirmTwitchVerification(
   identifier: string,
   linkId: string,
@@ -182,6 +249,34 @@ async function confirmTwitchVerification(
   void identifier
   const response = await fetch(
     `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/twitch-verification-confirmations`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ pending_token: pendingToken }),
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  return (await response.json()) as Awaited<
+    ReturnType<typeof PlayerSocialLinksService.readPlayerSocialLinks>
+  >
+}
+
+async function confirmYoutubeVerification(
+  identifier: string,
+  linkId: string,
+  pendingToken: string,
+) {
+  void identifier
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/youtube-verification-confirmations`,
     {
       method: "POST",
       headers: {
@@ -270,7 +365,9 @@ function SocialLinkRow({
 }) {
   const platformLabel = getSocialPlatformLabel(link.platform)
   const isVerifyAvailable =
-    (link.platform === "twitch" || link.platform === "bilibili") &&
+    (link.platform === "twitch" ||
+      link.platform === "bilibili" ||
+      link.platform === "youtube") &&
     !link.verified
 
   return (
@@ -363,6 +460,8 @@ export default function SocialLinksSettings() {
   const [draftUrl, setDraftUrl] = useState("")
   const [mismatchState, setMismatchState] =
     useState<TwitchMismatchState | null>(null)
+  const [youtubeMismatchState, setYoutubeMismatchState] =
+    useState<YoutubeMismatchState | null>(null)
   const [bilibiliVerificationState, setBilibiliVerificationState] =
     useState<BilibiliVerificationState | null>(null)
   const [_copiedCode, copyCode] = useCopyToClipboard()
@@ -385,6 +484,7 @@ export default function SocialLinksSettings() {
   const links = data?.data ?? []
   const bilibiliLinked = links.some((link) => link.platform === "bilibili")
   const twitchLinked = links.some((link) => link.platform === "twitch")
+  const youtubeLinked = links.some((link) => link.platform === "youtube")
 
   const refreshLinks = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey })
@@ -422,6 +522,35 @@ export default function SocialLinksSettings() {
     [refreshLinks, showErrorToast, showSuccessToast],
   )
 
+  const handleYoutubeVerificationResult = useCallback(
+    (result: YoutubeVerificationMessage) => {
+      if (result.status === "success") {
+        setYoutubeMismatchState(null)
+        setDialogState(null)
+        showSuccessToast("YouTube channel linked")
+        refreshLinks()
+        return
+      }
+
+      if (result.status === "error") {
+        setYoutubeMismatchState(null)
+        showErrorToast(result.message)
+        refreshLinks()
+        return
+      }
+
+      setDialogState(null)
+      setYoutubeMismatchState({
+        pendingToken: result.pendingToken,
+        linkId: result.linkId,
+        currentAccount: result.currentAccount,
+        authenticatedAccount: result.authenticatedAccount,
+        authenticatedDisplayName: result.authenticatedDisplayName,
+      })
+    },
+    [refreshLinks, showErrorToast, showSuccessToast],
+  )
+
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) {
@@ -443,6 +572,28 @@ export default function SocialLinksSettings() {
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
   }, [handleTwitchVerificationResult])
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return
+      }
+      const data = event.data as Partial<YoutubeVerificationMessage> | null
+      if (
+        !data ||
+        data.type !== "youtube-social-link-verification" ||
+        (data.status !== "success" &&
+          data.status !== "error" &&
+          data.status !== "mismatch")
+      ) {
+        return
+      }
+      handleYoutubeVerificationResult(data as YoutubeVerificationMessage)
+    }
+
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [handleYoutubeVerificationResult])
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -558,6 +709,120 @@ export default function SocialLinksSettings() {
     window.history.replaceState({}, "", url)
   }, [handleTwitchVerificationResult, showErrorToast])
 
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const status = url.searchParams.get("youtubeVerification")
+    if (!status) {
+      return
+    }
+
+    if (window.opener && window.opener !== window) {
+      if (status === "success") {
+        window.opener.postMessage(
+          {
+            type: "youtube-social-link-verification",
+            status: "success",
+          } satisfies YoutubeVerificationMessage,
+          window.location.origin,
+        )
+      } else if (status === "error") {
+        window.opener.postMessage(
+          {
+            type: "youtube-social-link-verification",
+            status: "error",
+            message:
+              url.searchParams.get("message") || "YouTube verification failed",
+          } satisfies YoutubeVerificationMessage,
+          window.location.origin,
+        )
+      } else if (status === "mismatch") {
+        const pendingToken = url.searchParams.get("pendingToken")
+        const linkId = url.searchParams.get("linkId")
+        const currentAccount = url.searchParams.get("currentAccount")
+        const authenticatedAccount = url.searchParams.get(
+          "authenticatedAccount",
+        )
+        const authenticatedDisplayName =
+          url.searchParams.get("authenticatedDisplayName") ||
+          authenticatedAccount
+
+        if (
+          pendingToken &&
+          linkId &&
+          currentAccount &&
+          authenticatedAccount &&
+          authenticatedDisplayName
+        ) {
+          window.opener.postMessage(
+            {
+              type: "youtube-social-link-verification",
+              status: "mismatch",
+              pendingToken,
+              linkId,
+              currentAccount,
+              authenticatedAccount,
+              authenticatedDisplayName,
+            } satisfies YoutubeVerificationMessage,
+            window.location.origin,
+          )
+        }
+      }
+      window.close()
+      return
+    }
+
+    if (status === "success") {
+      handleYoutubeVerificationResult({
+        type: "youtube-social-link-verification",
+        status: "success",
+      })
+    } else if (status === "error") {
+      handleYoutubeVerificationResult({
+        type: "youtube-social-link-verification",
+        status: "error",
+        message:
+          url.searchParams.get("message") || "YouTube verification failed",
+      })
+    } else if (status === "mismatch") {
+      const pendingToken = url.searchParams.get("pendingToken")
+      const linkId = url.searchParams.get("linkId")
+      const currentAccount = url.searchParams.get("currentAccount")
+      const authenticatedAccount = url.searchParams.get("authenticatedAccount")
+      const authenticatedDisplayName =
+        url.searchParams.get("authenticatedDisplayName") || authenticatedAccount
+
+      if (
+        pendingToken &&
+        linkId &&
+        currentAccount &&
+        authenticatedAccount &&
+        authenticatedDisplayName
+      ) {
+        handleYoutubeVerificationResult({
+          type: "youtube-social-link-verification",
+          status: "mismatch",
+          pendingToken,
+          linkId,
+          currentAccount,
+          authenticatedAccount,
+          authenticatedDisplayName,
+        })
+      } else {
+        showErrorToast("YouTube verification returned incomplete mismatch data")
+      }
+    }
+
+    url.searchParams.delete("youtubeVerification")
+    url.searchParams.delete("youtubeAction")
+    url.searchParams.delete("message")
+    url.searchParams.delete("pendingToken")
+    url.searchParams.delete("linkId")
+    url.searchParams.delete("currentAccount")
+    url.searchParams.delete("authenticatedAccount")
+    url.searchParams.delete("authenticatedDisplayName")
+    window.history.replaceState({}, "", url)
+  }, [handleYoutubeVerificationResult, showErrorToast])
+
   const createMutation = useMutation({
     mutationFn: (url: string) =>
       PlayerSocialLinksService.createPlayerSocialLink({
@@ -605,6 +870,22 @@ export default function SocialLinksSettings() {
       const popup = openPopup(authorizationUrl)
       if (!popup) {
         throw new Error("Allow popups to continue Twitch verification")
+      }
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+  })
+
+  const youtubeVerifyMutation = useMutation({
+    mutationFn: async (linkId: string) => {
+      const authorizationUrl = await startYoutubeVerification(
+        identifier,
+        linkId,
+      )
+      const popup = openPopup(authorizationUrl)
+      if (!popup) {
+        throw new Error("Allow popups to continue YouTube verification")
       }
     },
     onError: (error) => {
@@ -699,6 +980,22 @@ export default function SocialLinksSettings() {
     },
   })
 
+  const addYoutubeMutation = useMutation({
+    mutationFn: async () => {
+      const authorizationUrl = await startYoutubeAdd(identifier)
+      const popup = openPopup(authorizationUrl)
+      if (!popup) {
+        throw new Error("Allow popups to continue YouTube linking")
+      }
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+    onSuccess: () => {
+      setDialogState(null)
+    },
+  })
+
   const confirmVerificationMutation = useMutation({
     mutationFn: ({
       linkId,
@@ -710,6 +1007,24 @@ export default function SocialLinksSettings() {
     onSuccess: () => {
       setMismatchState(null)
       showSuccessToast("Twitch account linked")
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+    onSettled: refreshLinks,
+  })
+
+  const youtubeConfirmVerificationMutation = useMutation({
+    mutationFn: ({
+      linkId,
+      pendingToken,
+    }: {
+      linkId: string
+      pendingToken: string
+    }) => confirmYoutubeVerification(identifier, linkId, pendingToken),
+    onSuccess: () => {
+      setYoutubeMismatchState(null)
+      showSuccessToast("YouTube channel linked")
     },
     onError: (error) => {
       showErrorToast(extractErrorMessage(error))
@@ -751,10 +1066,13 @@ export default function SocialLinksSettings() {
     updateMutation.isPending ||
     deleteMutation.isPending ||
     verifyMutation.isPending ||
+    youtubeVerifyMutation.isPending ||
     bilibiliStartMutation.isPending ||
     bilibiliQuickLinkMutation.isPending ||
     addTwitchMutation.isPending ||
+    addYoutubeMutation.isPending ||
     confirmVerificationMutation.isPending ||
+    youtubeConfirmVerificationMutation.isPending ||
     bilibiliConfirmMutation.isPending
 
   const submitDialog = () => {
@@ -777,6 +1095,14 @@ export default function SocialLinksSettings() {
       addTwitchMutation.mutate()
     } else if (dialogState?.mode === "edit") {
       verifyMutation.mutate(dialogState.link.id)
+    }
+  }
+
+  const launchYoutubeLogin = () => {
+    if (dialogState?.mode === "add") {
+      addYoutubeMutation.mutate()
+    } else if (dialogState?.mode === "edit") {
+      youtubeVerifyMutation.mutate(dialogState.link.id)
     }
   }
 
@@ -822,7 +1148,11 @@ export default function SocialLinksSettings() {
                 key={link.id}
                 link={link}
                 deleting={deleteMutation.isPending}
-                verifying={verifyMutation.isPending}
+                verifying={
+                  verifyMutation.isPending ||
+                  youtubeVerifyMutation.isPending ||
+                  bilibiliStartMutation.isPending
+                }
                 onEdit={(selectedLink) => {
                   setDialogState({ mode: "edit", link: selectedLink })
                   setDraftUrl(selectedLink.url)
@@ -833,6 +1163,10 @@ export default function SocialLinksSettings() {
                 onVerify={(selectedLink) => {
                   if (selectedLink.platform === "twitch") {
                     verifyMutation.mutate(selectedLink.id)
+                    return
+                  }
+                  if (selectedLink.platform === "youtube") {
+                    youtubeVerifyMutation.mutate(selectedLink.id)
                     return
                   }
                   if (selectedLink.platform === "bilibili") {
@@ -905,11 +1239,14 @@ export default function SocialLinksSettings() {
                   {socialPlatformOrder.map((platform) => {
                     const isTwitch = platform === "twitch"
                     const isBilibili = platform === "bilibili"
+                    const isYoutube = platform === "youtube"
                     const disabled = isTwitch
                       ? twitchLinked
                       : isBilibili
                         ? bilibiliLinked
-                        : true
+                        : isYoutube
+                          ? youtubeLinked
+                          : true
                     const label = isTwitch
                       ? twitchLinked
                         ? "Twitch already linked"
@@ -918,7 +1255,11 @@ export default function SocialLinksSettings() {
                         ? bilibiliLinked
                           ? "Bilibili already linked"
                           : "Add and verify with your Bilibili profile URL"
-                        : `${getSocialPlatformLabel(platform)} coming soon`
+                        : isYoutube
+                          ? youtubeLinked
+                            ? "YouTube already linked"
+                            : "Link with YouTube"
+                          : `${getSocialPlatformLabel(platform)} coming soon`
 
                     return (
                       <Tooltip key={platform}>
@@ -936,6 +1277,10 @@ export default function SocialLinksSettings() {
                                 }
                                 if (isBilibili && !bilibiliLinked) {
                                   launchBilibiliQuickLink()
+                                  return
+                                }
+                                if (isYoutube && !youtubeLinked) {
+                                  launchYoutubeLogin()
                                 }
                               }}
                             >
@@ -1228,6 +1573,68 @@ export default function SocialLinksSettings() {
                 confirmVerificationMutation.mutate({
                   linkId: mismatchState.linkId,
                   pendingToken: mismatchState.pendingToken,
+                })
+              }}
+            >
+              Replace and verify
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={youtubeMismatchState !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setYoutubeMismatchState(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm YouTube channel</DialogTitle>
+          </DialogHeader>
+          {youtubeMismatchState ? (
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                You signed into Google with access to{" "}
+                <span className="font-medium text-foreground">
+                  {youtubeMismatchState.authenticatedDisplayName}
+                </span>{" "}
+                (
+                <span className="font-mono text-foreground">
+                  {youtubeMismatchState.authenticatedAccount}
+                </span>
+                ).
+              </p>
+              <p>
+                Replace the current linked channel{" "}
+                <span className="font-mono text-foreground">
+                  {youtubeMismatchState.currentAccount}
+                </span>{" "}
+                and mark it verified?
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={youtubeConfirmVerificationMutation.isPending}
+              onClick={() => setYoutubeMismatchState(null)}
+            >
+              Cancel
+            </Button>
+            <LoadingButton
+              loading={youtubeConfirmVerificationMutation.isPending}
+              type="button"
+              onClick={() => {
+                if (!youtubeMismatchState) {
+                  return
+                }
+                youtubeConfirmVerificationMutation.mutate({
+                  linkId: youtubeMismatchState.linkId,
+                  pendingToken: youtubeMismatchState.pendingToken,
                 })
               }}
             >

@@ -34,7 +34,7 @@
   - KZ-only player friendships are stored in `player_friend` as directed edges, with sync flows maintaining both directions for active friendships and deleting stale edges only after a successful Steam friends fetch
   - `player` now persists Steam friends visibility state through `friends_visibility` and `friends_visibility_checked_at`, allowing public profile reads to explain whether a Steam profile or friends list is private without storing generic sync-failure state
   - Player profile comments are stored in `player_comment`, keyed by UUIDv7 and linked to both author and target `player.steamid64`, with trimmed text validation, reverse-chronological profile reads, and owner-or-author deletion
-  - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges and admin-controlled verification metadata
+  - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges; Twitch and YouTube support OAuth self-verification, Bilibili supports profile-code self-verification, and admins can still manage verification metadata
   - Verified Bilibili, YouTube, and Twitch follower counts for community leaderboard display are cached in `cache.player_video_platform_followers`, keyed by `player_social_link.id`, and refreshed lazily with a TTL so public reads do not depend on live platform API success
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
@@ -141,7 +141,7 @@
 - GlobalAPI endpoints are consumed for synchronization/compatibility behavior.
 - GlobalAPI record-filter sync now mirrors availability rows only, ensures exact 128-tick `map_course` rows for locally known maps, and does not derive non-VNL course tiers from upstream filter data after the one-time backfill migration.
 - Twitch Helix API is consumed for verified Twitch live-stream status and cached Twitch follower counts using app credentials.
-- YouTube Data API can be consumed with `YOUTUBE_API_KEY` to refresh cached YouTube subscriber counts for verified social links.
+- YouTube Data API can be consumed with `YOUTUBE_API_KEY` to refresh cached YouTube subscriber counts for verified social links, and Google OAuth credentials (`YOUTUBE_CLIENT_ID`/`YOUTUBE_CLIENT_SECRET`) power self-serve YouTube social-link verification.
 - GlobalAPI ban sync upserts by nullable external `ban.id`, uses large backfill pages for catch-up, then incremental `created_since` overlap polling with a steady-state page size of `10`, and ignores local manual bans because they do not carry an external id.
 
 ## Implementation Constraints

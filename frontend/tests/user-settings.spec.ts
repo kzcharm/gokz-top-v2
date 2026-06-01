@@ -304,6 +304,73 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText("linkedstreamer")).toBeVisible()
   })
 
+  test("YouTube quick link opens a popup and success refreshes the list", async ({
+    page,
+  }) => {
+    const steamid64 = randomSteamid64()
+    let links: unknown[] = []
+    await logInUser(page, steamid64)
+    await page.route(
+      new RegExp(`/v1/player-social-links/players/${steamid64}$`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+    await page.route(
+      /\/v1\/player-social-links\/me\/social-links\/youtube\/connection-requests$/,
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            authorization_url:
+              "https://accounts.google.com/o/oauth2/v2/auth?client_id=test&state=test",
+          }),
+        })
+      },
+    )
+
+    await page.goto("/settings")
+    await page.getByRole("tab", { name: "Social links" }).click()
+    await page.getByRole("button", { name: "Add" }).click()
+
+    const popupPromise = page.waitForEvent("popup")
+    await page.getByRole("button", { name: "YouTube" }).click()
+    await popupPromise
+
+    links = [
+      {
+        id: "019e0000-0000-7000-8000-000000000402",
+        player_steamid64: String(steamid64),
+        platform: "youtube",
+        account_identifier: "channel/UC12345678901234567890AB",
+        verified: true,
+        url: "https://www.youtube.com/channel/UC12345678901234567890AB",
+        created_at: "2026-04-01T00:00:00Z",
+        updated_at: "2026-04-01T00:00:00Z",
+      },
+    ]
+
+    await page.evaluate(() => {
+      window.postMessage(
+        {
+          type: "youtube-social-link-verification",
+          status: "success",
+        },
+        window.location.origin,
+      )
+    })
+
+    await expect(page.getByText("YouTube channel linked")).toBeVisible()
+    await expect(
+      page.getByText("channel/UC12345678901234567890AB"),
+    ).toBeVisible()
+  })
+
   test("Social links tab honors URL state and can confirm Twitch verification mismatch", async ({
     page,
   }) => {
@@ -383,6 +450,72 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText(/^verifiedstreamer$/)).toBeVisible()
     await expect(page.getByText("Unverified")).toHaveCount(1)
     await expect(page.getByText("oldstreamer")).toHaveCount(0)
+  })
+
+  test("Social links tab can confirm YouTube verification mismatch", async ({
+    page,
+  }) => {
+    const steamid64 = randomSteamid64()
+    let links = [
+      {
+        id: "019e0000-0000-7000-8000-000000000501",
+        player_steamid64: String(steamid64),
+        platform: "youtube",
+        account_identifier: "@oldchannel",
+        verified: false,
+        url: "https://www.youtube.com/@oldchannel",
+        created_at: "2026-04-01T00:00:00Z",
+        updated_at: "2026-04-01T00:00:00Z",
+      },
+    ]
+
+    await logInUser(page, steamid64)
+    await page.route(
+      new RegExp(`/v1/player-social-links/players/${steamid64}$`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+    await page.route(
+      /\/v1\/player-social-links\/me\/social-links\/019e0000-0000-7000-8000-000000000501\/youtube-verification-confirmations$/,
+      async (route) => {
+        links = [
+          {
+            ...links[0],
+            account_identifier: "channel/UC12345678901234567890AB",
+            verified: true,
+            url: "https://www.youtube.com/channel/UC12345678901234567890AB",
+          },
+        ]
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: links, count: links.length }),
+        })
+      },
+    )
+
+    await page.goto(
+      "/settings?tab=social-links&youtubeVerification=mismatch&linkId=019e0000-0000-7000-8000-000000000501&currentAccount=%40oldchannel&authenticatedAccount=channel%2FUC12345678901234567890AB&authenticatedDisplayName=Verified%20Channel&pendingToken=test-pending-token",
+    )
+
+    await expect(page.getByText("Confirm YouTube channel")).toBeVisible()
+    await expect(page.getByText(/^Verified Channel$/)).toBeVisible()
+    await expect(
+      page.getByLabel("Confirm YouTube channel").getByText(/^@oldchannel$/),
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Replace and verify" }).click()
+
+    await expect(page.getByText("Confirm YouTube channel")).toHaveCount(0)
+    await expect(
+      page.getByText("channel/UC12345678901234567890AB"),
+    ).toBeVisible()
+    await expect(page.getByText("Unverified")).toHaveCount(0)
   })
 
   test("Webhooks tab can add, toggle, test, edit, and delete a webhook", async ({

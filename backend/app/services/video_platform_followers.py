@@ -81,7 +81,9 @@ def _youtube_channel_params(account_identifier: str) -> dict[str, str]:
         return {"forHandle": account_identifier}
     if account_identifier.startswith("user/"):
         return {"forUsername": account_identifier.removeprefix("user/")}
-    raise ValueError("YouTube follower refresh supports handles and channel IDs only")
+    raise ValueError(
+        "YouTube follower refresh supports handles, channel IDs, and usernames only"
+    )
 
 
 async def fetch_bilibili_follower_count(*, account_identifier: str) -> int:
