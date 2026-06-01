@@ -18,6 +18,11 @@ const SETTINGS_TAB_OPTIONS = [
     to: "/settings/profile",
   },
   {
+    value: "appearance",
+    labelKey: "settings.tabs.appearance",
+    to: "/settings/appearance",
+  },
+  {
     value: "social-links",
     labelKey: "settings.tabs.socialLinks",
     to: "/settings/social-links",
@@ -26,11 +31,6 @@ const SETTINGS_TAB_OPTIONS = [
     value: "webhooks",
     labelKey: "settings.tabs.webhooks",
     to: "/settings/webhooks",
-  },
-  {
-    value: "appearance",
-    labelKey: "settings.tabs.appearance",
-    to: "/settings/appearance",
   },
 ] as const
 

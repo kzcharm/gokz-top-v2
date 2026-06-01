@@ -1,7 +1,78 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 import { superUserSteamid64 } from "./config"
 import { randomSteamid64 } from "./utils/random"
 import { logInUser } from "./utils/user"
+
+async function stubPlayerDisplayPreviewGraphql(page: Page, steamid64: string) {
+  await page.route("**/v1/**", async (route) => {
+    const url = route.request().url()
+    if (url.endsWith("/v1/users/me")) {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          steamid64,
+          roles: [],
+          player: {
+            steamid64,
+            display_name: "Display Preview",
+          },
+        }),
+      })
+      return
+    }
+
+    if (!url.endsWith("/v1/graphql")) {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      })
+      return
+    }
+
+    const body = route.request().postDataJSON() as {
+      query?: string
+      variables?: Record<string, unknown>
+    }
+    const query = body.query ?? ""
+    const variables = body.variables ?? {}
+
+    if (query.includes("players(")) {
+      const steamid64s = Array.isArray(variables.steamid64s)
+        ? (variables.steamid64s as string[])
+        : []
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            players: steamid64s.map((value) =>
+              value === steamid64
+                ? {
+                    steamid64,
+                    displayName: "Display Preview",
+                    name: "Display Preview",
+                    alias: null,
+                    customId: null,
+                    avatarHash: null,
+                    country: "DE",
+                    primaryScope: "OVR",
+                    rating: 1000,
+                    roles: null,
+                    lastPlayedAt: null,
+                  }
+                : null,
+            ),
+          },
+        }),
+      })
+      return
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: {} }),
+    })
+  })
+}
 
 test("My profile tab is active by default", async ({ page }) => {
   await page.goto("/settings")
@@ -46,6 +117,67 @@ test.describe("Profile and theme", () => {
 
     await expect(page.getByText("Profile settings updated.")).toBeVisible()
     await expect(page.getByText("VNL", { exact: true })).toBeVisible()
+  })
+
+  test("Appearance can configure player display preferences", async ({
+    page,
+  }) => {
+    const steamid64 = randomSteamid64()
+    const accessToken = [
+      "e30",
+      Buffer.from(JSON.stringify({ sub: String(steamid64) })).toString(
+        "base64url",
+      ),
+      "signature",
+    ].join(".")
+    await stubPlayerDisplayPreviewGraphql(page, String(steamid64))
+    await page.goto(`/auth/callback#access_token=${accessToken}`)
+
+    await page.goto("/settings/appearance")
+
+    await expect(page.getByText("Player Display")).toBeVisible()
+    const preview = page.getByTestId("appearance-player-display-preview")
+    await expect(preview.getByText("Display Preview")).toBeVisible()
+    await expect(page.getByTestId(`country-flag-${steamid64}`)).toBeVisible()
+    await expect(page.getByTestId(`rating-icon-${steamid64}`)).toBeVisible()
+
+    await page.getByTestId("appearance-player-country-flag-switch").click()
+    await expect(page.getByTestId(`country-flag-${steamid64}`)).toHaveCount(0)
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          JSON.parse(
+            localStorage.getItem("gokz-player-display-appearance") || "{}",
+          ),
+        ),
+      )
+      .toMatchObject({ showCountryFlag: false })
+
+    await page.getByTestId("appearance-player-rating-icon-switch").click()
+    await expect(page.getByTestId(`rating-icon-${steamid64}`)).toHaveCount(0)
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          JSON.parse(
+            localStorage.getItem("gokz-player-display-appearance") || "{}",
+          ),
+        ),
+      )
+      .toMatchObject({ showRatingIcon: false })
+
+    await page.getByTestId("appearance-player-rating-scope-select").click()
+    await page
+      .getByTestId("appearance-player-rating-scope-option-global")
+      .click()
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          JSON.parse(
+            localStorage.getItem("gokz-player-display-appearance") || "{}",
+          ),
+        ),
+      )
+      .toMatchObject({ ratingIconScope: "global" })
   })
 
   test("Social links tab can add and delete a link", async ({ page }) => {

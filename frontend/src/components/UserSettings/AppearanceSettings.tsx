@@ -1,15 +1,14 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
-import { type Theme, useTheme } from "@/components/theme-provider"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+  type PlayerDisplayRatingIconScope,
+  usePlayerDisplayPreferences,
+} from "@/components/player-display-preferences-provider"
+import { type Theme, useTheme } from "@/components/theme-provider"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -17,6 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import useAuth from "@/hooks/useAuth"
 import {
   type DateTimePreset,
   getDateTimePresetOptions,
@@ -29,31 +30,54 @@ const PREVIEW_SAMPLE = new Date(2026, 2, 22, 14, 5, 9)
 
 export default function AppearanceSettings() {
   const { t } = useTranslation()
+  const { user: currentUser } = useAuth()
   const { formatDateTime, hourCycle, preset, setHourCycle, setPreset } =
     useDateTimeFormat()
+  const {
+    ratingIconScope,
+    setRatingIconScope,
+    setShowCountryFlag,
+    setShowRatingIcon,
+    showCountryFlag,
+    showRatingIcon,
+  } = usePlayerDisplayPreferences()
   const { resolvedTheme, setTheme, theme } = useTheme()
   const themeOptions = useMemo<
     Array<{
       value: Theme
       label: string
-      description: string
     }>
   >(
     () => [
       {
         value: "light",
         label: t("theme.light"),
-        description: t("settings.appearance.themeDescriptions.light"),
       },
       {
         value: "dark",
         label: t("theme.dark"),
-        description: t("settings.appearance.themeDescriptions.dark"),
       },
       {
         value: "system",
         label: t("theme.system"),
-        description: t("settings.appearance.themeDescriptions.system"),
+      },
+    ],
+    [t],
+  )
+  const ratingIconScopeOptions = useMemo<
+    Array<{
+      value: PlayerDisplayRatingIconScope
+      label: string
+    }>
+  >(
+    () => [
+      {
+        value: "primary",
+        label: t("settings.appearance.ratingIconScopes.primary"),
+      },
+      {
+        value: "global",
+        label: t("settings.appearance.ratingIconScopes.global"),
       },
     ],
     [t],
@@ -68,26 +92,113 @@ export default function AppearanceSettings() {
     [dateTimePresetOptions, preset],
   )
 
-  const selectedTheme = useMemo(
-    () =>
-      themeOptions.find((option) => option.value === theme) ?? themeOptions[0],
-    [theme, themeOptions],
-  )
   const selectedHourCycle = useMemo(
     () =>
       hourCycleOptions.find((option) => option.value === hourCycle) ??
       hourCycleOptions[0],
     [hourCycle, hourCycleOptions],
   )
+  const previewPlayer = currentUser
+    ? {
+        steamid64: currentUser.steamid64,
+        displayName: currentUser.player?.display_name ?? null,
+      }
+    : null
 
   return (
     <div className="grid gap-6 max-w-3xl">
       <Card>
         <CardHeader>
+          <CardTitle>{t("settings.appearance.playerDisplayTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                {t("settings.appearance.countryFlag")}
+              </p>
+            </div>
+            <Switch
+              checked={showCountryFlag}
+              onCheckedChange={setShowCountryFlag}
+              aria-label={t("settings.appearance.countryFlag")}
+              data-testid="appearance-player-country-flag-switch"
+            />
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                {t("settings.appearance.ratingIcon")}
+              </p>
+            </div>
+            <Switch
+              checked={showRatingIcon}
+              onCheckedChange={setShowRatingIcon}
+              aria-label={t("settings.appearance.ratingIcon")}
+              data-testid="appearance-player-rating-icon-switch"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              {t("settings.appearance.ratingIconScope")}
+            </p>
+            <Select
+              value={ratingIconScope}
+              onValueChange={(value) =>
+                setRatingIconScope(value as PlayerDisplayRatingIconScope)
+              }
+            >
+              <SelectTrigger
+                className="w-full sm:w-[22rem]"
+                data-testid="appearance-player-rating-scope-select"
+              >
+                <SelectValue
+                  placeholder={t("settings.appearance.selectRatingIconScope")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {ratingIconScopeOptions.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    data-testid={`appearance-player-rating-scope-option-${option.value}`}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              {t("settings.appearance.playerDisplayPreview")}
+            </p>
+            <div
+              className="w-full rounded-lg border border-border/70 bg-background/70 px-4 py-3"
+              data-testid="appearance-player-display-preview"
+            >
+              {previewPlayer ? (
+                <PlayerDisplay
+                  player={previewPlayer}
+                  disableProfileLink
+                  className="min-w-0"
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.appearance.playerDisplayPreviewUnavailable")}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>{t("settings.appearance.themeTitle")}</CardTitle>
-          <CardDescription>
-            {t("settings.appearance.themeDescription")}
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -120,7 +231,6 @@ export default function AppearanceSettings() {
             </Select>
           </div>
           <div className="space-y-1 text-sm text-muted-foreground">
-            <p>{selectedTheme.description}</p>
             <p>
               {t("settings.appearance.activeTheme")}:{" "}
               <span className="font-medium text-foreground capitalize">
@@ -134,9 +244,6 @@ export default function AppearanceSettings() {
       <Card>
         <CardHeader>
           <CardTitle>{t("settings.appearance.dateTimeTitle")}</CardTitle>
-          <CardDescription>
-            {t("settings.appearance.dateTimeDescription")}
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -230,21 +337,10 @@ export default function AppearanceSettings() {
             </Select>
           </div>
           <div className="space-y-1 text-sm text-muted-foreground">
-            <p>{selectedPreset.description}</p>
-            <p>{selectedHourCycle.description}</p>
             <p data-testid="appearance-datetime-preview-default">
               {t("settings.appearance.recordTimestamp")}:{" "}
               <span className="font-medium text-foreground">
                 {formatDateTime(PREVIEW_SAMPLE, { fallback: "-" })}
-              </span>
-            </p>
-            <p data-testid="appearance-datetime-preview-seconds">
-              {t("settings.appearance.updateTimestamp")}:{" "}
-              <span className="font-medium text-foreground">
-                {formatDateTime(PREVIEW_SAMPLE, {
-                  fallback: "-",
-                  includeSeconds: true,
-                })}
               </span>
             </p>
             <p data-testid="appearance-datetime-preview-relative">

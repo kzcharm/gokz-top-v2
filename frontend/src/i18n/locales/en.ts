@@ -229,6 +229,27 @@ export const en = {
       recordTimestamp: "Record timestamp",
       updateTimestamp: "Update timestamp",
       relativeTimestamp: "Relative timestamp",
+      playerDisplayTitle: "Player Display",
+      playerDisplayDescription:
+        "Control how compact player components look on this browser.",
+      countryFlag: "Country Flag",
+      countryFlagDescription: "Show the player's country beside their name.",
+      ratingIcon: "Rating Icon",
+      ratingIconDescription: "Show the rating level badge beside the player.",
+      ratingIconScope: "Which rating should the icon use?",
+      selectRatingIconScope: "Select rating source",
+      playerDisplayPreview: "Preview",
+      playerDisplayPreviewUnavailable: "Preview unavailable.",
+      ratingIconScopes: {
+        primary: "Target Player's Primary Scope",
+        global: "My Selected Navbar Scope",
+      },
+      ratingIconScopeDescriptions: {
+        primary:
+          "Show the rating icon for the scope that the displayed player set as their primary scope.",
+        global:
+          "Show the rating icon for the scope you currently selected in the navbar.",
+      },
       themeDescriptions: {
         light: "Always use the light theme.",
         dark: "Always use the dark theme.",

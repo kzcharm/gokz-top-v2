@@ -37,7 +37,9 @@ import {
   getPlayerRatingBadgeIcon,
   getPlayerRatingLevel,
 } from "@/components/Common/player-rating"
+import { usePlayerDisplayPreferences } from "@/components/player-display-preferences-provider"
 import { formatRecordTime } from "@/components/Records/utils"
+import { useScope } from "@/components/scope-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -462,16 +464,29 @@ export function PlayerDisplay({
   scope,
 }: PlayerDisplayProps) {
   const { t } = useTranslation()
+  const { scope: appScope } = useScope()
+  const playerDisplayPreferences = usePlayerDisplayPreferences()
+  const effectiveHydrationScope =
+    scope ??
+    (playerDisplayPreferences.ratingIconScope === "global"
+      ? appScope
+      : undefined)
   const [menuOpen, setMenuOpen] = useState(false)
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const suppressProfileLinkClickRef = useRef(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
   const hydrationQuery = useQuery({
-    queryKey: ["graphql", "player", steamid64, scope ?? "PRIMARY"],
+    queryKey: [
+      "graphql",
+      "player",
+      steamid64,
+      effectiveHydrationScope ?? "PRIMARY",
+    ],
     enabled:
-      steamid64Pattern.test(steamid64) && shouldHydratePlayer(player, scope),
-    queryFn: () => loadPlayerForDisplay(steamid64, scope),
+      steamid64Pattern.test(steamid64) &&
+      shouldHydratePlayer(player, effectiveHydrationScope),
+    queryFn: () => loadPlayerForDisplay(steamid64, effectiveHydrationScope),
     staleTime: 60_000,
   })
   const resolvedPlayer: PlayerDisplayPlayer | undefined =
@@ -531,7 +546,12 @@ export function PlayerDisplay({
       ? countryNameFormatter.of(countryCode) || countryCode
       : countryCode
   const rating = resolvedPlayer?.rating
-  const showRatingBadge = rating !== undefined && rating !== null
+  const showEffectiveCountryFlag =
+    showCountryFlag && playerDisplayPreferences.showCountryFlag
+  const showRatingBadge =
+    playerDisplayPreferences.showRatingIcon &&
+    rating !== undefined &&
+    rating !== null
   const ratingLevel = showRatingBadge ? getPlayerRatingLevel(rating) : null
   const ratingBadgeSrc =
     ratingLevel !== null ? getPlayerRatingBadgeIcon(ratingLevel) : null
@@ -612,7 +632,7 @@ export function PlayerDisplay({
     >
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1">
-          {showCountryFlag ? (
+          {showEffectiveCountryFlag ? (
             FlagComponent ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -639,18 +659,18 @@ export function PlayerDisplay({
             )
           ) : null}
 
-          <span
-            className="inline-flex h-5 w-5 shrink-0 items-center justify-center"
-            aria-hidden={showRatingBadge ? undefined : "true"}
-          >
-            {ratingBadgeSrc ? (
-              <img
-                src={ratingBadgeSrc}
-                alt={`Rating level ${ratingLevel}`}
-                className="h-5 w-5 shrink-0"
-              />
-            ) : null}
-          </span>
+          {showRatingBadge ? (
+            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              {ratingBadgeSrc ? (
+                <img
+                  src={ratingBadgeSrc}
+                  alt={`Rating level ${ratingLevel}`}
+                  data-testid={`rating-icon-${steamid64}`}
+                  className="h-5 w-5 shrink-0"
+                />
+              ) : null}
+            </span>
+          ) : null}
         </div>
 
         {showAvatar ? (

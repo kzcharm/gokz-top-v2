@@ -11,6 +11,7 @@ import { ApiError, OpenAPI } from "./client"
 import { AdminModeProvider } from "./components/admin-mode-provider"
 import { WASDNavigationProvider } from "./components/Common/WASDNavigation"
 import { DateTimeFormatProvider } from "./components/date-time-format-provider"
+import { PlayerDisplayPreferencesProvider } from "./components/player-display-preferences-provider"
 import { ScopeProvider } from "./components/scope-provider"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
@@ -76,16 +77,18 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <ScopeProvider defaultScope="OVR" storageKey="gokz-app-scope">
-        <DateTimeFormatProvider>
-          <QueryClientProvider client={queryClient}>
-            <AdminModeProvider>
-              <WASDNavigationProvider>
-                <RouterProvider router={router} />
-              </WASDNavigationProvider>
-            </AdminModeProvider>
-            <Toaster richColors closeButton />
-          </QueryClientProvider>
-        </DateTimeFormatProvider>
+        <PlayerDisplayPreferencesProvider>
+          <DateTimeFormatProvider>
+            <QueryClientProvider client={queryClient}>
+              <AdminModeProvider>
+                <WASDNavigationProvider>
+                  <RouterProvider router={router} />
+                </WASDNavigationProvider>
+              </AdminModeProvider>
+              <Toaster richColors closeButton />
+            </QueryClientProvider>
+          </DateTimeFormatProvider>
+        </PlayerDisplayPreferencesProvider>
       </ScopeProvider>
     </ThemeProvider>
   </StrictMode>,

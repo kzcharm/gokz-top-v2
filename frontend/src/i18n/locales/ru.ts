@@ -230,6 +230,26 @@ export const ru = {
       recordTimestamp: "Время рекорда",
       updateTimestamp: "Время обновления",
       relativeTimestamp: "Относительное время",
+      playerDisplayTitle: "Отображение игрока",
+      playerDisplayDescription:
+        "Настройте, как компактные компоненты игрока выглядят в этом браузере.",
+      countryFlag: "Флаг страны",
+      countryFlagDescription: "Показывать страну игрока рядом с именем.",
+      ratingIcon: "Значок рейтинга",
+      ratingIconDescription:
+        "Показывать значок уровня рейтинга рядом с игроком.",
+      ratingIconScope: "Источник значка рейтинга",
+      selectRatingIconScope: "Выберите источник значка рейтинга",
+      playerDisplayPreview: "Предпросмотр",
+      playerDisplayPreviewUnavailable: "Предпросмотр недоступен.",
+      ratingIconScopes: {
+        primary: "Основной скоуп",
+        global: "Скоуп навбара",
+      },
+      ratingIconScopeDescriptions: {
+        primary: "Использовать рейтинг основного скоупа каждого игрока.",
+        global: "Использовать скоуп, выбранный в навбаре.",
+      },
       themeDescriptions: {
         light: "Всегда использовать светлую тему.",
         dark: "Всегда использовать тёмную тему.",

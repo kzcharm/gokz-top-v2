@@ -528,6 +528,7 @@ export function PlayersLeaderboardTab() {
                             >
                               <PlayerDisplay
                                 player={player}
+                                scope={scope}
                                 disableProfileLink
                                 className="min-w-0"
                               />

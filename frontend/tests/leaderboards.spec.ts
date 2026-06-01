@@ -62,7 +62,7 @@ async function stubPlayerGraphql(
   }: {
     playersBySteamid64?: Record<string, GraphqlPlayer>
     searchResultsByQuery?: Record<string, GraphqlPlayer[]>
-    onPlayersQuery?: (steamid64s: string[]) => void
+    onPlayersQuery?: (steamid64s: string[], scope: ModeScope | null) => void
   } = {},
 ) {
   await page.route("**/v1/graphql", async (route) => {
@@ -95,7 +95,10 @@ async function stubPlayerGraphql(
       const steamid64s = Array.isArray(variables.steamid64s)
         ? (variables.steamid64s as string[])
         : []
-      onPlayersQuery?.(steamid64s)
+      onPlayersQuery?.(
+        steamid64s,
+        (variables.scope as ModeScope | null) ?? null,
+      )
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
@@ -296,6 +299,75 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByText("Scope KZT")).toBeVisible()
     expect(requestedScopes).toContain("OVR")
     expect(requestedScopes).toContain("KZT")
+  })
+
+  test("players leaderboard display ratings always hydrate with selected scope", async ({
+    page,
+  }) => {
+    const playerHydrationScopes: Array<ModeScope | null> = []
+
+    await page.addInitScript(() => {
+      localStorage.clear()
+      localStorage.setItem(
+        "gokz-player-display-appearance",
+        JSON.stringify({
+          showCountryFlag: true,
+          showRatingIcon: true,
+          ratingIconScope: "primary",
+        }),
+      )
+    })
+    await stubRegions(page)
+    await stubPlayerGraphql(page, {
+      playersBySteamid64: {
+        "76561198000000001": buildGraphqlPlayer({
+          steamid64: "76561198000000001",
+          displayName: "Scoped Alpha",
+          country: "DE",
+          primaryScope: "OVR",
+          rating: 1000,
+        }),
+      },
+      onPlayersQuery: (_steamid64s, scope) => {
+        playerHydrationScopes.push(scope)
+      },
+    })
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              player: buildPlayerRef("76561198000000001", "Scoped Alpha"),
+              rating: 1000,
+              rating_easy: 500,
+              rating_hard: 500,
+              points: 2000,
+              wrs_nub: 1,
+              wrs_pro: 0,
+              records_900_plus: 2,
+              records_800_plus: 2,
+              unique_map_finishes: 20,
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards/players")
+    await expect(page.getByText("Scoped Alpha")).toBeVisible()
+
+    await page.getByRole("button", { name: "Select record scope" }).click()
+    await page.getByRole("menuitemradio", { name: "KZT" }).click()
+
+    await expect(
+      page.getByRole("button", { name: "Select record scope" }),
+    ).toContainText("KZT")
+    await expect.poll(() => playerHydrationScopes).toContainEqual("OVR")
+    await expect.poll(() => playerHydrationScopes).toContainEqual("KZT")
+    expect(playerHydrationScopes).not.toContain(null)
   })
 
   test("searching and selecting a player jumps to their leaderboard page", async ({
