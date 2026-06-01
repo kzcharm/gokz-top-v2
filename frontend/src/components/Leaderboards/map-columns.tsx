@@ -157,9 +157,7 @@ function OverallRatingStars({
 }
 
 function timeMetricColumn(
-  accessorKey:
-    | "average_playtime_per_player"
-    | "median_first_completion_time",
+  accessorKey: "average_playtime_per_player" | "median_first_completion_time",
   title: string,
   size: number,
 ): ColumnDef<MapLeaderboardTableRow> {

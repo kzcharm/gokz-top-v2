@@ -228,7 +228,9 @@ test("Community leaderboard shows more than ten rows", async ({ page }) => {
   await expect(
     page.getByText("Community Player 11", { exact: true }),
   ).toBeVisible()
-  await expect(page.getByRole("cell", { name: "-", exact: true })).toHaveCount(11)
+  await expect(page.getByRole("cell", { name: "-", exact: true })).toHaveCount(
+    11,
+  )
   await expect(page.getByText("Rows per page")).toHaveCount(0)
 })
 

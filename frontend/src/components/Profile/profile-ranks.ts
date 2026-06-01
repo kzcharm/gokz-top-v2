@@ -1,8 +1,8 @@
 import {
-  getPlayerRatingLevel,
   getPlayerRatingBadgeIcon,
-  RATING_RANK_COLORS,
+  getPlayerRatingLevel,
   type PlayerRatingLevel,
+  RATING_RANK_COLORS,
   type RatingRankLevel,
 } from "@/components/Common/player-rating"
 import type { AppScope } from "@/components/scope-provider"
@@ -64,9 +64,7 @@ export const RATING_RANK_NAMES = [
   "Legend",
 ] as const
 
-const RATING_RANK_MINIMUMS = [
-  0, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-] as const
+const RATING_RANK_MINIMUMS = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
 
 export const ratingRankBadgeClasses: Record<RatingRankLevel, string> = {
   1: "border-[#CCCCCC]/70 bg-[#CCCCCC]/20 text-zinc-800 dark:text-[#CCCCCC]",

@@ -128,9 +128,7 @@ function getRatingMarkerTopPercent(
       const lowerTop = ((index + 1) / (ladder.length - 1)) * 100
       const ratingSpan = upperRank.minimumRating - lowerRank.minimumRating
       const rankProgress =
-        ratingSpan === 0
-          ? 0
-          : (rating - lowerRank.minimumRating) / ratingSpan
+        ratingSpan === 0 ? 0 : (rating - lowerRank.minimumRating) / ratingSpan
 
       return lowerTop + (upperTop - lowerTop) * rankProgress
     }
