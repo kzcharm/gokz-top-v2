@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { OpenAPI } from "@/client/core/OpenAPI"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,38 @@ export function getMapImageUrl(mapName: string | null | undefined) {
   return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${mapName}.webp`
 }
 
+function buildApiUrl(path: string) {
+  const configuredBase = OpenAPI.BASE || window.location.origin
+  const baseUrl = new URL(configuredBase, window.location.origin)
+  const normalizedBasePath =
+    baseUrl.pathname === "/" ? "" : baseUrl.pathname.replace(/\/$/, "")
+
+  return `${baseUrl.origin}${normalizedBasePath}${path}`
+}
+
+export function getWorkshopPreviewImageUrl(
+  workshopId: number | string | null | undefined,
+) {
+  const normalizedWorkshopId = String(workshopId ?? "").trim()
+  if (!normalizedWorkshopId || !/^\d+$/.test(normalizedWorkshopId)) {
+    return null
+  }
+
+  return buildApiUrl(
+    `/v1/maps/workshop/${encodeURIComponent(normalizedWorkshopId)}/preview-image`,
+  )
+}
+
+export function getMapImageUrls(
+  mapName: string | null | undefined,
+  workshopId?: number | string | null,
+) {
+  return [
+    getMapImageUrl(mapName),
+    getWorkshopPreviewImageUrl(workshopId),
+  ].filter((url): url is string => Boolean(url))
+}
+
 export function MapDisplay({
   mapName,
   className,
@@ -44,9 +77,7 @@ export function MapDisplay({
   }
 
   const resolvedImageUrls =
-    imageUrls && imageUrls.length > 0
-      ? imageUrls
-      : [getMapImageUrl(mapName)].filter((url): url is string => Boolean(url))
+    imageUrls && imageUrls.length > 0 ? imageUrls : getMapImageUrls(mapName)
   const mapParams = { mapName }
 
   const handleGoToMapPage = () => {

@@ -21,7 +21,7 @@ import {
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { getMapImageUrl } from "@/components/Common/MapDisplay"
+import { getMapImageUrls } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { TierBadge } from "@/components/Servers/TierBadge"
@@ -213,7 +213,6 @@ function MapHero({
   leaderboardSummary?: ReactNode
 }) {
   const { t } = useTranslation()
-  const imageUrl = getMapImageUrl(map.name)
   const authorsList = map.authors ?? []
   const authors =
     authorsList.length > 0 ? authorsList.join(", ") : t("maps.unknownAuthor")
@@ -222,6 +221,24 @@ function MapHero({
     map.workshop_id !== null && map.workshop_id !== undefined
       ? String(map.workshop_id)
       : null
+  const imageUrls = getMapImageUrls(map.name, workshopId)
+  const imageUrlsKey = imageUrls.join("\n")
+  const [imageFallback, setImageFallback] = useState({ key: "", index: 0 })
+  const imageUrlIndex =
+    imageFallback.key === imageUrlsKey ? imageFallback.index : 0
+  const imageUrl = imageUrls[imageUrlIndex] ?? null
+
+  const handleImageError = () => {
+    setImageFallback((currentFallback) => {
+      const currentIndex =
+        currentFallback.key === imageUrlsKey ? currentFallback.index : 0
+      return {
+        key: imageUrlsKey,
+        index:
+          currentIndex + 1 < imageUrls.length ? currentIndex + 1 : currentIndex,
+      }
+    })
+  }
 
   const handleCopyWorkshopId = async () => {
     if (!workshopId) {
@@ -258,6 +275,7 @@ function MapHero({
                     src={imageUrl}
                     alt={t("maps.imageAlt", { mapName: map.name })}
                     className="block h-full w-full scale-[1.002] object-cover transition-transform duration-300 hover:scale-[1.022]"
+                    onError={handleImageError}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
                 </button>
@@ -271,6 +289,7 @@ function MapHero({
                     src={imageUrl}
                     alt={t("maps.imageAltEnlarged", { mapName: map.name })}
                     className="block max-h-[85vh] max-w-full scale-[1.002] rounded-[24px] object-contain"
+                    onError={handleImageError}
                   />
                 </div>
               </DialogContent>

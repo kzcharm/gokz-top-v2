@@ -309,6 +309,17 @@ test("Public servers page supports live updates, filters, and route-bound detail
     .toContain(
       "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_seed.webp",
     )
+  const seedCardBackground = await page
+    .getByTestId("server-card-10.0.0.1:27015")
+    .locator(".bg-cover")
+    .first()
+    .evaluate((element) => window.getComputedStyle(element).backgroundImage)
+  const staticSeedImageUrl =
+    "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_seed.webp"
+  const workshopSeedImagePath = "/v1/maps/workshop/123456789/preview-image"
+  expect(seedCardBackground.indexOf(staticSeedImageUrl)).toBeLessThan(
+    seedCardBackground.indexOf(workshopSeedImagePath),
+  )
 
   await page.waitForFunction(() => {
     return (

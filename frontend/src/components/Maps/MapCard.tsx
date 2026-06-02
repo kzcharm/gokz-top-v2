@@ -3,7 +3,7 @@ import { Star } from "lucide-react"
 
 import type { MapPublic, MapWrPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { getMapImageUrl } from "@/components/Common/MapDisplay"
+import { getMapImageUrls } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { getRecordModeLabelById } from "@/components/Records/mode"
@@ -95,7 +95,7 @@ export function MapCard({
   wrRecord = null,
   wrLoading = false,
 }: MapCardProps) {
-  const imageUrl = getMapImageUrl(map.name)
+  const imageUrls = getMapImageUrls(map.name, map.workshop_id)
   const reviewSummary = map.review_summary
   const reviewsCount = reviewSummary?.reviews_count ?? 0
   const commentsCount = reviewSummary?.comments_count ?? 0
@@ -128,10 +128,14 @@ export function MapCard({
           aria-label={`Open ${map.name}`}
           className="block h-full w-full rounded-t-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         >
-          {imageUrl ? (
+          {imageUrls.length > 0 ? (
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-              style={{ backgroundImage: `url(${imageUrl})` }}
+              style={{
+                backgroundImage: imageUrls
+                  .map((url) => `url("${url.replace(/"/g, "%22")}")`)
+                  .join(", "),
+              }}
             />
           ) : null}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/85" />

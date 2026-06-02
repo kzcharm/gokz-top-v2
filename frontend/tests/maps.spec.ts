@@ -371,10 +371,30 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     })
   })
 
+  await page.route(
+    "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_alpha.webp",
+    async (route) => {
+      await route.abort()
+    },
+  )
+
   await page.goto("/maps")
 
   await expect(page).toHaveURL(/\/maps$/)
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
+  const alphaCardBackground = await page
+    .getByTestId("map-card-kz_alpha")
+    .locator(".bg-cover")
+    .first()
+    .evaluate((element) => window.getComputedStyle(element).backgroundImage)
+  const staticAlphaImageUrl =
+    "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_alpha.webp"
+  const workshopAlphaImagePath = "/v1/maps/workshop/1986459001/preview-image"
+  expect(alphaCardBackground).toContain(staticAlphaImageUrl)
+  expect(alphaCardBackground).toContain(workshopAlphaImagePath)
+  expect(alphaCardBackground.indexOf(staticAlphaImageUrl)).toBeLessThan(
+    alphaCardBackground.indexOf(workshopAlphaImagePath),
+  )
   await expect(page.getByText("30 maps loaded")).toBeVisible()
   await expect(page.getByText("Page 1 of 2")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
@@ -448,6 +468,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
 
   await expect(page).toHaveURL(/\/maps\/kz_alpha$/)
   await expect(page.getByRole("heading", { name: "kz_alpha" })).toBeVisible()
+  await expect(
+    page.getByRole("img", { name: "kz_alpha preview image" }),
+  ).toHaveAttribute("src", /\/v1\/maps\/workshop\/1986459001\/preview-image/)
   await expect(page.getByRole("tab", { name: "Map Top" })).toBeVisible()
   await expect(page.getByText("Alpha Runner")).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Rank" })).toBeVisible()

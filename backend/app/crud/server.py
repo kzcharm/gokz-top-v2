@@ -114,14 +114,16 @@ def parse_server_workshop_id(map_name: str | None) -> str | None:
 
 def _build_server_live_status_public(
     status: ServerLiveStatus | None,
+    workshop_id: int | str | None = None,
 ) -> ServerLiveStatusPublic | None:
     if status is None:
         return None
     state = _get_live_status_state(status)
+    parsed_workshop_id = parse_server_workshop_id(status.map)
     return ServerLiveStatusPublic(
         hostname=status.hostname,
         map=normalize_server_map_name(status.map),
-        workshop_id=parse_server_workshop_id(status.map),
+        workshop_id=parsed_workshop_id or (str(workshop_id) if workshop_id else None),
         player_count=status.player_count,
         max_players=status.max_players,
         players=_build_server_player_public_list(status.players),
@@ -214,7 +216,10 @@ def to_server_public(*, server: Server) -> ServerPublic:
         created_at=server.created_at,
         updated_at=server.updated_at,
         live_status=(
-            _build_server_live_status_public(loaded_status)
+            _build_server_live_status_public(
+                loaded_status,
+                workshop_id=server.__dict__.get("map_workshop_id"),
+            )
             if isinstance(loaded_status, ServerLiveStatus)
             else None
         ),
@@ -1316,11 +1321,11 @@ async def _hydrate_servers(
         for status in statuses
         if (normalized_map_name := normalize_server_map_name(status.map)) is not None
     }
-    map_tiers_by_name: dict[str, int] = {}
+    maps_by_name: dict[str, Map] = {}
     if live_map_names:
         maps_statement = select(Map).where(col(Map.name).in_(live_map_names))
         maps = list((await session.exec(maps_statement)).all())
-        map_tiers_by_name = {map_obj.name: map_obj.difficulty for map_obj in maps}
+        maps_by_name = {map_obj.name: map_obj for map_obj in maps}
 
     for server in servers:
         server.group = groups_by_id.get(server.group_id) if server.group_id else None
@@ -1328,6 +1333,6 @@ async def _hydrate_servers(
         live_map_name = normalize_server_map_name(
             server.live_status.map if server.live_status else None
         )
-        server.__dict__["map_tier"] = (
-            map_tiers_by_name.get(live_map_name) if live_map_name else None
-        )
+        map_obj = maps_by_name.get(live_map_name) if live_map_name else None
+        server.__dict__["map_tier"] = map_obj.difficulty if map_obj else None
+        server.__dict__["map_workshop_id"] = map_obj.workshop_id if map_obj else None
