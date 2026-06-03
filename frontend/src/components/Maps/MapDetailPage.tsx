@@ -12,6 +12,7 @@ import {
   MapsService,
   type RecordPublic,
   RecordsService,
+  type RecordType,
 } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import {
@@ -25,7 +26,7 @@ import { getMapImageUrls } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { TierBadge } from "@/components/Servers/TierBadge"
-import { useScope } from "@/components/scope-provider"
+import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -385,12 +386,16 @@ function MapHero({
 export function MapDetailPage({
   mapName,
   activeTab,
+  initialScope,
+  initialRecordType,
 }: {
   mapName: string
   activeTab: MapDetailTab
+  initialScope?: AppScope
+  initialRecordType?: RecordType
 }) {
   const { t } = useTranslation()
-  const { scope } = useScope()
+  const { scope, setScope } = useScope()
   const { user: currentUser } = useAuth()
   const { enabled: adminModeEnabled } = useAdminMode()
   const canUseRecordAdminActions = canModerateBansAndRecords(currentUser)
@@ -398,7 +403,7 @@ export function MapDetailPage({
   const { bulkDeleteMutation } = useRecordAdminActions()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
-  const [isProOnly, setIsProOnly] = useState(false)
+  const [isProOnly, setIsProOnly] = useState(initialRecordType === "PRO")
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [isFriendsOnly, setIsFriendsOnly] = useState(false)
@@ -416,6 +421,18 @@ export function MapDetailPage({
   >(null)
   const spotlightTimeoutRef = useRef<number | null>(null)
   const spotlightStartTimeoutRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (initialScope && initialScope !== scope) {
+      setScope(initialScope)
+    }
+  }, [initialScope, scope, setScope])
+
+  useEffect(() => {
+    if (initialRecordType) {
+      setIsProOnly(initialRecordType === "PRO")
+    }
+  }, [initialRecordType])
 
   const mapQuery = useQuery({
     queryKey: ["map", mapName],

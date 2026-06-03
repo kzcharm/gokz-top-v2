@@ -19,7 +19,10 @@ from app.models import (
     PlayerPinnedRecordUpsert,
     RecordType,
 )
-from app.services.globalapi_ban_sync import GlobalApiBanSyncError, sync_player_bans_from_globalapi
+from app.services.globalapi_ban_sync import (
+    GlobalApiBanSyncError,
+    sync_player_bans_from_globalapi,
+)
 from app.services.player_friends import (
     format_friends_sync_retry_wait,
     read_player_friends_public,

@@ -15,6 +15,7 @@ from app.models import (
     MapCourseTier,
     ModeScope,
     Player,
+    PlayerNotification,
     Record,
     RecordFilter,
     RecordPb,
@@ -154,6 +155,7 @@ async def _create_record(
     stage: int,
     time: str,
     teleports: int,
+    emit_wr_notifications: bool = False,
 ) -> Record:
     if id is not None:
         record_uuid_subquery = select(Record.uuid).where(Record.id == id)
@@ -179,6 +181,7 @@ async def _create_record(
         updated_by=steamid64,
         replay_id=None,
         is_valid=True,
+        emit_wr_notifications=emit_wr_notifications,
     )
     await db.commit()
     await db.refresh(record)
@@ -226,6 +229,87 @@ async def test_get_pb_records_tie_break_prefers_lower_globalapi_id(
     )
 
     assert [record.id for record in records] == [winner.id]
+
+
+async def test_upsert_record_notifies_when_kzt_wr_is_beaten(
+    db: AsyncSession,
+) -> None:
+    previous_owner_id = random_steamid64()
+    new_owner_id = random_steamid64()
+    await _create_player(db, steamid64=previous_owner_id, name="Former WR")
+    await _create_player(db, steamid64=new_owner_id, name="New WR")
+    await _create_map(db, id=981010, name="kz_notification_wr")
+    await _create_server(db, id=981110, name="WR Server")
+    await _create_record_filter(
+        db,
+        id=981310,
+        map_id=981010,
+        stage=0,
+        mode_id=200,
+        tier=3,
+        has_teleports=True,
+    )
+    await _create_record_filter(
+        db,
+        id=981311,
+        map_id=981010,
+        stage=0,
+        mode_id=200,
+        tier=3,
+        has_teleports=False,
+    )
+
+    previous_record = await _create_record(
+        db,
+        id=981210,
+        steamid64=previous_owner_id,
+        map_id=981010,
+        server_id=981110,
+        mode_id=200,
+        stage=0,
+        time="10.000",
+        teleports=0,
+    )
+    new_record = await _create_record(
+        db,
+        id=981211,
+        steamid64=new_owner_id,
+        map_id=981010,
+        server_id=981110,
+        mode_id=200,
+        stage=0,
+        time="9.500",
+        teleports=0,
+        emit_wr_notifications=True,
+    )
+
+    notifications = (
+        await db.exec(
+            select(PlayerNotification)
+            .where(PlayerNotification.recipient_steamid64 == previous_owner_id)
+            .order_by(PlayerNotification.record_type)
+        )
+    ).all()
+
+    assert [notification.type for notification in notifications] == [
+        "wr_beaten",
+        "wr_beaten",
+    ]
+    assert {notification.scope for notification in notifications} == {ModeScope.KZT}
+    assert {notification.record_type for notification in notifications} == {
+        RecordType.NUB,
+        RecordType.PRO,
+    }
+    assert all(
+        notification.actor_steamid64 == new_owner_id for notification in notifications
+    )
+    assert all(
+        notification.previous_record_uuid == previous_record.uuid
+        for notification in notifications
+    )
+    assert all(
+        notification.new_record_uuid == new_record.uuid for notification in notifications
+    )
 
 
 async def test_get_max_record_globalapi_id_ignores_null_ids(

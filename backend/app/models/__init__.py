@@ -155,6 +155,15 @@ from .player_friend import (
     PlayerFriendSyncResult,
 )
 from .player_like import PlayerLike
+from .player_notification import (
+    PlayerNotification,
+    PlayerNotificationListQuery,
+    PlayerNotificationPatchResult,
+    PlayerNotificationPublic,
+    PlayerNotificationsPublic,
+    PlayerNotificationType,
+    PlayerNotificationUnreadCountPublic,
+)
 from .player_pinned_record import (
     PlayerPinnedRecord,
     PlayerPinnedRecordPublic,
@@ -500,6 +509,13 @@ __all__ = [
     "PlayerLikerPublic",
     "PlayerLikersPublic",
     "PlayerLikesPublic",
+    "PlayerNotification",
+    "PlayerNotificationListQuery",
+    "PlayerNotificationPatchResult",
+    "PlayerNotificationPublic",
+    "PlayerNotificationsPublic",
+    "PlayerNotificationType",
+    "PlayerNotificationUnreadCountPublic",
     "PlayerProfileView",
     "PlayerProfileViewCreate",
     "PlayerProfileViewsPublic",

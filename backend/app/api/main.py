@@ -11,23 +11,24 @@ from app.api.v1 import (
     graphql,
     jumpstats,
     leaderboards,
-    me_player_actions,
-    me_settings,
-    me_webhooks,
     live,
     login,
     maps,
+    me_notifications,
+    me_player_actions,
+    me_settings,
+    me_webhooks,
     misc,
     modes,
-    player_sessions,
     player_follows,
+    player_sessions,
     player_social_links,
     players,
     private,
     record_ws,
     records,
-    replays,
     regions,
+    replays,
     server_groups,
     server_ws,
     servers,
@@ -44,6 +45,7 @@ api_router.include_router(players.router)
 api_router.include_router(me_settings.router)
 api_router.include_router(me_webhooks.router)
 api_router.include_router(me_player_actions.router)
+api_router.include_router(me_notifications.router)
 api_router.include_router(player_follows.router)
 api_router.include_router(player_social_links.router)
 api_router.include_router(player_social_links.verification_router)

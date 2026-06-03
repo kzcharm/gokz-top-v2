@@ -4072,6 +4072,202 @@ export const PlayerMostPlayedServerPublicSchema = {
     title: 'PlayerMostPlayedServerPublic'
 } as const;
 
+export const PlayerNotificationPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        type: {
+            '$ref': '#/components/schemas/PlayerNotificationType'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        read_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Read At'
+        },
+        actor: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        target_url: {
+            type: 'string',
+            title: 'Target Url'
+        },
+        target_player_steamid64: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Target Player Steamid64'
+        },
+        comment_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Comment Id'
+        },
+        comment_preview: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Comment Preview'
+        },
+        map_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Map Id'
+        },
+        map_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Map Name'
+        },
+        scope: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ModeScope'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        record_type: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/RecordType'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        previous_record_uuid: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Previous Record Uuid'
+        },
+        new_record_uuid: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'New Record Uuid'
+        },
+        new_record_time: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'New Record Time'
+        }
+    },
+    type: 'object',
+    required: ['id', 'type', 'created_at', 'target_url'],
+    title: 'PlayerNotificationPublic'
+} as const;
+
+export const PlayerNotificationTypeSchema = {
+    type: 'string',
+    enum: ['profile_like', 'profile_comment', 'player_follow', 'wr_beaten'],
+    title: 'PlayerNotificationType'
+} as const;
+
+export const PlayerNotificationUnreadCountPublicSchema = {
+    properties: {
+        unread_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Unread Count'
+        }
+    },
+    type: 'object',
+    required: ['unread_count'],
+    title: 'PlayerNotificationUnreadCountPublic'
+} as const;
+
+export const PlayerNotificationsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerNotificationPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerNotificationsPublic'
+} as const;
+
 export const PlayerPinnedRecordPublicSchema = {
     properties: {
         id: {

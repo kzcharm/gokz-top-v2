@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-05-31
+- Last Updated: 2026-06-03
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -14,6 +14,7 @@
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
   - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying of Bilibili preview assets
+  - `/v1/me/notifications` for authenticated player notification inbox reads, unread counts, and read-state mutations
   - `/v1/admin/servers` for RBAC-protected server and server-group management
   - `/v1/admin/player-social-links` for superuser management of player social links and verification state
   - `/v1/maps/reviews` now supports website-authored review upserts plus authenticated comment-only deletion across a player's review rows for a map
@@ -34,6 +35,7 @@
   - KZ-only player friendships are stored in `player_friend` as directed edges, with sync flows maintaining both directions for active friendships and deleting stale edges only after a successful Steam friends fetch
   - `player` now persists Steam friends visibility state through `friends_visibility` and `friends_visibility_checked_at`, allowing public profile reads to explain whether a Steam profile or friends list is private without storing generic sync-failure state
   - Player profile comments are stored in `player_comment`, keyed by UUIDv7 and linked to both author and target `player.steamid64`, with trimmed text validation, reverse-chronological profile reads, and owner-or-author deletion
+  - Player notifications are stored in `player_notification`, keyed by UUIDv7 with an idempotent `source_key`, recipient/actor Steam IDs, read timestamps, target URLs, and typed payload fields for profile likes, profile comments, follows, and future-only WR-beaten events
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges; Twitch and YouTube support OAuth self-verification, Bilibili supports profile-code self-verification, and admins can still manage verification metadata
   - Verified Bilibili, YouTube, and Twitch follower counts for community leaderboard display are cached in `cache.player_video_platform_followers`, keyed by `player_social_link.id`, and refreshed lazily with a TTL so public reads do not depend on live platform API success
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
@@ -62,6 +64,7 @@
   - WebSocket updates are delivered from `/v1/ws/servers` after cache updates, using PostgreSQL `LISTEN/NOTIFY` to fan out change events from the backend
 - Scheduled background maintenance:
   - Continuous GlobalAPI sync remains responsible for ingesting mirrored upstream records and other mirrored entities
+  - Forward GlobalAPI record sync emits WR-beaten notifications for future KZT/SKZ/VNL NUB and PRO world-record owner changes while repair/backfill paths avoid historical notification floods
   - A single in-app midnight-UTC rank pipeline selects the previous UTC day's changed `record_pb` rows, rebuilds touched PB point buckets, rebuilds touched leaderboard rows, rebuilds touched maps leaderboard rows selected from `Record.updated_at`, refreshes touched player Steam profiles, and then attempts KZ-only friends sync for those same players
   - An advisory-locked in-app player-session timeout runner closes open sessions after the configured heartbeat timeout by setting `disconnect_at` to the last heartbeat timestamp
   - An advisory-locked in-app live-stream runner polls verified Bilibili and Twitch social links on a fixed interval, caches Twitch app tokens in-process, and updates `live_stream_state` without clearing live rows on transport failures

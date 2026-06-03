@@ -810,6 +810,36 @@ export type PlayerMostPlayedServerPublic = {
     updated_at: string;
 };
 
+export type PlayerNotificationPublic = {
+    id: string;
+    type: PlayerNotificationType;
+    created_at: string;
+    read_at?: (string | null);
+    actor?: (PlayerRefPublic | null);
+    target_url: string;
+    target_player_steamid64?: (string | null);
+    comment_id?: (string | null);
+    comment_preview?: (string | null);
+    map_id?: (number | null);
+    map_name?: (string | null);
+    scope?: (ModeScope | null);
+    record_type?: (RecordType | null);
+    previous_record_uuid?: (string | null);
+    new_record_uuid?: (string | null);
+    new_record_time?: (number | null);
+};
+
+export type PlayerNotificationsPublic = {
+    data: Array<PlayerNotificationPublic>;
+    count: number;
+};
+
+export type PlayerNotificationType = 'profile_like' | 'profile_comment' | 'player_follow' | 'wr_beaten';
+
+export type PlayerNotificationUnreadCountPublic = {
+    unread_count: number;
+};
+
 export type PlayerPinnedRecordPublic = {
     id: string;
     player_steamid64: string;
@@ -1896,6 +1926,24 @@ export type MeDeleteCurrentPlayerPinnedRecordData = {
 };
 
 export type MeDeleteCurrentPlayerPinnedRecordResponse = (PlayerPinnedRecordsPublic);
+
+export type MeReadCurrentPlayerNotificationsData = {
+    limit?: number;
+    offset?: number;
+    unreadOnly?: boolean;
+};
+
+export type MeReadCurrentPlayerNotificationsResponse = (PlayerNotificationsPublic);
+
+export type MeReadCurrentPlayerNotificationUnreadCountResponse = (PlayerNotificationUnreadCountPublic);
+
+export type MeMarkCurrentPlayerNotificationReadData = {
+    notificationId: string;
+};
+
+export type MeMarkCurrentPlayerNotificationReadResponse = (PlayerNotificationPublic);
+
+export type MeMarkAllCurrentPlayerNotificationsReadResponse = (Message);
 
 export type MiscLookupRequestIpResponse = (IPLookupResponse);
 

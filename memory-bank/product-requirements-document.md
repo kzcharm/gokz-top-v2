@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-05-18
+- Last Updated: 2026-06-03
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -88,6 +88,7 @@ Scope model:
 - Friends-tab reads must show a public privacy warning when the player's Steam profile or Steam friends list is private, because that Steam visibility state is itself public.
 - Player profiles expose comments at the bottom of the Home tab, where authenticated users can leave short public comments for another player.
 - Player-comment writes must trim whitespace, reject blank input, and enforce a bounded text length; both the comment author and the target profile owner can delete a posted comment.
+- Authenticated players have a notifications inbox at `/notifications`, surfaced by a navbar bell with an unread badge. The first notification set covers profile likes, profile comments, new followers, and future-only KZT/SKZ/VNL NUB/PRO WR-beaten events. Notifications remain unread until the player opens/clicks a notification or uses the mark-all-read action.
 - `/live` lists player-centric verified stream cards sourced from verified Bilibili and Twitch links, with filters for live versus previously streamed players.
 - Offline `/live` cards must show the most recently observed stream across a player's enabled platforms, so future multi-platform support can prefer the newest Twitch/YouTube/Bilibili activity rather than a fixed platform order.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).

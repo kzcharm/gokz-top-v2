@@ -73,6 +73,7 @@ from .ban import active_ban_exists_clause, not_active_ban_exists_clause
 from .map import get_map_by_name
 from .map_leaderboard import rebuild_map_leaderboards_for_keys
 from .player import read_players_batch, to_player_ref_public
+from .player_notification import create_wr_beaten_notification
 from .record_filter import load_scoped_course_tiers
 
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
@@ -101,6 +102,17 @@ class _WinnerPbEntry:
     time: Decimal
     time_ms: int
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class _WrSnapshot:
+    steamid64: int
+    record_uuid: uuid.UUID
+    map_id: int
+    map_name: str
+    scope: ModeScope
+    record_type: RecordType
+    time: Decimal
 
 
 def _course_pb_entry_for_record_time(
@@ -1152,11 +1164,85 @@ def _map_leaderboard_keys_for_record_snapshot(
     }
 
 
+async def _load_wr_snapshots_for_bucket_keys(
+    *,
+    session: AsyncSession,
+    bucket_keys: set[tuple[int, int, RecordType]],
+) -> dict[tuple[int, int, RecordType], _WrSnapshot]:
+    if not bucket_keys:
+        return {}
+
+    snapshots: dict[tuple[int, int, RecordType], _WrSnapshot] = {}
+    for scope_id, course_id, record_type in sorted(bucket_keys):
+        scope = mode_scope_from_id(scope_id)
+        row = (
+            await session.exec(
+                select(
+                    RecordPb.steamid64,
+                    RecordPb.record_uuid,
+                    MapCourse.map_id,
+                    Map.name,
+                    RecordPb.time,
+                )
+                .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
+                .join(Map, col(Map.id) == col(MapCourse.map_id))
+                .where(
+                    col(RecordPb.scope) == scope,
+                    col(RecordPb.course_id) == course_id,
+                    col(RecordPb.type) == record_type,
+                    col(RecordPb.points) == 1000,
+                )
+            )
+        ).first()
+        if row is None:
+            continue
+
+        steamid64, record_uuid, map_id, map_name, record_time = row
+        snapshots[(scope_id, course_id, record_type)] = _WrSnapshot(
+            steamid64=steamid64,
+            record_uuid=record_uuid,
+            map_id=map_id,
+            map_name=map_name,
+            scope=scope,
+            record_type=record_type,
+            time=record_time,
+        )
+    return snapshots
+
+
+async def _create_wr_beaten_notifications_for_changes(
+    *,
+    session: AsyncSession,
+    before: dict[tuple[int, int, RecordType], _WrSnapshot],
+    after: dict[tuple[int, int, RecordType], _WrSnapshot],
+) -> None:
+    for key, previous_wr in before.items():
+        current_wr = after.get(key)
+        if current_wr is None:
+            continue
+        if current_wr.record_uuid == previous_wr.record_uuid:
+            continue
+        await create_wr_beaten_notification(
+            session=session,
+            previous_owner_steamid64=previous_wr.steamid64,
+            new_owner_steamid64=current_wr.steamid64,
+            map_id=current_wr.map_id,
+            map_name=current_wr.map_name,
+            scope=current_wr.scope,
+            record_type=current_wr.record_type,
+            previous_record_uuid=previous_wr.record_uuid,
+            new_record_uuid=current_wr.record_uuid,
+            new_record_time=current_wr.time,
+            commit=False,
+        )
+
+
 async def _refresh_record_read_models_for_change(
     *,
     session: AsyncSession,
     before: Record | None,
     after: Record | None,
+    emit_wr_notifications: bool = False,
 ) -> None:
     pb_keys: set[tuple[int, int, int, RecordType]] = set()
     map_leaderboard_keys: set[tuple[int, int]] = set()
@@ -1195,11 +1281,35 @@ async def _refresh_record_read_models_for_change(
         if before.time != after.time:
             time_changed_record_uuids.add(after.uuid)
 
+    bucket_keys = {
+        (scope_id, course_id, record_type)
+        for scope_id, course_id, _steamid64, record_type in pb_keys
+    }
+    wr_snapshots_before = (
+        await _load_wr_snapshots_for_bucket_keys(
+            session=session,
+            bucket_keys=bucket_keys,
+        )
+        if emit_wr_notifications
+        else {}
+    )
+
     await rebuild_record_pb_buckets_for_keys(
         session=session,
         keys=pb_keys,
         time_changed_record_uuids=time_changed_record_uuids,
     )
+    if emit_wr_notifications:
+        wr_snapshots_after = await _load_wr_snapshots_for_bucket_keys(
+            session=session,
+            bucket_keys=bucket_keys,
+        )
+        await _create_wr_beaten_notifications_for_changes(
+            session=session,
+            before=wr_snapshots_before,
+            after=wr_snapshots_after,
+        )
+
     await rebuild_map_leaderboards_for_keys(
         session=session,
         keys=sorted(map_leaderboard_keys),
@@ -1756,6 +1866,7 @@ async def upsert_record(
     updated_by: int,
     replay_id: int | None,
     is_valid: bool,
+    emit_wr_notifications: bool = False,
 ) -> tuple[Record, bool, bool]:
     existing_record = (
         await get_record_by_id(session=session, record_id=record_id)
@@ -1785,6 +1896,7 @@ async def upsert_record(
             session=session,
             before=None,
             after=record,
+            emit_wr_notifications=emit_wr_notifications,
         )
         return record, True, False
 
@@ -1807,6 +1919,7 @@ async def upsert_record(
         session=session,
         before=before_record,
         after=existing_record,
+        emit_wr_notifications=emit_wr_notifications,
     )
     return existing_record, False, True
 

@@ -1,0 +1,359 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { Bell, Heart, MessageCircle, Trophy, UserPlus } from "lucide-react"
+import type { ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+
+import {
+  MeService,
+  type PlayerNotificationPublic,
+  type PlayerNotificationType,
+  type PlayerRefPublic,
+  type RecordType,
+} from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import type { AppScope } from "@/components/scope-provider"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { isLoggedIn } from "@/hooks/useAuth"
+import { getPageTitle } from "@/lib/site"
+import { cn } from "@/lib/utils"
+
+const NOTIFICATION_LIMIT = 50
+
+export const Route = createFileRoute("/_layout/notifications")({
+  component: NotificationsRoute,
+  beforeLoad: () => {
+    if (!isLoggedIn()) {
+      throw redirect({
+        to: "/login",
+      })
+    }
+  },
+  head: () => ({
+    meta: [
+      {
+        title: getPageTitle("Notifications"),
+      },
+    ],
+  }),
+})
+
+type NotificationDisplay = {
+  icon: ReactNode
+  action: string
+  detail: string | null
+  actor: PlayerRefPublic | null | undefined
+}
+
+const notificationLinkClassName =
+  "rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+
+function formatRecordTime(value: number | null | undefined) {
+  return typeof value === "number" ? `${value.toFixed(3)}s` : "-"
+}
+
+function notificationIcon(type: PlayerNotificationType) {
+  if (type === "profile_like") {
+    return <Heart className="size-4" />
+  }
+  if (type === "profile_comment") {
+    return <MessageCircle className="size-4" />
+  }
+  if (type === "player_follow") {
+    return <UserPlus className="size-4" />
+  }
+  if (type === "wr_beaten") {
+    return <Trophy className="size-4" />
+  }
+  return <Bell className="size-4" />
+}
+
+function buildNotificationDisplay(
+  notification: PlayerNotificationPublic,
+  t: ReturnType<typeof useTranslation>["t"],
+): NotificationDisplay {
+  const mapName = notification.map_name ?? t("notifications.unknownMap")
+  const scope = notification.scope ?? "-"
+  const recordType = notification.record_type ?? "-"
+  const time = formatRecordTime(notification.new_record_time)
+
+  if (notification.type === "profile_like") {
+    return {
+      icon: notificationIcon(notification.type),
+      action: t("notifications.events.profileLikeAction"),
+      detail: null,
+      actor: notification.actor,
+    }
+  }
+
+  if (notification.type === "profile_comment") {
+    return {
+      icon: notificationIcon(notification.type),
+      action: t("notifications.events.profileCommentAction"),
+      detail: notification.comment_preview ?? null,
+      actor: notification.actor,
+    }
+  }
+
+  if (notification.type === "player_follow") {
+    return {
+      icon: notificationIcon(notification.type),
+      action: t("notifications.events.playerFollowAction"),
+      detail: null,
+      actor: notification.actor,
+    }
+  }
+
+  if (notification.type === "wr_beaten") {
+    return {
+      icon: notificationIcon(notification.type),
+      action: t("notifications.events.wrBeatenAction", {
+        map: mapName,
+      }),
+      detail: t("notifications.events.wrBeatenDetail", {
+        scope,
+        type: recordType,
+        time,
+      }),
+      actor: notification.actor,
+    }
+  }
+
+  return {
+    icon: notificationIcon(notification.type),
+    action: t("notifications.events.generic"),
+    detail: null,
+    actor: notification.actor,
+  }
+}
+
+function NotificationActor({
+  actor,
+}: {
+  actor: PlayerRefPublic | null | undefined
+}) {
+  const { t } = useTranslation()
+
+  if (!actor) {
+    return (
+      <span className="font-medium text-sm leading-6">
+        {t("notifications.someone")}
+      </span>
+    )
+  }
+
+  return (
+    <PlayerDisplay
+      player={actor}
+      className="min-w-0"
+      nameMaxLength={24}
+      hideAvatarWithoutSteamid64
+    />
+  )
+}
+
+function isNotificationAppScope(
+  scope: PlayerNotificationPublic["scope"],
+): scope is AppScope {
+  return (
+    scope === "OVR" || scope === "KZT" || scope === "SKZ" || scope === "VNL"
+  )
+}
+
+function isNotificationRecordType(
+  recordType: PlayerNotificationPublic["record_type"],
+): recordType is RecordType {
+  return recordType === "NUB" || recordType === "PRO"
+}
+
+function NotificationAction({
+  notification,
+  display,
+  onMarkRead,
+}: {
+  notification: PlayerNotificationPublic
+  display: NotificationDisplay
+  onMarkRead: () => void
+}) {
+  const { t } = useTranslation()
+
+  if (
+    notification.type === "wr_beaten" &&
+    notification.map_name &&
+    isNotificationAppScope(notification.scope) &&
+    isNotificationRecordType(notification.record_type)
+  ) {
+    return (
+      <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm leading-6">
+        <button
+          type="button"
+          className="rounded-sm text-left hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={onMarkRead}
+        >
+          {t("notifications.events.wrBeatenActionPrefix")}
+        </button>
+        <Link
+          to="/maps/$mapName/maptop"
+          params={{ mapName: notification.map_name }}
+          search={{
+            scope: notification.scope,
+            type: notification.record_type,
+          }}
+          className={notificationLinkClassName}
+          onClick={onMarkRead}
+        >
+          {notification.map_name}
+        </Link>
+        <span>{t("notifications.events.wrBeatenActionSuffix")}</span>
+      </span>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="rounded-sm text-left text-sm leading-6 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      onClick={onMarkRead}
+    >
+      {display.action}
+    </button>
+  )
+}
+
+function NotificationsRoute() {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const notificationsQuery = useQuery({
+    queryKey: ["me", "notifications", { limit: NOTIFICATION_LIMIT }],
+    queryFn: () =>
+      MeService.readCurrentPlayerNotifications({
+        limit: NOTIFICATION_LIMIT,
+      }),
+  })
+  const unreadCountQuery = useQuery({
+    queryKey: ["me", "notifications", "unread-count"],
+    queryFn: MeService.readCurrentPlayerNotificationUnreadCount,
+  })
+  const unreadCount = unreadCountQuery.data?.unread_count ?? 0
+
+  const invalidateNotifications = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["me", "notifications"] }),
+      queryClient.invalidateQueries({
+        queryKey: ["me", "notifications", "unread-count"],
+      }),
+    ])
+  }
+
+  const markReadMutation = useMutation({
+    mutationFn: (notificationId: string) =>
+      MeService.markCurrentPlayerNotificationRead({ notificationId }),
+    onSuccess: invalidateNotifications,
+  })
+  const markAllReadMutation = useMutation({
+    mutationFn: MeService.markAllCurrentPlayerNotificationsRead,
+    onSuccess: invalidateNotifications,
+  })
+
+  const handleNotificationClick = (notification: PlayerNotificationPublic) => {
+    if (!notification.read_at) {
+      markReadMutation.mutate(notification.id)
+    }
+  }
+
+  return (
+    <div className="mx-auto flex max-w-4xl flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t("notifications.title")}
+          </h1>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <span>
+              {t("notifications.unreadCount", { count: unreadCount })}
+            </span>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={unreadCount === 0 || markAllReadMutation.isPending}
+          onClick={() => markAllReadMutation.mutate()}
+        >
+          {t("notifications.markAllRead")}
+        </Button>
+      </div>
+
+      {notificationsQuery.isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-20 rounded-md" />
+          ))}
+        </div>
+      ) : notificationsQuery.data?.data.length ? (
+        <div className="overflow-hidden rounded-md border border-border bg-[rgb(245,245,244)]">
+          {notificationsQuery.data.data.map((notification) => {
+            const display = buildNotificationDisplay(notification, t)
+            const unread = !notification.read_at
+
+            return (
+              <div
+                key={notification.id}
+                data-testid="notification-row"
+                className={cn(
+                  "flex w-full items-start gap-3 border-border border-b bg-[rgb(245,245,244)] px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-[rgb(245,245,244)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground",
+                    unread && "border-primary/30 bg-primary/10 text-primary",
+                  )}
+                >
+                  {display.icon}
+                </span>
+                <span className="min-w-0 flex-1 space-y-1.5">
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <NotificationActor actor={display.actor} />
+                      <NotificationAction
+                        notification={notification}
+                        display={display}
+                        onMarkRead={() => {
+                          handleNotificationClick(notification)
+                        }}
+                      />
+                      {unread ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {t("notifications.unread")}
+                        </Badge>
+                      ) : null}
+                    </span>
+                    <FormattedDateTime
+                      value={notification.created_at}
+                      display="contextual-relative"
+                      className="shrink-0 whitespace-nowrap pt-1 text-muted-foreground text-xs"
+                    />
+                  </span>
+                  {display.detail ? (
+                    <span className="block text-muted-foreground text-sm">
+                      {display.detail}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-border px-6 py-12 text-center text-muted-foreground text-sm">
+          {t("notifications.empty")}
+        </div>
+      )}
+    </div>
+  )
+}

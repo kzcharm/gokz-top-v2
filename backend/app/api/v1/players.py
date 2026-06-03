@@ -150,11 +150,20 @@ async def create_player_like(
     current_user: CurrentUser,
 ) -> PlayerLikesPublic:
     player = await get_player_or_404(session=session, identifier=identifier)
+    now = datetime.now(UTC)
     created = await crud.create_player_like(
         session=session,
         viewer_steamid64=current_user.steamid64,
         target_steamid64=player.steamid64,
+        now=now,
     )
+    if created:
+        await crud.create_profile_like_notification(
+            session=session,
+            actor_steamid64=current_user.steamid64,
+            recipient_steamid64=player.steamid64,
+            like_date=crud.get_utc_today(now=now).isoformat(),
+        )
     player_likes = await crud.count_player_likes(
         session=session,
         target_steamid64=player.steamid64,
@@ -205,7 +214,7 @@ async def create_player_comment(
     session: SessionDep,
     payload: PlayerCommentCreate,
     current_user: CurrentUser,
-):
+) -> PlayerCommentPublic:
     target_player = await get_player_or_404(session=session, identifier=identifier)
     author_player = await get_current_user_player_or_404(
         session=session,
@@ -222,6 +231,13 @@ async def create_player_comment(
         author_steamid64=author_player.steamid64,
         target_steamid64=target_player.steamid64,
         text=payload.text,
+    )
+    await crud.create_profile_comment_notification(
+        session=session,
+        actor_steamid64=author_player.steamid64,
+        recipient_steamid64=target_player.steamid64,
+        comment_id=comment.id,
+        text=comment.text,
     )
     return crud.to_player_comment_public(comment=comment, author=author_player)
 

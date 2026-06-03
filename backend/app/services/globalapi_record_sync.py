@@ -555,6 +555,7 @@ async def _upsert_record(
     *,
     session: AsyncSession,
     payload: dict[str, Any],
+    emit_wr_notifications: bool = False,
 ) -> tuple[uuid.UUID, bool, bool]:
     record_id = _parse_int(payload.get("id"), field_name="id")
     steamid64 = _parse_int(payload.get("steamid64"), field_name="steamid64")
@@ -614,6 +615,7 @@ async def _upsert_record(
         updated_by=updated_by,
         replay_id=replay_id,
         is_valid=True,
+        emit_wr_notifications=emit_wr_notifications,
     )
     return record.uuid, created, updated
 
@@ -843,6 +845,7 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                     record_uuid, row_created, row_updated = await _upsert_record(
                         session=session,
                         payload=hydrated_payload,
+                        emit_wr_notifications=True,
                     )
                 except ValueError as exc:
                     logger.warning(
@@ -908,6 +911,7 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                     record_uuid, row_created, row_updated = await _upsert_record(
                         session=session,
                         payload=hydrated_payload,
+                        emit_wr_notifications=True,
                     )
                 except ValueError as exc:
                     logger.warning(

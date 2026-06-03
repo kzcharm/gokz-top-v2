@@ -38,11 +38,22 @@ async def follow_player(
     if current_user.steamid64 == player.steamid64:
         raise HTTPException(status_code=400, detail="You cannot follow yourself")
 
+    was_following = await crud.is_player_following(
+        session=session,
+        follower_steamid64=current_user.steamid64,
+        followed_steamid64=player.steamid64,
+    )
     await crud.create_player_follow(
         session=session,
         follower_steamid64=current_user.steamid64,
         followed_steamid64=player.steamid64,
     )
+    if not was_following:
+        await crud.create_player_follow_notification(
+            session=session,
+            actor_steamid64=current_user.steamid64,
+            recipient_steamid64=player.steamid64,
+        )
     return await crud.get_player_follow_summary(
         session=session,
         target_steamid64=player.steamid64,

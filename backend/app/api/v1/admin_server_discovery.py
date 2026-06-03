@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import get_current_active_superuser
 from app.models import ServerDiscoveryRunPublic, User
 from app.services.server_query import ServerQueryError
-from app.services.server_status import SERVER_DISCOVERY_ENABLED, run_server_discovery_cycle
+from app.services.server_status import (
+    SERVER_DISCOVERY_ENABLED,
+    run_server_discovery_cycle,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin-servers"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]

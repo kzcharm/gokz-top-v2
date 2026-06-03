@@ -13,9 +13,9 @@ from app.models import (
     AdminMapRecordFiltersPublic,
     AdminMapsPublic,
     AdminMapUpdate,
+    KZMode,
     MapCourse,
     MapCourseTier,
-    KZMode,
     User,
     get_datetime_utc,
 )
