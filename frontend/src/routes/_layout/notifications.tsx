@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Bell, Heart, MessageCircle, Trophy, UserPlus } from "lucide-react"
-import type { ReactNode } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -13,15 +13,17 @@ import {
 } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import type { AppScope } from "@/components/scope-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { getPageTitle } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
-const NOTIFICATION_LIMIT = 50
+const NOTIFICATION_PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
 export const Route = createFileRoute("/_layout/notifications")({
   component: NotificationsRoute,
@@ -226,18 +228,35 @@ function NotificationAction({
 function NotificationsRoute() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-notifications",
+    pageSizeOptions: NOTIFICATION_PAGE_SIZE_OPTIONS,
+  })
+  const offset = pageIndex * pageSize
   const notificationsQuery = useQuery({
-    queryKey: ["me", "notifications", { limit: NOTIFICATION_LIMIT }],
+    queryKey: ["me", "notifications", { offset, limit: pageSize }],
     queryFn: () =>
       MeService.readCurrentPlayerNotifications({
-        limit: NOTIFICATION_LIMIT,
+        offset,
+        limit: pageSize,
       }),
+    placeholderData: (previousData) => previousData,
   })
   const unreadCountQuery = useQuery({
     queryKey: ["me", "notifications", "unread-count"],
     queryFn: MeService.readCurrentPlayerNotificationUnreadCount,
   })
   const unreadCount = unreadCountQuery.data?.unread_count ?? 0
+  const totalCount = notificationsQuery.data?.count ?? 0
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
+
+  useEffect(() => {
+    if (pageIndex <= pageCount - 1) {
+      return
+    }
+    setPageIndex(pageCount - 1)
+  }, [pageCount, pageIndex])
 
   const invalidateNotifications = async () => {
     await Promise.all([
@@ -348,6 +367,19 @@ function NotificationsRoute() {
               </div>
             )
           })}
+          <TablePaginationFooter
+            totalLabel={t("notifications.title")}
+            totalCount={totalCount}
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            onPageIndexChange={setPageIndex}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize)
+              setPageIndex(0)
+            }}
+            pageSizeOptions={NOTIFICATION_PAGE_SIZE_OPTIONS}
+          />
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-border px-6 py-12 text-center text-muted-foreground text-sm">
