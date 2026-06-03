@@ -314,7 +314,7 @@ function NotificationsRoute() {
           ))}
         </div>
       ) : notificationsQuery.data?.data.length ? (
-        <div className="overflow-hidden rounded-md border border-border bg-[rgb(245,245,244)]">
+        <div className="overflow-hidden rounded-md border border-border bg-card">
           {notificationsQuery.data.data.map((notification) => {
             const display = buildNotificationDisplay(notification, t)
             const unread = !notification.read_at
@@ -324,7 +324,7 @@ function NotificationsRoute() {
                 key={notification.id}
                 data-testid="notification-row"
                 className={cn(
-                  "flex w-full items-start gap-3 border-border border-b bg-[rgb(245,245,244)] px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-[rgb(245,245,244)]",
+                  "flex w-full items-start gap-3 border-border border-b bg-card px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-accent/60",
                 )}
               >
                 <span
