@@ -371,6 +371,41 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     })
   })
 
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    const type = url.searchParams.get("type")
+    const identifier = url.searchParams.get("identifier")
+
+    if (identifier !== currentUserSteamid64) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      })
+      return
+    }
+
+    const record =
+      type === "PRO"
+        ? createLeaderboardRecord({
+            index: 98,
+            steamid64: currentUserSteamid64,
+            displayName: "My Runner",
+            country: "US",
+            teleports: 0,
+            time: 37.586,
+          }).record
+        : mapLeaderboardSeedRows.find(
+            (row) => row.record.player.steamid64 === currentUserSteamid64,
+          )?.record
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(record ? [record] : []),
+    })
+  })
+
   await page.route(
     "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_alpha.webp",
     async (route) => {
@@ -478,13 +513,11 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByRole("columnheader", { name: "Player" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
-  await expect(
-    page.locator("div").filter({ hasText: /^NUB$/ }).first(),
-  ).toBeVisible()
+  await expect(page.getByText("NUB PB")).toBeVisible()
+  await expect(page.getByText("51.888")).toBeVisible()
   await expect(page.getByText(/11 \/ 12 91\.7%/)).toBeVisible()
-  await expect(
-    page.locator("div").filter({ hasText: /^PRO$/ }).first(),
-  ).toBeVisible()
+  await expect(page.getByText("PRO PB")).toBeVisible()
+  await expect(page.getByText("37.586")).toBeVisible()
   await expect(page.getByText(/N\/A \/ 6/)).toBeVisible()
 
   await page

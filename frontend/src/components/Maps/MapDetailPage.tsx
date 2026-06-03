@@ -25,6 +25,7 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { getMapImageUrls } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
 import { RegionBadge } from "@/components/Common/RegionFlag"
+import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -116,6 +117,38 @@ function formatRankShare(
   }).format((rank / total) * 100)
 
   return `${formatNumber(rank)} / ${formatNumber(total)} (${topLabel} ${percentage}%)`
+}
+
+function MapRankSummaryItem({
+  label,
+  pbTime,
+  rank,
+  total,
+  unavailableLabel,
+  topLabel,
+}: {
+  label: string
+  pbTime: number | null
+  rank: number | null
+  total: number
+  unavailableLabel: string
+  topLabel: string
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        {pbTime === null ? label : `${label} PB`}
+      </div>
+      {pbTime === null ? null : (
+        <div className="font-mono text-lg font-semibold leading-none text-foreground">
+          {formatRecordTime(pbTime)}
+        </div>
+      )}
+      <div className="text-sm font-semibold text-foreground">
+        {formatRankShare(rank, total, unavailableLabel, topLabel)}
+      </div>
+    </div>
+  )
 }
 
 const MAP_RANK_SUMMARY_UNAVAILABLE_LABEL = "-"
@@ -510,6 +543,8 @@ export function MapDetailPage({
     staleTime: 30_000,
     retry: false,
   })
+  const leaderboardCurrentUserSteamid64 =
+    leaderboardQuery.data?.current_user_steamid64 ?? null
   const regionsQuery = useQuery(getRegionsQueryOptions())
   const reviewsQuery = useQuery({
     queryKey: [
@@ -590,17 +625,16 @@ export function MapDetailPage({
       "player-records",
       mapQuery.data?.id ?? null,
       scope,
-      currentUser?.steamid64 ?? null,
+      leaderboardCurrentUserSteamid64,
     ],
     queryFn: async () => {
-      const viewerSteamid64 = currentUser?.steamid64
       const [nubRecords, proRecords] = await Promise.all([
         RecordsService.readPbRecords({
           mapId: mapQuery.data!.id,
           scope,
           type: "NUB",
           stage: 0,
-          identifier: viewerSteamid64!,
+          identifier: leaderboardCurrentUserSteamid64!,
           limit: 1,
         }),
         RecordsService.readPbRecords({
@@ -608,7 +642,7 @@ export function MapDetailPage({
           scope,
           type: "PRO",
           stage: 0,
-          identifier: viewerSteamid64!,
+          identifier: leaderboardCurrentUserSteamid64!,
           limit: 1,
         }),
       ])
@@ -619,7 +653,7 @@ export function MapDetailPage({
       }
     },
     enabled:
-      mapQuery.data !== undefined && currentUser?.steamid64 !== undefined,
+      mapQuery.data !== undefined && leaderboardCurrentUserSteamid64 !== null,
     staleTime: 30_000,
     retry: false,
   })
@@ -704,8 +738,7 @@ export function MapDetailPage({
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
   const authenticatedUserSteamid64 = currentUser?.steamid64 ?? null
   const canAdministerRecords = adminModeEnabled && canUseRecordAdminActions
-  const currentUserSteamid64 =
-    leaderboardQuery.data?.current_user_steamid64 ?? null
+  const currentUserSteamid64 = leaderboardCurrentUserSteamid64
   const nubRank =
     isProOnly === false
       ? (leaderboardQuery.data?.current_user_rank ?? null)
@@ -756,32 +789,22 @@ export function MapDetailPage({
         leaderboardSummary={
           !leaderboardQuery.isError ? (
             <>
-              <div className="space-y-1">
-                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  NUB
-                </div>
-                <div className="text-sm font-semibold text-foreground">
-                  {formatRankShare(
-                    currentUserSteamid64 ? nubRank : null,
-                    leaderboardQuery.data?.unique_nub_finishes ?? 0,
-                    MAP_RANK_SUMMARY_UNAVAILABLE_LABEL,
-                    t("maps.topPercentPrefix"),
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  PRO
-                </div>
-                <div className="text-sm font-semibold text-foreground">
-                  {formatRankShare(
-                    currentUserSteamid64 ? proRank : null,
-                    leaderboardQuery.data?.unique_pro_finishes ?? 0,
-                    MAP_RANK_SUMMARY_UNAVAILABLE_LABEL,
-                    t("maps.topPercentPrefix"),
-                  )}
-                </div>
-              </div>
+              <MapRankSummaryItem
+                label="NUB"
+                pbTime={statsPlayerRecordsQuery.data?.nubTime ?? null}
+                rank={currentUserSteamid64 ? nubRank : null}
+                total={leaderboardQuery.data?.unique_nub_finishes ?? 0}
+                unavailableLabel={MAP_RANK_SUMMARY_UNAVAILABLE_LABEL}
+                topLabel={t("maps.topPercentPrefix")}
+              />
+              <MapRankSummaryItem
+                label="PRO"
+                pbTime={statsPlayerRecordsQuery.data?.proTime ?? null}
+                rank={currentUserSteamid64 ? proRank : null}
+                total={leaderboardQuery.data?.unique_pro_finishes ?? 0}
+                unavailableLabel={MAP_RANK_SUMMARY_UNAVAILABLE_LABEL}
+                topLabel={t("maps.topPercentPrefix")}
+              />
             </>
           ) : null
         }
