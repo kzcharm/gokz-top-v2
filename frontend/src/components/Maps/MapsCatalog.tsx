@@ -392,14 +392,10 @@ export function MapsCatalog() {
   }, [page, totalPages])
 
   useEffect(() => {
-    if (page === 1) {
-      return
-    }
-
     startTransition(() => {
       setPage(1)
     })
-  }, [page])
+  }, [deferredSearch])
 
   const visibleMaps = useMemo(() => {
     const startIndex = (page - 1) * PAGE_SIZE
