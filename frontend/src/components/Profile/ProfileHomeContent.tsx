@@ -68,7 +68,7 @@ type ActivityMonthLabel = {
 }
 
 function PaddedAverageNumber({ value }: { value: number }) {
-  const formattedValue = formatNumber(value)
+  const formattedValue = String(value)
   const paddedValue = formattedValue.padStart(3, "0")
 
   return <span className="font-mono tabular-nums">{paddedValue}</span>
@@ -130,9 +130,9 @@ function CompletionCard({
               return (
                 <div
                   key={tier.label}
-                  className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[80px_minmax(0,1fr)_58px] sm:gap-3"
+                  className="grid grid-cols-[88px_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[96px_minmax(0,1fr)_58px] sm:gap-3"
                 >
-                  <span className="text-right text-[11px] font-semibold leading-4 text-muted-foreground sm:text-xs">
+                  <span className="whitespace-nowrap text-right text-[11px] font-semibold leading-4 text-muted-foreground sm:text-xs">
                     {tier.label} ({t("profile.completion.averageShort")}{" "}
                     <PaddedAverageNumber value={tier.averagePoints} />)
                   </span>

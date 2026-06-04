@@ -666,10 +666,16 @@ function buildCompletionCard({
   }
 
   tiers.forEach((tier, index) => {
+    if (tier.complete === 0) {
+      tier.averagePoints = 0
+      return
+    }
+
+    const averagePoints = tierPointsTotals[index] / tier.complete
     tier.averagePoints =
-      tier.complete === 0
-        ? 0
-        : Math.round(tierPointsTotals[index] / tier.complete)
+      tierPointsTotals[index] === tier.complete * 1000
+        ? 1000
+        : Math.min(999, Math.round(averagePoints))
   })
 
   return {
