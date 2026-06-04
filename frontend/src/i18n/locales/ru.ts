@@ -190,6 +190,7 @@ export const ru = {
     title: "Настройки",
     tabs: {
       profile: "Мой профиль",
+      notifications: "Уведомления",
       socialLinks: "Соцсети",
       webhooks: "Webhooks",
       appearance: "Оформление",

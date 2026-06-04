@@ -189,6 +189,7 @@ export const en = {
     title: "Settings",
     tabs: {
       profile: "My profile",
+      notifications: "Notifications",
       socialLinks: "Social Links",
       webhooks: "Webhooks",
       appearance: "Appearance",

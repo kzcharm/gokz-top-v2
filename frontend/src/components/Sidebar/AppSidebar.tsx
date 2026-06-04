@@ -6,7 +6,6 @@ import {
   Map as MapIcon,
   Radio,
   Server,
-  Settings,
   ShieldAlert,
   Trophy,
   UserCircle2,
@@ -51,15 +50,6 @@ export function AppSidebar() {
     liveStreamsQuery.data !== undefined &&
     liveStreamsQuery.data.count >= 1 &&
     !hasClickedLive
-
-  const privateItems: Item[] = [
-    {
-      type: "link",
-      icon: Settings,
-      title: t("nav.settings"),
-      path: "/settings",
-    },
-  ]
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: t("nav.servers"), path: "/servers" },
@@ -137,8 +127,8 @@ export function AppSidebar() {
 
   const items: Item[] = currentUser
     ? adminItem
-      ? [...publicItems, ...privateItems, adminItem]
-      : [...publicItems, ...privateItems]
+      ? [...publicItems, adminItem]
+      : publicItems
     : publicItems
 
   return (

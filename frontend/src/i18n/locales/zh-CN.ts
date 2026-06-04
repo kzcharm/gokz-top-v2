@@ -189,6 +189,7 @@ export const zhCN = {
     title: "设置",
     tabs: {
       profile: "我的资料",
+      notifications: "通知",
       socialLinks: "社交链接",
       webhooks: "Webhooks",
       appearance: "外观",

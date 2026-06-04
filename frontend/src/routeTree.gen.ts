@@ -30,6 +30,7 @@ import { Route as MapsMapNameMaptopRouteImport } from './routes/maps.$mapName.ma
 import { Route as LayoutSettingsWebhooksRouteImport } from './routes/_layout/settings.webhooks'
 import { Route as LayoutSettingsSocialLinksRouteImport } from './routes/_layout/settings.social-links'
 import { Route as LayoutSettingsProfileRouteImport } from './routes/_layout/settings.profile'
+import { Route as LayoutSettingsNotificationsRouteImport } from './routes/_layout/settings.notifications'
 import { Route as LayoutSettingsAppearanceRouteImport } from './routes/_layout/settings.appearance'
 import { Route as LayoutProfileIdentifierRouteImport } from './routes/_layout/profile.$identifier'
 import { Route as LayoutLeaderboardsServersRouteImport } from './routes/_layout/leaderboards.servers'
@@ -162,6 +163,12 @@ const LayoutSettingsProfileRoute = LayoutSettingsProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => LayoutSettingsRoute,
 } as any)
+const LayoutSettingsNotificationsRoute =
+  LayoutSettingsNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => LayoutSettingsRoute,
+  } as any)
 const LayoutSettingsAppearanceRoute =
   LayoutSettingsAppearanceRouteImport.update({
     id: '/appearance',
@@ -341,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
@@ -388,6 +396,7 @@ export interface FileRoutesByTo {
   '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
@@ -438,6 +447,7 @@ export interface FileRoutesById {
   '/_layout/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/_layout/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/_layout/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/_layout/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/_layout/settings/profile': typeof LayoutSettingsProfileRoute
   '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/_layout/settings/webhooks': typeof LayoutSettingsWebhooksRoute
@@ -488,6 +498,7 @@ export interface FileRouteTypes {
     | '/leaderboards/servers'
     | '/profile/$identifier'
     | '/settings/appearance'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/social-links'
     | '/settings/webhooks'
@@ -535,6 +546,7 @@ export interface FileRouteTypes {
     | '/leaderboards/pow'
     | '/leaderboards/servers'
     | '/settings/appearance'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/social-links'
     | '/settings/webhooks'
@@ -584,6 +596,7 @@ export interface FileRouteTypes {
     | '/_layout/leaderboards/servers'
     | '/_layout/profile/$identifier'
     | '/_layout/settings/appearance'
+    | '/_layout/settings/notifications'
     | '/_layout/settings/profile'
     | '/_layout/settings/social-links'
     | '/_layout/settings/webhooks'
@@ -757,6 +770,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof LayoutSettingsProfileRouteImport
+      parentRoute: typeof LayoutSettingsRoute
+    }
+    '/_layout/settings/notifications': {
+      id: '/_layout/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof LayoutSettingsNotificationsRouteImport
       parentRoute: typeof LayoutSettingsRoute
     }
     '/_layout/settings/appearance': {
@@ -1019,6 +1039,7 @@ const LayoutLeaderboardsRouteWithChildren =
 
 interface LayoutSettingsRouteChildren {
   LayoutSettingsAppearanceRoute: typeof LayoutSettingsAppearanceRoute
+  LayoutSettingsNotificationsRoute: typeof LayoutSettingsNotificationsRoute
   LayoutSettingsProfileRoute: typeof LayoutSettingsProfileRoute
   LayoutSettingsSocialLinksRoute: typeof LayoutSettingsSocialLinksRoute
   LayoutSettingsWebhooksRoute: typeof LayoutSettingsWebhooksRoute
@@ -1026,6 +1047,7 @@ interface LayoutSettingsRouteChildren {
 
 const LayoutSettingsRouteChildren: LayoutSettingsRouteChildren = {
   LayoutSettingsAppearanceRoute: LayoutSettingsAppearanceRoute,
+  LayoutSettingsNotificationsRoute: LayoutSettingsNotificationsRoute,
   LayoutSettingsProfileRoute: LayoutSettingsProfileRoute,
   LayoutSettingsSocialLinksRoute: LayoutSettingsSocialLinksRoute,
   LayoutSettingsWebhooksRoute: LayoutSettingsWebhooksRoute,

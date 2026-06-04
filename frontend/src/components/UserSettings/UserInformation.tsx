@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CircleHelp, Pencil, Save } from "lucide-react"
+import { CircleHelp, LogOut, Pencil, Save } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -7,6 +7,7 @@ import { MeService, type ModeScope, type PlayerSettingsPublic } from "@/client"
 import { CountryFlag, getCountryName } from "@/components/Common/CountryFlag"
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getScopeTone, SCOPE_OPTIONS } from "@/components/Common/ScopeSelector"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -165,7 +166,7 @@ function ReadonlyCountryField({
 
 const UserInformation = () => {
   const { t, i18n } = useTranslation()
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, logout } = useAuth()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [aliasInput, setAliasInput] = useState("")
@@ -294,11 +295,18 @@ const UserInformation = () => {
   const selectedPrimaryScope =
     SCOPE_OPTIONS.find((option) => option.value === primaryScopeInput) ??
     SCOPE_OPTIONS[0]
+  const profileDisplayPlayer = player ?? {
+    steamid64: currentUser.steamid64,
+    display_name: currentUser.player?.display_name ?? null,
+  }
 
   return (
     <Card className="max-w-2xl">
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <CardTitle>{t("settings.profile.title")}</CardTitle>
+        <div className="space-y-3">
+          <CardTitle>{t("settings.profile.title")}</CardTitle>
+          <PlayerDisplay player={profileDisplayPlayer} className="min-w-0" />
+        </div>
         {isEditing ? (
           <div className="flex items-center gap-2">
             <Button
@@ -519,6 +527,17 @@ const UserInformation = () => {
             </div>
           )}
         </form>
+        <div className="mt-6 flex justify-end border-border border-t pt-5">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={logout}
+            data-testid="settings-profile-logout-button"
+          >
+            <LogOut className="size-4" />
+            {t("auth.logout")}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
