@@ -42,7 +42,6 @@ jobs:
           clean: false
           fetch-depth: 0
           ref: ${{ github.sha }}
-          submodules: recursive
       - name: Resolve app version
         id: version
         run: echo "app_version=$(bash scripts/get-app-version.sh)" >> "${GITHUB_OUTPUT}"
@@ -100,8 +99,8 @@ jobs:
           DOCKER_IMAGE_REPLAY_VIEWER=${STACK_NAME}-replayviewer
           VITE_APP_VERSION=${VITE_APP_VERSION}
           EOF
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build backend frontend
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d backend frontend
       - name: Verify staging frontend and API
         run: |
           set -euo pipefail

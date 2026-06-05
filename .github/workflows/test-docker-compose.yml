@@ -19,11 +19,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          submodules: recursive
       - name: Seed CI env
         run: cp .env.example .env
-      - run: docker compose -f compose.yml -f compose.override.yml build
+      - run: docker compose -f compose.yml -f compose.override.yml build backend frontend
       - run: docker compose -f compose.yml -f compose.override.yml down -v --remove-orphans
       - run: docker compose -f compose.yml -f compose.override.yml up -d --wait backend frontend adminer
       - name: Test backend is up
