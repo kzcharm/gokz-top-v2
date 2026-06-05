@@ -62,7 +62,7 @@ class _ProcessedMap:
 
 
 def _storage_root() -> Path:
-    return settings.MAP_FILE_STORAGE_DIR
+    return settings.MAP_FILE_STORAGE_DIR.resolve()
 
 
 def _raw_dir() -> Path:

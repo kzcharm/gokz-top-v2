@@ -25,6 +25,21 @@ def _set_production_distribution_settings(
     monkeypatch.setattr(settings, "R2_PUBLIC_BASE_URL", "https://cdn.example.com")
 
 
+def test_storage_root_resolves_relative_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app_dir = tmp_path / "app" / "backend"
+    app_dir.mkdir(parents=True)
+    monkeypatch.chdir(app_dir)
+    monkeypatch.setattr(settings, "MAP_FILE_STORAGE_DIR", Path("../.maps"))
+
+    assert distribution._storage_root() == (tmp_path / "app" / ".maps").resolve()
+    assert distribution._workshop_dir() == (
+        tmp_path / "app" / ".maps" / "workshop"
+    ).resolve()
+
+
 @pytest.mark.asyncio
 async def test_sync_map_files_is_disabled_outside_production(
     db: AsyncSession,
