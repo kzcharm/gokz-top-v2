@@ -3,11 +3,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import AsyncIterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import BinaryIO
 from urllib.parse import quote
 from xml.etree import ElementTree
 
@@ -135,16 +134,15 @@ async def put_file(
         )
 
     payload_hash = hash_file_sha256(path)
-    with path.open("rb") as file_obj:
-        return await _put_object_with_payload_hash(
-            config=storage_config,
-            key=key,
-            content=_iter_file_chunks(file_obj),
-            payload_hash=payload_hash,
-            content_length=file_size,
-            content_type=content_type,
-            cache_control=cache_control,
-        )
+    return await _put_object_with_payload_hash(
+        config=storage_config,
+        key=key,
+        content=_aiter_file_chunks(path),
+        payload_hash=payload_hash,
+        content_length=file_size,
+        content_type=content_type,
+        cache_control=cache_control,
+    )
 
 
 async def delete_object(*, key: str) -> None:
@@ -191,15 +189,17 @@ def hash_file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _iter_file_chunks(file_obj: BinaryIO) -> Iterator[bytes]:
-    yield from iter(lambda: file_obj.read(1024 * 1024), b"")
+async def _aiter_file_chunks(path: Path) -> AsyncIterable[bytes]:
+    with path.open("rb") as file_obj:
+        while chunk := await asyncio.to_thread(file_obj.read, 1024 * 1024):
+            yield chunk
 
 
 async def _put_object_with_payload_hash(
     *,
     config: R2StorageConfig,
     key: str,
-    content: bytes | Iterable[bytes],
+    content: bytes | AsyncIterable[bytes],
     payload_hash: str,
     content_length: int | None = None,
     content_type: str,

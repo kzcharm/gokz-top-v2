@@ -103,6 +103,67 @@ async def test_r2_storage_put_object_signs_and_uploads(
 
 
 @pytest.mark.asyncio
+async def test_r2_storage_put_file_streams_small_files_with_async_content(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _set_r2_settings(monkeypatch)
+    monkeypatch.setattr(settings, "R2_MULTIPART_UPLOAD_THRESHOLD_BYTES", 1024)
+    bsp_path = tmp_path / "kz_test.bsp"
+    bsp_path.write_bytes(b"small-bsp-file")
+    captured_request: dict[str, object] = {}
+
+    class _FakeAsyncClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured_request["client_kwargs"] = kwargs
+
+        async def __aenter__(self) -> _FakeAsyncClient:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def put(
+            self,
+            url: str,
+            *,
+            content: object,
+            headers: dict[str, str],
+        ) -> httpx.Response:
+            chunks: list[bytes] = []
+            assert hasattr(content, "__aiter__")
+            async for chunk in content:  # type: ignore[union-attr]
+                chunks.append(chunk)
+            captured_request["url"] = url
+            captured_request["content"] = b"".join(chunks)
+            captured_request["headers"] = headers
+            return httpx.Response(
+                status_code=200,
+                request=httpx.Request("PUT", url),
+            )
+
+    monkeypatch.setattr(r2_storage.httpx, "AsyncClient", _FakeAsyncClient)
+
+    public_url = await r2_storage.put_file(
+        key="maps/kz_test.bsp",
+        path=bsp_path,
+        content_type="application/octet-stream",
+        cache_control="public, max-age=31536000, immutable",
+    )
+
+    assert public_url == "https://cdn.example.com/assets/maps/kz_test.bsp"
+    assert (
+        captured_request["url"]
+        == "https://account.r2.cloudflarestorage.com/bucket/maps/kz_test.bsp"
+    )
+    assert captured_request["content"] == b"small-bsp-file"
+    headers = captured_request["headers"]
+    assert isinstance(headers, dict)
+    assert headers["content-length"] == "14"
+    assert headers["content-type"] == "application/octet-stream"
+
+
+@pytest.mark.asyncio
 async def test_r2_storage_put_file_uses_multipart_for_large_files(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
