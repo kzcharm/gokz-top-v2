@@ -344,15 +344,71 @@ async def _download_workshop_bsp(*, map_obj: Map) -> Path:
         raise MapFileDistributionError(
             f"Steam Workshop item {map_obj.workshop_id} did not produce a content directory"
         )
-    exact_match = content_dir / _bsp_filename(map_obj.name)
-    if exact_match.exists():
-        return exact_match
-    bsp_paths = sorted(content_dir.rglob("*.bsp"))
+    return _find_workshop_bsp(content_dir=content_dir, map_name=map_obj.name)
+
+
+def _find_workshop_bsp(*, content_dir: Path, map_name: str) -> Path:
+    bsp_filename = _bsp_filename(map_name)
+    exact_matches = sorted(
+        path
+        for path in content_dir.rglob("*")
+        if path.is_file() and path.name.casefold() == bsp_filename.casefold()
+    )
+    if len(exact_matches) == 1:
+        return exact_matches[0]
+
+    bsp_paths = sorted(
+        path
+        for path in content_dir.rglob("*")
+        if path.is_file() and path.suffix.casefold() == ".bsp"
+    )
     if len(bsp_paths) == 1:
         return bsp_paths[0]
-    raise MapFileDistributionError(
-        f"Steam Workshop item {map_obj.workshop_id} did not contain a unique BSP for {map_obj.name}"
+
+    archived_bsp = _extract_workshop_archive_bsp(
+        content_dir=content_dir,
+        map_name=map_name,
     )
+    if archived_bsp is not None:
+        return archived_bsp
+
+    raise MapFileDistributionError(
+        f"Steam Workshop content did not contain a unique BSP for {map_name}"
+    )
+
+
+def _extract_workshop_archive_bsp(*, content_dir: Path, map_name: str) -> Path | None:
+    bsp_filename = _bsp_filename(map_name)
+    exact_candidates: list[tuple[Path, zipfile.ZipInfo]] = []
+    bsp_candidates: list[tuple[Path, zipfile.ZipInfo]] = []
+
+    for archive_path in sorted(path for path in content_dir.rglob("*") if path.is_file()):
+        if archive_path.suffix.casefold() not in {".bin", ".zip"}:
+            continue
+        if not zipfile.is_zipfile(archive_path):
+            continue
+        with zipfile.ZipFile(archive_path) as archive:
+            for info in archive.infolist():
+                if info.is_dir():
+                    continue
+                filename = Path(info.filename).name
+                if filename.casefold() == bsp_filename.casefold():
+                    exact_candidates.append((archive_path, info))
+                if filename.casefold().endswith(".bsp"):
+                    bsp_candidates.append((archive_path, info))
+
+    candidates = exact_candidates or bsp_candidates
+    if len(candidates) != 1:
+        return None
+
+    archive_path, info = candidates[0]
+    output_dir = _tmp_dir() / f"workshop-{uuid.uuid4()}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / Path(info.filename).name
+    with zipfile.ZipFile(archive_path) as archive:
+        with archive.open(info) as source, output_path.open("wb") as target:
+            shutil.copyfileobj(source, target)
+    return output_path
 
 
 async def _upload_map_files(
