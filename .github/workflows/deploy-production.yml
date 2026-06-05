@@ -15,8 +15,8 @@ jobs:
     runs-on: self-hosted
     env:
       ENVIRONMENT: production
-      DOMAIN: ${{ secrets.DOMAIN_PRODUCTION }}
-      FRONTEND_HOST_ALIASES: ${{ secrets.FRONTEND_HOST_ALIASES_PRODUCTION }}
+      DOMAIN: gokz.top
+      FRONTEND_HOST_ALIASES: kzcharm.com,${{ secrets.FRONTEND_HOST_ALIASES_PRODUCTION }}
       STACK_NAME: ${{ secrets.STACK_NAME_PRODUCTION }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
       SUPER_USER_STEAMID64: ${{ secrets.SUPER_USER_STEAMID64 }}
@@ -77,7 +77,7 @@ jobs:
           replay_viewer_hostname="${REPLAY_VIEWER_HOSTNAME_PRODUCTION:-replays.gokz.top}"
           replay_viewer_resources_dir="${REPLAY_VIEWER_RESOURCES_DIR_PRODUCTION:-/root/code/gokz-replay-viewer-export/local-src/.local/replayviewer-data-volume/resources}"
           frontend_host_rule="Host(\`${DOMAIN}\`)"
-          backend_cors_origins="https://${DOMAIN},https://api.${DOMAIN},https://${replay_viewer_hostname},https://cs2kz.org"
+          backend_cors_origins="https://${DOMAIN},https://api.${DOMAIN},https://api.kzcharm.com,https://${replay_viewer_hostname},https://cs2kz.org"
 
           if [ -n "${FRONTEND_HOST_ALIASES:-}" ]; then
             IFS=',' read -r -a frontend_host_aliases <<< "${FRONTEND_HOST_ALIASES}"
@@ -129,6 +129,7 @@ jobs:
           SENTRY_DSN=${SENTRY_DSN}
           GEOIP_DATA_DIR=${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}
           REPLAY_DATA_DIR=/root/code/gokz-top-v2/.replays
+          MAP_FILE_DATA_DIR=/root/code/gokz-top-v2/.maps
           GEOIPUPDATE_ACCOUNT_ID=${GEOIPUPDATE_ACCOUNT_ID}
           GEOIPUPDATE_LICENSE_KEY=${GEOIPUPDATE_LICENSE_KEY}
           DOCKER_IMAGE_BACKEND=${STACK_NAME}-backend
