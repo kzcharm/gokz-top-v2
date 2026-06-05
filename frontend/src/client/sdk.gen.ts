@@ -31,7 +31,7 @@ export class AdminMapsService {
             }
         });
     }
-
+    
     /**
      * Update Admin Map
      * @param data The data for the request.
@@ -1396,7 +1396,7 @@ export class MapsService {
             url: '/v1/maps/sync'
         });
     }
-
+    
     /**
      * Trigger Map File Sync
      * @param data The data for the request.

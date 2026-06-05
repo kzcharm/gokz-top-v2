@@ -25,6 +25,7 @@ export type PbRecordsColumn =
   | "tps"
   | "time"
   | "points"
+  | "rating"
   | "server"
   | "datetime"
 
@@ -58,6 +59,8 @@ function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
       return record.time
     case "points":
       return record.points
+    case "rating":
+      return record.raw_rating_contribution ?? 0
     case "server":
       return record.server_name
     case "datetime":

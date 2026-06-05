@@ -48,6 +48,7 @@ export const en = {
     tps: "TPs",
     time: "Time",
     points: "Points",
+    rating: "Rating",
     playtime: "Playtime",
     server: "Server",
     datetime: "Datetime",
@@ -327,6 +328,11 @@ export const en = {
       title: "Rating Ranks",
       description: "Current rating: {{rating}}",
       ratingLabel: "Rating",
+    },
+    records: {
+      ratingContributionInfo: "Rating contribution info",
+      ratingContributionTooltip:
+        "Raw rating this record contributes to the player's rating.",
     },
     skillRadar: {
       title: "Skills",

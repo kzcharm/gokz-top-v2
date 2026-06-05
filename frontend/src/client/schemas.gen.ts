@@ -5733,6 +5733,11 @@ export const RecordPublicSchema = {
             type: 'integer',
             title: 'Points'
         },
+        raw_rating_contribution: {
+            type: 'integer',
+            title: 'Raw Rating Contribution',
+            default: 0
+        },
         created_on: {
             type: 'string',
             format: 'date-time',

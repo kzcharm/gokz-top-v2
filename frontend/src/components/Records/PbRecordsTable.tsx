@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp } from "lucide-react"
+import { ArrowDown, ArrowUp, Info } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -22,6 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { DateTimeDisplay } from "@/lib/date-time"
 import { cn, truncateText } from "@/lib/utils"
 import { ModeBadge } from "./ModeBadge"
@@ -138,6 +143,13 @@ function PbRecordTableRow({
           <PointsBadge points={record.points} />
         </TableCell>
       ) : null}
+      {visibleColumns.has("rating") ? (
+        <TableCell>
+          <div className="flex justify-center">
+            <PointsBadge points={record.raw_rating_contribution ?? 0} />
+          </div>
+        </TableCell>
+      ) : null}
       {visibleColumns.has("server") ? (
         <TableCell className="text-sm text-foreground/90">
           <span
@@ -210,7 +222,7 @@ function SortableHeader({
   className,
 }: {
   column: PbRecordsColumn
-  label: string
+  label: ReactNode
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
   className?: string
@@ -249,6 +261,7 @@ export function PbRecordsTable({
     "tps",
     "time",
     "points",
+    "rating",
     "server",
     "datetime",
   ],
@@ -353,6 +366,36 @@ export function PbRecordsTable({
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
+                  />
+                </TableHead>
+              ) : null}
+              {visibleColumns.has("rating") ? (
+                <TableHead
+                  className={`min-w-24 text-center ${tableHeadClassName}`}
+                >
+                  <SortableHeader
+                    column="rating"
+                    label={
+                      <span className="inline-flex items-center gap-1.5">
+                        <span>{t("labels.rating")}</span>
+                        <Tooltip delayDuration={250}>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex rounded-full text-muted-foreground outline-none hover:text-foreground">
+                              <Info className="size-3.5" />
+                              <span className="sr-only">
+                                {t("profile.records.ratingContributionInfo")}
+                              </span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent sideOffset={6}>
+                            {t("profile.records.ratingContributionTooltip")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </span>
+                    }
+                    sort={sort}
+                    onSortChange={onSortChange}
+                    className={`ml-0 justify-center ${tableHeadClassName}`}
                   />
                 </TableHead>
               ) : null}

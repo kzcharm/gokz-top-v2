@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.crud.leaderboard_player import _build_leaderboard_values
+from app.crud.leaderboard_player import PlayerPbRow, _build_leaderboard_values
 from app.models import (
     Ban,
     BanType,
@@ -18,6 +19,8 @@ from app.models import (
     ModeScopeId,
     Player,
     RecordFilter,
+    RecordPb,
+    RecordType,
     ServerGlobalapi,
     legacy_mode_id_to_kz_mode,
 )
@@ -252,16 +255,26 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
     assert row.rating == crud.calculate_weighted_rating([1000] * 10)
     assert row.rating_easy == crud.calculate_weighted_rating([1000] * 10)
     assert row.rating_hard == 0
+    pb_rows = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.scope == ModeScope.KZT,
+                RecordPb.steamid64 == player_id,
+            )
+        )
+    ).all()
+    assert sum(pb.raw_rating_contribution for pb in pb_rows) == row.rating
+    assert sum(1 for pb in pb_rows if pb.raw_rating_contribution > 0) == 10
 
 
 async def test_build_leaderboard_values_counts_high_point_records_once_per_map() -> None:
     values = _build_leaderboard_values(
         rows=[
-            (101, 1001, False, 870),
-            (101, 1001, True, 930),
-            (102, 1002, False, 920),
-            (102, 1002, True, 810),
-            (103, 1003, False, 790),
+            PlayerPbRow(101, 1001, RecordType.NUB, UUID(int=101), 870),
+            PlayerPbRow(101, 1001, RecordType.PRO, UUID(int=102), 930),
+            PlayerPbRow(102, 1002, RecordType.NUB, UUID(int=103), 920),
+            PlayerPbRow(102, 1002, RecordType.PRO, UUID(int=104), 810),
+            PlayerPbRow(103, 1003, RecordType.NUB, UUID(int=105), 790),
         ],
         tiers_by_course_id={101: 4, 102: 4, 103: 5},
     )

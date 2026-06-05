@@ -48,6 +48,7 @@ export const zhCN = {
     tps: "TPs",
     time: "用时",
     points: "分数",
+    rating: "Rating",
     playtime: "游玩时长",
     server: "服务器",
     datetime: "日期",
@@ -320,6 +321,10 @@ export const zhCN = {
       title: "Rating 段位",
       description: "当前 Rating：{{rating}}",
       ratingLabel: "Rating",
+    },
+    records: {
+      ratingContributionInfo: "Rating 贡献说明",
+      ratingContributionTooltip: "这条记录贡献给玩家 Rating 的原始分值。",
     },
     skillRadar: {
       title: "技能雷达",

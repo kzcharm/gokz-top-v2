@@ -429,6 +429,11 @@ class RecordPbBase(LegacyDatetimeNamesMixin):
         le=1000,
         sa_column_kwargs={"server_default": text("1")},
     )
+    raw_rating_contribution: int = Field(
+        default=0,
+        ge=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
@@ -455,6 +460,10 @@ class RecordPb(RecordPbBase, table=True):
     __table_args__ = (
         CheckConstraint(
             "points >= 1 AND points <= 1000", name="ck_record_pb_points_range"
+        ),
+        CheckConstraint(
+            "raw_rating_contribution >= 0",
+            name="ck_record_pb_raw_rating_contribution_non_negative",
         ),
         Index(
             "ix_record_pb_scope_course_type_record_uuid",
@@ -574,6 +583,7 @@ class RecordPublic(SQLModel):
     time: float
     teleports: int
     points: int
+    raw_rating_contribution: int = 0
     created_on: datetime
     updated_on: datetime
     updated_by: str

@@ -48,6 +48,7 @@ Build the long-term platform for the GOKZ ecosystem:
 - Global and filtered leaderboards (scope, geography, and period when applicable).
 - Rank lookup support for profile and map contexts.
 - Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched maps leaderboard rows selected from `Record.updated_at`, then touched Steam-backed player profiles, then attempting KZ-only friends sync for those same players.
+- Player leaderboard rebuilds persist each contributing PB row's raw rating contribution on `record_pb`, and player profile record lists expose it as a `Rating` column beside points.
 - Current leaderboard eligibility rule:
   - players only remain in `leaderboard_player` after 10 unique validated main-map finishes in the selected scope
   - actively banned players are removed from `leaderboard_player`

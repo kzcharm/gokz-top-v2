@@ -862,7 +862,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         time="25.000",
         teleports=1,
     )
-    await _create_record(
+    fastest_stage_zero = await _create_record(
         db,
         id=980421,
         steamid64=player_id,
@@ -897,6 +897,14 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
         teleports=1,
         is_valid=False,
     )
+    for pb_row in (
+        await db.exec(
+            select(RecordPb).where(RecordPb.record_uuid == fastest_stage_zero.uuid)
+        )
+    ).all():
+        pb_row.raw_rating_contribution = 123
+        db.add(pb_row)
+    await db.commit()
 
     response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -912,6 +920,7 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     assert payload[0]["id"] == 980421
     assert payload[0]["map_tier"] == 0
     assert payload[0]["teleports"] == 0
+    assert payload[0]["raw_rating_contribution"] == 123
 
     bonus_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",

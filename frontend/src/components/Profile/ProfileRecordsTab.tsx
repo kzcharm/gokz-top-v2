@@ -486,6 +486,7 @@ export function ProfileRecordsTab({
               "tps",
               "time",
               "points",
+              "rating",
               "server",
               "datetime",
             ]}

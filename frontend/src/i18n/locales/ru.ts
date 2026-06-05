@@ -48,6 +48,7 @@ export const ru = {
     tps: "TPs",
     time: "Время",
     points: "Очки",
+    rating: "Rating",
     playtime: "Время в игре",
     server: "Сервер",
     datetime: "Дата",
@@ -327,6 +328,11 @@ export const ru = {
       title: "Ранги рейтинга",
       description: "Текущий рейтинг: {{rating}}",
       ratingLabel: "Рейтинг",
+    },
+    records: {
+      ratingContributionInfo: "Информация о вкладе в рейтинг",
+      ratingContributionTooltip:
+        "Сырой рейтинг, который эта запись добавляет к рейтингу игрока.",
     },
     skillRadar: {
       title: "Радар навыков",

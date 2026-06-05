@@ -1164,6 +1164,7 @@ export type RecordPublic = {
     time: number;
     teleports: number;
     points: number;
+    raw_rating_contribution?: number;
     created_on: string;
     updated_on: string;
     updated_by: string;

@@ -146,6 +146,7 @@ const ovrRecords = [
     time: 42.123,
     teleports: 0,
     points: 350,
+    raw_rating_contribution: 17,
     created_on: "2026-03-30T12:00:00Z",
     updated_on: "2026-03-30T12:00:00Z",
     updated_by: steamid64,
@@ -171,6 +172,7 @@ const ovrRecords = [
     time: 50.456,
     teleports: 3,
     points: 510,
+    raw_rating_contribution: 25,
     created_on: "2026-03-31T12:00:00Z",
     updated_on: "2026-03-31T12:00:00Z",
     updated_by: steamid64,
@@ -196,6 +198,7 @@ const ovrRecords = [
     time: 61.234,
     teleports: 8,
     points: 120,
+    raw_rating_contribution: 6,
     created_on: "2026-03-29T12:00:00Z",
     updated_on: "2026-03-29T12:00:00Z",
     updated_by: steamid64,
@@ -256,7 +259,9 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   await page.goto(`/profile/${steamid64}/records`)
 
   await expect(page.getByRole("link", { name: /Seed Alias/ })).toBeVisible()
-  await expect(page.getByText("Skill radar")).toBeVisible()
+  await expect(
+    page.getByRole("img", { name: "Profile skill radar" }),
+  ).toBeVisible()
   await expect(page.getByRole("tab", { name: "Records" })).toHaveAttribute(
     "data-state",
     "active",
@@ -271,6 +276,9 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   ).toBeVisible()
   await expect(
     page.getByRole("columnheader", { name: "Points", exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("columnheader", { name: "Rating", exact: true }),
   ).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Server" })).toBeVisible()
   await expect(

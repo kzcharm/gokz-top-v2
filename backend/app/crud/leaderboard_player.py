@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, localcontext
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
-from sqlalchemy import exists, func, or_
+from sqlalchemy import exists, func, or_, update
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -42,6 +43,14 @@ from .ban import not_active_ban_exists_split_clause
 
 ELIGIBLE_UNIQUE_MAP_FINISHES = 10
 DEFAULT_LOOKBACK = timedelta(hours=24)
+
+
+class PlayerPbRow(NamedTuple):
+    course_id: int
+    map_id: int
+    record_type: RecordType
+    record_uuid: uuid.UUID
+    points: int
 
 
 async def load_player_ratings_by_scope(
@@ -310,33 +319,42 @@ async def _load_player_pb_rows(
     session: AsyncSession,
     scope_id: int,
     steamid64: int,
-) -> list[tuple[int, int, RecordType, int]]:
-    return list(
-        (
-            await session.exec(
-                select(
-                    col(RecordPb.course_id),
-                    col(MapCourse.map_id),
-                    col(RecordPb.type),
-                    col(RecordPb.points),
-                )
-                .join(MapCourse, col(RecordPb.course_id) == col(MapCourse.id))
-                .join(Map, col(MapCourse.map_id) == col(Map.id))
-                .where(
-                    col(RecordPb.scope) == mode_scope_from_id(scope_id),
-                    col(RecordPb.steamid64) == steamid64,
-                    col(MapCourse.stage) == 0,
-                    col(Map.validated).is_(True),
-                )
-                .order_by(col(RecordPb.course_id).asc(), col(RecordPb.type).asc())
+) -> list[PlayerPbRow]:
+    rows = (
+        await session.exec(
+            select(
+                col(RecordPb.course_id),
+                col(MapCourse.map_id),
+                col(RecordPb.type),
+                col(RecordPb.record_uuid),
+                col(RecordPb.points),
             )
-        ).all()
-    )
+            .join(MapCourse, col(RecordPb.course_id) == col(MapCourse.id))
+            .join(Map, col(MapCourse.map_id) == col(Map.id))
+            .where(
+                col(RecordPb.scope) == mode_scope_from_id(scope_id),
+                col(RecordPb.steamid64) == steamid64,
+                col(MapCourse.stage) == 0,
+                col(Map.validated).is_(True),
+            )
+            .order_by(col(RecordPb.course_id).asc(), col(RecordPb.type).asc())
+        )
+    ).all()
+    return [
+        PlayerPbRow(
+            course_id=course_id,
+            map_id=map_id,
+            record_type=record_type,
+            record_uuid=record_uuid,
+            points=points,
+        )
+        for course_id, map_id, record_type, record_uuid, points in rows
+    ]
 
 
 def _build_leaderboard_values(
     *,
-    rows: Sequence[tuple[int, int, RecordType, int]],
+    rows: Sequence[PlayerPbRow],
     tiers_by_course_id: dict[int, int],
 ) -> dict[str, int]:
     points_by_course_id: dict[int, dict[RecordType, int]] = defaultdict(dict)
@@ -344,13 +362,13 @@ def _build_leaderboard_values(
     wrs_nub = 0
     wrs_pro = 0
 
-    for course_id, _map_id, record_type, points in rows:
-        total_points += points
-        points_by_course_id[course_id][record_type] = points
-        if record_type is RecordType.PRO:
-            if points == 1000:
+    for row in rows:
+        total_points += row.points
+        points_by_course_id[row.course_id][row.record_type] = row.points
+        if row.record_type is RecordType.PRO:
+            if row.points == 1000:
                 wrs_pro += 1
-        elif points == 1000:
+        elif row.points == 1000:
             wrs_nub += 1
 
     unique_map_finishes = len(points_by_course_id)
@@ -396,6 +414,119 @@ def _build_leaderboard_values(
     }
 
 
+def _build_raw_rating_contributions(
+    *,
+    rows: Sequence[PlayerPbRow],
+) -> dict[tuple[int, RecordType], int]:
+    best_rows_by_course_id: dict[int, PlayerPbRow] = {}
+    for row in rows:
+        existing = best_rows_by_course_id.get(row.course_id)
+        if existing is None:
+            best_rows_by_course_id[row.course_id] = row
+            continue
+
+        if row.points > existing.points:
+            best_rows_by_course_id[row.course_id] = row
+            continue
+
+        if row.points == existing.points:
+            row_sort_key = (row.record_type is RecordType.PRO, str(row.record_uuid))
+            existing_sort_key = (
+                existing.record_type is RecordType.PRO,
+                str(existing.record_uuid),
+            )
+            if row_sort_key < existing_sort_key:
+                best_rows_by_course_id[row.course_id] = row
+
+    sorted_rows = sorted(
+        best_rows_by_course_id.values(),
+        key=lambda row: (-row.points, row.course_id, row.record_type.value),
+    )
+    if not sorted_rows:
+        return {}
+
+    settings = get_rank_system_settings().rating
+    with localcontext() as ctx:
+        ctx.prec = 28
+        multiplier = Decimal("1")
+        unrounded_contributions: list[tuple[tuple[int, RecordType], Decimal]] = []
+        for row in sorted_rows:
+            unrounded_contributions.append(
+                (
+                    (row.course_id, row.record_type),
+                    Decimal(row.points) * multiplier * settings.multiplier,
+                )
+            )
+            multiplier *= settings.decay
+
+    contributions = {
+        key: _round_rating(value) for key, value in unrounded_contributions
+    }
+    expected_rating = calculate_weighted_rating(row.points for row in sorted_rows)
+    rounding_difference = expected_rating - sum(contributions.values())
+    if rounding_difference:
+        first_key = unrounded_contributions[0][0]
+        contributions[first_key] = max(
+            0,
+            contributions[first_key] + rounding_difference,
+        )
+    return contributions
+
+
+async def _sync_player_raw_rating_contributions(
+    *,
+    session: AsyncSession,
+    scope: ModeScope,
+    steamid64: int,
+    contributions: dict[tuple[int, RecordType], int],
+) -> bool:
+    existing_rows = (
+        await session.exec(
+            select(
+                RecordPb.course_id,
+                RecordPb.type,
+                RecordPb.raw_rating_contribution,
+            ).where(
+                col(RecordPb.scope) == scope,
+                col(RecordPb.steamid64) == steamid64,
+            )
+        )
+    ).all()
+    existing_non_zero = {
+        (course_id, record_type): raw_rating_contribution
+        for course_id, record_type, raw_rating_contribution in existing_rows
+        if raw_rating_contribution > 0
+    }
+    expected_non_zero = {
+        key: raw_rating_contribution
+        for key, raw_rating_contribution in contributions.items()
+        if raw_rating_contribution > 0
+    }
+    if existing_non_zero == expected_non_zero:
+        return False
+
+    await session.exec(
+        update(RecordPb)
+        .where(
+            col(RecordPb.scope) == scope,
+            col(RecordPb.steamid64) == steamid64,
+        )
+        .values(raw_rating_contribution=0)
+    )
+    for (course_id, record_type), raw_rating_contribution in expected_non_zero.items():
+        await session.exec(
+            update(RecordPb)
+            .where(
+                col(RecordPb.scope) == scope,
+                col(RecordPb.course_id) == course_id,
+                col(RecordPb.steamid64) == steamid64,
+                col(RecordPb.type) == record_type,
+            )
+            .values(raw_rating_contribution=raw_rating_contribution)
+        )
+    return True
+
+
 async def rebuild_leaderboard_player(
     *,
     session: AsyncSession,
@@ -405,8 +536,14 @@ async def rebuild_leaderboard_player(
     scope = mode_scope_from_id(scope_id)
     existing = await session.get(LeaderboardPlayer, (scope, steamid64))
     if await _player_has_active_ban(session=session, steamid64=steamid64):
+        contributions_changed = await _sync_player_raw_rating_contributions(
+            session=session,
+            scope=scope,
+            steamid64=steamid64,
+            contributions={},
+        )
         if existing is None:
-            return "noop"
+            return "updated" if contributions_changed else "noop"
         await session.delete(existing)
         return "deleted"
 
@@ -416,30 +553,47 @@ async def rebuild_leaderboard_player(
         steamid64=steamid64,
     )
     if not rows:
+        contributions_changed = await _sync_player_raw_rating_contributions(
+            session=session,
+            scope=scope,
+            steamid64=steamid64,
+            contributions={},
+        )
         if existing is None:
-            return "noop"
+            return "updated" if contributions_changed else "noop"
         await session.delete(existing)
         return "deleted"
 
-    if len({course_id for course_id, _map_id, _record_type, _points in rows}) < (
-        ELIGIBLE_UNIQUE_MAP_FINISHES
-    ):
+    unique_course_ids = {row.course_id for row in rows}
+    if len(unique_course_ids) < ELIGIBLE_UNIQUE_MAP_FINISHES:
+        contributions_changed = await _sync_player_raw_rating_contributions(
+            session=session,
+            scope=scope,
+            steamid64=steamid64,
+            contributions={},
+        )
         if existing is None:
-            return "noop"
+            return "updated" if contributions_changed else "noop"
         await session.delete(existing)
         return "deleted"
 
-    course_keys = [(map_id, 0) for _course_id, map_id, _record_type, _points in rows]
+    course_keys = [(row.map_id, 0) for row in rows]
     tiers_by_map = await load_scoped_course_tiers(
         session=session,
         course_keys=course_keys,
         scope=scope,
     )
     tiers_by_course_id = {
-        course_id: tiers_by_map[(map_id, 0)]
-        for course_id, map_id, _record_type, _points in rows
+        row.course_id: tiers_by_map[(row.map_id, 0)]
+        for row in rows
     }
     values = _build_leaderboard_values(rows=rows, tiers_by_course_id=tiers_by_course_id)
+    contributions_changed = await _sync_player_raw_rating_contributions(
+        session=session,
+        scope=scope,
+        steamid64=steamid64,
+        contributions=_build_raw_rating_contributions(rows=rows),
+    )
 
     if existing is None:
         session.add(
@@ -464,7 +618,7 @@ async def rebuild_leaderboard_player(
         "unique_map_finishes": existing.unique_map_finishes,
     }
     if current_values == values:
-        return "noop"
+        return "updated" if contributions_changed else "noop"
 
     for field_name, field_value in values.items():
         setattr(existing, field_name, field_value)

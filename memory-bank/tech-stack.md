@@ -23,6 +23,7 @@
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
   - Ban rows are stored locally in PostgreSQL with an internal UUIDv7 primary key (`ban.uuid`) plus a nullable external GlobalAPI id (`ban.id`), allowing append/update-only mirrored GlobalAPI bans and superuser-created local bans to coexist in the same table
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by a single midnight-UTC rank pipeline plus repair/backfill CLIs
+  - `record_pb.raw_rating_contribution` stores the per-PB-row raw rating contribution assigned during player leaderboard rebuilds, so record list APIs can show how each contributing PB feeds the player's raw rating
   - The maps leaderboard is materialized in `cache.map_leaderboard`, keyed by `(map_id, scope)`, derived from raw valid stage-0 `record` rows, and joined with scoped map tiers plus map review summaries at read time
   - `map_course_tier`, keyed by `(course_id, mode)`, is now the v1 source of truth for course and map tier reads; `record_filter` is limited to availability metadata, and tier-bearing responses normalize to integers `0..8` with `0` meaning unavailable, impossible, or unknown
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
@@ -49,6 +50,7 @@
   - `/v1` record-shaped responses now expose `is_replay_available`, derived from run replay storage existence by `(map_name, record.uuid)` without changing `/v0` compatibility payloads
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
+  - Player leaderboard rebuilds also refresh `record_pb.raw_rating_contribution`, assigning each eligible course's decay-weighted raw rating term to the deterministic best PB row and zeroing non-contributing rows
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned
   - `GET /v1/leaderboards/players` reads from `leaderboard_player` with order-specific composite indexes for the supported sort modes and a cached per-scope count read model for shared no-geo totals
   - `GET /v1/leaderboards/community` returns profile-view/like rankings plus the highest cached verified platform follower count among Bilibili, YouTube, and Twitch for each returned player, and supports sorting by `platform_followers`

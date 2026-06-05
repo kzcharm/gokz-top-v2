@@ -2229,6 +2229,10 @@ async def get_pb_record_publics(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=scoped_points,
     )
+    public_raw_rating_contribution = case(
+        (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
+        else_=anchor_pb.raw_rating_contribution,
+    )
     statement = (
         select(
             Record.uuid,
@@ -2247,6 +2251,7 @@ async def get_pb_record_publics(
             anchor_pb.time,
             Record.teleports,
             public_scoped_points.label("points"),
+            public_raw_rating_contribution.label("raw_rating_contribution"),
             Record.created_at,
             Record.updated_at,
             Record.updated_by,
@@ -2353,6 +2358,7 @@ async def get_pb_record_publics(
                 _record_time,
                 _record_teleports,
                 _points,
+                _raw_rating_contribution,
                 _created_on,
                 _updated_on,
                 _updated_by,
@@ -2383,6 +2389,7 @@ async def get_pb_record_publics(
             time=float(record_time),
             teleports=record_teleports,
             points=points,
+            raw_rating_contribution=raw_rating_contribution,
             created_on=created_on,
             updated_on=updated_on,
             updated_by=str(updated_by),
@@ -2410,6 +2417,7 @@ async def get_pb_record_publics(
             record_time,
             record_teleports,
             points,
+            raw_rating_contribution,
             created_on,
             updated_on,
             updated_by,
@@ -2497,6 +2505,10 @@ async def read_map_pb_leaderboard(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=scoped_points,
     )
+    public_raw_rating_contribution = case(
+        (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
+        else_=anchor_pb.raw_rating_contribution,
+    )
 
     statement = (
         select(
@@ -2516,6 +2528,7 @@ async def read_map_pb_leaderboard(
             anchor_pb.time,
             Record.teleports,
             public_scoped_points.label("points"),
+            public_raw_rating_contribution.label("raw_rating_contribution"),
             Record.created_at,
             Record.updated_at,
             Record.updated_by,
@@ -2589,6 +2602,7 @@ async def read_map_pb_leaderboard(
                 _record_time,
                 _record_teleports,
                 _points,
+                _raw_rating_contribution,
                 _created_on,
                 _updated_on,
                 _updated_by,
@@ -2619,6 +2633,7 @@ async def read_map_pb_leaderboard(
             time=float(record_time),
             teleports=record_teleports,
             points=points,
+            raw_rating_contribution=raw_rating_contribution,
             created_on=created_on,
             updated_on=updated_on,
             updated_by=str(updated_by),
@@ -2646,6 +2661,7 @@ async def read_map_pb_leaderboard(
             record_time,
             record_teleports,
             points,
+            raw_rating_contribution,
             created_on,
             updated_on,
             updated_by,
