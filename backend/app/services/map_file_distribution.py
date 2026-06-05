@@ -301,11 +301,13 @@ async def _prepare_map_bsp(
     distribution: MapFileDistribution | None,
 ) -> _PreparedMap:
     raw_path = _raw_bsp_path(map_obj.name)
-    if distribution is None and raw_path.exists():
+    if raw_path.exists() and (
+        distribution is None or not distribution.bsp_download_url
+    ):
         return _PreparedMap(map_obj=map_obj, raw_path=raw_path, source="seed")
 
     if map_obj.workshop_id is None:
-        if raw_path.exists() and distribution is None:
+        if raw_path.exists():
             return _PreparedMap(map_obj=map_obj, raw_path=raw_path, source="seed")
         raise MapFileDistributionError("Map has no workshop id and no seeded BSP")
 
@@ -471,7 +473,7 @@ async def _sync_full_package(
                 archive_path=archive_path,
                 entries=changed_entries,
             )
-        await _run_command_async([settings.SEVENZIP_PATH, "t", str(archive_path)])
+        await _run_command_async([settings.SEVENZIP_PATH, "t", str(archive_path.resolve())])
         return True
     except Exception:
         logger.exception("Incremental GlobalMaps.7z update failed; rebuilding archive")
@@ -481,7 +483,7 @@ async def _sync_full_package(
 
 async def _list_archive_bsp_entries(archive_path: Path) -> set[str]:
     completed = await _run_command_async(
-        [settings.SEVENZIP_PATH, "l", "-slt", str(archive_path)]
+        [settings.SEVENZIP_PATH, "l", "-slt", str(archive_path.resolve())]
     )
     entries: set[str] = set()
     for line in completed.stdout.splitlines():
@@ -506,12 +508,14 @@ async def _rebuild_full_package(*, raw_paths: Iterable[Path]) -> None:
             [
                 settings.SEVENZIP_PATH,
                 "a",
-                str(temporary_archive),
-                f"@{list_file}",
+                str(temporary_archive.resolve()),
+                f"@{list_file.resolve()}",
             ],
             cwd=_raw_dir(),
         )
-        await _run_command_async([settings.SEVENZIP_PATH, "t", str(temporary_archive)])
+        await _run_command_async(
+            [settings.SEVENZIP_PATH, "t", str(temporary_archive.resolve())]
+        )
         temporary_archive.replace(archive_path)
     finally:
         list_file.unlink(missing_ok=True)
@@ -531,8 +535,8 @@ async def _run_7z_entry_command(
             [
                 settings.SEVENZIP_PATH,
                 command,
-                str(archive_path),
-                f"@{list_file}",
+                str(archive_path.resolve()),
+                f"@{list_file.resolve()}",
             ],
             cwd=_raw_dir(),
         )

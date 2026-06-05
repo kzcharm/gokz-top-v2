@@ -26,7 +26,8 @@ RUN apt-get update \
     && mkdir -p /opt/steamcmd \
     && curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
         | tar -xz -C /opt/steamcmd \
-    && ln -s /opt/steamcmd/steamcmd.sh /usr/local/bin/steamcmd \
+    && printf '#!/bin/sh\ncd /opt/steamcmd\nexec ./steamcmd.sh "$@"\n' > /usr/local/bin/steamcmd \
+    && chmod +x /usr/local/bin/steamcmd \
     && rm -rf /var/lib/apt/lists/*
 
 # Place executables in the environment at the front of the path
