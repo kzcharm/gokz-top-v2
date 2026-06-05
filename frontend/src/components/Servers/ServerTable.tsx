@@ -33,6 +33,7 @@ interface ServerTableProps {
   sortKey: ServerSortKey
   sortDirection: ServerSortDirection
   headerSurfaceClassName?: string
+  mapDownloadUrls?: ReadonlyMap<string, string>
   onSortChange: (sortKey: ServerSortKey) => void
   onSelect: (server: ServerPublic) => void
   onCopyAddress: (server: ServerPublic) => void
@@ -74,6 +75,7 @@ export function ServerTable({
   sortKey,
   sortDirection,
   headerSurfaceClassName,
+  mapDownloadUrls,
   onSortChange,
   onSelect,
   onCopyAddress,
@@ -203,6 +205,11 @@ export function ServerTable({
                   <TableCell className="pr-5">
                     <MapDisplay
                       mapName={mapName}
+                      downloadUrl={
+                        mapName
+                          ? mapDownloadUrls?.get(mapName.toLowerCase())
+                          : undefined
+                      }
                       imageUrls={getServerMapImageUrls(server)}
                       className="w-full max-w-56"
                     />

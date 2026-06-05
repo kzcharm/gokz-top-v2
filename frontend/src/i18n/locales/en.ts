@@ -776,7 +776,7 @@ export const en = {
     title: "Maps",
     loaded: "{{count}} maps loaded",
     visible: "{{count}} maps visible",
-    openWorkshop: "Open workshop",
+    openWorkshop: "Workshop",
     authors: "Authors",
     workshopId: "Workshop ID",
     created: "Created",

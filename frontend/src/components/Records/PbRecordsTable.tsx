@@ -108,6 +108,7 @@ function PbRecordTableRow({
         <TableCell>
           <MapDisplay
             mapName={record.map_name}
+            mapId={record.map_id}
             contextMenuItems={getMapContextMenu?.(record) ?? null}
           />
         </TableCell>

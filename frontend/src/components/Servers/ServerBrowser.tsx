@@ -20,7 +20,7 @@ import {
   useState,
 } from "react"
 
-import { type ServerPublic, ServersService } from "@/client"
+import { MapsService, type ServerPublic, ServersService } from "@/client"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { AddServerButton } from "@/components/Servers/AddServerButton"
 import { PendingServers } from "@/components/Servers/PendingServers"
@@ -41,6 +41,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import useCustomToast from "@/hooks/useCustomToast"
+import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { cn } from "@/lib/utils"
 
@@ -58,6 +59,7 @@ import {
   getSelectedServerAddress,
   getServerAddress,
   getServerGroupCounts,
+  getServerMapName,
   matchesServerGroupFilter,
   matchesServerSearch,
   matchesServerStatusFilter,
@@ -148,6 +150,14 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     queryKey: ["servers", "seed"],
     queryFn: () => ServersService.readServers({ offset: 0, limit: 200 }),
     staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
+  const mapsQuery = useQuery({
+    queryKey: ["servers", "map-downloads"],
+    queryFn: () =>
+      MapsService.readMaps({ offset: 0, limit: 10000, isValidated: true }),
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: 1,
   })
@@ -314,6 +324,21 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     () => getRegionCounts(regionSourceServers, search.status),
     [regionSourceServers, search.status],
   )
+  const mapDownloadUrls = useMemo(() => {
+    const entries =
+      mapsQuery.data
+        ?.map((map) => {
+          const downloadUrl = getMapDownloadUrl(map)
+          return downloadUrl
+            ? ([map.name.toLowerCase(), downloadUrl] as const)
+            : null
+        })
+        .filter(
+          (entry): entry is readonly [string, string] => entry !== null,
+        ) ?? []
+
+    return new Map(entries)
+  }, [mapsQuery.data])
   const filteredPlayerCount = useMemo(
     () => countOnlinePlayers(filteredServers),
     [filteredServers],
@@ -705,6 +730,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                 onSelect={handleSelectServer}
                 onCopyAddress={handleCopyAddress}
                 onSteamConnect={handleSteamConnect}
+                mapDownloadUrls={mapDownloadUrls}
                 headerSurfaceClassName={SERVER_BROWSER_HEADER_SURFACE_CLASS}
               />
             </CardContent>
@@ -751,6 +777,13 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                   key={server.id}
                   server={server}
                   isSelected={selectedAddress === getServerAddress(server)}
+                  mapDownloadUrl={
+                    getServerMapName(server)
+                      ? mapDownloadUrls.get(
+                          getServerMapName(server)?.toLowerCase() ?? "",
+                        )
+                      : undefined
+                  }
                   onSelect={handleSelectServer}
                   onCopyAddress={handleCopyAddress}
                   onSteamConnect={handleSteamConnect}

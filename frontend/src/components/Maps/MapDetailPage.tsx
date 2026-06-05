@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { Calculator, Copy, LocateFixed, Users } from "lucide-react"
+import { Calculator, Copy, Download, LocateFixed, Users } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -46,6 +46,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { formatNumber, getLocale } from "@/i18n/locale"
+import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
@@ -256,6 +257,7 @@ function MapHero({
       ? String(map.workshop_id)
       : null
   const imageUrls = getMapImageUrls(map.name, workshopId)
+  const downloadUrl = getMapDownloadUrl(map)
   const imageUrlsKey = imageUrls.join("\n")
   const [imageFallback, setImageFallback] = useState({ key: "", index: 0 })
   const imageUrlIndex =
@@ -351,14 +353,29 @@ function MapHero({
               </div>
             </div>
 
-            {map.workshop_url ? (
-              <Button asChild variant="outline" className="rounded-full">
-                <a href={map.workshop_url} target="_blank" rel="noreferrer">
-                  <FaSteam className="h-4 w-4" aria-hidden="true" />
-                  {t("maps.openWorkshop")}
-                </a>
-              </Button>
-            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {downloadUrl ? (
+                <Button asChild variant="outline" className="rounded-full">
+                  <a
+                    href={downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={`${map.name}.bsp`}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Download
+                  </a>
+                </Button>
+              ) : null}
+              {map.workshop_url ? (
+                <Button asChild variant="outline" className="rounded-full">
+                  <a href={map.workshop_url} target="_blank" rel="noreferrer">
+                    <FaSteam className="h-4 w-4" aria-hidden="true" />
+                    {t("maps.openWorkshop")}
+                  </a>
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <dl className="grid gap-4 sm:grid-cols-2">

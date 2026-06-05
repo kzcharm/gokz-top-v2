@@ -287,6 +287,7 @@ function AdminMaps() {
         cell: ({ row }) => (
           <MapDisplay
             mapName={row.original.name}
+            mapId={row.original.id}
             className="min-w-0 w-64"
             contextMenuItems={
               row.original.workshop_id ? (

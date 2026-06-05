@@ -3,13 +3,17 @@ import { Star } from "lucide-react"
 
 import type { MapPublic, MapWrPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { getMapImageUrls } from "@/components/Common/MapDisplay"
+import {
+  getMapImageUrls,
+  MapNameContextMenu,
+} from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { getRecordModeLabelById } from "@/components/Records/mode"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Card, CardContent } from "@/components/ui/card"
+import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { cn } from "@/lib/utils"
 
 interface MapCardProps {
@@ -96,6 +100,7 @@ export function MapCard({
   wrLoading = false,
 }: MapCardProps) {
   const imageUrls = getMapImageUrls(map.name, map.workshop_id)
+  const downloadUrl = getMapDownloadUrl(map)
   const reviewSummary = map.review_summary
   const reviewsCount = reviewSummary?.reviews_count ?? 0
   const commentsCount = reviewSummary?.comments_count ?? 0
@@ -141,14 +146,29 @@ export function MapCard({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/85" />
         </Link>
 
-        <div className="absolute left-2 top-2 right-2 z-10 min-w-0">
+        <div className="absolute left-2 top-2 right-16 z-10 min-w-0">
           <h2 className="min-w-0 select-text text-sm font-semibold text-white">
-            <span
-              className="inline-block max-w-[calc(100%-4.5rem)] rounded-md bg-black/45 px-2 py-1 break-all"
-              title={map.name}
+            <MapNameContextMenu
+              mapName={map.name}
+              mapId={map.id}
+              downloadUrl={downloadUrl}
             >
-              {map.name}
-            </span>
+              {(handlers) => (
+                <Link
+                  to="/maps/$mapName/maptop"
+                  params={{ mapName: map.name }}
+                  className="inline-block max-w-full truncate rounded-md bg-black/45 px-2 py-1 whitespace-nowrap"
+                  title={map.name}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                  }}
+                  onContextMenu={handlers.onContextMenu}
+                  onKeyDown={handlers.onKeyDown}
+                >
+                  {map.name}
+                </Link>
+              )}
+            </MapNameContextMenu>
           </h2>
         </div>
 

@@ -161,7 +161,12 @@ export function getReviewColumns({
     {
       accessorKey: "map",
       header: t("labels.map"),
-      cell: ({ row }) => <MapDisplay mapName={row.original.map.name} />,
+      cell: ({ row }) => (
+        <MapDisplay
+          mapName={row.original.map.name}
+          mapId={row.original.map.id}
+        />
+      ),
     },
     {
       accessorKey: "player",

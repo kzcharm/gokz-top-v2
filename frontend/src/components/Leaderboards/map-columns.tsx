@@ -223,7 +223,10 @@ export function getMapLeaderboardColumns(
       ),
       cell: ({ row }) => (
         <div className="flex w-full justify-center">
-          <MapDisplay mapName={row.original.map.name} />
+          <MapDisplay
+            mapName={row.original.map.name}
+            mapId={row.original.map.id}
+          />
         </div>
       ),
     },

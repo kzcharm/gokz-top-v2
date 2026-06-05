@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { ChevronDownIcon, MessageSquarePlus, Pin, PinOff } from "lucide-react"
+import { ChevronDownIcon, Pin, PinOff } from "lucide-react"
 import {
   startTransition,
   useDeferredValue,
@@ -47,7 +47,6 @@ import {
   DeleteCourseRecordsButton,
   useRecordAdminActions,
 } from "../Records/admin-actions"
-import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import {
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
@@ -276,11 +275,6 @@ export function ProfileRecordsTab({
     column: "datetime",
     direction: "desc",
   })
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
-  const [reviewTarget, setReviewTarget] = useState<{
-    mapId: number
-    mapName: string
-  } | null>(null)
   const [visibleCount, setVisibleCount] = useState(PROFILE_RECORDS_PAGE_SIZE)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const deferredMapSearch = useDeferredValue(mapSearch)
@@ -432,31 +426,6 @@ export function ProfileRecordsTab({
       ? "No stage 0 pro records found for this player in the selected scope."
       : "No stage 0 records found for this player in the selected scope."
   const recordType = isProOnly ? "PRO" : "NUB"
-  const getMapContextMenu = (record: RecordPublic) => {
-    if (!canManagePinnedRecords && !adminModeForRecords) {
-      return null
-    }
-
-    return (
-      <>
-        {canManagePinnedRecords ? (
-          <DropdownMenuItem
-            onSelect={() => {
-              setReviewTarget({
-                mapId: record.map_id,
-                mapName: record.map_name,
-              })
-              setReviewDialogOpen(true)
-            }}
-          >
-            <MessageSquarePlus />
-            Add review
-          </DropdownMenuItem>
-        ) : null}
-      </>
-    )
-  }
-
   const getRowContextMenu = (record: RecordPublic) => {
     if (!canManagePinnedRecords) {
       return null
@@ -572,7 +541,6 @@ export function ProfileRecordsTab({
             sort={sort}
             onSortChange={handleSortChange}
             getRowContextMenu={getRowContextMenu}
-            getMapContextMenu={getMapContextMenu}
             renderAdminActions={
               adminModeForRecords ? renderAdminActions : undefined
             }
@@ -587,20 +555,6 @@ export function ProfileRecordsTab({
           ) : null}
         </div>
       )}
-
-      {reviewTarget ? (
-        <MapReviewDialog
-          open={reviewDialogOpen}
-          onOpenChange={(nextOpen) => {
-            setReviewDialogOpen(nextOpen)
-            if (!nextOpen) {
-              setReviewTarget(null)
-            }
-          }}
-          mapId={reviewTarget.mapId}
-          mapName={reviewTarget.mapName}
-        />
-      ) : null}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useState } from "react"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
+import { MapNameContextMenu } from "@/components/Common/MapDisplay"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -118,6 +119,7 @@ function ServerCardPlayerChip({
 interface ServerCardProps {
   server: ServerPublic
   isSelected: boolean
+  mapDownloadUrl?: string
   onSelect: (server: ServerPublic) => void
   onCopyAddress: (server: ServerPublic) => void
   onSteamConnect: (server: ServerPublic) => void
@@ -126,6 +128,7 @@ interface ServerCardProps {
 export const ServerCard = memo(function ServerCard({
   server,
   isSelected,
+  mapDownloadUrl,
   onSelect,
   onCopyAddress,
   onSteamConnect,
@@ -208,12 +211,34 @@ export const ServerCard = memo(function ServerCard({
 
           <div className="absolute inset-x-2 top-2 flex items-center gap-1">
             <div className="flex min-w-0 flex-1 items-center gap-1">
-              <span
-                className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
-                title={mapName || "-"}
-              >
-                {mapName || "-"}
-              </span>
+              {mapName ? (
+                <MapNameContextMenu
+                  mapName={mapName}
+                  downloadUrl={mapDownloadUrl}
+                >
+                  {(handlers) => (
+                    <a
+                      href={`/maps/${encodeURIComponent(mapName)}/maptop`}
+                      className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
+                      title={mapName}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                      }}
+                      onContextMenu={handlers.onContextMenu}
+                      onKeyDown={handlers.onKeyDown}
+                    >
+                      {mapName}
+                    </a>
+                  )}
+                </MapNameContextMenu>
+              ) : (
+                <span
+                  className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
+                  title="-"
+                >
+                  -
+                </span>
+              )}
               <TierBadge
                 tier={server.map_tier}
                 hideWhenUnknown

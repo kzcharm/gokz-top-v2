@@ -92,7 +92,10 @@ export function RecentRecordsTable({
                     />
                   </TableCell>
                   <TableCell>
-                    <MapDisplay mapName={record.map.name} />
+                    <MapDisplay
+                      mapName={record.map.name}
+                      mapId={record.map.id}
+                    />
                   </TableCell>
                   <TableCell>
                     <ModeBadge mode={record.mode.name} />

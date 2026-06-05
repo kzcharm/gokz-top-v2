@@ -391,12 +391,6 @@ export function MapsCatalog() {
     })
   }, [page, totalPages])
 
-  useEffect(() => {
-    startTransition(() => {
-      setPage(1)
-    })
-  }, [deferredSearch])
-
   const visibleMaps = useMemo(() => {
     const startIndex = (page - 1) * PAGE_SIZE
     return sortedMaps.slice(startIndex, startIndex + PAGE_SIZE)
@@ -551,7 +545,10 @@ export function MapsCatalog() {
               <Input
                 value={searchInput}
                 onChange={(event) => {
-                  setSearchInput(event.target.value)
+                  startTransition(() => {
+                    setSearchInput(event.target.value)
+                    setPage(1)
+                  })
                 }}
                 placeholder={t("maps.searchPlaceholder")}
                 aria-label={t("maps.searchAria")}
