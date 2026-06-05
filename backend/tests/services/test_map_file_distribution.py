@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 from sqlmodel import delete
@@ -142,6 +143,43 @@ async def test_sync_map_files_uploads_seeded_raw_bsp(
     assert row.bz2_download_url == f"https://cdn.example.com/maps/{map_name}.bsp.bz2"
     assert row.source == "seed"
     assert row.last_error is None
+
+
+def test_find_workshop_bsp_accepts_nested_exact_bsp(tmp_path: Path) -> None:
+    content_dir = tmp_path / "content"
+    nested_dir = content_dir / "mymaps"
+    nested_dir.mkdir(parents=True)
+    bsp_path = nested_dir / "kz_nested.bsp"
+    bsp_path.write_bytes(b"bsp-bytes")
+
+    assert (
+        distribution._find_workshop_bsp(
+            content_dir=content_dir,
+            map_name="kz_nested",
+        )
+        == bsp_path
+    )
+
+
+def test_find_workshop_bsp_extracts_steamcmd_legacy_zip_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _set_production_distribution_settings(monkeypatch, storage_dir=tmp_path)
+    content_dir = tmp_path / "workshop" / "steamapps" / "workshop" / "content" / "730"
+    content_dir.mkdir(parents=True)
+    archive_path = content_dir / "14398412976525154847_legacy.bin"
+    with ZipFile(archive_path, "w") as archive:
+        archive.writestr("mymaps/kz_bloodlust.bsp", b"bsp-bytes")
+
+    extracted_path = distribution._find_workshop_bsp(
+        content_dir=content_dir,
+        map_name="kz_bloodlust",
+    )
+
+    assert extracted_path.name == "kz_bloodlust.bsp"
+    assert extracted_path.read_bytes() == b"bsp-bytes"
+    assert extracted_path.parent.parent == tmp_path / "tmp"
 
 
 @pytest.mark.asyncio
