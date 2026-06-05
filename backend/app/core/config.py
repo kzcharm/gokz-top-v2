@@ -138,6 +138,11 @@ class Settings(BaseSettings):
     YOUTUBE_CLIENT_ID: str | None = None
     YOUTUBE_CLIENT_SECRET: str | None = None
     YOUTUBE_API_KEY: str | None = None
+    R2_ACCOUNT_ID: str | None = None
+    R2_ACCESS_KEY_ID: str | None = None
+    R2_SECRET_ACCESS_KEY: str | None = None
+    R2_BUCKET_NAME: str | None = None
+    R2_PUBLIC_BASE_URL: str | None = None
     LOG_LEVEL: str = "INFO"
     GEOIP_CITY_DB_PATH: Path = Path("../.geoip/GeoLite2-City.mmdb")
     REPLAY_STORAGE_DIR: Path = Path("../.replays")

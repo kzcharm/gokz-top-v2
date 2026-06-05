@@ -23,6 +23,11 @@ from tests.utils.utils import random_steamid64
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.fixture(autouse=True)
+def _disable_r2_keyframe_uploads(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: False)
+
+
 async def test_parse_bilibili_started_at_accepts_epoch_seconds() -> None:
     started_at = live_streams._parse_bilibili_started_at(1778153349)
 
@@ -484,9 +489,193 @@ async def test_refresh_live_streams_uses_only_verified_live_links(
         twitch_state.last_preview_image_url
         == "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
     )
-    assert twitch_state.last_keyframe_image_url is None
+    assert (
+        twitch_state.last_keyframe_image_url
+        == "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
+    )
     assert twitch_state.last_channel_display_name == "StreamerTV"
     assert twitch_state.last_viewer_count == 321
+
+
+async def test_refresh_live_streams_uploads_keyframes_to_r2(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    bilibili_link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="123456",
+        verified=True,
+    )
+    twitch_link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+
+    async def _fake_check_bilibili_live_status(
+        uids: list[int],
+    ) -> dict[int, BilibiliLiveStatus]:
+        assert uids == [123456]
+        return {
+            123456: BilibiliLiveStatus(
+                is_live=True,
+                preview_image_url="https://i0.hdslb.com/bfs/live/test-cover.jpg",
+                hover_preview_image_url="https://i0.hdslb.com/bfs/live-key-frame/test.jpg",
+            )
+        }
+
+    async def _fake_check_twitch_live_status(
+        account_identifiers: list[str],
+    ) -> dict[str, TwitchLiveStatus]:
+        assert account_identifiers == ["streamer"]
+        return {
+            "streamer": TwitchLiveStatus(
+                is_live=True,
+                preview_image_url=(
+                    "https://static-cdn.jtvnw.net/previews-ttv/"
+                    "live_user_streamer-640x360.jpg"
+                ),
+            )
+        }
+
+    fetched_urls: list[str] = []
+    uploaded_objects: list[tuple[str, bytes, str, str | None]] = []
+
+    async def _fake_fetch_keyframe(url: str) -> tuple[bytes, str]:
+        fetched_urls.append(url)
+        return f"bytes:{url}".encode(), "image/jpeg"
+
+    async def _fake_put_object(
+        *,
+        key: str,
+        body: bytes,
+        content_type: str,
+        cache_control: str | None = None,
+    ) -> str:
+        uploaded_objects.append((key, body, content_type, cache_control))
+        return f"https://cdn.example.com/{key}"
+
+    monkeypatch.setattr(
+        live_streams,
+        "check_bilibili_live_status",
+        _fake_check_bilibili_live_status,
+    )
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setattr(
+        live_streams,
+        "check_twitch_live_status",
+        _fake_check_twitch_live_status,
+    )
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        live_streams,
+        "_fetch_stream_keyframe_image",
+        _fake_fetch_keyframe,
+    )
+    monkeypatch.setattr(live_streams.r2_storage, "put_object", _fake_put_object)
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 2
+    assert fetched_urls == [
+        "https://i0.hdslb.com/bfs/live-key-frame/test.jpg",
+        "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg",
+    ]
+    assert uploaded_objects == [
+        (
+            f"live/keyframes/bilibili/{bilibili_link.id}.jpg",
+            b"bytes:https://i0.hdslb.com/bfs/live-key-frame/test.jpg",
+            "image/jpeg",
+            "public, max-age=31536000, immutable",
+        ),
+        (
+            f"live/keyframes/twitch/{twitch_link.id}.jpg",
+            b"bytes:https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg",
+            "image/jpeg",
+            "public, max-age=31536000, immutable",
+        ),
+    ]
+
+    bilibili_state = await crud.get_live_stream_state(
+        session=db,
+        social_link_id=bilibili_link.id,
+    )
+    twitch_state = await crud.get_live_stream_state(
+        session=db,
+        social_link_id=twitch_link.id,
+    )
+    assert bilibili_state is not None
+    assert twitch_state is not None
+    assert (
+        bilibili_state.last_keyframe_image_url
+        == f"https://cdn.example.com/live/keyframes/bilibili/{bilibili_link.id}.jpg"
+    )
+    assert (
+        twitch_state.last_keyframe_image_url
+        == f"https://cdn.example.com/live/keyframes/twitch/{twitch_link.id}.jpg"
+    )
+
+
+async def test_refresh_live_streams_falls_back_when_r2_keyframe_upload_fails(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    upstream_preview_url = (
+        "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
+    )
+
+    async def _fake_check_twitch_live_status(
+        account_identifiers: list[str],
+    ) -> dict[str, TwitchLiveStatus]:
+        assert account_identifiers == ["streamer"]
+        return {
+            "streamer": TwitchLiveStatus(
+                is_live=True,
+                preview_image_url=upstream_preview_url,
+            )
+        }
+
+    async def _fake_fetch_keyframe(_url: str) -> tuple[bytes, str]:
+        return b"image-bytes", "image/jpeg"
+
+    async def _failing_put_object(**_kwargs: object) -> str:
+        raise live_streams.httpx.ConnectError("r2 unavailable")
+
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setattr(
+        live_streams,
+        "check_twitch_live_status",
+        _fake_check_twitch_live_status,
+    )
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        live_streams,
+        "_fetch_stream_keyframe_image",
+        _fake_fetch_keyframe,
+    )
+    monkeypatch.setattr(live_streams.r2_storage, "put_object", _failing_put_object)
+
+    processed = await live_streams.refresh_live_streams_once(session=db)
+
+    assert processed == 1
+    state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
+    assert state is not None
+    assert state.last_keyframe_image_url == upstream_preview_url
 
 
 async def test_refresh_live_streams_persists_twitch_metadata(
@@ -566,7 +755,10 @@ async def test_refresh_live_streams_persists_twitch_metadata(
         state.last_preview_image_url
         == "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
     )
-    assert state.last_keyframe_image_url is None
+    assert (
+        state.last_keyframe_image_url
+        == "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
+    )
     assert state.last_channel_display_name == "StreamerTV"
     assert state.last_viewer_count == 321
 

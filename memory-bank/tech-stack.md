@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-06-03
+- Last Updated: 2026-06-05
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -40,6 +40,7 @@
   - Verified Bilibili, YouTube, and Twitch follower counts for community leaderboard display are cached in `cache.player_video_platform_followers`, keyed by `player_social_link.id`, and refreshed lazily with a TTL so public reads do not depend on live platform API success
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
+  - Cloudflare R2 is available as a reusable S3-compatible object storage integration when `R2_*` settings are configured; staging and production deployments use separate bucket/public-url secrets, and live stream polling stores the latest Bilibili and Twitch keyframe objects there while keeping their public URLs in `live_stream_state.last_keyframe_image_url`
   - Jumpstats are stored in `jumpstat`, keyed by UUIDv7, with scalar headline metrics plus per-strafe JSONB payloads, a nullable versioned `visualization_data` JSONB cache for replay-derived route samples, server-group-authenticated replay uploads accepted through multipart `POST /v1/jumpstats` and raw `POST /v1/jumpstats/replay`, eligibility pre-checks served by `GET /v1/jumpstats/replay-eligibility`, and public reads served from `/v1/jumpstats`, `/v1/jumpstats/{id}/visualization`, and `/v1/players/{identifier}/jumpstats`
   - Uploaded/imported replay binaries are stored on disk under `REPLAY_STORAGE_DIR`, partitioned by replay type, with jump replays under `jumps/<jumpstat-id>.replay` and run replays under `runs/<normalized-map-name>/<record-uuid>.replay`
   - Jump replay retention is per player and mode: the app keeps the best 10 `LJ` replay files and the best replay file for each other supported jump type, while an advisory-locked in-app cleanup runner deletes old non-kept jump replay files after the configured grace period without deleting `jumpstat` rows
@@ -144,6 +145,7 @@
 - GlobalAPI endpoints are consumed for synchronization/compatibility behavior.
 - GlobalAPI record-filter sync now mirrors availability rows only, ensures exact 128-tick `map_course` rows for locally known maps, and does not derive non-VNL course tiers from upstream filter data after the one-time backfill migration.
 - Twitch Helix API is consumed for verified Twitch live-stream status and cached Twitch follower counts using app credentials.
+- Cloudflare R2 can be consumed through its S3-compatible API for app-managed public object storage.
 - YouTube Data API can be consumed with `YOUTUBE_API_KEY` to refresh cached YouTube subscriber counts for verified social links, and Google OAuth credentials (`YOUTUBE_CLIENT_ID`/`YOUTUBE_CLIENT_SECRET`) power self-serve YouTube social-link verification.
 - GlobalAPI ban sync upserts by nullable external `ban.id`, uses large backfill pages for catch-up, then incremental `created_since` overlap polling with a steady-state page size of `10`, and ignores local manual bans because they do not carry an external id.
 

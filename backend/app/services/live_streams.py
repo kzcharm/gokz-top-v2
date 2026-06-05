@@ -24,6 +24,7 @@ from app.models import (
     PlayerSocialPlatform,
     get_datetime_utc,
 )
+from app.services import r2_storage
 from app.services.player_social_links import build_player_social_link_url
 from app.services.player_webhooks import (
     DiscordWebhookStreamEvent,
@@ -43,6 +44,8 @@ TWITCH_STREAMS_CHUNK_SIZE = 100
 TWITCH_THUMBNAIL_WIDTH = 640
 TWITCH_THUMBNAIL_HEIGHT = 360
 TWITCH_TOKEN_REFRESH_BUFFER = timedelta(seconds=60)
+LIVE_STREAM_KEYFRAME_R2_PREFIX = "live/keyframes"
+LIVE_STREAM_KEYFRAME_CACHE_CONTROL = "public, max-age=31536000, immutable"
 LIVE_STREAM_RUNNER_LOCK_ID = int.from_bytes(
     hashlib.sha256(b"gokz-top-v2:live-stream-runner").digest()[:8],
     byteorder="big",
@@ -103,6 +106,72 @@ async def fetch_live_preview_image(url: str) -> tuple[bytes, str]:
         response.raise_for_status()
         media_type = response.headers.get("content-type", "image/jpeg")
         return response.content, media_type
+
+
+def _build_live_stream_keyframe_object_key(
+    *,
+    platform: PlayerSocialPlatform,
+    social_link_id: object,
+) -> str:
+    return f"{LIVE_STREAM_KEYFRAME_R2_PREFIX}/{platform.value}/{social_link_id}.jpg"
+
+
+def _is_allowed_stream_keyframe_source_url(url: str) -> bool:
+    parsed = urlsplit(url)
+    return parsed.scheme == "https" and bool(parsed.netloc)
+
+
+async def _fetch_stream_keyframe_image(url: str) -> tuple[bytes, str]:
+    if not _is_allowed_stream_keyframe_source_url(url):
+        raise ValueError("Stream keyframe source URL is not allowed")
+
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+
+    if response.url.scheme != "https":
+        raise ValueError("Stream keyframe source redirected to a non-HTTPS URL")
+
+    media_type = response.headers.get("content-type", "image/jpeg").split(
+        ";",
+        maxsplit=1,
+    )[0].strip()
+    if not media_type.startswith("image/"):
+        raise ValueError("Stream keyframe source did not return an image")
+    return response.content, media_type
+
+
+async def _save_live_stream_keyframe_image(
+    *,
+    link: PlayerSocialLink,
+    status: LiveStreamStatus,
+) -> str | None:
+    source_url = status.hover_preview_image_url or status.preview_image_url
+    if not status.is_live or not source_url:
+        return None
+    if not r2_storage.is_configured():
+        return source_url
+
+    try:
+        content, media_type = await _fetch_stream_keyframe_image(source_url)
+        return await r2_storage.put_object(
+            key=_build_live_stream_keyframe_object_key(
+                platform=link.platform,
+                social_link_id=link.id,
+            ),
+            body=content,
+            content_type=media_type,
+            cache_control=LIVE_STREAM_KEYFRAME_CACHE_CONTROL,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to save live stream keyframe to R2",
+            extra={
+                "platform": link.platform.value,
+                "social_link_id": str(link.id),
+            },
+        )
+        return source_url
 
 
 def _psycopg_database_uri() -> str:
@@ -453,7 +522,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
     ]
     if bilibili_links:
         try:
-            statuses = await check_bilibili_live_status(
+            bilibili_statuses = await check_bilibili_live_status(
                 [int(link.account_identifier) for link in bilibili_links]
             )
         except Exception:
@@ -473,9 +542,13 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     if previous_state is not None
                     else None
                 )
-                status = statuses.get(
+                status = bilibili_statuses.get(
                     int(link.account_identifier),
                     BilibiliLiveStatus(False),
+                )
+                keyframe_image_url = await _save_live_stream_keyframe_image(
+                    link=link,
+                    status=status,
                 )
                 state = await crud.upsert_live_stream_state(
                     session=session,
@@ -491,7 +564,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     ),
                     stream_title=status.stream_title,
                     preview_image_url=status.preview_image_url,
-                    hover_preview_image_url=status.hover_preview_image_url,
+                    hover_preview_image_url=keyframe_image_url,
                     channel_display_name=status.channel_display_name,
                     viewer_count=status.viewer_count,
                     update_viewer_count=True,
@@ -517,7 +590,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
         )
     elif twitch_links:
         try:
-            statuses = await check_twitch_live_status(
+            twitch_statuses = await check_twitch_live_status(
                 [link.account_identifier for link in twitch_links]
             )
         except Exception:
@@ -537,9 +610,13 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     if previous_state is not None
                     else None
                 )
-                status = statuses.get(
+                status = twitch_statuses.get(
                     link.account_identifier,
                     TwitchLiveStatus(False),
+                )
+                keyframe_image_url = await _save_live_stream_keyframe_image(
+                    link=link,
+                    status=status,
                 )
                 state = await crud.upsert_live_stream_state(
                     session=session,
@@ -555,7 +632,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     ),
                     stream_title=status.stream_title,
                     preview_image_url=status.preview_image_url,
-                    hover_preview_image_url=status.hover_preview_image_url,
+                    hover_preview_image_url=keyframe_image_url,
                     channel_display_name=status.channel_display_name,
                     viewer_count=status.viewer_count,
                     update_viewer_count=status.is_live,
