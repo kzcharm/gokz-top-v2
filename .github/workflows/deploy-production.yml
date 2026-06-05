@@ -45,7 +45,6 @@ jobs:
           clean: false
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
-          submodules: recursive
       - name: Resolve release tag
         id: version
         run: |
@@ -137,9 +136,9 @@ jobs:
           DOCKER_IMAGE_REPLAY_VIEWER=${STACK_NAME}-replayviewer
           VITE_APP_VERSION=${VITE_APP_VERSION}
           EOF
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build backend frontend
         if: steps.version.outputs.should_deploy == 'true'
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d backend frontend map-distributor
         if: steps.version.outputs.should_deploy == 'true'
       - name: Verify production frontend and API
         if: steps.version.outputs.should_deploy == 'true'
