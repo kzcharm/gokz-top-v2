@@ -40,7 +40,8 @@
   - Verified Bilibili, YouTube, and Twitch follower counts for community leaderboard display are cached in `cache.player_video_platform_followers`, keyed by `player_social_link.id`, and refreshed lazily with a TTL so public reads do not depend on live platform API success
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards
-  - Cloudflare R2 is available as a reusable S3-compatible object storage integration when `R2_*` settings are configured; staging and production deployments use separate bucket/public-url secrets, and live stream polling stores the latest Bilibili and Twitch keyframe objects there while keeping their public URLs in `live_stream_state.last_keyframe_image_url`
+  - Cloudflare R2 is available as a reusable S3-compatible object storage integration when `R2_*` settings are configured; staging and production deployments use separate bucket/public-url secrets, live stream polling stores the latest Bilibili and Twitch keyframe objects there while keeping their public URLs in `live_stream_state.last_keyframe_image_url`, and the production-only map file distributor uploads BSP, optional BZ2, full `GlobalMaps.7z`, and per-date release ZIP objects there
+  - Map file distribution stores long-lived raw BSPs plus the full `GlobalMaps.7z` archive under `MAP_FILE_STORAGE_DIR`, with optional manual seeding from an operator-provided starter package and SteamCMD-based Workshop refreshes for new or updated maps
   - Jumpstats are stored in `jumpstat`, keyed by UUIDv7, with scalar headline metrics plus per-strafe JSONB payloads, a nullable versioned `visualization_data` JSONB cache for replay-derived route samples, server-group-authenticated replay uploads accepted through multipart `POST /v1/jumpstats` and raw `POST /v1/jumpstats/replay`, eligibility pre-checks served by `GET /v1/jumpstats/replay-eligibility`, and public reads served from `/v1/jumpstats`, `/v1/jumpstats/{id}/visualization`, and `/v1/players/{identifier}/jumpstats`
   - Uploaded/imported replay binaries are stored on disk under `REPLAY_STORAGE_DIR`, partitioned by replay type, with jump replays under `jumps/<jumpstat-id>.replay` and run replays under `runs/<normalized-map-name>/<record-uuid>.replay`
   - Jump replay retention is per player and mode: the app keeps the best 10 `LJ` replay files and the best replay file for each other supported jump type, while an advisory-locked in-app cleanup runner deletes old non-kept jump replay files after the configured grace period without deleting `jumpstat` rows
@@ -70,6 +71,7 @@
   - An advisory-locked in-app player-session timeout runner closes open sessions after the configured heartbeat timeout by setting `disconnect_at` to the last heartbeat timestamp
   - An advisory-locked in-app live-stream runner polls verified Bilibili and Twitch social links on a fixed interval, caches Twitch app tokens in-process, and updates `live_stream_state` without clearing live rows on transport failures
   - An advisory-locked in-app jump replay cleanup runner periodically deletes replay files older than the retention grace period when their jumpstat row no longer ranks inside the per-player/mode keep set
+  - A dedicated production `map-distributor` worker runs map BSP distribution after daily map sync, uses SteamCMD anonymous Workshop downloads for updated maps, updates a persisted full 7z package incrementally when possible, and exposes BSP URLs through map API `download_url`
   - The midnight rank pipeline preserves `record_pb.updated_on` during point recalculation so same-day retries keep the same selection window
 
 ## Backend Runtime and Libraries
@@ -146,6 +148,7 @@
 - GlobalAPI record-filter sync now mirrors availability rows only, ensures exact 128-tick `map_course` rows for locally known maps, and does not derive non-VNL course tiers from upstream filter data after the one-time backfill migration.
 - Twitch Helix API is consumed for verified Twitch live-stream status and cached Twitch follower counts using app credentials.
 - Cloudflare R2 can be consumed through its S3-compatible API for app-managed public object storage.
+- SteamCMD is used by the production map file distributor to download Workshop map BSPs for app id `730`.
 - YouTube Data API can be consumed with `YOUTUBE_API_KEY` to refresh cached YouTube subscriber counts for verified social links, and Google OAuth credentials (`YOUTUBE_CLIENT_ID`/`YOUTUBE_CLIENT_SECRET`) power self-serve YouTube social-link verification.
 - GlobalAPI ban sync upserts by nullable external `ban.id`, uses large backfill pages for catch-up, then incremental `created_since` overlap polling with a steady-state page size of `10`, and ignores local manual bans because they do not carry an external id.
 

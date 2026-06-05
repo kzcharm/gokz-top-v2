@@ -41,6 +41,7 @@ from .live_stream import (
 from .map import (
     get_map_by_id,
     get_map_by_name,
+    load_map_download_urls,
     read_admin_maps,
     read_maps,
     read_maps_v1,
@@ -416,6 +417,7 @@ __all__ = [
     "read_latest_map_reviews",
     "read_maps_v1",
     "load_map_review_summaries",
+    "load_map_download_urls",
     "read_modes",
     "load_scoped_points_by_record_uuid",
     "load_changed_leaderboard_player_keys",

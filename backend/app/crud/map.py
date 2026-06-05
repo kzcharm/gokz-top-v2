@@ -8,6 +8,7 @@ from app.models import (
     AdminMapPublic,
     Map,
     MapCompatPublicV0,
+    MapFileDistribution,
     MapPublic,
     MapReviewSummaryPublic,
     MapTiers,
@@ -155,7 +156,26 @@ async def read_admin_maps(
     return maps, count
 
 
-def to_map_compat_public_v0(*, map_obj: Map) -> MapCompatPublicV0:
+async def load_map_download_urls(
+    *, session: AsyncSession, map_ids: list[int]
+) -> dict[int, str]:
+    if not map_ids:
+        return {}
+    rows = await session.exec(
+        select(MapFileDistribution.map_id, MapFileDistribution.bsp_download_url).where(
+            col(MapFileDistribution.map_id).in_(map_ids)
+        )
+    )
+    return {
+        map_id: download_url
+        for map_id, download_url in rows.all()
+        if download_url
+    }
+
+
+def to_map_compat_public_v0(
+    *, map_obj: Map, download_url: str | None = None
+) -> MapCompatPublicV0:
     return MapCompatPublicV0(
         id=map_obj.id,
         name=map_obj.name,
@@ -166,6 +186,7 @@ def to_map_compat_public_v0(*, map_obj: Map) -> MapCompatPublicV0:
         updated_on=map_obj.updated_at,
         approved_by_steamid64=str(map_obj.approved_by_steamid64),
         workshop_id=map_obj.workshop_id,
+        download_url=download_url or "",
     )
 
 
@@ -174,6 +195,7 @@ def to_map_public(
     map_obj: Map,
     tiers: MapTiers,
     review_summary: MapReviewSummaryPublic | None,
+    download_url: str | None = None,
 ) -> MapPublic:
     return MapPublic(
         id=map_obj.id,
@@ -185,6 +207,7 @@ def to_map_public(
         updated_on=map_obj.updated_at,
         approved_by_steamid64=str(map_obj.approved_by_steamid64),
         workshop_id=map_obj.workshop_id,
+        download_url=download_url,
         synced_at=map_obj.synced_at,
         authors=map_obj.authors or [],
         no_steamid_names=map_obj.no_steamid_names or [],
@@ -242,6 +265,10 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
         session=session,
         map_ids=[map_obj.id for map_obj in maps],
     )
+    download_urls_by_map_id = await load_map_download_urls(
+        session=session,
+        map_ids=[map_obj.id for map_obj in maps],
+    )
     return [
         to_map_public(
             map_obj=map_obj,
@@ -250,6 +277,7 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
                 MapTiers(),
             ),
             review_summary=review_summaries_by_map_id.get(map_obj.id),
+            download_url=download_urls_by_map_id.get(map_obj.id),
         )
         for map_obj in maps
     ]

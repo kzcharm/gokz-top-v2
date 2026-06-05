@@ -457,6 +457,19 @@ export type LiveStreamsPublic = {
     count: number;
 };
 
+export type MapFileDistributionSyncResult = {
+    processed?: number;
+    downloaded?: number;
+    uploaded?: number;
+    bz2_uploaded?: number;
+    package_uploaded?: number;
+    release_packages_uploaded?: number;
+    skipped?: number;
+    errors?: number;
+    warnings?: number;
+    disabled?: boolean;
+};
+
 export type MapLeaderboardEntryPublic = {
     map: MapRefPublic;
     tier?: number;
@@ -499,6 +512,7 @@ export type MapPublic = {
     updated_on: string;
     approved_by_steamid64: string;
     workshop_id?: (number | null);
+    download_url?: (string | null);
     synced_at: string;
     authors?: Array<(string)>;
     no_steamid_names?: Array<(string)>;
@@ -1873,6 +1887,12 @@ export type MapsDeleteMapReviewCommentsData = {
 export type MapsDeleteMapReviewCommentsResponse = (MapReviewPublic);
 
 export type MapsTriggerMapSyncResponse = (MapSyncResult);
+
+export type MapsTriggerMapFileSyncData = {
+    force?: boolean;
+};
+
+export type MapsTriggerMapFileSyncResponse = (MapFileDistributionSyncResult);
 
 export type MeReadCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
 

@@ -71,6 +71,9 @@ Scope model:
 
 ### 5.3 Maps and Reviews
 - Map catalog and detail pages with filters and metadata.
+- Validated maps can expose a BSP `download_url` once the production map file distributor has uploaded the raw BSP to Cloudflare R2.
+- Production map file distribution maintains raw BSP files, optional FastDL-sized BZ2 archives for BSPs under 150 MB, a full `packages/GlobalMaps.7z`, and per-date release ZIPs for maps updated on a given UTC date.
+- Deleted Workshop maps can be preserved only when operators seed their BSPs manually from the starter `GlobalMaps.7z`; otherwise the distributor records the missing file and continues syncing Workshop-available maps.
 - Map review/rating flows.
 - v1 map and course tiers are course-scoped rather than TP/PRO-scoped: each exact course has one tier per mode, `record_filter` rows only determine availability, and tier reads normalize to integer `0..8` values where `0` also covers unavailable/unknown/impossible cases.
 - Authenticated players can author website reviews only after earning a main-stage OVR PB on the map.

@@ -16,6 +16,7 @@ from app.api.deps import (
 from app.core.regions import is_valid_region_code
 from app.crud.server import mark_server_group_api_key_used
 from app.models import (
+    MapFileDistributionSyncResult,
     MapPbLeaderboardPublic,
     MapPublic,
     MapReviewListQuery,
@@ -32,6 +33,10 @@ from app.models import (
 from app.services.globalapi_maps_sync import (
     GlobalAPIMapsSyncError,
     sync_maps_from_globalapi,
+)
+from app.services.map_file_distribution import (
+    MapFileDistributionError,
+    sync_map_files,
 )
 from app.services.steam_workshop import fetch_workshop_preview_url
 
@@ -380,3 +385,25 @@ async def trigger_map_sync(
         raise HTTPException(
             status_code=500, detail="Failed to sync maps due to internal error"
         ) from exc
+
+
+@router.post(
+    "/files/sync",
+    response_model=MapFileDistributionSyncResult,
+    dependencies=[Depends(get_current_active_superuser)],
+)
+async def trigger_map_file_sync(
+    session: SessionDep,
+    force: Annotated[bool, Query()] = False,
+) -> MapFileDistributionSyncResult:
+    try:
+        result = await sync_map_files(session=session, force=force)
+    except MapFileDistributionError as exc:
+        logger.warning("Map file distribution failed: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if result.disabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Map file distribution is enabled only in production",
+        )
+    return result
