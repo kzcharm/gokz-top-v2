@@ -70,6 +70,7 @@ class MapCompatPublicV0(SQLModel):
     updated_on: datetime
     approved_by_steamid64: str
     workshop_id: int | None = Field(default=None, exclude=True)
+    download_url: str = ""
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -77,11 +78,6 @@ class MapCompatPublicV0(SQLModel):
         if self.workshop_id:
             return f"https://steamcommunity.com/sharedfiles/filedetails/?id={self.workshop_id}"
         return None
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def download_url(self) -> str:
-        return ""
 
 
 class MapTiers(SQLModel):
@@ -106,6 +102,7 @@ class MapPublic(SQLModel):
     updated_on: datetime
     approved_by_steamid64: str
     workshop_id: int | None = None
+    download_url: str | None = None
     synced_at: datetime
     authors: list[str] = Field(default_factory=list)
     no_steamid_names: list[str] = Field(default_factory=list)

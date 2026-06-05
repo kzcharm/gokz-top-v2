@@ -15,6 +15,7 @@ from app.models import (
     Map,
     MapCourse,
     MapCourseTier,
+    MapFileDistribution,
     MapReview,
     MapReviewSummaryCache,
     MapSyncResult,
@@ -109,6 +110,69 @@ async def test_read_workshop_preview_image_rejects_invalid_workshop_id(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_read_maps_includes_distribution_download_url(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930291)
+    db.add(
+        MapFileDistribution(
+            map_id=map_obj.id,
+            map_name=map_obj.name,
+            map_updated_at=map_obj.updated_at,
+            bsp_download_url="https://cdn.example.com/maps/kz_test_930291.bsp",
+        )
+    )
+    await db.commit()
+
+    response = await client.get(f"{settings.API_V1_STR}/maps/{map_obj.id}")
+
+    assert response.status_code == 200
+    assert (
+        response.json()["download_url"]
+        == "https://cdn.example.com/maps/kz_test_930291.bsp"
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_v0_maps_includes_distribution_download_url(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930292)
+    db.add(
+        MapFileDistribution(
+            map_id=map_obj.id,
+            map_name=map_obj.name,
+            map_updated_at=map_obj.updated_at,
+            bsp_download_url="https://cdn.example.com/maps/kz_test_930292.bsp",
+        )
+    )
+    await db.commit()
+
+    response = await client.get(f"/v0/maps/{map_obj.id}")
+
+    assert response.status_code == 200
+    assert (
+        response.json()["download_url"]
+        == "https://cdn.example.com/maps/kz_test_930292.bsp"
+    )
+
+
+@pytest.mark.asyncio
+async def test_trigger_map_file_sync_rejects_non_production(
+    client: AsyncClient,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        f"{settings.API_V1_STR}/maps/files/sync",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 403
 
 
 async def _create_record_filter(

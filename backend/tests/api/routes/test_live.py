@@ -120,6 +120,8 @@ async def test_read_live_streams_filters_online_and_offline(
         last_checked_at=now - timedelta(minutes=10),
         last_live_seen_at=now - timedelta(days=1),
         stream_url="https://live.bilibili.com/84",
+        preview_url="https://i0.hdslb.com/bfs/live/offline-cover.jpg",
+        hover_preview_url="https://cdn.example.com/live/keyframes/bilibili/offline.jpg",
     )
 
     all_response = await client.get("/v1/live/streams")
@@ -155,6 +157,11 @@ async def test_read_live_streams_filters_online_and_offline(
         offline_player.steamid64
     )
     assert offline_payload["data"][0]["is_live"] is False
+    assert (
+        offline_payload["data"][0]["preview_image_url"]
+        == "https://cdn.example.com/live/keyframes/bilibili/offline.jpg"
+    )
+    assert offline_payload["data"][0]["hover_preview_image_url"] is None
 
 
 async def test_read_live_streams_excludes_unobserved_links(
@@ -229,6 +236,7 @@ async def test_read_live_streams_serializes_twitch_cards_and_recency(
         preview_url=(
             "https://static-cdn.jtvnw.net/previews-ttv/live_user_mixed-twitch-640x360.jpg"
         ),
+        hover_preview_url="https://cdn.example.com/live/keyframes/twitch/mixed-twitch.jpg",
         viewer_count=1200,
     )
     await _create_state(
@@ -268,7 +276,7 @@ async def test_read_live_streams_serializes_twitch_cards_and_recency(
     assert offline_payload["data"][0]["stream_url"] == "https://www.twitch.tv/mixed-twitch"
     assert (
         offline_payload["data"][0]["preview_image_url"]
-        == "https://static-cdn.jtvnw.net/previews-ttv/live_user_mixed-twitch-640x360.jpg"
+        == "https://cdn.example.com/live/keyframes/twitch/mixed-twitch.jpg"
     )
     assert offline_payload["data"][0]["hover_preview_image_url"] is None
 

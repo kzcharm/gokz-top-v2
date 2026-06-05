@@ -2239,6 +2239,63 @@ export const LiveStreamsPublicSchema = {
     title: 'LiveStreamsPublic'
 } as const;
 
+export const MapFileDistributionSyncResultSchema = {
+    properties: {
+        processed: {
+            type: 'integer',
+            title: 'Processed',
+            default: 0
+        },
+        downloaded: {
+            type: 'integer',
+            title: 'Downloaded',
+            default: 0
+        },
+        uploaded: {
+            type: 'integer',
+            title: 'Uploaded',
+            default: 0
+        },
+        bz2_uploaded: {
+            type: 'integer',
+            title: 'Bz2 Uploaded',
+            default: 0
+        },
+        package_uploaded: {
+            type: 'integer',
+            title: 'Package Uploaded',
+            default: 0
+        },
+        release_packages_uploaded: {
+            type: 'integer',
+            title: 'Release Packages Uploaded',
+            default: 0
+        },
+        skipped: {
+            type: 'integer',
+            title: 'Skipped',
+            default: 0
+        },
+        errors: {
+            type: 'integer',
+            title: 'Errors',
+            default: 0
+        },
+        warnings: {
+            type: 'integer',
+            title: 'Warnings',
+            default: 0
+        },
+        disabled: {
+            type: 'boolean',
+            title: 'Disabled',
+            default: false
+        }
+    },
+    type: 'object',
+    title: 'MapFileDistributionSyncResult'
+} as const;
+
 export const MapLeaderboardEntryPublicSchema = {
     properties: {
         map: {
@@ -2434,6 +2491,17 @@ export const MapPublicSchema = {
                 }
             ],
             title: 'Workshop Id'
+        },
+        download_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Download Url'
         },
         synced_at: {
             type: 'string',

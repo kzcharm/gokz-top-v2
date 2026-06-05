@@ -69,6 +69,12 @@ from .map import (
     MapSyncResult,
     MapTiers,
 )
+from .map_file_distribution import (
+    MapFileDistribution,
+    MapFileDistributionSyncResult,
+    MapFileSeedResult,
+    MapPackageRelease,
+)
 from .map_leaderboard import (
     MapLeaderboardCache,
     MapLeaderboardEntryPublic,
@@ -476,6 +482,10 @@ __all__ = [
     "MapStatType",
     "MapWrGapDistributionBinPublic",
     "MapWrGapDistributionContentPublic",
+    "MapFileDistribution",
+    "MapFileDistributionSyncResult",
+    "MapFileSeedResult",
+    "MapPackageRelease",
     "MapSyncResult",
     "MapTiers",
     "CANONICAL_MODE_SEEDS",

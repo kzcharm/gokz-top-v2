@@ -16,6 +16,19 @@ ENV UV_LINK_MODE=copy
 
 WORKDIR /app/
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bzip2 \
+        ca-certificates \
+        curl \
+        lib32gcc-s1 \
+    && (apt-get install -y --no-install-recommends p7zip-full || apt-get install -y --no-install-recommends 7zip) \
+    && mkdir -p /opt/steamcmd \
+    && curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+        | tar -xz -C /opt/steamcmd \
+    && ln -s /opt/steamcmd/steamcmd.sh /usr/local/bin/steamcmd \
+    && rm -rf /var/lib/apt/lists/*
+
 # Place executables in the environment at the front of the path
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
 ENV PATH="/app/.venv/bin:$PATH"

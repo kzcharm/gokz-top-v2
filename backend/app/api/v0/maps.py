@@ -47,7 +47,17 @@ async def read_maps(
         created_since=_parse_datetime(created_since),
         updated_since=_parse_datetime(updated_since),
     )
-    return [crud.to_map_compat_public_v0(map_obj=map_obj) for map_obj in maps]
+    download_urls_by_map_id = await crud.load_map_download_urls(
+        session=session,
+        map_ids=[map_obj.id for map_obj in maps],
+    )
+    return [
+        crud.to_map_compat_public_v0(
+            map_obj=map_obj,
+            download_url=download_urls_by_map_id.get(map_obj.id),
+        )
+        for map_obj in maps
+    ]
 
 
 @router.get("/name/{map_name}", response_model=MapCompatPublicV0)
@@ -55,7 +65,14 @@ async def read_map_by_name(session: SessionDep, map_name: str) -> Any:
     map_obj = await crud.get_map_by_name(session=session, map_name=map_name)
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
-    return crud.to_map_compat_public_v0(map_obj=map_obj)
+    download_urls_by_map_id = await crud.load_map_download_urls(
+        session=session,
+        map_ids=[map_obj.id],
+    )
+    return crud.to_map_compat_public_v0(
+        map_obj=map_obj,
+        download_url=download_urls_by_map_id.get(map_obj.id),
+    )
 
 
 @router.get("/{id}", response_model=MapCompatPublicV0)
@@ -63,4 +80,11 @@ async def read_map_by_id(session: SessionDep, id: int) -> Any:
     map_obj = await crud.get_map_by_id(session=session, id=id)
     if not map_obj:
         raise HTTPException(status_code=404, detail="Map not found")
-    return crud.to_map_compat_public_v0(map_obj=map_obj)
+    download_urls_by_map_id = await crud.load_map_download_urls(
+        session=session,
+        map_ids=[map_obj.id],
+    )
+    return crud.to_map_compat_public_v0(
+        map_obj=map_obj,
+        download_url=download_urls_by_map_id.get(map_obj.id),
+    )

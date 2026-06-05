@@ -1,12 +1,15 @@
 import asyncio
 from collections.abc import Coroutine, Sequence
+from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
-from app.models import ModeScope
+from app.models import MapFileDistributionSyncResult, ModeScope
+from app.services.map_file_distribution import seed_map_package, sync_map_files
+from app.services.map_file_distribution_worker import run_map_file_distribution_runner
 from app.tasks import friends as friends_task
 from app.tasks.build import maps as maps_task
 from app.tasks.build import pb as pb_task
@@ -37,6 +40,12 @@ sync_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(sync_app, name="sync")
+map_files_app = typer.Typer(
+    help="Manage map BSP distribution artifacts.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+app.add_typer(map_files_app, name="map-files")
 
 console = Console()
 
@@ -455,6 +464,72 @@ def sync_friends(
         leaderboard=leaderboard,
         limit=limit,
     )
+
+
+@map_files_app.command("seed")
+def seed_map_files(
+    package_path: Annotated[
+        Path,
+        typer.Argument(help="Path to an operator-provided GlobalMaps.7z package."),
+    ],
+    copy_package: Annotated[
+        bool,
+        typer.Option(
+            "--copy-package",
+            help="Persist this archive as the local GlobalMaps.7z package seed.",
+        ),
+    ] = False,
+) -> None:
+    result = _run_async(
+        seed_map_package(package_path=package_path, copy_package=copy_package)
+    )
+    _render_summary(
+        "Map File Seed Complete",
+        [
+            ("BSPs processed", str(result.processed)),
+            ("BSPs extracted", str(result.extracted)),
+            ("Package copied", "yes" if result.package_copied else "no"),
+        ],
+    )
+
+
+@map_files_app.command("sync")
+def sync_map_files_command(
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Process all validated maps, even if metadata is current."),
+    ] = False,
+    map_ids: Annotated[
+        list[int] | None,
+        typer.Option("--map-id", help="Filter by map id. Repeat for multiple maps."),
+    ] = None,
+) -> None:
+    from app.core.db import async_session_maker
+
+    async def _run() -> MapFileDistributionSyncResult:
+        async with async_session_maker() as session:
+            return await sync_map_files(session=session, force=force, map_ids=map_ids)
+
+    result = _run_async(_run())
+    _render_summary(
+        "Map File Sync Complete",
+        [
+            ("Processed", str(result.processed)),
+            ("Downloaded", str(result.downloaded)),
+            ("Uploaded", str(result.uploaded)),
+            ("BZ2 uploaded", str(result.bz2_uploaded)),
+            ("Full package uploaded", str(result.package_uploaded)),
+            ("Release packages uploaded", str(result.release_packages_uploaded)),
+            ("Skipped", str(result.skipped)),
+            ("Errors", str(result.errors)),
+            ("Disabled", "yes" if result.disabled else "no"),
+        ],
+    )
+
+
+@map_files_app.command("run-worker")
+def run_map_files_worker() -> None:
+    _run_async(run_map_file_distribution_runner())
 
 
 @build_app.command("profile", hidden=True)
