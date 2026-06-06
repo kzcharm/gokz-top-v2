@@ -7,7 +7,7 @@ from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Map, MapFileDistribution
+from app.models import Map, MapFileDistribution, MapPackageRelease
 from app.services import map_file_distribution as distribution
 
 
@@ -254,3 +254,85 @@ async def test_sync_full_package_uses_incremental_update_and_delete(
     assert commands == [
         [settings.SEVENZIP_PATH, "t", str(package_dir / "GlobalMaps.7z")],
     ]
+
+
+@pytest.mark.asyncio
+async def test_upload_release_packages_skips_pre_2025_releases(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _set_production_distribution_settings(monkeypatch, storage_dir=tmp_path)
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir(parents=True)
+    (tmp_path / "tmp").mkdir(parents=True)
+    old_bsp = raw_dir / "kz_old.bsp"
+    new_bsp = raw_dir / "kz_new.bsp"
+    old_bsp.write_bytes(b"old-bsp")
+    new_bsp.write_bytes(b"new-bsp")
+    old_release_date = datetime(2024, 12, 31, tzinfo=UTC).date()
+    new_release_date = datetime(2025, 1, 1, tzinfo=UTC).date()
+    await db.exec(
+        delete(MapPackageRelease).where(
+            MapPackageRelease.release_date == old_release_date
+        )
+    )
+    await db.exec(
+        delete(MapPackageRelease).where(
+            MapPackageRelease.release_date == new_release_date
+        )
+    )
+    await db.commit()
+    uploaded_keys: list[str] = []
+
+    async def _fake_put_file(
+        *,
+        key: str,
+        path: Path,
+        content_type: str,
+        cache_control: str | None = None,
+    ) -> str:
+        assert path.exists()
+        assert content_type == distribution.ZIP_CONTENT_TYPE
+        assert cache_control == distribution.PACKAGE_CACHE_CONTROL
+        uploaded_keys.append(key)
+        return f"https://cdn.example.com/{key}"
+
+    monkeypatch.setattr(distribution.r2_storage, "put_file", _fake_put_file)
+
+    uploaded = await distribution._upload_release_packages(
+        session=db,
+        processed_maps=[
+            distribution._ProcessedMap(
+                map_obj=Map(
+                    id=991010,
+                    name="kz_old",
+                    filesize=7,
+                    validated=True,
+                    difficulty=1,
+                    created_at=datetime(2024, 12, 31, tzinfo=UTC),
+                    updated_at=datetime(2024, 12, 31, tzinfo=UTC),
+                    approved_by_steamid64=0,
+                ),
+                raw_path=old_bsp,
+            ),
+            distribution._ProcessedMap(
+                map_obj=Map(
+                    id=991011,
+                    name="kz_new",
+                    filesize=7,
+                    validated=True,
+                    difficulty=1,
+                    created_at=datetime(2025, 1, 1, tzinfo=UTC),
+                    updated_at=datetime(2025, 1, 1, tzinfo=UTC),
+                    approved_by_steamid64=0,
+                ),
+                raw_path=new_bsp,
+            ),
+        ],
+    )
+
+    assert uploaded == 1
+    assert uploaded_keys == ["packages/map-releases/maps-release-2025-01-01.zip"]
+    assert await db.get(MapPackageRelease, old_release_date) is None
+    assert await db.get(MapPackageRelease, new_release_date) is not None
