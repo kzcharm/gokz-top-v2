@@ -301,59 +301,60 @@ const UserInformation = () => {
   }
 
   return (
-    <Card className="max-w-2xl">
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-3">
-          <CardTitle>{t("settings.profile.title")}</CardTitle>
-          <PlayerDisplay player={profileDisplayPlayer} className="min-w-0" />
-        </div>
-        {isEditing ? (
-          <div className="flex items-center gap-2">
+    <div className="max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-3">
+            <CardTitle>{t("settings.profile.title")}</CardTitle>
+            <PlayerDisplay player={profileDisplayPlayer} className="min-w-0" />
+          </div>
+          {isEditing ? (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={mutation.isPending}
+                onClick={() => {
+                  setAliasInput(initialValues.alias)
+                  setCustomIdInput(initialValues.customId)
+                  setCountryInput(initialValues.country)
+                  setPrimaryScopeInput(initialValues.primaryScope)
+                  setIsEditing(false)
+                }}
+              >
+                {t("settings.profile.actions.cancel")}
+              </Button>
+              <LoadingButton
+                type="submit"
+                form="user-settings-form"
+                loading={mutation.isPending}
+                disabled={!dirty || settingsQuery.isLoading}
+              >
+                <Save className="size-4" />
+                {t("settings.profile.actions.save")}
+              </LoadingButton>
+            </div>
+          ) : (
             <Button
               type="button"
               variant="outline"
-              disabled={mutation.isPending}
-              onClick={() => {
-                setAliasInput(initialValues.alias)
-                setCustomIdInput(initialValues.customId)
-                setCountryInput(initialValues.country)
-                setPrimaryScopeInput(initialValues.primaryScope)
-                setIsEditing(false)
-              }}
+              disabled={settingsQuery.isLoading}
+              onClick={() => setIsEditing(true)}
             >
-              {t("settings.profile.actions.cancel")}
+              <Pencil className="size-4" />
+              {t("settings.profile.actions.edit")}
             </Button>
-            <LoadingButton
-              type="submit"
-              form="user-settings-form"
-              loading={mutation.isPending}
-              disabled={!dirty || settingsQuery.isLoading}
-            >
-              <Save className="size-4" />
-              {t("settings.profile.actions.save")}
-            </LoadingButton>
-          </div>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={settingsQuery.isLoading}
-            onClick={() => setIsEditing(true)}
+          )}
+        </CardHeader>
+        <CardContent>
+          <form
+            id="user-settings-form"
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault()
+              mutation.mutate()
+            }}
           >
-            <Pencil className="size-4" />
-            {t("settings.profile.actions.edit")}
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        <form
-          id="user-settings-form"
-          className="space-y-5"
-          onSubmit={(event) => {
-            event.preventDefault()
-            mutation.mutate()
-          }}
-        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-sm text-muted-foreground">
@@ -526,20 +527,21 @@ const UserInformation = () => {
               </div>
             </div>
           )}
-        </form>
-        <div className="mt-6 flex justify-end border-border border-t pt-5">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={logout}
-            data-testid="settings-profile-logout-button"
-          >
-            <LogOut className="size-4" />
-            {t("auth.logout")}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          </form>
+        </CardContent>
+      </Card>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="destructive"
+          onClick={logout}
+          data-testid="settings-profile-logout-button"
+        >
+          <LogOut className="size-4" />
+          {t("auth.logout")}
+        </Button>
+      </div>
+    </div>
   )
 }
 
