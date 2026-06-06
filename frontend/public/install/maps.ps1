@@ -172,6 +172,46 @@ function Install-Package($MapsDir, $PackageUrl, $SevenZip) {
   }
 }
 
+function Get-ValidLocalMapNames($MapsDir, $Maps) {
+  $seen = @{}
+  foreach ($map in $Maps) {
+    if (-not $map.name -or $seen.ContainsKey($map.name)) {
+      continue
+    }
+    $localPath = Join-Path $MapsDir ($map.name + ".bsp")
+    if (-not (Test-Path $localPath -PathType Leaf)) {
+      continue
+    }
+    $seen[$map.name] = $true
+    $map.name
+  }
+}
+
+function Update-MapListFiles($MapsDir, $Maps) {
+  $csgoDir = Split-Path $MapsDir -Parent
+  $mapNames = @(Get-ValidLocalMapNames $MapsDir $Maps)
+  $content = ""
+  if ($mapNames.Count -gt 0) {
+    $content = ($mapNames -join "`n") + "`n"
+  }
+
+  foreach ($fileName in @("maplist.txt", "mapcycle.txt")) {
+    $path = Join-Path $csgoDir $fileName
+    if ($DryRun) {
+      Write-Host "DRY RUN write $($mapNames.Count) valid map(s) -> $path"
+      continue
+    }
+    $tempPath = Join-Path $csgoDir ("." + $fileName + ".download")
+    try {
+      [System.IO.File]::WriteAllText($tempPath, $content, [System.Text.Encoding]::UTF8)
+      Move-Item -Force $tempPath $path
+    } finally {
+      Remove-Item -Force -ErrorAction SilentlyContinue $tempPath
+    }
+  }
+  Write-Host "Updated maplist.txt and mapcycle.txt with $($mapNames.Count) valid map(s)."
+}
+
 $mapsDir = Get-DetectedMapsDir
 Write-Host "Detected CS:GO maps directory: $mapsDir"
 if (-not (Confirm-Action "Update maps in this directory?")) {
@@ -190,9 +230,6 @@ foreach ($map in $pending) {
 }
 
 Write-Host "$($pending.Count) map(s) need download or update."
-if ($pending.Count -eq 0) {
-  exit 0
-}
 
 $sevenZip = Get-7ZipPath
 $packageUrl = Get-PackageUrl $downloadableMaps
@@ -202,6 +239,7 @@ if ($preferPackage -and $packageUrl) {
   if ($sevenZip) {
     Install-Package $mapsDir $packageUrl $sevenZip
     Write-Host "Map package extracted."
+    Update-MapListFiles $mapsDir $maps
     exit 0
   }
   if (-not (Confirm-Action "7z is not installed. Download maps one by one instead?")) {
@@ -214,3 +252,4 @@ foreach ($map in $pending) {
   Install-Map $mapsDir $map $sevenZip
 }
 Write-Host "Updated $($pending.Count) map(s)."
+Update-MapListFiles $mapsDir $maps

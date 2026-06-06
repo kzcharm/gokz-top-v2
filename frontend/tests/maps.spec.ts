@@ -273,11 +273,57 @@ test("Maps catalog shows map updater commands", async ({ page }) => {
     page.getByText("curl -fsSL https://gokz.top/install/maps.sh | sh"),
   ).toBeVisible()
   await expect(
-    page.getByText("irm https://gokz.top/install/maps.ps1 | iex"),
+    page.getByText(
+      'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://gokz.top/install/maps.ps1 | iex"',
+    ),
   ).toBeVisible()
   await expect(
     page.getByText("Run this command from your csgo directory."),
   ).toBeVisible()
+
+  const commandBlockMetrics = await page
+    .getByRole("dialog", { name: "Download Maps" })
+    .evaluate((dialog) => {
+      const dialogRect = dialog.getBoundingClientRect()
+      const blocks = Array.from(dialog.querySelectorAll("pre"))
+      const copyButtons = Array.from(
+        dialog.querySelectorAll('button[aria-label^="Copy"]'),
+      )
+
+      return {
+        dialogClientWidth: dialog.clientWidth,
+        dialogScrollWidth: dialog.scrollWidth,
+        blocks: blocks.map((block) => {
+          const rect = block.getBoundingClientRect()
+          return {
+            clientWidth: block.clientWidth,
+            right: rect.right,
+            scrollWidth: block.scrollWidth,
+          }
+        }),
+        copyButtons: copyButtons.map((button) => {
+          const rect = button.getBoundingClientRect()
+          return {
+            left: rect.left,
+            right: rect.right,
+          }
+        }),
+        dialogRight: dialogRect.right,
+      }
+    })
+
+  expect(commandBlockMetrics.dialogScrollWidth).toBeLessThanOrEqual(
+    commandBlockMetrics.dialogClientWidth,
+  )
+  expect(commandBlockMetrics.blocks[0].scrollWidth).toBeGreaterThan(
+    commandBlockMetrics.blocks[0].clientWidth,
+  )
+  for (const block of commandBlockMetrics.blocks) {
+    expect(block.right).toBeLessThanOrEqual(commandBlockMetrics.dialogRight)
+  }
+  expect(commandBlockMetrics.blocks[0].right).toBeLessThanOrEqual(
+    commandBlockMetrics.copyButtons[0].left,
+  )
 })
 
 test("Maps catalog supports search, sorting, pagination, and map detail navigation", async ({

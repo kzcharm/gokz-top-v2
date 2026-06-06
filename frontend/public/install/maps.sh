@@ -184,6 +184,41 @@ def extract_package(package_url: str, maps_dir: Path) -> None:
         temp_path.unlink(missing_ok=True)
 
 
+def valid_local_map_names(maps: list[dict], maps_dir: Path) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for map_info in maps:
+        name = map_info.get("name")
+        if not isinstance(name, str) or name in seen:
+            continue
+        if not (maps_dir / f"{name}.bsp").is_file():
+            continue
+        seen.add(name)
+        names.append(name)
+    return names
+
+
+def write_map_list_files(*, maps: list[dict], maps_dir: Path) -> None:
+    csgo_dir = maps_dir.parent
+    map_names = valid_local_map_names(maps, maps_dir)
+    content = "\n".join(map_names)
+    if content:
+        content += "\n"
+
+    for filename in ("maplist.txt", "mapcycle.txt"):
+        path = csgo_dir / filename
+        if DRY_RUN:
+            print(f"DRY RUN write {len(map_names)} valid map(s) -> {path}")
+            continue
+        temp_path = path.with_name(f".{path.name}.download")
+        try:
+            temp_path.write_text(content, encoding="utf-8")
+            temp_path.replace(path)
+        finally:
+            temp_path.unlink(missing_ok=True)
+    print(f"Updated maplist.txt and mapcycle.txt with {len(map_names)} valid map(s).")
+
+
 def main() -> int:
     maps_dir = detect_maps_dir()
     print(f"Detected CS:GO maps directory: {maps_dir}")
@@ -200,7 +235,9 @@ def main() -> int:
     downloadable_maps = [
         item
         for item in maps
-        if isinstance(item, dict) and isinstance(item.get("download_url"), str)
+        if isinstance(item, dict)
+        and isinstance(item.get("download_url"), str)
+        and item.get("download_url")
     ]
     pending = [item for item in downloadable_maps if local_needs_update(maps_dir, item)]
     total_bytes = sum(
@@ -208,8 +245,6 @@ def main() -> int:
     )
 
     print(f"{len(pending)} map(s) need download or update.")
-    if not pending:
-        return 0
 
     prefer_package = (
         len(pending) >= PACKAGE_MAP_COUNT_THRESHOLD
@@ -221,6 +256,7 @@ def main() -> int:
         if shutil.which("7z") or shutil.which("7zz"):
             extract_package(package_url, maps_dir)
             print("Map package extracted.")
+            write_map_list_files(maps=maps, maps_dir=maps_dir)
             return 0
         if not prompt_yes_no(
             "7z is not installed. Download maps one by one instead?"
@@ -233,6 +269,7 @@ def main() -> int:
         if update_map(map_info, maps_dir):
             updated += 1
     print(f"Updated {updated} map(s).")
+    write_map_list_files(maps=maps, maps_dir=maps_dir)
     return 0
 
 

@@ -54,7 +54,7 @@ const PAGE_SIZE = 24
 const POSIX_DOWNLOAD_COMMAND =
   "curl -fsSL https://gokz.top/install/maps.sh | sh"
 const POWERSHELL_DOWNLOAD_COMMAND =
-  "irm https://gokz.top/install/maps.ps1 | iex"
+  'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://gokz.top/install/maps.ps1 | iex"'
 
 const MAP_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.name", value: "name" },
@@ -403,14 +403,17 @@ function DownloadCommandBlock({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       <span className="text-sm font-medium text-foreground">{label}</span>
-      <div className="relative overflow-hidden rounded-md border border-[#5d5d5d] bg-[#3b3b3b] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <div className="flex min-w-0 items-start gap-2 rounded-md border border-[#5d5d5d] bg-[#3b3b3b] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <pre className="block min-w-0 flex-1 overflow-x-auto pb-1 font-mono text-[13px] leading-6 whitespace-pre text-[#d4d4d4] [scrollbar-color:rgba(212,212,212,0.45)_transparent] [scrollbar-width:thin]">
+          <code>{command}</code>
+        </pre>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="absolute top-1.5 right-1.5 z-10 rounded-md text-[#cfcfcf] opacity-80 shadow-none hover:bg-white/8 hover:text-white hover:opacity-100 focus-visible:ring-white/20"
+          className="-mt-0.5 shrink-0 rounded-md text-[#cfcfcf] opacity-80 shadow-none hover:bg-white/8 hover:text-white hover:opacity-100 focus-visible:ring-white/20"
           aria-label={t("maps.downloadDialog.copyCommand", { label })}
           title={t("maps.downloadDialog.copyCommand", { label })}
           onClick={() => {
@@ -419,9 +422,6 @@ function DownloadCommandBlock({
         >
           <Copy className="size-4" aria-hidden="true" />
         </Button>
-        <pre className="overflow-x-auto pr-9 font-mono text-[13px] leading-6 text-[#d4d4d4]">
-          <code>{command}</code>
-        </pre>
       </div>
     </div>
   )
@@ -438,7 +438,7 @@ function MapsDownloadDialog() {
           {t("maps.downloadDialog.button")}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="min-w-0 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("maps.downloadDialog.title")}</DialogTitle>
           <DialogDescription>
@@ -446,7 +446,7 @@ function MapsDownloadDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <DownloadCommandBlock
             label={t("maps.downloadDialog.windowsLabel")}
             command={POWERSHELL_DOWNLOAD_COMMAND}
