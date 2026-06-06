@@ -22,10 +22,22 @@ function Confirm-Action($Message) {
 function Get-MapsDirCandidates {
   $cwd = (Get-Location).Path
   $candidates = New-Object "System.Collections.Generic.List[string]"
+  $steamRoots = New-Object "System.Collections.Generic.List[string]"
+
+  function Join-NativePath {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Parts)
+    return [System.IO.Path]::Combine($Parts)
+  }
 
   function Add-CsgoCandidate($Path) {
     if ($Path) {
-      $candidates.Add((Join-Path $Path "maps")) | Out-Null
+      $candidates.Add((Join-NativePath $Path "maps")) | Out-Null
+    }
+  }
+
+  function Add-SteamRoot($Path) {
+    if ($Path -and [System.IO.Directory]::Exists($Path)) {
+      $steamRoots.Add($Path) | Out-Null
     }
   }
 
@@ -36,34 +48,38 @@ function Get-MapsDirCandidates {
     $candidates.Add((Join-Path $cwd "maps")) | Out-Null
   }
 
-  $steamRoots = @()
-  foreach ($root in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, (Join-Path $env:USERPROFILE "Steam"))) {
+  $profileSteam = $null
+  if ($env:USERPROFILE) {
+    $profileSteam = Join-NativePath $env:USERPROFILE "Steam"
+  }
+
+  foreach ($root in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, $profileSteam)) {
     if ($root) {
-      $steamRoot = Join-Path $root "Steam"
+      $steamRoot = Join-NativePath $root "Steam"
       if ((Split-Path $root -Leaf) -eq "Steam") {
         $steamRoot = $root
       }
-      $steamRoots += $steamRoot
-      $libraryFile = Join-Path $steamRoot "steamapps\libraryfolders.vdf"
-      if (Test-Path $libraryFile -PathType Leaf) {
+      Add-SteamRoot $steamRoot
+      $libraryFile = Join-NativePath $steamRoot "steamapps" "libraryfolders.vdf"
+      if ([System.IO.File]::Exists($libraryFile)) {
         $libraryText = Get-Content -Raw -Path $libraryFile
         foreach ($match in [regex]::Matches($libraryText, '"path"\s+"([^"]+)"')) {
-          $steamRoots += $match.Groups[1].Value.Replace("\\", "\")
+          Add-SteamRoot $match.Groups[1].Value.Replace("\\", "\")
         }
       }
     }
   }
 
   foreach ($drive in "C", "D", "E", "F", "G", "H") {
-    $steamRoots += "${drive}:\SteamLibrary"
+    Add-SteamRoot "${drive}:\SteamLibrary"
   }
 
   foreach ($steamRoot in $steamRoots) {
-    Add-CsgoCandidate (Join-Path $steamRoot "steamapps\common\csgo legacy\csgo")
+    Add-CsgoCandidate (Join-NativePath $steamRoot "steamapps" "common" "csgo legacy" "csgo")
   }
 
   foreach ($steamRoot in $steamRoots) {
-    Add-CsgoCandidate (Join-Path $steamRoot "steamapps\common\Counter-Strike Global Offensive\csgo")
+    Add-CsgoCandidate (Join-NativePath $steamRoot "steamapps" "common" "Counter-Strike Global Offensive" "csgo")
   }
 
   $seen = @{}
