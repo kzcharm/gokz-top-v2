@@ -13,7 +13,10 @@ if [ -z "$PYTHON_BIN" ]; then
   fi
 fi
 
-exec "$PYTHON_BIN" - "$@" <<'PY'
+TMP_PY="$(mktemp "${TMPDIR:-/tmp}/gokz-map-updater.XXXXXX.py")" || exit 1
+trap 'rm -f "$TMP_PY"' EXIT HUP INT TERM
+
+cat > "$TMP_PY" <<'PY'
 import bz2
 import json
 import os
@@ -39,7 +42,14 @@ def prompt_yes_no(message: str, *, default: bool = False) -> bool:
     if YES:
         return True
     suffix = " [Y/n] " if default else " [y/N] "
-    answer = input(message + suffix).strip().lower()
+    try:
+        answer = input(message + suffix)
+    except EOFError as error:
+        raise SystemExit(
+            "Cannot read confirmation from a terminal. "
+            "Run again with GOKZ_MAPS_YES=1 to confirm non-interactively."
+        ) from error
+    answer = answer.strip().lower()
     if not answer:
         return default
     return answer in {"y", "yes"}
@@ -280,3 +290,12 @@ if __name__ == "__main__":
         print("\nCancelled.")
         raise SystemExit(1)
 PY
+
+if [ "${GOKZ_MAPS_YES:-}" = "1" ]; then
+  "$PYTHON_BIN" "$TMP_PY" "$@"
+elif [ -r /dev/tty ]; then
+  "$PYTHON_BIN" "$TMP_PY" "$@" < /dev/tty
+else
+  echo "Cannot read confirmation from a terminal. Run again with GOKZ_MAPS_YES=1 to confirm non-interactively." >&2
+  exit 1
+fi
