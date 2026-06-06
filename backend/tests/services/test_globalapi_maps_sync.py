@@ -217,7 +217,7 @@ async def test_sync_maps_from_globalapi_marks_missing_rows_invalid(
 
 
 @pytest.mark.asyncio
-async def test_sync_maps_from_globalapi_bootstraps_missing_non_vnl_main_course_tiers(
+async def test_sync_maps_from_globalapi_bootstraps_missing_kzt_skz_main_course_tiers(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -269,15 +269,20 @@ async def test_sync_maps_from_globalapi_bootstraps_missing_non_vnl_main_course_t
 
     await sync_maps_from_globalapi(session=db)
 
-    assert (await db.get(MapCourseTier, (course_id, KZMode.KZT))) is not None
-    assert (await db.get(MapCourseTier, (course_id, KZMode.SKZ))) is not None
-    assert (await db.get(MapCourseTier, (course_id, KZMode.NKZ))) is not None
+    kzt_tier = await db.get(MapCourseTier, (course_id, KZMode.KZT))
+    skz_tier = await db.get(MapCourseTier, (course_id, KZMode.SKZ))
+    assert kzt_tier is not None
+    assert skz_tier is not None
+    assert kzt_tier.tier == 7
+    assert skz_tier.tier == 7
+    assert kzt_tier.updated_by_id == "globalapi-map-sync"
+    assert skz_tier.updated_by_id == "globalapi-map-sync"
+    assert (await db.get(MapCourseTier, (course_id, KZMode.NKZ))) is None
     assert (await db.get(MapCourseTier, (course_id, KZMode.VNL))) is None
-    assert (await db.get(MapCourseTier, (course_id, KZMode.KZT))).tier == 7
 
 
 @pytest.mark.asyncio
-async def test_sync_maps_from_globalapi_does_not_overwrite_existing_non_vnl_main_course_tiers(
+async def test_sync_maps_from_globalapi_updates_kzt_skz_tiers_when_difficulty_changes(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -315,6 +320,30 @@ async def test_sync_maps_from_globalapi_does_not_overwrite_existing_non_vnl_main
             updated_by_id="existing",
         )
     )
+    db.add(
+        MapCourseTier(
+            course_id=course_id,
+            mode=KZMode.SKZ,
+            tier=4,
+            updated_by_id="existing",
+        )
+    )
+    db.add(
+        MapCourseTier(
+            course_id=course_id,
+            mode=KZMode.NKZ,
+            tier=2,
+            updated_by_id="existing",
+        )
+    )
+    db.add(
+        MapCourseTier(
+            course_id=course_id,
+            mode=KZMode.VNL,
+            tier=5,
+            updated_by_id="existing",
+        )
+    )
     await db.commit()
 
     async def _mock_fetch() -> list[dict[str, object]]:
@@ -339,14 +368,103 @@ async def test_sync_maps_from_globalapi_does_not_overwrite_existing_non_vnl_main
 
     await sync_maps_from_globalapi(session=db)
 
-    tier_rows = list(
-        (
-            await db.exec(
-                select(MapCourseTier).where(MapCourseTier.course_id == course_id)
-            )
-        ).all()
+    kzt_tier = await db.get(MapCourseTier, (course_id, KZMode.KZT))
+    skz_tier = await db.get(MapCourseTier, (course_id, KZMode.SKZ))
+    nkz_tier = await db.get(MapCourseTier, (course_id, KZMode.NKZ))
+    vnl_tier = await db.get(MapCourseTier, (course_id, KZMode.VNL))
+    assert kzt_tier is not None
+    assert skz_tier is not None
+    assert nkz_tier is not None
+    assert vnl_tier is not None
+    assert kzt_tier.tier == 8
+    assert skz_tier.tier == 8
+    assert kzt_tier.updated_by_id == "globalapi-map-sync"
+    assert skz_tier.updated_by_id == "globalapi-map-sync"
+    assert nkz_tier.tier == 2
+    assert nkz_tier.updated_by_id == "existing"
+    assert vnl_tier.tier == 5
+    assert vnl_tier.updated_by_id == "existing"
+
+
+@pytest.mark.asyncio
+async def test_sync_maps_from_globalapi_preserves_kzt_skz_tiers_when_difficulty_matches(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    map_id = int(datetime.now(UTC).timestamp()) % 100000 + 965000
+    await db.exec(delete(Map).where(Map.id == map_id))
+    await db.commit()
+
+    db.add(
+        Map(
+            id=map_id,
+            name=f"kz_seed_{map_id}",
+            filesize=1,
+            validated=False,
+            difficulty=8,
+            created_on=datetime(2020, 1, 1, tzinfo=UTC),
+            updated_on=datetime(2020, 1, 1, tzinfo=UTC),
+            approved_by_steamid64=0,
+            synced_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
     )
-    assert [(row.mode, row.tier) for row in tier_rows] == [(KZMode.KZT, 3)]
+    await db.commit()
+
+    course = MapCourse(map_id=map_id, stage=0)
+    db.add(course)
+    await db.commit()
+    await db.refresh(course)
+    assert course.id is not None
+    course_id = course.id
+
+    db.add(
+        MapCourseTier(
+            course_id=course_id,
+            mode=KZMode.KZT,
+            tier=3,
+            updated_by_id="existing",
+        )
+    )
+    db.add(
+        MapCourseTier(
+            course_id=course_id,
+            mode=KZMode.SKZ,
+            tier=4,
+            updated_by_id="existing",
+        )
+    )
+    await db.commit()
+
+    async def _mock_fetch() -> list[dict[str, object]]:
+        return [
+            {
+                "id": map_id,
+                "name": f"kz_existing_tiers_{map_id}",
+                "filesize": 100,
+                "validated": True,
+                "difficulty": 8,
+                "created_on": "2021-01-01T00:00:00",
+                "updated_on": "2021-01-01T00:00:00",
+                "approved_by_steamid64": "0",
+                "workshop_url": None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_maps_from_globalapi",
+        _mock_fetch,
+    )
+
+    await sync_maps_from_globalapi(session=db)
+
+    kzt_tier = await db.get(MapCourseTier, (course_id, KZMode.KZT))
+    skz_tier = await db.get(MapCourseTier, (course_id, KZMode.SKZ))
+    assert kzt_tier is not None
+    assert skz_tier is not None
+    assert kzt_tier.tier == 3
+    assert skz_tier.tier == 4
+    assert kzt_tier.updated_by_id == "existing"
+    assert skz_tier.updated_by_id == "existing"
 
 
 @pytest.mark.asyncio

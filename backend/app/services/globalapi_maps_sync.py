@@ -16,7 +16,7 @@ _MAP_DATETIME_FALLBACK_VALUE = datetime.fromisoformat(MAP_DATETIME_FALLBACK).rep
     tzinfo=UTC
 )
 _WORKSHOP_ID_PATTERN = re.compile(r"[?&]id=(\d+)")
-_NON_VNL_TIER_MODES = (KZMode.KZT, KZMode.SKZ, KZMode.NKZ)
+_MAP_DIFFICULTY_TIER_MODES = (KZMode.KZT, KZMode.SKZ)
 
 
 class GlobalAPIMapsSyncError(RuntimeError):
@@ -156,10 +156,11 @@ async def _mark_missing_maps_invalid(
     return len(missing_rows)
 
 
-async def _seed_missing_main_course_tiers_from_map_difficulty(
+async def _sync_main_course_tiers_from_map_difficulty(
     *,
     session: AsyncSession,
     synced_map_ids: set[int],
+    difficulty_changed_map_ids: set[int],
 ) -> None:
     if not synced_map_ids:
         return
@@ -184,42 +185,51 @@ async def _seed_missing_main_course_tiers_from_map_difficulty(
     if not course_ids:
         return
 
-    existing_non_vnl_course_ids = set(
-        (
+    existing_tier_keys = {
+        (course_id, mode)
+        for course_id, mode in (
             await session.exec(
-                select(MapCourseTier.course_id).where(
+                select(MapCourseTier.course_id, MapCourseTier.mode).where(
                     col(MapCourseTier.course_id).in_(course_ids),
-                    col(MapCourseTier.mode).in_(list(_NON_VNL_TIER_MODES)),
+                    col(MapCourseTier.mode).in_(list(_MAP_DIFFICULTY_TIER_MODES)),
                 )
             )
         ).all()
-    )
+    }
 
     now = datetime.now(UTC)
-    rows_to_insert: list[dict[str, Any]] = []
+    rows_to_upsert: list[dict[str, Any]] = []
     for course, map_obj in main_courses:
-        if course.id is None or course.id in existing_non_vnl_course_ids:
+        if course.id is None:
             continue
-        for mode in _NON_VNL_TIER_MODES:
-            rows_to_insert.append(
+        difficulty_changed = map_obj.id in difficulty_changed_map_ids
+        for mode in _MAP_DIFFICULTY_TIER_MODES:
+            if (course.id, mode) in existing_tier_keys and not difficulty_changed:
+                continue
+            rows_to_upsert.append(
                 {
                     "course_id": course.id,
                     "mode": mode,
                     "tier": map_obj.difficulty,
                     "created_at": now,
                     "updated_at": now,
-                    "updated_by_id": "globalapi-map-sync-bootstrap",
+                    "updated_by_id": "globalapi-map-sync",
                 }
             )
 
-    if not rows_to_insert:
+    if not rows_to_upsert:
         return
 
-    table = MapCourseTier.__table__
-    insert_statement = pg_insert(table).values(rows_to_insert)
+    table = MapCourseTier.__table__  # type: ignore[attr-defined]
+    insert_statement = pg_insert(table).values(rows_to_upsert)
     await session.exec(
-        insert_statement.on_conflict_do_nothing(
-            index_elements=[table.c.course_id, table.c.mode]
+        insert_statement.on_conflict_do_update(
+            index_elements=[table.c.course_id, table.c.mode],
+            set_={
+                "tier": insert_statement.excluded.tier,
+                "updated_at": insert_statement.excluded.updated_at,
+                "updated_by_id": insert_statement.excluded.updated_by_id,
+            },
         )
     )
 
@@ -252,12 +262,27 @@ async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
         )
 
     map_ids = list(map_rows_by_id.keys())
-    existing_ids_statement = select(Map.id).where(Map.id.in_(map_ids))
-    existing_ids = set((await session.exec(existing_ids_statement)).all())
+    existing_rows = list(
+        (
+            await session.exec(
+                select(Map.id, Map.difficulty).where(col(Map.id).in_(map_ids))
+            )
+        ).all()
+    )
+    existing_difficulty_by_id = {
+        int(map_id): int(difficulty) for map_id, difficulty in existing_rows
+    }
+    existing_ids = set(existing_difficulty_by_id)
     created = sum(1 for map_id in map_ids if map_id not in existing_ids)
     updated = len(map_ids) - created
+    difficulty_changed_map_ids = {
+        map_id
+        for map_id, row in map_rows_by_id.items()
+        if map_id in existing_difficulty_by_id
+        and existing_difficulty_by_id[map_id] != row["difficulty"]
+    }
 
-    map_table = Map.__table__
+    map_table = Map.__table__  # type: ignore[attr-defined]
     rows_to_upsert = list(map_rows_by_id.values())
     insert_statement = pg_insert(map_table).values(rows_to_upsert)
     upsert_statement = insert_statement.on_conflict_do_update(
@@ -282,9 +307,10 @@ async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
         upstream_ids=set(map_ids),
         synced_at=now,
     )
-    await _seed_missing_main_course_tiers_from_map_difficulty(
+    await _sync_main_course_tiers_from_map_difficulty(
         session=session,
         synced_map_ids=set(map_ids),
+        difficulty_changed_map_ids=difficulty_changed_map_ids,
     )
 
     await session.commit()
