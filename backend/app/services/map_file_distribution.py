@@ -38,6 +38,7 @@ SEVENZIP_CONTENT_TYPE = "application/x-7z-compressed"
 ZIP_CONTENT_TYPE = "application/zip"
 MAP_CACHE_CONTROL = "public, max-age=3600"
 PACKAGE_CACHE_CONTROL = "public, max-age=3600"
+RELEASE_PACKAGE_MIN_DATE = date(2025, 1, 1)
 
 
 class MapFileDistributionError(RuntimeError):
@@ -610,7 +611,10 @@ async def _upload_release_packages(
 
     maps_by_date: dict[date, list[_ProcessedMap]] = defaultdict(list)
     for processed_map in processed_maps:
-        maps_by_date[_release_date(processed_map.map_obj.updated_at)].append(processed_map)
+        release_date = _release_date(processed_map.map_obj.updated_at)
+        if release_date < RELEASE_PACKAGE_MIN_DATE:
+            continue
+        maps_by_date[release_date].append(processed_map)
 
     uploaded = 0
     for release_date, maps_for_date in maps_by_date.items():
