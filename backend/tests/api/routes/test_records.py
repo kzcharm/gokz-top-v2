@@ -15,6 +15,7 @@ from app.models import (
     Map,
     MapCourse,
     MapCourseTier,
+    ModeScope,
     Player,
     Record,
     RecordBulkDeleteCourse,
@@ -23,6 +24,7 @@ from app.models import (
     RecordModerationActionRecord,
     RecordModerationActionType,
     RecordPb,
+    RecordType,
     ServerGlobalapi,
     legacy_mode_id_to_kz_mode,
 )
@@ -1079,6 +1081,220 @@ async def test_read_pb_records_v1_uses_nub_points_when_type_is_nub(
     assert pro_payload[0]["points"] == 1000
 
 
+async def test_read_pb_records_v1_map_anchor_sorts_by_points(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    third_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (first_player, "Points One"),
+            (second_player, "Points Two"),
+            (third_player, "Points Three"),
+        ],
+    )
+    first = await _create_record(
+        db,
+        id=981440,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+    )
+    second = await _create_record(
+        db,
+        id=981441,
+        steamid64=second_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="21.000",
+        teleports=0,
+    )
+    third = await _create_record(
+        db,
+        id=981442,
+        steamid64=third_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="22.000",
+        teleports=0,
+    )
+    for record, points in ((first, 100), (second, 900), (third, 500)):
+        pb_rows = (
+            await db.exec(
+                select(RecordPb).where(
+                    RecordPb.record_uuid == record.uuid,
+                    RecordPb.scope == ModeScope.OVR,
+                    RecordPb.type == RecordType.NUB,
+                )
+            )
+        ).all()
+        for pb_row in pb_rows:
+            pb_row.points = points
+            db.add(pb_row)
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "map_id": 980200,
+            "scope": "OVR",
+            "stage": 0,
+            "sort_by": "points",
+            "sort_order": "desc",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == [
+        second.id,
+        third.id,
+        first.id,
+    ]
+
+
+async def test_read_pb_records_v1_sorts_by_raw_rating_contribution(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    third_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (first_player, "Rating One"),
+            (second_player, "Rating Two"),
+            (third_player, "Rating Three"),
+        ],
+    )
+    first = await _create_record(
+        db,
+        id=981443,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+    )
+    second = await _create_record(
+        db,
+        id=981444,
+        steamid64=second_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="21.000",
+        teleports=0,
+    )
+    third = await _create_record(
+        db,
+        id=981445,
+        steamid64=third_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="22.000",
+        teleports=0,
+    )
+    for record, contribution in ((first, 30), (second, 10), (third, 20)):
+        pb_rows = (
+            await db.exec(
+                select(RecordPb).where(
+                    RecordPb.record_uuid == record.uuid,
+                    RecordPb.scope == ModeScope.OVR,
+                    RecordPb.type == RecordType.NUB,
+                )
+            )
+        ).all()
+        for pb_row in pb_rows:
+            pb_row.raw_rating_contribution = contribution
+            db.add(pb_row)
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "map_id": 980200,
+            "scope": "OVR",
+            "stage": 0,
+            "sort_by": "raw_rating_contribution",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == [
+        first.id,
+        third.id,
+        second.id,
+    ]
+
+
+async def test_read_pb_records_v1_player_anchor_sorts_by_created_at(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[(player_id, "Created Sort Runner")],
+    )
+    await _create_map(db, id=981204, name="kz_record_created_old")
+    await _create_map(db, id=981205, name="kz_record_created_new")
+    old_record = await _create_record(
+        db,
+        id=981446,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=981204,
+        stage=0,
+        time="20.000",
+        teleports=0,
+        created_on=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    new_record = await _create_record(
+        db,
+        id=981447,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=981205,
+        stage=0,
+        time="30.000",
+        teleports=0,
+        created_on=datetime(2026, 2, 1, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "identifier": str(player_id),
+            "scope": "OVR",
+            "stage": 0,
+            "sort_by": "created_at",
+            "sort_order": "desc",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == [new_record.id, old_record.id]
+
+
 async def test_read_pb_records_v1_filters_by_country_and_region(
     client: AsyncClient,
     db: AsyncSession,
@@ -1374,6 +1590,21 @@ async def test_read_pb_records_v1_rejects_invalid_anchor_combinations(
         ],
     )
     assert neither.status_code == 422
+
+
+async def test_read_pb_records_v1_rejects_invalid_sort_by(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/pb",
+        params={
+            "map_id": 1,
+            "scope": "OVR",
+            "sort_by": "rank",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 async def test_read_record_v0_top_place_world_records_and_recent(

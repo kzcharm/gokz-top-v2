@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Any, Literal
 
 from sqlalchemy import (
     and_,
@@ -48,6 +49,7 @@ from app.models import (
     RecordModerationActionType,
     RecordPatch,
     RecordPb,
+    RecordPbSortBy,
     RecordPublic,
     RecordType,
     ServerGlobalapi,
@@ -2215,6 +2217,8 @@ async def get_pb_record_publics(
     record_type: RecordType,
     country: str | None = None,
     region: str | None = None,
+    sort_by: RecordPbSortBy = "time",
+    sort_order: Literal["asc", "desc"] | None = None,
     exclude_cheaters: bool = True,
     offset: int = 0,
     limit: int = 100,
@@ -2233,6 +2237,46 @@ async def get_pb_record_publics(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=anchor_pb.raw_rating_contribution,
     )
+    sort_expressions = {
+        "time": anchor_pb.time,
+        "points": public_scoped_points,
+        "raw_rating_contribution": public_raw_rating_contribution,
+        "created_at": Record.created_at,
+        "updated_at": Record.updated_at,
+    }
+
+    def _ordered_primary_expression() -> Any:
+        direction = sort_order
+        if direction is None:
+            direction = "asc" if sort_by == "time" else "desc"
+        expression = sort_expressions[sort_by]
+        return expression.asc() if direction == "asc" else expression.desc()
+
+    def _map_anchor_order_by() -> tuple[Any, ...]:
+        if sort_by == "time" and sort_order is None:
+            return (anchor_pb.time.asc(), anchor_pb.record_uuid.asc())
+        return (
+            _ordered_primary_expression(),
+            anchor_pb.time.asc(),
+            anchor_pb.record_uuid.asc(),
+        )
+
+    def _player_anchor_order_by(course: Any) -> tuple[Any, ...]:
+        if sort_by == "time" and sort_order is None:
+            return (
+                course.map_id.asc(),
+                course.stage.asc(),
+                anchor_pb.time.asc(),
+                anchor_pb.record_uuid.asc(),
+            )
+        return (
+            _ordered_primary_expression(),
+            course.map_id.asc(),
+            course.stage.asc(),
+            anchor_pb.time.asc(),
+            anchor_pb.record_uuid.asc(),
+        )
+
     statement = (
         select(
             Record.uuid,
@@ -2315,7 +2359,7 @@ async def get_pb_record_publics(
         )
         if steamid64 is not None:
             statement = statement.where(anchor_pb.steamid64 == steamid64)
-        statement = statement.order_by(anchor_pb.time.asc(), anchor_pb.record_uuid.asc())
+        statement = statement.order_by(*_map_anchor_order_by())
     elif steamid64 is not None:
         course = aliased(MapCourse)
         statement = (
@@ -2326,12 +2370,7 @@ async def get_pb_record_publics(
                 anchor_pb.type == record_type,
                 course.stage == stage,
             )
-            .order_by(
-                course.map_id.asc(),
-                course.stage.asc(),
-                anchor_pb.time.asc(),
-                anchor_pb.record_uuid.asc(),
-            )
+            .order_by(*_player_anchor_order_by(course))
         )
     else:
         return []

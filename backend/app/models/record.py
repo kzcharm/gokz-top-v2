@@ -116,6 +116,15 @@ def normalize_record_type(value: RecordType | str | bool) -> RecordType:
     return RecordType(value)
 
 
+RecordPbSortBy = Literal[
+    "time",
+    "points",
+    "raw_rating_contribution",
+    "created_at",
+    "updated_at",
+]
+
+
 def seconds_to_time_ms(value: Decimal | float | int | str) -> int:
     decimal_value = Decimal(str(value))
     return int((decimal_value * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))

@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -20,6 +20,7 @@ from app.models import (
     RecordListQuery,
     RecordPatch,
     RecordPbBucketRebuildResult,
+    RecordPbSortBy,
     RecordPublic,
     RecordRankPublic,
     RecordRanksPublic,
@@ -147,6 +148,8 @@ async def read_pb_records(
     identifier: Annotated[str | None, Query()] = None,
     country: Annotated[str | None, Query(max_length=2)] = None,
     region: Annotated[str | None, Query(max_length=3)] = None,
+    sort_by: Annotated[RecordPbSortBy, Query()] = "time",
+    sort_order: Annotated[Literal["asc", "desc"] | None, Query()] = None,
 ) -> Any:
     if map_id is not None and map_name is not None:
         raise HTTPException(
@@ -181,6 +184,8 @@ async def read_pb_records(
         record_type=type,
         country=normalized_country,
         region=normalized_region,
+        sort_by=sort_by,
+        sort_order=sort_order,
         exclude_cheaters=exclude_cheaters,
         offset=offset,
         limit=limit,
