@@ -445,6 +445,7 @@ async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> N
         "https://steamcommunity.com/sharedfiles/filedetails/?id=1986459033"
     )
     assert map_payload["download_url"] == ""
+    assert "bonus_count" not in map_payload
 
 
 @pytest.mark.asyncio
@@ -471,6 +472,39 @@ async def test_read_maps_v1_hides_invalid_and_non_positive_ids(
 
 
 @pytest.mark.asyncio
+async def test_read_maps_v1_includes_bonus_count(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_with_bonuses = await _create_map(db, id=930212)
+    map_without_bonuses = await _create_map(db, id=930213)
+    map_without_courses = await _create_map(db, id=930214)
+
+    for stage in range(4):
+        db.add(MapCourse(map_id=map_with_bonuses.id, stage=stage))
+    db.add(MapCourse(map_id=map_without_bonuses.id, stage=0))
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps",
+        params={
+            "id": [
+                map_with_bonuses.id,
+                map_without_bonuses.id,
+                map_without_courses.id,
+            ],
+            "limit": 10000,
+        },
+    )
+
+    assert response.status_code == 200
+    payload_by_id = {row["id"]: row for row in response.json()}
+    assert payload_by_id[map_with_bonuses.id]["bonus_count"] == 3
+    assert payload_by_id[map_without_bonuses.id]["bonus_count"] == 0
+    assert payload_by_id[map_without_courses.id]["bonus_count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     await _create_map(db, id=930201)
 
@@ -479,6 +513,25 @@ async def test_read_map_v1_by_id(client: AsyncClient, db: AsyncSession) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["id"] == 930201
+    assert payload["bonus_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_read_map_v1_by_id_includes_bonus_count(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930215)
+    for stage in range(3):
+        db.add(MapCourse(map_id=map_obj.id, stage=stage))
+    await db.commit()
+
+    response = await client.get(f"{settings.API_V1_STR}/maps/{map_obj.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == map_obj.id
+    assert payload["bonus_count"] == 2
 
 
 @pytest.mark.asyncio

@@ -98,6 +98,7 @@ class MapPublic(SQLModel):
     filesize: int
     validated: bool
     tiers: MapTiers
+    bonus_count: int = Field(default=0, ge=0)
     created_on: datetime
     updated_on: datetime
     approved_by_steamid64: str

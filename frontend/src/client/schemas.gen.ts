@@ -2467,6 +2467,12 @@ export const MapPublicSchema = {
         tiers: {
             '$ref': '#/components/schemas/MapTiers'
         },
+        bonus_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Bonus Count',
+            default: 0
+        },
         created_on: {
             type: 'string',
             format: 'date-time',

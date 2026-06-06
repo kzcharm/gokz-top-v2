@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { Star } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import type { MapPublic, MapWrPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -12,6 +13,7 @@ import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { getRecordModeLabelById } from "@/components/Records/mode"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { cn } from "@/lib/utils"
@@ -99,9 +101,11 @@ export function MapCard({
   wrRecord = null,
   wrLoading = false,
 }: MapCardProps) {
+  const { t } = useTranslation()
   const imageUrls = getMapImageUrls(map.name, map.workshop_id)
   const downloadUrl = getMapDownloadUrl(map)
   const reviewSummary = map.review_summary
+  const bonusCount = map.bonus_count ?? 0
   const reviewsCount = reviewSummary?.reviews_count ?? 0
   const commentsCount = reviewSummary?.comments_count ?? 0
   const allSkillPortions = getMapSkillPortions(map.name)
@@ -178,6 +182,12 @@ export function MapCard({
             className="bg-black/55 text-white backdrop-blur-sm"
           />
         </div>
+
+        {bonusCount > 0 ? (
+          <Badge className="pointer-events-none absolute right-2 bottom-2 z-10 border-transparent bg-amber-100/95 font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 backdrop-blur-sm">
+            {t("maps.bonusCount", { count: bonusCount })}
+          </Badge>
+        ) : null}
       </div>
 
       <CardContent className="space-y-4 px-5 py-5">

@@ -508,6 +508,7 @@ export type MapPublic = {
     filesize: number;
     validated: boolean;
     tiers: MapTiers;
+    bonus_count?: number;
     created_on: string;
     updated_on: string;
     approved_by_steamid64: string;

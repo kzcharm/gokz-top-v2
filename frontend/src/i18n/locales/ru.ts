@@ -807,6 +807,12 @@ export const ru = {
     searchPlaceholder: "Поиск карт...",
     searchAria: "Искать карты по названию",
     filterTier: "Фильтр карт по Tier",
+    withBonus: "С бонусами",
+    withBonusAria: "Показать только карты с бонусами",
+    bonusCount_one: "{{count}} бонус",
+    bonusCount_few: "{{count}} бонуса",
+    bonusCount_many: "{{count}} бонусов",
+    bonusCount_other: "{{count}} бонуса",
     sortMaps: "Сортировка карт",
     sortMapsByReview: "Сортировка карт по отзывам",
     sortMapsBySkill: "Сортировка карт по навыку",
@@ -819,6 +825,7 @@ export const ru = {
       updated: "Обновлено",
       wr: "WR",
       review: "Отзыв",
+      bonus: "Бонус",
       skill: "Навык",
       overall: "Общее",
       gameplay: "Геймплей",
@@ -848,6 +855,8 @@ export const ru = {
     filters: {
       country: "страна",
       region: "регион",
+      mainStage: "Основной",
+      bonusStage: "Бонус {{stage}}",
     },
     addReview: "Добавить отзыв",
     nubFinishers: "Финишировавших NUB",
@@ -870,8 +879,9 @@ export const ru = {
     findMeNotRankedTitle: "У вас нет ранкнутого финиша здесь",
     findMeNotRankedDescription:
       "Попробуйте другую область, фильтр или другой режим NUB / PRO.",
-    emptyTopPro: "Для этой карты нет Stage 0 записей PRO в выбранной области.",
-    emptyTop: "Для этой карты нет Stage 0 записей в выбранной области.",
+    emptyTopPro:
+      "Для этой карты нет Stage {{stage}} записей PRO в выбранной области.",
+    emptyTop: "Для этой карты нет Stage {{stage}} записей в выбранной области.",
   },
   live: {
     title: "Live",

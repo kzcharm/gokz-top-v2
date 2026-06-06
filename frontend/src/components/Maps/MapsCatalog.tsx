@@ -39,6 +39,7 @@ const MAP_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.updated", value: "updated" },
   { labelKey: "maps.sortOptions.wr", value: "wr" },
   { labelKey: "maps.sortOptions.review", value: "review" },
+  { labelKey: "maps.sortOptions.bonus", value: "bonus" },
   { labelKey: "maps.sortOptions.skill", value: "skill" },
 ] as const
 
@@ -188,6 +189,9 @@ function sortMaps(
           sortDirection,
         )
         break
+      case "bonus":
+        comparison = (left.bonus_count ?? 0) - (right.bonus_count ?? 0)
+        break
       case "skill":
         comparison =
           getMapSkillPercentage(left.name, selectedSkill) -
@@ -291,6 +295,7 @@ export function MapsCatalog() {
   const [selectedReviewSort, setSelectedReviewSort] =
     useState<ReviewSortField>("overall")
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
+  const [withBonusOnly, setWithBonusOnly] = useState(false)
   const [page, setPage] = useState(1)
 
   const mapsQuery = useQuery({
@@ -354,9 +359,13 @@ export function MapsCatalog() {
         }
       }
 
+      if (withBonusOnly && (map.bonus_count ?? 0) <= 0) {
+        return []
+      }
+
       return map
     })
-  }, [deferredSearch, scope, searchableMaps, selectedTier])
+  }, [deferredSearch, scope, searchableMaps, selectedTier, withBonusOnly])
 
   const sortedMaps = useMemo(
     () =>
@@ -443,8 +452,8 @@ export function MapsCatalog() {
   function handleSortChange(nextSortField: MapsSortOption) {
     startTransition(() => {
       setPage(1)
-      if (nextSortField === "skill") {
-        setSortField("skill")
+      if (nextSortField === "skill" || nextSortField === "bonus") {
+        setSortField(nextSortField)
         setSortDirection("desc")
         return
       }
@@ -566,6 +575,24 @@ export function MapsCatalog() {
               triggerClassName="w-auto"
               ariaLabel={t("maps.filterTier")}
             />
+            <button
+              type="button"
+              className={cn(
+                "flex h-9 w-fit items-center rounded-md border border-border/70 bg-background px-3 text-sm font-medium text-muted-foreground shadow-xs transition-colors outline-none hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                withBonusOnly &&
+                  "border-primary/50 bg-primary/10 text-primary hover:text-primary",
+              )}
+              aria-label={t("maps.withBonusAria")}
+              aria-pressed={withBonusOnly}
+              onClick={() => {
+                startTransition(() => {
+                  setWithBonusOnly((currentValue) => !currentValue)
+                  setPage(1)
+                })
+              }}
+            >
+              <span>{t("maps.withBonus")}</span>
+            </button>
           </div>
 
           <fieldset className="min-w-0 border-0 p-0">
@@ -577,7 +604,7 @@ export function MapsCatalog() {
                   ? isReviewSortField(sortField)
                   : option.value === sortField
                 const activeDirection =
-                  option.value === "skill"
+                  option.value === "skill" || option.value === "bonus"
                     ? "desc"
                     : isActive
                       ? sortDirection

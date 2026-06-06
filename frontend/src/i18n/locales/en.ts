@@ -799,6 +799,10 @@ export const en = {
     searchPlaceholder: "Search maps...",
     searchAria: "Search maps by name",
     filterTier: "Filter maps by tier",
+    withBonus: "With Bonus",
+    withBonusAria: "Show only maps with bonuses",
+    bonusCount_one: "{{count}} Bonus",
+    bonusCount_other: "{{count}} Bonuses",
     sortMaps: "Sort maps",
     sortMapsByReview: "Sort maps by review",
     sortMapsBySkill: "Sort maps by skill",
@@ -811,6 +815,7 @@ export const en = {
       updated: "Updated",
       wr: "WR",
       review: "Review",
+      bonus: "Bonus",
       skill: "Skill",
       overall: "Overall",
       gameplay: "Gameplay",
@@ -840,6 +845,8 @@ export const en = {
     filters: {
       country: "country",
       region: "region",
+      mainStage: "Main",
+      bonusStage: "Bonus {{stage}}",
     },
     addReview: "Add Review",
     nubFinishers: "NUB finishers",
@@ -863,8 +870,9 @@ export const en = {
     findMeNotRankedDescription:
       "Try another scope, filter, or the other NUB / PRO view.",
     emptyTopPro:
-      "No stage 0 PRO records found for this map in the selected scope.",
-    emptyTop: "No stage 0 records found for this map in the selected scope.",
+      "No stage {{stage}} PRO records found for this map in the selected scope.",
+    emptyTop:
+      "No stage {{stage}} records found for this map in the selected scope.",
   },
   live: {
     title: "Live",

@@ -779,6 +779,10 @@ export const zhCN = {
     searchPlaceholder: "搜索地图...",
     searchAria: "按名称搜索地图",
     filterTier: "按 Tier 筛选地图",
+    withBonus: "含奖励关",
+    withBonusAria: "只显示含 Bonus 的地图",
+    bonusCount_one: "{{count}} 奖励关",
+    bonusCount_other: "{{count}} 奖励关",
     sortMaps: "排序地图",
     sortMapsByReview: "按评论排序地图",
     sortMapsBySkill: "按技能排序地图",
@@ -791,6 +795,7 @@ export const zhCN = {
       updated: "更新时间",
       wr: "WR",
       review: "评论",
+      bonus: "奖励关",
       skill: "技能",
       overall: "整体",
       gameplay: "玩法",
@@ -820,6 +825,8 @@ export const zhCN = {
     filters: {
       country: "国家",
       region: "地区",
+      mainStage: "主关",
+      bonusStage: "奖励关 {{stage}}",
     },
     addReview: "添加评论",
     nubFinishers: "NUB 完成人数",
@@ -840,8 +847,8 @@ export const zhCN = {
     findMeNotRankedTitle: "你在这里还没有可排名的完成记录",
     findMeNotRankedDescription:
       "试试其他范围、筛选条件，或切换 NUB / PRO 视图。",
-    emptyTopPro: "所选范围内该地图暂无 Stage 0 的 PRO 记录。",
-    emptyTop: "所选范围内该地图暂无 Stage 0 记录。",
+    emptyTopPro: "所选范围内该地图暂无 Stage {{stage}} 的 PRO 记录。",
+    emptyTop: "所选范围内该地图暂无 Stage {{stage}} 记录。",
   },
   live: {
     title: "直播",

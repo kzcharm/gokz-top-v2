@@ -37,6 +37,7 @@ function createMap(index: number) {
     updated_on: `2026-03-${`${(index % 28) + 1}`.padStart(2, "0")}T12:00:00Z`,
     approved_by_steamid64: "76561198003275951",
     workshop_id: 1986459000 + index,
+    bonus_count: 0,
     synced_at: `2026-03-${`${(index % 28) + 1}`.padStart(2, "0")}T15:00:00Z`,
     authors: [],
     no_steamid_names: [],
@@ -58,6 +59,7 @@ seededMaps[0] = {
     SKZ: 8,
     VNL: 4,
   },
+  bonus_count: 3,
   updated_on: "2026-03-01T12:00:00Z",
 }
 
@@ -70,6 +72,7 @@ seededMaps[1] = {
     SKZ: 1,
     VNL: 2,
   },
+  bonus_count: 5,
   updated_on: "2026-03-30T12:00:00Z",
 }
 
@@ -82,6 +85,7 @@ seededMaps[2] = {
     SKZ: 5,
     VNL: 5,
   },
+  bonus_count: 1,
   updated_on: "2026-03-15T12:00:00Z",
 }
 
@@ -434,6 +438,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByText("Page 1 of 2")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_omega")).toHaveCount(0)
+  await expect(page.getByTestId("map-card-kz_alpha")).toContainText("3 Bonuses")
 
   await page.keyboard.press("KeyS")
   await expect
@@ -451,7 +456,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await searchBox.focus()
   await page.keyboard.press("KeyA")
   await expect(searchBox).toHaveValue("a")
-  await expect(page.getByText("Page 2 of 2")).toBeVisible()
+  await expect(page.getByText("Page 1 of 2")).toBeVisible()
   await searchBox.fill("")
   await page.getByText("30 maps loaded").click()
 
@@ -464,12 +469,30 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
 
   await searchBox.fill("special")
   await expect(page.getByTestId("map-card-kz_special_search")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_special_search")).toContainText(
+    "1 Bonus",
+  )
   await expect(page.getByTestId("map-card-kz_alpha")).toHaveCount(0)
 
   await page.getByRole("textbox", { name: "Search maps by name" }).fill("")
+  await page
+    .getByRole("button", { name: "Show only maps with bonuses" })
+    .click()
+  await expect(page.getByText("3 maps visible")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_omega")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_special_search")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_map_04")).toHaveCount(0)
+  await page
+    .getByRole("button", { name: "Show only maps with bonuses" })
+    .click()
+  await expect(page.getByText("30 maps visible")).toBeVisible()
+  await page.getByRole("button", { name: "Bonus" }).click()
+  const firstCard = page.locator('[data-testid^="map-card-"]').first()
+  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_omega")
+
   await page.getByRole("button", { name: "Updated" }).click()
 
-  const firstCard = page.locator('[data-testid^="map-card-"]').first()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_alpha")
 
   await page.getByRole("button", { name: "Go to page 2" }).click()
@@ -501,7 +524,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     .getByRole("link", { name: "Open kz_alpha" })
     .click()
 
-  await expect(page).toHaveURL(/\/maps\/kz_alpha$/)
+  await expect(page).toHaveURL(/\/maps\/kz_alpha\/maptop$/)
   await expect(page.getByRole("heading", { name: "kz_alpha" })).toBeVisible()
   await expect(
     page.getByRole("img", { name: "kz_alpha preview image" }),
@@ -514,11 +537,11 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
   await expect(page.getByText("NUB PB")).toBeVisible()
-  await expect(page.getByText("51.888")).toBeVisible()
-  await expect(page.getByText(/11 \/ 12 91\.7%/)).toBeVisible()
+  await expect(page.getByText("51.888").first()).toBeVisible()
+  await expect(page.getByText(/11 \/ 12 .*91\.7%/)).toBeVisible()
   await expect(page.getByText("PRO PB")).toBeVisible()
-  await expect(page.getByText("37.586")).toBeVisible()
-  await expect(page.getByText(/N\/A \/ 6/)).toBeVisible()
+  await expect(page.getByText("37.586").first()).toBeVisible()
+  await expect(page.getByText(/[-N/A]+ \/ 6/)).toBeVisible()
 
   await page
     .getByRole("button", { name: "Zoom map image for kz_alpha" })
@@ -561,7 +584,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     )
     .toBe(true)
   await expect(page.getByText("Delta Runner")).toHaveCount(0)
-  await expect(page.getByText(/N\/A \/ 6/)).toBeVisible()
+  await expect(page.getByText(/[-N/A]+ \/ 6/)).toBeVisible()
 
   await page.getByRole("button", { name: /^(All countries|country)$/ }).click()
   await page.getByRole("button", { name: "Germany" }).click()

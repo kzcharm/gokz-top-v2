@@ -8,6 +8,7 @@ from app.models import (
     AdminMapPublic,
     Map,
     MapCompatPublicV0,
+    MapCourse,
     MapFileDistribution,
     MapPublic,
     MapReviewSummaryPublic,
@@ -173,6 +174,23 @@ async def load_map_download_urls(
     }
 
 
+async def load_map_bonus_counts(
+    *, session: AsyncSession, map_ids: list[int]
+) -> dict[int, int]:
+    if not map_ids:
+        return {}
+
+    rows = await session.exec(
+        select(MapCourse.map_id, func.max(MapCourse.stage)).where(
+            col(MapCourse.map_id).in_(map_ids)
+        ).group_by(MapCourse.map_id)
+    )
+    return {
+        int(map_id): max(int(max_stage or 0), 0)
+        for map_id, max_stage in rows.all()
+    }
+
+
 def to_map_compat_public_v0(
     *, map_obj: Map, download_url: str | None = None
 ) -> MapCompatPublicV0:
@@ -195,6 +213,7 @@ def to_map_public(
     map_obj: Map,
     tiers: MapTiers,
     review_summary: MapReviewSummaryPublic | None,
+    bonus_count: int = 0,
     download_url: str | None = None,
 ) -> MapPublic:
     return MapPublic(
@@ -203,6 +222,7 @@ def to_map_public(
         filesize=map_obj.filesize,
         validated=map_obj.validated,
         tiers=tiers,
+        bonus_count=bonus_count,
         created_on=map_obj.created_at,
         updated_on=map_obj.updated_at,
         approved_by_steamid64=str(map_obj.approved_by_steamid64),
@@ -269,6 +289,10 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
         session=session,
         map_ids=[map_obj.id for map_obj in maps],
     )
+    bonus_counts_by_map_id = await load_map_bonus_counts(
+        session=session,
+        map_ids=[map_obj.id for map_obj in maps],
+    )
     return [
         to_map_public(
             map_obj=map_obj,
@@ -277,6 +301,7 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
                 MapTiers(),
             ),
             review_summary=review_summaries_by_map_id.get(map_obj.id),
+            bonus_count=bonus_counts_by_map_id.get(map_obj.id, 0),
             download_url=download_urls_by_map_id.get(map_obj.id),
         )
         for map_obj in maps

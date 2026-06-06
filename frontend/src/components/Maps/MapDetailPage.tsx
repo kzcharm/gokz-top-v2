@@ -186,6 +186,7 @@ async function fetchMapPbLeaderboardPage({
   mapId,
   scope,
   isProOnly,
+  stage,
   country,
   region,
   offset,
@@ -195,6 +196,7 @@ async function fetchMapPbLeaderboardPage({
   mapId: number
   scope: string
   isProOnly: boolean
+  stage: number
   country: string | null
   region: string | null
   offset: number
@@ -208,7 +210,7 @@ async function fetchMapPbLeaderboardPage({
   const searchParams = new URLSearchParams({
     scope,
     type: isProOnly ? "PRO" : "NUB",
-    stage: "0",
+    stage: `${stage}`,
     offset: `${offset}`,
     limit: `${limit}`,
   })
@@ -454,6 +456,7 @@ export function MapDetailPage({
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [isProOnly, setIsProOnly] = useState(initialRecordType === "PRO")
+  const [selectedStage, setSelectedStage] = useState(0)
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [isFriendsOnly, setIsFriendsOnly] = useState(false)
@@ -497,6 +500,7 @@ export function MapDetailPage({
       mapQuery.data?.id ?? null,
       scope,
       isProOnly,
+      selectedStage,
       selectedCountry,
       selectedRegion,
       isFriendsOnly,
@@ -508,6 +512,7 @@ export function MapDetailPage({
         mapId: mapQuery.data!.id,
         scope,
         isProOnly,
+        stage: selectedStage,
         country: selectedCountry,
         region: selectedRegion,
         offset: topPageIndex * topPageSize,
@@ -526,7 +531,32 @@ export function MapDetailPage({
         scope,
         type: isProOnly ? "PRO" : "NUB",
       }),
-    enabled: mapQuery.data !== undefined,
+    enabled: mapQuery.data !== undefined && selectedStage === 0,
+    staleTime: 30_000,
+    retry: false,
+  })
+  const stageWrQuery = useQuery({
+    queryKey: [
+      "map",
+      "stage-wr",
+      mapQuery.data?.id ?? null,
+      scope,
+      isProOnly,
+      selectedStage,
+    ],
+    queryFn: () =>
+      fetchMapPbLeaderboardPage({
+        mapId: mapQuery.data!.id,
+        scope,
+        isProOnly,
+        stage: selectedStage,
+        country: null,
+        region: null,
+        offset: 0,
+        limit: 1,
+        friendsOnly: false,
+      }),
+    enabled: mapQuery.data !== undefined && selectedStage > 0,
     staleTime: 30_000,
     retry: false,
   })
@@ -538,6 +568,7 @@ export function MapDetailPage({
       mapQuery.data?.id ?? null,
       scope,
       isProOnly,
+      selectedStage,
       selectedCountry,
       selectedRegion,
       isFriendsOnly,
@@ -548,6 +579,7 @@ export function MapDetailPage({
         mapId: mapQuery.data!.id,
         scope,
         isProOnly: !isProOnly,
+        stage: selectedStage,
         country: selectedCountry,
         region: selectedRegion,
         offset: 0,
@@ -586,13 +618,13 @@ export function MapDetailPage({
       const [nubResponse, proResponse] = await Promise.all([
         RecordsService.rebuildPbPointsBucket({
           mapId: mapQuery.data!.id,
-          stage: 0,
+          stage: selectedStage,
           scope,
           type: "NUB",
         }),
         RecordsService.rebuildPbPointsBucket({
           mapId: mapQuery.data!.id,
-          stage: 0,
+          stage: selectedStage,
           scope,
           type: "PRO",
         }),
@@ -643,6 +675,7 @@ export function MapDetailPage({
       mapQuery.data?.id ?? null,
       scope,
       leaderboardCurrentUserSteamid64,
+      selectedStage,
     ],
     queryFn: async () => {
       const [nubRecords, proRecords] = await Promise.all([
@@ -650,7 +683,7 @@ export function MapDetailPage({
           mapId: mapQuery.data!.id,
           scope,
           type: "NUB",
-          stage: 0,
+          stage: selectedStage,
           identifier: leaderboardCurrentUserSteamid64!,
           limit: 1,
         }),
@@ -658,7 +691,7 @@ export function MapDetailPage({
           mapId: mapQuery.data!.id,
           scope,
           type: "PRO",
-          stage: 0,
+          stage: selectedStage,
           identifier: leaderboardCurrentUserSteamid64!,
           limit: 1,
         }),
@@ -678,6 +711,14 @@ export function MapDetailPage({
   useEffect(() => {
     setTopPageIndex(0)
   }, [])
+
+  useEffect(() => {
+    const bonusCount = mapQuery.data?.bonus_count ?? 0
+    if (selectedStage > bonusCount) {
+      setSelectedStage(0)
+      setTopPageIndex(0)
+    }
+  }, [mapQuery.data?.bonus_count, selectedStage])
 
   useEffect(() => {
     return () => {
@@ -751,6 +792,15 @@ export function MapDetailPage({
 
   const map = mapQuery.data
   const activeTier = map.tiers[scope] ?? 0
+  const bonusCount = map.bonus_count ?? 0
+  const stageWrTime =
+    selectedStage === 0
+      ? (wrQuery.data?.[0]?.time ?? null)
+      : (stageWrQuery.data?.data[0]?.time ?? null)
+  const selectedStageLabel =
+    selectedStage === 0
+      ? t("maps.filters.mainStage")
+      : t("maps.filters.bonusStage", { stage: selectedStage })
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
   const authenticatedUserSteamid64 = currentUser?.steamid64 ?? null
@@ -844,6 +894,38 @@ export function MapDetailPage({
               {activeTab === "top" ? (
                 <div className="flex flex-col gap-3 lg:flex-1 lg:flex-row lg:items-center lg:justify-end">
                   <div className="flex flex-col gap-3 sm:flex-row">
+                    <Select
+                      value={`${selectedStage}`}
+                      onValueChange={(value) => {
+                        setSelectedStage(Number(value))
+                        setPendingSpotlightSteamid64(null)
+                        setTopPageIndex(0)
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[144px]">
+                        <span
+                          className={cn(
+                            selectedStage === 0 && "text-muted-foreground",
+                          )}
+                        >
+                          {selectedStageLabel}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">
+                          {t("maps.filters.mainStage")}
+                        </SelectItem>
+                        {Array.from({ length: bonusCount }, (_, index) => {
+                          const stage = index + 1
+                          return (
+                            <SelectItem key={stage} value={`${stage}`}>
+                              {t("maps.filters.bonusStage", { stage })}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+
                     <div className="w-full sm:w-[176px]">
                       <CountryPicker
                         value={selectedCountry}
@@ -1011,9 +1093,11 @@ export function MapDetailPage({
           ) : (
             <MapTopTable
               records={leaderboardQuery.data?.data ?? []}
-              wrTime={wrQuery.data?.[0]?.time ?? null}
+              wrTime={stageWrTime}
               emptyMessage={
-                isProOnly ? t("maps.emptyTopPro") : t("maps.emptyTop")
+                isProOnly
+                  ? t("maps.emptyTopPro", { stage: selectedStage })
+                  : t("maps.emptyTop", { stage: selectedStage })
               }
               isLoading={leaderboardQuery.isLoading}
               pageIndex={topPageIndex}
