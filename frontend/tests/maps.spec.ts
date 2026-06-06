@@ -238,6 +238,48 @@ const mapLeaderboardSeedRows = [
   }),
 ]
 
+test("Maps catalog shows map updater commands", async ({ page }) => {
+  await stubRegions(page)
+
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seededMaps),
+    })
+  })
+
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  })
+
+  await page.goto("/maps")
+
+  await expect(page.getByText("30 / 30")).toBeVisible()
+  await page.getByRole("button", { name: "Download", exact: true }).click()
+  await expect(
+    page.getByRole("dialog", { name: "Download Maps" }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Download or update maps with one command."),
+  ).toBeVisible()
+  await expect(page.getByText("Windows", { exact: true })).toBeVisible()
+  await expect(page.getByText("Linux / MacOS", { exact: true })).toBeVisible()
+  await expect(
+    page.getByText("curl -fsSL https://gokz.top/install/maps.sh | sh"),
+  ).toBeVisible()
+  await expect(
+    page.getByText("irm https://gokz.top/install/maps.ps1 | iex"),
+  ).toBeVisible()
+  await expect(
+    page.getByText("Run this command from your csgo directory."),
+  ).toBeVisible()
+})
+
 test("Maps catalog supports search, sorting, pagination, and map detail navigation", async ({
   page,
 }) => {

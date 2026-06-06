@@ -6,6 +6,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Copy,
+  Download,
   Search,
 } from "lucide-react"
 import {
@@ -16,6 +18,7 @@ import {
   useState,
 } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { type MapPublic, MapsService, type MapWrPublic } from "@/client"
 import {
@@ -34,11 +37,24 @@ import { normalizeTierValue } from "@/components/Servers/tier"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { compareLocaleText, formatNumber } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 24
+const POSIX_DOWNLOAD_COMMAND =
+  "curl -fsSL https://gokz.top/install/maps.sh | sh"
+const POWERSHELL_DOWNLOAD_COMMAND =
+  "irm https://gokz.top/install/maps.ps1 | iex"
 
 const MAP_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.name", value: "name" },
@@ -364,6 +380,91 @@ function MapsCatalogPagination({
   )
 }
 
+function DownloadCommandBlock({
+  command,
+  label,
+}: {
+  command: string
+  label: string
+}) {
+  const { t } = useTranslation()
+  const [, copyToClipboard] = useCopyToClipboard()
+
+  const handleCopyCommand = async () => {
+    const didCopy = await copyToClipboard(command)
+    if (didCopy) {
+      toast.success(t("maps.downloadDialog.commandCopied"), {
+        description: label,
+      })
+      return
+    }
+
+    toast.error(t("common.copyFailed", { label }))
+  }
+
+  return (
+    <div className="space-y-2">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <div className="relative overflow-hidden rounded-md border border-[#5d5d5d] bg-[#3b3b3b] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="absolute top-1.5 right-1.5 z-10 rounded-md text-[#cfcfcf] opacity-80 shadow-none hover:bg-white/8 hover:text-white hover:opacity-100 focus-visible:ring-white/20"
+          aria-label={t("maps.downloadDialog.copyCommand", { label })}
+          title={t("maps.downloadDialog.copyCommand", { label })}
+          onClick={() => {
+            void handleCopyCommand()
+          }}
+        >
+          <Copy className="size-4" aria-hidden="true" />
+        </Button>
+        <pre className="overflow-x-auto pr-9 font-mono text-[13px] leading-6 text-[#d4d4d4]">
+          <code>{command}</code>
+        </pre>
+      </div>
+    </div>
+  )
+}
+
+function MapsDownloadDialog() {
+  const { t } = useTranslation()
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" className="gap-2">
+          <Download className="size-4" aria-hidden="true" />
+          {t("maps.downloadDialog.button")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t("maps.downloadDialog.title")}</DialogTitle>
+          <DialogDescription>
+            {t("maps.downloadDialog.description")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <DownloadCommandBlock
+            label={t("maps.downloadDialog.windowsLabel")}
+            command={POWERSHELL_DOWNLOAD_COMMAND}
+          />
+          <DownloadCommandBlock
+            label={t("maps.downloadDialog.linuxLabel")}
+            command={POSIX_DOWNLOAD_COMMAND}
+          />
+
+          <p className="text-sm text-muted-foreground">
+            {t("maps.downloadDialog.runFrom")}
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function MapsCatalog() {
   const { t } = useTranslation()
   const { scope } = useScope()
@@ -661,9 +762,7 @@ export function MapsCatalog() {
               </button>
             </div>
 
-            <div className="text-sm font-medium tabular-nums text-muted-foreground lg:text-right">
-              {formatNumber(sortedMaps.length)} / {formatNumber(totalMaps)}
-            </div>
+            <MapsDownloadDialog />
           </div>
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -698,6 +797,9 @@ export function MapsCatalog() {
             </fieldset>
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground lg:justify-end">
+              <div className="font-medium tabular-nums">
+                {formatNumber(sortedMaps.length)} / {formatNumber(totalMaps)}
+              </div>
               <MapsCatalogPagination
                 page={page}
                 totalPages={totalPages}
