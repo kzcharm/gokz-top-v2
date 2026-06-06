@@ -21,19 +21,50 @@ function Confirm-Action($Message) {
 
 function Get-MapsDirCandidates {
   $cwd = (Get-Location).Path
-  $candidates = @()
+  $candidates = New-Object "System.Collections.Generic.List[string]"
+
+  function Add-CsgoCandidate($Path) {
+    if ($Path) {
+      $candidates.Add((Join-Path $Path "maps")) | Out-Null
+    }
+  }
 
   if ((Split-Path $cwd -Leaf) -eq "maps" -and (Split-Path (Split-Path $cwd -Parent) -Leaf) -eq "csgo") {
-    $candidates += $cwd
+    $candidates.Add($cwd) | Out-Null
   }
   if ((Split-Path $cwd -Leaf) -eq "csgo") {
-    $candidates += (Join-Path $cwd "maps")
+    $candidates.Add((Join-Path $cwd "maps")) | Out-Null
   }
 
-  $steamDefault = Join-Path ${env:ProgramFiles(x86)} "Steam\steamapps\common\Counter-Strike Global Offensive\csgo\maps"
-  $steamUser = Join-Path $env:USERPROFILE "Steam\steamapps\common\Counter-Strike Global Offensive\csgo\maps"
-  $candidates += $steamDefault
-  $candidates += $steamUser
+  $steamRoots = @()
+  foreach ($root in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, (Join-Path $env:USERPROFILE "Steam"))) {
+    if ($root) {
+      $steamRoot = Join-Path $root "Steam"
+      if ((Split-Path $root -Leaf) -eq "Steam") {
+        $steamRoot = $root
+      }
+      $steamRoots += $steamRoot
+      $libraryFile = Join-Path $steamRoot "steamapps\libraryfolders.vdf"
+      if (Test-Path $libraryFile -PathType Leaf) {
+        $libraryText = Get-Content -Raw -Path $libraryFile
+        foreach ($match in [regex]::Matches($libraryText, '"path"\s+"([^"]+)"')) {
+          $steamRoots += $match.Groups[1].Value.Replace("\\", "\")
+        }
+      }
+    }
+  }
+
+  foreach ($drive in "C", "D", "E", "F", "G", "H") {
+    $steamRoots += "${drive}:\SteamLibrary"
+  }
+
+  foreach ($steamRoot in $steamRoots) {
+    Add-CsgoCandidate (Join-Path $steamRoot "steamapps\common\csgo legacy\csgo")
+  }
+
+  foreach ($steamRoot in $steamRoots) {
+    Add-CsgoCandidate (Join-Path $steamRoot "steamapps\common\Counter-Strike Global Offensive\csgo")
+  }
 
   $seen = @{}
   foreach ($candidate in $candidates) {
