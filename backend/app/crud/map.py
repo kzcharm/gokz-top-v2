@@ -9,10 +9,13 @@ from app.models import (
     Map,
     MapCompatPublicV0,
     MapCourse,
+    MapCourseTier,
     MapFileDistribution,
     MapPublic,
     MapReviewSummaryPublic,
     MapTiers,
+    ModeScope,
+    mode_scope_modes,
 )
 
 from .map_review import load_map_review_summaries
@@ -27,6 +30,7 @@ def _build_read_maps_statement(
     smaller_than_filesize: int | None = None,
     is_validated: bool | None = None,
     difficulty: int | None = None,
+    scope: ModeScope | None = None,
     created_since: datetime | None = None,
     updated_since: datetime | None = None,
 ):
@@ -44,6 +48,17 @@ def _build_read_maps_statement(
         statement = statement.where(Map.validated == is_validated)
     if difficulty is not None:
         statement = statement.where(Map.difficulty == difficulty)
+    if scope is not None:
+        scoped_map_ids = (
+            select(col(MapCourse.map_id))
+            .join(MapCourseTier, col(MapCourseTier.course_id) == col(MapCourse.id))
+            .where(
+                col(MapCourse.stage) == 0,
+                col(MapCourseTier.mode).in_(list(mode_scope_modes(scope))),
+                col(MapCourseTier.tier) > 0,
+            )
+        )
+        statement = statement.where(col(Map.id).in_(scoped_map_ids))
     if created_since is not None:
         statement = statement.where(Map.created_at >= created_since)
     if updated_since is not None:
@@ -65,6 +80,7 @@ async def read_maps(
     smaller_than_filesize: int | None = None,
     is_validated: bool | None = None,
     difficulty: int | None = None,
+    scope: ModeScope | None = None,
     created_since: datetime | None = None,
     updated_since: datetime | None = None,
 ) -> list[Map]:
@@ -75,6 +91,7 @@ async def read_maps(
         smaller_than_filesize=smaller_than_filesize,
         is_validated=is_validated,
         difficulty=difficulty,
+        scope=scope,
         created_since=created_since,
         updated_since=updated_since,
     ).offset(offset).limit(limit)
@@ -102,6 +119,7 @@ async def read_maps_v1(
     larger_than_filesize: int | None = None,
     smaller_than_filesize: int | None = None,
     is_validated: bool | None = None,
+    scope: ModeScope | None = None,
     created_since: datetime | None = None,
     updated_since: datetime | None = None,
 ) -> list[Map]:
@@ -112,6 +130,7 @@ async def read_maps_v1(
         smaller_than_filesize=smaller_than_filesize,
         is_validated=is_validated,
         difficulty=None,
+        scope=scope,
         created_since=created_since,
         updated_since=updated_since,
     ).where(col(Map.id) > 0)

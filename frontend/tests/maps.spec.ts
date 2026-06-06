@@ -434,8 +434,11 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   expect(alphaCardBackground.indexOf(staticAlphaImageUrl)).toBeLessThan(
     alphaCardBackground.indexOf(workshopAlphaImagePath),
   )
-  await expect(page.getByText("30 maps loaded")).toBeVisible()
-  await expect(page.getByText("Page 1 of 2")).toBeVisible()
+  const pageInput = page.getByRole("spinbutton", {
+    name: "Current page, 2 total pages",
+  })
+  await expect(page.getByText("30 / 30")).toBeVisible()
+  await expect(pageInput).toHaveValue("1")
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_omega")).toHaveCount(0)
   await expect(page.getByTestId("map-card-kz_alpha")).toContainText("3 Bonuses")
@@ -449,22 +452,22 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0)
 
   await page.keyboard.press("KeyD")
-  await expect(page.getByText("Page 2 of 2")).toBeVisible()
+  await expect(pageInput).toHaveValue("2")
   await expect(page.getByTestId("map-card-kz_omega")).toBeVisible()
 
   const searchBox = page.getByRole("textbox", { name: "Search maps by name" })
   await searchBox.focus()
   await page.keyboard.press("KeyA")
   await expect(searchBox).toHaveValue("a")
-  await expect(page.getByText("Page 1 of 2")).toBeVisible()
+  await expect(pageInput).toHaveValue("1")
   await searchBox.fill("")
-  await page.getByText("30 maps loaded").click()
+  await page.getByText("30 / 30").click()
 
   await page.keyboard.press("KeyA")
-  await expect(page.getByText("Page 1 of 2")).toBeVisible()
+  await expect(pageInput).toHaveValue("1")
 
   expect(new URL(mapsRequestUrl).searchParams.get("is_validated")).toBe("true")
-  expect(new URL(mapsRequestUrl).searchParams.get("scope")).toBeNull()
+  expect(new URL(mapsRequestUrl).searchParams.get("scope")).toBe("OVR")
   expect(new URL(mapsRequestUrl).searchParams.get("difficulty")).toBeNull()
 
   await searchBox.fill("special")
@@ -478,7 +481,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page
     .getByRole("button", { name: "Show only maps with bonuses" })
     .click()
-  await expect(page.getByText("3 maps visible")).toBeVisible()
+  await expect(page.getByText("3 / 30")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_omega")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_special_search")).toBeVisible()
@@ -486,8 +489,8 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page
     .getByRole("button", { name: "Show only maps with bonuses" })
     .click()
-  await expect(page.getByText("30 maps visible")).toBeVisible()
-  await page.getByRole("button", { name: "Bonus" }).click()
+  await expect(page.getByText("30 / 30")).toBeVisible()
+  await page.getByRole("button", { name: "Bonus", exact: true }).click()
   const firstCard = page.locator('[data-testid^="map-card-"]').first()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_omega")
 
@@ -495,13 +498,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
 
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_alpha")
 
-  await page.getByRole("button", { name: "Go to page 2" }).click()
-  await expect(page.getByText("Page 2 of 2")).toBeVisible()
+  await page.getByRole("button", { name: "Go to next page" }).click()
+  await expect(pageInput).toHaveValue("2")
 
-  await page.getByRole("button", { name: "Go to page 1" }).click()
+  await page.getByRole("button", { name: "Go to previous page" }).click()
 
   await page.getByRole("button", { name: "Tier" }).click()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_08")
+  await page.getByRole("button", { name: "Tier" }).click()
+  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_07")
 
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()

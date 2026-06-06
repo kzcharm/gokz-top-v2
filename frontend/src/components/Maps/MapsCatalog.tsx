@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Search } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Search,
+} from "lucide-react"
 import {
   startTransition,
   useDeferredValue,
@@ -139,7 +147,7 @@ function sortMaps(
 
     switch (sortField) {
       case "tier":
-        comparison = compareNullableNumbers(leftTier, rightTier, sortDirection)
+        comparison = compareNullableNumbers(leftTier, rightTier, "asc")
         break
       case "updated":
         comparison = Date.parse(left.updated_on) - Date.parse(right.updated_on)
@@ -256,32 +264,104 @@ function sortMaps(
   })
 }
 
-function getPageNumbers(currentPage: number, totalPages: number) {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
+function MapsCatalogPagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}) {
+  const { t } = useTranslation()
+  const [pageInputValue, setPageInputValue] = useState(`${page}`)
+
+  useEffect(() => {
+    setPageInputValue(`${page}`)
+  }, [page])
+
+  const commitPageInputValue = () => {
+    const nextValue = Number(pageInputValue)
+    if (!Number.isFinite(nextValue)) {
+      setPageInputValue(`${page}`)
+      return
+    }
+
+    const nextPage = Math.min(Math.max(Math.trunc(nextValue), 1), totalPages)
+    setPageInputValue(`${nextPage}`)
+    onPageChange(nextPage)
   }
 
-  const pages = new Set([
-    1,
-    totalPages,
-    currentPage - 1,
-    currentPage,
-    currentPage + 1,
-  ])
-
-  if (currentPage <= 3) {
-    pages.add(2)
-    pages.add(3)
-  }
-
-  if (currentPage >= totalPages - 2) {
-    pages.add(totalPages - 1)
-    pages.add(totalPages - 2)
-  }
-
-  return [...pages]
-    .filter((page) => page >= 1 && page <= totalPages)
-    .sort((left, right) => left - right)
+  return (
+    <nav aria-label={t("maps.pagesAria")} className="flex items-center gap-x-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => onPageChange(1)}
+        disabled={page === 1}
+      >
+        <span className="sr-only">{t("pagination.first")}</span>
+        <ChevronsLeft className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+        disabled={page === 1}
+      >
+        <span className="sr-only">{t("pagination.previous")}</span>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <Input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={totalPages}
+        value={pageInputValue}
+        onChange={(event) => {
+          setPageInputValue(event.target.value)
+        }}
+        onBlur={commitPageInputValue}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault()
+            commitPageInputValue()
+          }
+        }}
+        className="h-8 w-14 rounded-md border-border bg-muted px-2 text-center text-sm font-medium text-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        aria-label={t("pagination.currentPage", {
+          page,
+          pageCount: totalPages,
+        })}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+        disabled={page >= totalPages}
+      >
+        <span className="sr-only">{t("pagination.next")}</span>
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => onPageChange(totalPages)}
+        disabled={page >= totalPages}
+      >
+        <span className="sr-only">{t("pagination.last")}</span>
+        <ChevronsRight className="h-4 w-4" />
+      </Button>
+    </nav>
+  )
 }
 
 export function MapsCatalog() {
@@ -299,9 +379,14 @@ export function MapsCatalog() {
   const [page, setPage] = useState(1)
 
   const mapsQuery = useQuery({
-    queryKey: ["maps", "catalog"],
+    queryKey: ["maps", "catalog", scope],
     queryFn: () =>
-      MapsService.readMaps({ offset: 0, limit: 10000, isValidated: true }),
+      MapsService.readMaps({
+        offset: 0,
+        limit: 10000,
+        isValidated: true,
+        scope,
+      }),
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -405,10 +490,6 @@ export function MapsCatalog() {
     return sortedMaps.slice(startIndex, startIndex + PAGE_SIZE)
   }, [page, sortedMaps])
 
-  const pageNumbers = useMemo(
-    () => getPageNumbers(page, totalPages),
-    [page, totalPages],
-  )
   const keyboardPaginationRef = useKeyboardPagination({
     enabled: totalPages > 1,
     canPrevious: page > 1,
@@ -522,108 +603,108 @@ export function MapsCatalog() {
     })
   }
 
+  function handlePageChange(nextPage: number) {
+    startTransition(() => {
+      setPage(Math.min(totalPages, Math.max(1, nextPage)))
+    })
+  }
+
   return (
     <div ref={keyboardPaginationRef} className="space-y-8">
-      <section className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {t("maps.title")}
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <span>{t("maps.loaded", { count: formatNumber(totalMaps) })}</span>
-          <span aria-hidden="true" className="text-border">
-            /
-          </span>
-          <span>
-            {t("maps.visible", { count: formatNumber(sortedMaps.length) })}
-          </span>
-          <span aria-hidden="true" className="text-border">
-            /
-          </span>
-          <span>
-            {t("pagination.page")} {page} {t("pagination.of")} {totalPages}
-          </span>
-        </div>
-      </section>
-
       <section className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm backdrop-blur-sm sm:p-5">
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative block w-full min-w-0 sm:flex-1 lg:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchInput}
-                onChange={(event) => {
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative block w-full min-w-0 sm:flex-1 lg:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={(event) => {
+                    startTransition(() => {
+                      setSearchInput(event.target.value)
+                      setPage(1)
+                    })
+                  }}
+                  placeholder={t("maps.searchPlaceholder")}
+                  aria-label={t("maps.searchAria")}
+                  className="pl-9"
+                />
+              </div>
+              <TierSelector
+                value={selectedTier}
+                onValueChange={(nextValue) => {
                   startTransition(() => {
-                    setSearchInput(event.target.value)
+                    setSelectedTier(nextValue)
                     setPage(1)
                   })
                 }}
-                placeholder={t("maps.searchPlaceholder")}
-                aria-label={t("maps.searchAria")}
-                className="pl-9"
+                triggerClassName="w-auto"
+                ariaLabel={t("maps.filterTier")}
               />
+              <button
+                type="button"
+                className={cn(
+                  "flex h-9 w-fit items-center rounded-md border border-border/70 bg-background px-3 text-sm font-medium text-muted-foreground shadow-xs transition-colors outline-none hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  withBonusOnly &&
+                    "border-primary/50 bg-primary/10 text-primary hover:text-primary",
+                )}
+                aria-label={t("maps.withBonusAria")}
+                aria-pressed={withBonusOnly}
+                onClick={() => {
+                  startTransition(() => {
+                    setWithBonusOnly((currentValue) => !currentValue)
+                    setPage(1)
+                  })
+                }}
+              >
+                <span>{t("maps.withBonus")}</span>
+              </button>
             </div>
-            <TierSelector
-              value={selectedTier}
-              onValueChange={(nextValue) => {
-                startTransition(() => {
-                  setSelectedTier(nextValue)
-                  setPage(1)
-                })
-              }}
-              triggerClassName="w-auto"
-              ariaLabel={t("maps.filterTier")}
-            />
-            <button
-              type="button"
-              className={cn(
-                "flex h-9 w-fit items-center rounded-md border border-border/70 bg-background px-3 text-sm font-medium text-muted-foreground shadow-xs transition-colors outline-none hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                withBonusOnly &&
-                  "border-primary/50 bg-primary/10 text-primary hover:text-primary",
-              )}
-              aria-label={t("maps.withBonusAria")}
-              aria-pressed={withBonusOnly}
-              onClick={() => {
-                startTransition(() => {
-                  setWithBonusOnly((currentValue) => !currentValue)
-                  setPage(1)
-                })
-              }}
-            >
-              <span>{t("maps.withBonus")}</span>
-            </button>
+
+            <div className="text-sm font-medium tabular-nums text-muted-foreground lg:text-right">
+              {formatNumber(sortedMaps.length)} / {formatNumber(totalMaps)}
+            </div>
           </div>
 
-          <fieldset className="min-w-0 border-0 p-0">
-            <legend className="sr-only">{t("maps.sortMaps")}</legend>
-            <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
-              {MAP_SORT_OPTIONS.map((option) => {
-                const isReviewOption = option.value === "review"
-                const isActive = isReviewOption
-                  ? isReviewSortField(sortField)
-                  : option.value === sortField
-                const activeDirection =
-                  option.value === "skill" || option.value === "bonus"
-                    ? "desc"
-                    : isActive
-                      ? sortDirection
-                      : undefined
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="sr-only">{t("maps.sortMaps")}</legend>
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+                {MAP_SORT_OPTIONS.map((option) => {
+                  const isReviewOption = option.value === "review"
+                  const isActive = isReviewOption
+                    ? isReviewSortField(sortField)
+                    : option.value === sortField
+                  const activeDirection =
+                    option.value === "skill" || option.value === "bonus"
+                      ? "desc"
+                      : isActive
+                        ? sortDirection
+                        : undefined
 
-                return (
-                  <SortableMapOption
-                    key={option.value}
-                    active={isActive}
-                    direction={isActive ? activeDirection : undefined}
-                    label={t(option.labelKey)}
-                    onClick={() => {
-                      handleSortChange(option.value)
-                    }}
-                  />
-                )
-              })}
+                  return (
+                    <SortableMapOption
+                      key={option.value}
+                      active={isActive}
+                      direction={isActive ? activeDirection : undefined}
+                      label={t(option.labelKey)}
+                      onClick={() => {
+                        handleSortChange(option.value)
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </fieldset>
+
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground lg:justify-end">
+              <MapsCatalogPagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
             </div>
-          </fieldset>
+          </div>
 
           {isReviewSortField(sortField) ? (
             <fieldset className="min-w-0 border-0 p-0">
@@ -690,90 +771,17 @@ export function MapsCatalog() {
           </p>
         </div>
       ) : (
-        <>
-          <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {visibleMaps.map((map) => (
-              <MapCard
-                key={map.id}
-                activeTier={getMapTierForScope(map, scope)}
-                map={map}
-                wrRecord={wrByMapId.get(map.id) ?? null}
-                wrLoading={wrsQuery.isLoading}
-              />
-            ))}
-          </section>
-
-          {totalPages > 1 ? (
-            <nav
-              aria-label={t("maps.pagesAria")}
-              className="flex flex-wrap items-center justify-center gap-2"
-            >
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  startTransition(() => {
-                    setPage((currentPage) => Math.max(1, currentPage - 1))
-                  })
-                }}
-                disabled={page === 1}
-              >
-                <ArrowLeft />
-                {t("maps.previous")}
-              </Button>
-
-              {pageNumbers.map((pageNumber, index) => {
-                const previousPageNumber = pageNumbers[index - 1]
-                const showGap =
-                  previousPageNumber !== undefined &&
-                  pageNumber - previousPageNumber > 1
-
-                return (
-                  <div
-                    key={`page-${pageNumber}`}
-                    className="flex items-center gap-2"
-                  >
-                    {showGap ? (
-                      <span className="px-1 text-sm text-muted-foreground">
-                        ...
-                      </span>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant={pageNumber === page ? "default" : "outline"}
-                      className="min-w-9 px-3"
-                      aria-current={pageNumber === page ? "page" : undefined}
-                      aria-label={t("maps.goToPage", { page: pageNumber })}
-                      onClick={() => {
-                        startTransition(() => {
-                          setPage(pageNumber)
-                        })
-                      }}
-                    >
-                      {pageNumber}
-                    </Button>
-                  </div>
-                )
-              })}
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  startTransition(() => {
-                    setPage((currentPage) =>
-                      Math.min(totalPages, currentPage + 1),
-                    )
-                  })
-                }}
-                disabled={page === totalPages}
-              >
-                {t("maps.next")}
-                <ArrowRight />
-              </Button>
-            </nav>
-          ) : null}
-        </>
+        <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {visibleMaps.map((map) => (
+            <MapCard
+              key={map.id}
+              activeTier={getMapTierForScope(map, scope)}
+              map={map}
+              wrRecord={wrByMapId.get(map.id) ?? null}
+              wrLoading={wrsQuery.isLoading}
+            />
+          ))}
+        </section>
       )}
     </div>
   )

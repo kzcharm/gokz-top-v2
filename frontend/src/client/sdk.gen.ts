@@ -1154,6 +1154,7 @@ export class MapsService {
      * @param data.largerThanFilesize
      * @param data.smallerThanFilesize
      * @param data.isValidated
+     * @param data.scope
      * @param data.createdSince
      * @param data.updatedSince
      * @returns MapPublic Successful Response
@@ -1171,6 +1172,7 @@ export class MapsService {
                 larger_than_filesize: data.largerThanFilesize,
                 smaller_than_filesize: data.smallerThanFilesize,
                 is_validated: data.isValidated,
+                scope: data.scope,
                 created_since: data.createdSince,
                 updated_since: data.updatedSince
             },
@@ -2797,6 +2799,8 @@ export class RecordsService {
      * @param data.identifier
      * @param data.country
      * @param data.region
+     * @param data.sortBy
+     * @param data.sortOrder
      * @returns RecordPublic Successful Response
      * @throws ApiError
      */
@@ -2815,7 +2819,9 @@ export class RecordsService {
                 stage: data.stage,
                 identifier: data.identifier,
                 country: data.country,
-                region: data.region
+                region: data.region,
+                sort_by: data.sortBy,
+                sort_order: data.sortOrder
             },
             errors: {
                 422: 'Validation Error'

@@ -1814,6 +1814,7 @@ export type MapsReadMapsData = {
     limit?: number;
     name?: (string | null);
     offset?: number;
+    scope?: (ModeScope | null);
     smallerThanFilesize?: (number | null);
     updatedSince?: (string | null);
 };
@@ -2326,6 +2327,8 @@ export type RecordsReadPbRecordsData = {
     offset?: number;
     region?: (string | null);
     scope?: ModeScope;
+    sortBy?: 'time' | 'points' | 'raw_rating_contribution' | 'created_at' | 'updated_at';
+    sortOrder?: ('asc' | 'desc' | null);
     stage?: number;
     type?: RecordType;
 };

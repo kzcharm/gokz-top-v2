@@ -472,6 +472,64 @@ async def test_read_maps_v1_hides_invalid_and_non_positive_ids(
 
 
 @pytest.mark.asyncio
+async def test_read_maps_v1_filters_to_positive_scope_tiers(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    kzt_map = await _create_map(db, id=930216)
+    vnl_map = await _create_map(db, id=930217)
+    zero_vnl_map = await _create_map(db, id=930218)
+    no_tier_map = await _create_map(db, id=930219)
+
+    await _create_record_filter(
+        db,
+        id=9302160,
+        map_id=kzt_map.id,
+        stage=0,
+        mode_id=200,
+        tier=4,
+    )
+    await _create_record_filter(
+        db,
+        id=9302170,
+        map_id=vnl_map.id,
+        stage=0,
+        mode_id=202,
+        tier=5,
+    )
+    await _create_record_filter(
+        db,
+        id=9302180,
+        map_id=zero_vnl_map.id,
+        stage=0,
+        mode_id=202,
+        tier=0,
+    )
+
+    kzt_response = await client.get(
+        f"{settings.API_V1_STR}/maps",
+        params={
+            "id": [kzt_map.id, vnl_map.id, zero_vnl_map.id, no_tier_map.id],
+            "scope": ModeScope.KZT.value,
+            "limit": 10000,
+        },
+    )
+    vnl_response = await client.get(
+        f"{settings.API_V1_STR}/maps",
+        params={
+            "id": [kzt_map.id, vnl_map.id, zero_vnl_map.id, no_tier_map.id],
+            "scope": ModeScope.VNL.value,
+            "limit": 10000,
+        },
+    )
+
+    assert kzt_response.status_code == 200
+    assert [row["id"] for row in kzt_response.json()] == [kzt_map.id]
+    assert vnl_response.status_code == 200
+    assert [row["id"] for row in vnl_response.json()] == [vnl_map.id]
+
+
+@pytest.mark.asyncio
 async def test_read_maps_v1_includes_bonus_count(
     client: AsyncClient,
     db: AsyncSession,

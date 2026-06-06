@@ -103,6 +103,7 @@ async def read_maps(
     larger_than_filesize: Annotated[int | None, Query()] = None,
     smaller_than_filesize: Annotated[int | None, Query()] = None,
     is_validated: Annotated[bool | None, Query()] = None,
+    scope: Annotated[ModeScope | None, Query()] = None,
     created_since: Annotated[str | None, Query()] = None,
     updated_since: Annotated[str | None, Query()] = None,
 ) -> list[MapPublic]:
@@ -115,6 +116,7 @@ async def read_maps(
         larger_than_filesize=larger_than_filesize,
         smaller_than_filesize=smaller_than_filesize,
         is_validated=is_validated,
+        scope=scope,
         created_since=_parse_datetime(created_since),
         updated_since=_parse_datetime(updated_since),
     )
