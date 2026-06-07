@@ -198,6 +198,36 @@ async def test_admin_globalapi_root_can_toggle_approval(
     assert refreshed.approved_by_steamid64 == settings.SUPER_USER_STEAMID64
 
 
+async def test_admin_globalapi_owner_can_update_server_name(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    owner_steamid64 = random_steamid64()
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=owner_steamid64,
+        db=db,
+    )
+    server = await _create_globalapi_server(
+        db,
+        id=970027,
+        owner_steamid64=owner_steamid64,
+        approval_status=1,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/admin/servers/globalapi/{server.id}",
+        headers=headers,
+        json={"name": "  Updated Server Name  "},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated Server Name"
+    refreshed = await db.get(ServerGlobalapi, server.id)
+    assert refreshed is not None
+    assert refreshed.name == "Updated Server Name"
+
+
 async def test_admin_globalapi_list_supports_filtering_and_sorting(
     client: AsyncClient,
     db: AsyncSession,

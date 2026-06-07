@@ -198,6 +198,8 @@ export function GlobalApiServersTab({
   })
   const [search, setSearch] = useState("")
   const [approvalFilter, setApprovalFilter] = useState("1")
+  const [editingServer, setEditingServer] =
+    useState<ServerGlobalapiAdminPublic | null>(null)
   const [sorting, setSorting] = useState<SortingState>([
     { id: "id", desc: true },
   ])
@@ -245,16 +247,19 @@ export function GlobalApiServersTab({
     mutationFn: ({
       serverId,
       groupId,
+      name,
       approvalStatus,
     }: {
       serverId: number
       groupId?: string | null
+      name?: string | null
       approvalStatus?: number
     }) =>
       AdminServersService.updateAdminGlobalapiServer({
         serverId,
         requestBody: {
           ...(groupId !== undefined ? { group_id: groupId } : {}),
+          ...(name !== undefined ? { name } : {}),
           ...(approvalStatus !== undefined
             ? { approval_status: approvalStatus }
             : {}),
@@ -291,9 +296,6 @@ export function GlobalApiServersTab({
               title={row.original.name || "Unnamed"}
             >
               {row.original.name || "Unnamed"}
-            </div>
-            <div className="font-mono text-xs text-muted-foreground">
-              {row.original.ip || "unknown"}:{row.original.port}
             </div>
           </div>
         ),
@@ -379,6 +381,23 @@ export function GlobalApiServersTab({
             </Badge>
           ),
       },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Edit GlobalAPI server"
+              onClick={() => setEditingServer(row.original)}
+            >
+              <Pencil />
+            </Button>
+          </div>
+        ),
+      },
     ],
     [canApprove, groups, groupsLoading, updateMutation],
   )
@@ -459,7 +478,84 @@ export function GlobalApiServersTab({
           isTotalCountLoading={query.isLoading}
         />
       </AdminTableCard>
+      <GlobalApiServerDialog
+        server={editingServer}
+        open={editingServer !== null}
+        loading={updateMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingServer(null)
+          }
+        }}
+        onSubmit={(serverId, name) => {
+          updateMutation.mutate(
+            { serverId, name },
+            { onSuccess: () => setEditingServer(null) },
+          )
+        }}
+      />
     </div>
+  )
+}
+
+function GlobalApiServerDialog({
+  server,
+  open,
+  loading,
+  onOpenChange,
+  onSubmit,
+}: {
+  server: ServerGlobalapiAdminPublic | null
+  open: boolean
+  loading: boolean
+  onOpenChange: (open: boolean) => void
+  onSubmit: (serverId: number, name: string | null) => void
+}) {
+  const [name, setName] = useState("")
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    setName(server?.name ?? "")
+  }, [open, server])
+
+  const trimmedName = name.trim()
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit GlobalAPI Server</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <LabeledInput label="Name" value={name} onChange={setName} />
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={loading}
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <LoadingButton
+            type="button"
+            loading={loading}
+            disabled={!server}
+            onClick={() => {
+              if (server) {
+                onSubmit(server.id, trimmedName || null)
+              }
+            }}
+          >
+            <Save />
+            Save
+          </LoadingButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

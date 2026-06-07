@@ -84,6 +84,7 @@ class ServerGlobalapiAdminPublic(SQLModel):
 
 class ServerGlobalapiAdminUpdate(SQLModel):
     group_id: uuid.UUID | None = None
+    name: str | None = Field(default=None, max_length=255)
     approval_status: int | None = Field(default=None, ge=0, le=1)
 
 

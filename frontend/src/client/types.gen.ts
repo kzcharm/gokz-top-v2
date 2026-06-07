@@ -1245,6 +1245,7 @@ export type ServerGlobalapiAdminServersPublic = {
 
 export type ServerGlobalapiAdminUpdate = {
     group_id?: (string | null);
+    name?: (string | null);
     approval_status?: (number | null);
 };
 

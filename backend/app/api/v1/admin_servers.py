@@ -154,6 +154,10 @@ async def update_admin_globalapi_server(
             principal.user.steamid64 if server.approval_status == 1 else None
         )
 
+    if "name" in update_data:
+        name = update_data["name"]
+        server.name = name.strip() if name and name.strip() else None
+
     server.updated_at = get_datetime_utc()
     session.add(server)
     await session.commit()

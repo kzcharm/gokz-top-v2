@@ -6137,6 +6137,18 @@ export const ServerGlobalapiAdminUpdateSchema = {
             ],
             title: 'Group Id'
         },
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
         approval_status: {
             anyOf: [
                 {
