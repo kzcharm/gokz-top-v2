@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
-from sqlalchemy import BigInteger, DateTime, Index, PrimaryKeyConstraint, text
+from sqlalchemy import BigInteger, DateTime, Index, PrimaryKeyConstraint
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Column, Field, Relationship, SQLModel
@@ -49,15 +49,18 @@ class ServerPlayerRunStatus(StrEnum):
 
 class ServerGroupBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
-    custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
+    custom_id: str = Field(min_length=1, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
     website: str | None = Field(default=None, max_length=255)
     discord: str | None = Field(default=None, max_length=255)
     steam_group: str | None = Field(default=None, max_length=255)
 
     @field_validator("custom_id", mode="after")
     @classmethod
-    def _validate_custom_id(cls, value: str | None) -> str | None:
-        return validate_player_custom_id(value)
+    def _validate_custom_id(cls, value: str) -> str:
+        normalized = validate_player_custom_id(value)
+        if normalized is None:
+            raise ValueError("Server group custom_id is required")
+        return normalized
 
     @field_validator("website", "discord", "steam_group", mode="after")
     @classmethod
@@ -83,7 +86,10 @@ class ServerGroupUpdate(SQLModel):
     @field_validator("custom_id", mode="after")
     @classmethod
     def _validate_custom_id(cls, value: str | None) -> str | None:
-        return validate_player_custom_id(value)
+        normalized = validate_player_custom_id(value)
+        if normalized is None:
+            raise ValueError("Server group custom_id is required")
+        return normalized
 
     @field_validator("website", "discord", "steam_group", mode="after")
     @classmethod
@@ -99,12 +105,7 @@ class ServerGroup(ServerGroupBase, table=True):
     __table_args__ = (
         Index("uq_server_group_name", "name", unique=True),
         Index("uq_server_group_api_key", "api_key", unique=True),
-        Index(
-            "uq_server_group_custom_id_not_null",
-            "custom_id",
-            unique=True,
-            postgresql_where=text("custom_id IS NOT NULL"),
-        ),
+        Index("uq_server_group_custom_id", "custom_id", unique=True),
     )
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
@@ -368,7 +369,7 @@ class ServerHeartbeatRaw(SQLModel, table=True):
 class ServerGroupSummary(SQLModel):
     id: uuid.UUID
     name: str
-    custom_id: str | None = None
+    custom_id: str
 
 
 class ServerLiveStatusStatePublic(SQLModel):

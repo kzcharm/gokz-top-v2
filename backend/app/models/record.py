@@ -26,6 +26,7 @@ from .mode_scope import (
     normalize_mode_scope,
 )
 from .player import PlayerRefPublic
+from .server import ServerGroupSummary
 from .server_globalapi import ServerGlobalapiCompatPublicV0
 from .utils import LegacyDatetimeNamesMixin, generate_uuid7, get_datetime_utc
 
@@ -582,6 +583,7 @@ class RecordPublic(SQLModel):
     steam_id: str | None = None
     server_id: int
     server_name: str
+    server_group: ServerGroupSummary | None = None
     map_id: int
     map_name: str
     map_tier: int
@@ -646,6 +648,7 @@ class RecentRecordMapPublic(SQLModel):
 class RecentRecordServerPublic(SQLModel):
     id: int
     name: str
+    group: ServerGroupSummary | None = None
 
 
 class RecentRecordModePublic(SQLModel):

@@ -136,6 +136,11 @@ const ovrRecords = [
     steam_id: null,
     server_id: 980300,
     server_name: "Seed Server",
+    server_group: {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Seed Server Group",
+      custom_id: "seed-server-group",
+    },
     map_id: 980200,
     map_name: "kz_seed_alpha",
     map_tier: 4,
@@ -289,6 +294,10 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   )
 
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "Seed Server Group" }),
+  ).toHaveAttribute("href", "/servers/group/seed-server-group")
+  await expect(page.getByText("Seed Server", { exact: true })).toHaveCount(0)
   await expect(page.getByText("kz_seed_beta")).toBeVisible()
   await expect(page.getByText("kz_seed_gamma")).toBeVisible()
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(3)
@@ -328,6 +337,11 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
 
   await page.getByRole("button", { name: "Reset" }).click()
   await page.keyboard.press("Escape")
+  await page.getByLabel("Search server").fill("seed server group")
+  await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+
+  await page.getByLabel("Search server").fill("")
   await page.getByLabel("Search server").fill("practice")
   await expect(page.getByText("kz_seed_gamma")).toBeVisible()
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
@@ -372,6 +386,44 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
       },
     ]),
   )
+})
+
+test("Profile records page shows grouped server links and filters by group name", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(ovrRecords),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/records`)
+
+  await expect(
+    page.getByRole("link", { name: "Seed Server Group" }),
+  ).toHaveAttribute("href", "/servers/group/seed-server-group")
+  await expect(page.getByText("Seed Server", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Second Server", { exact: true })).toBeVisible()
+
+  await page.getByLabel("Search server").fill("seed server group")
+  await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  await expect(page.getByText("kz_seed_beta")).toHaveCount(0)
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
 })
 
 test("Profile records page shows an error state when PB loading fails", async ({

@@ -745,15 +745,9 @@ export const AdminServerGroupPublicSchema = {
             title: 'Name'
         },
         custom_id: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 25
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
+            maxLength: 25,
+            minLength: 1,
             title: 'Custom Id'
         },
         website: {
@@ -844,7 +838,7 @@ export const AdminServerGroupPublicSchema = {
         }
     },
     type: 'object',
-    required: ['name', 'id', 'status', 'created_at', 'updated_at', 'api_key'],
+    required: ['name', 'custom_id', 'id', 'status', 'created_at', 'updated_at', 'api_key'],
     title: 'AdminServerGroupPublic'
 } as const;
 
@@ -5556,6 +5550,16 @@ export const RecentRecordServerPublicSchema = {
         name: {
             type: 'string',
             title: 'Name'
+        },
+        group: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGroupSummary'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
@@ -5697,6 +5701,16 @@ export const RecordPublicSchema = {
         server_name: {
             type: 'string',
             title: 'Server Name'
+        },
+        server_group: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGroupSummary'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         },
         map_id: {
             type: 'integer',
@@ -6165,15 +6179,9 @@ export const ServerGroupCreateSchema = {
             title: 'Name'
         },
         custom_id: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 25
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
+            maxLength: 25,
+            minLength: 1,
             title: 'Custom Id'
         },
         website: {
@@ -6214,7 +6222,7 @@ export const ServerGroupCreateSchema = {
         }
     },
     type: 'object',
-    required: ['name'],
+    required: ['name', 'custom_id'],
     title: 'ServerGroupCreate'
 } as const;
 
@@ -6227,15 +6235,9 @@ export const ServerGroupPublicSchema = {
             title: 'Name'
         },
         custom_id: {
-            anyOf: [
-                {
-                    type: 'string',
-                    maxLength: 25
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
+            maxLength: 25,
+            minLength: 1,
             title: 'Custom Id'
         },
         website: {
@@ -6322,7 +6324,7 @@ export const ServerGroupPublicSchema = {
         }
     },
     type: 'object',
-    required: ['name', 'id', 'status', 'created_at', 'updated_at'],
+    required: ['name', 'custom_id', 'id', 'status', 'created_at', 'updated_at'],
     title: 'ServerGroupPublic'
 } as const;
 
@@ -6344,19 +6346,12 @@ export const ServerGroupSummarySchema = {
             title: 'Name'
         },
         custom_id: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'null'
-                }
-            ],
+            type: 'string',
             title: 'Custom Id'
         }
     },
     type: 'object',
-    required: ['id', 'name'],
+    required: ['id', 'name', 'custom_id'],
     title: 'ServerGroupSummary'
 } as const;
 

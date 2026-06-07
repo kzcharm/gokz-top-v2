@@ -310,7 +310,10 @@ export function ProfileRecordsTab({
 
       if (
         normalizedServerSearch.length > 0 &&
-        !record.server_name.toLocaleLowerCase().includes(normalizedServerSearch)
+        ![record.server_name, record.server_group?.name ?? ""].some(
+          (serverLabel) =>
+            serverLabel.toLocaleLowerCase().includes(normalizedServerSearch),
+        )
       ) {
         return false
       }

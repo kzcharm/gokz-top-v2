@@ -1,3 +1,4 @@
+import type { ServerGroupSummary } from "@/client"
 import { OpenAPI } from "@/client"
 
 export const RECENT_RECORDS_LIVE_LIMIT = 50
@@ -19,6 +20,7 @@ export interface RecentRecordMap {
 export interface RecentRecordServer {
   id: number
   name: string
+  group?: ServerGroupSummary | null
 }
 
 export interface RecentRecordMode {

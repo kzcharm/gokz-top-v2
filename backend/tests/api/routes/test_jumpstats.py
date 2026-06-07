@@ -474,6 +474,11 @@ async def test_read_player_jumpstats_resolves_identifier_and_filters(
     assert payload["count"] == 1
     assert payload["data"][0]["type"] == "BH"
     assert payload["data"][0]["player"]["steamid64"] == str(player.steamid64)
+    assert payload["data"][0]["server_group"] == {
+        "id": str(group.id),
+        "name": "Player Group",
+        "custom_id": group.custom_id,
+    }
 
 
 @pytest.mark.asyncio

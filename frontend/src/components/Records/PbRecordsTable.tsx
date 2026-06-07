@@ -28,10 +28,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import type { DateTimeDisplay } from "@/lib/date-time"
-import { cn, truncateText } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import type { PbRecordsColumn, PbRecordsSortState } from "./pb-records-utils"
+import { RecordServerDisplay } from "./RecordServerDisplay"
 import { ReplayAvailabilityButton } from "./ReplayAvailabilityButton"
 import { TeleportsBadge } from "./TeleportsBadge"
 import { formatRecordTime } from "./utils"
@@ -151,13 +152,11 @@ function PbRecordTableRow({
         </TableCell>
       ) : null}
       {visibleColumns.has("server") ? (
-        <TableCell className="text-sm text-foreground/90">
-          <span
-            className="block max-w-[14rem] truncate"
-            title={record.server_name}
-          >
-            {truncateText(record.server_name, 32)}
-          </span>
+        <TableCell>
+          <RecordServerDisplay
+            serverName={record.server_name}
+            serverGroup={record.server_group}
+          />
         </TableCell>
       ) : null}
       {visibleColumns.has("datetime") ? (

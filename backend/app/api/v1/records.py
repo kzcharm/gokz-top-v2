@@ -27,6 +27,7 @@ from app.models import (
     RecordsPublic,
     RecordType,
     ServerGlobalapi,
+    ServerGroup,
     User,
 )
 
@@ -70,10 +71,16 @@ async def _to_record_public(
     mode = await crud.get_mode_by_short_name(session=session, short_name=record.mode)
     if player is None or server is None or map_obj is None or mode is None:
         raise HTTPException(status_code=500, detail="Record relations are inconsistent")
+    server_group = (
+        await session.get(ServerGroup, server.group_id)
+        if server.group_id is not None
+        else None
+    )
     return crud.to_record_public(
         record=record,
         player=player,
         server=server,
+        server_group=server_group,
         map_obj=map_obj,
         mode=mode,
         map_tier=map_tier,

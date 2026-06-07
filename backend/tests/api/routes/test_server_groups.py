@@ -38,7 +38,7 @@ async def test_create_server_group_requires_superuser(
     response = await client.post(
         f"{settings.API_V1_STR}/server-groups",
         headers=normal_user_token_headers,
-        json={"name": "Blocked Group"},
+        json={"name": "Blocked Group", "custom_id": "blocked-group"},
     )
 
     assert response.status_code == 403
@@ -52,7 +52,7 @@ async def test_create_and_rotate_server_group_api_key(
     create_response = await client.post(
         f"{settings.API_V1_STR}/server-groups",
         headers=superuser_token_headers,
-        json={"name": "Managed Group"},
+        json={"name": "Managed Group", "custom_id": "managed-group"},
     )
 
     assert create_response.status_code == 200
@@ -60,6 +60,7 @@ async def test_create_and_rotate_server_group_api_key(
     group_id = created_payload["group"]["id"]
     original_api_key = created_payload["api_key"]
     assert created_payload["group"]["owner_steamid64"] == str(settings.SUPER_USER_STEAMID64)
+    assert created_payload["group"]["custom_id"] == "managed-group"
     assert created_payload["group"]["status"] == ServerGroupStatus.PENDING
 
     rotate_response = await client.put(
@@ -88,7 +89,7 @@ async def test_invalidated_owner_cannot_create_another_server_group(
     create_response = await client.post(
         f"{settings.API_V1_STR}/server-groups",
         headers=superuser_token_headers,
-        json={"name": "First Group"},
+        json={"name": "First Group", "custom_id": "first-group"},
     )
     group_id = create_response.json()["group"]["id"]
 
@@ -102,8 +103,47 @@ async def test_invalidated_owner_cannot_create_another_server_group(
     second_create_response = await client.post(
         f"{settings.API_V1_STR}/server-groups",
         headers=superuser_token_headers,
-        json={"name": "Blocked Group"},
+        json={"name": "Blocked Group", "custom_id": "blocked-group"},
     )
 
     assert second_create_response.status_code == 403
     assert second_create_response.json()["detail"] == "Server group owner is permanently blocked"
+
+
+async def test_create_server_group_requires_custom_id(
+    client: AsyncClient,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    missing_response = await client.post(
+        f"{settings.API_V1_STR}/server-groups",
+        headers=superuser_token_headers,
+        json={"name": "Missing Custom Id"},
+    )
+    blank_response = await client.post(
+        f"{settings.API_V1_STR}/server-groups",
+        headers=superuser_token_headers,
+        json={"name": "Blank Custom Id", "custom_id": "   "},
+    )
+
+    assert missing_response.status_code == 422
+    assert blank_response.status_code == 422
+
+
+async def test_update_server_group_rejects_blank_custom_id(
+    client: AsyncClient,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    create_response = await client.post(
+        f"{settings.API_V1_STR}/server-groups",
+        headers=superuser_token_headers,
+        json={"name": "Patch Custom Id", "custom_id": "patch-custom-id"},
+    )
+    group_id = create_response.json()["group"]["id"]
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/server-groups/{group_id}",
+        headers=superuser_token_headers,
+        json={"custom_id": None},
+    )
+
+    assert response.status_code == 422

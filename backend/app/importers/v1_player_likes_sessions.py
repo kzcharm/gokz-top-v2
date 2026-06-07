@@ -5,7 +5,7 @@ import hashlib
 import logging
 import uuid
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, TextIO
@@ -250,6 +250,10 @@ def _sanitize_custom_id(raw_value: str | None) -> str | None:
         return validate_player_custom_id(raw_value)
     except ValueError:
         return None
+
+
+def _server_group_custom_id_or_fallback(group: V1ServerGroupRow) -> str:
+    return group.custom_id or f"group-{str(group.id).replace('-', '')[:8]}"
 
 
 def _stable_uuid7_from_source(
@@ -502,14 +506,14 @@ async def _resolve_server_groups(
 
     for source_group_id in sorted(session_group_ids, key=str):
         source_group = source_groups[source_group_id]
+        source_custom_id = _server_group_custom_id_or_fallback(source_group)
         if source_group_id in existing_by_id:
             group_id_map[source_group_id] = source_group_id
             continue
 
         matches: dict[uuid.UUID, ServerGroup] = {}
-        if source_group.custom_id is not None:
-            for group in existing_by_custom_id.get(source_group.custom_id, []):
-                matches[group.id] = group
+        for group in existing_by_custom_id.get(source_custom_id, []):
+            matches[group.id] = group
         for group in existing_by_lower_name.get(source_group.name.lower(), []):
             matches[group.id] = group
 
@@ -530,7 +534,7 @@ async def _resolve_server_groups(
                 f"v1 server group {source_group.name} ({source_group.id}) "
                 "would conflict with an existing v2 server_group name"
             )
-        if source_group.custom_id is not None and source_group.custom_id in planned_custom_ids:
+        if source_custom_id in planned_custom_ids:
             raise ValueError(
                 f"v1 server group {source_group.name} ({source_group.id}) "
                 "would conflict with an existing v2 server_group custom_id"
@@ -543,9 +547,8 @@ async def _resolve_server_groups(
 
         planned_names.add(source_group.name.lower())
         planned_api_keys.add(api_key)
-        if source_group.custom_id is not None:
-            planned_custom_ids.add(source_group.custom_id)
-        groups_to_create.append(source_group)
+        planned_custom_ids.add(source_custom_id)
+        groups_to_create.append(replace(source_group, custom_id=source_custom_id))
         group_id_map[source_group_id] = source_group_id
 
     return ServerGroupResolution(

@@ -58,6 +58,11 @@ const upsertedRecentRecord = {
     server: {
       id: 980301,
       name: "Live Server",
+      group: {
+        id: "22222222-2222-4222-8222-222222222222",
+        name: "Live Server Group",
+        custom_id: "live-server-group",
+      },
     },
     mode: {
       id: 201,
@@ -166,11 +171,17 @@ test("Public dashboard renders recent records and prepends live updates", async 
   await expect(page.getByText("Live Runner")).toBeVisible()
   await expect(page.getByText("kz_live")).toBeVisible()
   await expect(page.getByText("Bonus 2")).toBeVisible()
-  await expect(page.getByText("Live Server")).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "Live Server Group" }),
+  ).toHaveAttribute("href", "/servers/group/live-server-group")
+  await expect(page.getByText("Live Server", { exact: true })).toHaveCount(0)
   await expect(page.getByText("38.456")).toBeVisible()
 
   const firstRow = page.locator("tbody tr").first()
   await expect(firstRow).toContainText("Live Runner")
-  await expect(firstRow).toContainText("Live Server")
+  await expect(firstRow).toContainText("Live Server Group")
   await expect(firstRow).toContainText("3")
+
+  await page.getByRole("link", { name: "Live Server Group" }).click()
+  await expect(page).toHaveURL(/\/servers\/group\/live-server-group$/)
 })

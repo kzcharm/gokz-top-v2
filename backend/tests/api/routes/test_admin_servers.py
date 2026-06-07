@@ -610,12 +610,15 @@ async def test_server_group_models_normalize_metadata() -> None:
     assert group_in.discord == "https://discord.gg/example"
     assert group_in.steam_group == "steamcommunity.com/groups/example"
 
-    update_in = ServerGroupUpdate(custom_id=None, website=" https://example.com ")
+    update_in = ServerGroupUpdate(website=" https://example.com ")
     assert update_in.custom_id is None
     assert update_in.website == "https://example.com"
 
     with pytest.raises(ValueError, match="must contain at least one English letter"):
         ServerGroupCreate(name="Invalid Group", custom_id="1234")
+
+    with pytest.raises(ValueError, match="custom_id is required"):
+        ServerGroupUpdate(custom_id=None)
 
 
 async def test_globalapi_server_sync_preserves_local_approval(

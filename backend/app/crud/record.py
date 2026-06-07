@@ -54,6 +54,8 @@ from app.models import (
     RecordType,
     ServerGlobalapi,
     ServerGlobalapiCompatPublicV0,
+    ServerGroup,
+    ServerGroupSummary,
     TeleportsType,
     WorldRecordCountCompatPublicV0,
     generate_uuid7,
@@ -1421,11 +1423,40 @@ def _to_server_globalapi_compat_public_v0(
     )
 
 
+def _to_server_group_summary(
+    *,
+    group: ServerGroup | None,
+) -> ServerGroupSummary | None:
+    if group is None:
+        return None
+    return ServerGroupSummary(
+        id=group.id,
+        name=group.name,
+        custom_id=group.custom_id,
+    )
+
+
+def _to_server_group_summary_from_values(
+    *,
+    group_id: uuid.UUID | None,
+    group_name: str | None,
+    group_custom_id: str | None,
+) -> ServerGroupSummary | None:
+    if group_id is None or group_name is None or group_custom_id is None:
+        return None
+    return ServerGroupSummary(
+        id=group_id,
+        name=group_name,
+        custom_id=group_custom_id,
+    )
+
+
 def to_record_public(
     *,
     record: Record,
     player: Player,
     server: ServerGlobalapi,
+    server_group: ServerGroup | None = None,
     map_obj: Map,
     mode: Mode,
     map_tier: int,
@@ -1438,6 +1469,7 @@ def to_record_public(
         steam_id=None,
         server_id=record.server_id,
         server_name=server.name or "",
+        server_group=_to_server_group_summary(group=server_group),
         map_id=record.map_id,
         map_name=map_obj.name,
         map_tier=map_tier,
@@ -1465,6 +1497,7 @@ def to_recent_record_public(
     record: Record,
     player: Player,
     server: ServerGlobalapi,
+    server_group: ServerGroup | None = None,
     map_obj: Map,
     mode: Mode,
     map_tier: int,
@@ -1482,6 +1515,7 @@ def to_recent_record_public(
         server=RecentRecordServerPublic(
             id=server.id,
             name=server.name or "",
+            group=_to_server_group_summary(group=server_group),
         ),
         mode=RecentRecordModePublic(
             id=mode.id,
@@ -1602,9 +1636,10 @@ async def read_records_with_replays(
         return []
 
     statement = (
-        select(Record, Player, ServerGlobalapi, Map, Mode)
+        select(Record, Player, ServerGlobalapi, ServerGroup, Map, Mode)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(col(Record.uuid).in_(unique_record_uuids))
@@ -1633,12 +1668,13 @@ async def read_records_with_replays(
             record=record,
             player=player,
             server=server,
+            server_group=server_group,
             map_obj=map_obj,
             mode=mode,
             map_tier=tiers_by_course[(record.map_id, record.stage)],
             points=points_by_uuid.get(record.uuid, 0),
         )
-        for record, player, server, map_obj, mode in rows
+        for record, player, server, server_group, map_obj, mode in rows
     }
     return [
         publics_by_uuid[record_uuid]
@@ -1670,12 +1706,14 @@ async def read_recent_records(
             Record,
             Player,
             ServerGlobalapi,
+            ServerGroup,
             Map,
             Mode,
             public_scoped_points.label("points"),
         )
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .outerjoin(
@@ -1758,7 +1796,7 @@ async def read_recent_records(
         session=session,
         record_courses=[
             (record.map_id, record.stage)
-            for record, _player, _server, _map_obj, _mode, _points in rows
+            for record, _player, _server, _server_group, _map_obj, _mode, _points in rows
         ],
         scope=query.scope,
     )
@@ -1768,12 +1806,13 @@ async def read_recent_records(
                 record=record,
                 player=player,
                 server=server,
+                server_group=server_group,
                 map_obj=map_obj,
                 mode=mode,
                 map_tier=tiers_by_course[(record.map_id, record.stage)],
                 points=points,
             )
-            for record, player, server, map_obj, mode, points in rows
+            for record, player, server, server_group, map_obj, mode, points in rows
         ],
         count,
     )
@@ -1803,9 +1842,10 @@ async def get_recent_record_public_by_uuid(
     scope: ModeScope = ModeScope.OVR,
 ) -> RecentRecordPublic | None:
     statement = (
-        select(Record, Player, ServerGlobalapi, Map, Mode)
+        select(Record, Player, ServerGlobalapi, ServerGroup, Map, Mode)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(col(Record.uuid) == record_uuid)
@@ -1815,7 +1855,7 @@ async def get_recent_record_public_by_uuid(
     if row is None:
         return None
 
-    record, player, server, map_obj, mode = row
+    record, player, server, server_group, map_obj, mode = row
     scoped_points = (await _load_pb_points_by_record_uuid(
         session=session,
         record_uuids=[record.uuid],
@@ -1832,6 +1872,7 @@ async def get_recent_record_public_by_uuid(
         record=record,
         player=player,
         server=server,
+        server_group=server_group,
         map_obj=map_obj,
         mode=mode,
         map_tier=map_tier,
@@ -2286,6 +2327,9 @@ async def get_pb_record_publics(
             Player.avatar_hash,
             Record.server_id,
             ServerGlobalapi.name.label("server_name"),
+            ServerGroup.id.label("server_group_id"),
+            ServerGroup.name.label("server_group_name"),
+            ServerGroup.custom_id.label("server_group_custom_id"),
             Record.map_id,
             Map.name.label("map_name"),
             Map.difficulty,
@@ -2306,6 +2350,7 @@ async def get_pb_record_publics(
         .join(Record, Record.uuid == anchor_pb.record_uuid)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(Map.validated.is_(True))
@@ -2388,6 +2433,9 @@ async def get_pb_record_publics(
                 _player_avatar_hash,
                 _server_id,
                 _server_name,
+                _server_group_id,
+                _server_group_name,
+                _server_group_custom_id,
                 record_map_id,
                 _map_name,
                 _map_tier,
@@ -2418,6 +2466,11 @@ async def get_pb_record_publics(
             steam_id=None,
             server_id=server_id,
             server_name=server_name or "",
+            server_group=_to_server_group_summary_from_values(
+                group_id=server_group_id,
+                group_name=server_group_name,
+                group_custom_id=server_group_custom_id,
+            ),
             map_id=record_map_id,
             map_name=map_name,
             map_tier=tiers_by_course[(record_map_id, record_stage)],
@@ -2447,6 +2500,9 @@ async def get_pb_record_publics(
             player_avatar_hash,
             server_id,
             server_name,
+            server_group_id,
+            server_group_name,
+            server_group_custom_id,
             record_map_id,
             map_name,
             map_tier,
@@ -2558,6 +2614,9 @@ async def read_map_pb_leaderboard(
             Player.avatar_hash,
             Record.server_id,
             ServerGlobalapi.name.label("server_name"),
+            ServerGroup.id.label("server_group_id"),
+            ServerGroup.name.label("server_group_name"),
+            ServerGroup.custom_id.label("server_group_custom_id"),
             Record.map_id,
             Map.name.label("map_name"),
             Map.difficulty,
@@ -2578,6 +2637,7 @@ async def read_map_pb_leaderboard(
         .join(Record, Record.uuid == anchor_pb.record_uuid)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .outerjoin(
@@ -2632,6 +2692,9 @@ async def read_map_pb_leaderboard(
                 _player_avatar_hash,
                 _server_id,
                 _server_name,
+                _server_group_id,
+                _server_group_name,
+                _server_group_custom_id,
                 record_map_id,
                 _map_name,
                 _map_tier,
@@ -2662,6 +2725,11 @@ async def read_map_pb_leaderboard(
             steam_id=None,
             server_id=server_id,
             server_name=server_name or "",
+            server_group=_to_server_group_summary_from_values(
+                group_id=server_group_id,
+                group_name=server_group_name,
+                group_custom_id=server_group_custom_id,
+            ),
             map_id=record_map_id,
             map_name=map_name,
             map_tier=tiers_by_course[(record_map_id, record_stage)],
@@ -2691,6 +2759,9 @@ async def read_map_pb_leaderboard(
             player_avatar_hash,
             server_id,
             server_name,
+            server_group_id,
+            server_group_name,
+            server_group_custom_id,
             record_map_id,
             map_name,
             map_tier,

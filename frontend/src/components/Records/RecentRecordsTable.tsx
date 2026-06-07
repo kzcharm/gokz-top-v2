@@ -12,10 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { truncateText } from "@/lib/utils"
 
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
+import { RecordServerDisplay } from "./RecordServerDisplay"
 import { StageBadge } from "./StageBadge"
 import { TeleportsBadge } from "./TeleportsBadge"
 import { formatRecordTime, type RecentRecord } from "./utils"
@@ -115,13 +115,11 @@ export function RecentRecordsTable({
                   <TableCell>
                     <PointsBadge points={record.points} />
                   </TableCell>
-                  <TableCell className="text-sm text-foreground/90">
-                    <span
-                      className="block max-w-[14rem] truncate"
-                      title={record.server.name}
-                    >
-                      {truncateText(record.server.name, 32)}
-                    </span>
+                  <TableCell>
+                    <RecordServerDisplay
+                      serverName={record.server.name}
+                      serverGroup={record.server.group}
+                    />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     <FormattedDateTime

@@ -118,6 +118,14 @@ function createLeaderboardRecord({
       steam_id: null,
       server_id: 980300 + index,
       server_name: `Server ${index}`,
+      server_group:
+        index === 1
+          ? {
+              id: "11111111-1111-4111-8111-111111111111",
+              name: "Map Top Group",
+              custom_id: "map-top-group",
+            }
+          : null,
       map_id: seededMaps[0].id,
       map_name: seededMaps[0].name,
       map_tier: seededMaps[0].tiers.OVR,
@@ -629,6 +637,11 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByRole("columnheader", { name: "Player" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
+  await expect(
+    page.getByRole("link", { name: "Map Top Group" }),
+  ).toHaveAttribute("href", "/servers/group/map-top-group")
+  await expect(page.getByText("Server 1", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Server 2", { exact: true })).toBeVisible()
   await expect(page.getByText("NUB PB")).toBeVisible()
   await expect(page.getByText("51.888").first()).toBeVisible()
   await expect(page.getByText(/11 \/ 12 .*91\.7%/)).toBeVisible()
@@ -771,6 +784,72 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
       },
     ]),
   )
+})
+
+test("Map top shows grouped server links and ungrouped server names", async ({
+  page,
+}) => {
+  await stubRegions(page)
+
+  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seededMaps[0]),
+    })
+  })
+
+  await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: mapLeaderboardSeedRows.slice(0, 2).map((row) => row.record),
+        count: 2,
+        unique_nub_finishes: 2,
+        unique_pro_finishes: 1,
+        current_user_rank: null,
+        current_user_steamid64: null,
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  })
+
+  await page.route(/\/v1\/maps\/\d+\/stats(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        nub_wr_gap_distribution: [],
+        pro_wr_gap_distribution: [],
+      }),
+    })
+  })
+
+  await page.goto("/maps/kz_alpha/maptop")
+
+  await expect(
+    page.getByRole("link", { name: "Map Top Group" }),
+  ).toHaveAttribute("href", "/servers/group/map-top-group")
+  await expect(page.getByText("Server 1", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Server 2", { exact: true })).toBeVisible()
+
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await expect
+    .poll(async () => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0)
+
+  await page.getByRole("link", { name: "Map Top Group" }).click()
+
+  await expect(page).toHaveURL(/\/servers\/group\/map-top-group$/)
+  await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0)
 })
 
 test("Map detail shows not found for an unknown map", async ({ page }) => {

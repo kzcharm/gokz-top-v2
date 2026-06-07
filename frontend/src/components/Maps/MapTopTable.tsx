@@ -11,6 +11,7 @@ import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { ModeBadge } from "@/components/Records/ModeBadge"
 import { PointsBadge } from "@/components/Records/PointsBadge"
+import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
 import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilityButton"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
@@ -24,7 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { getLocale } from "@/i18n/locale"
-import { cn, truncateText } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 type MapTopTableRow = {
   rank: number
@@ -216,12 +217,10 @@ export function MapTopTable({
         size: 320,
         header: () => t("labels.server"),
         cell: ({ row }) => (
-          <span
-            className="block max-w-[14rem] truncate text-sm text-foreground/90"
-            title={row.original.record.server_name}
-          >
-            {truncateText(row.original.record.server_name, 32)}
-          </span>
+          <RecordServerDisplay
+            serverName={row.original.record.server_name}
+            serverGroup={row.original.record.server_group}
+          />
         ),
       },
       {

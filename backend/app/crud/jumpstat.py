@@ -29,7 +29,11 @@ type JumpstatRow = tuple[Jumpstat, Player, ServerGroup]
 
 
 def _to_server_group_summary(*, server_group: ServerGroup) -> ServerGroupSummary:
-    return ServerGroupSummary(id=server_group.id, name=server_group.name)
+    return ServerGroupSummary(
+        id=server_group.id,
+        name=server_group.name,
+        custom_id=server_group.custom_id,
+    )
 
 
 def to_jumpstat_public(

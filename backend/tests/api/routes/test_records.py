@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -29,6 +30,7 @@ from app.models import (
     legacy_mode_id_to_kz_mode,
 )
 from app.services.run_replay_storage import save_run_replay
+from tests.utils.server import create_server_group
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
@@ -88,6 +90,7 @@ async def _create_server_globalapi(
     *,
     id: int,
     name: str,
+    group_id: uuid.UUID | None = None,
 ) -> ServerGlobalapi:
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
@@ -105,6 +108,7 @@ async def _create_server_globalapi(
         owner_steamid64=76561198000000010,
         approval_status=1,
         approved_by_steamid64=76561198000000020,
+        group_id=group_id,
     )
     db.add(server)
     await db.commit()
@@ -255,10 +259,16 @@ async def _seed_record_dependencies(
     map_difficulty: int = 4,
     server_id: int = 980300,
     server_name: str = "Record Test Server",
+    server_group_id: uuid.UUID | None = None,
     players: list[tuple[int, str]] | None = None,
 ) -> None:
     await _create_map(db, id=map_id, name=map_name, difficulty=map_difficulty)
-    await _create_server_globalapi(db, id=server_id, name=server_name)
+    await _create_server_globalapi(
+        db,
+        id=server_id,
+        name=server_name,
+        group_id=server_group_id,
+    )
     for steamid64, name in players or []:
         await _create_player(db, steamid64=steamid64, name=name)
 
@@ -277,8 +287,13 @@ async def test_read_records_v1_list_and_detail(
 ) -> None:
     monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
     player_id = 76561199012345678
+    server_group, _ = await create_server_group(
+        db,
+        name="Record Test Group",
+    )
     await _seed_record_dependencies(
         db,
+        server_group_id=server_group.id,
         players=[(player_id, "Runner One")],
     )
     record = await _create_record(
@@ -310,6 +325,11 @@ async def test_read_records_v1_list_and_detail(
         "display_name": "Runner One",
     }
     assert payload["data"][0]["server_name"] == "Record Test Server"
+    assert payload["data"][0]["server_group"] == {
+        "id": str(server_group.id),
+        "name": "Record Test Group",
+        "custom_id": server_group.custom_id,
+    }
     assert payload["data"][0]["mode_id"] == 200
     assert payload["data"][0]["mode"] == "KZT"
     assert payload["data"][0]["tickrate"] == 128
@@ -323,6 +343,7 @@ async def test_read_records_v1_list_and_detail(
     assert detail_response.status_code == 200
     assert detail_response.json()["uuid"] == str(record.uuid)
     assert detail_response.json()["points"] == 1000
+    assert detail_response.json()["server_group"]["custom_id"] == server_group.custom_id
     assert detail_response.json()["is_replay_available"] is True
 
 
@@ -337,6 +358,10 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
 
     first_player_id = random_steamid64()
     second_player_id = random_steamid64()
+    server_group, _ = await create_server_group(
+        db,
+        name="Recent Record Group",
+    )
     await _seed_record_dependencies(
         db,
         players=[
@@ -344,6 +369,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
             (second_player_id, "Runner Two"),
         ],
         map_difficulty=6,
+        server_group_id=server_group.id,
     )
     await _create_player(
         db,
@@ -440,6 +466,11 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
     assert first_row["server"] == {
         "id": 980300,
         "name": "Record Test Server",
+        "group": {
+            "id": str(server_group.id),
+            "name": "Recent Record Group",
+            "custom_id": server_group.custom_id,
+        },
     }
     assert first_row["mode"] == {
         "id": 201,

@@ -391,6 +391,7 @@ async def _create_map_record(
     teleports: int,
     mode_id: int = 200,
     server_id: int | None = None,
+    server_group_id: uuid.UUID | None = None,
 ) -> None:
     resolved_server_id = server_id or map_id + 1_000_000
     if await db.get(ServerGlobalapi, resolved_server_id) is None:
@@ -403,6 +404,7 @@ async def _create_map_record(
                 owner_steamid64=None,
                 approval_status=1,
                 approved_by_steamid64=None,
+                group_id=server_group_id,
             )
         )
         await db.commit()
@@ -612,6 +614,10 @@ async def test_read_map_pb_leaderboard_v1_returns_counts_pagination_and_viewer_r
     de_pro = random_steamid64()
     de_nub = random_steamid64()
     fr_pro = random_steamid64()
+    server_group, _ = await create_server_group(
+        db,
+        name="Map Top Server Group",
+    )
 
     await _create_player_with_country(
         db,
@@ -645,6 +651,7 @@ async def test_read_map_pb_leaderboard_v1_returns_counts_pagination_and_viewer_r
         map_id=map_obj.id,
         time_seconds="31.000",
         teleports=0,
+        server_group_id=server_group.id,
     )
     await _create_map_record(
         db,
@@ -705,6 +712,12 @@ async def test_read_map_pb_leaderboard_v1_returns_counts_pagination_and_viewer_r
         "Paris Pro",
         "Berlin Pro",
     ]
+    assert payload["data"][0]["server_name"] == "Leaderboard Server 9302021"
+    assert payload["data"][0]["server_group"] == {
+        "id": str(server_group.id),
+        "name": "Map Top Server Group",
+        "custom_id": server_group.custom_id,
+    }
 
     filtered_response = await client.get(
         f"{settings.API_V1_STR}/maps/{map_obj.id}/leaderboard",

@@ -994,9 +994,10 @@ function ServerGroupDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
+      const trimmedCustomId = customId.trim()
       const requestBody = {
         name: name.trim(),
-        custom_id: customId.trim() || null,
+        custom_id: trimmedCustomId,
         website: website.trim() || null,
         discord: discord.trim() || null,
         steam_group: steamGroup.trim() || null,

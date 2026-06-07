@@ -171,7 +171,7 @@ export type AdminServerAccessPublic = {
 
 export type AdminServerGroupPublic = {
     name: string;
-    custom_id?: (string | null);
+    custom_id: string;
     website?: (string | null);
     discord?: (string | null);
     steam_group?: (string | null);
@@ -1119,6 +1119,7 @@ export type RecentRecordPublic = {
 export type RecentRecordServerPublic = {
     id: number;
     name: string;
+    group?: (ServerGroupSummary | null);
 };
 
 export type RecentRecordsPublic = {
@@ -1155,6 +1156,7 @@ export type RecordPublic = {
     steam_id?: (string | null);
     server_id: number;
     server_name: string;
+    server_group?: (ServerGroupSummary | null);
     map_id: number;
     map_name: string;
     map_tier: number;
@@ -1253,7 +1255,7 @@ export type ServerGroupApiKeyPublic = {
 
 export type ServerGroupCreate = {
     name: string;
-    custom_id?: (string | null);
+    custom_id: string;
     website?: (string | null);
     discord?: (string | null);
     steam_group?: (string | null);
@@ -1261,7 +1263,7 @@ export type ServerGroupCreate = {
 
 export type ServerGroupPublic = {
     name: string;
-    custom_id?: (string | null);
+    custom_id: string;
     website?: (string | null);
     discord?: (string | null);
     steam_group?: (string | null);
@@ -1284,7 +1286,7 @@ export type ServerGroupStatus = 'pending' | 'validated' | 'invalidated';
 export type ServerGroupSummary = {
     id: string;
     name: string;
-    custom_id?: (string | null);
+    custom_id: string;
 };
 
 export type ServerGroupUpdate = {

@@ -34,9 +34,13 @@ async def create_server_group(
 ) -> tuple[ServerGroup, str]:
     if owner_steamid64 is None:
         owner_steamid64 = (await create_random_user(db)).steamid64
+    group_name = name or f"group-{random_lower_string()[:8]}"
     group, api_key = await crud.create_server_group(
         session=db,
-        group_in=ServerGroupCreate(name=name or f"group-{random_lower_string()[:8]}"),
+        group_in=ServerGroupCreate(
+            name=group_name,
+            custom_id=f"group-{random_lower_string()[:8]}",
+        ),
         owner_steamid64=owner_steamid64,
     )
     if status is not None and status != group.status:
