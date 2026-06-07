@@ -22,6 +22,7 @@ import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 interface MapDisplayProps {
   mapName: string | null | undefined
   className?: string
+  containerClassName?: string
   contextMenuItems?: ReactNode
   downloadUrl?: string | null
   imageUrls?: string[]
@@ -254,6 +255,7 @@ export function MapNameContextMenu({
 export function MapDisplay({
   mapName,
   className,
+  containerClassName,
   contextMenuItems,
   downloadUrl,
   imageUrls,
@@ -350,7 +352,10 @@ export function MapDisplay({
   return (
     <>
       <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-        <div className="relative inline-block" data-drag-scroll-ignore>
+        <div
+          className={cn("relative inline-block", containerClassName)}
+          data-drag-scroll-ignore
+        >
           <DropdownMenuTrigger asChild>
             <span
               aria-hidden="true"
@@ -360,7 +365,7 @@ export function MapDisplay({
           <Link
             to="/maps/$mapName/maptop"
             params={mapParams}
-            className="inline-block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             onClick={(event) => {
               event.stopPropagation()
             }}

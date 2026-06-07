@@ -165,7 +165,7 @@ export function ServerTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="min-w-0 space-y-1">
+                    <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
                         {!isServerOnline(server) ? (
                           <div
@@ -191,15 +191,6 @@ export function ServerTable({
                           </span>
                         ) : null}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        <span className="font-mono">{address}</span>
-                        {server.group?.name ? (
-                          <>
-                            <span className="mx-1">•</span>
-                            <span>{server.group.name}</span>
-                          </>
-                        ) : null}
-                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="pr-5">
@@ -211,7 +202,8 @@ export function ServerTable({
                           : undefined
                       }
                       imageUrls={getServerMapImageUrls(server)}
-                      className="w-full max-w-56"
+                      className="w-full"
+                      containerClassName="w-full max-w-56"
                     />
                   </TableCell>
                   <TableCell className="pl-1">
