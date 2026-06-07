@@ -355,178 +355,178 @@ const UserInformation = () => {
               mutation.mutate()
             }}
           >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {t("settings.profile.fields.steamName")}
-              </p>
-              <p className="font-medium">
-                {player?.name ?? t("settings.profile.fallbacks.notSet")}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {t("settings.profile.fields.steamId64")}
-              </p>
-              <p className="font-mono text-sm">{currentUser.steamid64}</p>
-            </div>
-          </div>
-
-          {isEditing ? (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="settings-alias"
-                    className="inline-flex items-center text-sm font-medium"
-                  >
-                    <AliasLabel
-                      label={t("settings.profile.fields.alias")}
-                      tooltip={t("settings.profile.aliasInfo")}
-                      ariaLabel={t("settings.profile.aliasInfoAria")}
-                    />
-                  </label>
-                  <Input
-                    id="settings-alias"
-                    value={aliasInput}
-                    maxLength={25}
-                    disabled={aliasDisabled}
-                    placeholder={t("settings.profile.placeholders.alias")}
-                    onChange={(event) => setAliasInput(event.target.value)}
-                  />
-                  {settings ? (
-                    <FieldHint
-                      status={settings.alias}
-                      availableLabel={t("settings.profile.available")}
-                      soonFallback={t("settings.profile.soon")}
-                    />
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="settings-custom-id"
-                    className="text-sm font-medium"
-                  >
-                    {t("settings.profile.fields.customId")}
-                  </label>
-                  <Input
-                    id="settings-custom-id"
-                    value={customIdInput}
-                    maxLength={25}
-                    disabled={customIdDisabled}
-                    placeholder={t("settings.profile.placeholders.customId")}
-                    onChange={(event) => setCustomIdInput(event.target.value)}
-                  />
-                  {settings ? (
-                    <FieldHint
-                      status={settings.custom_id}
-                      availableLabel={t("settings.profile.available")}
-                      soonFallback={t("settings.profile.soon")}
-                    />
-                  ) : null}
-                </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.profile.fields.steamName")}
+                </p>
+                <p className="font-medium">
+                  {player?.name ?? t("settings.profile.fallbacks.notSet")}
+                </p>
               </div>
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.profile.fields.steamId64")}
+                </p>
+                <p className="font-mono text-sm">{currentUser.steamid64}</p>
+              </div>
+            </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <span className="text-sm font-medium">
-                    {t("settings.profile.fields.countryRegion")}
-                  </span>
-                  <CountryPicker
-                    value={countryInput}
-                    onChange={setCountryInput}
-                    placeholder={t("settings.profile.placeholders.country")}
-                    clearLabel={t("settings.profile.clearCountry")}
-                    disabled={countryDisabled}
-                  />
-                  {settings ? (
-                    <FieldHint
-                      status={settings.country}
-                      locked={settings.country_locked}
-                      availableLabel={t("settings.profile.available")}
-                      soonFallback={t("settings.profile.soon")}
+            {isEditing ? (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="settings-alias"
+                      className="inline-flex items-center text-sm font-medium"
+                    >
+                      <AliasLabel
+                        label={t("settings.profile.fields.alias")}
+                        tooltip={t("settings.profile.aliasInfo")}
+                        ariaLabel={t("settings.profile.aliasInfoAria")}
+                      />
+                    </label>
+                    <Input
+                      id="settings-alias"
+                      value={aliasInput}
+                      maxLength={25}
+                      disabled={aliasDisabled}
+                      placeholder={t("settings.profile.placeholders.alias")}
+                      onChange={(event) => setAliasInput(event.target.value)}
                     />
-                  ) : null}
+                    {settings ? (
+                      <FieldHint
+                        status={settings.alias}
+                        availableLabel={t("settings.profile.available")}
+                        soonFallback={t("settings.profile.soon")}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="settings-custom-id"
+                      className="text-sm font-medium"
+                    >
+                      {t("settings.profile.fields.customId")}
+                    </label>
+                    <Input
+                      id="settings-custom-id"
+                      value={customIdInput}
+                      maxLength={25}
+                      disabled={customIdDisabled}
+                      placeholder={t("settings.profile.placeholders.customId")}
+                      onChange={(event) => setCustomIdInput(event.target.value)}
+                    />
+                    {settings ? (
+                      <FieldHint
+                        status={settings.custom_id}
+                        availableLabel={t("settings.profile.available")}
+                        soonFallback={t("settings.profile.soon")}
+                      />
+                    ) : null}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <span className="text-sm font-medium">
-                    {t("settings.profile.fields.primaryScope")}
-                  </span>
-                  <Select
-                    value={primaryScopeInput}
-                    onValueChange={(value) =>
-                      setPrimaryScopeInput(value as ModeScope)
-                    }
-                    disabled={primaryScopeDisabled}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue
-                        placeholder={t(
-                          "settings.profile.placeholders.primaryScope",
-                        )}
-                      >
-                        <span
-                          className={`inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em] ${getScopeTone(selectedPrimaryScope.value)}`}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">
+                      {t("settings.profile.fields.countryRegion")}
+                    </span>
+                    <CountryPicker
+                      value={countryInput}
+                      onChange={setCountryInput}
+                      placeholder={t("settings.profile.placeholders.country")}
+                      clearLabel={t("settings.profile.clearCountry")}
+                      disabled={countryDisabled}
+                    />
+                    {settings ? (
+                      <FieldHint
+                        status={settings.country}
+                        locked={settings.country_locked}
+                        availableLabel={t("settings.profile.available")}
+                        soonFallback={t("settings.profile.soon")}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">
+                      {t("settings.profile.fields.primaryScope")}
+                    </span>
+                    <Select
+                      value={primaryScopeInput}
+                      onValueChange={(value) =>
+                        setPrimaryScopeInput(value as ModeScope)
+                      }
+                      disabled={primaryScopeDisabled}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={t(
+                            "settings.profile.placeholders.primaryScope",
+                          )}
                         >
-                          {selectedPrimaryScope.value}
-                        </span>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SCOPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
                           <span
-                            className={`inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em] ${option.toneClassName}`}
+                            className={`inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em] ${getScopeTone(selectedPrimaryScope.value)}`}
                           >
-                            {option.value}
+                            {selectedPrimaryScope.value}
                           </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SCOPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <span
+                              className={`inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em] ${option.toneClassName}`}
+                            >
+                              {option.value}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ReadonlyField
+                    value={aliasInput || t("settings.profile.fallbacks.notSet")}
+                    label={t("settings.profile.fields.alias")}
+                    labelNode={
+                      <AliasLabel
+                        label={t("settings.profile.fields.alias")}
+                        tooltip={t("settings.profile.aliasInfo")}
+                        ariaLabel={t("settings.profile.aliasInfoAria")}
+                      />
+                    }
+                  />
+                  <ReadonlyField
+                    value={
+                      customIdInput || t("settings.profile.fallbacks.notSet")
+                    }
+                    label={t("settings.profile.fields.customId")}
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ReadonlyCountryField
+                    label={t("settings.profile.fields.countryRegion")}
+                    countryCode={countryInput}
+                    countryName={countryDisplayName}
+                  />
+                  <ReadonlyField
+                    value={primaryScopeInput}
+                    label={t("settings.profile.fields.primaryScope")}
+                    valueClassName={cn(
+                      "inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em]",
+                      getScopeTone(primaryScopeInput),
+                    )}
+                  />
                 </div>
               </div>
-            </>
-          ) : (
-            <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ReadonlyField
-                  value={aliasInput || t("settings.profile.fallbacks.notSet")}
-                  label={t("settings.profile.fields.alias")}
-                  labelNode={
-                    <AliasLabel
-                      label={t("settings.profile.fields.alias")}
-                      tooltip={t("settings.profile.aliasInfo")}
-                      ariaLabel={t("settings.profile.aliasInfoAria")}
-                    />
-                  }
-                />
-                <ReadonlyField
-                  value={
-                    customIdInput || t("settings.profile.fallbacks.notSet")
-                  }
-                  label={t("settings.profile.fields.customId")}
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ReadonlyCountryField
-                  label={t("settings.profile.fields.countryRegion")}
-                  countryCode={countryInput}
-                  countryName={countryDisplayName}
-                />
-                <ReadonlyField
-                  value={primaryScopeInput}
-                  label={t("settings.profile.fields.primaryScope")}
-                  valueClassName={cn(
-                    "inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em]",
-                    getScopeTone(primaryScopeInput),
-                  )}
-                />
-              </div>
-            </div>
-          )}
+            )}
           </form>
         </CardContent>
       </Card>

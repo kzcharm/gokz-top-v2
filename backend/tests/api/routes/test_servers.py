@@ -12,6 +12,7 @@ from app.models import (
     Map,
     ServerGroup,
     ServerGroupStatus,
+    ServerGroupUpdate,
     ServerStatus,
     ServerStatusPut,
 )
@@ -189,6 +190,35 @@ async def test_read_servers_returns_derived_region_and_filters_by_region(
     assert payload["count"] == 1
     assert payload["data"][0]["id"] == str(eu_server.id)
     assert payload["data"][0]["region"] == "EU"
+
+
+async def test_read_servers_returns_group_custom_id(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, _ = await create_server_group(db)
+    group = await crud.update_server_group(
+        session=db,
+        group=group,
+        group_in=ServerGroupUpdate(custom_id="axe"),
+    )
+    server = await create_server(db, group_id=group.id)
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers",
+        params={"limit": 200},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    [server_payload] = [
+        item for item in payload["data"] if item["id"] == str(server.id)
+    ]
+    assert server_payload["group"] == {
+        "id": str(group.id),
+        "name": group.name,
+        "custom_id": "axe",
+    }
 
 
 async def test_read_servers_accepts_limit_1000(

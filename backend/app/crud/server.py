@@ -196,7 +196,11 @@ def to_server_public(*, server: Server) -> ServerPublic:
     group = None
     loaded_group = server.__dict__.get("group")
     if isinstance(loaded_group, ServerGroup):
-        group = ServerGroupSummary(id=loaded_group.id, name=loaded_group.name)
+        group = ServerGroupSummary(
+            id=loaded_group.id,
+            name=loaded_group.name,
+            custom_id=loaded_group.custom_id,
+        )
 
     loaded_status = server.__dict__.get("live_status")
 

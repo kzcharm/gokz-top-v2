@@ -1284,6 +1284,7 @@ export type ServerGroupStatus = 'pending' | 'validated' | 'invalidated';
 export type ServerGroupSummary = {
     id: string;
     name: string;
+    custom_id?: (string | null);
 };
 
 export type ServerGroupUpdate = {

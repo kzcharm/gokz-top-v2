@@ -221,6 +221,10 @@ export function getServerGroupName(server: ServerPublic) {
   return server.group?.name?.trim() || null
 }
 
+export function getServerGroupCustomId(server: ServerPublic) {
+  return server.group?.custom_id?.trim() || null
+}
+
 export function getServerHostname(server: ServerPublic) {
   return server.live_status?.hostname?.trim() || getServerAddress(server)
 }
@@ -360,11 +364,22 @@ export function buildServersWebSocketUrl() {
 }
 
 export function getSelectedServerAddress(pathname: string) {
-  if (!pathname.startsWith("/servers/")) {
+  if (
+    !pathname.startsWith("/servers/") ||
+    pathname.startsWith("/servers/group/")
+  ) {
     return null
   }
 
   return decodeURIComponent(pathname.slice("/servers/".length))
+}
+
+export function getSelectedServerGroupCustomId(pathname: string) {
+  if (!pathname.startsWith("/servers/group/")) {
+    return null
+  }
+
+  return decodeURIComponent(pathname.slice("/servers/group/".length))
 }
 
 export function matchesServerSearch(server: ServerPublic, rawQuery: string) {
@@ -389,6 +404,7 @@ export function matchesServerSearch(server: ServerPublic, rawQuery: string) {
     server.region,
     getRegionName(server.region),
     server.group?.name,
+    server.group?.custom_id,
     ...playerNames,
   ]
 
@@ -476,7 +492,10 @@ export function getServerGroupCounts(
   servers: ServerPublic[],
   statusFilter: ServerStatusFilter,
 ) {
-  const counts = new Map<string, { count: number; name: string }>()
+  const counts = new Map<
+    string,
+    { count: number; customId: string | null; name: string }
+  >()
 
   for (const server of servers) {
     const groupId = getServerGroupId(server)
@@ -490,6 +509,7 @@ export function getServerGroupCounts(
       count:
         (current?.count || 0) +
         (matchesServerStatusFilter(server, statusFilter) ? 1 : 0),
+      customId: current?.customId ?? getServerGroupCustomId(server),
       name: groupName,
     })
   }

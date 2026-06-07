@@ -57,6 +57,7 @@ import {
   createServersSearchParams,
   getRegionCounts,
   getSelectedServerAddress,
+  getSelectedServerGroupCustomId,
   getServerAddress,
   getServerGroupCounts,
   getServerMapName,
@@ -117,6 +118,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   })
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const selectedAddress = getSelectedServerAddress(pathname)
+  const selectedGroupCustomId = getSelectedServerGroupCustomId(pathname)
   const hydratedInitialSearch = useMemo(() => {
     const searchParams = new URLSearchParams(initialSearchString)
     const urlSearch = Object.fromEntries(searchParams)
@@ -283,46 +285,84 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     [selectedAddress, servers],
   )
 
+  const selectedGroupId = useMemo(() => {
+    if (!selectedGroupCustomId) {
+      return null
+    }
+
+    return (
+      servers.find(
+        (server) => server.group?.custom_id === selectedGroupCustomId,
+      )?.group_id ?? null
+    )
+  }, [selectedGroupCustomId, servers])
+
+  const activeSearch = useMemo(
+    () =>
+      selectedGroupId
+        ? {
+            ...search,
+            group: selectedGroupId,
+          }
+        : search,
+    [search, selectedGroupId],
+  )
+
   const filteredServers = useMemo(() => {
     return servers.filter((server) => {
-      if (!matchesServerStatusFilter(server, search.status)) {
+      if (!matchesServerStatusFilter(server, activeSearch.status)) {
         return false
       }
 
-      if (!matchesServerGroupFilter(server, search.group)) {
+      if (!matchesServerGroupFilter(server, activeSearch.group)) {
         return false
       }
 
       if (
-        search.region !== "all" &&
-        server.region?.toUpperCase() !== search.region
+        activeSearch.region !== "all" &&
+        server.region?.toUpperCase() !== activeSearch.region
       ) {
         return false
       }
 
       return matchesServerSearch(server, deferredSearchInput)
     })
-  }, [deferredSearchInput, search.region, search.status, servers, search.group])
+  }, [
+    activeSearch.group,
+    activeSearch.region,
+    activeSearch.status,
+    deferredSearchInput,
+    servers,
+  ])
 
   const sortedServers = useMemo(
-    () => sortServers(filteredServers, search.sort, search.dir),
-    [filteredServers, search.dir, search.sort],
+    () => sortServers(filteredServers, activeSearch.sort, activeSearch.dir),
+    [activeSearch.dir, activeSearch.sort, filteredServers],
   )
 
   const groupOptions = useMemo(
-    () => getServerGroupCounts(servers, search.status),
-    [search.status, servers],
+    () => getServerGroupCounts(servers, activeSearch.status),
+    [activeSearch.status, servers],
   )
+  const selectedGroupReturnPath = useMemo(() => {
+    const groupId = selectedGroupId ?? search.group
+    if (groupId === "all") {
+      return null
+    }
+
+    const customId = groupOptions.find(([id]) => id === groupId)?.[1].customId
+    return customId ? `/servers/group/${customId}` : null
+  }, [groupOptions, search.group, selectedGroupId])
   const regionSourceServers = useMemo(
     () =>
       servers.filter((server) =>
-        matchesServerGroupFilter(server, search.group),
+        matchesServerGroupFilter(server, activeSearch.group),
       ),
-    [search.group, servers],
+    [activeSearch.group, servers],
   )
   const regionOptions = useMemo(
-    () => getRegionCounts(regionSourceServers, search.status),
-    [regionSourceServers, search.status],
+    () => getRegionCounts(regionSourceServers, activeSearch.status),
+    [activeSearch.status, regionSourceServers],
   )
   const mapDownloadUrls = useMemo(() => {
     const entries =
@@ -361,10 +401,10 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
   useEffect(() => {
     writeServersFilterPreferences({
-      group: search.group,
-      region: search.region,
+      group: activeSearch.group,
+      region: activeSearch.region,
     })
-  }, [search.group, search.region])
+  }, [activeSearch.group, activeSearch.region])
 
   useEffect(() => {
     if (!serversSeeded) {
@@ -373,26 +413,28 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
     const nextPatch: Partial<ServersSearchState> = {}
     const nextGroup =
-      search.group !== "all" &&
-      !groupOptions.some(([groupId]) => groupId === search.group)
+      activeSearch.group !== "all" &&
+      !groupOptions.some(([groupId]) => groupId === activeSearch.group)
         ? "all"
-        : search.group
+        : activeSearch.group
 
     const regionIsAvailable =
-      nextGroup === search.group
-        ? regionOptions.some(([regionCode]) => regionCode === search.region)
+      nextGroup === activeSearch.group
+        ? regionOptions.some(
+            ([regionCode]) => regionCode === activeSearch.region,
+          )
         : servers.some(
             (server) =>
-              matchesServerStatusFilter(server, search.status) &&
+              matchesServerStatusFilter(server, activeSearch.status) &&
               matchesServerGroupFilter(server, nextGroup) &&
-              server.region?.toUpperCase() === search.region,
+              server.region?.toUpperCase() === activeSearch.region,
           )
 
-    if (search.group !== "all" && nextGroup !== search.group) {
+    if (activeSearch.group !== "all" && nextGroup !== activeSearch.group) {
       nextPatch.group = nextGroup
     }
 
-    if (search.region !== "all" && !regionIsAvailable) {
+    if (activeSearch.region !== "all" && !regionIsAvailable) {
       nextPatch.region = "all"
     }
 
@@ -404,9 +446,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     groupOptions,
     regionOptions,
     servers,
-    search.group,
-    search.region,
-    search.status,
+    activeSearch.group,
+    activeSearch.region,
+    activeSearch.status,
     handleSearchPatch,
   ])
 
@@ -428,8 +470,8 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     handleSearchPatch({
       sort: nextSortKey,
       dir:
-        search.sort === nextSortKey
-          ? search.dir === "asc"
+        activeSearch.sort === nextSortKey
+          ? activeSearch.dir === "asc"
             ? "desc"
             : "asc"
           : nextSortKey === "players"
@@ -439,15 +481,15 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   }
 
   const handleGroupChange = (groupId: string) => {
-    const nextGroup = search.group === groupId ? "all" : groupId
+    const nextGroup = activeSearch.group === groupId ? "all" : groupId
     const nextPatch: Partial<ServersSearchState> = { group: nextGroup }
 
-    if (search.region !== "all" && nextGroup !== "all") {
+    if (activeSearch.region !== "all" && nextGroup !== "all") {
       const groupHasSelectedRegion = servers.some(
         (server) =>
-          matchesServerStatusFilter(server, search.status) &&
+          matchesServerStatusFilter(server, activeSearch.status) &&
           matchesServerGroupFilter(server, nextGroup) &&
-          server.region?.toUpperCase() === search.region,
+          server.region?.toUpperCase() === activeSearch.region,
       )
 
       if (!groupHasSelectedRegion) {
@@ -456,11 +498,21 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     }
 
     handleSearchPatch(nextPatch)
+
+    if (nextGroup === "all") {
+      navigate({ to: "/servers" })
+      return
+    }
+
+    const customId = groupOptions.find(([id]) => id === nextGroup)?.[1].customId
+    if (customId) {
+      navigate({ to: `/servers/group/${customId}` })
+    }
   }
 
   const handleRegionChange = (regionCode: string) => {
     handleSearchPatch({
-      region: search.region === regionCode ? "all" : regionCode,
+      region: activeSearch.region === regionCode ? "all" : regionCode,
     })
   }
 
@@ -468,7 +520,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     try {
       const shareUrl = new URL(window.location.origin)
       shareUrl.pathname = pathname
-      shareUrl.search = createServersSearchParams(search, {
+      shareUrl.search = createServersSearchParams(activeSearch, {
         includeDefaults: true,
       }).toString()
 
@@ -573,7 +625,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
             </Badge>
             <div className="flex gap-1">
               <Button
-                variant={search.view === "table" ? "default" : "outline"}
+                variant={activeSearch.view === "table" ? "default" : "outline"}
                 size="icon"
                 onClick={() => handleSearchPatch({ view: "table" })}
                 aria-label="Table view"
@@ -581,7 +633,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                 <List className="h-4 w-4" />
               </Button>
               <Button
-                variant={search.view === "grid" ? "default" : "outline"}
+                variant={activeSearch.view === "grid" ? "default" : "outline"}
                 size="icon"
                 onClick={() => handleSearchPatch({ view: "grid" })}
                 aria-label="Grid view"
@@ -603,12 +655,12 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                         key={groupId}
                         type="button"
                         variant={
-                          search.group === groupId ? "default" : "outline"
+                          activeSearch.group === groupId ? "default" : "outline"
                         }
                         size="sm"
                         onClick={() => handleGroupChange(groupId)}
                         title={
-                          search.group === groupId
+                          activeSearch.group === groupId
                             ? "Show all server groups"
                             : `Filter by ${group.name}`
                         }
@@ -626,27 +678,29 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     type="button"
                     className={cn(
                       "flex h-8 items-center gap-2 rounded-md border px-2.5 shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                      search.status === "online" &&
+                      activeSearch.status === "online" &&
                         "border-green-600/30 bg-green-600/5",
                     )}
                     onClick={() =>
                       handleSearchPatch({
                         status:
-                          search.status === "online" ? "offline" : "online",
+                          activeSearch.status === "online"
+                            ? "offline"
+                            : "online",
                       })
                     }
                     title="Click to switch between online and offline servers"
                   >
                     <Switch
                       aria-hidden="true"
-                      checked={search.status === "online"}
+                      checked={activeSearch.status === "online"}
                       className="pointer-events-none"
                       tabIndex={-1}
                     />
                     <span
                       className={cn(
                         "text-xs font-medium",
-                        search.status === "online" &&
+                        activeSearch.status === "online" &&
                           "text-green-700 dark:text-green-400",
                       )}
                     >
@@ -691,7 +745,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                       <Button
                         key={regionCode}
                         variant={
-                          search.region === regionCode ? "default" : "outline"
+                          activeSearch.region === regionCode
+                            ? "default"
+                            : "outline"
                         }
                         size="sm"
                         onClick={() => handleRegionChange(regionCode)}
@@ -718,14 +774,14 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
               No servers match the current filters.
             </CardContent>
           </Card>
-        ) : search.view === "table" ? (
+        ) : activeSearch.view === "table" ? (
           <Card className={SERVER_BROWSER_CARD_CLASS_NAME}>
             <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
               <ServerTable
                 servers={sortedServers}
                 selectedAddress={selectedAddress}
-                sortKey={search.sort}
-                sortDirection={search.dir}
+                sortKey={activeSearch.sort}
+                sortDirection={activeSearch.dir}
                 onSortChange={handleSortChange}
                 onSelect={handleSelectServer}
                 onCopyAddress={handleCopyAddress}
@@ -745,26 +801,26 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
             >
               <div className="flex flex-wrap gap-4">
                 <SortControl
-                  active={search.sort === "hostname"}
-                  direction={search.dir}
+                  active={activeSearch.sort === "hostname"}
+                  direction={activeSearch.dir}
                   label="Server"
                   onClick={() => handleSortChange("hostname")}
                 />
                 <SortControl
-                  active={search.sort === "map"}
-                  direction={search.dir}
+                  active={activeSearch.sort === "map"}
+                  direction={activeSearch.dir}
                   label="Map"
                   onClick={() => handleSortChange("map")}
                 />
                 <SortControl
-                  active={search.sort === "tier"}
-                  direction={search.dir}
+                  active={activeSearch.sort === "tier"}
+                  direction={activeSearch.dir}
                   label="Tier"
                   onClick={() => handleSortChange("tier")}
                 />
                 <SortControl
-                  active={search.sort === "players"}
-                  direction={search.dir}
+                  active={activeSearch.sort === "players"}
+                  direction={activeSearch.dir}
                   label="Players"
                   onClick={() => handleSortChange("players")}
                 />
@@ -804,7 +860,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
           }
 
           navigate({
-            to: "/servers",
+            to: selectedGroupReturnPath ?? "/servers",
             replace: true,
           })
         }}

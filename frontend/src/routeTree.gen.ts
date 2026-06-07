@@ -24,6 +24,7 @@ import { Route as LayoutLeaderboardsRouteImport } from './routes/_layout/leaderb
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as ServersGroupCustomIdRouteImport } from './routes/servers.group.$customId'
 import { Route as MapsMapNameStatsRouteImport } from './routes/maps.$mapName.stats'
 import { Route as MapsMapNameReviewsRouteImport } from './routes/maps.$mapName.reviews'
 import { Route as MapsMapNameMaptopRouteImport } from './routes/maps.$mapName.maptop'
@@ -131,6 +132,11 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => LayoutRoute,
+} as any)
+const ServersGroupCustomIdRoute = ServersGroupCustomIdRouteImport.update({
+  id: '/group/$customId',
+  path: '/group/$customId',
+  getParentRoute: () => ServersRoute,
 } as any)
 const MapsMapNameStatsRoute = MapsMapNameStatsRouteImport.update({
   id: '/stats',
@@ -355,6 +361,7 @@ export interface FileRoutesByFullPath {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/servers/group/$customId': typeof ServersGroupCustomIdRoute
   '/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
   '/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
   '/admin/servers/server-group': typeof LayoutAdminServersServerGroupRoute
@@ -403,6 +410,7 @@ export interface FileRoutesByTo {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/servers/group/$customId': typeof ServersGroupCustomIdRoute
   '/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
   '/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
   '/admin/servers/server-group': typeof LayoutAdminServersServerGroupRoute
@@ -454,6 +462,7 @@ export interface FileRoutesById {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/servers/group/$customId': typeof ServersGroupCustomIdRoute
   '/_layout/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
   '/_layout/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
   '/_layout/admin/servers/server-group': typeof LayoutAdminServersServerGroupRoute
@@ -505,6 +514,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/servers/group/$customId'
     | '/admin/servers/globalapi-server'
     | '/admin/servers/public-server'
     | '/admin/servers/server-group'
@@ -553,6 +563,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/servers/group/$customId'
     | '/admin/servers/globalapi-server'
     | '/admin/servers/public-server'
     | '/admin/servers/server-group'
@@ -603,6 +614,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/servers/group/$customId'
     | '/_layout/admin/servers/globalapi-server'
     | '/_layout/admin/servers/public-server'
     | '/_layout/admin/servers/server-group'
@@ -729,6 +741,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/servers/group/$customId': {
+      id: '/servers/group/$customId'
+      path: '/group/$customId'
+      fullPath: '/servers/group/$customId'
+      preLoaderRoute: typeof ServersGroupCustomIdRouteImport
+      parentRoute: typeof ServersRoute
     }
     '/maps/$mapName/stats': {
       id: '/maps/$mapName/stats'
@@ -1140,10 +1159,12 @@ const MapsRouteWithChildren = MapsRoute._addFileChildren(MapsRouteChildren)
 
 interface ServersRouteChildren {
   ServersServerAddressRoute: typeof ServersServerAddressRoute
+  ServersGroupCustomIdRoute: typeof ServersGroupCustomIdRoute
 }
 
 const ServersRouteChildren: ServersRouteChildren = {
   ServersServerAddressRoute: ServersServerAddressRoute,
+  ServersGroupCustomIdRoute: ServersGroupCustomIdRoute,
 }
 
 const ServersRouteWithChildren =

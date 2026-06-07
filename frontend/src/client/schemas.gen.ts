@@ -6342,6 +6342,17 @@ export const ServerGroupSummarySchema = {
         name: {
             type: 'string',
             title: 'Name'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
         }
     },
     type: 'object',

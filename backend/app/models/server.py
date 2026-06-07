@@ -368,6 +368,7 @@ class ServerHeartbeatRaw(SQLModel, table=True):
 class ServerGroupSummary(SQLModel):
     id: uuid.UUID
     name: str
+    custom_id: str | None = None
 
 
 class ServerLiveStatusStatePublic(SQLModel):
