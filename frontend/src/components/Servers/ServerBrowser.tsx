@@ -667,7 +667,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                       >
                         <span className="max-w-40 truncate">{group.name}</span>
                         <span className="text-xs opacity-80">
-                          ({group.count})
+                          ({group.playerCount})
                         </span>
                       </Button>
                     ))}
@@ -736,7 +736,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
               {regionOptions.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  {regionOptions.map(([regionCode, count]) => {
+                  {regionOptions.map(([regionCode, regionCounts]) => {
                     const region =
                       regionsQuery.data?.find(
                         (option) => option.code === regionCode,
@@ -757,7 +757,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                             regionCode={regionCode}
                             regionName={region?.name}
                           />
-                          <span className="text-xs opacity-80">({count})</span>
+                          <span className="text-xs opacity-80">
+                            ({regionCounts.playerCount})
+                          </span>
                         </div>
                       </Button>
                     )

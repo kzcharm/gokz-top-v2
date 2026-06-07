@@ -468,7 +468,7 @@ export function getRegionCounts(
   servers: ServerPublic[],
   statusFilter: ServerStatusFilter,
 ) {
-  const counts = new Map<string, number>()
+  const counts = new Map<string, { count: number; playerCount: number }>()
 
   for (const server of servers) {
     if (!matchesServerStatusFilter(server, statusFilter)) {
@@ -480,7 +480,14 @@ export function getRegionCounts(
       continue
     }
 
-    counts.set(region, (counts.get(region) || 0) + 1)
+    const current = counts.get(region)
+    const playerCount = isServerOnline(server)
+      ? getServerPlayerCount(server)
+      : 0
+    counts.set(region, {
+      count: (current?.count || 0) + 1,
+      playerCount: (current?.playerCount || 0) + playerCount,
+    })
   }
 
   return Array.from(counts.entries()).sort((left, right) =>
@@ -494,7 +501,12 @@ export function getServerGroupCounts(
 ) {
   const counts = new Map<
     string,
-    { count: number; customId: string | null; name: string }
+    {
+      count: number
+      customId: string | null
+      name: string
+      playerCount: number
+    }
   >()
 
   for (const server of servers) {
@@ -505,12 +517,17 @@ export function getServerGroupCounts(
     }
 
     const current = counts.get(groupId)
+    const playerCount =
+      matchesServerStatusFilter(server, statusFilter) && isServerOnline(server)
+        ? getServerPlayerCount(server)
+        : 0
     counts.set(groupId, {
       count:
         (current?.count || 0) +
         (matchesServerStatusFilter(server, statusFilter) ? 1 : 0),
       customId: current?.customId ?? getServerGroupCustomId(server),
       name: groupName,
+      playerCount: (current?.playerCount || 0) + playerCount,
     })
   }
 
