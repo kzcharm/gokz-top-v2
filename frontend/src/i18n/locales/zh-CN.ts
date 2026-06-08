@@ -215,12 +215,17 @@ export const zhCN = {
         customId: "自定义 ID",
         countryRegion: "国家 / 地区",
         primaryScope: "主要 Scope",
+        favoriteServer: "最爱服务器",
       },
       placeholders: {
         alias: "别名",
         customId: "custom-id",
         country: "选择国家/地区",
         primaryScope: "选择主要 Scope",
+        favoriteServer: "选择最爱服务器",
+      },
+      favoriteServer: {
+        none: "None",
       },
       fallbacks: {
         notSet: "未设置",
@@ -309,6 +314,7 @@ export const zhCN = {
       lastPlayed: "最近游玩",
       playtime: "游玩时长",
       ljPb: "LJ PB",
+      favoriteServer: "最爱服务器",
       profileViews: "资料浏览量",
       likes: "点赞",
       followers: "关注者",

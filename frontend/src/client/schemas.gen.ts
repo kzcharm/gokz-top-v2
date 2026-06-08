@@ -3487,11 +3487,144 @@ export const PlayerDetailPublicSchema = {
                 }
             ],
             title: 'Roles'
+        },
+        favorite_server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerFavoriteServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
     required: ['name', 'steamid64'],
     title: 'PlayerDetailPublic'
+} as const;
+
+export const PlayerFavoriteServerGroupPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        custom_id: {
+            type: 'string',
+            title: 'Custom Id'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name', 'custom_id'],
+    title: 'PlayerFavoriteServerGroupPublic'
+} as const;
+
+export const PlayerFavoriteServerOptionPublicSchema = {
+    properties: {
+        key: {
+            type: 'string',
+            title: 'Key'
+        },
+        label: {
+            type: 'string',
+            title: 'Label'
+        },
+        server_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Server Id'
+        },
+        server_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Server Name'
+        },
+        server_group: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerFavoriteServerGroupPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        total_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Seconds',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['key', 'label'],
+    title: 'PlayerFavoriteServerOptionPublic'
+} as const;
+
+export const PlayerFavoriteServerPublicSchema = {
+    properties: {
+        key: {
+            type: 'string',
+            title: 'Key'
+        },
+        label: {
+            type: 'string',
+            title: 'Label'
+        },
+        server_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Server Id'
+        },
+        server_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Server Name'
+        },
+        server_group: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerFavoriteServerGroupPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    required: ['key', 'label'],
+    title: 'PlayerFavoriteServerPublic'
 } as const;
 
 export const PlayerFollowSummaryPublicSchema = {
@@ -3964,6 +4097,16 @@ export const PlayerLikerPublicSchema = {
             type: 'integer',
             title: 'Profile Views',
             default: 0
+        },
+        favorite_server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerFavoriteServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         },
         latest_like_at: {
             anyOf: [
@@ -4656,6 +4799,16 @@ export const PlayerPublicSchema = {
             type: 'integer',
             title: 'Profile Views',
             default: 0
+        },
+        favorite_server: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerFavoriteServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
@@ -4966,6 +5119,18 @@ export const PlayerSettingsPublicSchema = {
             type: 'boolean',
             title: 'Country Locked',
             default: false
+        },
+        favorite_server_manual_override: {
+            type: 'boolean',
+            title: 'Favorite Server Manual Override',
+            default: false
+        },
+        favorite_server_options: {
+            items: {
+                '$ref': '#/components/schemas/PlayerFavoriteServerOptionPublic'
+            },
+            type: 'array',
+            title: 'Favorite Server Options'
         }
     },
     type: 'object',
@@ -5020,6 +5185,18 @@ export const PlayerSettingsUpdateSchema = {
                     type: 'null'
                 }
             ]
+        },
+        favorite_server_key: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 80
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Favorite Server Key'
         }
     },
     additionalProperties: false,

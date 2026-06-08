@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-06-05
+- Last Updated: 2026-06-08
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -27,14 +27,15 @@
   - The maps leaderboard is materialized in `cache.map_leaderboard`, keyed by `(map_id, scope)`, derived from raw valid stage-0 `record` rows, and joined with scoped map tiers plus map review summaries at read time
   - `map_course_tier`, keyed by `(course_id, mode)`, is now the v1 source of truth for course and map tier reads; `record_filter` is limited to availability metadata, and tier-bearing responses normalize to integers `0..8` with `0` meaning unavailable, impossible, or unknown
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
-  - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity, total playtime, and a grouped most-played-server breakdown aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry
+  - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity, total playtime, and a grouped most-played-server breakdown aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry; most-played-server rebuilds auto-update `player.favorite_server_id` or `player.favorite_server_group_id` unless a manual favorite override action exists
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
   - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds
   - Player sessions snapshot GeoIP country/region/city at ingest time for admin-only shared-IP traversal across exact IP, `/24`, and `/16 + city` buckets
-  - Player self-service profile edits and rate-limited sync actions are tracked in `player_action_timestamp`, keyed by `(player_steamid64, action)`, with 30-day cooldown rows for `alias_change` and `custom_id_change`, a `country_manual_override` row that disables automatic country refreshes after a manual country change, and a one-minute `friends_sync` action used by the player friends sync flow
+  - Player self-service profile edits and rate-limited sync actions are tracked in `player_action_timestamp`, keyed by `(player_steamid64, action)`, with 30-day cooldown rows for `alias_change` and `custom_id_change`, a `country_manual_override` row that disables automatic country refreshes after a manual country change, a `favorite_server_manual_override` row that disables favorite-server auto-updates after any manual favorite choice including `None`, and a one-minute `friends_sync` action used by the player friends sync flow
   - Automatic Steam/GlobalAPI/player-session country refreshes use the absence of a `player_action_timestamp(country_manual_override)` row as the gate for overwriting `player.country`, while manual user/admin country edits remain allowed
   - KZ-only player friendships are stored in `player_friend` as directed edges, with sync flows maintaining both directions for active friendships and deleting stale edges only after a successful Steam friends fetch
   - `player` now persists Steam friends visibility state through `friends_visibility` and `friends_visibility_checked_at`, allowing public profile reads to explain whether a Steam profile or friends list is private without storing generic sync-failure state
+  - `player.favorite_server_id` and `player.favorite_server_group_id` persist the resolved favorite server target with a check constraint allowing at most one target; grouped favorites display and link through the server group summary shape
   - Player profile comments are stored in `player_comment`, keyed by UUIDv7 and linked to both author and target `player.steamid64`, with trimmed text validation, reverse-chronological profile reads, and owner-or-author deletion
   - Player notifications are stored in `player_notification`, keyed by UUIDv7 with an idempotent `source_key`, recipient/actor Steam IDs, read timestamps, target URLs, and typed payload fields for profile likes, profile comments, follows, and future-only WR-beaten events
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges; Twitch and YouTube support OAuth self-verification, Bilibili supports profile-code self-verification, and admins can still manage verification metadata

@@ -11,7 +11,6 @@ from app.models import (
     MapCourse,
     MapCourseTier,
     RecordFilter,
-    legacy_mode_id_to_kz_mode,
 )
 from app.services import globalapi_record_filter_sync as record_filter_sync
 from app.services.vanilla_tier import VanillaTierEntry

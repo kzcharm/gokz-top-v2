@@ -9,6 +9,7 @@ from sqlmodel import Field, SQLModel
 from .mode_scope import ModeScope
 from .player import (
     MAX_PLAYER_CUSTOM_ID_LENGTH,
+    PlayerFavoriteServerOptionPublic,
     PlayerPublic,
     normalize_player_country,
     validate_player_custom_id,
@@ -25,6 +26,7 @@ class PlayerAction(StrEnum):
     ALIAS_CHANGE = "alias_change"
     CUSTOM_ID_CHANGE = "custom_id_change"
     COUNTRY_MANUAL_OVERRIDE = "country_manual_override"
+    FAVORITE_SERVER_MANUAL_OVERRIDE = "favorite_server_manual_override"
     FRIENDS_SYNC = "friends_sync"
 
 
@@ -79,6 +81,10 @@ class PlayerSettingsPublic(SQLModel):
     custom_id: PlayerProfileFieldStatus
     country: PlayerProfileFieldStatus
     country_locked: bool = False
+    favorite_server_manual_override: bool = False
+    favorite_server_options: list[PlayerFavoriteServerOptionPublic] = Field(
+        default_factory=list
+    )
 
 
 class PlayerSettingsUpdate(SQLModel):
@@ -88,6 +94,7 @@ class PlayerSettingsUpdate(SQLModel):
     custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)
     country: str | None = Field(default=None, max_length=2)
     primary_scope: ModeScope | None = None
+    favorite_server_key: str | None = Field(default=None, max_length=80)
 
     @field_validator("alias", mode="after")
     @classmethod

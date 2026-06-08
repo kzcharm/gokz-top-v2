@@ -215,12 +215,17 @@ export const en = {
         customId: "Custom ID",
         countryRegion: "Country / Region",
         primaryScope: "Primary Scope",
+        favoriteServer: "Fav Server",
       },
       placeholders: {
         alias: "Alias",
         customId: "custom-id",
         country: "Select a country",
         primaryScope: "Select a primary scope",
+        favoriteServer: "Select a fav server",
+      },
+      favoriteServer: {
+        none: "None",
       },
       fallbacks: {
         notSet: "Not set",
@@ -316,6 +321,7 @@ export const en = {
       lastPlayed: "Last Played",
       playtime: "Playtime",
       ljPb: "Long Jump",
+      favoriteServer: "Fav Server",
       profileViews: "Profile Views",
       likes: "Likes",
       followers: "Followers",

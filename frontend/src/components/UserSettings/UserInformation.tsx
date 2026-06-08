@@ -32,6 +32,7 @@ import { extractErrorMessage } from "@/utils"
 
 type FieldStatus = PlayerSettingsPublic["alias"]
 
+const favoriteServerNoneValue = "__none__"
 const aliasPattern = /^[A-Za-z0-9 _-]+$/
 const customIdAllowedPattern = /^[A-Za-z0-9_-]+$/
 const customIdLetterPattern = /[A-Za-z]/
@@ -173,6 +174,9 @@ const UserInformation = () => {
   const [customIdInput, setCustomIdInput] = useState("")
   const [countryInput, setCountryInput] = useState<string | null>(null)
   const [primaryScopeInput, setPrimaryScopeInput] = useState<ModeScope>("OVR")
+  const [favoriteServerKeyInput, setFavoriteServerKeyInput] = useState<
+    string | null
+  >(null)
   const [isEditing, setIsEditing] = useState(false)
 
   const settingsQuery = useQuery({
@@ -194,6 +198,7 @@ const UserInformation = () => {
     setCustomIdInput(player.custom_id ?? "")
     setCountryInput(player.country ?? null)
     setPrimaryScopeInput(player.primary_scope ?? "OVR")
+    setFavoriteServerKeyInput(player.favorite_server?.key ?? null)
     setIsEditing(false)
   }, [player])
 
@@ -203,6 +208,7 @@ const UserInformation = () => {
       customId: player?.custom_id ?? "",
       country: player?.country ?? null,
       primaryScope: player?.primary_scope ?? "OVR",
+      favoriteServerKey: player?.favorite_server?.key ?? null,
     }),
     [player],
   )
@@ -211,7 +217,8 @@ const UserInformation = () => {
     aliasInput !== initialValues.alias ||
     customIdInput !== initialValues.customId ||
     countryInput !== initialValues.country ||
-    primaryScopeInput !== initialValues.primaryScope
+    primaryScopeInput !== initialValues.primaryScope ||
+    favoriteServerKeyInput !== initialValues.favoriteServerKey
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -220,6 +227,7 @@ const UserInformation = () => {
         custom_id?: string
         country?: string
         primary_scope?: ModeScope
+        favorite_server_key?: string | null
       } = {}
       const alias = aliasInput.trim()
       const customId = customIdInput.trim()
@@ -257,6 +265,10 @@ const UserInformation = () => {
         requestBody.primary_scope = primaryScopeInput
       }
 
+      if (favoriteServerKeyInput !== initialValues.favoriteServerKey) {
+        requestBody.favorite_server_key = favoriteServerKeyInput
+      }
+
       return MeService.updateCurrentPlayerSettings({ requestBody })
     },
     onSuccess: (data) => {
@@ -289,12 +301,22 @@ const UserInformation = () => {
     !isEditing || settings?.custom_id.can_change === false || mutation.isPending
   const countryDisabled = !isEditing || mutation.isPending
   const primaryScopeDisabled = !isEditing || mutation.isPending
+  const favoriteServerDisabled = !isEditing || mutation.isPending
   const countryDisplayName =
     getCountryName(countryInput, i18n.resolvedLanguage) ??
     t("common.unknownCountry")
   const selectedPrimaryScope =
     SCOPE_OPTIONS.find((option) => option.value === primaryScopeInput) ??
     SCOPE_OPTIONS[0]
+  const favoriteServerDisplayName =
+    player?.favorite_server?.label ?? t("settings.profile.favoriteServer.none")
+  const selectedFavoriteServerOption = settings?.favorite_server_options?.find(
+    (option) => option.key === favoriteServerKeyInput,
+  )
+  const selectedFavoriteServerLabel =
+    favoriteServerKeyInput === null
+      ? t("settings.profile.favoriteServer.none")
+      : (selectedFavoriteServerOption?.label ?? favoriteServerDisplayName)
   const profileDisplayPlayer = player ?? {
     steamid64: currentUser.steamid64,
     display_name: currentUser.player?.display_name ?? null,
@@ -319,6 +341,7 @@ const UserInformation = () => {
                   setCustomIdInput(initialValues.customId)
                   setCountryInput(initialValues.country)
                   setPrimaryScopeInput(initialValues.primaryScope)
+                  setFavoriteServerKeyInput(initialValues.favoriteServerKey)
                   setIsEditing(false)
                 }}
               >
@@ -488,6 +511,54 @@ const UserInformation = () => {
                     </Select>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">
+                    {t("settings.profile.fields.favoriteServer")}
+                  </span>
+                  <Select
+                    value={favoriteServerKeyInput ?? favoriteServerNoneValue}
+                    onValueChange={(value) =>
+                      setFavoriteServerKeyInput(
+                        value === favoriteServerNoneValue ? null : value,
+                      )
+                    }
+                    disabled={favoriteServerDisabled}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue
+                        placeholder={t(
+                          "settings.profile.placeholders.favoriteServer",
+                        )}
+                      >
+                        <span
+                          className={
+                            favoriteServerKeyInput === null
+                              ? "font-medium text-amber-700 dark:text-amber-300"
+                              : undefined
+                          }
+                        >
+                          {selectedFavoriteServerLabel}
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value={favoriteServerNoneValue}
+                        className="font-medium text-amber-700 focus:bg-amber-500/10 focus:text-amber-900 dark:text-amber-300 dark:focus:text-amber-200"
+                      >
+                        {t("settings.profile.favoriteServer.none")}
+                      </SelectItem>
+                      {(settings?.favorite_server_options ?? []).map(
+                        (option) => (
+                          <SelectItem key={option.key} value={option.key}>
+                            {option.label}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </>
             ) : (
               <div className="space-y-5">
@@ -525,6 +596,10 @@ const UserInformation = () => {
                     )}
                   />
                 </div>
+                <ReadonlyField
+                  value={favoriteServerDisplayName}
+                  label={t("settings.profile.fields.favoriteServer")}
+                />
               </div>
             )}
           </form>

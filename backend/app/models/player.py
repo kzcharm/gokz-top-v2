@@ -1,10 +1,21 @@
 import re
+import uuid
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Literal
 
 from pydantic import ConfigDict, field_validator
-from sqlalchemy import BigInteger, Column, Computed, DateTime, Index, Integer, text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    Column,
+    Computed,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    text,
+)
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
@@ -125,6 +136,10 @@ class PlayerBase(SQLModel):
 
 class Player(PlayerBase, table=True):
     __table_args__ = (
+        CheckConstraint(
+            "favorite_server_id IS NULL OR favorite_server_group_id IS NULL",
+            name="ck_player_favorite_server_single_target",
+        ),
         Index(
             "ix_player_search_vector",
             "search_vector",
@@ -152,6 +167,8 @@ class Player(PlayerBase, table=True):
             postgresql_where=text("custom_id IS NOT NULL"),
         ),
         Index("ix_player_country_steamid64", "country", "steamid64"),
+        Index("ix_player_favorite_server_id", "favorite_server_id"),
+        Index("ix_player_favorite_server_group_id", "favorite_server_group_id"),
     )
 
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)
@@ -179,6 +196,19 @@ class Player(PlayerBase, table=True):
         ge=0,
         sa_column=Column(Integer, nullable=True),
     )
+    favorite_server_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("server_globalapi.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
+    )
+    favorite_server_group_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="server_group.id",
+        ondelete="SET NULL",
+    )
     search_vector: str | None = Field(
         default=None,
         sa_column=Column(
@@ -196,15 +226,35 @@ class Player(PlayerBase, table=True):
     )
 
 
+class PlayerFavoriteServerGroupPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    custom_id: str
+
+
+class PlayerFavoriteServerPublic(SQLModel):
+    key: str
+    label: str
+    server_id: int | None = None
+    server_name: str | None = None
+    server_group: PlayerFavoriteServerGroupPublic | None = None
+
+
+class PlayerFavoriteServerOptionPublic(PlayerFavoriteServerPublic):
+    total_seconds: float = Field(default=0, ge=0)
+
+
 class PlayerPublic(PlayerBase):
     steamid64: str
     roles: list[UserRole] | None = None
     profile_views: int = 0
+    favorite_server: PlayerFavoriteServerPublic | None = None
 
 
 class PlayerDetailPublic(PlayerBase):
     steamid64: str
     roles: list[UserRole] | None = None
+    favorite_server: PlayerFavoriteServerPublic | None = None
 
 
 class PlayerRefPublic(SQLModel):

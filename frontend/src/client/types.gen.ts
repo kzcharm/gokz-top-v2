@@ -709,6 +709,30 @@ export type PlayerDetailPublic = {
     updated_at?: (string | null);
     steamid64: string;
     roles?: (Array<UserRole> | null);
+    favorite_server?: (PlayerFavoriteServerPublic | null);
+};
+
+export type PlayerFavoriteServerGroupPublic = {
+    id: string;
+    name: string;
+    custom_id: string;
+};
+
+export type PlayerFavoriteServerOptionPublic = {
+    key: string;
+    label: string;
+    server_id?: (number | null);
+    server_name?: (string | null);
+    server_group?: (PlayerFavoriteServerGroupPublic | null);
+    total_seconds?: number;
+};
+
+export type PlayerFavoriteServerPublic = {
+    key: string;
+    label: string;
+    server_id?: (number | null);
+    server_name?: (string | null);
+    server_group?: (PlayerFavoriteServerGroupPublic | null);
 };
 
 export type PlayerFollowSummaryPublic = {
@@ -786,6 +810,7 @@ export type PlayerLikerPublic = {
     steamid64: string;
     roles?: (Array<UserRole> | null);
     profile_views?: number;
+    favorite_server?: (PlayerFavoriteServerPublic | null);
     latest_like_at?: (string | null);
 };
 
@@ -917,6 +942,7 @@ export type PlayerPublic = {
     steamid64: string;
     roles?: (Array<UserRole> | null);
     profile_views?: number;
+    favorite_server?: (PlayerFavoriteServerPublic | null);
 };
 
 export type PlayerRefPublic = {
@@ -996,6 +1022,8 @@ export type PlayerSettingsPublic = {
     custom_id: PlayerProfileFieldStatus;
     country: PlayerProfileFieldStatus;
     country_locked?: boolean;
+    favorite_server_manual_override?: boolean;
+    favorite_server_options?: Array<PlayerFavoriteServerOptionPublic>;
 };
 
 export type PlayerSettingsUpdate = {
@@ -1003,6 +1031,7 @@ export type PlayerSettingsUpdate = {
     custom_id?: (string | null);
     country?: (string | null);
     primary_scope?: (ModeScope | null);
+    favorite_server_key?: (string | null);
 };
 
 export type PlayerSocialLinkBilibiliVerificationStart = {

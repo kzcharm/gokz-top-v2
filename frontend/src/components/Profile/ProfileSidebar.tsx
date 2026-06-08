@@ -38,6 +38,7 @@ import {
   PlayerDisplay,
   PlayerFollowContextMenuItem,
 } from "@/components/Common/PlayerDisplay"
+import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Dialog,
@@ -966,6 +967,7 @@ export function ProfileSidebar({
     followSummary?.viewer_is_self === true
   const isFollowing = followSummary?.viewer_is_following === true
   const ljPbDistance = ljPbQuery.data?.data?.[0]?.distance ?? null
+  const favoriteServer = player.favorite_server
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
   const followMutation = useMutation({
@@ -1237,6 +1239,22 @@ export function ProfileSidebar({
                     "-"
                   ) : (
                     `${formatJumpDistance(ljPbDistance)} ${t("profile.jumpstats.units")}`
+                  )
+                }
+              />
+              <DetailRow
+                label={t("profile.summary.favoriteServer")}
+                value={
+                  favoriteServer ? (
+                    <RecordServerDisplay
+                      serverName={
+                        favoriteServer.server_name ?? favoriteServer.label
+                      }
+                      serverGroup={favoriteServer.server_group}
+                      className="ml-auto max-w-[12rem] text-right text-sm font-semibold"
+                    />
+                  ) : (
+                    "-"
                   )
                 }
               />

@@ -339,6 +339,11 @@ async def read_player_stats(
 ) -> JSONResponse:
     player = await get_player_or_404(session=session, identifier=identifier)
     if type is not None:
+        payload: (
+            PlayerDailyActivityPublic
+            | PlayerPlaytimePublic
+            | PlayerMostPlayedServerPublic
+        )
         if type == PlayerStatType.DAILY_ACTIVITY:
             daily_activity = await crud.get_or_rebuild_player_daily_activity_stat(
                 session=session,
@@ -460,6 +465,10 @@ async def read_player(
     return crud.to_player_detail_public(
         player=player,
         roles=roles_by_steamid64.get(player.steamid64),
+        favorite_server=await crud.resolve_player_favorite_server_public(
+            session=session,
+            player=player,
+        ),
     )
 
 

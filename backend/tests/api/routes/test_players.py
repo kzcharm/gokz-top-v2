@@ -17,10 +17,14 @@ from app.models import (
     LeaderboardPlayer,
     ModeScope,
     Player,
+    PlayerAction,
     PlayerComment,
     PlayerFollow,
     PlayerProfileField,
     PlayerProfileHistory,
+    PlayerStatCache,
+    PlayerStatType,
+    ServerGlobalapi,
     User,
 )
 from app.services import globalapi_ban_sync, player_steam_profile
@@ -70,6 +74,53 @@ async def _create_profile_field_change(
         player_steamid64=steamid64,
         field=field,
         changed_at=changed_at,
+    )
+    await db.commit()
+
+
+async def _create_favorite_server_cache_option(
+    *,
+    db: AsyncSession,
+    steamid64: int,
+    server_id: int,
+    server_name: str,
+) -> None:
+    db.add(
+        ServerGlobalapi(
+            id=server_id,
+            port=27015,
+            ip=f"203.0.113.{server_id % 255}",
+            name=server_name,
+            owner_steamid64=steamid64,
+            approval_status=1,
+            approved_by_steamid64=steamid64,
+        )
+    )
+    db.add(
+        PlayerStatCache(
+            steamid64=steamid64,
+            type=PlayerStatType.MOST_PLAYED_SERVER,
+            updated_at=datetime.now(UTC),
+            content={
+                "first_year": 2026,
+                "current_year": 2026,
+                "years": [2026],
+                "all_time": {
+                    "total_seconds": 10.0,
+                    "entries": [
+                        {
+                            "key": f"server:{server_id}",
+                            "label": server_name,
+                            "total_seconds": 10.0,
+                            "server_count": 1,
+                            "server_ids": [server_id],
+                        }
+                    ],
+                },
+                "last_365_days": {"total_seconds": 10.0, "entries": []},
+                "yearly": {},
+            },
+        )
     )
     await db.commit()
 
@@ -1374,6 +1425,96 @@ async def test_read_current_player_settings_returns_edit_status(
     assert payload["custom_id"]["can_change"] is True
     assert payload["country"]["can_change"] is True
     assert payload["country_locked"] is False
+    assert payload["favorite_server_manual_override"] is False
+    assert payload["favorite_server_options"] == []
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_sets_played_favorite_server(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    server_id = int(str(steamid64)[-8:])
+    server_name = "Settings Favorite"
+    await _create_player(db=db, steamid64=steamid64, name="Settings Favorite")
+    await _create_favorite_server_cache_option(
+        db=db,
+        steamid64=steamid64,
+        server_id=server_id,
+        server_name=server_name,
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    read_response = await client.get(
+        f"{settings.API_V1_STR}/me/settings",
+        headers=headers,
+    )
+    assert read_response.status_code == 200
+    assert read_response.json()["favorite_server_options"][0]["key"] == (
+        f"server:{server_id}"
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/me/settings",
+        headers=headers,
+        json={"favorite_server_key": f"server:{server_id}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["favorite_server_manual_override"] is True
+    assert payload["player"]["favorite_server"] == {
+        "key": f"server:{server_id}",
+        "label": server_name,
+        "server_id": server_id,
+        "server_name": server_name,
+        "server_group": None,
+    }
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.favorite_server_id == server_id
+    assert refreshed.favorite_server_group_id is None
+    assert await crud.player_action_timestamp_exists(
+        session=db,
+        player_steamid64=steamid64,
+        action=PlayerAction.FAVORITE_SERVER_MANUAL_OVERRIDE,
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_allows_manual_favorite_none(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db=db, steamid64=steamid64, name="Settings Favorite None")
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/me/settings",
+        headers=headers,
+        json={"favorite_server_key": None},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["favorite_server_manual_override"] is True
+    assert payload["player"]["favorite_server"] is None
+    assert await crud.player_action_timestamp_exists(
+        session=db,
+        player_steamid64=steamid64,
+        action=PlayerAction.FAVORITE_SERVER_MANUAL_OVERRIDE,
+    )
 
 
 @pytest.mark.asyncio

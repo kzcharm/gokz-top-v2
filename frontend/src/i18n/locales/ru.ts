@@ -216,12 +216,17 @@ export const ru = {
         customId: "Custom ID",
         countryRegion: "Страна / регион",
         primaryScope: "Основной scope",
+        favoriteServer: "Любимый сервер",
       },
       placeholders: {
         alias: "Псевдоним",
         customId: "custom-id",
         country: "Выберите страну",
         primaryScope: "Выберите основной scope",
+        favoriteServer: "Выберите любимый сервер",
+      },
+      favoriteServer: {
+        none: "None",
       },
       fallbacks: {
         notSet: "Не задано",
@@ -316,6 +321,7 @@ export const ru = {
       lastPlayed: "Последняя игра",
       playtime: "Время в игре",
       ljPb: "LJ PB",
+      favoriteServer: "Любимый сервер",
       profileViews: "Просмотры профиля",
       likes: "Лайки",
       followers: "Подписчики",

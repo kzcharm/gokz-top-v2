@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -9,7 +10,10 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.crud.player_profile_field_change import player_action_timestamp_exists
 from app.models import (
+    Player,
+    PlayerAction,
     PlayerDailyActivityContentPublic,
     PlayerDailyActivityDayPublic,
     PlayerDailyActivityPublic,
@@ -170,6 +174,63 @@ def _build_most_played_server_period_public(
         total_seconds=_quantize_seconds(total_seconds),
         entries=[_build_most_played_server_entry(bucket) for bucket in ordered_buckets],
     )
+
+
+def _favorite_target_from_most_played_entry(
+    entry: PlayerMostPlayedServerEntryPublic,
+) -> tuple[int | None, uuid.UUID | None]:
+    if entry.key.startswith("group:") and entry.group_id is not None:
+        return None, uuid.UUID(entry.group_id)
+
+    if entry.key.startswith("server:") and entry.server_ids:
+        return entry.server_ids[0], None
+
+    return None, None
+
+
+async def _auto_update_player_favorite_server(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    content: PlayerMostPlayedServerContentPublic,
+    updated_at: datetime,
+) -> None:
+    manual_override_exists = await player_action_timestamp_exists(
+        session=session,
+        player_steamid64=steamid64,
+        action=PlayerAction.FAVORITE_SERVER_MANUAL_OVERRIDE,
+    )
+    if manual_override_exists:
+        return
+
+    player = await session.get(Player, steamid64)
+    if player is None:
+        return
+
+    top_entry = (
+        content.all_time.entries[0]
+        if len(content.all_time.entries) > 0
+        else None
+    )
+    favorite_server_id: int | None = None
+    favorite_server_group_id: uuid.UUID | None = None
+    if top_entry is not None:
+        favorite_server_id, favorite_server_group_id = (
+            _favorite_target_from_most_played_entry(top_entry)
+        )
+
+    if (
+        player.favorite_server_id == favorite_server_id
+        and player.favorite_server_group_id == favorite_server_group_id
+    ):
+        return
+
+    player.favorite_server_id = favorite_server_id
+    player.favorite_server_group_id = favorite_server_group_id
+    player.updated_at = updated_at
+    session.add(player)
+    await session.commit()
+    await session.refresh(player)
 
 
 async def _load_daily_activity_days(
@@ -487,6 +548,12 @@ async def rebuild_player_most_played_server_stat(
         steamid64=steamid64,
         stat_type=PlayerStatType.MOST_PLAYED_SERVER,
         content=_serialize_most_played_server_content(content),
+        updated_at=current_now,
+    )
+    await _auto_update_player_favorite_server(
+        session=session,
+        steamid64=steamid64,
+        content=content,
         updated_at=current_now,
     )
     return _to_player_most_played_server_stat_public(persisted)

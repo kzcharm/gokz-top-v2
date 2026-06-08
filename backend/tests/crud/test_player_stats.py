@@ -10,6 +10,8 @@ from app import crud
 from app.models import (
     Map,
     Player,
+    PlayerAction,
+    PlayerActionTimestamp,
     PlayerStatCache,
     PlayerStatType,
     Record,
@@ -355,6 +357,95 @@ async def test_rebuild_player_most_played_server_stat_groups_by_server_group(
     assert stat.content.all_time.entries[0].server_count == 2
     assert stat.content.all_time.entries[0].server_ids == [982230, 982231]
     assert stat.content.all_time.entries[1].label == solo_server_group.name
+
+    grouped_server_group_id = grouped_server_group.id
+    db.expire_all()
+    player = await db.get(Player, steamid64)
+    assert player is not None
+    assert player.favorite_server_id is None
+    assert player.favorite_server_group_id == grouped_server_group_id
+
+
+@pytest.mark.asyncio
+async def test_rebuild_player_most_played_server_stat_auto_updates_ungrouped_favorite(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 3, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Favorite Runner")
+    await _create_map(db, id=981240, name="kz_favorite")
+    await _create_server(db, id=982240, name="Favorite One")
+    await _create_server(db, id=982241, name="Favorite Two")
+    await _create_record(
+        db,
+        id=983240,
+        steamid64=steamid64,
+        map_id=981240,
+        server_id=982240,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="10.000",
+    )
+    await _create_record(
+        db,
+        id=983241,
+        steamid64=steamid64,
+        map_id=981240,
+        server_id=982241,
+        created_on=datetime(2026, 4, 2, 9, 0, tzinfo=UTC),
+        time_seconds="20.000",
+    )
+
+    await crud.rebuild_player_most_played_server_stat(
+        session=db,
+        steamid64=steamid64,
+        now=now,
+    )
+
+    db.expire_all()
+    player = await db.get(Player, steamid64)
+    assert player is not None
+    assert player.favorite_server_id == 982241
+    assert player.favorite_server_group_id is None
+
+
+@pytest.mark.asyncio
+async def test_rebuild_player_most_played_server_stat_skips_manual_none_override(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 3, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Favorite None Runner")
+    await _create_map(db, id=981250, name="kz_favorite_none")
+    await _create_server(db, id=982250, name="Favorite None")
+    await _create_record(
+        db,
+        id=983250,
+        steamid64=steamid64,
+        map_id=981250,
+        server_id=982250,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="10.000",
+    )
+    db.add(
+        PlayerActionTimestamp(
+            player_steamid64=steamid64,
+            action=PlayerAction.FAVORITE_SERVER_MANUAL_OVERRIDE,
+            recorded_at=now,
+        )
+    )
+    await db.commit()
+
+    await crud.rebuild_player_most_played_server_stat(
+        session=db,
+        steamid64=steamid64,
+        now=now,
+    )
+
+    db.expire_all()
+    player = await db.get(Player, steamid64)
+    assert player is not None
+    assert player.favorite_server_id is None
+    assert player.favorite_server_group_id is None
 
 
 @pytest.mark.asyncio

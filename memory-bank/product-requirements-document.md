@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-06-05
+- Last Updated: 2026-06-08
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -98,6 +98,7 @@ Scope model:
 - When Cloudflare R2 is configured, `/live` stores the latest observed Bilibili and Twitch stream keyframe in R2 and uses that saved image for offline stream cards.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).
 - Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity, total playtime, and most-played-server breakdowns available on the profile.
+- Player profile sidebars expose a `Fav Server` row below Long Jump. By default it reflects the player's all-time most-played server/group from cached stats; grouped servers display the server group name and link to the server-group page.
 - Shareable, fast-loading profile UI with clear information hierarchy.
 
 ### 5.5 Servers and Live Status
@@ -139,6 +140,7 @@ Scope model:
 - Player preferences/settings persistence.
 - Authenticated players can self-edit `alias` and `custom_id` from `/settings`, with independent 30-day cooldowns and no cooldown consumption for no-op submissions.
 - Authenticated players can manually set `country` from `/settings`; manual country changes disable later automatic GeoIP/Steam overwrites but do not block later manual country edits.
+- Authenticated players can manually set a favorite server from their own all-time played server/group options or choose `None`; any manual favorite selection, including `None`, disables future favorite-server auto-updates.
 - `name` remains read-only in settings because it is synced from Steam rather than edited locally.
 - Authenticated players can manage their own social links from settings; Twitch and YouTube links support self-serve OAuth verification, Bilibili links support self-serve profile-code verification, and superusers can still view, add, edit, delete, and verify player social links from admin.
 - Authenticated players can manage Discord webhooks from `/settings`; enabled webhooks currently receive all supported stream-start events for the player's verified Twitch and Bilibili links, and each webhook shows its last-used time based on successful test sends or real deliveries.

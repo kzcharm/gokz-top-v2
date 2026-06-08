@@ -1,4 +1,5 @@
 import re
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,7 +16,9 @@ from app.core.config import settings
 from app.crud.player_profile_field_change import (
     build_player_profile_field_status,
     get_player_profile_field_changes,
+    player_action_timestamp_exists,
     player_profile_field_change_exists,
+    upsert_player_action_timestamp,
     upsert_player_profile_field_change,
 )
 from app.crud.player_profile_history import create_player_profile_history_if_changed
@@ -25,7 +28,11 @@ from app.models import (
     LeaderboardPlayer,
     ModeScope,
     Player,
+    PlayerAction,
     PlayerDetailPublic,
+    PlayerFavoriteServerGroupPublic,
+    PlayerFavoriteServerOptionPublic,
+    PlayerFavoriteServerPublic,
     PlayerProfileField,
     PlayerProfileFieldStatus,
     PlayerPublic,
@@ -33,6 +40,8 @@ from app.models import (
     PlayerSettingsPublic,
     PlayerSettingsUpdate,
     PlayerUpdate,
+    ServerGlobalapi,
+    ServerGroup,
     User,
     UserRole,
     normalize_user_roles,
@@ -907,6 +916,175 @@ async def update_player(
     return db_player
 
 
+def _favorite_server_group_public_from_values(
+    *,
+    group_id: uuid.UUID,
+    group_name: str,
+    group_custom_id: str,
+) -> PlayerFavoriteServerGroupPublic:
+    return PlayerFavoriteServerGroupPublic(
+        id=group_id,
+        name=group_name,
+        custom_id=group_custom_id,
+    )
+
+
+def _favorite_server_public_for_group(
+    *,
+    group: PlayerFavoriteServerGroupPublic,
+) -> PlayerFavoriteServerPublic:
+    return PlayerFavoriteServerPublic(
+        key=f"group:{group.id}",
+        label=group.name,
+        server_group=group,
+    )
+
+
+async def resolve_player_favorite_server_public(
+    *,
+    session: AsyncSession,
+    player: Player,
+) -> PlayerFavoriteServerPublic | None:
+    if player.favorite_server_group_id is not None:
+        group = await session.get(ServerGroup, player.favorite_server_group_id)
+        if group is None:
+            return None
+        return _favorite_server_public_for_group(
+            group=_favorite_server_group_public_from_values(
+                group_id=group.id,
+                group_name=group.name,
+                group_custom_id=group.custom_id,
+            )
+        )
+
+    if player.favorite_server_id is None:
+        return None
+
+    statement = (
+        select(
+            col(ServerGlobalapi.id),
+            col(ServerGlobalapi.name),
+            col(ServerGroup.id),
+            col(ServerGroup.name),
+            col(ServerGroup.custom_id),
+        )
+        .select_from(ServerGlobalapi)
+        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .where(col(ServerGlobalapi.id) == player.favorite_server_id)
+    )
+    row = (await session.exec(statement)).first()
+    if row is None:
+        return None
+
+    server_id = int(row[0])
+    server_name = row[1] or f"Server #{server_id}"
+    group_id = row[2]
+    group_name = row[3]
+    group_custom_id = row[4]
+    if group_id is not None and group_name is not None and group_custom_id is not None:
+        group = _favorite_server_group_public_from_values(
+            group_id=group_id,
+            group_name=group_name,
+            group_custom_id=group_custom_id,
+        )
+        return PlayerFavoriteServerPublic(
+            key=f"group:{group.id}",
+            label=group.name,
+            server_id=server_id,
+            server_name=server_name,
+            server_group=group,
+        )
+
+    return PlayerFavoriteServerPublic(
+        key=f"server:{server_id}",
+        label=server_name,
+        server_id=server_id,
+        server_name=server_name,
+    )
+
+
+async def _build_player_favorite_server_options(
+    *,
+    session: AsyncSession,
+    player: Player,
+    now: datetime,
+) -> list[PlayerFavoriteServerOptionPublic]:
+    from app.crud.player_stats import get_or_rebuild_player_most_played_server_stat
+
+    stat = await get_or_rebuild_player_most_played_server_stat(
+        session=session,
+        steamid64=player.steamid64,
+        now=now,
+    )
+    entries = stat.content.all_time.entries
+    group_ids = [
+        uuid.UUID(entry.group_id)
+        for entry in entries
+        if entry.group_id is not None
+    ]
+    groups_by_id: dict[uuid.UUID, PlayerFavoriteServerGroupPublic] = {}
+    if group_ids:
+        statement = select(ServerGroup).where(col(ServerGroup.id).in_(group_ids))
+        groups = (await session.exec(statement)).all()
+        groups_by_id = {
+            group.id: _favorite_server_group_public_from_values(
+                group_id=group.id,
+                group_name=group.name,
+                group_custom_id=group.custom_id,
+            )
+            for group in groups
+        }
+
+    options: list[PlayerFavoriteServerOptionPublic] = []
+    for entry in entries:
+        if entry.key.startswith("group:") and entry.group_id is not None:
+            group_id = uuid.UUID(entry.group_id)
+            group = groups_by_id.get(group_id)
+            options.append(
+                PlayerFavoriteServerOptionPublic(
+                    key=entry.key,
+                    label=group.name if group is not None else entry.label,
+                    server_group=group,
+                    total_seconds=entry.total_seconds,
+                )
+            )
+            continue
+
+        if not entry.key.startswith("server:") or not entry.server_ids:
+            continue
+
+        server_id = entry.server_ids[0]
+        options.append(
+            PlayerFavoriteServerOptionPublic(
+                key=entry.key,
+                label=entry.label,
+                server_id=server_id,
+                server_name=entry.label,
+                total_seconds=entry.total_seconds,
+            )
+        )
+
+    return options
+
+
+def _parse_favorite_server_key(
+    favorite_server_key: str,
+) -> tuple[int | None, uuid.UUID | None]:
+    if favorite_server_key.startswith("server:"):
+        server_id_text = favorite_server_key.removeprefix("server:")
+        if not server_id_text.isdigit():
+            raise ValueError("favorite_server_key is invalid")
+        return int(server_id_text), None
+
+    if favorite_server_key.startswith("group:"):
+        try:
+            return None, uuid.UUID(favorite_server_key.removeprefix("group:"))
+        except ValueError as exc:
+            raise ValueError("favorite_server_key is invalid") from exc
+
+    raise ValueError("favorite_server_key is invalid")
+
+
 async def get_player_settings(
     *,
     session: AsyncSession,
@@ -918,6 +1096,20 @@ async def get_player_settings(
     changes = await get_player_profile_field_changes(
         session=session,
         player_steamid64=player.steamid64,
+    )
+    favorite_server_options = await _build_player_favorite_server_options(
+        session=session,
+        player=player,
+        now=resolved_now,
+    )
+    favorite_server = await resolve_player_favorite_server_public(
+        session=session,
+        player=player,
+    )
+    favorite_server_manual_override = await player_action_timestamp_exists(
+        session=session,
+        player_steamid64=player.steamid64,
+        action=PlayerAction.FAVORITE_SERVER_MANUAL_OVERRIDE,
     )
     alias_changed_at = changes.get(PlayerProfileField.ALIAS)
     custom_id_changed_at = changes.get(PlayerProfileField.CUSTOM_ID)
@@ -937,7 +1129,7 @@ async def get_player_settings(
         custom_id_status.can_change = True
         custom_id_status.next_available_at = None
     return PlayerSettingsPublic(
-        player=to_player_public(player=player),
+        player=to_player_public(player=player, favorite_server=favorite_server),
         alias=alias_status,
         custom_id=custom_id_status,
         country=PlayerProfileFieldStatus(
@@ -946,6 +1138,8 @@ async def get_player_settings(
             can_change=True,
         ),
         country_locked=country_locked,
+        favorite_server_manual_override=favorite_server_manual_override,
+        favorite_server_options=favorite_server_options,
     )
 
 
@@ -982,6 +1176,7 @@ async def update_player_settings(
         bypass_rate_limits=bypass_rate_limits,
     )
     changed_fields: list[PlayerProfileField] = []
+    changed_actions: list[PlayerAction] = []
     player_updated = False
 
     if "alias" in player_data:
@@ -1039,7 +1234,33 @@ async def update_player_settings(
             player.primary_scope = primary_scope
             player_updated = True
 
-    if player_updated:
+    if "favorite_server_key" in player_data:
+        favorite_server_key = settings_in.favorite_server_key
+        if favorite_server_key is None:
+            favorite_server_id = None
+            favorite_server_group_id = None
+        else:
+            option_keys = {
+                option.key for option in current_settings.favorite_server_options
+            }
+            if favorite_server_key not in option_keys:
+                raise PlayerSettingsConflictError(
+                    "favorite_server_key must match a played server"
+                )
+            favorite_server_id, favorite_server_group_id = _parse_favorite_server_key(
+                favorite_server_key
+            )
+
+        if (
+            favorite_server_id != player.favorite_server_id
+            or favorite_server_group_id != player.favorite_server_group_id
+        ):
+            player.favorite_server_id = favorite_server_id
+            player.favorite_server_group_id = favorite_server_group_id
+            player_updated = True
+        changed_actions.append(PlayerAction.FAVORITE_SERVER_MANUAL_OVERRIDE)
+
+    if player_updated or changed_actions:
         player.updated_at = now
         session.add(player)
         for field in changed_fields:
@@ -1048,6 +1269,13 @@ async def update_player_settings(
                 player_steamid64=player.steamid64,
                 field=field,
                 changed_at=now,
+            )
+        for action in changed_actions:
+            await upsert_player_action_timestamp(
+                session=session,
+                player_steamid64=player.steamid64,
+                action=action,
+                recorded_at=now,
             )
         await session.commit()
         await session.refresh(player)
@@ -1097,6 +1325,7 @@ def to_player_public(
     player: Player,
     profile_views: int = 0,
     roles: list[UserRole] | None = None,
+    favorite_server: PlayerFavoriteServerPublic | None = None,
 ) -> PlayerPublic:
     return PlayerPublic(
         steamid64=str(player.steamid64),
@@ -1111,11 +1340,15 @@ def to_player_public(
         updated_at=player.updated_at,
         roles=roles,
         profile_views=profile_views,
+        favorite_server=favorite_server,
     )
 
 
 def to_player_detail_public(
-    *, player: Player, roles: list[UserRole] | None = None
+    *,
+    player: Player,
+    roles: list[UserRole] | None = None,
+    favorite_server: PlayerFavoriteServerPublic | None = None,
 ) -> PlayerDetailPublic:
     return PlayerDetailPublic(
         steamid64=str(player.steamid64),
@@ -1129,6 +1362,7 @@ def to_player_detail_public(
         last_played_at=player.last_played_at,
         updated_at=player.updated_at,
         roles=roles,
+        favorite_server=favorite_server,
     )
 
 
@@ -1159,4 +1393,8 @@ async def to_player_public_with_profile_views(
         player=player,
         profile_views=profile_views,
         roles=roles_by_steamid64.get(player.steamid64),
+        favorite_server=await resolve_player_favorite_server_public(
+            session=session,
+            player=player,
+        ),
     )
