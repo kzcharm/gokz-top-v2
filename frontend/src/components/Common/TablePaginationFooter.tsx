@@ -137,7 +137,7 @@ export function TablePaginationFooter({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-8 p-0"
+            className="h-8 w-12 p-0"
             onClick={() => onPageIndexChange(Math.max(0, pageIndex - 1))}
             disabled={pageIndex === 0}
           >
@@ -169,7 +169,7 @@ export function TablePaginationFooter({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-8 p-0"
+            className="h-8 w-12 p-0"
             onClick={() =>
               onPageIndexChange(Math.min(pageCount - 1, pageIndex + 1))
             }

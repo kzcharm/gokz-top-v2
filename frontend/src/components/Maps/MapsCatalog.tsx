@@ -325,7 +325,7 @@ function MapsCatalogPagination({
         type="button"
         variant="outline"
         size="sm"
-        className="h-8 w-8 p-0"
+        className="h-8 w-12 p-0"
         onClick={() => onPageChange(Math.max(1, page - 1))}
         disabled={page === 1}
       >
@@ -358,7 +358,7 @@ function MapsCatalogPagination({
         type="button"
         variant="outline"
         size="sm"
-        className="h-8 w-8 p-0"
+        className="h-8 w-12 p-0"
         onClick={() => onPageChange(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
       >
