@@ -1,6 +1,6 @@
 import type { EChartsOption } from "echarts"
 import * as echarts from "echarts"
-import { PinOff } from "lucide-react"
+import { CheckCircle2, PinOff } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -127,6 +127,7 @@ function CompletionCard({
           <div className="space-y-1.5">
             {tiers.map((tier) => {
               const width = `${tier.total === 0 ? 0 : (tier.complete / tier.total) * 100}%`
+              const isTierComplete = tier.total > 0 && tier.complete >= tier.total
               return (
                 <div
                   key={tier.label}
@@ -142,8 +143,15 @@ function CompletionCard({
                       style={{ width, backgroundColor: tier.color }}
                     />
                   </div>
-                  <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground sm:text-left sm:text-xs">
+                  <span className="flex items-center justify-end gap-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground sm:justify-start sm:text-left sm:text-xs">
                     {tier.complete}/{tier.total}
+                    {isTierComplete ? (
+                      <CheckCircle2
+                        aria-hidden="true"
+                        className="size-3 shrink-0"
+                        style={{ color: "#22C55E" }}
+                      />
+                    ) : null}
                   </span>
                 </div>
               )
