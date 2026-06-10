@@ -1138,6 +1138,7 @@ async def get_player_settings(
             can_change=True,
         ),
         country_locked=country_locked,
+        use_wr_based_pro_completion=player.use_wr_based_pro_completion,
         favorite_server_manual_override=favorite_server_manual_override,
         favorite_server_options=favorite_server_options,
     )
@@ -1232,6 +1233,15 @@ async def update_player_settings(
         primary_scope = settings_in.primary_scope
         if primary_scope is not None and primary_scope != player.primary_scope:
             player.primary_scope = primary_scope
+            player_updated = True
+
+    if "use_wr_based_pro_completion" in player_data:
+        use_wr_based_pro_completion = settings_in.use_wr_based_pro_completion
+        if (
+            use_wr_based_pro_completion is not None
+            and use_wr_based_pro_completion != player.use_wr_based_pro_completion
+        ):
+            player.use_wr_based_pro_completion = use_wr_based_pro_completion
             player_updated = True
 
     if "favorite_server_key" in player_data:

@@ -484,12 +484,7 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
 
   await expectRowOrder(page, "nub", ["kz_alpha", "kz_delta", "kz_epsilon"])
-  await expectRowOrder(page, "pro", [
-    "kz_alpha",
-    "kz_delta",
-    "kz_epsilon",
-    "kz_gamma",
-  ])
+  await expectRowOrder(page, "pro", [])
   await expect(page.getByText("1:10.000")).toBeVisible()
   await expect(
     page.getByTestId("profile-unfinished-nub-row-980202"),
@@ -503,12 +498,7 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
     .getByRole("button", { name: "WR Time" })
     .click()
   await expectRowOrder(page, "nub", ["kz_epsilon", "kz_alpha", "kz_delta"])
-  await expectRowOrder(page, "pro", [
-    "kz_alpha",
-    "kz_delta",
-    "kz_epsilon",
-    "kz_gamma",
-  ])
+  await expectRowOrder(page, "pro", [])
 })
 
 test("Profile unfinished tab keeps the NUB PRO switch on mobile widths", async ({

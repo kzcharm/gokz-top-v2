@@ -765,13 +765,13 @@ function SummaryMiniCard({
           >
             {label}
           </p>
-          <p className="ml-auto text-lg font-semibold tracking-tight">
+          <div className="ml-auto text-lg font-semibold tracking-tight">
             {value}
-          </p>
+          </div>
         </div>
       ) : (
         <>
-          <p className="text-lg font-semibold tracking-tight">{value}</p>
+          <div className="text-lg font-semibold tracking-tight">{value}</div>
           <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
         </>
       )}

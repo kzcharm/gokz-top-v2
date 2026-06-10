@@ -203,6 +203,8 @@ export const ru = {
       aliasInfoAria: "Информация о псевдониме",
       available: "Доступно",
       soon: "скоро",
+      enabled: "Включено",
+      disabled: "Отключено",
       clearCountry: "Очистить страну",
       actions: {
         edit: "Редактировать",
@@ -216,6 +218,7 @@ export const ru = {
         customId: "Custom ID",
         countryRegion: "Страна / регион",
         primaryScope: "Основной scope",
+        wrBasedProCompletion: "PRO-прогресс по WR",
         favoriteServer: "Любимый сервер",
       },
       placeholders: {

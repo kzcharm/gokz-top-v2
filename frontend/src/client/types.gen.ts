@@ -1022,6 +1022,7 @@ export type PlayerSettingsPublic = {
     custom_id: PlayerProfileFieldStatus;
     country: PlayerProfileFieldStatus;
     country_locked?: boolean;
+    use_wr_based_pro_completion?: boolean;
     favorite_server_manual_override?: boolean;
     favorite_server_options?: Array<PlayerFavoriteServerOptionPublic>;
 };
@@ -1032,6 +1033,7 @@ export type PlayerSettingsUpdate = {
     country?: (string | null);
     primary_scope?: (ModeScope | null);
     favorite_server_key?: (string | null);
+    use_wr_based_pro_completion?: (boolean | null);
 };
 
 export type PlayerSocialLinkBilibiliVerificationStart = {

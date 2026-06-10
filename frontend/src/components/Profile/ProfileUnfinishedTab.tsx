@@ -278,6 +278,7 @@ export function ProfileUnfinishedTab({
   proRecords,
   proRecordsError,
   proRecordsLoading,
+  useWrBasedProCompletion,
 }: {
   isProOnly: boolean
   maps: MapPublic[]
@@ -290,6 +291,7 @@ export function ProfileUnfinishedTab({
   proRecords: RecordPublic[]
   proRecordsError: boolean
   proRecordsLoading: boolean
+  useWrBasedProCompletion: boolean
 }) {
   const { t } = useTranslation()
   const { scope } = useScope()
@@ -377,6 +379,7 @@ export function ProfileUnfinishedTab({
       records: proRecords,
       wrs: proWrsQuery.data ?? [],
       scope,
+      requireWrAvailability: useWrBasedProCompletion,
     }).filter((row) => {
       if (
         normalizedMapSearch.length > 0 &&
@@ -398,6 +401,7 @@ export function ProfileUnfinishedTab({
     normalizedMapSearch,
     scope,
     selectedTierNumber,
+    useWrBasedProCompletion,
   ])
 
   const sortedNubRows = useMemo(() => {

@@ -4,7 +4,7 @@ import { TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { PlayersService } from "@/client"
+import { MeService, PlayersService } from "@/client"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
@@ -48,6 +48,7 @@ import {
   getProfilePointsStandingQueryOptions,
   getProfileRecordRanksQueryOptions,
   getProfileStatsQueryOptions,
+  getProfileUnfinishedMapWrsQueryOptions,
   getProfileValidatedMapsQueryOptions,
   getProfileViewsQueryOptions,
   type ProfileLikeResult,
@@ -100,6 +101,12 @@ export function ProfilePage({
     queryFn: () => fetchProfilePlayer(identifier),
     retry: false,
   })
+  const currentPlayerSettingsQuery = useQuery({
+    queryKey: ["player-settings"],
+    queryFn: () => MeService.readCurrentPlayerSettings(),
+    enabled: isLoggedIn(),
+    staleTime: 60_000,
+  })
   const mapsQuery = useQuery(getProfileValidatedMapsQueryOptions())
   const canonicalIdentifier =
     playerQuery.data?.custom_id || playerQuery.data?.steamid64 || null
@@ -139,6 +146,15 @@ export function ProfilePage({
       isProOnly: true,
     }),
     enabled: playerSteamid64 !== null,
+  })
+  const useWrBasedProCompletion =
+    currentPlayerSettingsQuery.data?.use_wr_based_pro_completion ?? true
+  const proWrsQuery = useQuery({
+    ...getProfileUnfinishedMapWrsQueryOptions({
+      scope,
+      isProOnly: true,
+    }),
+    enabled: useWrBasedProCompletion,
   })
   const pointsStandingQuery = useQuery({
     ...getProfilePointsStandingQueryOptions({
@@ -212,9 +228,18 @@ export function ProfilePage({
       maps: mapsQuery.data ?? [],
       nubRecords: nubRecordsQuery.data ?? [],
       proRecords: proRecordsQuery.data ?? [],
+      proWrs: proWrsQuery.data ?? [],
       scope,
+      useWrBasedProCompletion,
     })
-  }, [mapsQuery.data, nubRecordsQuery.data, proRecordsQuery.data, scope])
+  }, [
+    mapsQuery.data,
+    nubRecordsQuery.data,
+    proRecordsQuery.data,
+    proWrsQuery.data,
+    scope,
+    useWrBasedProCompletion,
+  ])
   const pinnedRecordsQuery = useQuery(
     getProfilePinnedRecordsQueryOptions({
       identifier: playerSteamid64,
@@ -429,13 +454,17 @@ export function ProfilePage({
   const completionLoading =
     mapsQuery.isLoading ||
     nubRecordsQuery.isLoading ||
-    proRecordsQuery.isLoading
+    proRecordsQuery.isLoading ||
+    (useWrBasedProCompletion && proWrsQuery.isLoading)
   const summaryLoading =
     nubRecordsQuery.isLoading ||
     proRecordsQuery.isLoading ||
     pointsStandingQuery.isLoading
   const completionError =
-    mapsQuery.isError || nubRecordsQuery.isError || proRecordsQuery.isError
+    mapsQuery.isError ||
+    nubRecordsQuery.isError ||
+    proRecordsQuery.isError ||
+    (useWrBasedProCompletion && proWrsQuery.isError)
 
   useEffect(() => {
     if (
@@ -696,6 +725,7 @@ export function ProfilePage({
               proRecords={proRecordsQuery.data ?? []}
               proRecordsLoading={proRecordsQuery.isLoading}
               proRecordsError={proRecordsQuery.isError}
+              useWrBasedProCompletion={useWrBasedProCompletion}
             />
           ) : activeTab === "friends" ? (
             <ProfileFriendsTab

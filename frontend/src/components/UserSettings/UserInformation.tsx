@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import {
   Tooltip,
   TooltipContent,
@@ -174,6 +175,8 @@ const UserInformation = () => {
   const [customIdInput, setCustomIdInput] = useState("")
   const [countryInput, setCountryInput] = useState<string | null>(null)
   const [primaryScopeInput, setPrimaryScopeInput] = useState<ModeScope>("OVR")
+  const [useWrBasedProCompletionInput, setUseWrBasedProCompletionInput] =
+    useState(true)
   const [favoriteServerKeyInput, setFavoriteServerKeyInput] = useState<
     string | null
   >(null)
@@ -198,9 +201,12 @@ const UserInformation = () => {
     setCustomIdInput(player.custom_id ?? "")
     setCountryInput(player.country ?? null)
     setPrimaryScopeInput(player.primary_scope ?? "OVR")
+    setUseWrBasedProCompletionInput(
+      settings?.use_wr_based_pro_completion ?? true,
+    )
     setFavoriteServerKeyInput(player.favorite_server?.key ?? null)
     setIsEditing(false)
-  }, [player])
+  }, [player, settings?.use_wr_based_pro_completion])
 
   const initialValues = useMemo(
     () => ({
@@ -208,9 +214,10 @@ const UserInformation = () => {
       customId: player?.custom_id ?? "",
       country: player?.country ?? null,
       primaryScope: player?.primary_scope ?? "OVR",
+      useWrBasedProCompletion: settings?.use_wr_based_pro_completion ?? true,
       favoriteServerKey: player?.favorite_server?.key ?? null,
     }),
-    [player],
+    [player, settings?.use_wr_based_pro_completion],
   )
 
   const dirty =
@@ -218,6 +225,7 @@ const UserInformation = () => {
     customIdInput !== initialValues.customId ||
     countryInput !== initialValues.country ||
     primaryScopeInput !== initialValues.primaryScope ||
+    useWrBasedProCompletionInput !== initialValues.useWrBasedProCompletion ||
     favoriteServerKeyInput !== initialValues.favoriteServerKey
 
   const mutation = useMutation({
@@ -228,6 +236,7 @@ const UserInformation = () => {
         country?: string
         primary_scope?: ModeScope
         favorite_server_key?: string | null
+        use_wr_based_pro_completion?: boolean
       } = {}
       const alias = aliasInput.trim()
       const customId = customIdInput.trim()
@@ -263,6 +272,12 @@ const UserInformation = () => {
 
       if (primaryScopeInput !== initialValues.primaryScope) {
         requestBody.primary_scope = primaryScopeInput
+      }
+
+      if (
+        useWrBasedProCompletionInput !== initialValues.useWrBasedProCompletion
+      ) {
+        requestBody.use_wr_based_pro_completion = useWrBasedProCompletionInput
       }
 
       if (favoriteServerKeyInput !== initialValues.favoriteServerKey) {
@@ -301,6 +316,7 @@ const UserInformation = () => {
     !isEditing || settings?.custom_id.can_change === false || mutation.isPending
   const countryDisabled = !isEditing || mutation.isPending
   const primaryScopeDisabled = !isEditing || mutation.isPending
+  const wrBasedProCompletionDisabled = !isEditing || mutation.isPending
   const favoriteServerDisabled = !isEditing || mutation.isPending
   const countryDisplayName =
     getCountryName(countryInput, i18n.resolvedLanguage) ??
@@ -341,6 +357,9 @@ const UserInformation = () => {
                   setCustomIdInput(initialValues.customId)
                   setCountryInput(initialValues.country)
                   setPrimaryScopeInput(initialValues.primaryScope)
+                  setUseWrBasedProCompletionInput(
+                    initialValues.useWrBasedProCompletion,
+                  )
                   setFavoriteServerKeyInput(initialValues.favoriteServerKey)
                   setIsEditing(false)
                 }}
@@ -510,6 +529,27 @@ const UserInformation = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">
+                      {t("settings.profile.fields.wrBasedProCompletion")}
+                    </span>
+                    <div className="flex h-10 items-center justify-between gap-3 rounded-md border border-input bg-background px-3">
+                      <span className="text-sm text-muted-foreground">
+                        {useWrBasedProCompletionInput
+                          ? t("settings.profile.enabled")
+                          : t("settings.profile.disabled")}
+                      </span>
+                      <Switch
+                        checked={useWrBasedProCompletionInput}
+                        disabled={wrBasedProCompletionDisabled}
+                        aria-label={t(
+                          "settings.profile.fields.wrBasedProCompletion",
+                        )}
+                        onCheckedChange={setUseWrBasedProCompletionInput}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -594,6 +634,14 @@ const UserInformation = () => {
                       "inline-flex min-w-12 items-center justify-center rounded-md px-2 py-0.5 font-mono text-xs font-semibold tracking-[0.16em]",
                       getScopeTone(primaryScopeInput),
                     )}
+                  />
+                  <ReadonlyField
+                    value={
+                      useWrBasedProCompletionInput
+                        ? t("settings.profile.enabled")
+                        : t("settings.profile.disabled")
+                    }
+                    label={t("settings.profile.fields.wrBasedProCompletion")}
                   />
                 </div>
                 <ReadonlyField

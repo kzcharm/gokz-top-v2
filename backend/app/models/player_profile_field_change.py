@@ -81,6 +81,7 @@ class PlayerSettingsPublic(SQLModel):
     custom_id: PlayerProfileFieldStatus
     country: PlayerProfileFieldStatus
     country_locked: bool = False
+    use_wr_based_pro_completion: bool = True
     favorite_server_manual_override: bool = False
     favorite_server_options: list[PlayerFavoriteServerOptionPublic] = Field(
         default_factory=list
@@ -95,6 +96,7 @@ class PlayerSettingsUpdate(SQLModel):
     country: str | None = Field(default=None, max_length=2)
     primary_scope: ModeScope | None = None
     favorite_server_key: str | None = Field(default=None, max_length=80)
+    use_wr_based_pro_completion: bool | None = None
 
     @field_validator("alias", mode="after")
     @classmethod

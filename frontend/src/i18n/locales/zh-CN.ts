@@ -202,6 +202,8 @@ export const zhCN = {
       aliasInfoAria: "别名说明",
       available: "可再次修改于",
       soon: "即将",
+      enabled: "已启用",
+      disabled: "已禁用",
       clearCountry: "清除国家/地区",
       actions: {
         edit: "编辑",
@@ -215,6 +217,7 @@ export const zhCN = {
         customId: "自定义 ID",
         countryRegion: "国家 / 地区",
         primaryScope: "主要 Scope",
+        wrBasedProCompletion: "基于 WR 的 PRO 完成度",
         favoriteServer: "最爱服务器",
       },
       placeholders: {

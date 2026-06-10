@@ -5120,6 +5120,11 @@ export const PlayerSettingsPublicSchema = {
             title: 'Country Locked',
             default: false
         },
+        use_wr_based_pro_completion: {
+            type: 'boolean',
+            title: 'Use Wr Based Pro Completion',
+            default: true
+        },
         favorite_server_manual_override: {
             type: 'boolean',
             title: 'Favorite Server Manual Override',
@@ -5197,6 +5202,17 @@ export const PlayerSettingsUpdateSchema = {
                 }
             ],
             title: 'Favorite Server Key'
+        },
+        use_wr_based_pro_completion: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Use Wr Based Pro Completion'
         }
     },
     additionalProperties: false,

@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import ConfigDict, field_validator
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     Computed,
@@ -208,6 +209,10 @@ class Player(PlayerBase, table=True):
         default=None,
         foreign_key="server_group.id",
         ondelete="SET NULL",
+    )
+    use_wr_based_pro_completion: bool = Field(
+        default=True,
+        sa_column=Column(Boolean, nullable=False, server_default=text("true")),
     )
     search_vector: str | None = Field(
         default=None,

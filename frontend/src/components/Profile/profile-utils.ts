@@ -621,10 +621,12 @@ function buildCompletionCard({
   maps,
   records,
   scope,
+  availableMapIds,
 }: {
   maps: MapPublic[]
   records: RecordPublic[]
   scope: AppScope
+  availableMapIds?: Set<number>
 }): ProfileCompletionCard {
   const tiers = Array.from({ length: 8 }, (_, index) => ({
     label: `T${index + 1}`,
@@ -637,6 +639,10 @@ function buildCompletionCard({
   const tierPointsTotals = Array.from({ length: 8 }, () => 0)
 
   for (const map of maps) {
+    if (availableMapIds && !availableMapIds.has(map.id)) {
+      continue
+    }
+
     const tier = normalizeTierValue(map.tiers[scope])
     if (tier === null || tier === 0) {
       continue
@@ -689,16 +695,29 @@ export function buildProfileCompletionData({
   maps,
   nubRecords,
   proRecords,
+  proWrs,
   scope,
+  useWrBasedProCompletion,
 }: {
   maps: MapPublic[]
   nubRecords: RecordPublic[]
   proRecords: RecordPublic[]
+  proWrs: MapWrPublic[]
   scope: AppScope
+  useWrBasedProCompletion: boolean
 }): ProfileCompletionData {
+  const proAvailableMapIds = useWrBasedProCompletion
+    ? new Set(proWrs.map((wr) => wr.map_id))
+    : undefined
+
   return {
     nub: buildCompletionCard({ maps, records: nubRecords, scope }),
-    pro: buildCompletionCard({ maps, records: proRecords, scope }),
+    pro: buildCompletionCard({
+      maps,
+      records: proRecords,
+      scope,
+      availableMapIds: proAvailableMapIds,
+    }),
   }
 }
 
@@ -707,11 +726,13 @@ export function buildProfileUnfinishedRows({
   records,
   wrs,
   scope,
+  requireWrAvailability = false,
 }: {
   maps: MapPublic[]
   records: RecordPublic[]
   wrs: MapWrPublic[]
   scope: AppScope
+  requireWrAvailability?: boolean
 }): ProfileUnfinishedRow[] {
   const completedMapIds = new Set(records.map((record) => record.map_id))
   const wrByMapId = new Map<number, MapWrPublic>()
@@ -724,12 +745,16 @@ export function buildProfileUnfinishedRows({
 
   const rows: ProfileUnfinishedRow[] = []
   for (const map of maps) {
+    const wr = wrByMapId.get(map.id)
+    if (requireWrAvailability && !wr) {
+      continue
+    }
+
     const tier = normalizeTierValue(map.tiers[scope])
     if (tier === null || tier === 0 || completedMapIds.has(map.id)) {
       continue
     }
 
-    const wr = wrByMapId.get(map.id)
     rows.push({
       mapId: map.id,
       mapName: map.name,

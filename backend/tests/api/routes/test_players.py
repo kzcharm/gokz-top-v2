@@ -1425,6 +1425,7 @@ async def test_read_current_player_settings_returns_edit_status(
     assert payload["custom_id"]["can_change"] is True
     assert payload["country"]["can_change"] is True
     assert payload["country_locked"] is False
+    assert payload["use_wr_based_pro_completion"] is True
     assert payload["favorite_server_manual_override"] is False
     assert payload["favorite_server_options"] == []
 
@@ -1928,6 +1929,45 @@ async def test_update_current_player_settings_updates_primary_scope_without_cool
     refreshed = await db.get(Player, steamid64)
     assert refreshed is not None
     assert refreshed.primary_scope == ModeScope.VNL
+
+
+@pytest.mark.asyncio
+async def test_update_current_player_settings_updates_wr_based_pro_completion_without_cooldown(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name="PRO Completion Preference",
+        custom_id="pro-completion-preference",
+    )
+    await _create_profile_field_change(
+        db=db,
+        steamid64=steamid64,
+        field=PlayerProfileField.ALIAS,
+        changed_at=datetime.now(UTC),
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/me/settings",
+        headers=headers,
+        json={"use_wr_based_pro_completion": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["use_wr_based_pro_completion"] is False
+
+    db.expire_all()
+    refreshed = await db.get(Player, steamid64)
+    assert refreshed is not None
+    assert refreshed.use_wr_based_pro_completion is False
 
 
 @pytest.mark.asyncio

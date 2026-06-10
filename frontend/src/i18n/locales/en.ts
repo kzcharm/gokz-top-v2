@@ -202,6 +202,8 @@ export const en = {
       aliasInfoAria: "Alias information",
       available: "Available",
       soon: "soon",
+      enabled: "Enabled",
+      disabled: "Disabled",
       clearCountry: "Clear country",
       actions: {
         edit: "Edit",
@@ -215,6 +217,7 @@ export const en = {
         customId: "Custom ID",
         countryRegion: "Country / Region",
         primaryScope: "Primary Scope",
+        wrBasedProCompletion: "WR-Based PRO Completion",
         favoriteServer: "Fav Server",
       },
       placeholders: {

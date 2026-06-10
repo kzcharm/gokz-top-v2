@@ -127,7 +127,8 @@ function CompletionCard({
           <div className="space-y-1.5">
             {tiers.map((tier) => {
               const width = `${tier.total === 0 ? 0 : (tier.complete / tier.total) * 100}%`
-              const isTierComplete = tier.total > 0 && tier.complete >= tier.total
+              const isTierComplete =
+                tier.total > 0 && tier.complete >= tier.total
               return (
                 <div
                   key={tier.label}
