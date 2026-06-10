@@ -77,16 +77,16 @@ After `gokz-top-core` starts once, it creates:
 cfg/sourcemod/gokz-top/apikey.cfg
 ```
 
-Set the copied server group API key in that file:
+Paste the copied server group API key directly in that file:
 
 ```cfg
-gokz_top_api_key "paste-your-server-group-api-key-here"
+paste-your-server-group-api-key-here
 ```
 
-Then reload the config or restart the server:
+The older `gokz_top_api_key "paste-your-server-group-api-key-here"` format is still supported. Then reload the API key or restart the server:
 
 ```cfg
-exec sourcemod/gokz-top/apikey.cfg
+gokz_top_reload_api_key
 ```
 
 The default API base URL points at production. For a custom deployment, set `gokz_top_api_base_url` in the generated GOKZ.TOP config to the API origin without a trailing slash.
