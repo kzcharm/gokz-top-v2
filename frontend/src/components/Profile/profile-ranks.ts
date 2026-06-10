@@ -76,7 +76,7 @@ export const ratingRankBadgeClasses: Record<RatingRankLevel, string> = {
   7: "border-[#FF66CC]/70 bg-[#FF66CC]/20 text-fuchsia-950 dark:text-[#FF66CC]",
   8: "border-[#FF4040]/70 bg-[#FF4040]/20 text-red-950 dark:text-[#FF4040]",
   9: "border-[#FF0000]/70 bg-[#FF0000]/20 text-red-950 dark:text-[#FF0000]",
-  10: "border-[#FFE45C]/80 bg-[linear-gradient(135deg,rgba(255,248,184,0.72),rgba(255,204,0,0.32)_42%,rgba(184,120,0,0.28))] text-yellow-950 shadow-[0_0_18px_rgba(255,204,0,0.24)] dark:text-[#FFE45C]",
+  10: "border-[#FFE45C]/80 bg-[#FFE45C]/20 text-yellow-950 shadow-[0_0_18px_rgba(255,204,0,0.24)] dark:text-[#FFE45C]",
 }
 
 export { RATING_RANK_COLORS }
