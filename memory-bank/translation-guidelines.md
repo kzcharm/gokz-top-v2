@@ -1,7 +1,7 @@
 # Translation Guidelines
 
-- Last Updated: 2026-05-09
-- Applies to: `frontend/` i18n work
+- Last Updated: 2026-06-11
+- Applies to: `frontend/` i18n work and public docs in `notes/docs/`
 
 ## Default Locale Policy
 - English is the default locale and the source language for new UI copy.
@@ -35,6 +35,13 @@
 - Prefer idiomatic native phrasing over literal translation.
 - Keep UX copy concise and interface-appropriate.
 - When a branded or technical term reads better in English inside a translated sentence, keep the term in English and localize the surrounding wording naturally.
+
+## Public Documentation Parity
+- Public docs live in the `notes/` submodule, with English pages under `notes/docs/` and translated pages under locale subdirectories such as `notes/docs/zh/`.
+- Keep translated docs content-matched with English docs. A translated page should cover the same current content as its English counterpart, localized naturally rather than copied literally.
+- When adding, deleting, renaming, shortening, or materially editing an English doc page, make the corresponding update to every available translated counterpart in the same task.
+- When a user asks to delete or clean up documentation, apply that request across all language versions unless they explicitly scope the request to one language.
+- Do not leave translated docs with stale sections, old links, or removed topic pages after English docs have been cleaned up.
 
 ## Confirmed UI Label Preferences
 - Preferred Simplified Chinese mappings confirmed by the user:

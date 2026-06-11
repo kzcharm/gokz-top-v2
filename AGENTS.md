@@ -60,6 +60,8 @@ Public documentation lives in the `notes/` submodule, backed by the separate `kz
 
 When a change affects public behavior, APIs, plugin setup, rating logic, server operator workflows, or troubleshooting, update the docs in `notes/`.
 
+When editing public docs, keep English and translated docs content-matched. If a page is added, removed, renamed, shortened, or materially changed in English, make the corresponding change in every available language under `notes/docs/` in the same task. Deleting or cleaning up a doc also means deleting or cleaning up its translated counterparts.
+
 Before editing docs, initialize the submodule with `git submodule update --init --recursive` and make sure `notes/` is on a branch, not a detached HEAD.
 
 Commit documentation changes inside `notes/` first. Update this parent repository's submodule pointer only when the app should pin a specific docs revision alongside a product or behavior change.
