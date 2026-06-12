@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -15,10 +15,8 @@ type DurationSpecialView = {
 type ProfileDurationControlsProps = {
   activeViewId: string
   defaultYearId?: string | null
-  isPlaying: boolean
   onActiveViewIdChange: (viewId: string) => void
   onPlayingChange: (isPlaying: boolean) => void
-  showPlayback?: boolean
   specialViews: DurationSpecialView[]
   testIdPrefix: string
   yearIds: string[]
@@ -27,10 +25,8 @@ type ProfileDurationControlsProps = {
 export function ProfileDurationControls({
   activeViewId,
   defaultYearId,
-  isPlaying,
   onActiveViewIdChange,
   onPlayingChange,
-  showPlayback = true,
   specialViews,
   testIdPrefix,
   yearIds,
@@ -172,36 +168,6 @@ export function ProfileDurationControls({
           <span className="sr-only">{t("profile.duration.nextYear")}</span>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        {showPlayback ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (!hasYears) {
-                return
-              }
-
-              onActiveViewIdChange(selectedYearId)
-              onPlayingChange(!isPlaying)
-            }}
-            disabled={yearIds.length < 2}
-            aria-label={
-              isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
-            }
-            title={
-              isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
-            }
-            data-testid={`${testIdPrefix}-playback-button`}
-            className="h-8 w-8 p-0"
-          >
-            {isPlaying ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-          </Button>
-        ) : null}
       </div>
 
       {specialViews.length > 0 ? (

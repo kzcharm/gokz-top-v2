@@ -1,5 +1,6 @@
 import type { EChartsOption, EChartsType } from "echarts"
 import * as echarts from "echarts"
+import { Pause, Play } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -93,6 +94,38 @@ function getMapViewEntry(
   }
 
   return stat.yearly?.[viewId] ?? fallback
+}
+
+function ProfileStatsPlaybackButton({
+  disabled,
+  isPlaying,
+  onClick,
+  testId,
+}: {
+  disabled: boolean
+  isPlaying: boolean
+  onClick: () => void
+  testId: string
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={
+        isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
+      }
+      title={isPlaying ? t("profile.stats.pause") : t("profile.stats.play")}
+      data-testid={testId}
+      className="h-8 w-8 p-0"
+    >
+      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+    </Button>
+  )
 }
 
 function ProfileStatsPieCard({ stat }: { stat: PlayerMostPlayedServerPublic }) {
@@ -402,6 +435,18 @@ ${serverCountLabel}
     totalSeconds,
   ])
 
+  const togglePlayback = () => {
+    const playbackStartViewId = defaultYearId ?? yearViewIds[0]
+    if (!playbackStartViewId) {
+      return
+    }
+
+    setActiveViewId((currentViewId) =>
+      yearViewIds.includes(currentViewId) ? currentViewId : playbackStartViewId,
+    )
+    setIsPlaying((current) => !current)
+  }
+
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
@@ -410,11 +455,16 @@ ${serverCountLabel}
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               {t("profile.stats.title")}
             </p>
+            <ProfileStatsPlaybackButton
+              disabled={yearViewIds.length < 2}
+              isPlaying={isPlaying}
+              onClick={togglePlayback}
+              testId="profile-stats-playback-button"
+            />
           </div>
           <ProfileDurationControls
             activeViewId={activeViewId}
             defaultYearId={defaultYearId}
-            isPlaying={isPlaying}
             onActiveViewIdChange={setActiveViewId}
             onPlayingChange={setIsPlaying}
             specialViews={[
@@ -469,7 +519,7 @@ function ProfileStatsMapBarCard({
   const chartInstanceRef = useRef<EChartsType | null>(null)
   const { resolvedTheme } = useTheme()
   const isNarrowViewport = useMediaQuery("(max-width: 1023px)")
-  const [activeMetric, setActiveMetric] = useState<MapMetric>("records")
+  const [activeMetric, setActiveMetric] = useState<MapMetric>("hours")
 
   const yearViewIds = useMemo(
     () =>
@@ -756,6 +806,18 @@ function ProfileStatsMapBarCard({
     })
   }, [activeLabel, activeMetric, chartData, isNarrowViewport, resolvedTheme, t])
 
+  const togglePlayback = () => {
+    const playbackStartViewId = defaultYearId ?? yearViewIds[0]
+    if (!playbackStartViewId) {
+      return
+    }
+
+    setActiveViewId((currentViewId) =>
+      yearViewIds.includes(currentViewId) ? currentViewId : playbackStartViewId,
+    )
+    setIsPlaying((current) => !current)
+  }
+
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
@@ -785,12 +847,17 @@ function ProfileStatsMapBarCard({
                     : t("profile.stats.hoursMetric")}
                 </Button>
               ))}
+              <ProfileStatsPlaybackButton
+                disabled={yearViewIds.length < 2}
+                isPlaying={isPlaying}
+                onClick={togglePlayback}
+                testId="profile-stats-maps-playback-button"
+              />
             </div>
           </div>
           <ProfileDurationControls
             activeViewId={activeViewId}
             defaultYearId={defaultYearId}
-            isPlaying={isPlaying}
             onActiveViewIdChange={setActiveViewId}
             onPlayingChange={setIsPlaying}
             specialViews={[

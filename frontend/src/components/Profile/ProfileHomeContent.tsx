@@ -389,38 +389,13 @@ function ActivityCard({
   }, [allDays, fallbackYear])
   const defaultYearId = yearViewIds[yearViewIds.length - 1] ?? fallbackYear
   const [activeView, setActiveView] = useState(ROLLING_ACTIVITY_WINDOW_ID)
-  const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
     const allowedViews = new Set([ROLLING_ACTIVITY_WINDOW_ID, ...yearViewIds])
     setActiveView((currentView) =>
       allowedViews.has(currentView) ? currentView : ROLLING_ACTIVITY_WINDOW_ID,
     )
-    if (yearViewIds.length < 2) {
-      setIsPlaying(false)
-    }
   }, [yearViewIds])
-
-  useEffect(() => {
-    if (!isPlaying || yearViewIds.length === 0) {
-      return
-    }
-
-    const intervalId = window.setInterval(() => {
-      setActiveView((currentView) => {
-        const currentIndex = yearViewIds.indexOf(currentView)
-        if (currentIndex < 0) {
-          return defaultYearId
-        }
-
-        return yearViewIds[(currentIndex + 1) % yearViewIds.length]
-      })
-    }, 2000)
-
-    return () => {
-      window.clearInterval(intervalId)
-    }
-  }, [defaultYearId, isPlaying, yearViewIds])
 
   const { hasActivity, monthLabels, weeks, emptyStateLabel, rangeKey } =
     useMemo(() => {
@@ -488,10 +463,8 @@ function ActivityCard({
           <ProfileDurationControls
             activeViewId={activeView}
             defaultYearId={defaultYearId}
-            isPlaying={isPlaying}
             onActiveViewIdChange={setActiveView}
-            onPlayingChange={setIsPlaying}
-            showPlayback={false}
+            onPlayingChange={() => {}}
             specialViews={[
               {
                 id: ROLLING_ACTIVITY_WINDOW_ID,
