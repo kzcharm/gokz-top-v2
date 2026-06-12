@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import type {
+  PlayerMostPlayedMapsPeriodPublic,
+  PlayerMostPlayedMapsPublic,
   PlayerMostPlayedServerPeriodPublic,
   PlayerMostPlayedServerPublic,
 } from "@/client"
@@ -58,6 +60,28 @@ function getViewEntry(
   const fallback: PlayerMostPlayedServerPeriodPublic = {
     total_seconds: 0,
     entries: [],
+  }
+
+  if (viewId === ALL_TIME_VIEW_ID) {
+    return stat.all_time ?? fallback
+  }
+
+  if (viewId === LAST_365_DAYS_VIEW_ID) {
+    return stat.last_365_days ?? fallback
+  }
+
+  return stat.yearly?.[viewId] ?? fallback
+}
+
+function getMapViewEntry(
+  stat: PlayerMostPlayedMapsPublic,
+  viewId: string,
+): PlayerMostPlayedMapsPeriodPublic {
+  const fallback: PlayerMostPlayedMapsPeriodPublic = {
+    total_records: 0,
+    total_seconds: 0,
+    entries_by_records: [],
+    entries_by_time: [],
   }
 
   if (viewId === ALL_TIME_VIEW_ID) {
@@ -469,6 +493,418 @@ ${serverCountLabel}
   )
 }
 
+type MapMetric = "records" | "hours"
+
+function ProfileStatsMapBarCard({
+  stat,
+}: {
+  stat: PlayerMostPlayedMapsPublic
+}) {
+  const { t } = useTranslation()
+  const chartRef = useRef<HTMLDivElement | null>(null)
+  const chartInstanceRef = useRef<EChartsType | null>(null)
+  const { resolvedTheme } = useTheme()
+  const isNarrowViewport = useMediaQuery("(max-width: 1023px)")
+  const [activeMetric, setActiveMetric] = useState<MapMetric>("records")
+
+  const yearViewIds = useMemo(
+    () =>
+      (stat.years ?? [])
+        .filter((year) => {
+          const period = getMapViewEntry(stat, String(year))
+          return (
+            (period.total_seconds ?? 0) > 0 || (period.total_records ?? 0) > 0
+          )
+        })
+        .map((year) => String(year))
+        .sort((left, right) => Number(left) - Number(right)),
+    [stat],
+  )
+  const orderedViewIds = useMemo(
+    () => [...yearViewIds, LAST_365_DAYS_VIEW_ID, ALL_TIME_VIEW_ID],
+    [yearViewIds],
+  )
+  const defaultViewId = orderedViewIds[0] ?? ALL_TIME_VIEW_ID
+  const [activeViewId, setActiveViewId] = useState<string>(defaultViewId)
+  const [isPlaying, setIsPlaying] = useState(false)
+
+  useEffect(() => {
+    const allowedViews = new Set(orderedViewIds)
+    setActiveViewId((currentViewId) =>
+      allowedViews.has(currentViewId) ? currentViewId : defaultViewId,
+    )
+    if (yearViewIds.length === 0) {
+      setIsPlaying(false)
+    }
+  }, [defaultViewId, orderedViewIds, yearViewIds.length])
+
+  useEffect(() => {
+    if (!isPlaying || orderedViewIds.length === 0) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveViewId((currentViewId) => {
+        const currentIndex = orderedViewIds.indexOf(currentViewId)
+        if (currentIndex < 0) {
+          return orderedViewIds[0]
+        }
+
+        return orderedViewIds[(currentIndex + 1) % orderedViewIds.length]
+      })
+    }, AUTOPLAY_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isPlaying, orderedViewIds])
+
+  const activePeriod = useMemo(
+    () => getMapViewEntry(stat, activeViewId),
+    [activeViewId, stat],
+  )
+  const activePeriodEntries =
+    activeMetric === "records"
+      ? (activePeriod.entries_by_records ?? [])
+      : (activePeriod.entries_by_time ?? [])
+  const totalRecords = activePeriod.total_records ?? 0
+  const totalSeconds = activePeriod.total_seconds ?? 0
+  const activeTotal = activeMetric === "records" ? totalRecords : totalSeconds
+  const chartData = useMemo(
+    () =>
+      activePeriodEntries.map((entry) => {
+        const value =
+          activeMetric === "records"
+            ? (entry.record_count ?? 0)
+            : (entry.total_seconds ?? 0)
+        return {
+          id: String(entry.map_id),
+          name: entry.map_name,
+          value,
+          recordCount: entry.record_count ?? 0,
+          totalSeconds: entry.total_seconds ?? 0,
+          percentage: activeTotal > 0 ? (value / activeTotal) * 100 : 0,
+        }
+      }),
+    [activeMetric, activePeriodEntries, activeTotal],
+  )
+  const hasChartData = chartData.length > 0 && activeTotal > 0
+  const activeLabel =
+    activeViewId === ALL_TIME_VIEW_ID
+      ? t("profile.stats.allTime")
+      : activeViewId === LAST_365_DAYS_VIEW_ID
+        ? t("profile.stats.last365Days")
+        : activeViewId
+  const totalLabel =
+    activeMetric === "records"
+      ? t("profile.stats.totalRecords", { total: totalRecords })
+      : t("profile.stats.totalPlaytime", {
+          total: formatSecondsAsHours(totalSeconds),
+        })
+
+  useEffect(() => {
+    const element = chartRef.current
+    if (!element || !hasChartData || chartInstanceRef.current) {
+      return
+    }
+
+    const chart = echarts.init(element, undefined, {
+      renderer: "svg",
+    })
+    chartInstanceRef.current = chart
+
+    const resizeObserver = new ResizeObserver(() => {
+      chart.resize()
+    })
+    resizeObserver.observe(element)
+
+    return () => {
+      resizeObserver.disconnect()
+      chart.dispose()
+      if (chartInstanceRef.current === chart) {
+        chartInstanceRef.current = null
+      }
+    }
+  }, [hasChartData])
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current
+    if (!chart) {
+      return
+    }
+
+    const palette = buildChartColorPalette()
+    const textColor =
+      resolvedTheme === "dark"
+        ? "rgba(255, 255, 255, 0.84)"
+        : "rgba(15, 23, 42, 0.88)"
+    const mutedTextColor =
+      resolvedTheme === "dark"
+        ? "rgba(255, 255, 255, 0.62)"
+        : "rgba(15, 23, 42, 0.64)"
+    const gridColor =
+      resolvedTheme === "dark"
+        ? "rgba(255, 255, 255, 0.12)"
+        : "rgba(15, 23, 42, 0.1)"
+    const barColor = palette[0]
+
+    const option: EChartsOption = {
+      backgroundColor: "transparent",
+      animationDuration: 650,
+      animationDurationUpdate: 1100,
+      animationEasing: "cubicOut",
+      animationEasingUpdate: "cubicOut",
+      grid: {
+        top: 18,
+        right: isNarrowViewport ? 44 : 62,
+        bottom: 28,
+        left: 8,
+        containLabel: true,
+      },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: {
+          type: "shadow",
+        },
+        backgroundColor:
+          resolvedTheme === "dark"
+            ? "rgba(15, 23, 42, 0.95)"
+            : "rgba(255, 255, 255, 0.96)",
+        borderColor: gridColor,
+        textStyle: {
+          color: textColor,
+        },
+        formatter: (params) => {
+          const [entry] = params as Array<{
+            name?: string
+            value?: number | string
+            data?: {
+              recordCount?: number
+              totalSeconds?: number
+              percentage?: number
+            }
+          }>
+          const label = String(entry.name ?? "")
+          const percentage = Number(entry.data?.percentage ?? 0).toFixed(1)
+          const recordCount = entry.data?.recordCount ?? 0
+          const totalEntrySeconds = entry.data?.totalSeconds ?? 0
+
+          return `<div>
+<div style="font-weight:600;">${escapeHtml(label)}</div>
+<div style="margin-top:4px;">${escapeHtml(
+            t("profile.stats.tooltipRecords", {
+              count: recordCount,
+            }),
+          )}</div>
+<div style="margin-top:4px;">${escapeHtml(
+            t("profile.stats.tooltipHours", {
+              hours: formatSecondsAsHours(totalEntrySeconds),
+              percent: percentage,
+            }),
+          )}</div>
+</div>`
+        },
+      },
+      xAxis: {
+        type: "value",
+        axisLine: {
+          show: false,
+        },
+        axisTick: {
+          show: false,
+        },
+        axisLabel: {
+          color: mutedTextColor,
+          formatter: (value: number) =>
+            activeMetric === "records"
+              ? String(value)
+              : formatSecondsAsHours(value),
+        },
+        splitLine: {
+          lineStyle: {
+            color: gridColor,
+          },
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: chartData.map((entry) => entry.name),
+        inverse: true,
+        axisLine: {
+          lineStyle: {
+            color: gridColor,
+          },
+        },
+        axisTick: {
+          alignWithLabel: true,
+        },
+        axisLabel: {
+          color: mutedTextColor,
+          interval: 0,
+          overflow: "truncate",
+          width: isNarrowViewport ? 92 : 128,
+        },
+      },
+      series: [
+        {
+          name: activeLabel,
+          type: "bar",
+          barWidth: isNarrowViewport ? 16 : 22,
+          barMaxWidth: 26,
+          barCategoryGap: "40%",
+          itemStyle: {
+            color: barColor,
+            borderRadius: [0, 7, 7, 0],
+          },
+          emphasis: {
+            itemStyle: {
+              color: palette[0],
+            },
+          },
+          data: chartData.map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            value: entry.value,
+            recordCount: entry.recordCount,
+            totalSeconds: entry.totalSeconds,
+            percentage: entry.percentage,
+            label: {
+              show: true,
+              position: "right",
+              color: textColor,
+              fontSize: 11,
+              formatter: () =>
+                activeMetric === "records"
+                  ? String(entry.recordCount)
+                  : formatSecondsAsHours(entry.totalSeconds),
+            },
+          })),
+        },
+      ],
+    }
+
+    chart.setOption(option, {
+      lazyUpdate: true,
+      notMerge: false,
+    })
+  }, [activeLabel, activeMetric, chartData, isNarrowViewport, resolvedTheme, t])
+
+  return (
+    <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
+      <CardContent className="space-y-5 p-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              {t("profile.stats.mapsTitle")}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              {(["records", "hours"] as const).map((metric) => (
+                <Button
+                  key={metric}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setActiveMetric(metric)
+                  }}
+                  className={cn(
+                    "shrink-0",
+                    activeMetric === metric && "bg-card text-foreground",
+                  )}
+                  data-testid={`profile-stats-maps-metric-${metric}`}
+                >
+                  {metric === "records"
+                    ? t("profile.stats.recordsMetric")
+                    : t("profile.stats.hoursMetric")}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  if (yearViewIds.length === 0) {
+                    return
+                  }
+
+                  setActiveViewId((currentViewId) =>
+                    orderedViewIds.includes(currentViewId)
+                      ? currentViewId
+                      : orderedViewIds[0],
+                  )
+                  setIsPlaying((current) => !current)
+                }}
+                disabled={orderedViewIds.length === 0}
+                aria-label={
+                  isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
+                }
+                title={
+                  isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
+                }
+                data-testid="profile-stats-maps-playback-button"
+                className="shrink-0"
+              >
+                {isPlaying ? <Pause /> : <Play />}
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 gap-2 overflow-x-auto">
+              {orderedViewIds.map((viewId) => {
+                const label =
+                  viewId === ALL_TIME_VIEW_ID
+                    ? t("profile.stats.allTime")
+                    : viewId === LAST_365_DAYS_VIEW_ID
+                      ? t("profile.stats.last365Days")
+                      : viewId
+
+                return (
+                  <Button
+                    key={viewId}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setActiveViewId(viewId)
+                      setIsPlaying(false)
+                    }}
+                    className={cn(
+                      "shrink-0",
+                      activeViewId === viewId && "bg-card text-foreground",
+                    )}
+                    data-testid={`profile-stats-maps-view-${viewId}`}
+                  >
+                    {label}
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{activeLabel}</span>
+          <span>{totalLabel}</span>
+        </div>
+
+        {!hasChartData ? (
+          <div className="flex h-[22rem] items-center justify-center rounded-[18px] border border-dashed border-border/70 bg-background/50 text-sm text-muted-foreground">
+            {t("profile.stats.mapsEmpty")}
+          </div>
+        ) : (
+          <div
+            ref={chartRef}
+            className="h-[22rem] w-full"
+            role="img"
+            aria-label={t("profile.stats.mapsAriaLabel", { view: activeLabel })}
+            data-testid="profile-stats-most-played-maps-chart"
+          />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function ProfileStatsSkeleton() {
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
@@ -488,10 +924,12 @@ export function ProfileStatsContent({
   error,
   loading,
   mostPlayedServer,
+  mostPlayedMaps,
 }: {
   error: boolean
   loading: boolean
   mostPlayedServer: PlayerMostPlayedServerPublic | null
+  mostPlayedMaps: PlayerMostPlayedMapsPublic | null
 }) {
   const { t } = useTranslation()
 
@@ -514,9 +952,18 @@ export function ProfileStatsContent({
       {mostPlayedServer ? (
         <ProfileStatsPieCard stat={mostPlayedServer} />
       ) : (
-        <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0 xl:col-span-2">
+        <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
           <CardContent className="p-6 text-sm text-muted-foreground">
             {t("profile.stats.empty")}
+          </CardContent>
+        </Card>
+      )}
+      {mostPlayedMaps ? (
+        <ProfileStatsMapBarCard stat={mostPlayedMaps} />
+      ) : (
+        <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            {t("profile.stats.mapsEmpty")}
           </CardContent>
         </Card>
       )}

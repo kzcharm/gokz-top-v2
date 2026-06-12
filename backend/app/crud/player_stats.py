@@ -12,12 +12,18 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.crud.player_profile_field_change import player_action_timestamp_exists
 from app.models import (
+    Map,
     Player,
     PlayerAction,
     PlayerDailyActivityContentPublic,
     PlayerDailyActivityDayPublic,
     PlayerDailyActivityPublic,
     PlayerDailyActivityStatPublic,
+    PlayerMostPlayedMapEntryPublic,
+    PlayerMostPlayedMapsContentPublic,
+    PlayerMostPlayedMapsPeriodPublic,
+    PlayerMostPlayedMapsPublic,
+    PlayerMostPlayedMapsStatPublic,
     PlayerMostPlayedServerContentPublic,
     PlayerMostPlayedServerEntryPublic,
     PlayerMostPlayedServerPeriodPublic,
@@ -36,6 +42,8 @@ from app.models import (
     ServerGroup,
     get_datetime_utc,
 )
+
+MOST_PLAYED_MAPS_ENTRY_LIMIT = 10
 
 
 def get_utc_midnight(*, now: datetime | None = None) -> datetime:
@@ -103,6 +111,21 @@ def _serialize_most_played_server_content(
     return content.model_dump(mode="json", exclude_none=True)
 
 
+def _normalize_most_played_maps_content(
+    content: Any,
+) -> PlayerMostPlayedMapsContentPublic:
+    try:
+        return PlayerMostPlayedMapsContentPublic.model_validate(content)
+    except ValidationError:
+        return PlayerMostPlayedMapsContentPublic()
+
+
+def _serialize_most_played_maps_content(
+    content: PlayerMostPlayedMapsContentPublic,
+) -> dict[str, Any]:
+    return content.model_dump(mode="json", exclude_none=True)
+
+
 def _to_player_daily_activity_stat_public(
     cache_row: PlayerStatCache,
 ) -> PlayerDailyActivityStatPublic:
@@ -137,6 +160,17 @@ def _to_player_most_played_server_stat_public(
     )
 
 
+def _to_player_most_played_maps_stat_public(
+    cache_row: PlayerStatCache,
+) -> PlayerMostPlayedMapsStatPublic:
+    return PlayerMostPlayedMapsStatPublic(
+        steamid64=str(cache_row.steamid64),
+        type=cache_row.type,
+        updated_at=cache_row.updated_at,
+        content=_normalize_most_played_maps_content(cache_row.content),
+    )
+
+
 @dataclass(slots=True)
 class _MostPlayedServerBucket:
     key: str
@@ -146,8 +180,39 @@ class _MostPlayedServerBucket:
     total_seconds: Decimal
 
 
+@dataclass(slots=True)
+class _MostPlayedMapBucket:
+    map_id: int
+    map_name: str
+    map_tier: int | None
+    record_count: int
+    total_seconds: Decimal
+
+
 def _bucket_sort_key(bucket: _MostPlayedServerBucket) -> tuple[Decimal, str, str]:
     return (-bucket.total_seconds, bucket.label.casefold(), bucket.key)
+
+
+def _most_played_map_records_sort_key(
+    bucket: _MostPlayedMapBucket,
+) -> tuple[int, Decimal, str, int]:
+    return (
+        -bucket.record_count,
+        -bucket.total_seconds,
+        bucket.map_name.casefold(),
+        bucket.map_id,
+    )
+
+
+def _most_played_map_time_sort_key(
+    bucket: _MostPlayedMapBucket,
+) -> tuple[Decimal, int, str, int]:
+    return (
+        -bucket.total_seconds,
+        -bucket.record_count,
+        bucket.map_name.casefold(),
+        bucket.map_id,
+    )
 
 
 def _build_most_played_server_entry(
@@ -173,6 +238,41 @@ def _build_most_played_server_period_public(
     return PlayerMostPlayedServerPeriodPublic(
         total_seconds=_quantize_seconds(total_seconds),
         entries=[_build_most_played_server_entry(bucket) for bucket in ordered_buckets],
+    )
+
+
+def _build_most_played_map_entry(
+    bucket: _MostPlayedMapBucket,
+) -> PlayerMostPlayedMapEntryPublic:
+    return PlayerMostPlayedMapEntryPublic(
+        map_id=bucket.map_id,
+        map_name=bucket.map_name,
+        map_tier=bucket.map_tier,
+        record_count=bucket.record_count,
+        total_seconds=_quantize_seconds(bucket.total_seconds),
+    )
+
+
+def _build_most_played_maps_period_public(
+    buckets: dict[int, _MostPlayedMapBucket],
+) -> PlayerMostPlayedMapsPeriodPublic:
+    by_records = sorted(buckets.values(), key=_most_played_map_records_sort_key)[
+        :MOST_PLAYED_MAPS_ENTRY_LIMIT
+    ]
+    by_time = sorted(buckets.values(), key=_most_played_map_time_sort_key)[
+        :MOST_PLAYED_MAPS_ENTRY_LIMIT
+    ]
+    total_records = sum(bucket.record_count for bucket in buckets.values())
+    total_seconds = sum(
+        (bucket.total_seconds for bucket in buckets.values()), Decimal("0")
+    )
+    return PlayerMostPlayedMapsPeriodPublic(
+        total_records=total_records,
+        total_seconds=_quantize_seconds(total_seconds),
+        entries_by_records=[
+            _build_most_played_map_entry(bucket) for bucket in by_records
+        ],
+        entries_by_time=[_build_most_played_map_entry(bucket) for bucket in by_time],
     )
 
 
@@ -441,6 +541,36 @@ async def _load_most_played_server_rows(
     ]
 
 
+async def _load_most_played_map_rows(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+) -> list[tuple[datetime, Decimal, int, str, int | None]]:
+    statement = (
+        select(
+            col(Record.created_at),
+            col(Record.time),
+            col(Map.id),
+            col(Map.name),
+            col(Map.difficulty),
+        )
+        .join(Map, col(Record.map_id) == col(Map.id))
+        .where(col(Record.steamid64) == steamid64)
+        .order_by(col(Record.created_at).asc(), col(Record.id).asc())
+    )
+    rows = (await session.exec(statement)).all()
+    return [
+        (
+            row[0],
+            Decimal(row[1]),
+            int(row[2]),
+            str(row[3]),
+            int(row[4]) if row[4] is not None else None,
+        )
+        for row in rows
+    ]
+
+
 async def rebuild_player_most_played_server_stat(
     *,
     session: AsyncSession,
@@ -559,6 +689,100 @@ async def rebuild_player_most_played_server_stat(
     return _to_player_most_played_server_stat_public(persisted)
 
 
+async def rebuild_player_most_played_maps_stat(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    now: datetime | None = None,
+) -> PlayerMostPlayedMapsStatPublic:
+    current_now = _to_utc_datetime(now or get_datetime_utc())
+    rows = await _load_most_played_map_rows(
+        session=session,
+        steamid64=steamid64,
+    )
+
+    first_year = _to_utc_datetime(rows[0][0]).year if rows else None
+    current_year = current_now.year
+    years = list(range(first_year, current_year + 1)) if first_year is not None else []
+    rolling_start = current_now - timedelta(days=365)
+
+    all_time_buckets: dict[int, _MostPlayedMapBucket] = {}
+    last_365_days_buckets: dict[int, _MostPlayedMapBucket] = {}
+    yearly_buckets: dict[int, dict[int, _MostPlayedMapBucket]] = {
+        year: {} for year in years
+    }
+
+    def add_bucket(
+        bucket_map: dict[int, _MostPlayedMapBucket],
+        *,
+        map_id: int,
+        map_name: str,
+        map_tier: int | None,
+        total_seconds: Decimal,
+    ) -> None:
+        bucket = bucket_map.get(map_id)
+        if bucket is None:
+            bucket_map[map_id] = _MostPlayedMapBucket(
+                map_id=map_id,
+                map_name=map_name,
+                map_tier=map_tier,
+                record_count=1,
+                total_seconds=total_seconds,
+            )
+            return
+
+        bucket.record_count += 1
+        bucket.total_seconds += total_seconds
+
+    for created_at, record_time, map_id, map_name, map_tier in rows:
+        record_at = _to_utc_datetime(created_at)
+        total_seconds = Decimal(str(record_time))
+
+        add_bucket(
+            all_time_buckets,
+            map_id=map_id,
+            map_name=map_name,
+            map_tier=map_tier,
+            total_seconds=total_seconds,
+        )
+        if record_at >= rolling_start:
+            add_bucket(
+                last_365_days_buckets,
+                map_id=map_id,
+                map_name=map_name,
+                map_tier=map_tier,
+                total_seconds=total_seconds,
+            )
+        if record_at.year in yearly_buckets:
+            add_bucket(
+                yearly_buckets[record_at.year],
+                map_id=map_id,
+                map_name=map_name,
+                map_tier=map_tier,
+                total_seconds=total_seconds,
+            )
+
+    content = PlayerMostPlayedMapsContentPublic(
+        first_year=first_year,
+        current_year=current_year if first_year is not None else None,
+        years=years,
+        all_time=_build_most_played_maps_period_public(all_time_buckets),
+        last_365_days=_build_most_played_maps_period_public(last_365_days_buckets),
+        yearly={
+            str(year): _build_most_played_maps_period_public(yearly_buckets[year])
+            for year in years
+        },
+    )
+    persisted = await _upsert_player_stat_cache(
+        session=session,
+        steamid64=steamid64,
+        stat_type=PlayerStatType.MOST_PLAYED_MAPS,
+        content=_serialize_most_played_maps_content(content),
+        updated_at=current_now,
+    )
+    return _to_player_most_played_maps_stat_public(persisted)
+
+
 async def get_or_rebuild_player_daily_activity_stat(
     *,
     session: AsyncSession,
@@ -628,6 +852,29 @@ async def get_or_rebuild_player_most_played_server_stat(
     )
 
 
+async def get_or_rebuild_player_most_played_maps_stat(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    now: datetime | None = None,
+) -> PlayerMostPlayedMapsStatPublic:
+    current_now = now or get_datetime_utc()
+    cache_row = await session.get(
+        PlayerStatCache,
+        (steamid64, PlayerStatType.MOST_PLAYED_MAPS),
+    )
+    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(
+        now=current_now
+    ):
+        return _to_player_most_played_maps_stat_public(cache_row)
+
+    return await rebuild_player_most_played_maps_stat(
+        session=session,
+        steamid64=steamid64,
+        now=current_now,
+    )
+
+
 async def get_or_rebuild_player_stats(
     *,
     session: AsyncSession,
@@ -670,6 +917,17 @@ async def get_or_rebuild_player_stats(
         payload.most_played_server = PlayerMostPlayedServerPublic(
             updated_at=most_played_server.updated_at,
             **most_played_server.content.model_dump(),
+        )
+
+    if PlayerStatType.MOST_PLAYED_MAPS in requested_types:
+        most_played_maps = await get_or_rebuild_player_most_played_maps_stat(
+            session=session,
+            steamid64=steamid64,
+            now=current_now,
+        )
+        payload.most_played_maps = PlayerMostPlayedMapsPublic(
+            updated_at=most_played_maps.updated_at,
+            **most_played_maps.content.model_dump(),
         )
 
     return payload

@@ -824,6 +824,33 @@ export type PlayerLikesPublic = {
     created?: boolean;
 };
 
+export type PlayerMostPlayedMapEntryPublic = {
+    map_id: number;
+    map_name: string;
+    map_tier?: (number | null);
+    record_count?: number;
+    total_seconds?: number;
+};
+
+export type PlayerMostPlayedMapsPeriodPublic = {
+    total_records?: number;
+    total_seconds?: number;
+    entries_by_records?: Array<PlayerMostPlayedMapEntryPublic>;
+    entries_by_time?: Array<PlayerMostPlayedMapEntryPublic>;
+};
+
+export type PlayerMostPlayedMapsPublic = {
+    first_year?: (number | null);
+    current_year?: (number | null);
+    years?: Array<(number)>;
+    all_time?: PlayerMostPlayedMapsPeriodPublic;
+    last_365_days?: PlayerMostPlayedMapsPeriodPublic;
+    yearly?: {
+        [key: string]: PlayerMostPlayedMapsPeriodPublic;
+    };
+    updated_at: string;
+};
+
 export type PlayerMostPlayedServerEntryPublic = {
     key: string;
     label: string;
@@ -1084,9 +1111,10 @@ export type PlayerStatsPublic = {
     daily_activity?: (PlayerDailyActivityPublic | null);
     playtime?: (PlayerPlaytimePublic | null);
     most_played_server?: (PlayerMostPlayedServerPublic | null);
+    most_played_maps?: (PlayerMostPlayedMapsPublic | null);
 };
 
-export type PlayerStatType = 'daily_activity' | 'playtime' | 'most_played_server';
+export type PlayerStatType = 'daily_activity' | 'playtime' | 'most_played_server' | 'most_played_maps';
 
 export type PlayerUpdate = {
     alias?: (string | null);

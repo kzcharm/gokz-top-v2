@@ -111,6 +111,138 @@ const playerStats = {
       },
     },
   },
+  most_played_maps: {
+    updated_at: "2026-04-03T12:00:00Z",
+    first_year: 2024,
+    current_year: 2026,
+    years: [2024, 2025, 2026],
+    all_time: {
+      total_records: 6,
+      total_seconds: 54000,
+      entries_by_records: [
+        {
+          map_id: 981100,
+          map_name: "kz_records",
+          map_tier: 3,
+          record_count: 4,
+          total_seconds: 18000,
+        },
+        {
+          map_id: 981101,
+          map_name: "kz_hours",
+          map_tier: 5,
+          record_count: 2,
+          total_seconds: 36000,
+        },
+      ],
+      entries_by_time: [
+        {
+          map_id: 981101,
+          map_name: "kz_hours",
+          map_tier: 5,
+          record_count: 2,
+          total_seconds: 36000,
+        },
+        {
+          map_id: 981100,
+          map_name: "kz_records",
+          map_tier: 3,
+          record_count: 4,
+          total_seconds: 18000,
+        },
+      ],
+    },
+    last_365_days: {
+      total_records: 2,
+      total_seconds: 25200,
+      entries_by_records: [
+        {
+          map_id: 981101,
+          map_name: "kz_hours",
+          map_tier: 5,
+          record_count: 2,
+          total_seconds: 25200,
+        },
+      ],
+      entries_by_time: [
+        {
+          map_id: 981101,
+          map_name: "kz_hours",
+          map_tier: 5,
+          record_count: 2,
+          total_seconds: 25200,
+        },
+      ],
+    },
+    yearly: {
+      "2024": {
+        total_records: 1,
+        total_seconds: 10800,
+        entries_by_records: [
+          {
+            map_id: 981100,
+            map_name: "kz_records",
+            map_tier: 3,
+            record_count: 1,
+            total_seconds: 10800,
+          },
+        ],
+        entries_by_time: [
+          {
+            map_id: 981100,
+            map_name: "kz_records",
+            map_tier: 3,
+            record_count: 1,
+            total_seconds: 10800,
+          },
+        ],
+      },
+      "2025": {
+        total_records: 2,
+        total_seconds: 18000,
+        entries_by_records: [
+          {
+            map_id: 981101,
+            map_name: "kz_hours",
+            map_tier: 5,
+            record_count: 2,
+            total_seconds: 18000,
+          },
+        ],
+        entries_by_time: [
+          {
+            map_id: 981101,
+            map_name: "kz_hours",
+            map_tier: 5,
+            record_count: 2,
+            total_seconds: 18000,
+          },
+        ],
+      },
+      "2026": {
+        total_records: 3,
+        total_seconds: 25200,
+        entries_by_records: [
+          {
+            map_id: 981100,
+            map_name: "kz_records",
+            map_tier: 3,
+            record_count: 3,
+            total_seconds: 25200,
+          },
+        ],
+        entries_by_time: [
+          {
+            map_id: 981100,
+            map_name: "kz_records",
+            map_tier: 3,
+            record_count: 3,
+            total_seconds: 25200,
+          },
+        ],
+      },
+    },
+  },
 }
 
 async function installProfileStatsRoutes(page: Page) {
@@ -278,6 +410,7 @@ test("Profile stats renders the most played server pie chart with timeline playb
 
   await expect(page).toHaveURL(new RegExp(`/profile/${steamid64}/stats$`))
   await expect(page.getByText("Most Played Server")).toBeVisible()
+  await expect(page.getByText("Most Played Maps")).toBeVisible()
   await expect(page.getByTestId("profile-stats-view-all-time")).toBeVisible()
   await expect(
     page.getByTestId("profile-stats-view-last-365-days"),
@@ -319,4 +452,14 @@ test("Profile stats renders the most played server pie chart with timeline playb
   await expect(
     page.getByTestId("profile-stats-most-played-server-chart"),
   ).toHaveAttribute("aria-label", /2024/)
+  await expect(
+    page.getByTestId("profile-stats-most-played-maps-chart"),
+  ).toBeVisible()
+  await expect(
+    page.getByTestId("profile-stats-maps-metric-records"),
+  ).toHaveClass(/bg-card/)
+  await page.getByTestId("profile-stats-maps-metric-hours").click()
+  await expect(page.getByTestId("profile-stats-maps-metric-hours")).toHaveClass(
+    /bg-card/,
+  )
 })

@@ -131,6 +131,54 @@ def _json_datetime(value: datetime) -> str:
     return value.isoformat().replace("+00:00", "Z")
 
 
+def _single_map_stats_payload(
+    *,
+    updated_at: datetime,
+    total_seconds: float,
+    record_count: int,
+) -> dict[str, object]:
+    entry = {
+        "map_id": 981100,
+        "map_name": "kz_activity",
+        "map_tier": 4,
+        "record_count": record_count,
+        "total_seconds": total_seconds,
+    }
+    period = {
+        "total_records": record_count,
+        "total_seconds": total_seconds,
+        "entries_by_records": [entry],
+        "entries_by_time": [entry],
+    }
+    return {
+        "updated_at": _json_datetime(updated_at),
+        "first_year": 2026,
+        "current_year": 2026,
+        "years": [2026],
+        "all_time": period,
+        "last_365_days": period,
+        "yearly": {"2026": period},
+    }
+
+
+def _empty_map_stats_payload(*, updated_at: datetime) -> dict[str, object]:
+    period = {
+        "total_records": 0,
+        "total_seconds": 0.0,
+        "entries_by_records": [],
+        "entries_by_time": [],
+    }
+    return {
+        "updated_at": _json_datetime(updated_at),
+        "first_year": None,
+        "current_year": None,
+        "years": [],
+        "all_time": period,
+        "last_365_days": period,
+        "yearly": {},
+    }
+
+
 @pytest.mark.asyncio
 async def test_read_player_stats_returns_not_found_for_missing_player(
     client: AsyncClient,
@@ -239,14 +287,23 @@ async def test_read_player_stats_builds_cache_on_first_read(
                 }
             },
         },
+        "most_played_maps": _single_map_stats_payload(
+            updated_at=now,
+            total_seconds=30.0,
+            record_count=3,
+        ),
     }
 
     daily_activity_cache = await db.get(
         PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
     )
     playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    maps_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
+    )
     assert daily_activity_cache is not None
     assert playtime_cache is not None
+    assert maps_cache is not None
 
 
 @pytest.mark.asyncio
@@ -398,6 +455,40 @@ async def test_read_player_stats_supports_most_played_server_type_filter(
 
 
 @pytest.mark.asyncio
+async def test_read_player_stats_supports_most_played_maps_type_filter(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 2, 12, 0, tzinfo=UTC)
+    await _seed_player_history(db, steamid64=steamid64)
+    await _create_record(
+        db,
+        id=983140,
+        steamid64=steamid64,
+        map_id=981100,
+        server_id=982100,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="12.000",
+    )
+
+    monkeypatch.setattr("app.crud.player_stats.get_datetime_utc", lambda: now)
+
+    response = await client.get(_stats_url(steamid64, "most_played_maps"))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "steamid64": str(steamid64),
+        "most_played_maps": _single_map_stats_payload(
+            updated_at=now,
+            total_seconds=12.0,
+            record_count=1,
+        ),
+    }
+
+
+@pytest.mark.asyncio
 async def test_read_player_stats_uses_same_day_cache_without_refresh(
     client: AsyncClient,
     db: AsyncSession,
@@ -441,10 +532,15 @@ async def test_read_player_stats_uses_same_day_cache_without_refresh(
         PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
     )
     playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    maps_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
+    )
     assert daily_activity_cache is not None
     assert playtime_cache is not None
+    assert maps_cache is not None
     assert daily_activity_cache.updated_at == first_now
     assert playtime_cache.updated_at == first_now
+    assert maps_cache.updated_at == first_now
 
 
 @pytest.mark.asyncio
@@ -561,16 +657,26 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
                 }
             },
         },
+        "most_played_maps": _single_map_stats_payload(
+            updated_at=refresh_now,
+            total_seconds=36.0,
+            record_count=4,
+        ),
     }
 
     daily_activity_cache = await db.get(
         PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
     )
     playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    maps_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
+    )
     assert daily_activity_cache is not None
     assert playtime_cache is not None
+    assert maps_cache is not None
     assert daily_activity_cache.updated_at == refresh_now
     assert playtime_cache.updated_at == refresh_now
+    assert maps_cache.updated_at == refresh_now
 
 
 @pytest.mark.asyncio
@@ -612,11 +718,16 @@ async def test_read_player_stats_returns_empty_payload_and_writes_cache(
             },
             "yearly": {},
         },
+        "most_played_maps": _empty_map_stats_payload(updated_at=now),
     }
 
     daily_activity_cache = await db.get(
         PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
     )
     playtime_cache = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    maps_cache = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
+    )
     assert daily_activity_cache is not None
     assert playtime_cache is not None
+    assert maps_cache is not None

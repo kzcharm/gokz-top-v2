@@ -18,6 +18,7 @@ class PlayerStatType(StrEnum):
     DAILY_ACTIVITY = "daily_activity"
     PLAYTIME = "playtime"
     MOST_PLAYED_SERVER = "most_played_server"
+    MOST_PLAYED_MAPS = "most_played_maps"
 
 
 class PlayerStatCache(SQLModel, table=True):
@@ -123,7 +124,48 @@ class PlayerMostPlayedServerStatPublic(SQLModel):
     content: PlayerMostPlayedServerContentPublic
 
 
+class PlayerMostPlayedMapEntryPublic(SQLModel):
+    map_id: int
+    map_name: str
+    map_tier: int | None = None
+    record_count: int = Field(default=0, ge=0)
+    total_seconds: float = Field(default=0, ge=0)
+
+
+class PlayerMostPlayedMapsPeriodPublic(SQLModel):
+    total_records: int = Field(default=0, ge=0)
+    total_seconds: float = Field(default=0, ge=0)
+    entries_by_records: list[PlayerMostPlayedMapEntryPublic] = Field(
+        default_factory=list
+    )
+    entries_by_time: list[PlayerMostPlayedMapEntryPublic] = Field(default_factory=list)
+
+
+class PlayerMostPlayedMapsContentPublic(SQLModel):
+    first_year: int | None = None
+    current_year: int | None = None
+    years: list[int] = Field(default_factory=list)
+    all_time: PlayerMostPlayedMapsPeriodPublic = Field(
+        default_factory=PlayerMostPlayedMapsPeriodPublic
+    )
+    last_365_days: PlayerMostPlayedMapsPeriodPublic = Field(
+        default_factory=PlayerMostPlayedMapsPeriodPublic
+    )
+    yearly: dict[str, PlayerMostPlayedMapsPeriodPublic] = Field(default_factory=dict)
+
+
+class PlayerMostPlayedMapsStatPublic(SQLModel):
+    steamid64: str
+    type: PlayerStatType
+    updated_at: datetime
+    content: PlayerMostPlayedMapsContentPublic
+
+
 class PlayerMostPlayedServerPublic(PlayerMostPlayedServerContentPublic):
+    updated_at: datetime
+
+
+class PlayerMostPlayedMapsPublic(PlayerMostPlayedMapsContentPublic):
     updated_at: datetime
 
 
@@ -142,3 +184,4 @@ class PlayerStatsPublic(SQLModel):
     daily_activity: PlayerDailyActivityPublic | None = None
     playtime: PlayerPlaytimePublic | None = None
     most_played_server: PlayerMostPlayedServerPublic | None = None
+    most_played_maps: PlayerMostPlayedMapsPublic | None = None

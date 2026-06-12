@@ -97,7 +97,7 @@ Scope model:
 - Offline `/live` cards must show the most recently observed stream across a player's enabled platforms, so future multi-platform support can prefer the newest Twitch/YouTube/Bilibili activity rather than a fixed platform order.
 - When Cloudflare R2 is configured, `/live` stores the latest observed Bilibili and Twitch stream keyframe in R2 and uses that saved image for offline stream cards.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).
-- Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity, total playtime, and most-played-server breakdowns available on the profile.
+- Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity, total playtime, most-played-server breakdowns, and most-played-map breakdowns by records submitted and record time available on the profile.
 - Player profile sidebars expose a `Fav Server` row below Long Jump. By default it reflects the player's all-time most-played server/group from cached stats; grouped servers display the server group name and link to the server-group page.
 - Shareable, fast-loading profile UI with clear information hierarchy.
 

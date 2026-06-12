@@ -201,11 +201,13 @@ from .player_social_link import (
 )
 from .player_stats import (
     get_or_rebuild_player_daily_activity_stat,
+    get_or_rebuild_player_most_played_maps_stat,
     get_or_rebuild_player_most_played_server_stat,
     get_or_rebuild_player_playtime_stat,
     get_or_rebuild_player_stats,
     get_utc_midnight,
     rebuild_player_daily_activity_stat,
+    rebuild_player_most_played_maps_stat,
     rebuild_player_most_played_server_stat,
     rebuild_player_playtime_stat,
 )
@@ -395,6 +397,7 @@ __all__ = [
     "get_or_rebuild_player_daily_activity_stat",
     "get_or_rebuild_player_playtime_stat",
     "get_or_rebuild_player_most_played_server_stat",
+    "get_or_rebuild_player_most_played_maps_stat",
     "get_or_rebuild_player_stats",
     "get_utc_today",
     "get_utc_midnight",
@@ -531,6 +534,7 @@ __all__ = [
     "rebuild_player_daily_activity_stat",
     "rebuild_player_playtime_stat",
     "rebuild_player_most_played_server_stat",
+    "rebuild_player_most_played_maps_stat",
     "rebuild_leaderboard_player",
     "rebuild_leaderboard_players",
     "rebuild_leaderboard_players_for_keys",

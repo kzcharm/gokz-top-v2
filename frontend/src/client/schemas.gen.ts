@@ -4162,6 +4162,133 @@ export const PlayerLikesPublicSchema = {
     title: 'PlayerLikesPublic'
 } as const;
 
+export const PlayerMostPlayedMapEntryPublicSchema = {
+    properties: {
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        map_name: {
+            type: 'string',
+            title: 'Map Name'
+        },
+        map_tier: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Map Tier'
+        },
+        record_count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Record Count',
+            default: 0
+        },
+        total_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Seconds',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['map_id', 'map_name'],
+    title: 'PlayerMostPlayedMapEntryPublic'
+} as const;
+
+export const PlayerMostPlayedMapsPeriodPublicSchema = {
+    properties: {
+        total_records: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Total Records',
+            default: 0
+        },
+        total_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Seconds',
+            default: 0
+        },
+        entries_by_records: {
+            items: {
+                '$ref': '#/components/schemas/PlayerMostPlayedMapEntryPublic'
+            },
+            type: 'array',
+            title: 'Entries By Records'
+        },
+        entries_by_time: {
+            items: {
+                '$ref': '#/components/schemas/PlayerMostPlayedMapEntryPublic'
+            },
+            type: 'array',
+            title: 'Entries By Time'
+        }
+    },
+    type: 'object',
+    title: 'PlayerMostPlayedMapsPeriodPublic'
+} as const;
+
+export const PlayerMostPlayedMapsPublicSchema = {
+    properties: {
+        first_year: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'First Year'
+        },
+        current_year: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Current Year'
+        },
+        years: {
+            items: {
+                type: 'integer'
+            },
+            type: 'array',
+            title: 'Years'
+        },
+        all_time: {
+            '$ref': '#/components/schemas/PlayerMostPlayedMapsPeriodPublic'
+        },
+        last_365_days: {
+            '$ref': '#/components/schemas/PlayerMostPlayedMapsPeriodPublic'
+        },
+        yearly: {
+            additionalProperties: {
+                '$ref': '#/components/schemas/PlayerMostPlayedMapsPeriodPublic'
+            },
+            type: 'object',
+            title: 'Yearly'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['updated_at'],
+    title: 'PlayerMostPlayedMapsPublic'
+} as const;
+
 export const PlayerMostPlayedServerEntryPublicSchema = {
     properties: {
         key: {
@@ -5367,7 +5494,7 @@ export const PlayerSocialPlatformSchema = {
 
 export const PlayerStatTypeSchema = {
     type: 'string',
-    enum: ['daily_activity', 'playtime', 'most_played_server'],
+    enum: ['daily_activity', 'playtime', 'most_played_server', 'most_played_maps'],
     title: 'PlayerStatType'
 } as const;
 
@@ -5401,6 +5528,16 @@ export const PlayerStatsPublicSchema = {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/PlayerMostPlayedServerPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        most_played_maps: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerMostPlayedMapsPublic'
                 },
                 {
                     type: 'null'

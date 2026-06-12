@@ -764,6 +764,7 @@ export function ProfilePage({
               mostPlayedServer={
                 playerStatsQuery.data?.most_played_server ?? null
               }
+              mostPlayedMaps={playerStatsQuery.data?.most_played_maps ?? null}
             />
           )}
         </section>

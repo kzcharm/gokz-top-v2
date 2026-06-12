@@ -38,6 +38,7 @@ from app.models import (
     PlayerLikerPublic,
     PlayerLikersPublic,
     PlayerLikesPublic,
+    PlayerMostPlayedMapsPublic,
     PlayerMostPlayedServerPublic,
     PlayerPinnedRecordsPublic,
     PlayerPlaytimePublic,
@@ -343,6 +344,7 @@ async def read_player_stats(
             PlayerDailyActivityPublic
             | PlayerPlaytimePublic
             | PlayerMostPlayedServerPublic
+            | PlayerMostPlayedMapsPublic
         )
         if type == PlayerStatType.DAILY_ACTIVITY:
             daily_activity = await crud.get_or_rebuild_player_daily_activity_stat(
@@ -362,7 +364,7 @@ async def read_player_stats(
                 updated_at=playtime.updated_at,
                 **playtime.content.model_dump(mode="json"),
             )
-        else:
+        elif type == PlayerStatType.MOST_PLAYED_SERVER:
             most_played_server = await crud.get_or_rebuild_player_most_played_server_stat(
                 session=session,
                 steamid64=player.steamid64,
@@ -370,6 +372,15 @@ async def read_player_stats(
             payload = PlayerMostPlayedServerPublic(
                 updated_at=most_played_server.updated_at,
                 **most_played_server.content.model_dump(mode="json"),
+            )
+        else:
+            most_played_maps = await crud.get_or_rebuild_player_most_played_maps_stat(
+                session=session,
+                steamid64=player.steamid64,
+            )
+            payload = PlayerMostPlayedMapsPublic(
+                updated_at=most_played_maps.updated_at,
+                **most_played_maps.content.model_dump(mode="json"),
             )
         response_payload = {
             "steamid64": str(player.steamid64),

@@ -31,7 +31,13 @@ async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None
     await db.commit()
 
 
-async def _create_map(db: AsyncSession, *, id: int, name: str) -> None:
+async def _create_map(
+    db: AsyncSession,
+    *,
+    id: int,
+    name: str,
+    difficulty: int = 2,
+) -> None:
     await db.exec(delete(Map).where(Map.id == id))
     await db.commit()
     db.add(
@@ -40,7 +46,7 @@ async def _create_map(db: AsyncSession, *, id: int, name: str) -> None:
             name=name,
             filesize=1,
             validated=True,
-            difficulty=2,
+            difficulty=difficulty,
             approved_by_steamid64=76561198003275951,
         )
     )
@@ -367,6 +373,162 @@ async def test_rebuild_player_most_played_server_stat_groups_by_server_group(
 
 
 @pytest.mark.asyncio
+async def test_rebuild_player_most_played_maps_stat_aggregates_periods_and_rankings(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 4, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Map Stats Runner")
+    await _create_map(db, id=981260, name="kz_records", difficulty=3)
+    await _create_map(db, id=981261, name="kz_hours", difficulty=5)
+    await _create_map(db, id=981262, name="kz_old", difficulty=1)
+    await _create_server(db, id=982260, name="Map Stats Server")
+    await _create_record(
+        db,
+        id=983260,
+        steamid64=steamid64,
+        map_id=981260,
+        server_id=982260,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        time_seconds="10.000",
+    )
+    await _create_record(
+        db,
+        id=983261,
+        steamid64=steamid64,
+        map_id=981260,
+        server_id=982260,
+        created_on=datetime(2026, 4, 2, 9, 0, tzinfo=UTC),
+        time_seconds="10.000",
+    )
+    await _create_record(
+        db,
+        id=983262,
+        steamid64=steamid64,
+        map_id=981261,
+        server_id=982260,
+        created_on=datetime(2025, 5, 1, 8, 0, tzinfo=UTC),
+        time_seconds="45.000",
+    )
+    await _create_record(
+        db,
+        id=983263,
+        steamid64=steamid64,
+        map_id=981262,
+        server_id=982260,
+        created_on=datetime(2024, 1, 1, 8, 0, tzinfo=UTC),
+        time_seconds="30.000",
+    )
+
+    stat = await crud.rebuild_player_most_played_maps_stat(
+        session=db,
+        steamid64=steamid64,
+        now=now,
+    )
+
+    assert stat.content.first_year == 2024
+    assert stat.content.current_year == 2026
+    assert stat.content.years == [2024, 2025, 2026]
+    assert stat.content.all_time.total_records == 4
+    assert stat.content.all_time.total_seconds == 95.0
+    assert [entry.map_name for entry in stat.content.all_time.entries_by_records] == [
+        "kz_records",
+        "kz_hours",
+        "kz_old",
+    ]
+    assert [entry.map_name for entry in stat.content.all_time.entries_by_time] == [
+        "kz_hours",
+        "kz_old",
+        "kz_records",
+    ]
+    assert stat.content.all_time.entries_by_records[0].map_tier == 3
+    assert stat.content.all_time.entries_by_records[0].record_count == 2
+    assert stat.content.all_time.entries_by_records[0].total_seconds == 20.0
+    assert stat.content.last_365_days.total_records == 3
+    assert stat.content.last_365_days.total_seconds == 65.0
+    assert stat.content.yearly["2024"].entries_by_records[0].map_name == "kz_old"
+    assert stat.content.yearly["2025"].entries_by_records[0].map_name == "kz_hours"
+    assert stat.content.yearly["2026"].entries_by_records[0].map_name == "kz_records"
+
+    cache_row = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
+    )
+    assert cache_row is not None
+    assert cache_row.updated_at == now
+
+
+@pytest.mark.asyncio
+async def test_rebuild_player_most_played_maps_stat_handles_empty_player(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 4, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Empty Map Stats Runner")
+
+    stat = await crud.rebuild_player_most_played_maps_stat(
+        session=db,
+        steamid64=steamid64,
+        now=now,
+    )
+
+    assert stat.content.model_dump() == {
+        "first_year": None,
+        "current_year": None,
+        "years": [],
+        "all_time": {
+            "total_records": 0,
+            "total_seconds": 0.0,
+            "entries_by_records": [],
+            "entries_by_time": [],
+        },
+        "last_365_days": {
+            "total_records": 0,
+            "total_seconds": 0.0,
+            "entries_by_records": [],
+            "entries_by_time": [],
+        },
+        "yearly": {},
+    }
+
+
+@pytest.mark.asyncio
+async def test_rebuild_player_most_played_maps_stat_limits_rankings_to_top_10(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    now = datetime(2026, 4, 4, 12, 0, tzinfo=UTC)
+    await _create_player(db, steamid64=steamid64, name="Top Ten Map Runner")
+    await _create_server(db, id=982270, name="Top Ten Map Server")
+    for index in range(12):
+        map_id = 981270 + index
+        await _create_map(db, id=map_id, name=f"kz_top_{index:02d}")
+        await _create_record(
+            db,
+            id=983270 + index,
+            steamid64=steamid64,
+            map_id=map_id,
+            server_id=982270,
+            created_on=datetime(2026, 4, 2, 8, index, tzinfo=UTC),
+            time_seconds=f"{100 - index}.000",
+        )
+
+    stat = await crud.rebuild_player_most_played_maps_stat(
+        session=db,
+        steamid64=steamid64,
+        now=now,
+    )
+
+    assert stat.content.all_time.total_records == 12
+    assert len(stat.content.all_time.entries_by_records) == 10
+    assert len(stat.content.all_time.entries_by_time) == 10
+    assert stat.content.all_time.entries_by_time[-1].map_name == "kz_top_09"
+    assert all(
+        entry.map_name != "kz_top_10"
+        for entry in stat.content.all_time.entries_by_time
+    )
+
+
+@pytest.mark.asyncio
 async def test_rebuild_player_most_played_server_stat_auto_updates_ungrouped_favorite(
     db: AsyncSession,
 ) -> None:
@@ -483,6 +645,10 @@ async def test_get_or_rebuild_player_stats_returns_requested_fields(
     assert stats.daily_activity.days[0].count == 1
     assert stats.playtime is not None
     assert stats.playtime.total_seconds == 9.5
+    assert stats.most_played_maps is not None
+    assert stats.most_played_maps.all_time.total_records == 1
+    assert stats.most_played_maps.all_time.entries_by_records[0].map_name == "kz_combined"
     assert filtered_stats.daily_activity is None
     assert filtered_stats.playtime is not None
     assert filtered_stats.playtime.total_seconds == 9.5
+    assert filtered_stats.most_played_maps is None
