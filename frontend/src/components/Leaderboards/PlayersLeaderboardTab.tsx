@@ -172,7 +172,7 @@ export function PlayersLeaderboardTab() {
       fetchLeaderboardPage({
         scope,
         offset: pageIndex * pageSize,
-        limit: pageSize + 1,
+        limit: pageSize,
         sortBy,
         sortOrder: "desc",
         country: selectedCountry ?? undefined,
@@ -210,10 +210,15 @@ export function PlayersLeaderboardTab() {
     () => leaderboardQuery.data?.data ?? [],
     [leaderboardQuery.data],
   )
-  const hasNextPage = leaderboardEntries.length > pageSize
+  const hasExactCount =
+    typeof leaderboardCountQuery.data?.count === "number" &&
+    leaderboardCountQuery.data.count >= 0
+  const hasNextPage = hasExactCount
+    ? (pageIndex + 1) * pageSize < leaderboardCountQuery.data!.count
+    : leaderboardEntries.length === pageSize
   const visibleLeaderboardEntries = useMemo(
-    () => leaderboardEntries.slice(0, pageSize),
-    [leaderboardEntries, pageSize],
+    () => leaderboardEntries,
+    [leaderboardEntries],
   )
   const leaderboardPlayerSteamid64s = useMemo(
     () => visibleLeaderboardEntries.map((entry) => entry.player.steamid64),
@@ -451,12 +456,9 @@ export function PlayersLeaderboardTab() {
 
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
-  const hasExactCount =
-    typeof leaderboardCountQuery.data?.count === "number" &&
-    leaderboardCountQuery.data.count >= 0
   const totalPlayers = hasExactCount
     ? leaderboardCountQuery.data!.count
-    : pageIndex * pageSize + tableData.length + (hasNextPage ? 1 : 0)
+    : pageIndex * pageSize + tableData.length
   const pageCount = Math.max(1, Math.ceil(totalPlayers / pageSize))
   const selectedRegionOption =
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
