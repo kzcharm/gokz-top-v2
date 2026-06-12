@@ -82,6 +82,10 @@ const SERVER_BROWSER_CARD_CLASS_NAME =
 const SERVER_BROWSER_CARD_CONTENT_CLASS_NAME = "p-6 sm:px-8 sm:pt-8 sm:pb-6"
 const SERVER_BROWSER_HEADER_SURFACE_CLASS = "bg-muted"
 
+const scrollToServerBrowserTop = () => {
+  window.scrollTo({ top: 0, left: 0 })
+}
+
 function SortControl({
   active,
   direction,
@@ -498,6 +502,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     }
 
     handleSearchPatch(nextPatch)
+    scrollToServerBrowserTop()
 
     if (nextGroup === "all") {
       navigate({ to: "/servers" })
