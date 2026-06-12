@@ -1,6 +1,5 @@
 import type { EChartsOption, EChartsType } from "echarts"
 import * as echarts from "echarts"
-import { Pause, Play } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -17,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useMediaQuery } from "@/hooks/useMobile"
 import { cn } from "@/lib/utils"
+import { ProfileDurationControls } from "./ProfileDurationControls"
 
 const ALL_TIME_VIEW_ID = "all-time"
 const LAST_365_DAYS_VIEW_ID = "last-365-days"
@@ -115,44 +115,47 @@ function ProfileStatsPieCard({ stat }: { stat: PlayerMostPlayedServerPublic }) {
         .sort((left, right) => Number(left) - Number(right)),
     [stat],
   )
-  const orderedViewIds = useMemo(
-    () => [...yearViewIds, LAST_365_DAYS_VIEW_ID, ALL_TIME_VIEW_ID],
-    [yearViewIds],
-  )
-  const defaultViewId = orderedViewIds[0] ?? ALL_TIME_VIEW_ID
-  const [activeViewId, setActiveViewId] = useState<string>(defaultViewId)
+  const defaultYearId =
+    stat.current_year != null && yearViewIds.includes(String(stat.current_year))
+      ? String(stat.current_year)
+      : (yearViewIds[yearViewIds.length - 1] ?? null)
+  const [activeViewId, setActiveViewId] = useState<string>(ALL_TIME_VIEW_ID)
   const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
-    const allowedViews = new Set(orderedViewIds)
+    const allowedViews = new Set([
+      ...yearViewIds,
+      LAST_365_DAYS_VIEW_ID,
+      ALL_TIME_VIEW_ID,
+    ])
     setActiveViewId((currentViewId) =>
-      allowedViews.has(currentViewId) ? currentViewId : defaultViewId,
+      allowedViews.has(currentViewId) ? currentViewId : ALL_TIME_VIEW_ID,
     )
-    if (yearViewIds.length === 0) {
+    if (yearViewIds.length < 2) {
       setIsPlaying(false)
     }
-  }, [defaultViewId, orderedViewIds, yearViewIds.length])
+  }, [yearViewIds])
 
   useEffect(() => {
-    if (!isPlaying || orderedViewIds.length === 0) {
+    if (!isPlaying || yearViewIds.length === 0) {
       return
     }
 
     const intervalId = window.setInterval(() => {
       setActiveViewId((currentViewId) => {
-        const currentIndex = orderedViewIds.indexOf(currentViewId)
+        const currentIndex = yearViewIds.indexOf(currentViewId)
         if (currentIndex < 0) {
-          return orderedViewIds[0]
+          return defaultYearId ?? yearViewIds[0]
         }
 
-        return orderedViewIds[(currentIndex + 1) % orderedViewIds.length]
+        return yearViewIds[(currentIndex + 1) % yearViewIds.length]
       })
     }, AUTOPLAY_INTERVAL_MS)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isPlaying, orderedViewIds])
+  }, [defaultYearId, isPlaying, yearViewIds])
 
   const activePeriod = useMemo(
     () => getViewEntry(stat, activeViewId),
@@ -407,67 +410,28 @@ ${serverCountLabel}
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               {t("profile.stats.title")}
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                if (yearViewIds.length === 0) {
-                  return
-                }
-
-                setActiveViewId((currentViewId) =>
-                  orderedViewIds.includes(currentViewId)
-                    ? currentViewId
-                    : orderedViewIds[0],
-                )
-                setIsPlaying((current) => !current)
-              }}
-              disabled={orderedViewIds.length === 0}
-              aria-label={
-                isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
-              }
-              title={
-                isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
-              }
-              data-testid="profile-stats-playback-button"
-              className="shrink-0"
-            >
-              {isPlaying ? <Pause /> : <Play />}
-            </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-w-0 gap-2 overflow-x-auto">
-              {orderedViewIds.map((viewId) => {
-                const label =
-                  viewId === ALL_TIME_VIEW_ID
-                    ? t("profile.stats.allTime")
-                    : viewId === LAST_365_DAYS_VIEW_ID
-                      ? t("profile.stats.last365Days")
-                      : viewId
-
-                return (
-                  <Button
-                    key={viewId}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setActiveViewId(viewId)
-                      setIsPlaying(false)
-                    }}
-                    className={cn(
-                      "shrink-0",
-                      activeViewId === viewId && "bg-card text-foreground",
-                    )}
-                    data-testid={`profile-stats-view-${viewId}`}
-                  >
-                    {label}
-                  </Button>
-                )
-              })}
-            </div>
-          </div>
+          <ProfileDurationControls
+            activeViewId={activeViewId}
+            defaultYearId={defaultYearId}
+            isPlaying={isPlaying}
+            onActiveViewIdChange={setActiveViewId}
+            onPlayingChange={setIsPlaying}
+            specialViews={[
+              {
+                id: LAST_365_DAYS_VIEW_ID,
+                label: t("profile.stats.last365Days"),
+                testId: `profile-stats-view-${LAST_365_DAYS_VIEW_ID}`,
+              },
+              {
+                id: ALL_TIME_VIEW_ID,
+                label: t("profile.stats.allTime"),
+                testId: `profile-stats-view-${ALL_TIME_VIEW_ID}`,
+              },
+            ]}
+            testIdPrefix="profile-stats"
+            yearIds={yearViewIds}
+          />
         </div>
 
         <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
@@ -520,44 +484,47 @@ function ProfileStatsMapBarCard({
         .sort((left, right) => Number(left) - Number(right)),
     [stat],
   )
-  const orderedViewIds = useMemo(
-    () => [...yearViewIds, LAST_365_DAYS_VIEW_ID, ALL_TIME_VIEW_ID],
-    [yearViewIds],
-  )
-  const defaultViewId = orderedViewIds[0] ?? ALL_TIME_VIEW_ID
-  const [activeViewId, setActiveViewId] = useState<string>(defaultViewId)
+  const defaultYearId =
+    stat.current_year != null && yearViewIds.includes(String(stat.current_year))
+      ? String(stat.current_year)
+      : (yearViewIds[yearViewIds.length - 1] ?? null)
+  const [activeViewId, setActiveViewId] = useState<string>(ALL_TIME_VIEW_ID)
   const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
-    const allowedViews = new Set(orderedViewIds)
+    const allowedViews = new Set([
+      ...yearViewIds,
+      LAST_365_DAYS_VIEW_ID,
+      ALL_TIME_VIEW_ID,
+    ])
     setActiveViewId((currentViewId) =>
-      allowedViews.has(currentViewId) ? currentViewId : defaultViewId,
+      allowedViews.has(currentViewId) ? currentViewId : ALL_TIME_VIEW_ID,
     )
-    if (yearViewIds.length === 0) {
+    if (yearViewIds.length < 2) {
       setIsPlaying(false)
     }
-  }, [defaultViewId, orderedViewIds, yearViewIds.length])
+  }, [yearViewIds])
 
   useEffect(() => {
-    if (!isPlaying || orderedViewIds.length === 0) {
+    if (!isPlaying || yearViewIds.length === 0) {
       return
     }
 
     const intervalId = window.setInterval(() => {
       setActiveViewId((currentViewId) => {
-        const currentIndex = orderedViewIds.indexOf(currentViewId)
+        const currentIndex = yearViewIds.indexOf(currentViewId)
         if (currentIndex < 0) {
-          return orderedViewIds[0]
+          return defaultYearId ?? yearViewIds[0]
         }
 
-        return orderedViewIds[(currentIndex + 1) % orderedViewIds.length]
+        return yearViewIds[(currentIndex + 1) % yearViewIds.length]
       })
     }, AUTOPLAY_INTERVAL_MS)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isPlaying, orderedViewIds])
+  }, [defaultYearId, isPlaying, yearViewIds])
 
   const activePeriod = useMemo(
     () => getMapViewEntry(stat, activeViewId),
@@ -818,68 +785,29 @@ function ProfileStatsMapBarCard({
                     : t("profile.stats.hoursMetric")}
                 </Button>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  if (yearViewIds.length === 0) {
-                    return
-                  }
-
-                  setActiveViewId((currentViewId) =>
-                    orderedViewIds.includes(currentViewId)
-                      ? currentViewId
-                      : orderedViewIds[0],
-                  )
-                  setIsPlaying((current) => !current)
-                }}
-                disabled={orderedViewIds.length === 0}
-                aria-label={
-                  isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
-                }
-                title={
-                  isPlaying ? t("profile.stats.pause") : t("profile.stats.play")
-                }
-                data-testid="profile-stats-maps-playback-button"
-                className="shrink-0"
-              >
-                {isPlaying ? <Pause /> : <Play />}
-              </Button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-w-0 gap-2 overflow-x-auto">
-              {orderedViewIds.map((viewId) => {
-                const label =
-                  viewId === ALL_TIME_VIEW_ID
-                    ? t("profile.stats.allTime")
-                    : viewId === LAST_365_DAYS_VIEW_ID
-                      ? t("profile.stats.last365Days")
-                      : viewId
-
-                return (
-                  <Button
-                    key={viewId}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setActiveViewId(viewId)
-                      setIsPlaying(false)
-                    }}
-                    className={cn(
-                      "shrink-0",
-                      activeViewId === viewId && "bg-card text-foreground",
-                    )}
-                    data-testid={`profile-stats-maps-view-${viewId}`}
-                  >
-                    {label}
-                  </Button>
-                )
-              })}
-            </div>
-          </div>
+          <ProfileDurationControls
+            activeViewId={activeViewId}
+            defaultYearId={defaultYearId}
+            isPlaying={isPlaying}
+            onActiveViewIdChange={setActiveViewId}
+            onPlayingChange={setIsPlaying}
+            specialViews={[
+              {
+                id: LAST_365_DAYS_VIEW_ID,
+                label: t("profile.stats.last365Days"),
+                testId: `profile-stats-maps-view-${LAST_365_DAYS_VIEW_ID}`,
+              },
+              {
+                id: ALL_TIME_VIEW_ID,
+                label: t("profile.stats.allTime"),
+                testId: `profile-stats-maps-view-${ALL_TIME_VIEW_ID}`,
+              },
+            ]}
+            testIdPrefix="profile-stats-maps"
+            yearIds={yearViewIds}
+          />
         </div>
 
         <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">

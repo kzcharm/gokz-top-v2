@@ -28,6 +28,7 @@ import { useHorizontalDragScroll } from "@/hooks/useHorizontalDragScroll"
 import { useMediaQuery } from "@/hooks/useMobile"
 import { getLocale } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
+import { ProfileDurationControls } from "./ProfileDurationControls"
 import type { ProfileRecordDistributionBin } from "./profile-record-distribution"
 import {
   formatNumber,
@@ -379,39 +380,47 @@ function ActivityCard({
   const fallbackYear = getCurrentUtcYear()
   const locale = i18n.resolvedLanguage ?? i18n.language ?? getLocale()
   const weekdayLabels = useMemo(() => getWeekdayLabels(locale), [locale])
-  const availableYears = useMemo(() => {
+  const yearViewIds = useMemo(() => {
     const years = Array.from(
       new Set(allDays.map((day) => day.date.slice(0, 4))),
     )
-    years.sort((left, right) => right.localeCompare(left))
-    return years
-  }, [allDays])
-  const selectableViews = useMemo(
-    () => [
-      {
-        id: ROLLING_ACTIVITY_WINDOW_ID,
-        label: t("profile.activity.latest"),
-      },
-      ...(availableYears.length > 0 ? availableYears : [fallbackYear]).map(
-        (year) => ({
-          id: year,
-          label: year,
-        }),
-      ),
-    ],
-    [availableYears, fallbackYear, t],
-  )
-  const [activeView, setActiveView] = useState(
-    selectableViews[0]?.id ?? ROLLING_ACTIVITY_WINDOW_ID,
-  )
+    years.sort((left, right) => Number(left) - Number(right))
+    return years.length > 0 ? years : [fallbackYear]
+  }, [allDays, fallbackYear])
+  const defaultYearId = yearViewIds[yearViewIds.length - 1] ?? fallbackYear
+  const [activeView, setActiveView] = useState(ROLLING_ACTIVITY_WINDOW_ID)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
-    const nextView = selectableViews[0]?.id ?? ROLLING_ACTIVITY_WINDOW_ID
-    const allowedViews = new Set(selectableViews.map((view) => view.id))
+    const allowedViews = new Set([ROLLING_ACTIVITY_WINDOW_ID, ...yearViewIds])
     setActiveView((currentView) =>
-      allowedViews.has(currentView) ? currentView : nextView,
+      allowedViews.has(currentView) ? currentView : ROLLING_ACTIVITY_WINDOW_ID,
     )
-  }, [selectableViews])
+    if (yearViewIds.length < 2) {
+      setIsPlaying(false)
+    }
+  }, [yearViewIds])
+
+  useEffect(() => {
+    if (!isPlaying || yearViewIds.length === 0) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveView((currentView) => {
+        const currentIndex = yearViewIds.indexOf(currentView)
+        if (currentIndex < 0) {
+          return defaultYearId
+        }
+
+        return yearViewIds[(currentIndex + 1) % yearViewIds.length]
+      })
+    }, 2000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [defaultYearId, isPlaying, yearViewIds])
 
   const { hasActivity, monthLabels, weeks, emptyStateLabel, rangeKey } =
     useMemo(() => {
@@ -476,24 +485,23 @@ function ActivityCard({
               {t("profile.activity.title")}
             </p>
           </div>
-          <div className="inline-flex rounded-full border border-border/70 bg-background/75 p-1">
-            {selectableViews.map((view) => (
-              <button
-                key={view.id}
-                type="button"
-                onClick={() => setActiveView(view.id)}
-                data-testid={`profile-activity-view-${view.id}`}
-                className={cn(
-                  "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-                  activeView === view.id
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                {view.label}
-              </button>
-            ))}
-          </div>
+          <ProfileDurationControls
+            activeViewId={activeView}
+            defaultYearId={defaultYearId}
+            isPlaying={isPlaying}
+            onActiveViewIdChange={setActiveView}
+            onPlayingChange={setIsPlaying}
+            showPlayback={false}
+            specialViews={[
+              {
+                id: ROLLING_ACTIVITY_WINDOW_ID,
+                label: t("profile.activity.latest"),
+                testId: `profile-activity-view-${ROLLING_ACTIVITY_WINDOW_ID}`,
+              },
+            ]}
+            testIdPrefix="profile-activity"
+            yearIds={yearViewIds}
+          />
         </div>
 
         {activityError ? (

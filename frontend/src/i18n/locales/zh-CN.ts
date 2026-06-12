@@ -462,6 +462,11 @@ export const zhCN = {
       cellTooltip_one: "{{date}} UTC：{{count}} 条记录",
       cellTooltip_other: "{{date}} UTC：{{count}} 条记录",
     },
+    duration: {
+      previousYear: "跳到上一年",
+      yearInput: "选择年份",
+      nextYear: "跳到下一年",
+    },
     distribution: {
       loadFailedTitle: "无法加载记录分布",
       loadFailedBody: "请刷新页面后重试。",

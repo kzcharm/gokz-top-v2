@@ -476,6 +476,11 @@ export const ru = {
       cellTooltip_one: "{{count}} рекорд {{date}} UTC",
       cellTooltip_other: "{{count}} рекордов {{date}} UTC",
     },
+    duration: {
+      previousYear: "Перейти к предыдущему году",
+      yearInput: "Выбранный год",
+      nextYear: "Перейти к следующему году",
+    },
     distribution: {
       loadFailedTitle: "Не удалось загрузить распределение рекордов",
       loadFailedBody: "Обновите страницу и попробуйте снова.",

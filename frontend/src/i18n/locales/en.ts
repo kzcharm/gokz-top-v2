@@ -473,6 +473,11 @@ export const en = {
       cellTooltip_one: "{{count}} record on {{date}} UTC",
       cellTooltip_other: "{{count}} records on {{date}} UTC",
     },
+    duration: {
+      previousYear: "Go to previous year",
+      yearInput: "Selected year",
+      nextYear: "Go to next year",
+    },
     distribution: {
       loadFailedTitle: "Unable to load record distributions",
       loadFailedBody: "Reload the page and try again.",
