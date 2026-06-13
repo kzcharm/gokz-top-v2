@@ -186,7 +186,7 @@ export const ServerCard = memo(function ServerCard({
         getServerSurfaceClass(isSelected),
       )}
     >
-      <div className="absolute right-2 top-2 z-10 flex gap-1">
+      <div className="absolute right-2 top-2 z-20 flex gap-1">
         <Button
           size="icon"
           variant="ghost"
