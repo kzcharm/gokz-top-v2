@@ -381,7 +381,18 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
 
   await searchInput.fill("")
-  await page.getByTestId("server-card-10.0.0.3:27017").click()
+  await page
+    .getByTestId("server-card-10.0.0.3:27017")
+    .getByTitle("Gamma Live")
+    .click()
+  await expect(page).toHaveURL(/\/servers(\?|$)/)
+
+  await page.getByRole("link", { name: /\[kzt\]Runner One/ }).click()
+  await expect(page).toHaveURL(/\/profile\/76561198000000001$/)
+  await page.goBack()
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+
+  await page.getByTestId("server-card-map-image-10.0.0.3:27017").click()
 
   await expect(page).toHaveURL(/\/servers\/10\.0\.0\.3:27017(\?|$)/)
   await expect

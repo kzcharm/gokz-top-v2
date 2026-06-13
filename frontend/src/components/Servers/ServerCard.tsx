@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import { Copy, LoaderCircle, Pause, Play } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
 
@@ -67,13 +68,8 @@ function ServerCardPlayerChip({
     setAvatarLoadFailed(false)
   }, [])
 
-  return (
-    <div
-      className={cn(
-        "relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs",
-        backgroundClassName,
-      )}
-    >
+  const content = (
+    <>
       {progress !== null ? (
         <div
           className="absolute inset-y-0 left-0 rounded-md bg-blue-500/15 dark:bg-blue-400/15"
@@ -98,7 +94,12 @@ function ServerCardPlayerChip({
         {clanTag ? (
           <span className="shrink-0 whitespace-pre">{clanTag}</span>
         ) : null}
-        <span className="min-w-0 truncate">
+        <span
+          className={cn(
+            "min-w-0 truncate",
+            steamid64 && "group-hover/player-chip:underline",
+          )}
+        >
           {mode ? <span className="mr-1 text-gray-500">[{mode}]</span> : null}
           {name}
           {timerLabel !== "-" ? (
@@ -112,6 +113,36 @@ function ServerCardPlayerChip({
           ) : null}
         </span>
       </span>
+    </>
+  )
+  const className = cn(
+    "relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs",
+    backgroundClassName,
+    steamid64 &&
+      "group/player-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+  )
+
+  if (steamid64) {
+    return (
+      <Link
+        to="/profile/$identifier"
+        params={{ identifier: steamid64 }}
+        className={className}
+        title={name}
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        "relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs",
+        backgroundClassName,
+      )}
+    >
+      {content}
     </div>
   )
 }
@@ -185,12 +216,14 @@ export const ServerCard = memo(function ServerCard({
         </Button>
       </div>
 
-      <button
-        type="button"
-        className="block w-full text-left"
-        onClick={() => onSelect(server)}
-      >
-        <div className="relative aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+      <div className="relative aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+        <button
+          type="button"
+          className="absolute inset-0 block w-full text-left"
+          onClick={() => onSelect(server)}
+          aria-label={`Open details for ${getServerHostname(server)}`}
+          data-testid={`server-card-map-image-${server.ip}:${server.port}`}
+        >
           {mapImageUrls.length > 0 ? (
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
@@ -208,98 +241,95 @@ export const ServerCard = memo(function ServerCard({
                 "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.0) 40%, rgba(0,0,0,0.65) 100%)",
             }}
           />
+        </button>
 
-          <div className="absolute inset-x-2 top-2 flex items-center gap-1">
-            <div className="flex min-w-0 flex-1 items-center gap-1">
-              {mapName ? (
-                <MapNameContextMenu
-                  mapName={mapName}
-                  downloadUrl={mapDownloadUrl}
-                >
-                  {(handlers) => (
-                    <a
-                      href={`/maps/${encodeURIComponent(mapName)}/maptop`}
-                      className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
-                      title={mapName}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                      }}
-                      onContextMenu={handlers.onContextMenu}
-                      onKeyDown={handlers.onKeyDown}
-                    >
-                      {mapName}
-                    </a>
-                  )}
-                </MapNameContextMenu>
-              ) : (
-                <span
-                  className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
-                  title="-"
-                >
-                  -
-                </span>
-              )}
-              <TierBadge
-                tier={server.map_tier}
-                hideWhenUnknown
-                className="shrink-0 rounded-md px-2 py-1 text-xs font-bold"
-              />
-            </div>
-            <div className="h-6 w-14 shrink-0" />
-          </div>
-        </div>
-
-        <div className="relative z-10 bg-white p-3 dark:bg-gray-800">
-          <div className="flex items-center gap-2">
-            <CountryFlag countryCode={server.country} showTooltip={false} />
-            <span
-              className="truncate font-semibold"
-              title={getServerHostname(server)}
-            >
-              {getServerHostname(server)}
-            </span>
-            {isRefreshing ? (
-              <span
-                className="inline-flex shrink-0 items-center text-muted-foreground"
-                title="Refreshing server status"
+        <div className="absolute inset-x-2 top-2 z-10 flex items-center gap-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            {mapName ? (
+              <MapNameContextMenu
+                mapName={mapName}
+                downloadUrl={mapDownloadUrl}
               >
-                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                {(handlers) => (
+                  <a
+                    href={`/maps/${encodeURIComponent(mapName)}/maptop`}
+                    className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
+                    title={mapName}
+                    onContextMenu={handlers.onContextMenu}
+                    onKeyDown={handlers.onKeyDown}
+                  >
+                    {mapName}
+                  </a>
+                )}
+              </MapNameContextMenu>
+            ) : (
+              <span
+                className="min-w-0 truncate rounded-md bg-black/45 px-2 py-1 text-sm font-semibold text-white"
+                title="-"
+              >
+                -
               </span>
-            ) : null}
-            <Badge
-              className={cn(
-                "ml-auto shrink-0",
-                offline
-                  ? "bg-gray-500 text-white"
-                  : isFull
-                    ? "bg-red-500 text-white"
-                    : isEmpty
-                      ? "bg-green-500 text-white"
-                      : "bg-orange-500 text-white",
-              )}
-            >
-              {playerCount}/{maxPlayers}
-            </Badge>
+            )}
+            <TierBadge
+              tier={server.map_tier}
+              hideWhenUnknown
+              className="shrink-0 rounded-md px-2 py-1 text-xs font-bold"
+            />
           </div>
-
-          {sortedPlayers.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {sortedPlayers.map((player, index) => {
-                const name =
-                  getPlayerStringValue(player, "name") || `Player ${index + 1}`
-
-                return (
-                  <ServerCardPlayerChip
-                    key={`${name}-${index}`}
-                    player={player}
-                    index={index}
-                  />
-                )
-              })}
-            </div>
-          ) : null}
+          <div className="h-6 w-14 shrink-0" />
         </div>
-      </button>
+      </div>
+
+      <div className="relative z-10 bg-white p-3 dark:bg-gray-800">
+        <div className="flex items-center gap-2">
+          <CountryFlag countryCode={server.country} showTooltip={false} />
+          <span
+            className="truncate font-semibold"
+            title={getServerHostname(server)}
+          >
+            {getServerHostname(server)}
+          </span>
+          {isRefreshing ? (
+            <span
+              className="inline-flex shrink-0 items-center text-muted-foreground"
+              title="Refreshing server status"
+            >
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+            </span>
+          ) : null}
+          <Badge
+            className={cn(
+              "ml-auto shrink-0",
+              offline
+                ? "bg-gray-500 text-white"
+                : isFull
+                  ? "bg-red-500 text-white"
+                  : isEmpty
+                    ? "bg-green-500 text-white"
+                    : "bg-orange-500 text-white",
+            )}
+          >
+            {playerCount}/{maxPlayers}
+          </Badge>
+        </div>
+
+        {sortedPlayers.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {sortedPlayers.map((player, index) => {
+              const name =
+                getPlayerStringValue(player, "name") || `Player ${index + 1}`
+
+              return (
+                <ServerCardPlayerChip
+                  key={`${name}-${index}`}
+                  player={player}
+                  index={index}
+                />
+              )
+            })}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 })
