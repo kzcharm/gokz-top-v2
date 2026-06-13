@@ -41,6 +41,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { cn } from "@/lib/utils"
@@ -86,6 +87,58 @@ const scrollToServerBrowserTop = () => {
   window.scrollTo({ top: 0, left: 0 })
 }
 
+const playCopySuccessSound = () => {
+  const AudioContextConstructor =
+    window.AudioContext ||
+    (
+      window as Window &
+        typeof globalThis & {
+          webkitAudioContext?: typeof AudioContext
+        }
+    ).webkitAudioContext
+
+  if (!AudioContextConstructor) {
+    return
+  }
+
+  try {
+    const audioContext = new AudioContextConstructor()
+    const masterGain = audioContext.createGain()
+    masterGain.gain.setValueAtTime(0.18, audioContext.currentTime)
+    masterGain.connect(audioContext.destination)
+
+    const notes = [
+      { frequency: 523.25, start: 0, duration: 0.09 },
+      { frequency: 659.25, start: 0.08, duration: 0.1 },
+      { frequency: 783.99, start: 0.17, duration: 0.16 },
+    ]
+
+    for (const note of notes) {
+      const oscillator = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+      const startsAt = audioContext.currentTime + note.start
+      const endsAt = startsAt + note.duration
+
+      oscillator.type = "triangle"
+      oscillator.frequency.setValueAtTime(note.frequency, startsAt)
+      gain.gain.setValueAtTime(0.001, startsAt)
+      gain.gain.exponentialRampToValueAtTime(0.7, startsAt + 0.015)
+      gain.gain.exponentialRampToValueAtTime(0.001, endsAt)
+
+      oscillator.connect(gain)
+      gain.connect(masterGain)
+      oscillator.start(startsAt)
+      oscillator.stop(endsAt)
+    }
+
+    window.setTimeout(() => {
+      void audioContext.close()
+    }, 500)
+  } catch {
+    // Copy feedback should never make the copy action fail.
+  }
+}
+
 function SortControl({
   active,
   direction,
@@ -121,6 +174,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     select: (state) => state.location.pathname,
   })
   const { showErrorToast, showSuccessToast } = useCustomToast()
+  const [, copyToClipboard] = useCopyToClipboard()
   const selectedAddress = getSelectedServerAddress(pathname)
   const selectedGroupCustomId = getSelectedServerGroupCustomId(pathname)
   const hydratedInitialSearch = useMemo(() => {
@@ -463,7 +517,15 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   }
 
   const handleCopyAddress = async (server: ServerPublic) => {
-    await navigator.clipboard.writeText(`connect ${getServerAddress(server)}`)
+    const copied = await copyToClipboard(`connect ${getServerAddress(server)}`)
+
+    if (copied) {
+      playCopySuccessSound()
+      showSuccessToast("Copied the server connect command.")
+      return
+    }
+
+    showErrorToast("Unable to copy the server connect command.")
   }
 
   const handleSteamConnect = (server: ServerPublic) => {
@@ -529,7 +591,13 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         includeDefaults: true,
       }).toString()
 
-      await navigator.clipboard.writeText(shareUrl.toString())
+      const copied = await copyToClipboard(shareUrl.toString())
+
+      if (!copied) {
+        throw new Error("Copy failed")
+      }
+
+      playCopySuccessSound()
       showSuccessToast("Copied the shareable servers link.")
     } catch {
       showErrorToast("Unable to copy the shareable servers link.")
