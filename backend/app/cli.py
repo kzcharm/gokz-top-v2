@@ -11,6 +11,7 @@ from app.models import MapFileDistributionSyncResult, ModeScope
 from app.services.map_file_distribution import seed_map_package, sync_map_files
 from app.services.map_file_distribution_worker import run_map_file_distribution_runner
 from app.tasks import friends as friends_task
+from app.tasks import record_transfer as record_transfer_task
 from app.tasks.build import maps as maps_task
 from app.tasks.build import pb as pb_task
 from app.tasks.build import points as points_task
@@ -46,6 +47,12 @@ map_files_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(map_files_app, name="map-files")
+transfer_app = typer.Typer(
+    help="Run narrowly scoped operator data transfers.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+app.add_typer(transfer_app, name="transfer")
 
 console = Console()
 
@@ -91,8 +98,77 @@ def _render_summary(title: str, rows: Sequence[tuple[str, str]]) -> None:
     console.print(table)
 
 
+def _render_record_transfer_summary(
+    *, result: record_transfer_task.RecordTransferResult
+) -> None:
+    _render_summary(
+        "Record Transfer Complete" if not result.dry_run else "Record Transfer Dry Run",
+        [
+            ("Source SteamID64", str(result.source_steamid64)),
+            ("Target SteamID64", str(result.target_steamid64)),
+            ("Dry run", "yes" if result.dry_run else "no"),
+            ("Source records before", str(result.source_records_before)),
+            ("Target records before", str(result.target_records_before)),
+            ("Source records after", str(result.source_records_after)),
+            ("Target records after", str(result.target_records_after)),
+            ("Transferred records", str(result.transferred_records)),
+            ("Touched PB keys", str(result.touched_pb_keys)),
+            ("Touched PB buckets", str(result.touched_courses)),
+            ("Source record_pb after", str(result.source_record_pb_after)),
+            ("Leaderboard rows created", str(result.leaderboard_created)),
+            ("Leaderboard rows updated", str(result.leaderboard_updated)),
+            ("Player stats deleted", str(result.player_stats_deleted)),
+            ("Audit path", str(result.audit_path)),
+            ("Summary path", str(result.summary_path)),
+            ("Audit sha256", result.checksum),
+        ],
+    )
+
+
 def _run_async[T](coro: Coroutine[object, object, T]) -> T:
     return asyncio.run(coro)
+
+
+@transfer_app.command("records")
+def transfer_records(
+    source_steamid64: Annotated[
+        int,
+        typer.Option(
+            "--source-steamid64",
+            help="SteamID64 whose records will be transferred.",
+        ),
+    ] = record_transfer_task.DEFAULT_SOURCE_STEAMID64,
+    target_steamid64: Annotated[
+        int,
+        typer.Option(
+            "--target-steamid64",
+            help="SteamID64 that will receive the records.",
+        ),
+    ] = record_transfer_task.DEFAULT_TARGET_STEAMID64,
+    audit_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--audit-path",
+            help="JSONL audit output path. Defaults to .temp/record-transfers/.",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run/--apply",
+            help="Inspect and write a dry-run audit file without committing DB changes.",
+        ),
+    ] = True,
+) -> None:
+    result = _run_async(
+        record_transfer_task.transfer_records(
+            source_steamid64=source_steamid64,
+            target_steamid64=target_steamid64,
+            audit_path=audit_path,
+            dry_run=dry_run,
+        )
+    )
+    _render_record_transfer_summary(result=result)
 
 
 @rebuild_app.command("maps")
