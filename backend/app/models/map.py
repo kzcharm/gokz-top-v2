@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
@@ -135,6 +135,8 @@ class AdminMapPublic(SQLModel):
     updated_on: datetime
     approved_by_steamid64: str
     workshop_id: int | None = None
+    authors: list[str] = Field(default_factory=list)
+    no_steamid_names: list[str] = Field(default_factory=list)
     synced_at: datetime
 
 
@@ -154,3 +156,24 @@ class AdminMapUpdate(SQLModel):
     model_config = {"extra": "forbid"}
 
     validated: bool
+    authors: list[str] | None = None
+    no_steamid_names: list[str] | None = None
+
+    @field_validator("authors", "no_steamid_names", mode="before")
+    @classmethod
+    def _normalize_author_list(cls, value: object) -> list[str] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            return None
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            stripped = item.strip()
+            if not stripped or stripped in seen:
+                continue
+            seen.add(stripped)
+            normalized.append(stripped)
+        return normalized

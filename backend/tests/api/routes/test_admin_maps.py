@@ -11,6 +11,7 @@ from app.models import (
     Map,
     MapCourse,
     MapCourseTier,
+    Player,
     RecordFilter,
     UserRole,
     legacy_mode_id_to_kz_mode,
@@ -38,6 +39,8 @@ async def _create_map(
         updated_on=datetime(2021, 1, 2, tzinfo=UTC),
         approved_by_steamid64=76561198003275951 if validated else 0,
         workshop_id=1986459033,
+        authors=["76561198000000001"],
+        no_steamid_names=["Unknown Mapper"],
         synced_at=datetime(2021, 1, 3, tzinfo=UTC),
     )
     db.add(map_obj)
@@ -220,6 +223,8 @@ async def test_read_admin_maps_filters_searches_and_paginates(
     assert payload["count"] == 1
     assert [row["name"] for row in payload["data"]] == ["kz_admin_alpha"]
     assert payload["data"][0]["approved_by_steamid64"] == "76561198003275951"
+    assert payload["data"][0]["authors"] == ["76561198000000001"]
+    assert payload["data"][0]["no_steamid_names"] == ["Unknown Mapper"]
     assert payload["data"][0]["tiers"]["OVR"] == 0
 
 
@@ -261,6 +266,49 @@ async def test_update_admin_map_toggles_validation_metadata(
     assert refreshed.validated is True
     assert refreshed.approved_by_steamid64 == settings.SUPER_USER_STEAMID64
     assert refreshed.updated_at > datetime(2021, 1, 2, tzinfo=UTC)
+    assert refreshed.authors == ["76561198000000001"]
+    assert refreshed.no_steamid_names == ["Unknown Mapper"]
+
+
+@pytest.mark.asyncio
+async def test_update_admin_map_updates_author_fields(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    map_obj = await _create_map(
+        db,
+        id=991011,
+        name="kz_admin_author_update",
+        validated=True,
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/admin/maps/{map_obj.id}",
+        headers=superuser_token_headers,
+        json={
+            "validated": True,
+            "authors": [
+                " 76561198000000002 ",
+                "Name In Wrong Field",
+                "76561198000000002",
+            ],
+            "no_steamid_names": ["Manual Name", "76561198000000003"],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["authors"] == ["76561198000000002"]
+    assert payload["no_steamid_names"] == ["Manual Name", "Name In Wrong Field"]
+
+    refreshed = await db.get(Map, map_obj.id)
+    assert refreshed is not None
+    assert refreshed.authors == ["76561198000000002"]
+    assert refreshed.no_steamid_names == ["Manual Name", "Name In Wrong Field"]
+    author_player = await db.get(Player, 76561198000000002)
+    assert author_player is not None
+    assert author_player.name == "76561198000000002"
 
 
 @pytest.mark.asyncio

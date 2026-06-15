@@ -55,6 +55,7 @@ import {
   useRecordAdminActions,
 } from "../Records/admin-actions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
+import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapStatsSection } from "./MapStatsSection"
 import { MapTopTable } from "./MapTopTable"
@@ -250,9 +251,6 @@ function MapHero({
   leaderboardSummary?: ReactNode
 }) {
   const { t } = useTranslation()
-  const authorsList = map.authors ?? []
-  const authors =
-    authorsList.length > 0 ? authorsList.join(", ") : t("maps.unknownAuthor")
   const [, copyToClipboard] = useCopyToClipboard()
   const workshopId =
     map.workshop_id !== null && map.workshop_id !== undefined
@@ -383,7 +381,12 @@ function MapHero({
           <dl className="grid gap-4 sm:grid-cols-2">
             <MapMetaItem
               label={t("maps.authors")}
-              value={authors}
+              value={
+                <MapAuthorsDisplay
+                  authors={map.authors}
+                  noSteamidNames={map.no_steamid_names}
+                />
+              }
               labelClassName="text-muted-foreground"
               valueClassName="text-foreground"
             />

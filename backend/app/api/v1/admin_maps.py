@@ -19,6 +19,10 @@ from app.models import (
     User,
     get_datetime_utc,
 )
+from app.services.map_authors import (
+    ensure_author_players_exist,
+    normalize_author_fields,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin-maps"])
 
@@ -59,6 +63,19 @@ async def update_admin_map(
 
     map_obj.validated = map_in.validated
     map_obj.approved_by_steamid64 = current_user.steamid64 if map_in.validated else 0
+    if map_in.authors is not None or map_in.no_steamid_names is not None:
+        map_obj.authors, map_obj.no_steamid_names = normalize_author_fields(
+            authors=map_in.authors if map_in.authors is not None else map_obj.authors,
+            no_steamid_names=(
+                map_in.no_steamid_names
+                if map_in.no_steamid_names is not None
+                else map_obj.no_steamid_names
+            ),
+        )
+        await ensure_author_players_exist(
+            session=session,
+            author_steamid64s=map_obj.authors or [],
+        )
     map_obj.updated_at = get_datetime_utc()
     session.add(map_obj)
     await session.commit()

@@ -169,6 +169,20 @@ export const AdminMapPublicSchema = {
             ],
             title: 'Workshop Id'
         },
+        authors: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Authors'
+        },
+        no_steamid_names: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'No Steamid Names'
+        },
         synced_at: {
             type: 'string',
             format: 'date-time',
@@ -204,6 +218,34 @@ export const AdminMapUpdateSchema = {
         validated: {
             type: 'boolean',
             title: 'Validated'
+        },
+        authors: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Authors'
+        },
+        no_steamid_names: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'No Steamid Names'
         }
     },
     additionalProperties: false,

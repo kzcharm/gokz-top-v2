@@ -266,6 +266,8 @@ def to_admin_map_public(*, map_obj: Map, tiers: MapTiers) -> AdminMapPublic:
         updated_on=map_obj.updated_at,
         approved_by_steamid64=str(map_obj.approved_by_steamid64),
         workshop_id=map_obj.workshop_id,
+        authors=map_obj.authors or [],
+        no_steamid_names=map_obj.no_steamid_names or [],
         synced_at=map_obj.synced_at,
     )
 

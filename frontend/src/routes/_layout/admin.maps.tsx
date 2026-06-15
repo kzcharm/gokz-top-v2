@@ -59,6 +59,13 @@ type MapValidationDraft = {
 
 type MapValidationDrafts = Record<number, MapValidationDraft>
 
+type MapAuthorDraft = {
+  authorsText: string
+  noSteamidNamesText: string
+}
+
+type MapAuthorDrafts = Record<number, MapAuthorDraft>
+
 type CourseTierDraft = {
   courseId: number
   mode: AdminCourseTierPublic["mode"]
@@ -85,6 +92,28 @@ function courseTierDraftKey(
   mode: AdminCourseTierPublic["mode"],
 ) {
   return `${courseId}:${mode}`
+}
+
+function formatAuthorText(values: string[] | null | undefined) {
+  return (values ?? []).join("\n")
+}
+
+function parseAuthorText(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  )
+}
+
+function areStringListsEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+  return left.every((value, index) => value === right[index])
 }
 
 export const Route = createFileRoute("/_layout/admin/maps")({
@@ -130,6 +159,7 @@ function AdminMaps() {
   const [expandedMapId, setExpandedMapId] = useState<string | null>(null)
   const [mapValidationDrafts, setMapValidationDrafts] =
     useState<MapValidationDrafts>({})
+  const [mapAuthorDrafts, setMapAuthorDrafts] = useState<MapAuthorDrafts>({})
   const [courseTierDrafts, setCourseTierDrafts] = useState<CourseTierDrafts>({})
   const deferredSearchInput = useDeferredValue(searchInput)
   const normalizedSearch = deferredSearchInput.trim()
@@ -169,8 +199,40 @@ function AdminMaps() {
       ),
     [courseTierDrafts],
   )
+  const mapAuthorChanges = useMemo(
+    () =>
+      Object.entries(mapAuthorDrafts)
+        .map(([id, draft]) => {
+          const map = data?.data.find(
+            (candidate) => candidate.id === Number(id),
+          )
+          if (!map) {
+            return null
+          }
+          const authors = parseAuthorText(draft.authorsText)
+          const noSteamidNames = parseAuthorText(draft.noSteamidNamesText)
+          if (
+            areStringListsEqual(authors, map.authors ?? []) &&
+            areStringListsEqual(noSteamidNames, map.no_steamid_names ?? [])
+          ) {
+            return null
+          }
+          return [id, { authors, noSteamidNames }] as const
+        })
+        .filter(
+          (
+            change,
+          ): change is readonly [
+            string,
+            { authors: string[]; noSteamidNames: string[] },
+          ] => change !== null,
+        ),
+    [data?.data, mapAuthorDrafts],
+  )
   const hasUnsavedChanges =
-    mapChanges.length > 0 || courseTierChanges.length > 0
+    mapChanges.length > 0 ||
+    mapAuthorChanges.length > 0 ||
+    courseTierChanges.length > 0
 
   useBlocker({
     shouldBlockFn: () =>
@@ -181,11 +243,41 @@ function AdminMaps() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const mapsById = new Map((data?.data ?? []).map((map) => [map.id, map]))
+      const mapUpdatesById = new Map<
+        number,
+        {
+          validated: boolean
+          authors?: string[]
+          no_steamid_names?: string[]
+        }
+      >()
+      for (const [id, draft] of mapChanges) {
+        const map = mapsById.get(Number(id))
+        if (!map) {
+          continue
+        }
+        mapUpdatesById.set(Number(id), {
+          validated: draft.validated,
+        })
+      }
+      for (const [id, authorDraft] of mapAuthorChanges) {
+        const map = mapsById.get(Number(id))
+        if (!map) {
+          continue
+        }
+        const currentUpdate = mapUpdatesById.get(Number(id))
+        mapUpdatesById.set(Number(id), {
+          validated: currentUpdate?.validated ?? map.validated,
+          authors: authorDraft.authors,
+          no_steamid_names: authorDraft.noSteamidNames,
+        })
+      }
       await Promise.all([
-        ...mapChanges.map(([id, draft]) =>
+        ...Array.from(mapUpdatesById.entries()).map(([id, requestBody]) =>
           AdminMapsService.updateAdminMap({
-            id: Number(id),
-            requestBody: { validated: draft.validated },
+            id,
+            requestBody,
           }),
         ),
         ...courseTierChanges.map(([, draft]) =>
@@ -200,6 +292,7 @@ function AdminMaps() {
     onSuccess: () => {
       showSuccessToast("Admin map changes saved")
       setMapValidationDrafts({})
+      setMapAuthorDrafts({})
       setCourseTierDrafts({})
     },
     onError: handleError.bind(showErrorToast),
@@ -243,6 +336,34 @@ function AdminMaps() {
             originalTier: courseTier.tier,
             tier: nextTier,
           }
+        }
+        return next
+      })
+    },
+    [],
+  )
+
+  const setMapAuthorDraft = useCallback(
+    (map: AdminMapPublic, field: keyof MapAuthorDraft, nextValue: string) => {
+      setMapAuthorDrafts((current) => {
+        const existing = current[map.id] ?? {
+          authorsText: formatAuthorText(map.authors),
+          noSteamidNamesText: formatAuthorText(map.no_steamid_names),
+        }
+        const nextDraft = {
+          ...existing,
+          [field]: nextValue,
+        }
+        const nextAuthors = parseAuthorText(nextDraft.authorsText)
+        const nextNoSteamidNames = parseAuthorText(nextDraft.noSteamidNamesText)
+        const next = { ...current }
+        if (
+          areStringListsEqual(nextAuthors, map.authors ?? []) &&
+          areStringListsEqual(nextNoSteamidNames, map.no_steamid_names ?? [])
+        ) {
+          delete next[map.id]
+        } else {
+          next[map.id] = nextDraft
         }
         return next
       })
@@ -469,7 +590,9 @@ function AdminMaps() {
           renderExpandedContent={(map) => (
             <MapDetailsPanel
               map={map}
+              authorDraft={mapAuthorDrafts[map.id]}
               courseTierDrafts={courseTierDrafts}
+              onAuthorDraftChange={setMapAuthorDraft}
               onCourseTierDraftChange={setCourseTierDraft}
               disabled={saveMutation.isPending}
             />
@@ -541,12 +664,20 @@ function TierSummary({ map }: { map: AdminMapPublic }) {
 
 function MapDetailsPanel({
   map,
+  authorDraft,
   courseTierDrafts,
+  onAuthorDraftChange,
   onCourseTierDraftChange,
   disabled,
 }: {
   map: AdminMapPublic
+  authorDraft?: MapAuthorDraft
   courseTierDrafts: CourseTierDrafts
+  onAuthorDraftChange: (
+    map: AdminMapPublic,
+    field: keyof MapAuthorDraft,
+    nextValue: string,
+  ) => void
   onCourseTierDraftChange: (
     courseTier: AdminCourseTierPublic,
     nextTier: number,
@@ -554,7 +685,13 @@ function MapDetailsPanel({
   disabled: boolean
 }) {
   return (
-    <div className="rounded-[24px] border border-border/70 bg-gradient-to-br from-card via-card to-muted/20 p-5 shadow-sm">
+    <div className="space-y-6 rounded-[24px] border border-border/70 bg-gradient-to-br from-card via-card to-muted/20 p-5 shadow-sm">
+      <MapAuthorEditor
+        map={map}
+        authorDraft={authorDraft}
+        onAuthorDraftChange={onAuthorDraftChange}
+        disabled={disabled}
+      />
       <MapCourseTierEditor
         map={map}
         courseTierDrafts={courseTierDrafts}
@@ -562,6 +699,60 @@ function MapDetailsPanel({
         disabled={disabled}
       />
     </div>
+  )
+}
+
+function MapAuthorEditor({
+  map,
+  authorDraft,
+  onAuthorDraftChange,
+  disabled,
+}: {
+  map: AdminMapPublic
+  authorDraft?: MapAuthorDraft
+  onAuthorDraftChange: (
+    map: AdminMapPublic,
+    field: keyof MapAuthorDraft,
+    nextValue: string,
+  ) => void
+  disabled: boolean
+}) {
+  const authorsText = authorDraft?.authorsText ?? formatAuthorText(map.authors)
+  const noSteamidNamesText =
+    authorDraft?.noSteamidNamesText ?? formatAuthorText(map.no_steamid_names)
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-semibold">Authors</h2>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium">SteamID64 Authors</span>
+          <textarea
+            className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            value={authorsText}
+            disabled={disabled}
+            data-row-click-ignore="true"
+            onChange={(event) =>
+              onAuthorDraftChange(map, "authorsText", event.target.value)
+            }
+          />
+        </label>
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium">Name-Only Authors</span>
+          <textarea
+            className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            value={noSteamidNamesText}
+            disabled={disabled}
+            data-row-click-ignore="true"
+            onChange={(event) =>
+              onAuthorDraftChange(map, "noSteamidNamesText", event.target.value)
+            }
+          />
+        </label>
+      </div>
+    </section>
   )
 }
 

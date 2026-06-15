@@ -37,6 +37,8 @@ export type AdminMapPublic = {
     updated_on: string;
     approved_by_steamid64: string;
     workshop_id?: (number | null);
+    authors?: Array<(string)>;
+    no_steamid_names?: Array<(string)>;
     synced_at: string;
 };
 
@@ -52,6 +54,8 @@ export type AdminMapsPublic = {
 
 export type AdminMapUpdate = {
     validated: boolean;
+    authors?: (Array<(string)> | null);
+    no_steamid_names?: (Array<(string)> | null);
 };
 
 export type AdminPlayerSessionIpLinkBucketPublic = {

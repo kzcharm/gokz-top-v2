@@ -468,9 +468,12 @@ async def test_read_maps_v1_hides_invalid_and_non_positive_ids(
     assert response.status_code == 200
     payload = response.json()
     returned_ids = {row["id"] for row in payload}
+    visible_map = next(row for row in payload if row["id"] == 930210)
     assert 930210 in returned_ids
     assert 930211 not in returned_ids
     assert -1 not in returned_ids
+    assert visible_map["authors"] == ["76561198000000001"]
+    assert visible_map["no_steamid_names"] == ["Unknown Mapper"]
 
 
 @pytest.mark.asyncio

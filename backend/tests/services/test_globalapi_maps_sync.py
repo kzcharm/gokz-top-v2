@@ -1,15 +1,42 @@
 from datetime import UTC, datetime
 
 import pytest
+import pytest_asyncio
 from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import KZMode, Map, MapCourse, MapCourseTier
+from app.models import KZMode, Map, MapCourse, MapCourseTier, Player
 from app.services.globalapi_maps_sync import (
     MAP_DATETIME_FALLBACK,
     _normalize_datetime,
     sync_maps_from_globalapi,
 )
+from app.services.steam_workshop import SteamWorkshopFileDetails
+
+
+@pytest.fixture(autouse=True)
+def _disable_workshop_author_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _mock_fetch_workshop_file_details(
+        *,
+        workshop_ids: list[str],
+    ) -> dict[str, SteamWorkshopFileDetails]:
+        _ = workshop_ids
+        return {}
+
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_workshop_file_details",
+        _mock_fetch_workshop_file_details,
+    )
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _isolate_map_sync_tables(db: AsyncSession) -> None:
+    await db.exec(delete(MapCourseTier))
+    existing_maps = (await db.exec(select(Map))).all()
+    for map_obj in existing_maps:
+        map_obj.validated = False
+        db.add(map_obj)
+    await db.commit()
 
 
 @pytest.mark.asyncio
@@ -89,6 +116,96 @@ async def test_sync_maps_from_globalapi_upserts_and_normalizes_datetime(
     assert refreshed_201 is not None
     assert refreshed_201.created_at == _normalize_datetime(MAP_DATETIME_FALLBACK)
     assert refreshed_201.updated_at == _normalize_datetime(MAP_DATETIME_FALLBACK)
+
+
+@pytest.mark.asyncio
+async def test_sync_maps_from_globalapi_preserves_and_appends_author_metadata(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    map_id = int(datetime.now(UTC).timestamp()) % 100000 + 925000
+    await db.exec(delete(Map).where(Map.id == map_id))
+    await db.commit()
+    db.add(
+        Map(
+            id=map_id,
+            name=f"kz_sync_authors_{map_id}",
+            filesize=1,
+            validated=True,
+            difficulty=1,
+            created_on=datetime(2020, 1, 1, tzinfo=UTC),
+            updated_on=datetime(2020, 1, 1, tzinfo=UTC),
+            approved_by_steamid64=0,
+            workshop_id=111,
+            authors=["76561198000000001"],
+            no_steamid_names=["Seeded Name"],
+            synced_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+
+    async def _mock_fetch() -> list[dict[str, object]]:
+        return [
+            {
+                "id": map_id,
+                "name": f"kz_sync_authors_{map_id}",
+                "filesize": 58411256,
+                "validated": True,
+                "difficulty": 5,
+                "created_on": "2021-06-29T00:19:22",
+                "updated_on": "2021-06-29T00:19:22",
+                "approved_by_steamid64": "76561198003275951",
+                "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1986459033",
+                "authors": ["76561198000000002", "Name From Wrong Field"],
+                "no_steamid_names": ["GlobalAPI Name"],
+            },
+        ]
+
+    async def _mock_fetch_workshop_file_details(
+        *,
+        workshop_ids: list[str],
+    ) -> dict[str, SteamWorkshopFileDetails]:
+        assert workshop_ids == ["1986459033"]
+        return {
+            "1986459033": SteamWorkshopFileDetails(
+                publishedfileid="1986459033",
+                creator="76561198000000003",
+                preview_url=None,
+            )
+        }
+
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_maps_from_globalapi",
+        _mock_fetch,
+    )
+    monkeypatch.setattr(
+        "app.services.globalapi_maps_sync.fetch_workshop_file_details",
+        _mock_fetch_workshop_file_details,
+    )
+
+    result = await sync_maps_from_globalapi(session=db)
+
+    assert result.processed == 1
+    refreshed = await db.get(Map, map_id)
+    assert refreshed is not None
+    assert refreshed.authors == [
+        "76561198000000001",
+        "76561198000000002",
+        "76561198000000003",
+    ]
+    assert refreshed.no_steamid_names == [
+        "Seeded Name",
+        "GlobalAPI Name",
+        "Name From Wrong Field",
+    ]
+    for steamid64 in (
+        76561198000000001,
+        76561198000000002,
+        76561198000000003,
+    ):
+        author_player = await db.get(Player, steamid64)
+        assert author_player is not None
+        assert author_player.name == str(steamid64)
 
 
 @pytest.mark.asyncio

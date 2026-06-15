@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from app.models import MapFileDistributionSyncResult, ModeScope
+from app.services.map_authors import seed_map_authors_from_kz_map_info
 from app.services.map_file_distribution import seed_map_package, sync_map_files
 from app.services.map_file_distribution_worker import run_map_file_distribution_runner
 from app.tasks import friends as friends_task
@@ -539,6 +540,26 @@ def sync_friends(
         steamid64s=steamid64s,
         leaderboard=leaderboard,
         limit=limit,
+    )
+
+
+@sync_app.command("map-authors")
+def sync_map_authors() -> None:
+    from app.core.db import async_session_maker
+
+    async def _run():
+        async with async_session_maker() as session:
+            return await seed_map_authors_from_kz_map_info(session=session)
+
+    result = _run_async(_run())
+    _render_summary(
+        "Map Author Seed Complete",
+        [
+            ("Rows processed", str(result.processed)),
+            ("Maps matched", str(result.matched)),
+            ("Maps updated", str(result.updated)),
+            ("Rows skipped", str(result.skipped)),
+        ],
     )
 
 

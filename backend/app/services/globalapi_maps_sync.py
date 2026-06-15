@@ -9,6 +9,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import KZMode, Map, MapCourse, MapCourseTier, MapSyncResult
+from app.services.map_authors import (
+    ensure_author_players_exist,
+    merge_author_fields,
+    normalize_author_fields,
+)
+from app.services.steam_workshop import fetch_workshop_file_details
 
 GLOBALAPI_MAPS_LIMIT = 9999
 MAP_DATETIME_FALLBACK = "2018-01-09T10:45:50"
@@ -60,19 +66,6 @@ def _parse_bool(value: Any, default: bool = False) -> bool:
     return default
 
 
-def _parse_string_list(value: Any) -> list[str] | None:
-    if value is None:
-        return None
-    if isinstance(value, list):
-        return [str(item) for item in value if item is not None]
-    if isinstance(value, str):
-        stripped = value.strip()
-        if not stripped:
-            return None
-        return [stripped]
-    return None
-
-
 def _extract_workshop_id(workshop_url: Any) -> int | None:
     if not workshop_url or not isinstance(workshop_url, str):
         return None
@@ -90,6 +83,10 @@ def _extract_workshop_id(workshop_url: Any) -> int | None:
 
 
 def _map_values_from_globalapi(payload: dict[str, Any]) -> dict[str, Any]:
+    authors, no_steamid_names = normalize_author_fields(
+        authors=payload.get("authors"),
+        no_steamid_names=payload.get("no_steamid_names"),
+    )
     return {
         "name": str(payload.get("name") or ""),
         "filesize": _parse_int(payload.get("filesize"), default=0),
@@ -101,9 +98,33 @@ def _map_values_from_globalapi(payload: dict[str, Any]) -> dict[str, Any]:
             payload.get("approved_by_steamid64"), default=0
         ),
         "workshop_id": _extract_workshop_id(payload.get("workshop_url")),
-        "authors": _parse_string_list(payload.get("authors")),
-        "no_steamid_names": _parse_string_list(payload.get("no_steamid_names")),
+        "authors": authors,
+        "no_steamid_names": no_steamid_names,
     }
+
+
+async def _fetch_workshop_author_ids_by_map_id(
+    *,
+    map_rows_by_id: dict[int, dict[str, Any]],
+) -> dict[int, list[str]]:
+    workshop_ids_by_map_id = {
+        map_id: str(row["workshop_id"])
+        for map_id, row in map_rows_by_id.items()
+        if row.get("workshop_id") is not None
+    }
+    if not workshop_ids_by_map_id:
+        return {}
+
+    details_by_workshop_id = await fetch_workshop_file_details(
+        workshop_ids=list(workshop_ids_by_map_id.values()),
+    )
+    author_ids_by_map_id: dict[int, list[str]] = {}
+    for map_id, workshop_id in workshop_ids_by_map_id.items():
+        details = details_by_workshop_id.get(workshop_id)
+        if details is None or details.creator is None:
+            continue
+        author_ids_by_map_id[map_id] = [details.creator]
+    return author_ids_by_map_id
 
 
 async def fetch_maps_from_globalapi() -> list[dict[str, Any]]:
@@ -262,15 +283,28 @@ async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
         )
 
     map_ids = list(map_rows_by_id.keys())
+    workshop_author_ids_by_map_id = await _fetch_workshop_author_ids_by_map_id(
+        map_rows_by_id=map_rows_by_id,
+    )
     existing_rows = list(
         (
             await session.exec(
-                select(Map.id, Map.difficulty).where(col(Map.id).in_(map_ids))
+                select(
+                    Map.id,
+                    Map.difficulty,
+                    Map.authors,
+                    Map.no_steamid_names,
+                ).where(col(Map.id).in_(map_ids))
             )
         ).all()
     )
     existing_difficulty_by_id = {
-        int(map_id): int(difficulty) for map_id, difficulty in existing_rows
+        int(map_id): int(difficulty)
+        for map_id, difficulty, _authors, _names in existing_rows
+    }
+    existing_author_fields_by_id = {
+        int(map_id): (authors, no_steamid_names)
+        for map_id, _difficulty, authors, no_steamid_names in existing_rows
     }
     existing_ids = set(existing_difficulty_by_id)
     created = sum(1 for map_id in map_ids if map_id not in existing_ids)
@@ -281,6 +315,30 @@ async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
         if map_id in existing_difficulty_by_id
         and existing_difficulty_by_id[map_id] != row["difficulty"]
     }
+    for map_id, row in map_rows_by_id.items():
+        existing_authors, existing_no_steamid_names = existing_author_fields_by_id.get(
+            map_id,
+            ([], []),
+        )
+        merged_authors, merged_no_steamid_names = merge_author_fields(
+            existing_authors=existing_authors,
+            existing_no_steamid_names=existing_no_steamid_names,
+            incoming_authors=[
+                *list(row.get("authors") or []),
+                *workshop_author_ids_by_map_id.get(map_id, []),
+            ],
+            incoming_no_steamid_names=row.get("no_steamid_names"),
+        )
+        row["authors"] = merged_authors
+        row["no_steamid_names"] = merged_no_steamid_names
+    await ensure_author_players_exist(
+        session=session,
+        author_steamid64s=[
+            author
+            for row in map_rows_by_id.values()
+            for author in list(row.get("authors") or [])
+        ],
+    )
 
     map_table = Map.__table__  # type: ignore[attr-defined]
     rows_to_upsert = list(map_rows_by_id.values())

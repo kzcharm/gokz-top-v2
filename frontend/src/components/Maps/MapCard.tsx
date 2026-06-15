@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { cn } from "@/lib/utils"
+import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
 
 interface MapCardProps {
   activeTier: number | null
@@ -298,6 +299,13 @@ export function MapCard({
             </dd>
           </div>
         </dl>
+
+        <MapAuthorsDisplay
+          authors={map.authors}
+          noSteamidNames={map.no_steamid_names}
+          compact
+          variant="avatar-group"
+        />
       </CardContent>
     </Card>
   )
