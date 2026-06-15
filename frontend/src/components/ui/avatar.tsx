@@ -1,5 +1,6 @@
 import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
+import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "@/lib/utils"
 
@@ -65,14 +66,19 @@ function AvatarGroup({
 }
 
 function AvatarGroupCount({
+  asChild = false,
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & {
+  asChild?: boolean
+}) {
+  const Comp = asChild ? Slot : "div"
+
   return (
-    <div
+    <Comp
       data-slot="avatar-group-count"
       className={cn(
-        "border-background bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-medium",
+        "border-background bg-muted text-muted-foreground relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-medium",
         className,
       )}
       {...props}

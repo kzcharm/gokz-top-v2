@@ -385,6 +385,10 @@ function MapHero({
                 <MapAuthorsDisplay
                   authors={map.authors}
                   noSteamidNames={map.no_steamid_names}
+                  compact
+                  expandable
+                  showByPrefix={false}
+                  variant="avatar-group"
                 />
               }
               labelClassName="text-muted-foreground"
