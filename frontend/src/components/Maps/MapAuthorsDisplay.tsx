@@ -187,6 +187,7 @@ function MapAuthorsAvatarGroup({
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [collapsedLimit, setCollapsedLimit] = useState(3)
+  const [activeEntryKey, setActiveEntryKey] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const steamidEntries = steamidAuthors.map((steamid64, index) => {
     const player = players[index] ?? null
@@ -309,7 +310,12 @@ function MapAuthorsAvatarGroup({
       ) : null}
       <AvatarGroup className="shrink-0">
         {visibleEntries.map((entry) => (
-          <AuthorAvatar key={entry.key} entry={entry} />
+          <AuthorAvatar
+            key={entry.key}
+            entry={entry}
+            isActive={activeEntryKey === entry.key}
+            onActiveChange={setActiveEntryKey}
+          />
         ))}
         {overflowCount > 0 && expandable ? (
           <AvatarGroupCount asChild className="size-7 text-[10px]">
@@ -333,22 +339,22 @@ function MapAuthorsAvatarGroup({
         title={entries.map((entry) => entry.label).join(", ")}
       >
         {linkedEntries.map((entry, index) => (
-          <span key={entry.key}>
-            {index > 0 ? ", " : null}
-            <Link
-              to="/profile/$identifier"
-              params={{ identifier: entry.steamid64 ?? "" }}
-              className="font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              {entry.label}
-            </Link>
-          </span>
+          <AuthorTextEntry
+            key={entry.key}
+            entry={entry}
+            showSeparator={index > 0}
+            isActive={activeEntryKey === entry.key}
+            onActiveChange={setActiveEntryKey}
+          />
         ))}
         {unlinkedEntries.map((entry, index) => (
-          <span key={entry.key}>
-            {linkedEntries.length > 0 || index > 0 ? ", " : null}
-            {entry.label}
-          </span>
+          <AuthorTextEntry
+            key={entry.key}
+            entry={entry}
+            showSeparator={linkedEntries.length > 0 || index > 0}
+            isActive={activeEntryKey === entry.key}
+            onActiveChange={setActiveEntryKey}
+          />
         ))}
       </span>
     </div>
@@ -375,10 +381,25 @@ function AuthorAvatarImage({ entry }: { entry: AvatarGroupEntry }) {
   )
 }
 
-function AuthorAvatar({ entry }: { entry: AvatarGroupEntry }) {
+function AuthorAvatar({
+  entry,
+  isActive,
+  onActiveChange,
+}: {
+  entry: AvatarGroupEntry
+  isActive: boolean
+  onActiveChange: (key: string | null) => void
+}) {
+  const activeClassName = isActive ? "z-20 scale-105 ring-1 ring-primary" : null
+
   if (entry.steamid64 === null) {
     return (
-      <span className="relative z-0 transition-transform duration-150 hover:z-20 hover:scale-110">
+      <span
+        className={cn(
+          "relative z-0 rounded-full transition-[transform,box-shadow] duration-150 hover:z-20 hover:scale-105 hover:ring-1 hover:ring-primary",
+          activeClassName,
+        )}
+      >
         <AuthorAvatarImage entry={entry} />
       </span>
     )
@@ -391,18 +412,75 @@ function AuthorAvatar({ entry }: { entry: AvatarGroupEntry }) {
       aria-label={`Open ${entry.label}`}
       className={cn(
         "block rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-        "relative z-0 transition-transform duration-150 hover:z-20 hover:scale-110 focus-visible:z-20",
+        "relative z-0 transition-[transform,box-shadow] duration-150 hover:z-20 hover:scale-105 hover:ring-1 hover:ring-primary focus-visible:z-20",
+        activeClassName,
       )}
+      onMouseEnter={() => onActiveChange(entry.key)}
+      onMouseLeave={() => onActiveChange(null)}
+      onFocus={() => onActiveChange(entry.key)}
+      onBlur={() => onActiveChange(null)}
     >
       <AuthorAvatarImage entry={entry} />
     </Link>
   )
 }
 
+function AuthorTextEntry({
+  entry,
+  showSeparator,
+  isActive,
+  onActiveChange,
+}: {
+  entry: AvatarGroupEntry
+  showSeparator: boolean
+  isActive: boolean
+  onActiveChange: (key: string | null) => void
+}) {
+  const className = cn(
+    "font-medium underline-offset-4 transition-colors",
+    entry.steamid64 === null &&
+      "text-muted-foreground hover:text-muted-foreground",
+    entry.steamid64 !== null && [
+      "text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+      isActive
+        ? "text-primary underline"
+        : "hover:text-primary hover:underline",
+    ],
+  )
+
+  if (entry.steamid64 === null) {
+    return (
+      <span key={entry.key}>
+        {showSeparator ? ", " : null}
+        <span className={className}>{entry.label}</span>
+      </span>
+    )
+  }
+
+  return (
+    <span key={entry.key}>
+      {showSeparator ? ", " : null}
+      <Link
+        to="/profile/$identifier"
+        params={{ identifier: entry.steamid64 }}
+        className={className}
+        onMouseEnter={() => onActiveChange(entry.key)}
+        onMouseLeave={() => onActiveChange(null)}
+        onFocus={() => onActiveChange(entry.key)}
+        onBlur={() => onActiveChange(null)}
+      >
+        {entry.label}
+      </Link>
+    </span>
+  )
+}
+
 function AuthorIdentity({ entry }: { entry: AvatarGroupEntry }) {
   const content = (
     <>
-      <AuthorAvatarImage entry={entry} />
+      <span className="rounded-full transition-transform duration-150 group-hover:scale-110 group-focus-visible:scale-110">
+        <AuthorAvatarImage entry={entry} />
+      </span>
       <span className="max-w-[12rem] truncate text-sm font-medium">
         {entry.label}
       </span>
@@ -411,7 +489,7 @@ function AuthorIdentity({ entry }: { entry: AvatarGroupEntry }) {
 
   if (entry.steamid64 === null) {
     return (
-      <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
+      <span className="group inline-flex min-w-0 items-center gap-1.5 text-muted-foreground transition-colors hover:text-primary">
         {content}
       </span>
     )
@@ -421,7 +499,7 @@ function AuthorIdentity({ entry }: { entry: AvatarGroupEntry }) {
     <Link
       to="/profile/$identifier"
       params={{ identifier: entry.steamid64 }}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-full text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="group inline-flex min-w-0 items-center gap-1.5 rounded-full text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       {content}
     </Link>
