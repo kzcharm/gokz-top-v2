@@ -295,6 +295,7 @@ export const zhCN = {
       jumpstats: "Jumpstats",
       comments: "评论",
       friends: "好友",
+      maps: "地图",
     },
     searchAria: "搜索玩家",
     searchPlaceholder: "搜索玩家 ...",
@@ -398,6 +399,11 @@ export const zhCN = {
         "该玩家的 Steam 个人资料不是公开状态，因此无法同步其好友列表。",
       privateFriendsTitle: "Steam 好友列表为私密",
       privateFriendsBody: "该玩家的 Steam 好友列表被隐藏，因此无法同步其好友。",
+    },
+    maps: {
+      loadFailedTitle: "无法加载地图",
+      loadFailedBody: "请刷新页面后重试。",
+      empty: "没有找到该玩家创作的地图。",
     },
     comments: {
       loginTitle: "登录后才能评论",

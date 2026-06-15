@@ -302,6 +302,7 @@ export const en = {
       jumpstats: "Jumpstats",
       comments: "Comments",
       friends: "Friends",
+      maps: "Maps",
     },
     searchAria: "Search players",
     searchPlaceholder: "Search player ...",
@@ -409,6 +410,11 @@ export const en = {
       privateFriendsTitle: "Steam friends list is private",
       privateFriendsBody:
         "This player's Steam friends list is hidden, so their friends cannot be synced.",
+    },
+    maps: {
+      loadFailedTitle: "Unable to load maps",
+      loadFailedBody: "Reload the page and try again.",
+      empty: "No authored maps found for this player.",
     },
     comments: {
       loginTitle: "Login required to comment",

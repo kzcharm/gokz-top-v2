@@ -52,6 +52,7 @@ import { Route as LayoutProfileIdentifierIndexRouteImport } from './routes/_layo
 import { Route as LayoutProfileIdentifierUnfinishedRouteImport } from './routes/_layout/profile.$identifier.unfinished'
 import { Route as LayoutProfileIdentifierStatsRouteImport } from './routes/_layout/profile.$identifier.stats'
 import { Route as LayoutProfileIdentifierRecordsRouteImport } from './routes/_layout/profile.$identifier.records'
+import { Route as LayoutProfileIdentifierMapsRouteImport } from './routes/_layout/profile.$identifier.maps'
 import { Route as LayoutProfileIdentifierJumpstatsRouteImport } from './routes/_layout/profile.$identifier.jumpstats'
 import { Route as LayoutProfileIdentifierFriendsRouteImport } from './routes/_layout/profile.$identifier.friends'
 import { Route as LayoutProfileIdentifierCommentsRouteImport } from './routes/_layout/profile.$identifier.comments'
@@ -286,6 +287,12 @@ const LayoutProfileIdentifierRecordsRoute =
     path: '/records',
     getParentRoute: () => LayoutProfileIdentifierRoute,
   } as any)
+const LayoutProfileIdentifierMapsRoute =
+  LayoutProfileIdentifierMapsRouteImport.update({
+    id: '/maps',
+    path: '/maps',
+    getParentRoute: () => LayoutProfileIdentifierRoute,
+  } as any)
 const LayoutProfileIdentifierJumpstatsRoute =
   LayoutProfileIdentifierJumpstatsRouteImport.update({
     id: '/jumpstats',
@@ -368,6 +375,7 @@ export interface FileRoutesByFullPath {
   '/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
+  '/profile/$identifier/maps': typeof LayoutProfileIdentifierMapsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -417,6 +425,7 @@ export interface FileRoutesByTo {
   '/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
+  '/profile/$identifier/maps': typeof LayoutProfileIdentifierMapsRoute
   '/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -469,6 +478,7 @@ export interface FileRoutesById {
   '/_layout/profile/$identifier/comments': typeof LayoutProfileIdentifierCommentsRoute
   '/_layout/profile/$identifier/friends': typeof LayoutProfileIdentifierFriendsRoute
   '/_layout/profile/$identifier/jumpstats': typeof LayoutProfileIdentifierJumpstatsRoute
+  '/_layout/profile/$identifier/maps': typeof LayoutProfileIdentifierMapsRoute
   '/_layout/profile/$identifier/records': typeof LayoutProfileIdentifierRecordsRoute
   '/_layout/profile/$identifier/stats': typeof LayoutProfileIdentifierStatsRoute
   '/_layout/profile/$identifier/unfinished': typeof LayoutProfileIdentifierUnfinishedRoute
@@ -521,6 +531,7 @@ export interface FileRouteTypes {
     | '/profile/$identifier/comments'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
+    | '/profile/$identifier/maps'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -570,6 +581,7 @@ export interface FileRouteTypes {
     | '/profile/$identifier/comments'
     | '/profile/$identifier/friends'
     | '/profile/$identifier/jumpstats'
+    | '/profile/$identifier/maps'
     | '/profile/$identifier/records'
     | '/profile/$identifier/stats'
     | '/profile/$identifier/unfinished'
@@ -621,6 +633,7 @@ export interface FileRouteTypes {
     | '/_layout/profile/$identifier/comments'
     | '/_layout/profile/$identifier/friends'
     | '/_layout/profile/$identifier/jumpstats'
+    | '/_layout/profile/$identifier/maps'
     | '/_layout/profile/$identifier/records'
     | '/_layout/profile/$identifier/stats'
     | '/_layout/profile/$identifier/unfinished'
@@ -938,6 +951,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProfileIdentifierRecordsRouteImport
       parentRoute: typeof LayoutProfileIdentifierRoute
     }
+    '/_layout/profile/$identifier/maps': {
+      id: '/_layout/profile/$identifier/maps'
+      path: '/maps'
+      fullPath: '/profile/$identifier/maps'
+      preLoaderRoute: typeof LayoutProfileIdentifierMapsRouteImport
+      parentRoute: typeof LayoutProfileIdentifierRoute
+    }
     '/_layout/profile/$identifier/jumpstats': {
       id: '/_layout/profile/$identifier/jumpstats'
       path: '/jumpstats'
@@ -1080,6 +1100,7 @@ interface LayoutProfileIdentifierRouteChildren {
   LayoutProfileIdentifierCommentsRoute: typeof LayoutProfileIdentifierCommentsRoute
   LayoutProfileIdentifierFriendsRoute: typeof LayoutProfileIdentifierFriendsRoute
   LayoutProfileIdentifierJumpstatsRoute: typeof LayoutProfileIdentifierJumpstatsRoute
+  LayoutProfileIdentifierMapsRoute: typeof LayoutProfileIdentifierMapsRoute
   LayoutProfileIdentifierRecordsRoute: typeof LayoutProfileIdentifierRecordsRoute
   LayoutProfileIdentifierStatsRoute: typeof LayoutProfileIdentifierStatsRoute
   LayoutProfileIdentifierUnfinishedRoute: typeof LayoutProfileIdentifierUnfinishedRoute
@@ -1092,6 +1113,7 @@ const LayoutProfileIdentifierRouteChildren: LayoutProfileIdentifierRouteChildren
     LayoutProfileIdentifierFriendsRoute: LayoutProfileIdentifierFriendsRoute,
     LayoutProfileIdentifierJumpstatsRoute:
       LayoutProfileIdentifierJumpstatsRoute,
+    LayoutProfileIdentifierMapsRoute: LayoutProfileIdentifierMapsRoute,
     LayoutProfileIdentifierRecordsRoute: LayoutProfileIdentifierRecordsRoute,
     LayoutProfileIdentifierStatsRoute: LayoutProfileIdentifierStatsRoute,
     LayoutProfileIdentifierUnfinishedRoute:

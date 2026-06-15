@@ -29,6 +29,7 @@ import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { MapCard } from "@/components/Maps/MapCard"
 import {
   getMapSkillPercentage,
+  getMapTierForScope,
   MAP_SORTABLE_SKILLS,
   type MapSkillKey,
 } from "@/components/Maps/map-utils"
@@ -117,10 +118,6 @@ function SortableMapOption({
       ) : null}
     </Button>
   )
-}
-
-function getMapTierForScope(map: MapPublic, scope: AppScope) {
-  return map.tiers[scope] ?? 0
 }
 
 function compareNullableNumbers(

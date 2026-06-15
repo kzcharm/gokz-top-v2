@@ -16,6 +16,7 @@ const tabDefinitions: Array<{
     | "/profile/$identifier/stats"
     | "/profile/$identifier/jumpstats"
     | "/profile/$identifier/friends"
+    | "/profile/$identifier/maps"
 }> = [
   { key: "home", labelKey: "profile.tabs.home", to: "/profile/$identifier" },
   {
@@ -43,24 +44,34 @@ const tabDefinitions: Array<{
     labelKey: "profile.tabs.friends",
     to: "/profile/$identifier/friends",
   },
+  {
+    key: "maps",
+    labelKey: "profile.tabs.maps",
+    to: "/profile/$identifier/maps",
+  },
 ]
 
 export function ProfileTabs({
   activeTab,
+  hasAuthoredMaps,
   identifier,
   trailingContent,
 }: {
   activeTab: ProfileTab
+  hasAuthoredMaps: boolean
   identifier: string
   trailingContent?: ReactNode
 }) {
   const { t } = useTranslation()
+  const visibleTabs = tabDefinitions.filter(
+    (tab) => tab.key !== "maps" || hasAuthoredMaps,
+  )
 
   return (
     <Tabs value={activeTab} className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <TabsList className="w-full justify-start overflow-x-auto border border-border bg-background/60 sm:w-fit">
-          {tabDefinitions.map((tab) => (
+          {visibleTabs.map((tab) => (
             <TabsTrigger key={tab.key} value={tab.key} asChild>
               <Link to={tab.to} params={{ identifier }}>
                 {t(tab.labelKey)}

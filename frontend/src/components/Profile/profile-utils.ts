@@ -31,6 +31,7 @@ export type ProfileTab =
   | "stats"
   | "jumpstats"
   | "friends"
+  | "maps"
 
 export const PROFILE_QUERY_LIMIT = 10_000
 export const PROFILE_SOCIAL_PAGE_LIMIT = 20

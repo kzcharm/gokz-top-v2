@@ -25,6 +25,7 @@ import {
   ProfileHomeContent,
 } from "./ProfileHomeContent"
 import { ProfileJumpstatsTab } from "./ProfileJumpstatsTab"
+import { ProfileMapsTab } from "./ProfileMapsTab"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileStatsContent } from "./ProfileStatsContent"
@@ -174,7 +175,9 @@ export function ProfilePage({
             ? "/profile/$identifier/jumpstats"
             : activeTab === "friends"
               ? "/profile/$identifier/friends"
-              : "/profile/$identifier"
+              : activeTab === "maps"
+                ? "/profile/$identifier/maps"
+                : "/profile/$identifier"
 
   useEffect(() => {
     if (!canonicalIdentifier || identifier === canonicalIdentifier) {
@@ -450,6 +453,14 @@ export function ProfilePage({
   const proRecordDistribution = useMemo(() => {
     return buildProfileRecordDistribution(proRecordsQuery.data ?? [])
   }, [proRecordsQuery.data])
+  const authoredMaps = useMemo(() => {
+    if (!playerSteamid64) {
+      return []
+    }
+    return (mapsQuery.data ?? []).filter((map) =>
+      (map.authors ?? []).includes(playerSteamid64),
+    )
+  }, [mapsQuery.data, playerSteamid64])
 
   const completionLoading =
     mapsQuery.isLoading ||
@@ -657,6 +668,7 @@ export function ProfilePage({
 
           <ProfileTabs
             activeTab={activeTab}
+            hasAuthoredMaps={authoredMaps.length > 0}
             identifier={canonicalIdentifier}
             trailingContent={profileTabsTrailingContent}
           />
@@ -754,6 +766,12 @@ export function ProfilePage({
                   </Button>
                 ) : null
               }
+            />
+          ) : activeTab === "maps" ? (
+            <ProfileMapsTab
+              maps={authoredMaps}
+              mapsLoading={mapsQuery.isLoading}
+              mapsError={mapsQuery.isError}
             />
           ) : activeTab === "jumpstats" ? (
             <ProfileJumpstatsTab identifier={canonicalIdentifier} />

@@ -302,6 +302,7 @@ export const ru = {
       jumpstats: "Jumpstats",
       comments: "Комментарии",
       friends: "Друзья",
+      maps: "Карты",
     },
     searchAria: "Поиск игроков",
     searchPlaceholder: "Искать игрока ...",
@@ -410,6 +411,11 @@ export const ru = {
       privateFriendsTitle: "Список друзей Steam скрыт",
       privateFriendsBody:
         "Список друзей Steam этого игрока скрыт, поэтому друзей нельзя синхронизировать.",
+    },
+    maps: {
+      loadFailedTitle: "Не удалось загрузить карты",
+      loadFailedBody: "Обновите страницу и попробуйте снова.",
+      empty: "Для этого игрока не найдены созданные им карты.",
     },
     comments: {
       loginTitle: "Для комментария нужен вход",

@@ -1,4 +1,5 @@
-import { MapsService } from "@/client"
+import { type MapPublic, MapsService } from "@/client"
+import type { AppScope } from "@/components/scope-provider"
 import mapSkillAnalysisData from "@/data/map-skill-analysis.json"
 
 const MAP_SKILLS = [
@@ -71,6 +72,10 @@ export async function fetchMapByName(mapName: string) {
     throw new Error("Map not found")
   }
   return map
+}
+
+export function getMapTierForScope(map: MapPublic, scope: AppScope) {
+  return map.tiers[scope] ?? 0
 }
 
 function hashString(value: string) {
