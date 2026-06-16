@@ -569,6 +569,8 @@ export const zhCN = {
   },
   reviews: {
     title: "评论",
+    moderationWarning:
+      "你可以在评价中尽情宣泄对地图的不满，并指出它不好玩的地方。但请对图不对人，禁止对作者及其家人进行辱骂或人身攻击。",
     withCommentsOnly: "仅看带评论",
     allLanguages: "所有语言",
     languages: {

@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
+import { TriangleAlert } from "lucide-react"
 import { startTransition, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { type MapReviewPublic, MapsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -132,7 +133,13 @@ export function ReviewsDashboardPanel() {
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-4 sm:px-6 sm:py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <CardTitle className="text-xl">{t("reviews.title")}</CardTitle>
+            <div
+              data-review-warning
+              className="flex max-w-3xl items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm leading-5 text-amber-950 dark:text-amber-100"
+            >
+              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300" />
+              <span>{t("reviews.moderationWarning")}</span>
+            </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Label
                 htmlFor="dashboard-reviews-comments-only"

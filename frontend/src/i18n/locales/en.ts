@@ -585,6 +585,8 @@ export const en = {
   },
   reviews: {
     title: "Reviews",
+    moderationWarning:
+      "Feel free to vent your frustration about the map and point out what makes it unfun, but keep it focused on the map, not the author. Insults or personal attacks against the author and their family are prohibited.",
     withCommentsOnly: "With comments only",
     allLanguages: "All languages",
     languages: {
