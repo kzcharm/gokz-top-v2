@@ -13,7 +13,7 @@ type MapReviewRow = {
   overall: number
   gameplay: number | null
   visuals: number | null
-  comment: string
+  comment: string | null
   updatedAt: string
   hasLongComment: boolean
 }
@@ -89,11 +89,15 @@ function CommentCell({
   onToggle,
 }: {
   reviewId: string
-  comment: string
+  comment: string | null
   isExpanded: boolean
   hasLongComment: boolean
   onToggle: (reviewId: string) => void
 }) {
+  if (!comment) {
+    return <span className="text-sm text-muted-foreground">-</span>
+  }
+
   if (!hasLongComment) {
     return (
       <div className="w-[20rem] max-w-[20rem] whitespace-normal break-words text-sm leading-6 text-foreground/90 xl:w-[28rem] xl:max-w-[28rem]">
@@ -131,6 +135,7 @@ export function MapReviewsTable({
   reviews,
   totalCount,
   isLoading,
+  emptyText,
   pageIndex,
   pageSize,
   onPageChange,
@@ -140,6 +145,7 @@ export function MapReviewsTable({
   reviews: MapReviewPublic[]
   totalCount: number
   isLoading: boolean
+  emptyText: string
   pageIndex: number
   pageSize: number
   onPageChange: (pageIndex: number) => void
@@ -149,25 +155,21 @@ export function MapReviewsTable({
 
   const rows = useMemo<MapReviewRow[]>(
     () =>
-      reviews
-        .filter((review) => {
-          const comment = review.content.comment?.text?.trim()
-          return Boolean(comment)
-        })
-        .map((review) => {
-          const comment = review.content.comment?.text?.trim() ?? ""
+      reviews.map((review) => {
+        const comment = review.content.comment?.text?.trim() || null
 
-          return {
-            id: `${review.steamid64}-${review.map_id}`,
-            player: review.player,
-            overall: review.content.overall,
-            gameplay: review.content.gameplay ?? null,
-            visuals: review.content.visuals ?? null,
-            comment,
-            updatedAt: review.updated_at,
-            hasLongComment: comment.length > COMMENT_EXPAND_THRESHOLD,
-          }
-        }),
+        return {
+          id: `${review.steamid64}-${review.map_id}`,
+          player: review.player,
+          overall: review.content.overall,
+          gameplay: review.content.gameplay ?? null,
+          visuals: review.content.visuals ?? null,
+          comment,
+          updatedAt: review.updated_at,
+          hasLongComment:
+            comment !== null && comment.length > COMMENT_EXPAND_THRESHOLD,
+        }
+      }),
     [reviews],
   )
 
@@ -235,7 +237,7 @@ export function MapReviewsTable({
         ]}
         data={rows}
         isLoading={isLoading}
-        emptyText="No map reviews with comments yet."
+        emptyText={emptyText}
         getRowId={(row) => row.id}
         pageInputEnabled
         serverPagination={{

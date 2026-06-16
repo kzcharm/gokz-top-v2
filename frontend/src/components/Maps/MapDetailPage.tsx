@@ -32,6 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Select,
@@ -40,6 +41,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
@@ -475,6 +477,7 @@ export function MapDetailPage({
   const [reviewsPageSize, setReviewsPageSize] = usePersistedPageSize({
     storageKey: "gokz-page-size-map-reviews",
   })
+  const [withCommentsOnly, setWithCommentsOnly] = useState(true)
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [pendingSpotlightSteamid64, setPendingSpotlightSteamid64] = useState<
     string | null
@@ -607,13 +610,14 @@ export function MapDetailPage({
       "map",
       "reviews",
       mapQuery.data?.id ?? null,
+      withCommentsOnly,
       reviewsPageIndex,
       reviewsPageSize,
     ],
     queryFn: () =>
       MapsService.readMapReviews({
         mapId: mapQuery.data?.id,
-        withCommentsOnly: true,
+        withCommentsOnly,
         offset: reviewsPageIndex * reviewsPageSize,
         limit: reviewsPageSize,
       }),
@@ -1067,14 +1071,30 @@ export function MapDetailPage({
                   </div>
                 </div>
               ) : activeTab === "reviews" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setReviewDialogOpen(true)}
-                  data-testid="map-add-review-button"
-                >
-                  {t("maps.addReview")}
-                </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Label
+                    htmlFor="map-reviews-comments-only"
+                    className="flex h-9 w-fit items-center gap-3 rounded-md border border-border/70 bg-background/80 px-3 text-sm font-medium text-foreground/90"
+                  >
+                    <Switch
+                      id="map-reviews-comments-only"
+                      checked={withCommentsOnly}
+                      onCheckedChange={(checked) => {
+                        setWithCommentsOnly(checked)
+                        setReviewsPageIndex(0)
+                      }}
+                    />
+                    {t("reviews.withCommentsOnly")}
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setReviewDialogOpen(true)}
+                    data-testid="map-add-review-button"
+                  >
+                    {t("maps.addReview")}
+                  </Button>
+                </div>
               ) : null}
             </div>
           </CardContent>
@@ -1175,6 +1195,9 @@ export function MapDetailPage({
             reviews={reviewsQuery.data?.data ?? []}
             totalCount={reviewsQuery.data?.count ?? 0}
             isLoading={reviewsQuery.isLoading}
+            emptyText={
+              withCommentsOnly ? t("reviews.emptyFiltered") : t("reviews.empty")
+            }
             pageIndex={reviewsPageIndex}
             pageSize={reviewsPageSize}
             onPageChange={setReviewsPageIndex}
