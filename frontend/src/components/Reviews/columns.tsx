@@ -6,6 +6,10 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { cn } from "@/lib/utils"
+import {
+  DeleteMapReviewCommentsButton,
+  type useMapReviewAdminActions,
+} from "./admin-actions"
 
 export type ReviewTableRow = {
   id: string
@@ -30,6 +34,9 @@ export type ReviewTableRow = {
 type ReviewColumnsOptions = {
   expandedReviewId: string | null
   onToggleComment: (reviewId: string) => void
+  deleteCommentsMutation?: ReturnType<
+    typeof useMapReviewAdminActions
+  >["deleteCommentsMutation"]
 }
 
 const COMMENT_WIDTH_CLASS =
@@ -153,6 +160,7 @@ function CommentPreview({
 }
 
 export function getReviewColumns({
+  deleteCommentsMutation,
   expandedReviewId,
   onToggleComment,
   t,
@@ -224,5 +232,24 @@ export function getReviewColumns({
         </div>
       ),
     },
+    ...(deleteCommentsMutation
+      ? [
+          {
+            id: "actions",
+            header: "",
+            cell: ({ row }) =>
+              row.original.comment ? (
+                <DeleteMapReviewCommentsButton
+                  deleteCommentsMutation={deleteCommentsMutation}
+                  target={{
+                    mapId: row.original.map_id,
+                    steamid64: row.original.steamid64,
+                    playerName: row.original.player.display_name,
+                  }}
+                />
+              ) : null,
+          } satisfies ColumnDef<ReviewTableRow>,
+        ]
+      : []),
   ]
 }

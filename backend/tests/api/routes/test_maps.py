@@ -21,6 +21,8 @@ from app.models import (
     MapSyncResult,
     ModeScope,
     Player,
+    PlayerNotification,
+    PlayerNotificationType,
     RecordFilter,
     RecordType,
     ServerGlobalapi,
@@ -241,12 +243,13 @@ async def _auth_user(
     *,
     steamid64: int,
     name: str,
+    roles: list[str] | None = None,
 ) -> dict[str, str]:
     response = await client.post(
         f"{settings.API_V1_STR}/private/auth/session",
         json={
             "steamid64": steamid64,
-            "roles": [],
+            "roles": roles or [],
             "is_active": True,
             "name": name,
         },
@@ -1783,6 +1786,158 @@ async def test_delete_map_review_comments_clears_all_comments_for_player_map(
     assert cached_summary.reviews_count == 2
     assert cached_summary.comments_count == 1
     assert cached_summary.overall_avg == pytest.approx(4.0)
+
+
+@pytest.mark.asyncio
+async def test_admin_delete_map_review_comments_for_player_sends_notification(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930218)
+    target_steamid64 = random_steamid64()
+    admin_steamid64 = random_steamid64()
+    await _auth_user(client, steamid64=target_steamid64, name="Moderated Reviewer")
+    admin_headers = await _auth_user(
+        client,
+        steamid64=admin_steamid64,
+        name="Review Admin",
+        roles=["admin"],
+    )
+    group, _ = await create_server_group(db)
+    base_time = get_datetime_utc()
+
+    website_review = await _create_review(
+        db,
+        steamid64=target_steamid64,
+        map_id=map_obj.id,
+        updated_at=base_time,
+        overall=3,
+        comment_text="website original comment",
+    )
+    server_group_review = await _create_review(
+        db,
+        steamid64=target_steamid64,
+        map_id=map_obj.id,
+        updated_at=base_time + timedelta(minutes=1),
+        overall=5,
+        server_group_id=group.id,
+        comment_text="server group original comment",
+    )
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=admin_headers,
+        params={"map_id": map_obj.id, "steamid64": str(target_steamid64)},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(target_steamid64)
+    assert payload["content"]["overall"] == 5
+    assert payload["content"]["comment"] is None
+
+    refreshed_website_review = await db.get(MapReview, website_review.id)
+    refreshed_server_group_review = await db.get(MapReview, server_group_review.id)
+    assert refreshed_website_review is not None
+    assert refreshed_server_group_review is not None
+    assert refreshed_website_review.content["comment"] is None
+    assert refreshed_server_group_review.content["comment"] is None
+
+    notifications = (
+        await db.exec(
+            select(PlayerNotification).where(
+                PlayerNotification.recipient_steamid64 == target_steamid64,
+                PlayerNotification.type
+                == PlayerNotificationType.MAP_REVIEW_COMMENT_DELETED,
+            )
+        )
+    ).all()
+    assert len(notifications) == 1
+    notification = notifications[0]
+    assert notification.actor_steamid64 is None
+    assert notification.target_player_steamid64 == target_steamid64
+    assert notification.map_id == map_obj.id
+    assert notification.map_name == map_obj.name
+    assert notification.target_url == f"/maps/{map_obj.name}/reviews"
+    assert notification.comment_preview == "server group original comment --- website original comment"
+    assert notification.comment_text == (
+        "server group original comment\n\n---\n\nwebsite original comment"
+    )
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_delete_another_players_map_review_comments(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930219)
+    target_steamid64 = random_steamid64()
+    requester_steamid64 = random_steamid64()
+    await _auth_user(client, steamid64=target_steamid64, name="Target Reviewer")
+    requester_headers = await _auth_user(
+        client,
+        steamid64=requester_steamid64,
+        name="Plain User",
+    )
+    await _create_review(
+        db,
+        steamid64=target_steamid64,
+        map_id=map_obj.id,
+        updated_at=get_datetime_utc(),
+        overall=4,
+        comment_text="do not delete",
+    )
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=requester_headers,
+        params={"map_id": map_obj.id, "steamid64": str(target_steamid64)},
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_delete_map_review_comments_without_comments_skips_notification(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930220)
+    target_steamid64 = random_steamid64()
+    admin_steamid64 = random_steamid64()
+    await _auth_user(client, steamid64=target_steamid64, name="No Comment Target")
+    admin_headers = await _auth_user(
+        client,
+        steamid64=admin_steamid64,
+        name="Review Admin",
+        roles=["superuser"],
+    )
+    await _create_review(
+        db,
+        steamid64=target_steamid64,
+        map_id=map_obj.id,
+        updated_at=get_datetime_utc(),
+        overall=4,
+        comment_text=None,
+    )
+
+    response = await client.delete(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers=admin_headers,
+        params={"map_id": map_obj.id, "steamid64": str(target_steamid64)},
+    )
+
+    assert response.status_code == 200
+    notification = (
+        await db.exec(
+            select(PlayerNotification).where(
+                PlayerNotification.recipient_steamid64 == target_steamid64,
+                PlayerNotification.type
+                == PlayerNotificationType.MAP_REVIEW_COMMENT_DELETED,
+            )
+        )
+    ).first()
+    assert notification is None
 
 
 @pytest.mark.asyncio

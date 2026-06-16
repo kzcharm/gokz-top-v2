@@ -1371,6 +1371,7 @@ export class MapsService {
      * Delete Map Review Comments
      * @param data The data for the request.
      * @param data.mapId
+     * @param data.steamid64
      * @returns MapReviewPublic Successful Response
      * @throws ApiError
      */
@@ -1379,7 +1380,8 @@ export class MapsService {
             method: 'DELETE',
             url: '/v1/maps/reviews',
             query: {
-                map_id: data.mapId
+                map_id: data.mapId,
+                steamid64: data.steamid64
             },
             errors: {
                 422: 'Validation Error'

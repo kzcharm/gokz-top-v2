@@ -892,6 +892,7 @@ export type PlayerNotificationPublic = {
     target_player_steamid64?: (string | null);
     comment_id?: (string | null);
     comment_preview?: (string | null);
+    comment_text?: (string | null);
     map_id?: (number | null);
     map_name?: (string | null);
     scope?: (ModeScope | null);
@@ -906,7 +907,7 @@ export type PlayerNotificationsPublic = {
     count: number;
 };
 
-export type PlayerNotificationType = 'profile_like' | 'profile_comment' | 'player_follow' | 'wr_beaten' | 'player_report';
+export type PlayerNotificationType = 'profile_like' | 'profile_comment' | 'player_follow' | 'wr_beaten' | 'player_report' | 'map_review_comment_deleted';
 
 export type PlayerNotificationUnreadCountPublic = {
     unread_count: number;
@@ -1968,6 +1969,7 @@ export type MapsPutMapReviewResponse = (MapReviewPublic);
 
 export type MapsDeleteMapReviewCommentsData = {
     mapId: number;
+    steamid64?: (string | null);
 };
 
 export type MapsDeleteMapReviewCommentsResponse = (MapReviewPublic);

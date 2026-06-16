@@ -4537,6 +4537,17 @@ export const PlayerNotificationPublicSchema = {
             ],
             title: 'Comment Preview'
         },
+        comment_text: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Comment Text'
+        },
         map_id: {
             anyOf: [
                 {
@@ -4622,7 +4633,7 @@ export const PlayerNotificationPublicSchema = {
 
 export const PlayerNotificationTypeSchema = {
     type: 'string',
-    enum: ['profile_like', 'profile_comment', 'player_follow', 'wr_beaten', 'player_report'],
+    enum: ['profile_like', 'profile_comment', 'player_follow', 'wr_beaten', 'player_report', 'map_review_comment_deleted'],
     title: 'PlayerNotificationType'
 } as const;
 

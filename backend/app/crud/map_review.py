@@ -438,7 +438,7 @@ async def clear_map_review_comments(
     session: AsyncSession,
     steamid64: int,
     map_id: int,
-) -> tuple[MapReview, Player, Map] | None:
+) -> tuple[MapReview, Player, Map, list[str]] | None:
     statement = (
         select(MapReview)
         .where(
@@ -457,10 +457,15 @@ async def clear_map_review_comments(
 
     now = get_datetime_utc()
     has_changes = False
+    deleted_comment_texts: list[str] = []
     for review in reviews:
         content = dict(review.content)
-        if content.get("comment") is None:
+        comment = content.get("comment")
+        if not isinstance(comment, dict):
             continue
+        comment_text = comment.get("text")
+        if isinstance(comment_text, str) and comment_text.strip():
+            deleted_comment_texts.append(comment_text)
         review.content = {
             **content,
             "comment": None,
@@ -480,4 +485,5 @@ async def clear_map_review_comments(
         steamid64=steamid64,
     )
     assert latest_reviews
-    return latest_reviews[0]
+    review, player, map_obj = latest_reviews[0]
+    return review, player, map_obj, deleted_comment_texts

@@ -5,6 +5,7 @@ import {
   Flag,
   Heart,
   MessageCircle,
+  ShieldAlert,
   Trophy,
   UserPlus,
 } from "lucide-react"
@@ -59,6 +60,7 @@ type NotificationDisplay = {
   action: string
   detail: string | null
   actor: PlayerRefPublic | null | undefined
+  showActor?: boolean
 }
 
 const notificationLinkClassName =
@@ -83,6 +85,9 @@ function notificationIcon(type: PlayerNotificationType) {
   }
   if (type === "player_report") {
     return <Flag className="size-4" />
+  }
+  if (type === "map_review_comment_deleted") {
+    return <ShieldAlert className="size-4" />
   }
   return <Bell className="size-4" />
 }
@@ -144,6 +149,18 @@ function buildNotificationDisplay(
       action: t("notifications.events.playerReportAction"),
       detail: notification.comment_preview ?? null,
       actor: notification.actor,
+    }
+  }
+
+  if (notification.type === "map_review_comment_deleted") {
+    return {
+      icon: notificationIcon(notification.type),
+      action: t("notifications.events.mapReviewCommentDeletedAction", {
+        map: mapName,
+      }),
+      detail: notification.comment_text ?? notification.comment_preview ?? null,
+      actor: null,
+      showActor: false,
     }
   }
 
@@ -331,6 +348,35 @@ function NotificationAction({
     )
   }
 
+  if (notification.type === "map_review_comment_deleted") {
+    return (
+      <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm leading-6">
+        <button
+          type="button"
+          className="rounded-sm text-left hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={onMarkRead}
+        >
+          {t("notifications.events.mapReviewCommentDeletedActionPrefix")}
+        </button>
+        {notification.map_name ? (
+          <Link
+            to="/maps/$mapName/reviews"
+            params={{ mapName: notification.map_name }}
+            className={notificationLinkClassName}
+            onClick={onMarkRead}
+          >
+            {notification.map_name}
+          </Link>
+        ) : (
+          <span>{t("notifications.unknownMap")}</span>
+        )}
+        <span>
+          {t("notifications.events.mapReviewCommentDeletedActionSuffix")}
+        </span>
+      </span>
+    )
+  }
+
   return (
     <button
       type="button"
@@ -453,7 +499,9 @@ export function NotificationsRoute() {
                 <span className="min-w-0 flex-1 space-y-1.5">
                   <span className="flex items-start justify-between gap-3">
                     <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                      <NotificationActor actor={display.actor} />
+                      {display.showActor === false ? null : (
+                        <NotificationActor actor={display.actor} />
+                      )}
                       <NotificationAction
                         notification={notification}
                         display={display}
@@ -474,7 +522,13 @@ export function NotificationsRoute() {
                     />
                   </span>
                   {display.detail && notification.type !== "player_report" ? (
-                    <span className="block text-muted-foreground text-sm">
+                    <span
+                      className={cn(
+                        "block text-muted-foreground text-sm",
+                        notification.type === "map_review_comment_deleted" &&
+                          "whitespace-pre-wrap",
+                      )}
+                    >
                       {display.detail}
                     </span>
                   ) : null}

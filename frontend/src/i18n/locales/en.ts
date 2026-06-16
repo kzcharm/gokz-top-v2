@@ -129,6 +129,10 @@ export const en = {
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
       playerReportAction: "submitted a player report.",
+      mapReviewCommentDeletedAction:
+        "Your map review comment on {{map}} was removed.",
+      mapReviewCommentDeletedActionPrefix: "Your map review comment on",
+      mapReviewCommentDeletedActionSuffix: "was removed.",
       recordContext: "record",
       generic: "New notification",
     },

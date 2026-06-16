@@ -135,6 +135,7 @@ from .player_friend import (
 from .player_like import count_player_likes, create_player_like, get_player_likers
 from .player_notification import (
     count_unread_player_notifications,
+    create_map_review_comment_deleted_notification,
     create_player_follow_notification,
     create_player_notification,
     create_profile_comment_notification,
@@ -402,6 +403,7 @@ __all__ = [
     "get_player_webhook",
     "count_player_likes",
     "count_unread_player_notifications",
+    "create_map_review_comment_deleted_notification",
     "count_player_profile_views",
     "get_or_rebuild_player_daily_activity_stat",
     "get_or_rebuild_player_playtime_stat",

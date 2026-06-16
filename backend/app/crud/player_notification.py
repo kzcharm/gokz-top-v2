@@ -61,6 +61,7 @@ def to_player_notification_public(
         ),
         comment_id=notification.comment_id,
         comment_preview=notification.comment_preview,
+        comment_text=notification.comment_text,
         map_id=notification.map_id,
         map_name=notification.map_name,
         scope=notification.scope,
@@ -82,6 +83,7 @@ async def create_player_notification(
     target_player_steamid64: int | None = None,
     comment_id: uuid.UUID | None = None,
     comment_preview: str | None = None,
+    comment_text: str | None = None,
     map_id: int | None = None,
     map_name: str | None = None,
     scope: ModeScope | None = None,
@@ -100,6 +102,7 @@ async def create_player_notification(
         "target_player_steamid64": target_player_steamid64,
         "comment_id": comment_id,
         "comment_preview": comment_preview,
+        "comment_text": comment_text,
         "map_id": map_id,
         "map_name": map_name,
         "scope": scope,
@@ -184,6 +187,29 @@ async def create_player_follow_notification(
         source_key=f"player-follow:{actor_steamid64}:{recipient_steamid64}",
         target_url=_profile_url(actor_steamid64),
         target_player_steamid64=actor_steamid64,
+    )
+
+
+async def create_map_review_comment_deleted_notification(
+    *,
+    session: AsyncSession,
+    recipient_steamid64: int,
+    map_id: int,
+    map_name: str,
+    comment_text: str,
+) -> bool:
+    return await create_player_notification(
+        session=session,
+        recipient_steamid64=recipient_steamid64,
+        actor_steamid64=None,
+        type=PlayerNotificationType.MAP_REVIEW_COMMENT_DELETED,
+        source_key=f"map-review-comment-deleted:{map_id}:{recipient_steamid64}:{uuid.uuid7()}",
+        target_url=f"/maps/{map_name}/reviews",
+        target_player_steamid64=recipient_steamid64,
+        comment_preview=_preview_text(comment_text),
+        comment_text=comment_text,
+        map_id=map_id,
+        map_name=map_name,
     )
 
 

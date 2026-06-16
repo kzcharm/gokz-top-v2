@@ -19,6 +19,7 @@ class PlayerNotificationType(StrEnum):
     PLAYER_FOLLOW = "player_follow"
     WR_BEATEN = "wr_beaten"
     PLAYER_REPORT = "player_report"
+    MAP_REVIEW_COMMENT_DELETED = "map_review_comment_deleted"
 
 
 class PlayerNotificationListQuery(SQLModel):
@@ -42,6 +43,7 @@ class PlayerNotificationPublic(SQLModel):
     target_player_steamid64: str | None = None
     comment_id: uuid.UUID | None = None
     comment_preview: str | None = None
+    comment_text: str | None = None
     map_id: int | None = None
     map_name: str | None = None
     scope: ModeScope | None = None
@@ -111,6 +113,7 @@ class PlayerNotification(SQLModel, table=True):
     target_player_steamid64: int | None = Field(default=None, sa_type=BigInteger)
     comment_id: uuid.UUID | None = None
     comment_preview: str | None = Field(default=None, max_length=140)
+    comment_text: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     map_id: int | None = Field(default=None, foreign_key="map.id")
     map_name: str | None = Field(default=None, max_length=255)
     scope: ModeScope | None = Field(

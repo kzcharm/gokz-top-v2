@@ -113,7 +113,48 @@ async function stubRegions(page: Page) {
   })
 }
 
-async function installMapReviewRoutes(page: Page) {
+async function stubAppShellRoutes(page: Page) {
+  await page.route(/\/v1\/admin\/servers\/access$/, async (route) => {
+    await route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Forbidden" }),
+    })
+  })
+
+  await page.route(/\/v1\/live\/streams(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+
+  await page.route(/\/v1\/graphql$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: {} }),
+    })
+  })
+
+  await page.route(/\/v1\/me\/notifications\/unread-count$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ unread_count: 0 }),
+    })
+  })
+}
+
+async function storeAccessToken(page: Page, accessToken: string) {
+  await page.goto(`/auth/callback#access_token=${accessToken}`)
+  await page.waitForFunction(
+    () => localStorage.getItem("access_token") !== null,
+  )
+}
+
+async function installMapReviewRoutes(page: Page, roles: string[] = []) {
   let reviewRows: ReviewRow[] = [
     {
       steamid64: currentUserSteamid64,
@@ -170,20 +211,31 @@ async function installMapReviewRoutes(page: Page) {
   ]
 
   await stubRegions(page)
+  await stubAppShellRoutes(page)
 
-  await page.route(/\/v1\/users\/me$/, async (route: Route) => {
+  await page.route(/\/v1\/users\/me(?:\?.*)?$/, async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(currentUserResponse),
+      body: JSON.stringify({ ...currentUserResponse, roles }),
     })
   })
 
-  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route: Route) => {
+  await page.route(/\/v1\/maps(?:\?.*)?$/, async (route: Route) => {
+    const url = new URL(route.request().url())
+    if (url.searchParams.get("name") !== mapName) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      })
+      return
+    }
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(mapResponse),
+      body: JSON.stringify([mapResponse]),
     })
   })
 
@@ -198,8 +250,8 @@ async function installMapReviewRoutes(page: Page) {
   await page.route(/\/v1\/maps\/reviews(\?.*)?$/, async (route: Route) => {
     const method = route.request().method()
     const url = new URL(route.request().url())
-    const requestedMapId = Number(url.searchParams.get("map_id"))
-    if (requestedMapId !== mapId) {
+    const requestedMapId = url.searchParams.get("map_id")
+    if (requestedMapId !== null && Number(requestedMapId) !== mapId) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -329,11 +381,10 @@ async function installMapReviewRoutes(page: Page) {
       return
     }
 
+    const targetSteamid64 =
+      url.searchParams.get("steamid64") ?? currentUserSteamid64
     reviewRows = reviewRows.map((review) => {
-      if (
-        review.steamid64 !== currentUserSteamid64 ||
-        review.map_id !== mapId
-      ) {
+      if (review.steamid64 !== targetSteamid64 || review.map_id !== mapId) {
         return review
       }
       return {
@@ -349,7 +400,7 @@ async function installMapReviewRoutes(page: Page) {
     const latestRemainingReview = reviewRows
       .filter(
         (review) =>
-          review.steamid64 === currentUserSteamid64 && review.map_id === mapId,
+          review.steamid64 === targetSteamid64 && review.map_id === mapId,
       )
       .toSorted(
         (left, right) =>
@@ -364,11 +415,13 @@ async function installMapReviewRoutes(page: Page) {
   })
 }
 
-async function installProfileReviewRoutes(
+async function _installProfileReviewRoutes(
   page: Page,
   profileSteamid64: string,
 ) {
-  await page.route(/\/v1\/users\/me$/, async (route: Route) => {
+  await stubAppShellRoutes(page)
+
+  await page.route(/\/v1\/users\/me(?:\?.*)?$/, async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -492,10 +545,8 @@ test("Map detail review dialog prefills latest review, saves website review, and
     steamid64: currentUserSteamid64,
     name: "Review Runner",
   })
-  await page.addInitScript((token) => {
-    localStorage.setItem("access_token", token)
-  }, accessToken)
   await installMapReviewRoutes(page)
+  await storeAccessToken(page, accessToken)
 
   await page.goto(`/maps/${mapName}`)
   await page.getByRole("tab", { name: "Reviews" }).click()
@@ -503,11 +554,13 @@ test("Map detail review dialog prefills latest review, saves website review, and
   await expect(page.getByTestId("map-add-review-button")).toBeVisible()
   await page.getByTestId("map-add-review-button").click()
 
-  await expect(page.getByLabel("Comment")).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Comment" })).toHaveValue(
     "Latest server-group note",
   )
 
-  await page.getByLabel("Comment").fill("Website-ready note")
+  await page
+    .getByRole("textbox", { name: "Comment" })
+    .fill("Website-ready note")
   await page.getByRole("button", { name: "Save" }).click()
 
   await expect(page.getByRole("dialog")).toHaveCount(0)
@@ -515,17 +568,23 @@ test("Map detail review dialog prefills latest review, saves website review, and
   await page.goto(`/maps/${mapName}`)
   await page.getByRole("tab", { name: "Reviews" }).click()
   await page.getByTestId("map-add-review-button").click()
-  page.once("dialog", (dialog) => dialog.accept())
   await page.getByRole("button", { name: "Delete comments" }).click()
+  const selfDeleteDialog = page.getByRole("dialog", {
+    name: "Delete review comments?",
+  })
+  await expect(selfDeleteDialog).toBeVisible()
+  await selfDeleteDialog
+    .getByRole("button", { name: "Delete comments" })
+    .click()
 
-  await expect(page.getByLabel("Comment")).toHaveValue("")
+  await expect(page.getByRole("textbox", { name: "Comment" })).toHaveValue("")
   await expect(page.getByTestId("map-review-overall-star-4")).toHaveAttribute(
     "aria-pressed",
     "true",
   )
 })
 
-test("Own profile map context menu includes Add review", async ({
+test("Authenticated map context menu includes Add review", async ({
   page,
   request,
 }) => {
@@ -534,20 +593,31 @@ test("Own profile map context menu includes Add review", async ({
     steamid64: currentUserSteamid64,
     name: "Review Runner",
   })
-  await page.addInitScript((token) => {
-    localStorage.setItem("access_token", token)
-  }, accessToken)
-  await installProfileReviewRoutes(page, currentUserSteamid64)
-  await page.goto(`/profile/${currentUserSteamid64}/records`)
+  await installMapReviewRoutes(page)
+  await storeAccessToken(page, accessToken)
+  await page.goto("/dashboard/reviews")
 
-  await page.getByRole("link", { name: mapName }).click({
+  await page.getByRole("link", { name: mapName }).first().click({
     button: "right",
   })
 
   await expect(page.getByRole("menuitem", { name: "Add review" })).toBeVisible()
 })
 
-test("Other player profile map context menu omits Add review", async ({
+test("Logged-out map context menu omits Add review", async ({ page }) => {
+  await installMapReviewRoutes(page)
+  await page.goto("/dashboard/reviews")
+
+  await page.getByRole("link", { name: mapName }).first().click({
+    button: "right",
+  })
+
+  await expect(page.getByRole("menuitem", { name: "Add review" })).toHaveCount(
+    0,
+  )
+})
+
+test("Non-admin map reviews do not show comment delete controls", async ({
   page,
   request,
 }) => {
@@ -556,17 +626,103 @@ test("Other player profile map context menu omits Add review", async ({
     steamid64: currentUserSteamid64,
     name: "Review Runner",
   })
-  await page.addInitScript((token) => {
-    localStorage.setItem("access_token", token)
-  }, accessToken)
-  await installProfileReviewRoutes(page, otherUserSteamid64)
-  await page.goto(`/profile/${otherUserSteamid64}/records`)
+  await installMapReviewRoutes(page)
+  await storeAccessToken(page, accessToken)
 
-  await page.getByRole("link", { name: mapName }).click({
-    button: "right",
+  await page.goto(`/maps/${mapName}/reviews`)
+
+  await expect(page.getByRole("button", { name: "Admin mode" })).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: /Delete .* map review comments/ }),
+  ).toHaveCount(0)
+})
+
+test("Admin mode deletes player map review comments on map reviews page", async ({
+  page,
+  request,
+}) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: currentUserSteamid64,
+    roles: ["admin"],
+    name: "Review Admin",
   })
+  await installMapReviewRoutes(page, ["admin"])
+  await storeAccessToken(page, accessToken)
+  await page.goto(`/maps/${mapName}/reviews`)
 
-  await expect(page.getByRole("menuitem", { name: "Add review" })).toHaveCount(
-    0,
-  )
+  await page.getByRole("button", { name: "Admin mode" }).click()
+  await expect(
+    page.getByRole("button", {
+      name: "Delete Other Player's map review comments",
+    }),
+  ).toBeVisible()
+
+  await page
+    .getByRole("button", {
+      name: "Delete Other Player's map review comments",
+    })
+    .click()
+  const deleteDialog = page.getByRole("dialog", {
+    name: "Delete review comments?",
+  })
+  await expect(deleteDialog).toBeVisible()
+  await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return (
+        response.request().method() === "DELETE" &&
+        url.pathname === "/v1/maps/reviews" &&
+        url.searchParams.get("steamid64") === otherUserSteamid64
+      )
+    }),
+    deleteDialog.getByRole("button", { name: "Delete comments" }).click(),
+  ])
+
+  await expect(page.getByText("Another player comment")).toHaveCount(0)
+})
+
+test("Admin mode deletes player map review comments on dashboard reviews page", async ({
+  page,
+  request,
+}) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: currentUserSteamid64,
+    roles: ["superuser"],
+    name: "Review Admin",
+  })
+  await installMapReviewRoutes(page, ["superuser"])
+  await storeAccessToken(page, accessToken)
+  await page.goto("/dashboard/reviews")
+
+  await page.getByRole("button", { name: "Admin mode" }).click()
+  await expect(
+    page.getByRole("button", {
+      name: "Delete Other Player's map review comments",
+    }),
+  ).toBeVisible()
+
+  await page
+    .getByRole("button", {
+      name: "Delete Other Player's map review comments",
+    })
+    .click()
+  const deleteDialog = page.getByRole("dialog", {
+    name: "Delete review comments?",
+  })
+  await expect(deleteDialog).toBeVisible()
+  await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return (
+        response.request().method() === "DELETE" &&
+        url.pathname === "/v1/maps/reviews" &&
+        url.searchParams.get("steamid64") === otherUserSteamid64
+      )
+    }),
+    deleteDialog.getByRole("button", { name: "Delete comments" }).click(),
+  ])
+
+  await expect(page.getByText("Another player comment")).toHaveCount(0)
 })

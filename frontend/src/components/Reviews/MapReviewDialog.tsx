@@ -141,6 +141,7 @@ export function MapReviewDialog({
     useState<MapReviewFormValues>(DEFAULT_FORM_VALUES)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
 
   const latestReviewQuery = useQuery({
     queryKey: ["map", "review-dialog", "latest", mapId, viewerSteamid64],
@@ -190,6 +191,7 @@ export function MapReviewDialog({
       setFormValues(DEFAULT_FORM_VALUES)
       setSubmitError(null)
       setDeleteError(null)
+      setDeleteConfirmationOpen(false)
       return
     }
 
@@ -308,182 +310,212 @@ export function MapReviewDialog({
   }, [authenticated, mapName])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Add Review</DialogTitle>
-          <DialogDescription>{dialogDescription}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Add Review</DialogTitle>
+            <DialogDescription>{dialogDescription}</DialogDescription>
+          </DialogHeader>
 
-        {!authenticated ? (
-          <>
-            <Alert>
-              <AlertTitle>Login required</AlertTitle>
-              <AlertDescription>
-                You need to log in with Steam before submitting a map review.
-              </AlertDescription>
-            </Alert>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="button" onClick={loginWithSteam}>
-                Continue with Steam
-              </Button>
-            </DialogFooter>
-          </>
-        ) : reviewQueriesLoading ? (
-          <div className="space-y-3">
-            <div className="h-10 animate-pulse rounded-md bg-muted" />
-            <div className="h-10 animate-pulse rounded-md bg-muted" />
-            <div className="h-28 animate-pulse rounded-md bg-muted" />
-          </div>
-        ) : reviewQueriesError ? (
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load your review</AlertTitle>
-            <AlertDescription>
-              {reviewQueryErrorMessage ?? "Reload the page and try again."}
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <div className="space-y-4">
-            <Alert className="border-amber-300/70 bg-amber-50 text-amber-950 [&>svg]:text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100 dark:[&>svg]:text-amber-300">
-              <TriangleAlert />
-              <AlertDescription className="text-amber-800 dark:text-amber-200">
-                {t("reviews.moderationWarning")}
-              </AlertDescription>
-            </Alert>
-
-            <div className="grid gap-3">
-              <StarRatingRow
-                id="map-review-overall"
-                label="Overall"
-                value={formValues.overall}
-                required
-                onChange={(value) => {
-                  setFormValues((current) => ({
-                    ...current,
-                    overall: value as MapReviewFormValues["overall"],
-                  }))
-                }}
-              />
-
-              <StarRatingRow
-                id="map-review-gameplay"
-                label="Gameplay"
-                value={formValues.gameplay}
-                onChange={(value) => {
-                  setFormValues((current) => ({
-                    ...current,
-                    gameplay: value as MapReviewFormValues["gameplay"],
-                  }))
-                }}
-              />
-
-              <StarRatingRow
-                id="map-review-visuals"
-                label="Visuals"
-                value={formValues.visuals}
-                onChange={(value) => {
-                  setFormValues((current) => ({
-                    ...current,
-                    visuals: value as MapReviewFormValues["visuals"],
-                  }))
-                }}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <label
-                htmlFor="map-review-comment"
-                className="text-sm font-medium"
-              >
-                Comment
-              </label>
-              <textarea
-                id="map-review-comment"
-                rows={5}
-                value={formValues.comment}
-                maxLength={1000}
-                placeholder="Share what stood out about the map. Do not attack the author's family"
-                onChange={(event) => {
-                  setFormValues((current) => ({
-                    ...current,
-                    comment: event.target.value,
-                  }))
-                }}
-                className="border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30 min-h-28 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
-              />
-              <div className="flex justify-end text-xs text-muted-foreground">
-                <span>{formValues.comment.length} / 1000</span>
-              </div>
-            </div>
-
-            {submitError ? (
-              <Alert variant="destructive">
-                <AlertTitle>Unable to save review</AlertTitle>
-                <AlertDescription>{submitError}</AlertDescription>
+          {!authenticated ? (
+            <>
+              <Alert>
+                <AlertTitle>Login required</AlertTitle>
+                <AlertDescription>
+                  You need to log in with Steam before submitting a map review.
+                </AlertDescription>
               </Alert>
-            ) : null}
-
-            {deleteError ? (
-              <Alert variant="destructive">
-                <AlertTitle>Unable to delete comments</AlertTitle>
-                <AlertDescription>{deleteError}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <DialogFooter className="gap-2 sm:justify-between">
-              <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+              <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  disabled={
-                    submitMutation.isPending || deleteMutation.isPending
-                  }
                 >
                   Cancel
                 </Button>
-                {hasAnyExistingReview ? (
-                  <LoadingButton
-                    type="button"
-                    variant="destructive"
-                    loading={deleteMutation.isPending}
-                    onClick={() => {
-                      setSubmitError(null)
-                      setDeleteError(null)
-                      if (
-                        !window.confirm(
-                          "Delete all of your comments on this map? Ratings will be kept.",
-                        )
-                      ) {
-                        return
-                      }
-                      deleteMutation.mutate()
-                    }}
-                    disabled={submitMutation.isPending}
-                  >
-                    Delete comments
-                  </LoadingButton>
-                ) : null}
+                <Button type="button" onClick={loginWithSteam}>
+                  Continue with Steam
+                </Button>
+              </DialogFooter>
+            </>
+          ) : reviewQueriesLoading ? (
+            <div className="space-y-3">
+              <div className="h-10 animate-pulse rounded-md bg-muted" />
+              <div className="h-10 animate-pulse rounded-md bg-muted" />
+              <div className="h-28 animate-pulse rounded-md bg-muted" />
+            </div>
+          ) : reviewQueriesError ? (
+            <Alert variant="destructive">
+              <AlertTitle>Unable to load your review</AlertTitle>
+              <AlertDescription>
+                {reviewQueryErrorMessage ?? "Reload the page and try again."}
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-4">
+              <Alert className="border-amber-300/70 bg-amber-50 text-amber-950 [&>svg]:text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100 dark:[&>svg]:text-amber-300">
+                <TriangleAlert />
+                <AlertDescription className="text-amber-800 dark:text-amber-200">
+                  {t("reviews.moderationWarning")}
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid gap-3">
+                <StarRatingRow
+                  id="map-review-overall"
+                  label="Overall"
+                  value={formValues.overall}
+                  required
+                  onChange={(value) => {
+                    setFormValues((current) => ({
+                      ...current,
+                      overall: value as MapReviewFormValues["overall"],
+                    }))
+                  }}
+                />
+
+                <StarRatingRow
+                  id="map-review-gameplay"
+                  label="Gameplay"
+                  value={formValues.gameplay}
+                  onChange={(value) => {
+                    setFormValues((current) => ({
+                      ...current,
+                      gameplay: value as MapReviewFormValues["gameplay"],
+                    }))
+                  }}
+                />
+
+                <StarRatingRow
+                  id="map-review-visuals"
+                  label="Visuals"
+                  value={formValues.visuals}
+                  onChange={(value) => {
+                    setFormValues((current) => ({
+                      ...current,
+                      visuals: value as MapReviewFormValues["visuals"],
+                    }))
+                  }}
+                />
               </div>
-              <LoadingButton
-                type="button"
-                loading={submitMutation.isPending}
-                disabled={deleteMutation.isPending}
-                onClick={handleSubmit}
-              >
-                Save
-              </LoadingButton>
-            </DialogFooter>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+
+              <div className="grid gap-2">
+                <label
+                  htmlFor="map-review-comment"
+                  className="text-sm font-medium"
+                >
+                  Comment
+                </label>
+                <textarea
+                  id="map-review-comment"
+                  rows={5}
+                  value={formValues.comment}
+                  maxLength={1000}
+                  placeholder="Share what stood out about the map. Do not attack the author's family"
+                  onChange={(event) => {
+                    setFormValues((current) => ({
+                      ...current,
+                      comment: event.target.value,
+                    }))
+                  }}
+                  className="border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30 min-h-28 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+                />
+                <div className="flex justify-end text-xs text-muted-foreground">
+                  <span>{formValues.comment.length} / 1000</span>
+                </div>
+              </div>
+
+              {submitError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Unable to save review</AlertTitle>
+                  <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              {deleteError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Unable to delete comments</AlertTitle>
+                  <AlertDescription>{deleteError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <DialogFooter className="gap-2 sm:justify-between">
+                <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={
+                      submitMutation.isPending || deleteMutation.isPending
+                    }
+                  >
+                    Cancel
+                  </Button>
+                  {hasAnyExistingReview ? (
+                    <LoadingButton
+                      type="button"
+                      variant="destructive"
+                      loading={deleteMutation.isPending}
+                      onClick={() => {
+                        setSubmitError(null)
+                        setDeleteError(null)
+                        setDeleteConfirmationOpen(true)
+                      }}
+                      disabled={submitMutation.isPending}
+                    >
+                      Delete comments
+                    </LoadingButton>
+                  ) : null}
+                </div>
+                <LoadingButton
+                  type="button"
+                  loading={submitMutation.isPending}
+                  disabled={deleteMutation.isPending}
+                  onClick={handleSubmit}
+                >
+                  Save
+                </LoadingButton>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={deleteConfirmationOpen}
+        onOpenChange={setDeleteConfirmationOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete review comments?</DialogTitle>
+            <DialogDescription>
+              Delete all of your comments on this map. Ratings will be kept.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteConfirmationOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <LoadingButton
+              type="button"
+              variant="destructive"
+              loading={deleteMutation.isPending}
+              onClick={() => {
+                deleteMutation.mutate(undefined, {
+                  onSuccess: () => setDeleteConfirmationOpen(false),
+                })
+              }}
+            >
+              Delete comments
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

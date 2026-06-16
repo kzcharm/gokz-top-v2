@@ -12,6 +12,7 @@ from app.api.deps import (
     OptionalCurrentUser,
     SessionDep,
     get_current_active_superuser,
+    user_has_any_role,
 )
 from app.core.regions import is_valid_region_code
 from app.crud.server import mark_server_group_api_key_used
@@ -29,6 +30,7 @@ from app.models import (
     ModeScope,
     RecordType,
     ServerGroupStatus,
+    UserRole,
 )
 from app.services.globalapi_maps_sync import (
     GlobalAPIMapsSyncError,
@@ -348,21 +350,42 @@ async def delete_map_review_comments(
     session: SessionDep,
     current_user: CurrentUser,
     map_id: Annotated[int, Query()],
+    steamid64: Annotated[str | None, Query()] = None,
 ) -> MapReviewPublic:
     map_obj = await crud.get_map_by_id(session=session, id=map_id)
     if map_obj is None:
         raise HTTPException(status_code=404, detail="Map not found")
 
+    target_steamid64 = current_user.steamid64
+    if steamid64 is not None:
+        if not user_has_any_role(current_user, UserRole.SUPERUSER, UserRole.ADMIN):
+            raise HTTPException(
+                status_code=403,
+                detail="The user doesn't have enough privileges",
+            )
+        try:
+            target_steamid64 = int(steamid64)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid steamid64") from None
+
     cleared_review = await crud.clear_map_review_comments(
         session=session,
-        steamid64=current_user.steamid64,
+        steamid64=target_steamid64,
         map_id=map_id,
     )
     if cleared_review is None:
         raise HTTPException(status_code=404, detail="Map review not found")
 
     await crud.rebuild_map_review_summary(session=session, map_id=map_id)
-    review, player, map_obj = cleared_review
+    review, player, map_obj, deleted_comment_texts = cleared_review
+    if deleted_comment_texts:
+        await crud.create_map_review_comment_deleted_notification(
+            session=session,
+            recipient_steamid64=target_steamid64,
+            map_id=map_id,
+            map_name=map_obj.name,
+            comment_text="\n\n---\n\n".join(deleted_comment_texts),
+        )
     return crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
 
 

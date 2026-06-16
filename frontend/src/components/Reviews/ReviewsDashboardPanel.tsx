@@ -4,6 +4,10 @@ import { startTransition, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { type MapReviewPublic, MapsService } from "@/client"
+import {
+  useAdminMode,
+  useAdminModeSurface,
+} from "@/components/admin-mode-provider"
 import { DataTable } from "@/components/Common/DataTable"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,9 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import useAuth from "@/hooks/useAuth"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
+import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { extractErrorMessage } from "@/utils"
 
+import { useMapReviewAdminActions } from "./admin-actions"
 import { getReviewColumns, type ReviewTableRow } from "./columns"
 
 const DEFAULT_PAGE_SIZE = 20
@@ -46,6 +53,11 @@ function mapReviewRow(review: MapReviewPublic): ReviewTableRow {
 
 export function ReviewsDashboardPanel() {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const { enabled: adminModeEnabled } = useAdminMode()
+  const canUseReviewAdminActions = canModerateBansAndRecords(user)
+  useAdminModeSurface(canUseReviewAdminActions)
+  const { deleteCommentsMutation } = useMapReviewAdminActions()
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = usePersistedPageSize({
     storageKey: "gokz-page-size-dashboard-reviews",
@@ -83,6 +95,10 @@ export function ReviewsDashboardPanel() {
     () =>
       getReviewColumns({
         expandedReviewId,
+        deleteCommentsMutation:
+          adminModeEnabled && canUseReviewAdminActions
+            ? deleteCommentsMutation
+            : undefined,
         onToggleComment: (reviewId) => {
           setExpandedReviewId((currentId) =>
             currentId === reviewId ? null : reviewId,
@@ -90,7 +106,13 @@ export function ReviewsDashboardPanel() {
         },
         t,
       }),
-    [expandedReviewId, t],
+    [
+      adminModeEnabled,
+      canUseReviewAdminActions,
+      deleteCommentsMutation,
+      expandedReviewId,
+      t,
+    ],
   )
 
   const handleCommentsOnlyChange = (checked: boolean) => {

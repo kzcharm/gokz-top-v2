@@ -1,3 +1,4 @@
+import type { ColumnDef } from "@tanstack/react-table"
 import { Star } from "lucide-react"
 import { useMemo, useState } from "react"
 
@@ -5,6 +6,10 @@ import type { MapReviewPublic } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import {
+  DeleteMapReviewCommentsButton,
+  type useMapReviewAdminActions,
+} from "@/components/Reviews/admin-actions"
 import { cn } from "@/lib/utils"
 
 type MapReviewRow = {
@@ -140,6 +145,7 @@ export function MapReviewsTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  deleteCommentsMutation,
 }: {
   mapId: number
   reviews: MapReviewPublic[]
@@ -150,6 +156,9 @@ export function MapReviewsTable({
   pageSize: number
   onPageChange: (pageIndex: number) => void
   onPageSizeChange: (pageSize: number) => void
+  deleteCommentsMutation?: ReturnType<
+    typeof useMapReviewAdminActions
+  >["deleteCommentsMutation"]
 }) {
   const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null)
 
@@ -234,6 +243,25 @@ export function MapReviewsTable({
               </div>
             ),
           },
+          ...(deleteCommentsMutation
+            ? [
+                {
+                  id: "actions",
+                  header: "",
+                  cell: ({ row }) =>
+                    row.original.comment ? (
+                      <DeleteMapReviewCommentsButton
+                        deleteCommentsMutation={deleteCommentsMutation}
+                        target={{
+                          mapId,
+                          steamid64: row.original.player.steamid64,
+                          playerName: row.original.player.display_name,
+                        }}
+                      />
+                    ) : null,
+                } satisfies ColumnDef<MapReviewRow>,
+              ]
+            : []),
         ]}
         data={rows}
         isLoading={isLoading}

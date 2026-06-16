@@ -56,6 +56,7 @@ import {
   DeleteCourseRecordsButton,
   useRecordAdminActions,
 } from "../Records/admin-actions"
+import { useMapReviewAdminActions } from "../Reviews/admin-actions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
 import { MapReviewsTable } from "./MapReviewsTable"
@@ -460,8 +461,12 @@ export function MapDetailPage({
   const { user: currentUser } = useAuth()
   const { enabled: adminModeEnabled } = useAdminMode()
   const canUseRecordAdminActions = canModerateBansAndRecords(currentUser)
-  useAdminModeSurface(canUseRecordAdminActions && activeTab === "top")
+  useAdminModeSurface(
+    canUseRecordAdminActions &&
+      (activeTab === "top" || activeTab === "reviews"),
+  )
   const { bulkDeleteMutation } = useRecordAdminActions()
+  const { deleteCommentsMutation } = useMapReviewAdminActions()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [isProOnly, setIsProOnly] = useState(initialRecordType === "PRO")
@@ -816,6 +821,7 @@ export function MapDetailPage({
     regionsQuery.data?.find((region) => region.code === selectedRegion) ?? null
   const authenticatedUserSteamid64 = currentUser?.steamid64 ?? null
   const canAdministerRecords = adminModeEnabled && canUseRecordAdminActions
+  const canAdministerReviews = adminModeEnabled && canUseRecordAdminActions
   const currentUserSteamid64 = leaderboardCurrentUserSteamid64
   const nubRank =
     isProOnly === false
@@ -1205,6 +1211,9 @@ export function MapDetailPage({
               setReviewsPageIndex(0)
               setReviewsPageSize(nextPageSize)
             }}
+            deleteCommentsMutation={
+              canAdministerReviews ? deleteCommentsMutation : undefined
+            }
           />
         </TabsContent>
       </Tabs>

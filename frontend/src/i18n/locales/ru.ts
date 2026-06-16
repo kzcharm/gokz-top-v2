@@ -130,6 +130,10 @@ export const ru = {
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
       playerReportAction: "отправил жалобу на игрока.",
+      mapReviewCommentDeletedAction:
+        "ваш комментарий к отзыву о карте {{map}} был удалён.",
+      mapReviewCommentDeletedActionPrefix: "ваш комментарий к отзыву о карте",
+      mapReviewCommentDeletedActionSuffix: "был удалён.",
       recordContext: "рекорд",
       generic: "Новое уведомление",
     },

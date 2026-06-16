@@ -4,8 +4,9 @@ import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.core.config import settings
-from app.models import Player
+from app.models import Map, Player
 from tests.utils.utils import get_user_token_headers, random_steamid64
 
 
@@ -112,6 +113,51 @@ async def test_social_notifications_and_read_state(
         headers=target_headers,
     )
     assert unread_after_all_response.json()["unread_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_map_review_comment_deleted_notification_includes_full_text(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    target = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Review Target",
+    )
+    map_obj = Map(
+        id=991231,
+        name="kz_notification_review",
+        filesize=123456,
+        validated=True,
+    )
+    db.add(map_obj)
+    await db.commit()
+    target_headers = await get_user_token_headers(client, target.steamid64)
+    deleted_text = "original line one\noriginal line two"
+
+    await crud.create_map_review_comment_deleted_notification(
+        session=db,
+        recipient_steamid64=target.steamid64,
+        map_id=map_obj.id,
+        map_name=map_obj.name,
+        comment_text=deleted_text,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/me/notifications",
+        headers=target_headers,
+    )
+
+    assert response.status_code == 200
+    notification = response.json()["data"][0]
+    assert notification["type"] == "map_review_comment_deleted"
+    assert notification["actor"] is None
+    assert notification["map_id"] == map_obj.id
+    assert notification["map_name"] == map_obj.name
+    assert notification["target_url"] == f"/maps/{map_obj.name}/reviews"
+    assert notification["comment_preview"] == "original line one original line two"
+    assert notification["comment_text"] == deleted_text
 
 
 @pytest.mark.asyncio

@@ -158,8 +158,9 @@ test("notifications show unread badge and mark clicked item read", async ({
   await expect(
     page.getByRole("heading", { name: "Notifications" }),
   ).toBeVisible()
+  await expect.poll(() => notificationRequests.length).toBeGreaterThan(0)
   expect(notificationRequests[0]).toEqual({ offset: "0", limit: "20" })
-  await expect(page.getByText("1 unread")).toBeVisible()
+  await expect(page.getByText("(1 unread)")).toBeVisible()
   await expect(page.getByText("Total 21 Notifications")).toBeVisible()
   await expect(page.getByText("Like Runner")).toBeVisible()
   await expect(page.getByText("liked your profile.")).toBeVisible()
@@ -195,4 +196,98 @@ test("notifications show unread badge and mark clicked item read", async ({
 
   await expect(page.getByText("Page Two Runner")).toBeVisible()
   expect(notificationRequests).toContainEqual({ offset: "20", limit: "20" })
+})
+
+test("notifications show deleted map review comment text and map link", async ({
+  page,
+}) => {
+  await page.addInitScript((token) => {
+    localStorage.setItem("access_token", token)
+  }, accessToken)
+
+  await page.route(/\/v1\/users\/me$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        steamid64: "76561198000000001",
+        is_active: true,
+        roles: [],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/admin\/servers\/access$/, async (route: Route) => {
+    await route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Forbidden" }),
+    })
+  })
+
+  await page.route(/\/v1\/live\/streams(?:\?.*)?$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+
+  await page.route(/\/v1\/graphql$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: {} }),
+    })
+  })
+
+  await page.route(
+    /\/v1\/me\/notifications\/unread-count$/,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ unread_count: 1 }),
+      })
+    },
+  )
+
+  await page.route(
+    /\/v1\/me\/notifications(?:\?.*)?$/,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "019b82f7-0f30-7000-8000-000000000010",
+              type: "map_review_comment_deleted",
+              created_at: "2026-06-03T08:00:00Z",
+              read_at: null,
+              actor: null,
+              target_url: "/maps/kz_alpha/reviews",
+              target_player_steamid64: "76561198000000001",
+              comment_preview: "original comment",
+              comment_text: "original comment\nwith second line",
+              map_id: 980200,
+              map_name: "kz_alpha",
+            },
+          ],
+          count: 1,
+        }),
+      })
+    },
+  )
+
+  await page.goto("/notifications")
+
+  await expect(page.getByText("Review Admin")).toHaveCount(0)
+  await expect(page.getByText("Your map review comment on")).toBeVisible()
+  await expect(page.getByRole("link", { name: "kz_alpha" })).toHaveAttribute(
+    "href",
+    "/maps/kz_alpha/reviews",
+  )
+  await expect(page.getByText("original comment")).toBeVisible()
+  await expect(page.getByText("with second line")).toBeVisible()
 })
