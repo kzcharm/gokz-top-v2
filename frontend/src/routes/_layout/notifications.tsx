@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { Bell, Heart, MessageCircle, Trophy, UserPlus } from "lucide-react"
+import {
+  Bell,
+  Flag,
+  Heart,
+  MessageCircle,
+  Trophy,
+  UserPlus,
+} from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -73,6 +80,9 @@ function notificationIcon(type: PlayerNotificationType) {
   if (type === "wr_beaten") {
     return <Trophy className="size-4" />
   }
+  if (type === "player_report") {
+    return <Flag className="size-4" />
+  }
   return <Bell className="size-4" />
 }
 
@@ -123,6 +133,15 @@ function buildNotificationDisplay(
         type: recordType,
         time,
       }),
+      actor: notification.actor,
+    }
+  }
+
+  if (notification.type === "player_report") {
+    return {
+      icon: notificationIcon(notification.type),
+      action: t("notifications.events.playerReportAction"),
+      detail: notification.comment_preview ?? null,
       actor: notification.actor,
     }
   }

@@ -129,6 +129,7 @@ export const ru = {
       wrBeatenActionPrefix: "побил ваш WR на",
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
+      playerReportAction: "отправил жалобу на игрока.",
       generic: "Новое уведомление",
     },
   },

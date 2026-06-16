@@ -145,6 +145,14 @@ from .player_notification import (
     read_player_notifications,
     to_player_notification_public,
 )
+from .player_report import (
+    PlayerReportError,
+    PlayerReportRecordNotFoundError,
+    PlayerReportRecordTargetMismatchError,
+    PlayerReportTargetNotFoundError,
+    create_player_report,
+    to_player_report_public,
+)
 from .player_pinned_record import (
     create_player_pinned_record,
     delete_player_pinned_record,
@@ -344,6 +352,7 @@ __all__ = [
     "create_player_like",
     "create_player_follow_notification",
     "create_player_notification",
+    "create_player_report",
     "create_player_profile_view",
     "create_profile_comment_notification",
     "create_profile_like_notification",
@@ -479,6 +488,11 @@ __all__ = [
     "to_jumpstat_public",
     "to_jumpstat_publics",
     "to_player_notification_public",
+    "to_player_report_public",
+    "PlayerReportError",
+    "PlayerReportRecordNotFoundError",
+    "PlayerReportRecordTargetMismatchError",
+    "PlayerReportTargetNotFoundError",
     "to_admin_map_public",
     "to_admin_map_publics",
     "to_admin_course_tier_public",

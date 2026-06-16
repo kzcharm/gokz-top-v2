@@ -21,6 +21,7 @@ from app.api.v1 import (
     misc,
     modes,
     player_follows,
+    player_reports,
     player_sessions,
     player_social_links,
     players,
@@ -47,6 +48,7 @@ api_router.include_router(me_webhooks.router)
 api_router.include_router(me_player_actions.router)
 api_router.include_router(me_notifications.router)
 api_router.include_router(player_follows.router)
+api_router.include_router(player_reports.router)
 api_router.include_router(player_social_links.router)
 api_router.include_router(player_social_links.verification_router)
 api_router.include_router(graphql.router)

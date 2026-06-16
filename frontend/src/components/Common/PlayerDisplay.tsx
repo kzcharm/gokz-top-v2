@@ -4,6 +4,7 @@ import * as Flags from "country-flag-icons/react/3x2"
 import {
   Copy,
   ExternalLink,
+  Flag,
   History,
   IdCard,
   ShieldAlert,
@@ -69,6 +70,7 @@ import { getInitials } from "@/utils"
 
 import { ProfileHistoryDialog } from "../Profile/ProfileHistoryDialog"
 import { getProfileFriendsQueryOptions } from "../Profile/profile-utils"
+import { ReportPlayerDialog } from "../Reports/ReportPlayerDialog"
 
 const AddBanDialog = lazy(async () => {
   const module = await import("../Bans/AddBanDialog")
@@ -473,6 +475,7 @@ export function PlayerDisplay({
       : undefined)
   const [menuOpen, setMenuOpen] = useState(false)
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const suppressProfileLinkClickRef = useRef(false)
   const steamid64 = player?.steamid64 || fallbackSteamid64 || "N/A"
@@ -781,6 +784,13 @@ export function PlayerDisplay({
     setAddBanDialogOpen(open)
   }
 
+  const handleReportDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      suppressRowInteractions()
+    }
+    setReportDialogOpen(open)
+  }
+
   if (!hasProfileLink) {
     return content
   }
@@ -816,11 +826,27 @@ export function PlayerDisplay({
       >
         <PlayerContextMenuItems
           loggedInChildren={
-            authenticated && !isCurrentUser ? (
-              <PlayerFollowContextMenuItem
-                menuOpen={menuOpen}
-                steamid64={steamid64}
-              />
+            authenticated && steamid64Pattern.test(steamid64) ? (
+              <>
+                <DropdownMenuItem
+                  data-testid="report-player-menu-item"
+                  variant="destructive"
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    setMenuOpen(false)
+                    setReportDialogOpen(true)
+                  }}
+                >
+                  <Flag />
+                  Report Player
+                </DropdownMenuItem>
+                {!isCurrentUser ? (
+                  <PlayerFollowContextMenuItem
+                    menuOpen={menuOpen}
+                    steamid64={steamid64}
+                  />
+                ) : null}
+              </>
             ) : undefined
           }
           closeMenu={() => setMenuOpen(false)}
@@ -841,6 +867,14 @@ export function PlayerDisplay({
           steamid64={steamid64}
         />
       </DropdownMenuContent>
+      <ReportPlayerDialog
+        open={reportDialogOpen}
+        onOpenChange={handleReportDialogOpenChange}
+        target={{
+          steamid64,
+          displayName,
+        }}
+      />
       <Suspense fallback={null}>
         <AddBanDialog
           open={addBanDialogOpen}

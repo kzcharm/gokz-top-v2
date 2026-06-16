@@ -1,19 +1,19 @@
-import { ArrowDown, ArrowUp, Info } from "lucide-react"
+import { ArrowDown, ArrowUp, Flag, Info } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import {
+  RowContextMenu,
+  RowContextMenuItem,
+  RowContextMenuSeparator,
+} from "@/components/Common/RowContextMenu"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -27,8 +27,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { isLoggedIn } from "@/hooks/useAuth"
 import type { DateTimeDisplay } from "@/lib/date-time"
 import { cn } from "@/lib/utils"
+import { ReportPlayerDialog } from "../Reports/ReportPlayerDialog"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import type { PbRecordsColumn, PbRecordsSortState } from "./pb-records-utils"
@@ -69,8 +71,36 @@ function PbRecordTableRow({
   visibleColumns: Set<PbRecordsColumn>
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const contextMenuRequestedRef = useRef(false)
-  const menuContent = getRowContextMenu?.(record) ?? null
+  const [menuPosition, setMenuPosition] = useState<{
+    x: number
+    y: number
+  } | null>(null)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  const rowActionContent = getRowContextMenu?.(record) ?? null
+  const authenticated = isLoggedIn()
+  const canReportRecord = authenticated
+  const menuContent =
+    canReportRecord || rowActionContent ? (
+      <>
+        {canReportRecord ? (
+          <RowContextMenuItem
+            data-testid="report-record-menu-item"
+            variant="destructive"
+            onSelect={() => {
+              setMenuOpen(false)
+              setReportDialogOpen(true)
+            }}
+          >
+            <Flag />
+            Report
+          </RowContextMenuItem>
+        ) : null}
+        {canReportRecord && rowActionContent ? (
+          <RowContextMenuSeparator />
+        ) : null}
+        {rowActionContent}
+      </>
+    ) : null
 
   const row = (
     <TableRow
@@ -80,7 +110,7 @@ function PbRecordTableRow({
         menuContent
           ? (event: MouseEvent<HTMLTableRowElement>) => {
               event.preventDefault()
-              contextMenuRequestedRef.current = true
+              setMenuPosition({ x: event.clientX, y: event.clientY })
               setMenuOpen(true)
             }
           : undefined
@@ -93,7 +123,8 @@ function PbRecordTableRow({
                 (event.shiftKey && event.key === "F10")
               ) {
                 event.preventDefault()
-                contextMenuRequestedRef.current = true
+                const rect = event.currentTarget.getBoundingClientRect()
+                setMenuPosition({ x: rect.left, y: rect.bottom })
                 setMenuOpen(true)
               }
             }
@@ -190,26 +221,37 @@ function PbRecordTableRow({
   }
 
   return (
-    <DropdownMenu
-      modal={false}
-      open={menuOpen}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          contextMenuRequestedRef.current = false
-          setMenuOpen(false)
-          return
-        }
-
-        if (contextMenuRequestedRef.current) {
-          setMenuOpen(true)
-        }
-      }}
-    >
-      <DropdownMenuTrigger asChild>{row}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="bottom" sideOffset={8}>
+    <>
+      {row}
+      <RowContextMenu
+        open={menuOpen}
+        onOpenChange={(open) => {
+          setMenuOpen(open)
+          if (!open) {
+            setMenuPosition(null)
+          }
+        }}
+        position={menuPosition}
+      >
         {menuContent}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </RowContextMenu>
+      {canReportRecord ? (
+        <ReportPlayerDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          target={{
+            steamid64: record.player.steamid64,
+            displayName: record.player.display_name,
+          }}
+          recordContext={{
+            uuid: record.uuid,
+            mapName: record.map_name,
+            time: record.time,
+            createdOn: record.created_on,
+          }}
+        />
+      ) : null}
+    </>
   )
 }
 

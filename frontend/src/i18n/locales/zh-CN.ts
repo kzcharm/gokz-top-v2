@@ -128,6 +128,7 @@ export const zhCN = {
       wrBeatenActionPrefix: "打破了你在",
       wrBeatenActionSuffix: "的 WR。",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
+      playerReportAction: "提交了玩家举报。",
       generic: "新通知",
     },
   },

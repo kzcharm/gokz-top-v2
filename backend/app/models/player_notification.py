@@ -18,6 +18,7 @@ class PlayerNotificationType(StrEnum):
     PROFILE_COMMENT = "profile_comment"
     PLAYER_FOLLOW = "player_follow"
     WR_BEATEN = "wr_beaten"
+    PLAYER_REPORT = "player_report"
 
 
 class PlayerNotificationListQuery(SQLModel):

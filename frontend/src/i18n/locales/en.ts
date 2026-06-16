@@ -128,6 +128,7 @@ export const en = {
       wrBeatenActionPrefix: "beat your WR on",
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
+      playerReportAction: "submitted a player report.",
       generic: "New notification",
     },
   },

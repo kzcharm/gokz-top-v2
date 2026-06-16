@@ -35,7 +35,6 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -43,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
+import { RowContextMenuItem } from "../Common/RowContextMenu"
 import {
   DeleteCourseRecordsButton,
   useRecordAdminActions,
@@ -442,10 +442,9 @@ export function ProfileRecordsTab({
     )
 
     return (
-      <DropdownMenuItem
+      <RowContextMenuItem
         disabled={pinnedRecordsMutating}
-        onSelect={(event) => {
-          event.preventDefault()
+        onSelect={() => {
           if (isPinned) {
             onUnpinRecord(record.map_id, recordType)
             return
@@ -455,7 +454,7 @@ export function ProfileRecordsTab({
       >
         {isPinned ? <PinOff /> : <Pin />}
         {isPinned ? "Unpin this record" : "Pin this record"}
-      </DropdownMenuItem>
+      </RowContextMenuItem>
     )
   }
 

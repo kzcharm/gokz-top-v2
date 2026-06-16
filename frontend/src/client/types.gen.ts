@@ -905,7 +905,7 @@ export type PlayerNotificationsPublic = {
     count: number;
 };
 
-export type PlayerNotificationType = 'profile_like' | 'profile_comment' | 'player_follow' | 'wr_beaten';
+export type PlayerNotificationType = 'profile_like' | 'profile_comment' | 'player_follow' | 'wr_beaten' | 'player_report';
 
 export type PlayerNotificationUnreadCountPublic = {
     unread_count: number;
@@ -979,6 +979,21 @@ export type PlayerPublic = {
 export type PlayerRefPublic = {
     steamid64: string;
     display_name: string;
+};
+
+export type PlayerReportCreate = {
+    target_steamid64: string;
+    description: string;
+    record_uuid?: (string | null);
+};
+
+export type PlayerReportPublic = {
+    id: string;
+    reporter_steamid64: string;
+    target_steamid64: string;
+    record_uuid?: (string | null);
+    description: string;
+    created_at: string;
 };
 
 export type PlayersBatchPublic = {
@@ -2094,6 +2109,12 @@ export type PlayerFollowsReadPlayerFollowingData = {
 };
 
 export type PlayerFollowsReadPlayerFollowingResponse = (PlayersPublic);
+
+export type PlayerReportsCreatePlayerReportData = {
+    requestBody: PlayerReportCreate;
+};
+
+export type PlayerReportsCreatePlayerReportResponse = (PlayerReportPublic);
 
 export type PlayersReadPlayersData = {
     limit?: number;

@@ -29,11 +29,6 @@ import {
 import { useTranslation } from "react-i18next"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -50,6 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { RowContextMenu } from "./RowContextMenu"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -116,7 +112,10 @@ function DataTableBodyRow<TData, TValue>({
   getRowId?: (row: TData) => string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const contextMenuRequestedRef = useRef(false)
+  const [menuPosition, setMenuPosition] = useState<{
+    x: number
+    y: number
+  } | null>(null)
   const resolvedRowId = getRowId?.(row.original) ?? row.id
   const isExpanded =
     renderExpandedContent !== undefined && expandedRowId === resolvedRowId
@@ -134,7 +133,7 @@ function DataTableBodyRow<TData, TValue>({
                 return
               }
               event.preventDefault()
-              contextMenuRequestedRef.current = true
+              setMenuPosition({ x: event.clientX, y: event.clientY })
               setMenuOpen(true)
             }
           : rowProps?.onContextMenu
@@ -151,7 +150,8 @@ function DataTableBodyRow<TData, TValue>({
                 (event.shiftKey && event.key === "F10")
               ) {
                 event.preventDefault()
-                contextMenuRequestedRef.current = true
+                const rect = event.currentTarget.getBoundingClientRect()
+                setMenuPosition({ x: rect.left, y: rect.bottom })
                 setMenuOpen(true)
               }
             }
@@ -192,27 +192,21 @@ function DataTableBodyRow<TData, TValue>({
   }
 
   return (
-    <DropdownMenu
-      key={row.id}
-      modal={false}
-      open={menuOpen}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          contextMenuRequestedRef.current = false
-          setMenuOpen(false)
-          return
-        }
-
-        if (contextMenuRequestedRef.current) {
-          setMenuOpen(true)
-        }
-      }}
-    >
-      <DropdownMenuTrigger asChild>{rowElement}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="bottom" sideOffset={8}>
+    <Fragment key={row.id}>
+      {rowFragment}
+      <RowContextMenu
+        open={menuOpen}
+        onOpenChange={(open) => {
+          setMenuOpen(open)
+          if (!open) {
+            setMenuPosition(null)
+          }
+        }}
+        position={menuPosition}
+      >
         {rowContextMenu}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </RowContextMenu>
+    </Fragment>
   )
 }
 

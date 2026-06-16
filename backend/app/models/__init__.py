@@ -173,6 +173,13 @@ from .player_notification import (
     PlayerNotificationType,
     PlayerNotificationUnreadCountPublic,
 )
+from .player_report import (
+    MAX_PLAYER_REPORT_DESCRIPTION_LENGTH,
+    PlayerReport,
+    PlayerReportCreate,
+    PlayerReportPublic,
+    normalize_player_report_description,
+)
 from .player_pinned_record import (
     PlayerPinnedRecord,
     PlayerPinnedRecordPublic,
@@ -538,6 +545,9 @@ __all__ = [
     "PlayerNotificationsPublic",
     "PlayerNotificationType",
     "PlayerNotificationUnreadCountPublic",
+    "PlayerReport",
+    "PlayerReportCreate",
+    "PlayerReportPublic",
     "PlayerProfileView",
     "PlayerProfileViewCreate",
     "PlayerProfileViewsPublic",

@@ -4612,7 +4612,7 @@ export const PlayerNotificationPublicSchema = {
 
 export const PlayerNotificationTypeSchema = {
     type: 'string',
-    enum: ['profile_like', 'profile_comment', 'player_follow', 'wr_beaten'],
+    enum: ['profile_like', 'profile_comment', 'player_follow', 'wr_beaten', 'player_report'],
     title: 'PlayerNotificationType'
 } as const;
 
@@ -4999,6 +4999,77 @@ export const PlayerRefPublicSchema = {
     type: 'object',
     required: ['steamid64', 'display_name'],
     title: 'PlayerRefPublic'
+} as const;
+
+export const PlayerReportCreateSchema = {
+    properties: {
+        target_steamid64: {
+            type: 'string',
+            title: 'Target Steamid64'
+        },
+        description: {
+            type: 'string',
+            maxLength: 1000,
+            title: 'Description'
+        },
+        record_uuid: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Record Uuid'
+        }
+    },
+    type: 'object',
+    required: ['target_steamid64', 'description'],
+    title: 'PlayerReportCreate'
+} as const;
+
+export const PlayerReportPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        reporter_steamid64: {
+            type: 'string',
+            title: 'Reporter Steamid64'
+        },
+        target_steamid64: {
+            type: 'string',
+            title: 'Target Steamid64'
+        },
+        record_uuid: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Record Uuid'
+        },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'reporter_steamid64', 'target_steamid64', 'description', 'created_at'],
+    title: 'PlayerReportPublic'
 } as const;
 
 export const PlayerSessionBanEnforcementBanPublicSchema = {
