@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Radio, RefreshCw } from "lucide-react"
+import { useState } from "react"
 
 import { LiveService, type LiveStreamCardPublic, OpenAPI } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
@@ -8,8 +9,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
 import { cn } from "@/lib/utils"
+
+type StreamFilter = "live" | "offline"
+
+function getOnlineValue(filter: StreamFilter): boolean {
+  return filter === "live"
+}
 
 function resolvePreviewImageUrl(previewImageUrl: string | null | undefined) {
   if (!previewImageUrl) {
@@ -97,7 +105,6 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
               className={cn(
                 "h-full w-full object-cover transition-all duration-300 group-hover:scale-[1.03]",
                 hoverPreviewImageUrl ? "group-hover:opacity-0" : "",
-                !stream.is_live ? "grayscale saturate-0 opacity-65" : "",
               )}
               loading="lazy"
             />
@@ -106,12 +113,7 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
             <img
               src={hoverPreviewImageUrl}
               alt={`${stream.player.alias || stream.player.name} live keyframe preview`}
-              className={cn(
-                "absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-300 group-hover:scale-[1.03] group-hover:opacity-100",
-                !stream.is_live
-                  ? "grayscale saturate-0 group-hover:opacity-65"
-                  : "",
-              )}
+              className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-300 group-hover:scale-[1.03] group-hover:opacity-100"
               loading="lazy"
             />
           ) : null}
@@ -184,7 +186,12 @@ function LiveCardSkeleton() {
   )
 }
 
-function EmptyState() {
+function EmptyState({ filter }: { filter: StreamFilter }) {
+  const message =
+    filter === "live"
+      ? "No streams are live right now."
+      : "No tracked players have streamed yet."
+
   return (
     <div className="rounded-[28px] border border-dashed border-border/80 bg-muted/20 px-6 py-16 text-center">
       <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-background shadow-sm">
@@ -194,25 +201,59 @@ function EmptyState() {
         Nothing to show
       </h2>
       <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-        No verified stream history is available yet.
+        {message}
       </p>
     </div>
   )
 }
 
 export function LivePage() {
+  const [filter, setFilter] = useState<StreamFilter>("live")
+  const isOnline = filter === "live"
+
   const streamsQuery = useQuery({
-    queryKey: ["live-streams"],
-    queryFn: () => LiveService.readLiveStreams({}),
+    queryKey: ["live-streams", filter],
+    queryFn: () =>
+      LiveService.readLiveStreams({
+        online: getOnlineValue(filter),
+      }),
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Radio className="size-5 text-muted-foreground" />
-        <h1 className="text-3xl font-semibold tracking-tight">Live</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Radio className="size-5 text-muted-foreground" />
+          <h1 className="text-3xl font-semibold tracking-tight">Live</h1>
+        </div>
+        <button
+          type="button"
+          className={cn(
+            "flex h-8 items-center gap-2 self-start rounded-md border px-2.5 shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:self-auto",
+            isOnline && "border-green-600/30 bg-green-600/5",
+          )}
+          onClick={() => {
+            setFilter(isOnline ? "offline" : "live")
+          }}
+          title="Click to switch between online and offline streams"
+        >
+          <Switch
+            aria-hidden="true"
+            checked={isOnline}
+            className="pointer-events-none"
+            tabIndex={-1}
+          />
+          <span
+            className={cn(
+              "text-xs font-medium",
+              isOnline && "text-green-700 dark:text-green-400",
+            )}
+          >
+            Online
+          </span>
+        </button>
       </div>
 
       {streamsQuery.isError ? (
@@ -249,7 +290,7 @@ export function LivePage() {
           ))}
         </div>
       ) : (
-        <EmptyState />
+        <EmptyState filter={filter} />
       )}
     </section>
   )
