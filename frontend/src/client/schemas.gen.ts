@@ -4493,6 +4493,16 @@ export const PlayerNotificationPublicSchema = {
             type: 'string',
             title: 'Target Url'
         },
+        target_player: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PlayerRefPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
         target_player_steamid64: {
             anyOf: [
                 {
@@ -5008,8 +5018,15 @@ export const PlayerReportCreateSchema = {
             title: 'Target Steamid64'
         },
         description: {
-            type: 'string',
-            maxLength: 1000,
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 1000
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Description'
         },
         record_uuid: {
@@ -5026,7 +5043,7 @@ export const PlayerReportCreateSchema = {
         }
     },
     type: 'object',
-    required: ['target_steamid64', 'description'],
+    required: ['target_steamid64'],
     title: 'PlayerReportCreate'
 } as const;
 
@@ -5058,7 +5075,14 @@ export const PlayerReportPublicSchema = {
             title: 'Record Uuid'
         },
         description: {
-            type: 'string',
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Description'
         },
         created_at: {
@@ -5068,7 +5092,7 @@ export const PlayerReportPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'reporter_steamid64', 'target_steamid64', 'description', 'created_at'],
+    required: ['id', 'reporter_steamid64', 'target_steamid64', 'created_at'],
     title: 'PlayerReportPublic'
 } as const;
 

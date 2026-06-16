@@ -5,11 +5,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import (
+    Map,
+    ModeScope,
     PlayerNotificationType,
     PlayerReport,
     PlayerReportCreate,
     PlayerReportPublic,
     Record,
+    RecordType,
     User,
     UserRole,
     normalize_player_report_description,
@@ -47,9 +50,9 @@ def to_player_report_public(*, report: PlayerReport) -> PlayerReportPublic:
     )
 
 
-def _preview_description(description: str) -> str:
-    normalized = " ".join(description.strip().split())
-    return normalized[:COMMENT_PREVIEW_LENGTH]
+def _preview_description(description: str | None) -> str | None:
+    normalized = " ".join((description or "").strip().split())
+    return normalized[:COMMENT_PREVIEW_LENGTH] or None
 
 
 def _report_target_url(*, target_steamid64: int, record_uuid: uuid.UUID | None) -> str:
@@ -82,8 +85,6 @@ async def create_player_report(
     report_in: PlayerReportCreate,
 ) -> PlayerReport:
     description = normalize_player_report_description(report_in.description)
-    if not description:
-        raise PlayerReportError("Description is required")
 
     try:
         target_steamid64 = int(report_in.target_steamid64)
@@ -97,6 +98,8 @@ async def create_player_report(
     if target_player is None:
         raise PlayerReportTargetNotFoundError("Player not found")
 
+    record: Record | None = None
+    record_map: Map | None = None
     if report_in.record_uuid is not None:
         record = await session.get(Record, report_in.record_uuid)
         if record is None:
@@ -105,6 +108,7 @@ async def create_player_report(
             raise PlayerReportRecordTargetMismatchError(
                 "Record does not belong to the reported player"
             )
+        record_map = await session.get(Map, record.map_id)
 
     report = PlayerReport(
         reporter_steamid64=reporter_steamid64,
@@ -132,7 +136,18 @@ async def create_player_report(
             target_url=target_url,
             target_player_steamid64=target_steamid64,
             comment_preview=_preview_description(description),
+            map_id=record.map_id if record is not None else None,
+            map_name=record_map.name if record_map is not None else None,
+            scope=ModeScope(record.mode.value) if record is not None else None,
+            record_type=(
+                RecordType.PRO
+                if record is not None and record.teleports == 0
+                else RecordType.NUB
+                if record is not None
+                else None
+            ),
             new_record_uuid=report.record_uuid,
+            new_record_time=record.time if record is not None else None,
             commit=False,
         )
 

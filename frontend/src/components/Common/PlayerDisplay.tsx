@@ -70,7 +70,10 @@ import { getInitials } from "@/utils"
 
 import { ProfileHistoryDialog } from "../Profile/ProfileHistoryDialog"
 import { getProfileFriendsQueryOptions } from "../Profile/profile-utils"
-import { ReportPlayerDialog } from "../Reports/ReportPlayerDialog"
+import {
+  ReportPlayerDialog,
+  type ReportRecordContext,
+} from "../Reports/ReportPlayerDialog"
 
 const AddBanDialog = lazy(async () => {
   const module = await import("../Bans/AddBanDialog")
@@ -141,6 +144,7 @@ interface PlayerDisplayProps {
   nameMaxLength?: number
   disableProfileLink?: boolean
   hideAvatarWithoutSteamid64?: boolean
+  reportRecordContext?: ReportRecordContext | null
   scope?: ModeScope
 }
 
@@ -463,6 +467,7 @@ export function PlayerDisplay({
   nameMaxLength,
   disableProfileLink = false,
   hideAvatarWithoutSteamid64 = false,
+  reportRecordContext = null,
   scope,
 }: PlayerDisplayProps) {
   const { t } = useTranslation()
@@ -753,6 +758,7 @@ export function PlayerDisplay({
 
   const handleContextMenu = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
+    event.stopPropagation()
     suppressProfileLinkClickRef.current = true
     setMenuOpen(true)
   }
@@ -763,6 +769,7 @@ export function PlayerDisplay({
       (event.shiftKey && event.key === "F10")
     ) {
       event.preventDefault()
+      event.stopPropagation()
       suppressProfileLinkClickRef.current = true
       setMenuOpen(true)
     }
@@ -870,9 +877,11 @@ export function PlayerDisplay({
       <ReportPlayerDialog
         open={reportDialogOpen}
         onOpenChange={handleReportDialogOpenChange}
+        recordContext={reportRecordContext}
         target={{
           steamid64,
           displayName,
+          player: resolvedPlayer,
         }}
       />
       <Suspense fallback={null}>

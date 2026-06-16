@@ -40,6 +40,7 @@ def to_player_notification_public(
     *,
     notification: PlayerNotification,
     actor: Player | None,
+    target_player: Player | None = None,
 ) -> PlayerNotificationPublic:
     return PlayerNotificationPublic(
         id=notification.id,
@@ -48,6 +49,11 @@ def to_player_notification_public(
         read_at=notification.read_at,
         actor=to_player_ref_public(player=actor) if actor is not None else None,
         target_url=notification.target_url,
+        target_player=(
+            to_player_ref_public(player=target_player)
+            if target_player is not None
+            else None
+        ),
         target_player_steamid64=(
             str(notification.target_player_steamid64)
             if notification.target_player_steamid64 is not None
@@ -229,7 +235,7 @@ async def read_player_notifications(
     offset: int,
     limit: int,
     unread_only: bool,
-) -> tuple[list[tuple[PlayerNotification, Player | None]], int]:
+) -> tuple[list[tuple[PlayerNotification, Player | None, Player | None]], int]:
     filters = [col(PlayerNotification.recipient_steamid64) == recipient_steamid64]
     if unread_only:
         filters.append(col(PlayerNotification.read_at).is_(None))
@@ -238,11 +244,17 @@ async def read_player_notifications(
     count = int((await session.exec(count_statement)).one())
 
     actor_player = aliased(Player)
+    target_player = aliased(Player)
     statement = (
-        select(PlayerNotification, actor_player)
+        select(PlayerNotification, actor_player, target_player)
         .outerjoin(
             actor_player,
             col(actor_player.steamid64) == col(PlayerNotification.actor_steamid64),
+        )
+        .outerjoin(
+            target_player,
+            col(target_player.steamid64)
+            == col(PlayerNotification.target_player_steamid64),
         )
         .where(*filters)
         .order_by(

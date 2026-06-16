@@ -38,6 +38,7 @@ class PlayerNotificationPublic(SQLModel):
     read_at: datetime | None = None
     actor: PlayerRefPublic | None = None
     target_url: str
+    target_player: PlayerRefPublic | None = None
     target_player_steamid64: str | None = None
     comment_id: uuid.UUID | None = None
     comment_preview: str | None = None

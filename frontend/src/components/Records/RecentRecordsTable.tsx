@@ -83,6 +83,14 @@ function RecentRecordsTableRow({
           player={record.player}
           nameMaxLength={24}
           className="max-w-[15rem]"
+          reportRecordContext={{
+            uuid: record.uuid,
+            mapName: record.map.name,
+            mode: record.mode.name,
+            type: record.teleports === 0 ? "PRO" : "NUB",
+            time: record.time,
+            createdOn: record.created_on,
+          }}
         />
       </TableCell>
       <TableCell>
@@ -164,10 +172,13 @@ function RecentRecordsTableRow({
         target={{
           steamid64: record.player.steamid64,
           displayName: record.player.alias ?? record.player.name,
+          player: record.player,
         }}
         recordContext={{
           uuid: record.uuid,
           mapName: record.map.name,
+          mode: record.mode.name,
+          type: record.teleports === 0 ? "PRO" : "NUB",
           time: record.time,
           createdOn: record.created_on,
         }}

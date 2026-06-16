@@ -138,6 +138,14 @@ function PbRecordTableRow({
             player={record.player}
             className="max-w-[15rem]"
             nameMaxLength={24}
+            reportRecordContext={{
+              uuid: record.uuid,
+              mapName: record.map_name,
+              mode: record.mode,
+              type: record.teleports === 0 ? "PRO" : "NUB",
+              time: record.time,
+              createdOn: record.created_on,
+            }}
           />
         </TableCell>
       ) : null}
@@ -242,10 +250,13 @@ function PbRecordTableRow({
           target={{
             steamid64: record.player.steamid64,
             displayName: record.player.display_name,
+            player: record.player,
           }}
           recordContext={{
             uuid: record.uuid,
             mapName: record.map_name,
+            mode: record.mode,
+            type: record.teleports === 0 ? "PRO" : "NUB",
             time: record.time,
             createdOn: record.created_on,
           }}

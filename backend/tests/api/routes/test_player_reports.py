@@ -245,6 +245,58 @@ async def test_create_player_report_includes_record_context(
     assert notification.target_url == f"/profile/{target_steamid64}/records"
 
 
+async def test_player_report_notification_includes_target_and_context(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    reporter_steamid64 = random_steamid64()
+    target_steamid64 = random_steamid64()
+    admin_steamid64 = random_steamid64()
+    await _create_user(db=db, steamid64=reporter_steamid64, name="Reporter")
+    await _create_user(
+        db=db,
+        steamid64=admin_steamid64,
+        name="Admin",
+        roles=[UserRole.ADMIN],
+    )
+    record = await _create_record(
+        db=db,
+        record_steamid64=target_steamid64,
+        map_id=912304,
+    )
+    reporter_headers = await get_user_token_headers(client, reporter_steamid64)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/player-reports",
+        headers=reporter_headers,
+        json={
+            "target_steamid64": str(target_steamid64),
+            "record_uuid": str(record.uuid),
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["description"] is None
+
+    admin_headers = await get_user_token_headers(client, admin_steamid64)
+    notifications_response = await client.get(
+        f"{settings.API_V1_STR}/me/notifications",
+        headers=admin_headers,
+    )
+
+    assert notifications_response.status_code == 200
+    notification = notifications_response.json()["data"][0]
+    assert notification["type"] == PlayerNotificationType.PLAYER_REPORT
+    assert notification["target_player"]["steamid64"] == str(target_steamid64)
+    assert (
+        notification["target_player"]["display_name"] == f"Player {target_steamid64}"
+    )
+    assert notification["target_player_steamid64"] == str(target_steamid64)
+    assert notification["new_record_uuid"] == str(record.uuid)
+    assert notification["map_name"] == "kz_report_test_912304"
+    assert notification["new_record_time"] == 12.345
+    assert notification["comment_preview"] is None
+
+
 async def test_create_player_report_allows_own_record_context(
     client: AsyncClient,
     db: AsyncSession,

@@ -129,6 +129,7 @@ export const en = {
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
       playerReportAction: "submitted a player report.",
+      recordContext: "record",
       generic: "New notification",
     },
   },

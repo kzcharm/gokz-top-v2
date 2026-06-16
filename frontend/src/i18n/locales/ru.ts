@@ -130,6 +130,7 @@ export const ru = {
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
       playerReportAction: "отправил жалобу на игрока.",
+      recordContext: "рекорд",
       generic: "Новое уведомление",
     },
   },

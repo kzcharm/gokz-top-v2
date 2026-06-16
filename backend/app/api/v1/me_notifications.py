@@ -32,8 +32,12 @@ async def read_current_player_notifications(
     )
     return PlayerNotificationsPublic(
         data=[
-            crud.to_player_notification_public(notification=notification, actor=actor)
-            for notification, actor in rows
+            crud.to_player_notification_public(
+                notification=notification,
+                actor=actor,
+                target_player=target_player,
+            )
+            for notification, actor, target_player in rows
         ],
         count=count,
     )
@@ -74,7 +78,19 @@ async def mark_current_player_notification_read(
         if notification.actor_steamid64 is not None
         else None
     )
-    return crud.to_player_notification_public(notification=notification, actor=actor)
+    target_player = (
+        await crud.get_player_by_steamid64(
+            session=session,
+            steamid64=notification.target_player_steamid64,
+        )
+        if notification.target_player_steamid64 is not None
+        else None
+    )
+    return crud.to_player_notification_public(
+        notification=notification,
+        actor=actor,
+        target_player=target_player,
+    )
 
 
 @router.patch("/read-all", response_model=Message)

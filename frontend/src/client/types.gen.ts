@@ -888,6 +888,7 @@ export type PlayerNotificationPublic = {
     read_at?: (string | null);
     actor?: (PlayerRefPublic | null);
     target_url: string;
+    target_player?: (PlayerRefPublic | null);
     target_player_steamid64?: (string | null);
     comment_id?: (string | null);
     comment_preview?: (string | null);
@@ -983,7 +984,7 @@ export type PlayerRefPublic = {
 
 export type PlayerReportCreate = {
     target_steamid64: string;
-    description: string;
+    description?: (string | null);
     record_uuid?: (string | null);
 };
 
@@ -992,7 +993,7 @@ export type PlayerReportPublic = {
     reporter_steamid64: string;
     target_steamid64: string;
     record_uuid?: (string | null);
-    description: string;
+    description?: (string | null);
     created_at: string;
 };
 

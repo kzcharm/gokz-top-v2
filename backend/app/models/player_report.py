@@ -9,13 +9,17 @@ from .utils import generate_uuid7, get_datetime_utc
 MAX_PLAYER_REPORT_DESCRIPTION_LENGTH = 1000
 
 
-def normalize_player_report_description(text: str) -> str:
-    return text.strip()
+def normalize_player_report_description(text: str | None) -> str | None:
+    normalized = (text or "").strip()
+    return normalized or None
 
 
 class PlayerReportCreate(SQLModel):
     target_steamid64: str
-    description: str = Field(max_length=MAX_PLAYER_REPORT_DESCRIPTION_LENGTH)
+    description: str | None = Field(
+        default=None,
+        max_length=MAX_PLAYER_REPORT_DESCRIPTION_LENGTH,
+    )
     record_uuid: uuid.UUID | None = None
 
 
@@ -24,7 +28,7 @@ class PlayerReportPublic(SQLModel):
     reporter_steamid64: str
     target_steamid64: str
     record_uuid: uuid.UUID | None = None
-    description: str
+    description: str | None = None
     created_at: datetime
 
 
@@ -70,8 +74,9 @@ class PlayerReport(SQLModel, table=True):
             nullable=True,
         ),
     )
-    description: str = Field(
-        sa_column=Column(Text, nullable=False),
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(Text, nullable=True),
         max_length=MAX_PLAYER_REPORT_DESCRIPTION_LENGTH,
     )
     created_at: datetime = Field(

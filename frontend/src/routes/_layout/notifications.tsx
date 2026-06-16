@@ -21,6 +21,7 @@ import {
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
+import { formatRecordTime } from "@/components/Records/utils"
 import type { AppScope } from "@/components/scope-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -63,8 +64,8 @@ type NotificationDisplay = {
 const notificationLinkClassName =
   "rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
-function formatRecordTime(value: number | null | undefined) {
-  return typeof value === "number" ? `${value.toFixed(3)}s` : "-"
+function formatNotificationRecordTime(value: number | null | undefined) {
+  return typeof value === "number" ? formatRecordTime(value) : "-"
 }
 
 function notificationIcon(type: PlayerNotificationType) {
@@ -93,7 +94,7 @@ function buildNotificationDisplay(
   const mapName = notification.map_name ?? t("notifications.unknownMap")
   const scope = notification.scope ?? "-"
   const recordType = notification.record_type ?? "-"
-  const time = formatRecordTime(notification.new_record_time)
+  const time = formatNotificationRecordTime(notification.new_record_time)
 
   if (notification.type === "profile_like") {
     return {
@@ -176,6 +177,100 @@ function NotificationActor({
       nameMaxLength={24}
       hideAvatarWithoutSteamid64
     />
+  )
+}
+
+function ReportNotificationDetails({
+  notification,
+  onMarkRead,
+}: {
+  notification: PlayerNotificationPublic
+  onMarkRead: () => void
+}) {
+  const { t } = useTranslation()
+  const targetPlayer = notification.target_player
+  const targetSteamid64 =
+    targetPlayer?.steamid64 ?? notification.target_player_steamid64
+  const hasRecordContext =
+    notification.new_record_uuid != null ||
+    notification.map_name != null ||
+    notification.new_record_time != null
+  const description = notification.comment_preview
+
+  if (!targetSteamid64 && !hasRecordContext && !description) {
+    return null
+  }
+
+  const recordDetailParts = [
+    notification.scope ?? null,
+    notification.record_type ?? null,
+    notification.new_record_time != null
+      ? formatRecordTime(notification.new_record_time)
+      : null,
+  ].filter((part): part is string => Boolean(part))
+  const canLinkMap =
+    notification.map_name != null &&
+    isNotificationAppScope(notification.scope) &&
+    isNotificationRecordType(notification.record_type)
+
+  return (
+    <span className="block space-y-2 text-sm">
+      {targetSteamid64 ? (
+        <span className="grid gap-1 text-muted-foreground">
+          <span>Target:</span>
+          <span className="flex min-w-0 pl-4">
+            {targetPlayer ? (
+              <PlayerDisplay
+                player={targetPlayer}
+                className="min-w-0 text-foreground"
+                nameMaxLength={24}
+                hideAvatarWithoutSteamid64
+                showSteamid
+              />
+            ) : (
+              <PlayerDisplay
+                player={{ steamid64: targetSteamid64 }}
+                className="min-w-0 text-foreground"
+                nameMaxLength={24}
+                hideAvatarWithoutSteamid64
+                showSteamid
+              />
+            )}
+          </span>
+        </span>
+      ) : null}
+      {hasRecordContext ? (
+        <span className="block text-muted-foreground">
+          Record:{" "}
+          {notification.map_name ? (
+            canLinkMap ? (
+              <Link
+                to="/maps/$mapName/maptop"
+                params={{ mapName: notification.map_name }}
+                search={{
+                  scope: notification.scope as AppScope,
+                  type: notification.record_type as RecordType,
+                }}
+                className={notificationLinkClassName}
+                onClick={onMarkRead}
+              >
+                {notification.map_name}
+              </Link>
+            ) : (
+              notification.map_name
+            )
+          ) : (
+            t("notifications.events.recordContext")
+          )}
+          {recordDetailParts.length > 0
+            ? ` - ${recordDetailParts.join(" - ")}`
+            : ""}
+        </span>
+      ) : null}
+      {description ? (
+        <span className="block text-muted-foreground">{description}</span>
+      ) : null}
+    </span>
   )
 }
 
@@ -378,10 +473,16 @@ export function NotificationsRoute() {
                       className="shrink-0 whitespace-nowrap pt-1 text-muted-foreground text-xs"
                     />
                   </span>
-                  {display.detail ? (
+                  {display.detail && notification.type !== "player_report" ? (
                     <span className="block text-muted-foreground text-sm">
                       {display.detail}
                     </span>
+                  ) : null}
+                  {notification.type === "player_report" ? (
+                    <ReportNotificationDetails
+                      notification={notification}
+                      onMarkRead={() => handleNotificationClick(notification)}
+                    />
                   ) : null}
                 </span>
               </div>

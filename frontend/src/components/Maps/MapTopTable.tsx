@@ -166,6 +166,14 @@ export function MapTopTable({
             player={row.original.record.player}
             className="max-w-[15rem]"
             nameMaxLength={24}
+            reportRecordContext={{
+              uuid: row.original.record.uuid,
+              mapName: row.original.record.map_name,
+              mode: row.original.record.mode,
+              type: row.original.record.teleports === 0 ? "PRO" : "NUB",
+              time: row.original.record.time,
+              createdOn: row.original.record.created_on,
+            }}
           />
         ),
       },
@@ -378,10 +386,13 @@ export function MapTopTable({
           target={{
             steamid64: reportRecord.player.steamid64,
             displayName: reportRecord.player.display_name,
+            player: reportRecord.player,
           }}
           recordContext={{
             uuid: reportRecord.uuid,
             mapName: reportRecord.map_name,
+            mode: reportRecord.mode,
+            type: reportRecord.teleports === 0 ? "PRO" : "NUB",
             time: reportRecord.time,
             createdOn: reportRecord.created_on,
           }}
