@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Star } from "lucide-react"
+import { Star, TriangleAlert } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { type ApiError, type MapReviewPublic, MapsService } from "@/client"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -130,6 +131,7 @@ export function MapReviewDialog({
   mapId: number
   mapName: string
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { loginWithSteam, user: currentUser } = useAuth()
   const { showErrorToast, showSuccessToast } = useCustomToast()
@@ -170,8 +172,6 @@ export function MapReviewDialog({
   const websiteReview = websiteReviewQuery.data?.data[0] ?? null
   const preferredReview = websiteReview ?? latestReview
   const hasAnyExistingReview = latestReview !== null
-  const seededFromServerGroupReview =
-    websiteReview === null && latestReview?.server_group_id !== null
   const reviewQueriesLoading =
     authenticated &&
     (currentUser === undefined ||
@@ -351,16 +351,12 @@ export function MapReviewDialog({
           </Alert>
         ) : (
           <div className="space-y-4">
-            {seededFromServerGroupReview ? (
-              <Alert>
-                <AlertTitle>Server-group review detected</AlertTitle>
-                <AlertDescription>
-                  Deleting comments here clears comments from all of your
-                  reviews on this map. Saving here only writes your website
-                  review.
-                </AlertDescription>
-              </Alert>
-            ) : null}
+            <Alert className="border-amber-300/70 bg-amber-50 text-amber-950 [&>svg]:text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100 dark:[&>svg]:text-amber-300">
+              <TriangleAlert />
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
+                {t("reviews.moderationWarning")}
+              </AlertDescription>
+            </Alert>
 
             <div className="grid gap-3">
               <StarRatingRow
