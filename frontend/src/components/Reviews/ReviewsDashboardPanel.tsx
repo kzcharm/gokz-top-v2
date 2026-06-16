@@ -130,7 +130,7 @@ export function ReviewsDashboardPanel() {
   return (
     <>
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
+        <CardContent className="p-4 sm:px-6 sm:py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <CardTitle className="text-xl">{t("reviews.title")}</CardTitle>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
