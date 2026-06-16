@@ -38,8 +38,8 @@ function DashboardLayout() {
     : "records"
 
   return (
-    <Tabs value={tabValue} className="flex flex-col gap-4">
-      <TabsList className="w-fit">
+    <Tabs value={tabValue} className="flex flex-col gap-6">
+      <TabsList className="w-fit border border-border bg-background/60">
         <TabsTrigger value="records" asChild>
           <Link to="/dashboard/records">{t("dashboard.records")}</Link>
         </TabsTrigger>
