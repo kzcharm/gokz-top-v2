@@ -82,6 +82,11 @@ function getPreviousPbDeltaByUuid(rows: RecordRunHistoryEntryPublic[]) {
   return deltaByUuid
 }
 
+function getCurrentPbRun(rows: RecordRunHistoryEntryPublic[]) {
+  const pbRows = getChronologicalRows(rows).filter((row) => row.is_pb)
+  return pbRows[pbRows.length - 1] ?? null
+}
+
 function getRunTimeDeltaLabel(delta: number) {
   const sign = delta < 0 ? "-" : "+"
   return `${sign}${formatRecordTime(Math.abs(delta))}`
@@ -129,12 +134,14 @@ function getAxisPointerDataIndex(
 }
 
 function RunHistoryChart({
+  currentPbUuid,
   deltaByUuid,
   highlightedUuid,
   onHighlightedUuidChange,
   rows,
   wrTime,
 }: {
+  currentPbUuid: string | null
   deltaByUuid: Map<string, number>
   highlightedUuid: string | null
   onHighlightedUuidChange: (uuid: string | null) => void
@@ -234,7 +241,12 @@ function RunHistoryChart({
               : delta < 0
                 ? "oklch(0.627 0.194 149.214)"
                 : "oklch(0.577 0.245 27.325)"
-          const pbLabel = row.is_pb ? "PB run" : "Run"
+          const pbLabel =
+            row.uuid === currentPbUuid
+              ? "Current PB"
+              : row.is_pb
+                ? "PB run"
+                : "Run"
           return `<div>
 <div style="font-weight:600;">${escapeHtml(pbLabel)} · ${escapeHtml(formatRecordTime(row.time))}</div>
 ${deltaLabel ? `<div style="margin-top:4px;color:${deltaColor};font-weight:600;">${escapeHtml(deltaLabel)} vs last PB</div>` : ""}
@@ -330,7 +342,24 @@ ${deltaLabel ? `<div style="margin-top:4px;color:${deltaColor};font-weight:600;"
                   : "rgba(79, 70, 229, 0.3)",
             },
           },
-          data: chartRows.map((row) => row.wr_gap),
+          data: chartRows.map((row) =>
+            row.uuid === currentPbUuid
+              ? {
+                  value: row.wr_gap,
+                  symbolSize: 11,
+                  itemStyle: {
+                    color: "oklch(0.7686 0.1647 70.0804)",
+                    borderColor:
+                      resolvedTheme === "dark"
+                        ? "rgba(255, 255, 255, 0.92)"
+                        : "rgba(255, 255, 255, 0.98)",
+                    borderWidth: 3,
+                    shadowBlur: 12,
+                    shadowColor: "rgba(245, 158, 11, 0.45)",
+                  },
+                }
+              : row.wr_gap,
+          ),
         },
       ],
     }
@@ -338,7 +367,14 @@ ${deltaLabel ? `<div style="margin-top:4px;color:${deltaColor};font-weight:600;"
     chart.setOption(option, {
       notMerge: true,
     })
-  }, [chartRows, deltaByUuid, formatDateTime, resolvedTheme, wrTime])
+  }, [
+    chartRows,
+    currentPbUuid,
+    deltaByUuid,
+    formatDateTime,
+    resolvedTheme,
+    wrTime,
+  ])
 
   useEffect(() => {
     const chart = chartInstanceRef.current
@@ -420,11 +456,13 @@ ${deltaLabel ? `<div style="margin-top:4px;color:${deltaColor};font-weight:600;"
 }
 
 function HistoryRows({
+  currentPbUuid,
   deltaByUuid,
   highlightedUuid,
   onHighlightedUuidChange,
   rows,
 }: {
+  currentPbUuid: string | null
   deltaByUuid: Map<string, number>
   highlightedUuid: string | null
   onHighlightedUuidChange: (uuid: string | null) => void
@@ -471,6 +509,8 @@ function HistoryRows({
               }}
               className={cn(
                 "border-b border-border/60 text-sm transition-colors last:border-b-0",
+                currentPbUuid === row.uuid &&
+                  "bg-amber-500/10 ring-1 ring-inset ring-amber-500/30",
                 highlightedUuid === row.uuid &&
                   "bg-primary/8 ring-1 ring-inset ring-primary/25",
               )}
@@ -496,7 +536,7 @@ function HistoryRows({
                   ) : null}
                   {row.is_pb ? (
                     <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                      PB
+                      {row.uuid === currentPbUuid ? "Current PB" : "PB"}
                     </span>
                   ) : null}
                   <span className="truncate text-xs text-muted-foreground">
@@ -563,6 +603,10 @@ export function RecordRunHistoryDialog({
     () => getPreviousPbDeltaByUuid(filteredRows),
     [filteredRows],
   )
+  const currentPbRun = useMemo(
+    () => getCurrentPbRun(filteredRows),
+    [filteredRows],
+  )
   const visibleRows = showBestPerDayOnly
     ? collapseRunsToBestPerDay(filteredRows)
     : filteredRows
@@ -626,6 +670,17 @@ export function RecordRunHistoryDialog({
           </div>
         </div>
 
+        {currentPbRun ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-semibold tracking-[0.08em] text-amber-700 uppercase dark:text-amber-300">
+              Current PB
+            </span>
+            <span className="font-mono font-semibold">
+              {formatRecordTime(currentPbRun.time)}
+            </span>
+          </div>
+        ) : null}
+
         {historyQuery.isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-72 w-full rounded-lg" />
@@ -645,6 +700,7 @@ export function RecordRunHistoryDialog({
         ) : (
           <div className="space-y-4">
             <RunHistoryChart
+              currentPbUuid={currentPbRun?.uuid ?? null}
               deltaByUuid={previousPbDeltaByUuid}
               highlightedUuid={highlightedUuid}
               onHighlightedUuidChange={setHighlightedUuid}
@@ -652,6 +708,7 @@ export function RecordRunHistoryDialog({
               wrTime={historyQuery.data?.wr_time}
             />
             <HistoryRows
+              currentPbUuid={currentPbRun?.uuid ?? null}
               deltaByUuid={previousPbDeltaByUuid}
               highlightedUuid={highlightedUuid}
               onHighlightedUuidChange={setHighlightedUuid}
