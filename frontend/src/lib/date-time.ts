@@ -244,6 +244,44 @@ function formatAbsoluteDateTime({
   }
 }
 
+export function formatMonthYearWithPreset(
+  value: string | Date | null | undefined,
+  {
+    preset,
+    fallback = translate("common.unknown"),
+    locale,
+  }: {
+    preset: DateTimePreset
+    fallback?: string
+    locale?: string
+  },
+) {
+  const date = toDate(value)
+  if (!date) {
+    return fallback
+  }
+
+  switch (preset) {
+    case "iso":
+      return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}`
+    case "us":
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "2-digit",
+      }).format(date)
+    case "euro":
+      return new Intl.DateTimeFormat("en-GB", {
+        year: "numeric",
+        month: "2-digit",
+      }).format(date)
+    default:
+      return new Intl.DateTimeFormat(locale ?? getBrowserLocale(), {
+        year: "numeric",
+        month: "long",
+      }).format(date)
+  }
+}
+
 function getRelativeUnit(diffInMs: number) {
   const absoluteDiff = Math.abs(diffInMs)
 

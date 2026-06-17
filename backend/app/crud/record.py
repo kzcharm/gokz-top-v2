@@ -1,3 +1,4 @@
+import math
 import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
@@ -51,6 +52,8 @@ from app.models import (
     RecordPb,
     RecordPbSortBy,
     RecordPublic,
+    RecordRunHistoryEntryPublic,
+    RecordRunHistoryPublic,
     RecordType,
     ServerGlobalapi,
     ServerGlobalapiCompatPublicV0,
@@ -228,6 +231,29 @@ def _ordered_point_updates(
 
 def _stored_points_for_banned_record() -> int:
     return 1
+
+
+def _record_time_to_wr_gap(
+    *,
+    wr_time: Decimal,
+    record_time: Decimal,
+) -> float | None:
+    wr_time_float = float(wr_time)
+    record_time_float = float(record_time)
+    if (
+        not math.isfinite(wr_time_float)
+        or wr_time_float <= 0
+        or not math.isfinite(record_time_float)
+        or record_time_float <= wr_time_float
+    ):
+        return None
+
+    ratio_delta = record_time_float / wr_time_float - 1
+    if not math.isfinite(ratio_delta) or ratio_delta <= 0:
+        return None
+
+    wr_gap = math.log2(ratio_delta)
+    return round(wr_gap, 3) if math.isfinite(wr_gap) else None
 
 
 def _expunge_loaded_record_pbs(*, session: AsyncSession) -> None:
@@ -1815,6 +1841,92 @@ async def read_recent_records(
             for record, player, server, server_group, map_obj, mode, points in rows
         ],
         count,
+    )
+
+
+async def read_record_run_history(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    map_id: int,
+    stage: int,
+    scope: ModeScope,
+    record_type: RecordType,
+    exclude_cheaters: bool = True,
+) -> RecordRunHistoryPublic:
+    course = await get_map_course_by_map_stage(
+        session=session,
+        map_id=map_id,
+        stage=stage,
+    )
+    if course is None or course.id is None:
+        return RecordRunHistoryPublic(data=[], count=0, wr_time=None)
+
+    wr_time_statement = select(func.min(RecordPb.time)).where(
+        col(RecordPb.scope) == scope,
+        col(RecordPb.course_id) == course.id,
+        col(RecordPb.type) == record_type,
+        not_active_ban_exists_clause(steamid64_column=col(RecordPb.steamid64)),
+    )
+    wr_time = (await session.exec(wr_time_statement)).one()
+
+    statement = (
+        select(Record, ServerGlobalapi.name, Map.name)
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .join(Map, col(Record.map_id) == col(Map.id))
+        .where(
+            col(Record.is_valid).is_(True),
+            col(Record.steamid64) == steamid64,
+            col(Record.map_id) == map_id,
+            col(Record.stage) == stage,
+            col(Record.mode).in_(list(mode_scope_modes(scope))),
+        )
+        .order_by(col(Record.created_at).asc(), *_record_tie_breakers())
+    )
+    if record_type.is_pro:
+        statement = statement.where(col(Record.teleports) == 0)
+    if exclude_cheaters:
+        statement = statement.where(
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+        )
+
+    rows = (await session.exec(statement)).all()
+    best_time_ms: int | None = None
+    entries: list[RecordRunHistoryEntryPublic] = []
+    for record, server_name, map_name in rows:
+        record_time_ms = seconds_to_time_ms(record.time)
+        is_pb = best_time_ms is None or record_time_ms < best_time_ms
+        if is_pb:
+            best_time_ms = record_time_ms
+
+        entries.append(
+            RecordRunHistoryEntryPublic(
+                uuid=record.uuid,
+                id=record.id,
+                server_id=record.server_id,
+                server_name=server_name or "",
+                mode_id=record.mode.mode_id,
+                mode=record.mode.value,
+                time=float(record.time),
+                teleports=record.teleports,
+                wr_gap=(
+                    _record_time_to_wr_gap(wr_time=wr_time, record_time=record.time)
+                    if wr_time is not None
+                    else None
+                ),
+                is_pb=is_pb,
+                created_on=record.created_at,
+                is_replay_available=has_run_replay(
+                    map_name=map_name,
+                    replay_id=record.uuid,
+                ),
+            )
+        )
+
+    return RecordRunHistoryPublic(
+        data=entries,
+        count=len(entries),
+        wr_time=float(wr_time) if wr_time is not None else None,
     )
 
 

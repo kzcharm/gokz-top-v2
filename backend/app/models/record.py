@@ -619,6 +619,27 @@ class RecordRanksPublic(SQLModel):
     count: int
 
 
+class RecordRunHistoryEntryPublic(SQLModel):
+    uuid: uuid.UUID
+    id: int | None = None
+    server_id: int
+    server_name: str
+    mode_id: int
+    mode: str
+    time: float
+    teleports: int
+    wr_gap: float | None = None
+    is_pb: bool
+    created_on: datetime
+    is_replay_available: bool
+
+
+class RecordRunHistoryPublic(SQLModel):
+    data: list[RecordRunHistoryEntryPublic]
+    count: int
+    wr_time: float | None = None
+
+
 class MapPbLeaderboardPublic(SQLModel):
     data: list[RecordPublic]
     count: int

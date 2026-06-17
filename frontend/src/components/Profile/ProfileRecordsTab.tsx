@@ -28,6 +28,7 @@ import {
   type PbRecordsSortState,
   sortPbRecords,
 } from "@/components/Records/pb-records-utils"
+import { RecordRunHistoryDialog } from "@/components/Records/RecordRunHistoryDialog"
 import { normalizeTierValue } from "@/components/Servers/tier"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -275,6 +276,7 @@ export function ProfileRecordsTab({
     column: "datetime",
     direction: "desc",
   })
+  const [historyRecord, setHistoryRecord] = useState<RecordPublic | null>(null)
   const [visibleCount, setVisibleCount] = useState(PROFILE_RECORDS_PAGE_SIZE)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const deferredMapSearch = useDeferredValue(mapSearch)
@@ -543,6 +545,7 @@ export function ProfileRecordsTab({
             dateTimeDisplay="contextual-relative"
             sort={sort}
             onSortChange={handleSortChange}
+            onRowClick={setHistoryRecord}
             getRowContextMenu={getRowContextMenu}
             renderAdminActions={
               adminModeForRecords ? renderAdminActions : undefined
@@ -558,6 +561,18 @@ export function ProfileRecordsTab({
           ) : null}
         </div>
       )}
+      <RecordRunHistoryDialog
+        identifier={steamid64}
+        initialType={recordType}
+        onOpenChange={(open) => {
+          if (!open) {
+            setHistoryRecord(null)
+          }
+        }}
+        open={historyRecord !== null}
+        record={historyRecord}
+        scope={scope}
+      />
     </div>
   )
 }

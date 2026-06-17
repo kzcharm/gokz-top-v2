@@ -1,6 +1,10 @@
 import { queryOptions } from "@tanstack/react-query"
 
-import { type RecordPublic, RecordsService } from "@/client"
+import {
+  type RecordPublic,
+  type RecordRunHistoryPublic,
+  RecordsService,
+} from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { getPlayerDisplayName } from "@/components/Common/PlayerDisplay"
 import type { AppScope } from "@/components/scope-provider"
@@ -162,5 +166,56 @@ export function getMapPbRecordsQueryOptions({
       })
     },
     ...PB_RECORDS_QUERY_CONFIG,
+  })
+}
+
+export function getRecordRunHistoryQueryOptions({
+  identifier,
+  mapId,
+  stage,
+  scope,
+  type,
+  enabled = true,
+}: {
+  identifier: string | null
+  mapId: number | null
+  stage: number
+  scope: AppScope
+  type: "NUB" | "PRO"
+  enabled?: boolean
+}) {
+  return queryOptions({
+    queryKey: ["record-run-history", identifier, mapId, stage, scope, type],
+    queryFn: async () => {
+      if (!identifier || mapId === null) {
+        return {
+          data: [],
+          count: 0,
+          wr_time: null,
+        } satisfies RecordRunHistoryPublic
+      }
+
+      const params = new URLSearchParams({
+        identifier,
+        map_id: String(mapId),
+        stage: String(stage),
+        scope,
+        type,
+      })
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/records/run-history?${params.toString()}`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+        },
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load run history")
+      }
+
+      return (await response.json()) as RecordRunHistoryPublic
+    },
+    enabled: enabled && Boolean(identifier) && mapId !== null,
+    staleTime: 30_000,
+    retry: 1,
   })
 }

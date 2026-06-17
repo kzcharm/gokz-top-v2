@@ -1267,6 +1267,27 @@ export type RecordRanksPublic = {
     count: number;
 };
 
+export type RecordRunHistoryEntryPublic = {
+    uuid: string;
+    id?: (number | null);
+    server_id: number;
+    server_name: string;
+    mode_id: number;
+    mode: string;
+    time: number;
+    teleports: number;
+    wr_gap?: (number | null);
+    is_pb: boolean;
+    created_on: string;
+    is_replay_available: boolean;
+};
+
+export type RecordRunHistoryPublic = {
+    data: Array<RecordRunHistoryEntryPublic>;
+    count: number;
+    wr_time?: (number | null);
+};
+
 export type RecordsPublic = {
     data: Array<RecordPublic>;
     count: number;
@@ -2434,6 +2455,17 @@ export type RecordsReadRecordRanksData = {
 };
 
 export type RecordsReadRecordRanksResponse = (RecordRanksPublic);
+
+export type RecordsReadRecordRunHistoryData = {
+    excludeCheaters?: boolean;
+    identifier: string;
+    mapId: number;
+    scope?: ModeScope;
+    stage?: number;
+    type?: RecordType;
+};
+
+export type RecordsReadRecordRunHistoryResponse = (RecordRunHistoryPublic);
 
 export type RecordsReadRecordData = {
     recordUuid: string;

@@ -24,6 +24,7 @@ from app.models import (
     RecordPublic,
     RecordRankPublic,
     RecordRanksPublic,
+    RecordRunHistoryPublic,
     RecordsPublic,
     RecordType,
     ServerGlobalapi,
@@ -225,6 +226,31 @@ async def read_record_ranks(
             for record_uuid, rank, total_count in ranks
         ],
         count=len(ranks),
+    )
+
+
+@router.get("/run-history", response_model=RecordRunHistoryPublic)
+async def read_record_run_history(
+    session: SessionDep,
+    identifier: Annotated[str, Query()],
+    map_id: Annotated[int, Query()],
+    stage: Annotated[int, Query(ge=0)] = 0,
+    scope: ModeScope = ModeScope.OVR,
+    type: RecordType = RecordType.NUB,
+    exclude_cheaters: bool = True,
+) -> RecordRunHistoryPublic:
+    steamid64 = await _resolve_player_identifier_to_steamid64_or_404(
+        session=session,
+        identifier=identifier,
+    )
+    return await crud.read_record_run_history(
+        session=session,
+        steamid64=steamid64,
+        map_id=map_id,
+        stage=stage,
+        scope=scope,
+        record_type=type,
+        exclude_cheaters=exclude_cheaters,
     )
 
 

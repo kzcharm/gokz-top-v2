@@ -6329,6 +6329,108 @@ export const RecordRanksPublicSchema = {
     title: 'RecordRanksPublic'
 } as const;
 
+export const RecordRunHistoryEntryPublicSchema = {
+    properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
+        id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Id'
+        },
+        server_id: {
+            type: 'integer',
+            title: 'Server Id'
+        },
+        server_name: {
+            type: 'string',
+            title: 'Server Name'
+        },
+        mode_id: {
+            type: 'integer',
+            title: 'Mode Id'
+        },
+        mode: {
+            type: 'string',
+            title: 'Mode'
+        },
+        time: {
+            type: 'number',
+            title: 'Time'
+        },
+        teleports: {
+            type: 'integer',
+            title: 'Teleports'
+        },
+        wr_gap: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Wr Gap'
+        },
+        is_pb: {
+            type: 'boolean',
+            title: 'Is Pb'
+        },
+        created_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created On'
+        },
+        is_replay_available: {
+            type: 'boolean',
+            title: 'Is Replay Available'
+        }
+    },
+    type: 'object',
+    required: ['uuid', 'server_id', 'server_name', 'mode_id', 'mode', 'time', 'teleports', 'is_pb', 'created_on', 'is_replay_available'],
+    title: 'RecordRunHistoryEntryPublic'
+} as const;
+
+export const RecordRunHistoryPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecordRunHistoryEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        wr_time: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Wr Time'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RecordRunHistoryPublic'
+} as const;
+
 export const RecordTypeSchema = {
     type: 'string',
     enum: ['NUB', 'PRO'],

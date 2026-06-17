@@ -146,14 +146,6 @@ from .player_notification import (
     read_player_notifications,
     to_player_notification_public,
 )
-from .player_report import (
-    PlayerReportError,
-    PlayerReportRecordNotFoundError,
-    PlayerReportRecordTargetMismatchError,
-    PlayerReportTargetNotFoundError,
-    create_player_report,
-    to_player_report_public,
-)
 from .player_pinned_record import (
     create_player_pinned_record,
     delete_player_pinned_record,
@@ -183,6 +175,14 @@ from .player_profile_view import (
     count_player_profile_views,
     create_player_profile_view,
     get_utc_today,
+)
+from .player_report import (
+    PlayerReportError,
+    PlayerReportRecordNotFoundError,
+    PlayerReportRecordTargetMismatchError,
+    PlayerReportTargetNotFoundError,
+    create_player_report,
+    to_player_report_public,
 )
 from .player_session import (
     close_timed_out_player_sessions,
@@ -254,6 +254,7 @@ from .record import (
     read_map_wrs,
     read_recent_records,
     read_record_ranks,
+    read_record_run_history,
     read_records,
     read_records_with_replays,
     rebuild_record_pb_points_bucket,
@@ -467,6 +468,7 @@ __all__ = [
     "read_records",
     "read_records_with_replays",
     "read_record_ranks",
+    "read_record_run_history",
     "resolve_player_identifier_to_steamid64",
     "read_recent_records",
     "read_record_filters_v0",

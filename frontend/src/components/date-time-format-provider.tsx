@@ -11,6 +11,7 @@ import {
   type DateTimeFormatOptions,
   type DateTimePreset,
   formatDateTimeWithPreset,
+  formatMonthYearWithPreset,
   getBrowserLocale,
   HOUR_CYCLE_STORAGE_KEY,
   type HourCyclePreference,
@@ -35,6 +36,10 @@ type DateTimeFormatProviderState = {
     value: string | Date | null | undefined,
     options?: DateTimeFormatOptions,
   ) => string
+  formatMonthYear: (
+    value: string | Date | null | undefined,
+    options?: { fallback?: string; locale?: string },
+  ) => string
 }
 
 const initialState: DateTimeFormatProviderState = {
@@ -43,6 +48,7 @@ const initialState: DateTimeFormatProviderState = {
   hourCycle: "24h",
   setHourCycle: () => null,
   formatDateTime: () => "Unknown",
+  formatMonthYear: () => "Unknown",
 }
 
 const DateTimeFormatProviderContext =
@@ -95,6 +101,18 @@ export function DateTimeFormatProvider({
       }),
     [hourCycle, preset],
   )
+  const formatMonthYear = useCallback(
+    (
+      value: string | Date | null | undefined,
+      options: { fallback?: string; locale?: string } = {},
+    ) =>
+      formatMonthYearWithPreset(value, {
+        preset,
+        locale: options.locale ?? getBrowserLocale(),
+        fallback: options.fallback,
+      }),
+    [preset],
+  )
 
   const value = useMemo(
     () => ({
@@ -103,8 +121,16 @@ export function DateTimeFormatProvider({
       hourCycle,
       setHourCycle,
       formatDateTime,
+      formatMonthYear,
     }),
-    [formatDateTime, hourCycle, preset, setHourCycle, setPreset],
+    [
+      formatDateTime,
+      formatMonthYear,
+      hourCycle,
+      preset,
+      setHourCycle,
+      setPreset,
+    ],
   )
 
   return (

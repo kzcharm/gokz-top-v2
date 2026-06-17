@@ -1,3 +1,4 @@
+import math
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -872,6 +873,157 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
     assert payload[0]["mode_id"] == 201
     assert payload[0]["replay_id"] == 9001
     assert payload[0]["is_replay_available"] is True
+
+
+async def test_read_record_run_history_v1_marks_pbs_and_wr_gap(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setattr(settings, "REPLAY_STORAGE_DIR", tmp_path)
+    player_id = random_steamid64()
+    wr_player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[
+            (player_id, "History Runner"),
+            (wr_player_id, "WR Runner"),
+        ],
+    )
+    await _create_record(
+        db,
+        id=980414,
+        steamid64=wr_player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="80.000",
+        teleports=0,
+        created_on=datetime(2025, 12, 31, tzinfo=UTC),
+    )
+    first = await _create_record(
+        db,
+        id=980415,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="100.000",
+        teleports=0,
+        created_on=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    slower = await _create_record(
+        db,
+        id=980416,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="110.000",
+        teleports=2,
+        created_on=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    improved = await _create_record(
+        db,
+        id=980417,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=201,
+        map_id=980200,
+        stage=0,
+        time="95.000",
+        teleports=0,
+        created_on=datetime(2026, 1, 3, tzinfo=UTC),
+    )
+    save_run_replay(
+        map_name="kz_record_test",
+        replay_id=improved.uuid,
+        replay_bytes=b"run",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/run-history",
+        params={
+            "identifier": str(player_id),
+            "map_id": 980200,
+            "stage": 0,
+            "scope": "OVR",
+            "type": "NUB",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 3
+    assert payload["wr_time"] == 80.0
+    assert [row["uuid"] for row in payload["data"]] == [
+        str(first.uuid),
+        str(slower.uuid),
+        str(improved.uuid),
+    ]
+    assert [row["is_pb"] for row in payload["data"]] == [True, False, True]
+    assert payload["data"][0]["wr_gap"] == -2.0
+    assert payload["data"][1]["wr_gap"] == pytest.approx(
+        round(math.log2(110 / 80 - 1), 3)
+    )
+    assert payload["data"][2]["wr_gap"] == pytest.approx(
+        round(math.log2(95 / 80 - 1), 3)
+    )
+    assert payload["data"][2]["mode"] == "SKZ"
+    assert payload["data"][2]["is_replay_available"] is True
+
+
+async def test_read_record_run_history_v1_pro_filters_zero_teleport_runs(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[(player_id, "PRO History Runner")],
+    )
+    pro_run = await _create_record(
+        db,
+        id=980418,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="100.000",
+        teleports=0,
+        created_on=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    await _create_record(
+        db,
+        id=980419,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="90.000",
+        teleports=1,
+        created_on=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/run-history",
+        params={
+            "identifier": str(player_id),
+            "map_id": 980200,
+            "scope": "OVR",
+            "type": "PRO",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert [row["uuid"] for row in payload["data"]] == [str(pro_run.uuid)]
+    assert payload["data"][0]["teleports"] == 0
+    assert payload["data"][0]["wr_gap"] is None
 
 
 async def test_read_pb_records_v1_player_anchor_and_filters(

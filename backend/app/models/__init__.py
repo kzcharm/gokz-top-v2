@@ -173,13 +173,6 @@ from .player_notification import (
     PlayerNotificationType,
     PlayerNotificationUnreadCountPublic,
 )
-from .player_report import (
-    MAX_PLAYER_REPORT_DESCRIPTION_LENGTH,
-    PlayerReport,
-    PlayerReportCreate,
-    PlayerReportPublic,
-    normalize_player_report_description,
-)
 from .player_pinned_record import (
     PlayerPinnedRecord,
     PlayerPinnedRecordPublic,
@@ -202,6 +195,13 @@ from .player_profile_history import (
     PlayerProfileHistoryPublic,
 )
 from .player_profile_view import PlayerProfileView
+from .player_report import (
+    MAX_PLAYER_REPORT_DESCRIPTION_LENGTH,
+    PlayerReport,
+    PlayerReportCreate,
+    PlayerReportPublic,
+    normalize_player_report_description,
+)
 from .player_session import (
     AdminPlayerSessionIpLinkBucketPublic,
     AdminPlayerSessionIpLinkMatchMode,
@@ -301,6 +301,8 @@ from .record import (
     RecordPublic,
     RecordRankPublic,
     RecordRanksPublic,
+    RecordRunHistoryEntryPublic,
+    RecordRunHistoryPublic,
     RecordsPublic,
     RecordType,
     ReplayListQuery,
@@ -545,9 +547,11 @@ __all__ = [
     "PlayerNotificationsPublic",
     "PlayerNotificationType",
     "PlayerNotificationUnreadCountPublic",
+    "MAX_PLAYER_REPORT_DESCRIPTION_LENGTH",
     "PlayerReport",
     "PlayerReportCreate",
     "PlayerReportPublic",
+    "normalize_player_report_description",
     "PlayerProfileView",
     "PlayerProfileViewCreate",
     "PlayerProfileViewsPublic",
@@ -649,6 +653,8 @@ __all__ = [
     "RecordPublic",
     "RecordRankPublic",
     "RecordRanksPublic",
+    "RecordRunHistoryEntryPublic",
+    "RecordRunHistoryPublic",
     "ModeScope",
     "ModeScopeId",
     "RecordType",

@@ -49,14 +49,28 @@ interface PbRecordsTableProps {
   onSortChange?: (column: PbRecordsColumn) => void
   getRowContextMenu?: (record: RecordPublic) => ReactNode
   getMapContextMenu?: (record: RecordPublic) => ReactNode
+  onRowClick?: (record: RecordPublic) => void
   showReplayColumn?: boolean
   renderAdminActions?: (record: RecordPublic) => ReactNode
+}
+
+function isInteractiveRowTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  return (
+    target.closest(
+      'a,button,input,select,textarea,[role="button"],[data-row-click-ignore="true"]',
+    ) !== null
+  )
 }
 
 function PbRecordTableRow({
   dateTimeDisplay,
   getMapContextMenu,
   getRowContextMenu,
+  onRowClick,
   record,
   showReplayColumn,
   visibleColumns,
@@ -65,6 +79,7 @@ function PbRecordTableRow({
   dateTimeDisplay: DateTimeDisplay
   getMapContextMenu?: (record: RecordPublic) => ReactNode
   getRowContextMenu?: (record: RecordPublic) => ReactNode
+  onRowClick?: (record: RecordPublic) => void
   record: RecordPublic
   renderAdminActions?: (record: RecordPublic) => ReactNode
   showReplayColumn: boolean
@@ -105,7 +120,20 @@ function PbRecordTableRow({
   const row = (
     <TableRow
       data-testid={`pb-record-row-${record.uuid}`}
-      className={cn(menuContent && "outline-none")}
+      className={cn(
+        (menuContent || onRowClick) && "outline-none",
+        onRowClick && "cursor-pointer transition-colors hover:bg-muted/50",
+      )}
+      onClick={
+        onRowClick
+          ? (event: MouseEvent<HTMLTableRowElement>) => {
+              if (isInteractiveRowTarget(event.target)) {
+                return
+              }
+              onRowClick(record)
+            }
+          : undefined
+      }
       onContextMenu={
         menuContent
           ? (event: MouseEvent<HTMLTableRowElement>) => {
@@ -116,21 +144,32 @@ function PbRecordTableRow({
           : undefined
       }
       onKeyDown={
-        menuContent
+        menuContent || onRowClick
           ? (event: KeyboardEvent<HTMLTableRowElement>) => {
               if (
-                event.key === "ContextMenu" ||
-                (event.shiftKey && event.key === "F10")
+                menuContent &&
+                (event.key === "ContextMenu" ||
+                  (event.shiftKey && event.key === "F10"))
               ) {
                 event.preventDefault()
                 const rect = event.currentTarget.getBoundingClientRect()
                 setMenuPosition({ x: rect.left, y: rect.bottom })
                 setMenuOpen(true)
+                return
+              }
+
+              if (
+                onRowClick &&
+                (event.key === "Enter" || event.key === " ") &&
+                !isInteractiveRowTarget(event.target)
+              ) {
+                event.preventDefault()
+                onRowClick(record)
               }
             }
           : undefined
       }
-      tabIndex={menuContent ? 0 : undefined}
+      tabIndex={menuContent || onRowClick ? 0 : undefined}
     >
       {visibleColumns.has("player") ? (
         <TableCell>
@@ -324,6 +363,7 @@ export function PbRecordsTable({
   onSortChange,
   getRowContextMenu,
   getMapContextMenu,
+  onRowClick,
   showReplayColumn = false,
   renderAdminActions,
 }: PbRecordsTableProps) {
@@ -530,6 +570,7 @@ export function PbRecordsTable({
                   dateTimeDisplay={dateTimeDisplay}
                   getMapContextMenu={getMapContextMenu}
                   getRowContextMenu={getRowContextMenu}
+                  onRowClick={onRowClick}
                   record={record}
                   renderAdminActions={renderAdminActions}
                   showReplayColumn={showReplayColumn}
