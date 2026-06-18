@@ -32,7 +32,44 @@ Frontend code uses TypeScript and Biome. Keep component filenames in `PascalCase
 Backend tests use `pytest` and live under `backend/tests/` as `test_*.py`. Frontend tests use Playwright and live under `frontend/tests/` as `*.spec.ts`. Keep backend coverage at or above 90%, and update or add tests whenever behavior changes.
 
 ## Commit & Pull Request Guidelines
-Recent history favors short, focused commit messages such as `Fix missing frontend Vite install`. Keep each commit scoped to one change.
+Use Conventional Commit subjects so release automation can determine the correct semantic version bump, and write the subject so it can double as a user-facing update note.
+
+Format:
+
+```text
+<type>(optional-scope): <user-facing problem solved or outcome>[; <technical implementation detail>]
+```
+
+Allowed primary types:
+
+- `feat:` for user-facing features or meaningful new capabilities. This bumps the minor version.
+- `fix:` for bug fixes, production fixes, regressions, and correctness changes. This bumps the patch version.
+- `docs:` for documentation-only changes.
+- `test:` for test-only changes.
+- `chore:` for maintenance, tooling, CI, dependency, or operational-only changes.
+- `refactor:` for behavior-preserving code restructuring.
+
+When the thread starts with a user-facing request such as "fix something", "improve xxx", or "make xxx work", write the commit subject around what problem the change solves first. Put the common technical commit-message detail after that, separated by a semicolon, only when it adds useful context.
+
+Examples:
+
+```text
+feat(maps): let server operators distribute map files from map pages; add R2-backed BSP links
+fix(r2): prevent small file uploads from failing; stream async upload bodies
+fix(prod): make the frontend call the production API domain; route requests to api.gokz.top
+docs(maps): explain how operators distribute map files
+chore(ci): include map data in production deploys; add map data dir env
+```
+
+Do not use Title Case subjects like `Fix production domain routing` or `Implement map file distribution`; use `fix:` / `feat:` prefixes instead.
+
+For merge commits created by agents, prefer:
+
+```text
+merge: dev into main after green CI
+```
+
+but make sure the commits being merged include the correct `feat:` or `fix:` prefixes, because release versioning reads commit subjects from the pushed range.
 
 Pull requests should include a clear summary, linked issues or discussions for larger changes, updated tests, and screenshots for UI work. Open a GitHub Discussion before major features or refactors.
 
