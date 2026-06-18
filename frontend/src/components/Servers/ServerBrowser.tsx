@@ -189,6 +189,12 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
       region: searchParams.has("region")
         ? urlSearch.region
         : (savedFilters?.region ?? urlSearch.region),
+      sort: searchParams.has("sort")
+        ? urlSearch.sort
+        : (savedFilters?.sort ?? urlSearch.sort),
+      dir: searchParams.has("dir")
+        ? urlSearch.dir
+        : (savedFilters?.dir ?? urlSearch.dir),
     }
 
     return normalizeServersSearch(searchWithSavedFilters)
@@ -461,8 +467,15 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     writeServersFilterPreferences({
       group: activeSearch.group,
       region: activeSearch.region,
+      sort: activeSearch.sort,
+      dir: activeSearch.dir,
     })
-  }, [activeSearch.group, activeSearch.region])
+  }, [
+    activeSearch.dir,
+    activeSearch.group,
+    activeSearch.region,
+    activeSearch.sort,
+  ])
 
   useEffect(() => {
     if (!serversSeeded) {

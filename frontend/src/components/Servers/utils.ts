@@ -52,6 +52,8 @@ interface ServersFilterPreferences {
   version: typeof SERVERS_FILTER_PREFERENCES_VERSION
   group: string
   region: string
+  sort?: ServerSortKey
+  dir?: ServerSortDirection
 }
 
 interface CreateServersSearchParamsOptions {
@@ -171,6 +173,8 @@ export function readServersFilterPreferences() {
     return {
       group: normalizeServersSearch({ group: preferences.group }).group,
       region: normalizeServersSearch({ region: preferences.region }).region,
+      sort: normalizeServersSearch({ sort: preferences.sort }).sort,
+      dir: normalizeServersSearch({ dir: preferences.dir }).dir,
     }
   } catch {
     return null
@@ -178,7 +182,7 @@ export function readServersFilterPreferences() {
 }
 
 export function writeServersFilterPreferences(
-  search: Pick<ServersSearchState, "group" | "region">,
+  search: Pick<ServersSearchState, "group" | "region" | "sort" | "dir">,
 ) {
   const storage = getStorage()
   if (!storage) {
@@ -190,11 +194,15 @@ export function writeServersFilterPreferences(
       version: SERVERS_FILTER_PREFERENCES_VERSION,
       group: normalizeServersSearch({ group: search.group }).group,
       region: normalizeServersSearch({ region: search.region }).region,
+      sort: normalizeServersSearch({ sort: search.sort }).sort,
+      dir: normalizeServersSearch({ dir: search.dir }).dir,
     }
 
     if (
       preferences.group === DEFAULT_SERVERS_SEARCH.group &&
-      preferences.region === DEFAULT_SERVERS_SEARCH.region
+      preferences.region === DEFAULT_SERVERS_SEARCH.region &&
+      preferences.sort === DEFAULT_SERVERS_SEARCH.sort &&
+      preferences.dir === DEFAULT_SERVERS_SEARCH.dir
     ) {
       storage.removeItem(SERVERS_FILTER_PREFERENCES_STORAGE_KEY)
       return
