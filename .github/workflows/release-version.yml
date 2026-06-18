@@ -83,16 +83,36 @@ jobs:
 
           next_tag="v${next_version}"
           release_body="$(mktemp)"
+          features_file="$(mktemp)"
+          fixes_file="$(mktemp)"
+          other_file="$(mktemp)"
+
+          awk -F '\t' '$2 ~ /^feat(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}" > "${features_file}"
+          awk -F '\t' '$2 ~ /^fix(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}" > "${fixes_file}"
+          awk -F '\t' '$2 !~ /^(feat|fix)(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}" > "${other_file}"
+
+          wrote_section=false
+          append_section() {
+            local title="$1"
+            local items_file="$2"
+
+            if [ ! -s "${items_file}" ]; then
+              return
+            fi
+
+            if [ "${wrote_section}" = true ]; then
+              echo
+            fi
+
+            echo "## ${title}"
+            cat "${items_file}"
+            wrote_section=true
+          }
 
           {
-            echo "## Features"
-            awk -F '\t' '$2 ~ /^feat(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}"
-            echo
-            echo "## Fixes"
-            awk -F '\t' '$2 ~ /^fix(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}"
-            echo
-            echo "## Other"
-            awk -F '\t' '$2 !~ /^(feat|fix)(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}"
+            append_section "Features" "${features_file}"
+            append_section "Fixes" "${fixes_file}"
+            append_section "Other" "${other_file}"
           } > "${release_body}"
 
           git config user.name "github-actions[bot]"
