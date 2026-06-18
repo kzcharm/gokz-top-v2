@@ -51,10 +51,13 @@ Allowed primary types:
 
 When the thread starts with a user-facing request such as "fix something", "improve xxx", or "make xxx work", write the commit subject around what problem the change solves first. Put the common technical commit-message detail after that, separated by a semicolon, only when it adds useful context.
 
+For frontend changes, include the exact affected route path in the user-facing part of the subject whenever there is a clear page or workflow route. Prefer concrete paths such as `/maps`, `/leaderboards`, `/profile/:identifier`, or `/settings/social-links` over vague areas like "maps page" or "profile UI". This lets the `/updates` page enrich release notes with direct "try it" links.
+
 Examples:
 
 ```text
-feat(maps): let server operators distribute map files from map pages; add R2-backed BSP links
+feat(maps): let server operators download map files from /maps; add R2-backed BSP links
+feat(profile): show favorite servers on /profile/:identifier; add grouped favorite links
 fix(r2): prevent small file uploads from failing; stream async upload bodies
 fix(prod): make the frontend call the production API domain; route requests to api.gokz.top
 docs(maps): explain how operators distribute map files

@@ -1,14 +1,41 @@
 import { useQuery } from "@tanstack/react-query"
 import { RefreshCw } from "lucide-react"
+import { Fragment, type ReactNode, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
+import { LeaderboardsService, MapsService } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 
 const GITHUB_RELEASES_URL =
   "https://api.github.com/repos/kzcharm/gokz-top-v2/releases?per_page=20"
+const PREVIEW_RELEASES: GitHubRelease[] = [
+  {
+    id: 1,
+    tag_name: "v-preview",
+    name: "v-preview",
+    html_url: "https://github.com/kzcharm/gokz-top-v2/releases",
+    published_at: "2026-06-18T12:00:00Z",
+    body: [
+      "## Features",
+      "- feat(maps): improve /maps/:mapName reviews",
+      "- feat(profile): show rank on /profile/:identifier",
+      "",
+      "## Fixes",
+      "- fix(leaderboards): keep filters stable on /leaderboards",
+      "",
+      "## Other",
+      "- docs(updates): mention /updates route enrichment",
+    ].join("\n"),
+  },
+]
+const PREVIEW_ROUTE_DEFAULTS: RouteDefaults = {
+  mapName: "kz_beginnerblock_go",
+  profileIdentifier: "76561198000000001",
+}
 
 type GitHubRelease = {
   id: number
@@ -22,6 +49,11 @@ type GitHubRelease = {
 type ReleaseSection = {
   title: string
   items: string[]
+}
+
+type RouteDefaults = {
+  mapName?: string
+  profileIdentifier?: string
 }
 
 async function fetchReleases(): Promise<GitHubRelease[]> {
@@ -84,6 +116,94 @@ function parseReleaseBody(body: string | null | undefined): ReleaseSection[] {
   return sections.filter((section) => section.items.length > 0)
 }
 
+function releaseBodyIncludes(
+  releases: GitHubRelease[] | undefined,
+  value: string,
+) {
+  return releases?.some((release) => release.body?.includes(value)) ?? false
+}
+
+function resolveReleaseRoutePath(path: string, defaults: RouteDefaults) {
+  if (path.includes(":mapName")) {
+    if (!defaults.mapName) {
+      return null
+    }
+
+    return path.split(":mapName").join(encodeURIComponent(defaults.mapName))
+  }
+
+  if (path.includes(":identifier")) {
+    if (!defaults.profileIdentifier) {
+      return null
+    }
+
+    return path
+      .split(":identifier")
+      .join(encodeURIComponent(defaults.profileIdentifier))
+  }
+
+  if (path.includes(":")) {
+    return null
+  }
+
+  return path
+}
+
+function RouteLinkedReleaseText({
+  text,
+  defaults,
+}: {
+  text: string
+  defaults: RouteDefaults
+}) {
+  const routePathPattern = /\/[A-Za-z0-9:_-]+(?:\/[A-Za-z0-9:_-]+)*/g
+  const parts: ReactNode[] = []
+  let lastIndex = 0
+
+  for (const match of text.matchAll(routePathPattern)) {
+    const rawPath = match[0]
+    const index = match.index ?? 0
+    const resolvedPath = resolveReleaseRoutePath(rawPath, defaults)
+
+    if (index > lastIndex) {
+      parts.push(text.slice(lastIndex, index))
+    }
+
+    parts.push(
+      resolvedPath ? (
+        <a
+          key={`${rawPath}-${index}`}
+          href={resolvedPath}
+          className="rounded-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          {rawPath}
+        </a>
+      ) : (
+        rawPath
+      ),
+    )
+    lastIndex = index + rawPath.length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  if (parts.length === 0) {
+    return text
+  }
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={typeof part === "string" ? `${part}-${index}` : index}>
+          {part}
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
 function UpdatesPageSkeleton() {
   return (
     <div className="space-y-8">
@@ -106,17 +226,65 @@ function UpdatesPageSkeleton() {
 
 export function UpdatesPage() {
   const { t } = useTranslation()
+  const { scope } = useScope()
+  const isPreview =
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get("preview") === "enrichment"
   const releasesQuery = useQuery({
     queryKey: ["github-releases", "kzcharm/gokz-top-v2"],
     queryFn: fetchReleases,
+    enabled: !isPreview,
     staleTime: 5 * 60 * 1000,
   })
+  const releasesData = isPreview ? PREVIEW_RELEASES : releasesQuery.data
+  const needsMapDefault = releaseBodyIncludes(releasesData, "/maps/:")
+  const needsProfileDefault = releaseBodyIncludes(
+    releasesData,
+    "/profile/:",
+  )
+  const defaultMapQuery = useQuery({
+    queryKey: ["updates", "default-route-map", scope],
+    queryFn: () =>
+      MapsService.readMaps({
+        offset: 0,
+        limit: 1,
+        isValidated: true,
+        scope,
+      }),
+    enabled: needsMapDefault && !isPreview,
+    staleTime: 5 * 60 * 1000,
+  })
+  const defaultProfileQuery = useQuery({
+    queryKey: ["updates", "default-route-profile", scope],
+    queryFn: () =>
+      LeaderboardsService.readPlayerLeaderboard({
+        scope,
+        offset: 0,
+        limit: 1,
+        sortBy: "rating",
+        sortOrder: "desc",
+        includeCount: false,
+      }),
+    enabled: needsProfileDefault && !isPreview,
+    staleTime: 5 * 60 * 1000,
+  })
+  const routeDefaults = useMemo<RouteDefaults>(
+    () => ({
+      mapName: isPreview
+        ? PREVIEW_ROUTE_DEFAULTS.mapName
+        : defaultMapQuery.data?.[0]?.name,
+      profileIdentifier: isPreview
+        ? PREVIEW_ROUTE_DEFAULTS.profileIdentifier
+        : defaultProfileQuery.data?.data[0]?.player.steamid64,
+    }),
+    [defaultMapQuery.data, defaultProfileQuery.data, isPreview],
+  )
 
-  if (releasesQuery.isLoading) {
+  if (releasesQuery.isLoading && !isPreview) {
     return <UpdatesPageSkeleton />
   }
 
-  if (releasesQuery.isError) {
+  if (releasesQuery.isError && !isPreview) {
     return (
       <div className="space-y-6">
         <PageHeader />
@@ -139,7 +307,7 @@ export function UpdatesPage() {
     )
   }
 
-  const releases = releasesQuery.data ?? []
+  const releases = releasesData ?? []
 
   return (
     <div className="space-y-8">
@@ -199,7 +367,10 @@ export function UpdatesPage() {
                               key={`${release.id}-${section.title}-${item}`}
                               className="leading-6"
                             >
-                              {item}
+                              <RouteLinkedReleaseText
+                                text={item}
+                                defaults={routeDefaults}
+                              />
                             </li>
                           ))}
                         </ul>
