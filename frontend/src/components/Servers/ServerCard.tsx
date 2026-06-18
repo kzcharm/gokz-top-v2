@@ -116,7 +116,7 @@ function ServerCardPlayerChip({
     </>
   )
   const className = cn(
-    "relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs",
+    "relative flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-xs",
     backgroundClassName,
     steamid64 &&
       "group/player-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
@@ -138,7 +138,7 @@ function ServerCardPlayerChip({
   return (
     <div
       className={cn(
-        "relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs",
+        "relative flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-xs",
         backgroundClassName,
       )}
     >
