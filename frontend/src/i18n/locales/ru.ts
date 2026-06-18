@@ -108,6 +108,21 @@ export const ru = {
     joinDiscord: "Присоединяйтесь к нам в Discord",
     joinQqGroup: "Вступайте в нашу группу QQ",
   },
+  updates: {
+    title: "Обновления",
+    description: "Последние релиз-ноты из публичного репозитория GOKZ.TOP.",
+    openReleaseNotes: "Открыть релиз-ноты",
+    errorTitle: "Не удалось загрузить обновления",
+    errorBody: "Релиз-ноты GitHub сейчас недоступны.",
+    empty: "Пока нет опубликованных релизов.",
+    noNotes: "Для этой версии нет релиз-нотов.",
+    viewOnGitHub: "Открыть на GitHub",
+    sections: {
+      Features: "Новое",
+      Fixes: "Исправления",
+      Other: "Прочее",
+    },
+  },
   notifications: {
     title: "Уведомления",
     open: "Открыть уведомления",

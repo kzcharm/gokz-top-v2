@@ -19,7 +19,8 @@ function Layout() {
         pathname.startsWith("/leaderboards") ||
         pathname.startsWith("/admin/servers") ||
         pathname.startsWith("/bans") ||
-        pathname.startsWith("/live")
+        pathname.startsWith("/live") ||
+        pathname.startsWith("/updates")
           ? "max-w-[1600px]"
           : undefined
       }

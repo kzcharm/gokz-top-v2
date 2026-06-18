@@ -17,6 +17,7 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as ServersServerAddressRouteImport } from './routes/servers.$serverAddress'
 import { Route as MapsMapNameRouteImport } from './routes/maps.$mapName'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as LayoutUpdatesRouteImport } from './routes/_layout/updates'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutNotificationsRouteImport } from './routes/_layout/notifications'
 import { Route as LayoutLiveRouteImport } from './routes/_layout/live'
@@ -98,6 +99,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
+} as any)
+const LayoutUpdatesRoute = LayoutUpdatesRouteImport.update({
+  id: '/updates',
+  path: '/updates',
+  getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
@@ -342,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof LayoutLiveRoute
   '/notifications': typeof LayoutNotificationsRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
+  '/updates': typeof LayoutUpdatesRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -392,6 +399,7 @@ export interface FileRoutesByTo {
   '/live': typeof LayoutLiveRoute
   '/notifications': typeof LayoutNotificationsRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
+  '/updates': typeof LayoutUpdatesRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -444,6 +452,7 @@ export interface FileRoutesById {
   '/_layout/live': typeof LayoutLiveRoute
   '/_layout/notifications': typeof LayoutNotificationsRoute
   '/_layout/settings': typeof LayoutSettingsRouteWithChildren
+  '/_layout/updates': typeof LayoutUpdatesRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
@@ -498,6 +507,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/notifications'
     | '/settings'
+    | '/updates'
     | '/auth/callback'
     | '/maps/$mapName'
     | '/servers/$serverAddress'
@@ -548,6 +558,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/notifications'
     | '/settings'
+    | '/updates'
     | '/auth/callback'
     | '/maps/$mapName'
     | '/servers/$serverAddress'
@@ -599,6 +610,7 @@ export interface FileRouteTypes {
     | '/_layout/live'
     | '/_layout/notifications'
     | '/_layout/settings'
+    | '/_layout/updates'
     | '/auth/callback'
     | '/maps/$mapName'
     | '/servers/$serverAddress'
@@ -705,6 +717,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_layout/updates': {
+      id: '/_layout/updates'
+      path: '/updates'
+      fullPath: '/updates'
+      preLoaderRoute: typeof LayoutUpdatesRouteImport
+      parentRoute: typeof LayoutRoute
     }
     '/_layout/settings': {
       id: '/_layout/settings'
@@ -1134,6 +1153,7 @@ interface LayoutRouteChildren {
   LayoutLiveRoute: typeof LayoutLiveRoute
   LayoutNotificationsRoute: typeof LayoutNotificationsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRouteWithChildren
+  LayoutUpdatesRoute: typeof LayoutUpdatesRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutProfileIdentifierRoute: typeof LayoutProfileIdentifierRouteWithChildren
 }
@@ -1146,6 +1166,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutLiveRoute: LayoutLiveRoute,
   LayoutNotificationsRoute: LayoutNotificationsRoute,
   LayoutSettingsRoute: LayoutSettingsRouteWithChildren,
+  LayoutUpdatesRoute: LayoutUpdatesRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutProfileIdentifierRoute: LayoutProfileIdentifierRouteWithChildren,
 }

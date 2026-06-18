@@ -107,6 +107,21 @@ export const zhCN = {
     joinDiscord: "加入我们的 Discord",
     joinQqGroup: "加入我们的 QQ 群",
   },
+  updates: {
+    title: "更新",
+    description: "来自 GOKZ.TOP 公开仓库的近期发布说明。",
+    openReleaseNotes: "打开发布说明",
+    errorTitle: "无法加载更新",
+    errorBody: "暂时无法获取 GitHub 发布说明。",
+    empty: "暂未发布任何版本。",
+    noNotes: "此版本没有提供发布说明。",
+    viewOnGitHub: "在 GitHub 查看",
+    sections: {
+      Features: "新功能",
+      Fixes: "修复",
+      Other: "其他",
+    },
+  },
   notifications: {
     title: "通知",
     open: "打开通知",

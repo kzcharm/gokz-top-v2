@@ -107,6 +107,21 @@ export const en = {
     joinDiscord: "Join us on Discord",
     joinQqGroup: "Join our QQ group",
   },
+  updates: {
+    title: "Updates",
+    description: "Recent release notes from the public GOKZ.TOP repository.",
+    openReleaseNotes: "Open release notes",
+    errorTitle: "Unable to load updates",
+    errorBody: "GitHub release notes are unavailable right now.",
+    empty: "No releases have been published yet.",
+    noNotes: "No release notes were provided for this version.",
+    viewOnGitHub: "View on GitHub",
+    sections: {
+      Features: "Features",
+      Fixes: "Fixes",
+      Other: "Other",
+    },
+  },
   notifications: {
     title: "Notifications",
     open: "Open notifications",
