@@ -40,6 +40,10 @@ interface MapNameContextMenuProps {
   mapId?: number | null
 }
 
+function stopMenuPropagation(event: MouseEvent | KeyboardEvent) {
+  event.stopPropagation()
+}
+
 export function getMapImageUrl(mapName: string | null | undefined) {
   if (!mapName || mapName.trim() === "") {
     return null
@@ -188,10 +192,17 @@ export function MapNameContextMenu({
             onKeyDown: handleKeyDown,
           })}
         </div>
-        <DropdownMenuContent align="start" side="right" sideOffset={10}>
+        <DropdownMenuContent
+          align="start"
+          side="right"
+          sideOffset={10}
+          onClick={stopMenuPropagation}
+          onKeyDown={stopMenuPropagation}
+        >
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
+              setMenuOpen(false)
               void handleCopyMapName()
             }}
           >
@@ -201,6 +212,7 @@ export function MapNameContextMenu({
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
+              setMenuOpen(false)
               handleGoToMapPage()
             }}
           >
@@ -211,6 +223,7 @@ export function MapNameContextMenu({
             disabled={!resolvedDownloadUrl}
             onSelect={(event) => {
               event.preventDefault()
+              setMenuOpen(false)
               handleDownloadMap()
             }}
           >
@@ -395,10 +408,17 @@ export function MapDisplay({
             </div>
           </Link>
         </div>
-        <DropdownMenuContent align="start" side="right" sideOffset={10}>
+        <DropdownMenuContent
+          align="start"
+          side="right"
+          sideOffset={10}
+          onClick={stopMenuPropagation}
+          onKeyDown={stopMenuPropagation}
+        >
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
+              setMenuOpen(false)
               void handleCopyMapName()
             }}
           >
@@ -408,6 +428,7 @@ export function MapDisplay({
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
+              setMenuOpen(false)
               handleGoToMapPage()
             }}
           >
@@ -418,6 +439,7 @@ export function MapDisplay({
             disabled={!resolvedDownloadUrl}
             onSelect={(event) => {
               event.preventDefault()
+              setMenuOpen(false)
               handleDownloadMap()
             }}
           >

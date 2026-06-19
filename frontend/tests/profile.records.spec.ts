@@ -426,6 +426,53 @@ test("Profile records page shows grouped server links and filters by group name"
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
 })
 
+test("Profile records map context menu items do not open run history", async ({
+  page,
+}) => {
+  let runHistoryRequests = 0
+
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([ovrRecords[0]]),
+    })
+  })
+
+  await page.route(/\/v1\/records\/run-history(\?.*)?$/, async (route) => {
+    runHistoryRequests += 1
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0, wr_time: null }),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/records`)
+
+  await page.getByRole("link", { name: "kz_seed_alpha" }).click({
+    button: "right",
+  })
+  await page.getByRole("menuitem", { name: "Copy Name" }).click()
+
+  await expect(page.getByRole("menuitem", { name: "Copy Name" })).toHaveCount(0)
+  await expect(page.getByTestId("record-run-history-dialog")).toHaveCount(0)
+  await expect.poll(() => runHistoryRequests).toBe(0)
+})
+
 test("Profile records page shows an error state when PB loading fails", async ({
   page,
 }) => {
