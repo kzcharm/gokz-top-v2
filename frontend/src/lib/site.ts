@@ -1,4 +1,8 @@
 export const SITE_NAME = "GOKZ.TOP"
+export const SITE_DEFAULT_TITLE =
+  "GOKZ.TOP - GOKZ Records, Leaderboards, Maps and Servers"
+export const SITE_DEFAULT_DESCRIPTION =
+  "Track GOKZ player profiles, records, leaderboards, maps, live servers, jumpstats, and replays."
 export const SITE_START_YEAR = 2024
 export const IS_LOCAL_DEV = import.meta.env.DEV
 export const BRAND_MARK_SRC = IS_LOCAL_DEV

@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppShell } from "@/components/Common/AppShell"
 import { ServerBrowser } from "@/components/Servers/ServerBrowser"
-import { getPageTitle } from "@/lib/site"
+import { SITE_DEFAULT_DESCRIPTION, getPageTitle } from "@/lib/site"
 
 export const Route = createFileRoute("/servers")({
   component: ServersRoute,
@@ -10,6 +10,10 @@ export const Route = createFileRoute("/servers")({
     meta: [
       {
         title: getPageTitle("Servers"),
+      },
+      {
+        name: "description",
+        content: SITE_DEFAULT_DESCRIPTION,
       },
     ],
   }),
