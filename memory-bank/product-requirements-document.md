@@ -109,6 +109,7 @@ Scope model:
 - Live status ingestion and display.
 - Server group support and filterable browsing.
 - Cached live status must be served from PostgreSQL-backed cache rows, not live upstream queries on page load.
+- Server location coordinates must be stored with the server row and refreshed during server writes when location data is missing or the IP changes; online IP location APIs are preferred, with the local GeoIP database retained as fallback.
 - Support richer plugin heartbeats keyed by server-group API keys, with A2S polling and Steam server-list discovery as collector-side inputs.
 - The primary SourceMod live-status publisher is `gokz-top-servers`, which reuses `gokz-top-core` server-group auth config and caches its resolved public IPv4 locally before pushing `/v1/servers/status`.
 - Plugin heartbeat player payloads must preserve richer run state than A2S can provide, including clan tag, movement mode, timer status, pause state, teleports, timer time, stage, and connection duration.

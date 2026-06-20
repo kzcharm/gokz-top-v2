@@ -6,6 +6,7 @@ import {
   Download,
   Grid,
   List,
+  Map as MapIcon,
   Search,
   Share2,
 } from "lucide-react"
@@ -27,6 +28,7 @@ import { PendingServers } from "@/components/Servers/PendingServers"
 import { ServerCard } from "@/components/Servers/ServerCard"
 import { ServerDetailSheet } from "@/components/Servers/ServerDetailSheet"
 import { ServerTable } from "@/components/Servers/ServerTable"
+import { ServerWorldMapDialog } from "@/components/Servers/ServerWorldMapDialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -210,6 +212,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting")
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
+  const [mapDialogOpen, setMapDialogOpen] = useState(false)
   const seededRef = useRef(false)
 
   const serversQuery = useQuery({
@@ -798,6 +801,18 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     type="button"
                     variant="outline"
                     size="icon-sm"
+                    onClick={() => setMapDialogOpen(true)}
+                    disabled={servers.length === 0}
+                    aria-label="Open server map"
+                    title="Open server map"
+                    data-testid="open-servers-map-button"
+                  >
+                    <MapIcon className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
                     onClick={handleDownloadConfig}
                     disabled={sortedServers.length === 0}
                     aria-label="Download server config"
@@ -954,6 +969,15 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         }}
         onCopyAddress={handleCopyAddress}
         onSteamConnect={handleSteamConnect}
+      />
+      <ServerWorldMapDialog
+        open={mapDialogOpen}
+        servers={servers}
+        onOpenChange={setMapDialogOpen}
+        onSelectServer={(server) => {
+          setMapDialogOpen(false)
+          handleSelectServer(server)
+        }}
       />
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
         <DialogContent className="sm:max-w-md">

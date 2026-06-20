@@ -150,6 +150,8 @@ class ServerBase(SQLModel):
     status: ServerStatus = ServerStatus.ENABLED
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class ServerCreate(SQLModel):
@@ -159,6 +161,8 @@ class ServerCreate(SQLModel):
     status: ServerStatus = ServerStatus.ENABLED
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class ServerUpdate(SQLModel):
@@ -168,6 +172,8 @@ class ServerUpdate(SQLModel):
     status: ServerStatus | None = None
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class Server(ServerBase, table=True):

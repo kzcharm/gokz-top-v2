@@ -6556,6 +6556,32 @@ export const ServerCreateSchema = {
                 }
             ],
             title: 'City'
+        },
+        latitude: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 90,
+                    minimum: -90
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latitude'
+        },
+        longitude: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 180,
+                    minimum: -180
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Longitude'
         }
     },
     type: 'object',
@@ -7456,6 +7482,32 @@ export const ServerPublicSchema = {
             ],
             title: 'City'
         },
+        latitude: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 90,
+                    minimum: -90
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latitude'
+        },
+        longitude: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 180,
+                    minimum: -180
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Longitude'
+        },
         id: {
             type: 'string',
             format: 'uuid',
@@ -7771,6 +7823,32 @@ export const ServerUpdateSchema = {
                 }
             ],
             title: 'City'
+        },
+        latitude: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 90,
+                    minimum: -90
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Latitude'
+        },
+        longitude: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 180,
+                    minimum: -180
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Longitude'
         }
     },
     type: 'object',

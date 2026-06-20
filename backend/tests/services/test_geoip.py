@@ -17,6 +17,10 @@ class _FakeReader:
                 most_specific=SimpleNamespace(name=self._location.region_name)
             ),
             city=SimpleNamespace(name=self._location.city_name),
+            location=SimpleNamespace(
+                latitude=self._location.latitude,
+                longitude=self._location.longitude,
+            ),
         )
 
     def close(self) -> None:
@@ -87,6 +91,8 @@ def test_geoip_city_database_reads_region(tmp_path: Path) -> None:
                 country_code="US",
                 region_name="Illinois",
                 city_name="Chicago",
+                latitude=41.8781,
+                longitude=-87.6298,
             )
         ),
     )
@@ -95,4 +101,6 @@ def test_geoip_city_database_reads_region(tmp_path: Path) -> None:
         country_code="US",
         region_name="Illinois",
         city_name="Chicago",
+        latitude=41.8781,
+        longitude=-87.6298,
     )

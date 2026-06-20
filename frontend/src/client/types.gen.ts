@@ -1315,6 +1315,8 @@ export type ServerCreate = {
     status?: ServerStatus;
     country?: (string | null);
     city?: (string | null);
+    latitude?: (number | null);
+    longitude?: (number | null);
 };
 
 export type ServerDiscoveryRunPublic = {
@@ -1461,6 +1463,8 @@ export type ServerPublic = {
     status?: ServerStatus;
     country?: (string | null);
     city?: (string | null);
+    latitude?: (number | null);
+    longitude?: (number | null);
     id: string;
     group_id?: (string | null);
     region?: (string | null);
@@ -1516,6 +1520,8 @@ export type ServerUpdate = {
     status?: (ServerStatus | null);
     country?: (string | null);
     city?: (string | null);
+    latitude?: (number | null);
+    longitude?: (number | null);
 };
 
 export type UserPublic = {

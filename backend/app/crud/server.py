@@ -44,7 +44,7 @@ from app.models import (
     ServerUpdate,
     get_datetime_utc,
 )
-from app.services.geoip import lookup_geoip_city
+from app.services.ip_location import lookup_ip_location
 
 SERVER_STATUS_NOTIFY_CHANNEL = "server_status_updates"
 SERVER_A2S_FAILURES_BEFORE_OFFLINE = 3
@@ -61,24 +61,62 @@ def _normalize_server_location_value(value: str | None) -> str | None:
     return normalized_value or None
 
 
-def _resolve_server_location(
+async def _resolve_server_location(
     *,
     ip: str,
     country: str | None,
     city: str | None,
-) -> tuple[str | None, str | None]:
+    latitude: float | None,
+    longitude: float | None,
+) -> tuple[str | None, str | None, float | None, float | None]:
     normalized_country = _normalize_server_location_value(country)
     normalized_city = _normalize_server_location_value(city)
-    if normalized_country is not None and normalized_city is not None:
-        return normalized_country, normalized_city
+    resolved_latitude = latitude
+    resolved_longitude = longitude
+    if (
+        normalized_country is not None
+        and normalized_city is not None
+        and resolved_latitude is not None
+        and resolved_longitude is not None
+    ):
+        return normalized_country, normalized_city, resolved_latitude, resolved_longitude
 
-    location = lookup_geoip_city(ip)
+    location = await lookup_ip_location(ip)
     if location is None:
-        return normalized_country, normalized_city
+        return normalized_country, normalized_city, resolved_latitude, resolved_longitude
 
     return (
         normalized_country or location.country_code,
         normalized_city or location.city_name,
+        resolved_latitude if resolved_latitude is not None else location.latitude,
+        resolved_longitude if resolved_longitude is not None else location.longitude,
+    )
+
+
+async def _refresh_server_location(
+    *,
+    server: Server,
+    ip: str | None = None,
+    force: bool = False,
+) -> None:
+    lookup_ip = ip or server.ip
+    if (
+        not force
+        and server.country is not None
+        and server.city is not None
+        and server.latitude is not None
+        and server.longitude is not None
+    ):
+        return
+
+    server.country, server.city, server.latitude, server.longitude = (
+        await _resolve_server_location(
+            ip=lookup_ip,
+            country=server.country,
+            city=server.city,
+            latitude=server.latitude,
+            longitude=server.longitude,
+        )
     )
 
 
@@ -214,6 +252,8 @@ def to_server_public(*, server: Server) -> ServerPublic:
         country=server.country,
         city=server.city,
         region=get_region_code_for_country(server.country),
+        latitude=server.latitude,
+        longitude=server.longitude,
         source=server.source,
         last_discovered_at=server.last_discovered_at,
         map_tier=server.__dict__.get("map_tier"),
@@ -687,15 +727,21 @@ async def create_server(
             raise ValueError("Server already exists")
 
         now = get_datetime_utc()
-        resolved_country, resolved_city = _resolve_server_location(
-            ip=server_in.ip,
-            country=server_in.country,
-            city=server_in.city,
+        resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
+            await _resolve_server_location(
+                ip=server_in.ip,
+                country=server_in.country,
+                city=server_in.city,
+                latitude=server_in.latitude,
+                longitude=server_in.longitude,
+            )
         )
         existing_server.group_id = server_in.group_id
         existing_server.status = server_in.status
         existing_server.country = resolved_country
         existing_server.city = resolved_city
+        existing_server.latitude = resolved_latitude
+        existing_server.longitude = resolved_longitude
         existing_server.source = build_manual_server_source(steamid64=steamid64)
         existing_server.updated_at = now
         session.add(existing_server)
@@ -726,10 +772,14 @@ async def create_server(
         )
 
     now = get_datetime_utc()
-    resolved_country, resolved_city = _resolve_server_location(
-        ip=server_in.ip,
-        country=server_in.country,
-        city=server_in.city,
+    resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
+        await _resolve_server_location(
+            ip=server_in.ip,
+            country=server_in.country,
+            city=server_in.city,
+            latitude=server_in.latitude,
+            longitude=server_in.longitude,
+        )
     )
     server = Server(
         group_id=server_in.group_id,
@@ -738,6 +788,8 @@ async def create_server(
         status=server_in.status,
         country=resolved_country,
         city=resolved_city,
+        latitude=resolved_latitude,
+        longitude=resolved_longitude,
         source=build_manual_server_source(steamid64=steamid64),
         created_at=now,
         updated_at=now,
@@ -782,10 +834,14 @@ async def upsert_server_from_plugin_heartbeat(
     now = get_datetime_utc()
 
     if server is None:
-        resolved_country, resolved_city = _resolve_server_location(
-            ip=payload.ip,
-            country=None,
-            city=None,
+        resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
+            await _resolve_server_location(
+                ip=payload.ip,
+                country=None,
+                city=None,
+                latitude=None,
+                longitude=None,
+            )
         )
         server = Server(
             group_id=group.id,
@@ -794,6 +850,8 @@ async def upsert_server_from_plugin_heartbeat(
             status=ServerStatus.ENABLED,
             country=resolved_country,
             city=resolved_city,
+            latitude=resolved_latitude,
+            longitude=resolved_longitude,
             source=build_plugin_server_source(group=group),
             created_at=now,
             updated_at=now,
@@ -816,11 +874,7 @@ async def upsert_server_from_plugin_heartbeat(
 
             server.group_id = group.id
             server.status = ServerStatus.ENABLED
-            server.country, server.city = _resolve_server_location(
-                ip=payload.ip,
-                country=server.country,
-                city=server.city,
-            )
+            await _refresh_server_location(server=server, ip=payload.ip)
             server.source = build_plugin_server_source(group=group)
             server.updated_at = now
             session.add(server)
@@ -830,11 +884,7 @@ async def upsert_server_from_plugin_heartbeat(
 
         server.group_id = group.id
         server.status = ServerStatus.ENABLED
-        server.country, server.city = _resolve_server_location(
-            ip=payload.ip,
-            country=server.country,
-            city=server.city,
-        )
+        await _refresh_server_location(server=server, ip=payload.ip)
         server.source = build_plugin_server_source(group=group)
         server.updated_at = now
         session.add(server)
@@ -856,12 +906,14 @@ async def update_server(
     update_data = server_in.model_dump(exclude_unset=True)
     if "group_id" in update_data:
         await _validate_group_id(session=session, group_id=update_data["group_id"])
+    previous_ip = server.ip
+    location_fields = {"country", "city", "latitude", "longitude"}
     server.sqlmodel_update(update_data)
-    server.country, server.city = _resolve_server_location(
-        ip=server.ip,
-        country=server.country,
-        city=server.city,
-    )
+    ip_changed = "ip" in update_data and server.ip != previous_ip
+    if ip_changed:
+        for field_name in location_fields - update_data.keys():
+            setattr(server, field_name, None)
+    await _refresh_server_location(server=server, force=ip_changed)
     server.updated_at = get_datetime_utc()
     session.add(server)
     try:
@@ -900,10 +952,14 @@ async def upsert_discovered_server(
     )
     now = observed_at
     if server is None:
-        resolved_country, resolved_city = _resolve_server_location(
-            ip=ip,
-            country=None,
-            city=None,
+        resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
+            await _resolve_server_location(
+                ip=ip,
+                country=None,
+                city=None,
+                latitude=None,
+                longitude=None,
+            )
         )
         server = Server(
             ip=ip,
@@ -911,6 +967,8 @@ async def upsert_discovered_server(
             status=ServerStatus.ENABLED,
             country=resolved_country,
             city=resolved_city,
+            latitude=resolved_latitude,
+            longitude=resolved_longitude,
             source=build_steam_master_server_source(),
             last_discovered_at=now,
             created_at=now,
@@ -923,11 +981,7 @@ async def upsert_discovered_server(
             server.status = ServerStatus.ENABLED
         if server.source.get("type") == ServerSource.STEAM_MASTER.value:
             server.source = build_steam_master_server_source()
-        server.country, server.city = _resolve_server_location(
-            ip=ip,
-            country=server.country,
-            city=server.city,
-        )
+        await _refresh_server_location(server=server, ip=ip)
         server.last_discovered_at = now
         server.updated_at = now
         session.add(server)

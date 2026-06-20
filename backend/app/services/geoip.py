@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +26,15 @@ except ImportError:  # pragma: no cover - exercised through runtime fallback
     GeoIPAddressNotFoundError = FallbackGeoIPAddressNotFoundError
 
 
+def _normalize_coordinate(value: Any, *, minimum: float, maximum: float) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    coordinate = float(value)
+    if not math.isfinite(coordinate) or coordinate < minimum or coordinate > maximum:
+        return None
+    return coordinate
+
+
 class GeoIPCityReader(Protocol):
     def city(self, ip_address: str) -> Any: ...
 
@@ -36,6 +46,8 @@ class GeoIPLocation:
     country_code: str | None
     region_name: str | None = None
     city_name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +56,8 @@ class GeoIPLookupDetails:
     country_code: str | None
     subdivision_name: str | None = None
     city_name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class GeoIPCityDatabase:
@@ -67,6 +81,8 @@ class GeoIPCityDatabase:
             country_code=details.country_code,
             region_name=details.subdivision_name,
             city_name=details.city_name,
+            latitude=details.latitude,
+            longitude=details.longitude,
         )
 
     def lookup_details(self, ip_address: str) -> GeoIPLookupDetails | None:
@@ -101,6 +117,9 @@ class GeoIPCityDatabase:
             most_specific = getattr(subdivisions, "most_specific", None)
             subdivision_name = getattr(most_specific, "name", None)
         city_name = getattr(response.city, "name", None)
+        response_location = getattr(response, "location", None)
+        latitude = getattr(response_location, "latitude", None)
+        longitude = getattr(response_location, "longitude", None)
         normalized_country_name = (
             country_name if isinstance(country_name, str) and country_name else None
         )
@@ -115,11 +134,23 @@ class GeoIPCityDatabase:
         normalized_city = (
             city_name if isinstance(city_name, str) and city_name else None
         )
+        normalized_latitude = _normalize_coordinate(
+            latitude,
+            minimum=-90,
+            maximum=90,
+        )
+        normalized_longitude = _normalize_coordinate(
+            longitude,
+            minimum=-180,
+            maximum=180,
+        )
         if (
             normalized_country_name is None
             and normalized_country is None
             and normalized_region is None
             and normalized_city is None
+            and normalized_latitude is None
+            and normalized_longitude is None
         ):
             return None
         return GeoIPLookupDetails(
@@ -127,6 +158,8 @@ class GeoIPCityDatabase:
             country_code=normalized_country,
             subdivision_name=normalized_region,
             city_name=normalized_city,
+            latitude=normalized_latitude,
+            longitude=normalized_longitude,
         )
 
     def reset(self) -> None:

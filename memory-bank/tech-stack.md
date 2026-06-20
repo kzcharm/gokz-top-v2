@@ -60,6 +60,7 @@
   - Active mirrored bans are enforced as query-time exclusions for selected leaderboard and record reads via `EXISTS`/`NOT EXISTS` predicates instead of direct joins
 - Live server status subsystem:
   - Public reads come from cached `/v1/servers` and `/v1/servers/{id}` responses only; browsers never trigger upstream A2S or Steam server-list queries
+  - Server country/city/latitude/longitude are persisted on `server` rows and resolved only on writes when missing or when the IP changes, preferring online IP location providers before falling back to the local GeoIP database
   - SourceMod server heartbeats are sent by `gokz-top-servers`, which reuses `gokz-top-core` auth config and resolves the target server by cached public IPv4 plus `hostport`
   - SourceMod in-game profile/rating reads are served by `gokz-top-profile`, which preserves the legacy `gokz-profile` library/native surface while reading cached `/v1/leaderboards/players/{identifier}` data through `gokz-top-core`
   - Plugin heartbeats ingest through `PUT /v1/servers/status` with a server-group API key and resolve servers by `(ip, port)`

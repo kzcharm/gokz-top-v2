@@ -286,11 +286,15 @@ async def test_run_server_discovery_cycle_only_tracks_supported_kz_prefixes(
         "query_server_a2s_info",
         _unexpected_query_server_a2s_info,
     )
-    monkeypatch.setattr(
-        server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="SE", city_name="Stockholm"),
-    )
+    async def _lookup_ip_location(_ip: str) -> GeoIPLocation:
+        return GeoIPLocation(
+            country_code="SE",
+            city_name="Stockholm",
+            latitude=59.3293,
+            longitude=18.0686,
+        )
+
+    monkeypatch.setattr(server_crud, "lookup_ip_location", _lookup_ip_location)
     monkeypatch.setattr(
         server_status,
         "async_session_maker",
@@ -313,6 +317,8 @@ async def test_run_server_discovery_cycle_only_tracks_supported_kz_prefixes(
     assert {server.source["type"] for server in servers} == {"steam_master"}
     assert all(server.country == "SE" for server in servers)
     assert all(server.city == "Stockholm" for server in servers)
+    assert all(server.latitude == 59.3293 for server in servers)
+    assert all(server.longitude == 18.0686 for server in servers)
 
 
 async def test_extract_server_list_candidates_dedupes_and_skips_invalid_rows() -> None:

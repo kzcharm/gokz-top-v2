@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises"
+import type { Page } from "@playwright/test"
 import { expect, test } from "@playwright/test"
 import { randomSteamid64 } from "./utils/random"
 import { logInUser } from "./utils/user"
@@ -203,6 +204,188 @@ const addedServer = {
       last_successful_seen_at: "2026-03-12T10:10:00Z",
     },
   },
+}
+
+const mapServers = {
+  count: 4,
+  data: [
+    {
+      id: "019d5555-5555-7555-8555-555555555555",
+      ip: "10.1.1.1",
+      port: 27015,
+      latitude: 52.52,
+      longitude: 13.405,
+      region: "EU",
+      status: "enabled",
+      configured_hostname: "Shared Alpha A",
+      country: "DE",
+      city: "Berlin",
+      source: "manual",
+      last_discovered_at: null,
+      map_tier: 2,
+      created_at: "2026-03-12T10:00:00Z",
+      updated_at: "2026-03-12T10:00:00Z",
+      group: null,
+      live_status: {
+        hostname: "Shared Alpha A",
+        map: "kz_alpha",
+        workshop_id: null,
+        player_count: 2,
+        max_players: 16,
+        players: [],
+        is_online: true,
+        updated_at: "2026-03-12T10:00:00Z",
+        state: {
+          last_plugin_seen_at: "2026-03-12T10:00:00Z",
+          last_a2s_seen_at: "2026-03-12T10:00:00Z",
+          last_successful_seen_at: "2026-03-12T10:00:00Z",
+        },
+      },
+    },
+    {
+      id: "019d6666-6666-7666-8666-666666666666",
+      ip: "10.1.1.2",
+      port: 27016,
+      latitude: 52.52,
+      longitude: 13.405,
+      region: "EU",
+      status: "enabled",
+      configured_hostname: "Shared Alpha B",
+      country: "DE",
+      city: "Berlin",
+      source: "manual",
+      last_discovered_at: null,
+      map_tier: 3,
+      created_at: "2026-03-12T10:00:00Z",
+      updated_at: "2026-03-12T10:00:00Z",
+      group: null,
+      live_status: {
+        hostname: "Shared Alpha B",
+        map: "kz_beta",
+        workshop_id: null,
+        player_count: 1,
+        max_players: 16,
+        players: [],
+        is_online: true,
+        updated_at: "2026-03-12T10:00:00Z",
+        state: {
+          last_plugin_seen_at: "2026-03-12T10:00:00Z",
+          last_a2s_seen_at: "2026-03-12T10:00:00Z",
+          last_successful_seen_at: "2026-03-12T10:00:00Z",
+        },
+      },
+    },
+    {
+      id: "019d7777-7777-7777-8777-777777777777",
+      ip: "10.2.2.2",
+      port: 27015,
+      latitude: 41.8781,
+      longitude: -87.6298,
+      region: "NA",
+      status: "enabled",
+      configured_hostname: "Hidden Offline",
+      country: "US",
+      city: "Chicago",
+      source: "manual",
+      last_discovered_at: null,
+      map_tier: 4,
+      created_at: "2026-03-12T10:00:00Z",
+      updated_at: "2026-03-12T10:00:00Z",
+      group: null,
+      live_status: {
+        hostname: "Hidden Offline",
+        map: "kz_hidden",
+        workshop_id: null,
+        player_count: 0,
+        max_players: 16,
+        players: [],
+        is_online: false,
+        updated_at: "2026-03-12T10:00:00Z",
+        state: {
+          last_plugin_seen_at: "2026-03-12T10:00:00Z",
+          last_a2s_seen_at: "2026-03-12T10:00:00Z",
+          last_successful_seen_at: "2026-03-12T10:00:00Z",
+        },
+      },
+    },
+    {
+      id: "019d8888-8888-7888-8888-888888888888",
+      ip: "10.3.3.3",
+      port: 27015,
+      latitude: null,
+      longitude: null,
+      region: "EU",
+      status: "enabled",
+      configured_hostname: "Unmapped Online",
+      country: "FR",
+      city: "Paris",
+      source: "manual",
+      last_discovered_at: null,
+      map_tier: 5,
+      created_at: "2026-03-12T10:00:00Z",
+      updated_at: "2026-03-12T10:00:00Z",
+      group: null,
+      live_status: {
+        hostname: "Unmapped Online",
+        map: "kz_unmapped",
+        workshop_id: null,
+        player_count: 1,
+        max_players: 16,
+        players: [],
+        is_online: true,
+        updated_at: "2026-03-12T10:00:00Z",
+        state: {
+          last_plugin_seen_at: "2026-03-12T10:00:00Z",
+          last_a2s_seen_at: "2026-03-12T10:00:00Z",
+          last_successful_seen_at: "2026-03-12T10:00:00Z",
+        },
+      },
+    },
+  ],
+}
+
+async function readMapCanvasSample(page: Page) {
+  return page
+    .locator('[data-testid="server-world-map-chart"] canvas')
+    .evaluate((canvasElement) => {
+      const canvas = canvasElement as HTMLCanvasElement
+      const context = canvas.getContext("2d")
+      if (!context) {
+        throw new Error("Map canvas 2D context was not available")
+      }
+
+      const { height, width } = canvas
+      const imageData = context.getImageData(0, 0, width, height).data
+      const sample: number[] = []
+
+      for (let y = 0; y < height; y += 20) {
+        for (let x = 0; x < width; x += 20) {
+          const index = (y * width + x) * 4
+          sample.push(
+            imageData[index],
+            imageData[index + 1],
+            imageData[index + 2],
+            imageData[index + 3],
+          )
+        }
+      }
+
+      return { height, sample, width }
+    })
+}
+
+function getCanvasSampleDifference(
+  left: Awaited<ReturnType<typeof readMapCanvasSample>>,
+  right: Awaited<ReturnType<typeof readMapCanvasSample>>,
+) {
+  expect(left.width).toBe(right.width)
+  expect(left.height).toBe(right.height)
+  expect(left.sample).toHaveLength(right.sample.length)
+
+  return left.sample.reduce(
+    (total, value, index) => total + Math.abs(value - right.sample[index]),
+    0,
+  )
 }
 
 test("Public servers page supports live updates, filters, and route-bound details", async ({
@@ -427,6 +610,191 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByText("Gamma Live Updated").first()).toBeVisible()
   await expect(page.getByText("9/24").first()).toBeVisible()
   await expect(page.getByTitle("Refreshing server status")).toHaveCount(0)
+})
+
+test("Public servers map aggregates loaded servers by city", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    class MockWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+
+      readyState = MockWebSocket.OPEN
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        queueMicrotask(() => {
+          this.onopen?.(new Event("open"))
+        })
+      }
+
+      send(_data?: unknown) {}
+      close() {}
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+  })
+
+  await page.route(/\/v1\/servers(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(mapServers),
+    })
+  })
+
+  await page.goto("/servers")
+
+  await expect(page.getByTestId("server-card-10.1.1.1:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.2.2.2:27015")).toHaveCount(0)
+
+  await page.getByTestId("open-servers-map-button").click()
+
+  await expect(page.getByRole("heading", { name: "Server map" })).toBeVisible()
+  await expect(page.getByTestId("server-world-map-chart")).toBeVisible()
+  const chartBox = await page
+    .getByTestId("server-world-map-chart")
+    .boundingBox()
+  const canvasBox = await page
+    .locator('[data-testid="server-world-map-chart"] canvas')
+    .boundingBox()
+  expect(chartBox).not.toBeNull()
+  expect(canvasBox).not.toBeNull()
+  expect(Math.abs(chartBox!.width - canvasBox!.width)).toBeLessThanOrEqual(16)
+  expect(Math.abs(chartBox!.height - canvasBox!.height)).toBeLessThanOrEqual(16)
+  expect(chartBox!.width / chartBox!.height).toBeGreaterThan(1.9)
+  expect(chartBox!.width / chartBox!.height).toBeLessThan(1.98)
+  await expect(page.getByText(/mapped online servers/)).toHaveCount(0)
+  await expect(page.getByText(/without coordinates/)).toHaveCount(0)
+  await expect(page.locator('[data-testid^="server-map-ip-row-"]')).toHaveCount(
+    0,
+  )
+})
+
+test("Public servers map keeps user zoom after live server updates", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const sockets: Array<{
+      readyState: number
+      onopen: ((event: Event) => void) | null
+      onmessage: ((event: { data: string }) => void) | null
+      onclose: ((event: Event) => void) | null
+      onerror: ((event: Event) => void) | null
+      dispatchMessage: (payload: unknown) => void
+      close: () => void
+      send: (_data?: unknown) => void
+    }> = []
+
+    class MockWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+
+      readyState = MockWebSocket.CONNECTING
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        sockets.push(this)
+        queueMicrotask(() => {
+          this.readyState = MockWebSocket.OPEN
+          this.onopen?.(new Event("open"))
+        })
+      }
+
+      send(_data?: unknown) {}
+
+      close() {
+        this.readyState = MockWebSocket.CLOSED
+        this.onclose?.(new Event("close"))
+      }
+
+      dispatchMessage(payload: unknown) {
+        this.onmessage?.({ data: JSON.stringify(payload) })
+      }
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+
+    Object.assign(window, {
+      __mockServerSockets: sockets,
+      __dispatchServerMessage: (payload: unknown) => {
+        for (const socket of sockets) {
+          socket.dispatchMessage(payload)
+        }
+      },
+    })
+  })
+
+  await page.route(/\/v1\/servers(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(mapServers),
+    })
+  })
+
+  await page.goto("/servers")
+  await page.getByTestId("open-servers-map-button").click()
+  await page.locator('[data-testid="server-world-map-chart"] canvas').waitFor({
+    state: "visible",
+  })
+
+  const initialCanvas = await readMapCanvasSample(page)
+  const chartBox = await page
+    .getByTestId("server-world-map-chart")
+    .boundingBox()
+  expect(chartBox).not.toBeNull()
+
+  await page.mouse.move(
+    chartBox!.x + chartBox!.width / 2,
+    chartBox!.y + chartBox!.height / 2,
+  )
+  await page.mouse.wheel(0, -900)
+  await page.waitForTimeout(300)
+  const zoomedCanvas = await readMapCanvasSample(page)
+  const zoomDifference = getCanvasSampleDifference(initialCanvas, zoomedCanvas)
+  expect(zoomDifference).toBeGreaterThan(1_000)
+
+  await page.evaluate((server) => {
+    ;(window as any).__dispatchServerMessage({
+      server: {
+        ...server,
+        live_status: {
+          ...server.live_status,
+          player_count: 3,
+          updated_at: "2026-03-12T10:05:00Z",
+        },
+        updated_at: "2026-03-12T10:05:00Z",
+      },
+      type: "server.updated",
+    })
+  }, mapServers.data[0])
+
+  await page.waitForTimeout(300)
+  const afterUpdateCanvas = await readMapCanvasSample(page)
+  const updateDifference = getCanvasSampleDifference(
+    zoomedCanvas,
+    afterUpdateCanvas,
+  )
+
+  expect(updateDifference).toBeLessThan(zoomDifference * 0.25)
 })
 
 test("Public servers page downloads a generic config for the visible sorted servers", async ({

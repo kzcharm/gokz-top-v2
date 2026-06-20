@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -79,6 +80,15 @@ def _plugin_player(
     }
 
 
+def _async_location(
+    location: GeoIPLocation | None,
+) -> Callable[[str], Awaitable[GeoIPLocation | None]]:
+    async def _lookup_ip_location(_ip: str) -> GeoIPLocation | None:
+        return location
+
+    return _lookup_ip_location
+
+
 async def test_create_server_requires_successful_a2s_query(
     client: AsyncClient,
     normal_user_token_headers: dict[str, str],
@@ -101,8 +111,15 @@ async def test_create_server_requires_successful_a2s_query(
     )
     monkeypatch.setattr(
         server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+        "lookup_ip_location",
+        _async_location(
+            GeoIPLocation(
+                country_code="US",
+                city_name="Chicago",
+                latitude=41.8781,
+                longitude=-87.6298,
+            )
+        ),
     )
 
     response = await client.post(
@@ -152,8 +169,15 @@ async def test_create_server_fills_blank_location_from_geoip(
     )
     monkeypatch.setattr(
         server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+        "lookup_ip_location",
+        _async_location(
+            GeoIPLocation(
+                country_code="US",
+                city_name="Chicago",
+                latitude=41.8781,
+                longitude=-87.6298,
+            )
+        ),
     )
 
     response = await client.post(
@@ -171,6 +195,26 @@ async def test_create_server_fills_blank_location_from_geoip(
     assert payload["country"] == "US"
     assert payload["region"] == "NA"
     assert payload["city"] == "Chicago"
+    assert payload["latitude"] == 41.8781
+    assert payload["longitude"] == -87.6298
+
+
+async def test_create_server_rejects_out_of_range_coordinates(
+    client: AsyncClient,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        f"{settings.API_V1_STR}/servers",
+        headers=normal_user_token_headers,
+        json={
+            "ip": random_server_ip(),
+            "port": random_server_port(),
+            "latitude": 91,
+            "longitude": -181,
+        },
+    )
+
+    assert response.status_code == 422
 
 
 async def test_read_servers_returns_derived_region_and_filters_by_region(
@@ -219,6 +263,58 @@ async def test_read_servers_returns_group_custom_id(
         "name": group.name,
         "custom_id": "axe",
     }
+
+
+async def test_read_servers_returns_persisted_coordinates(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db, latitude=52.52, longitude=13.405)
+
+    async def _unexpected_lookup_ip_location(_ip: str) -> GeoIPLocation | None:
+        raise AssertionError("Public server reads must use persisted coordinates")
+
+    monkeypatch.setattr(
+        server_crud,
+        "lookup_ip_location",
+        _unexpected_lookup_ip_location,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers",
+        params={"limit": 200},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    [server_payload] = [
+        item for item in payload["data"] if item["id"] == str(server.id)
+    ]
+    assert server_payload["latitude"] == 52.52
+    assert server_payload["longitude"] == 13.405
+
+
+async def test_read_servers_returns_null_coordinates_without_geoip_location(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(db)
+    monkeypatch.setattr(server_crud, "lookup_ip_location", _async_location(None))
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/servers",
+        params={"limit": 200},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    [server_payload] = [
+        item for item in payload["data"] if item["id"] == str(server.id)
+    ]
+    assert server_payload["latitude"] is None
+    assert server_payload["longitude"] is None
 
 
 async def test_read_servers_accepts_limit_1000(
@@ -441,8 +537,8 @@ async def test_create_server_rejects_counter_strike_2_even_when_folder_and_app_i
     )
     monkeypatch.setattr(
         server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+        "lookup_ip_location",
+        _async_location(GeoIPLocation(country_code="US", city_name="Chicago")),
     )
 
     response = await client.post(
@@ -483,8 +579,8 @@ async def test_create_server_allows_zero_app_id_when_game_field_matches_csgo(
     )
     monkeypatch.setattr(
         server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+        "lookup_ip_location",
+        _async_location(GeoIPLocation(country_code="US", city_name="Chicago")),
     )
 
     response = await client.post(
@@ -580,8 +676,8 @@ async def test_update_server_fills_missing_location_from_geoip(
     server = await create_server(db, country=None, city=None)
     monkeypatch.setattr(
         server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+        "lookup_ip_location",
+        _async_location(GeoIPLocation(country_code="US", city_name="Chicago")),
     )
 
     response = await client.patch(
@@ -596,6 +692,61 @@ async def test_update_server_fills_missing_location_from_geoip(
     assert payload["city"] == "Chicago"
 
 
+async def test_update_server_refreshes_location_when_ip_changes(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = await create_server(
+        db,
+        country="DE",
+        city="Berlin",
+        latitude=52.52,
+        longitude=13.405,
+    )
+
+    async def _fake_query_server_a2s_info(*, ip: str, port: int) -> A2SInfoResult:
+        del ip, port
+        return A2SInfoResult(
+            hostname="Updated Host",
+            map_name="kz_new",
+            player_count=7,
+            max_players=32,
+            players=[],
+            observed_at=datetime.now(UTC),
+        )
+
+    monkeypatch.setattr(
+        servers_route, "query_server_a2s_info", _fake_query_server_a2s_info
+    )
+    monkeypatch.setattr(
+        server_crud,
+        "lookup_ip_location",
+        _async_location(
+            GeoIPLocation(
+                country_code="US",
+                city_name="Chicago",
+                latitude=41.8781,
+                longitude=-87.6298,
+            )
+        ),
+    )
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/servers/{server.id}",
+        headers=superuser_token_headers,
+        json={"ip": random_server_ip()},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["country"] == "US"
+    assert payload["city"] == "Chicago"
+    assert payload["latitude"] == 41.8781
+    assert payload["longitude"] == -87.6298
+
+
 async def test_update_server_preserves_existing_location_values(
     client: AsyncClient,
     db: AsyncSession,
@@ -605,8 +756,8 @@ async def test_update_server_preserves_existing_location_values(
     server = await create_server(db, country="DE", city="Berlin")
     monkeypatch.setattr(
         server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+        "lookup_ip_location",
+        _async_location(GeoIPLocation(country_code="US", city_name="Chicago")),
     )
 
     response = await client.patch(
@@ -724,8 +875,8 @@ async def test_put_server_status_auto_creates_missing_server_for_group(
 
     monkeypatch.setattr(
         server_crud,
-        "lookup_geoip_city",
-        lambda ip: GeoIPLocation(country_code="DE", city_name="Berlin"),
+        "lookup_ip_location",
+        _async_location(GeoIPLocation(country_code="DE", city_name="Berlin")),
     )
 
     response = await client.put(
