@@ -634,12 +634,9 @@ async def _backfill_missing_records_in_db_range(
     errors = 0
     warnings = 0
     cursor = max(start_cursor, DEFAULT_RECORD_START_ID)
-    processed_record_attempts = 0
+    attempted_missing_ids = 0
 
-    while (
-        cursor <= max_record_id
-        and processed_record_attempts < MISSING_ID_ATTEMPT_LIMIT
-    ):
+    while cursor <= max_record_id and attempted_missing_ids < MISSING_ID_ATTEMPT_LIMIT:
         missing_record_ids, has_missing_record_ids = (
             await _find_due_missing_record_ids_in_db_range(
                 session=session,
@@ -647,7 +644,7 @@ async def _backfill_missing_records_in_db_range(
                 end_id=max_record_id,
                 limit=min(
                     MISSING_IDS_BATCH_SIZE,
-                    MISSING_ID_ATTEMPT_LIMIT - processed_record_attempts,
+                    MISSING_ID_ATTEMPT_LIMIT - attempted_missing_ids,
                 ),
             )
         )
@@ -685,6 +682,7 @@ async def _backfill_missing_records_in_db_range(
         )
 
         for record_id in missing_record_ids:
+            attempted_missing_ids += 1
             fetch_result = await _fetch_record_with_retry(
                 client=client,
                 record_id=record_id,
@@ -692,6 +690,7 @@ async def _backfill_missing_records_in_db_range(
             cursor = record_id + 1
             if fetch_result.kind != "record":
                 warnings += 1
+                _defer_missing_record_retry(record_id=record_id, now=get_datetime_utc())
                 await _advance_records_cursor(
                     session=session,
                     state=state,
@@ -699,7 +698,6 @@ async def _backfill_missing_records_in_db_range(
                 )
                 continue
 
-            processed_record_attempts += 1
             hydrated_payload = await _hydrate_main_stage_points_from_top(
                 client=client,
                 payload=fetch_result.payload or {},

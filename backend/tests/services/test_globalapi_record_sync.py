@@ -388,6 +388,7 @@ async def test_sync_records_from_globalapi_backfills_delayed_gap_via_pending_bac
     assert state.pending_backfill_cursor == delayed_record_id
 
     delayed_is_visible = True
+    record_sync._missing_record_retry_after.clear()
     requested_ids.clear()
     second_result = await record_sync.sync_records_from_globalapi(session=db)
 
@@ -402,6 +403,55 @@ async def test_sync_records_from_globalapi_backfills_delayed_gap_via_pending_bac
     state = await db.get(GlobalApiSyncState, "records")
     assert state is not None
     assert state.cursor == delayed_record_id + 2
+    assert state.pending_backfill_cursor is None
+
+
+async def test_sync_records_from_globalapi_bounds_null_hole_backfill_attempts(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start_id = 998450
+    await _set_records_cursor(db, start_id)
+    record_sync._missing_record_retry_after.clear()
+    for offset in range(5):
+        await _delete_record_by_id(db, record_id=start_id + offset)
+    await _create_local_record(
+        db,
+        record_id=start_id - 1,
+        steamid64=random_steamid64(),
+        map_id=998451,
+        server_id=998551,
+    )
+    await _create_local_record(
+        db,
+        record_id=start_id + 4,
+        steamid64=random_steamid64(),
+        map_id=998452,
+        server_id=998552,
+    )
+
+    requested_ids: list[int] = []
+
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
+        del client
+        requested_ids.append(record_id)
+        return record_sync.RecordFetchResult(kind="null")
+
+    monkeypatch.setattr(record_sync, "MISSING_ID_ATTEMPT_LIMIT", 2)
+    monkeypatch.setattr(record_sync, "MISSING_IDS_BATCH_SIZE", 10)
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+
+    result = await record_sync.sync_records_from_globalapi(session=db)
+
+    assert result.processed == 0
+    assert result.warnings == 2
+    assert requested_ids == [start_id, start_id + 1]
+    assert set(record_sync._missing_record_retry_after) == {start_id, start_id + 1}
+    state = await db.get(GlobalApiSyncState, "records")
+    assert state is not None
+    assert state.cursor == start_id + 2
     assert state.pending_backfill_cursor is None
 
 
