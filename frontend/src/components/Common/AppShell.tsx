@@ -27,7 +27,7 @@ export function AppShell({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border/80 bg-background/78 px-4 backdrop-blur-xl supports-[backdrop-filter]:bg-background/58">
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           <div className="ml-auto flex items-center gap-2">
@@ -37,8 +37,10 @@ export function AppShell({
             <ScopeSelector />
           </div>
         </header>
-        <main className={cn("flex-1 p-6 md:p-8", mainClassName)}>
-          <div className={cn("mx-auto w-full max-w-7xl", contentClassName)}>
+        <main className={cn("min-w-0 flex-1 p-6 md:p-8", mainClassName)}>
+          <div
+            className={cn("mx-auto w-full max-w-7xl min-w-0", contentClassName)}
+          >
             {children}
           </div>
         </main>
