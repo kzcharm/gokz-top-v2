@@ -465,10 +465,10 @@ export function PlayersLeaderboardTab() {
 
   return (
     <>
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
+      <Card className="min-w-0 gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="min-w-0 p-6 sm:px-8 sm:pt-8 sm:pb-6">
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex w-full flex-col gap-3 lg:max-w-[22rem]">
                 <div className="relative w-full">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -543,7 +543,7 @@ export function PlayersLeaderboardTab() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap lg:items-center lg:justify-end">
                 <Select
                   disabled={isFriendsOnly}
                   value={selectedRegion ?? "all"}
@@ -600,7 +600,7 @@ export function PlayersLeaderboardTab() {
                   variant="outline"
                   aria-pressed={isFriendsOnly}
                   className={cn(
-                    "border-border/70 bg-background/80",
+                    "w-full border-border/70 bg-background/80 sm:w-auto",
                     isFriendsOnly &&
                       "border-amber-500/50 bg-amber-500/12 text-amber-950 hover:bg-amber-500/18 dark:text-amber-100",
                   )}
@@ -633,6 +633,7 @@ export function PlayersLeaderboardTab() {
                 <LoadingButton
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   loading={isLocatingPlayer}
                   onClick={() => void handleFindMe()}
                 >
@@ -645,15 +646,15 @@ export function PlayersLeaderboardTab() {
         </CardContent>
       </Card>
 
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
+      <Card className="min-w-0 gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="min-w-0 p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
             data={tableData}
             isLoading={leaderboardQuery.isLoading}
             stickyHeader
-            stickyHeaderTopClassName="top-16"
-            tableContainerClassName="md:overflow-visible"
+            stickyHeaderTopClassName="top-0 md:top-16"
+            tableContainerClassName="max-w-full md:overflow-visible"
             tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             getRowProps={(row) => ({

@@ -62,8 +62,8 @@ function LeaderboardsLayout() {
     "players"
 
   return (
-    <Tabs value={activeTab} className="flex flex-col gap-6">
-      <TabsList className="w-fit border border-border bg-background/60">
+    <Tabs value={activeTab} className="flex min-w-0 flex-col gap-6">
+      <TabsList className="h-auto w-full flex-wrap justify-start border border-border bg-background/60 sm:w-fit">
         {LEADERBOARD_TAB_OPTIONS.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value} asChild>
             <Link to={tab.to}>{t(tab.labelKey)}</Link>
