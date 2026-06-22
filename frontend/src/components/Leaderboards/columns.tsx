@@ -102,10 +102,10 @@ function metricColumn(
 ): ColumnDef<LeaderboardTableRow> {
   const size =
     accessorKey === "points"
-      ? 116
+      ? 92
       : accessorKey === "unique_map_finishes"
-        ? 84
-        : 92
+        ? 68
+        : 80
 
   return {
     accessorKey,
@@ -156,7 +156,7 @@ export function getLeaderboardColumns(
   return [
     {
       accessorKey: "rank",
-      size: friendsOnly ? 92 : 56,
+      size: friendsOnly ? 92 : 48,
       header: () => <div className="flex w-full justify-center">#</div>,
       cell: ({ row }) => {
         const globalRank =
@@ -184,7 +184,7 @@ export function getLeaderboardColumns(
     },
     {
       accessorKey: "player",
-      size: 216,
+      size: 180,
       header: () => t("labels.player"),
       cell: ({ row }) => (
         <PlayerDisplay player={row.original.playerData} scope={scope} />
@@ -201,7 +201,7 @@ export function getLeaderboardColumns(
     metricColumn("unique_map_finishes", () => t("labels.maps")),
     {
       id: "last_played",
-      size: 112,
+      size: 88,
       header: () => (
         <div className="flex w-full justify-center">
           {t("labels.lastPlayed")}

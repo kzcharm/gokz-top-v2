@@ -646,7 +646,7 @@ export function PlayersLeaderboardTab() {
         </CardContent>
       </Card>
 
-      <Card className="w-full max-w-full min-w-0 gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+      <Card className="w-full max-w-full min-w-0 gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0 md:overflow-visible">
         <CardContent className="min-w-0 p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
@@ -654,7 +654,8 @@ export function PlayersLeaderboardTab() {
             isLoading={leaderboardQuery.isLoading}
             stickyHeader
             stickyHeaderTopClassName="top-0"
-            tableContainerClassName="max-w-full"
+            stickyHeaderOffset={64}
+            tableContainerClassName="max-w-full md:overflow-visible"
             tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             getRowProps={(row) => ({

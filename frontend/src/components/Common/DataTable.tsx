@@ -54,6 +54,8 @@ interface DataTableProps<TData, TValue> {
   emptyText?: string
   stickyHeader?: boolean
   stickyHeaderTopClassName?: string
+  stickyHeaderPinnedClassName?: string
+  stickyHeaderOffset?: number
   tableContainerClassName?: string
   tableClassName?: string
   showFooter?: boolean
@@ -217,6 +219,8 @@ export function DataTable<TData, TValue>({
   emptyText = "No results found.",
   stickyHeader = false,
   stickyHeaderTopClassName = "top-0",
+  stickyHeaderPinnedClassName,
+  stickyHeaderOffset = 0,
   tableContainerClassName,
   tableClassName,
   showFooter = true,
@@ -253,6 +257,7 @@ export function DataTable<TData, TValue>({
   const { t } = useTranslation()
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const stickyHeaderCellRef = useRef<HTMLTableCellElement | null>(null)
+  const isStickyHeaderPinnedRef = useRef(false)
   const [isStickyHeaderPinned, setIsStickyHeaderPinned] = useState(false)
   const paginationState = serverPagination
     ? {
@@ -324,8 +329,19 @@ export function DataTable<TData, TValue>({
 
   useEffect(() => {
     if (!stickyHeader) {
+      isStickyHeaderPinnedRef.current = false
       setIsStickyHeaderPinned(false)
       return
+    }
+
+    let animationFrame: number | null = null
+
+    const setPinnedState = (isPinned: boolean) => {
+      if (isStickyHeaderPinnedRef.current === isPinned) {
+        return
+      }
+      isStickyHeaderPinnedRef.current = isPinned
+      setIsStickyHeaderPinned(isPinned)
     }
 
     const updateStickyHeaderPinnedState = () => {
@@ -333,7 +349,7 @@ export function DataTable<TData, TValue>({
       const stickyHeaderCell = stickyHeaderCellRef.current
 
       if (!container || !stickyHeaderCell) {
-        setIsStickyHeaderPinned(false)
+        setPinnedState(false)
         return
       }
 
@@ -342,25 +358,52 @@ export function DataTable<TData, TValue>({
       )
       const containerRect = container.getBoundingClientRect()
       const stickyHeaderHeight = stickyHeaderCell.getBoundingClientRect().height
+      const stickyOffset = Math.max(0, stickyHeaderOffset)
+      const translateY =
+        stickyOffset > 0
+          ? Math.max(0, stickyOffset - Math.max(containerRect.top, 0))
+          : 0
+      const isWithinStickyRange =
+        containerRect.bottom > stickyOffset + stickyHeaderHeight
 
-      setIsStickyHeaderPinned(
+      container.style.setProperty(
+        "--sticky-header-translate-y",
+        isWithinStickyRange ? `${translateY}px` : "0px",
+      )
+      setPinnedState(
         Number.isFinite(stickyTop) &&
-          containerRect.top <= stickyTop &&
-          containerRect.bottom > stickyTop + stickyHeaderHeight,
+          isWithinStickyRange &&
+          (containerRect.top <= stickyTop || translateY > 0),
       )
     }
 
+    const scheduleStickyHeaderUpdate = () => {
+      if (animationFrame !== null) {
+        return
+      }
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null
+        updateStickyHeaderPinnedState()
+      })
+    }
+
     updateStickyHeaderPinnedState()
-    window.addEventListener("scroll", updateStickyHeaderPinnedState, {
+    window.addEventListener("scroll", scheduleStickyHeaderUpdate, {
       passive: true,
     })
-    window.addEventListener("resize", updateStickyHeaderPinnedState)
+    window.addEventListener("resize", scheduleStickyHeaderUpdate)
 
     return () => {
-      window.removeEventListener("scroll", updateStickyHeaderPinnedState)
-      window.removeEventListener("resize", updateStickyHeaderPinnedState)
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+      tableContainerRef.current?.style.removeProperty(
+        "--sticky-header-translate-y",
+      )
+      window.removeEventListener("scroll", scheduleStickyHeaderUpdate)
+      window.removeEventListener("resize", scheduleStickyHeaderUpdate)
     }
-  }, [stickyHeader])
+  }, [stickyHeader, stickyHeaderOffset])
 
   const commitPageInputValue = () => {
     if (!pageInputEnabled) {
@@ -402,7 +445,12 @@ export function DataTable<TData, TValue>({
                       stickyHeader
                         ? `sticky ${stickyHeaderTopClassName} z-20 bg-muted ${
                             isStickyHeaderPinned
-                              ? "first:rounded-tl-none last:rounded-tr-none"
+                              ? [
+                                  "first:rounded-tl-none last:rounded-tr-none",
+                                  stickyHeaderPinnedClassName,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")
                               : "first:rounded-tl-[27px] last:rounded-tr-[27px]"
                           }`
                         : undefined,
@@ -410,7 +458,15 @@ export function DataTable<TData, TValue>({
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    style={getColumnSizeStyle(header.column.columnDef)}
+                    style={{
+                      ...getColumnSizeStyle(header.column.columnDef),
+                      ...(stickyHeaderOffset > 0
+                        ? {
+                            transform:
+                              "translateY(var(--sticky-header-translate-y, 0px))",
+                          }
+                        : {}),
+                    }}
                   >
                     {header.isPlaceholder
                       ? null
