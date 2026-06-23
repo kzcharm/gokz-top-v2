@@ -75,9 +75,36 @@ def _psycopg_database_uri() -> str:
     )
 
 
+def _runner_advisory_lock_id() -> int:
+    lock_key = "globalapi_sync_runner"
+    return int(hashlib.md5(lock_key.encode()).hexdigest()[:15], 16)
+
+
 def _task_advisory_lock_id(task_name: str) -> int:
     lock_key = f"globalapi_sync_task:{task_name}"
     return int(hashlib.md5(lock_key.encode()).hexdigest()[:15], 16)
+
+
+@asynccontextmanager
+async def _runner_advisory_lock() -> AsyncIterator[bool]:
+    lock_id = _runner_advisory_lock_id()
+    async with await psycopg.AsyncConnection.connect(
+        _psycopg_database_uri(),
+        autocommit=True,
+    ) as connection:
+        async with connection.cursor() as cursor:
+            await cursor.execute("SELECT pg_try_advisory_lock(%s)", (lock_id,))
+            row = await cursor.fetchone()
+        if not row or row[0] is not True:
+            yield False
+            return
+
+        try:
+            yield True
+        finally:
+            with suppress(Exception):
+                async with connection.cursor() as cursor:
+                    await cursor.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
 
 
 @asynccontextmanager
@@ -204,43 +231,50 @@ async def run_globalapi_sync_tasks(
 
     results: dict[str, GlobalApiSyncResult] = {}
     async with _globalapi_sync_run_lock:
-        for task in GLOBALAPI_SYNC_TASKS:
-            if only_stale:
-                async with async_session_maker() as session:
-                    if not await _task_is_stale(
-                        session=session,
-                        task=task,
-                        startup=startup,
-                    ):
-                        continue
+        async with _runner_advisory_lock() as runner_lock_acquired:
+            if not runner_lock_acquired:
+                logger.info(
+                    "Skipping GlobalAPI sync run because another worker holds the advisory lock",
+                )
+                return {}
 
-            try:
-                async with _task_advisory_lock(task.task_name) as lock_acquired:
-                    if not lock_acquired:
-                        logger.info(
-                            "Skipping GlobalAPI sync task %s because another worker holds the advisory lock",
-                            task.task_name,
-                        )
-                        continue
-
-                    await _mark_task_started(task_name=task.task_name)
+            for task in GLOBALAPI_SYNC_TASKS:
+                if only_stale:
                     async with async_session_maker() as session:
-                        result = await task.run(session=session)
+                        if not await _task_is_stale(
+                            session=session,
+                            task=task,
+                            startup=startup,
+                        ):
+                            continue
+
+                try:
+                    async with _task_advisory_lock(task.task_name) as lock_acquired:
+                        if not lock_acquired:
+                            logger.info(
+                                "Skipping GlobalAPI sync task %s because another worker holds the advisory lock",
+                                task.task_name,
+                            )
+                            continue
+
+                        await _mark_task_started(task_name=task.task_name)
+                        async with async_session_maker() as session:
+                            result = await task.run(session=session)
+                        await _mark_task_finished(
+                            task_name=task.task_name,
+                            result=result,
+                            error=None,
+                        )
+                except Exception as exc:
+                    logger.exception("GlobalAPI sync task %s failed", task.task_name)
                     await _mark_task_finished(
                         task_name=task.task_name,
-                        result=result,
-                        error=None,
+                        result=None,
+                        error=exc,
                     )
-            except Exception as exc:
-                logger.exception("GlobalAPI sync task %s failed", task.task_name)
-                await _mark_task_finished(
-                    task_name=task.task_name,
-                    result=None,
-                    error=exc,
-                )
-                continue
+                    continue
 
-            results[task.task_name] = result
+                results[task.task_name] = result
 
     return results
 

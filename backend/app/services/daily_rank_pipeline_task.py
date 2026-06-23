@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
-from collections.abc import Sequence
-from contextlib import suppress
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+import psycopg
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -30,6 +32,43 @@ STEAM_FETCH_BATCH_SIZE = 4
 
 _daily_rank_pipeline_run_lock = asyncio.Lock()
 _daily_rank_pipeline_stop_event: asyncio.Event | None = None
+
+
+def _psycopg_database_uri() -> str:
+    return str(settings.SQLALCHEMY_DATABASE_URI).replace(
+        "postgresql+psycopg",
+        "postgresql",
+        1,
+    )
+
+
+def _advisory_lock_id() -> int:
+    return int(
+        hashlib.md5(f"scheduled_task:{TASK_NAME}".encode()).hexdigest()[:15],
+        16,
+    )
+
+
+@asynccontextmanager
+async def _advisory_lock() -> AsyncIterator[bool]:
+    lock_id = _advisory_lock_id()
+    async with await psycopg.AsyncConnection.connect(
+        _psycopg_database_uri(),
+        autocommit=True,
+    ) as connection:
+        async with connection.cursor() as cursor:
+            await cursor.execute("SELECT pg_try_advisory_lock(%s)", (lock_id,))
+            row = await cursor.fetchone()
+        if not row or row[0] is not True:
+            yield False
+            return
+
+        try:
+            yield True
+        finally:
+            with suppress(Exception):
+                async with connection.cursor() as cursor:
+                    await cursor.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,10 +221,7 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
         }
     )
     steamid64s = sorted(
-        {
-            steamid64
-            for _course_id, _scope_id, _record_type, steamid64 in rows
-        }
+        {steamid64 for _course_id, _scope_id, _record_type, steamid64 in rows}
     )
     map_leaderboard_keys = await crud.load_changed_map_leaderboard_keys(
         session=session,
@@ -279,12 +315,13 @@ async def refresh_daily_rank_player_profiles(
     for batch in _iter_batches(steamid64s, batch_size=STEAM_FETCH_BATCH_SIZE):
         steam_data_by_steamid64 = await crud._fetch_players_from_steam_api(batch)
         for steamid64 in batch:
-            player, was_created = (
-                await crud.create_or_update_player_from_steam_data_if_fetched(
-                    session=session,
-                    steamid64=steamid64,
-                    steam_data=steam_data_by_steamid64.get(steamid64),
-                )
+            (
+                player,
+                was_created,
+            ) = await crud.create_or_update_player_from_steam_data_if_fetched(
+                session=session,
+                steamid64=steamid64,
+                steam_data=steam_data_by_steamid64.get(steamid64),
             )
             if player is None:
                 skipped += 1
@@ -315,7 +352,9 @@ async def refresh_daily_rank_player_friends(
     failed = 0
 
     for steamid64 in steamid64s:
-        player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)
+        player = await crud.get_player_by_steamid64(
+            session=session, steamid64=steamid64
+        )
         if player is None:
             failed += 1
             continue
@@ -339,7 +378,24 @@ async def refresh_daily_rank_player_friends(
     )
 
 
-async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResult | None:
+async def run_daily_rank_pipeline_task(
+    *, only_stale: bool
+) -> ScheduledTaskResult | None:
+    async with _advisory_lock() as lock_acquired:
+        if not lock_acquired:
+            logger.info(
+                "Skipping daily rank pipeline because another worker holds the advisory lock",
+            )
+            return None
+        return await _run_daily_rank_pipeline_task_with_process_lock(
+            only_stale=only_stale,
+        )
+
+
+async def _run_daily_rank_pipeline_task_with_process_lock(
+    *,
+    only_stale: bool,
+) -> ScheduledTaskResult | None:
     if _daily_rank_pipeline_run_lock.locked():
         logger.info("Skipping daily rank pipeline because another run is in progress")
         return None
@@ -373,11 +429,12 @@ async def run_daily_rank_pipeline_task(*, only_stale: bool) -> ScheduledTaskResu
                     "Daily rank pipeline rebuilt PB points updated_rows=%s",
                     points_updated,
                 )
-                leaderboard_created, leaderboard_updated = (
-                    await rebuild_daily_rank_leaderboards(
-                        session=session,
-                        selection=selection,
-                    )
+                (
+                    leaderboard_created,
+                    leaderboard_updated,
+                ) = await rebuild_daily_rank_leaderboards(
+                    session=session,
+                    selection=selection,
                 )
                 logger.info(
                     "Daily rank pipeline rebuilt leaderboard rows created=%s updated=%s",

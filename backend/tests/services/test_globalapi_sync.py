@@ -50,6 +50,18 @@ class _FakeAdvisoryLockConnection:
 
 
 @pytest.fixture(autouse=True)
+def patched_runner_lock(monkeypatch: pytest.MonkeyPatch):
+    original = globalapi_sync._runner_advisory_lock
+
+    @asynccontextmanager
+    async def _lock():
+        yield True
+
+    monkeypatch.setattr(globalapi_sync, "_runner_advisory_lock", _lock)
+    return original
+
+
+@pytest.fixture(autouse=True)
 def patched_task_lock(monkeypatch: pytest.MonkeyPatch):
     original = globalapi_sync._task_advisory_lock
 
@@ -162,6 +174,105 @@ async def test_run_globalapi_sync_tasks_prevents_overlap(
 
     release.set()
     await first_run
+
+
+async def test_run_globalapi_sync_tasks_uses_runner_advisory_lock(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    patched_runner_lock,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    fake_connection = _FakeAdvisoryLockConnection(lock_acquired=True)
+    task_started = False
+
+    async def _fake_connect(
+        dsn: str,
+        autocommit: bool,
+    ) -> _FakeAdvisoryLockConnection:
+        del dsn, autocommit
+        return fake_connection
+
+    async def _task(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal task_started
+        del session
+        task_started = True
+        return GlobalApiSyncResult(processed=1, created=0, updated=0, errors=0)
+
+    monkeypatch.setattr(globalapi_sync, "_runner_advisory_lock", patched_runner_lock)
+    monkeypatch.setattr(
+        globalapi_sync.psycopg.AsyncConnection,
+        "connect",
+        _fake_connect,
+    )
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (globalapi_sync.GlobalApiSyncTask("runner_locked", 0, _task),),
+    )
+
+    await globalapi_sync.run_globalapi_sync_tasks(only_stale=False)
+
+    assert task_started is True
+    assert fake_connection.executed == [
+        (
+            "SELECT pg_try_advisory_lock(%s)",
+            (globalapi_sync._runner_advisory_lock_id(),),
+        ),
+        (
+            "SELECT pg_advisory_unlock(%s)",
+            (globalapi_sync._runner_advisory_lock_id(),),
+        ),
+    ]
+
+
+async def test_run_globalapi_sync_tasks_skips_without_runner_advisory_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    patched_runner_lock,
+) -> None:
+    fake_connection = _FakeAdvisoryLockConnection(lock_acquired=False)
+    task_started = False
+
+    async def _fake_connect(
+        dsn: str,
+        autocommit: bool,
+    ) -> _FakeAdvisoryLockConnection:
+        del dsn, autocommit
+        return fake_connection
+
+    def _unexpected_session_maker():
+        raise AssertionError("staleness checks should not run without the runner lock")
+
+    async def _task(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal task_started
+        del session
+        task_started = True
+        return GlobalApiSyncResult(processed=1, created=0, updated=0, errors=0)
+
+    monkeypatch.setattr(globalapi_sync, "_runner_advisory_lock", patched_runner_lock)
+    monkeypatch.setattr(
+        globalapi_sync.psycopg.AsyncConnection,
+        "connect",
+        _fake_connect,
+    )
+    monkeypatch.setattr(
+        globalapi_sync, "async_session_maker", _unexpected_session_maker
+    )
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (globalapi_sync.GlobalApiSyncTask("runner_locked", 0, _task),),
+    )
+
+    results = await globalapi_sync.run_globalapi_sync_tasks(only_stale=True)
+
+    assert results == {}
+    assert task_started is False
+    assert fake_connection.executed == [
+        (
+            "SELECT pg_try_advisory_lock(%s)",
+            (globalapi_sync._runner_advisory_lock_id(),),
+        ),
+    ]
 
 
 async def test_run_globalapi_sync_tasks_uses_per_task_advisory_lock(
@@ -294,6 +405,7 @@ async def test_run_globalapi_sync_tasks_records_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_session_maker(db=db, monkeypatch=monkeypatch)
+
     async def _task(*, session: AsyncSession) -> GlobalApiSyncResult:
         del session
         return GlobalApiSyncResult(
@@ -360,7 +472,9 @@ async def test_run_globalapi_sync_tasks_honors_per_task_staleness(
     _patch_session_maker(db=db, monkeypatch=monkeypatch)
     calls: list[str] = []
 
-    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "servers"))
+    await db.exec(
+        delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "servers")
+    )
     await db.commit()
 
     fresh_server = GlobalApiSyncState(
@@ -404,7 +518,9 @@ async def test_run_globalapi_sync_tasks_backs_off_recent_failed_tasks(
     now = datetime(2026, 4, 23, 8, 0, tzinfo=UTC)
     calls = 0
 
-    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == task_name))
+    await db.exec(
+        delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == task_name)
+    )
     await db.commit()
     db.add(
         GlobalApiSyncState(
@@ -490,7 +606,10 @@ async def test_globalapi_sync_tasks_include_maps() -> None:
     maps_task = next(
         task for task in globalapi_sync.GLOBALAPI_SYNC_TASKS if task.task_name == "maps"
     )
-    assert maps_task.schedule_hour_utc == globalapi_sync.settings.GLOBALAPI_MAPS_SYNC_HOUR_UTC
+    assert (
+        maps_task.schedule_hour_utc
+        == globalapi_sync.settings.GLOBALAPI_MAPS_SYNC_HOUR_UTC
+    )
     assert (
         maps_task.stale_after_seconds
         == globalapi_sync.settings.GLOBALAPI_MAPS_SYNC_STALE_AFTER_SECONDS
@@ -504,7 +623,9 @@ async def test_run_globalapi_sync_tasks_runs_scheduled_maps_after_configured_hou
     _patch_session_maker(db=db, monkeypatch=monkeypatch)
     calls = 0
     now = datetime(2026, 4, 4, 1, 5, tzinfo=UTC)
-    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "maps"))
+    await db.exec(
+        delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "maps")
+    )
     await db.commit()
 
     db.add(
@@ -547,7 +668,9 @@ async def test_run_globalapi_sync_tasks_runs_maps_on_startup_when_stale(
     _patch_session_maker(db=db, monkeypatch=monkeypatch)
     calls = 0
     now = datetime(2026, 4, 4, 0, 30, tzinfo=UTC)
-    await db.exec(delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "maps"))
+    await db.exec(
+        delete(GlobalApiSyncState).where(GlobalApiSyncState.task_name == "maps")
+    )
     await db.commit()
 
     db.add(

@@ -1,4 +1,6 @@
-from collections.abc import AsyncGenerator
+from __future__ import annotations
+
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -25,6 +27,50 @@ from tests.utils.utils import random_steamid64
 pytestmark = pytest.mark.asyncio
 
 
+class _FakeAdvisoryLockCursor:
+    def __init__(self, connection: _FakeAdvisoryLockConnection) -> None:
+        self._connection = connection
+
+    async def __aenter__(self) -> _FakeAdvisoryLockCursor:
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    async def execute(self, query: str, params: tuple[int] | None = None) -> None:
+        self._connection.executed.append((query, params))
+
+    async def fetchone(self) -> tuple[bool]:
+        return (self._connection.lock_acquired,)
+
+
+class _FakeAdvisoryLockConnection:
+    def __init__(self, *, lock_acquired: bool) -> None:
+        self.lock_acquired = lock_acquired
+        self.executed: list[tuple[str, tuple[int] | None]] = []
+
+    async def __aenter__(self) -> _FakeAdvisoryLockConnection:
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    def cursor(self) -> _FakeAdvisoryLockCursor:
+        return _FakeAdvisoryLockCursor(self)
+
+
+@pytest.fixture(autouse=True)
+def patched_advisory_lock(monkeypatch: pytest.MonkeyPatch):
+    original = daily_rank_pipeline_task._advisory_lock
+
+    @asynccontextmanager
+    async def _lock() -> AsyncIterator[bool]:
+        yield True
+
+    monkeypatch.setattr(daily_rank_pipeline_task, "_advisory_lock", _lock)
+    return original
+
+
 def _patch_session_maker(
     *,
     db: AsyncSession,
@@ -35,6 +81,171 @@ def _patch_session_maker(
         yield db
 
     monkeypatch.setattr(daily_rank_pipeline_task, "async_session_maker", _session_maker)
+
+
+async def test_run_daily_rank_pipeline_task_uses_advisory_lock(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    patched_advisory_lock,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    fake_connection = _FakeAdvisoryLockConnection(lock_acquired=True)
+
+    async def _fake_connect(
+        dsn: str,
+        autocommit: bool,
+    ) -> _FakeAdvisoryLockConnection:
+        del dsn, autocommit
+        return fake_connection
+
+    selection = daily_rank_pipeline_task.DailyRankSelection(
+        window_start=datetime(2099, 4, 3, 0, 0, tzinfo=UTC),
+        window_end=datetime(2099, 4, 4, 0, 0, tzinfo=UTC),
+        pb_row_count=1,
+        point_buckets=[],
+        leaderboard_keys=[],
+        map_leaderboard_keys=[],
+        map_stat_keys=[],
+        steamid64s=[],
+    )
+
+    async def _load_selection(
+        *,
+        session: AsyncSession,
+    ) -> daily_rank_pipeline_task.DailyRankSelection:
+        del session
+        return selection
+
+    async def _rebuild_points(
+        *,
+        session: AsyncSession,
+        selection: daily_rank_pipeline_task.DailyRankSelection,
+    ) -> int:
+        del session, selection
+        return 0
+
+    async def _rebuild_leaderboard(
+        *,
+        session: AsyncSession,
+        selection: daily_rank_pipeline_task.DailyRankSelection,
+    ) -> tuple[int, int]:
+        del session, selection
+        return (0, 0)
+
+    async def _refresh_profiles(
+        *,
+        session: AsyncSession,
+        steamid64s: list[int],
+    ) -> daily_rank_pipeline_task.SteamRefreshResult:
+        del session, steamid64s
+        return daily_rank_pipeline_task.SteamRefreshResult()
+
+    async def _refresh_friends(
+        *,
+        session: AsyncSession,
+        steamid64s: list[int],
+    ) -> daily_rank_pipeline_task.FriendRefreshResult:
+        del session, steamid64s
+        return daily_rank_pipeline_task.FriendRefreshResult()
+
+    monkeypatch.setattr(
+        daily_rank_pipeline_task, "_advisory_lock", patched_advisory_lock
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task.psycopg.AsyncConnection,
+        "connect",
+        _fake_connect,
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task, "load_daily_rank_selection", _load_selection
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task, "rebuild_daily_rank_points", _rebuild_points
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "rebuild_daily_rank_leaderboards",
+        _rebuild_leaderboard,
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "rebuild_daily_rank_map_leaderboards",
+        _rebuild_points,
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "rebuild_daily_rank_map_stats",
+        _rebuild_points,
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "refresh_daily_rank_player_profiles",
+        _refresh_profiles,
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "refresh_daily_rank_player_friends",
+        _refresh_friends,
+    )
+
+    result = await daily_rank_pipeline_task.run_daily_rank_pipeline_task(
+        only_stale=False
+    )
+
+    assert result is not None
+    assert fake_connection.executed == [
+        (
+            "SELECT pg_try_advisory_lock(%s)",
+            (daily_rank_pipeline_task._advisory_lock_id(),),
+        ),
+        (
+            "SELECT pg_advisory_unlock(%s)",
+            (daily_rank_pipeline_task._advisory_lock_id(),),
+        ),
+    ]
+
+
+async def test_run_daily_rank_pipeline_task_skips_without_advisory_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    patched_advisory_lock,
+) -> None:
+    fake_connection = _FakeAdvisoryLockConnection(lock_acquired=False)
+
+    async def _fake_connect(
+        dsn: str,
+        autocommit: bool,
+    ) -> _FakeAdvisoryLockConnection:
+        del dsn, autocommit
+        return fake_connection
+
+    def _unexpected_session_maker():
+        raise AssertionError("staleness checks should not run without the task lock")
+
+    monkeypatch.setattr(
+        daily_rank_pipeline_task, "_advisory_lock", patched_advisory_lock
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task.psycopg.AsyncConnection,
+        "connect",
+        _fake_connect,
+    )
+    monkeypatch.setattr(
+        daily_rank_pipeline_task,
+        "async_session_maker",
+        _unexpected_session_maker,
+    )
+
+    result = await daily_rank_pipeline_task.run_daily_rank_pipeline_task(
+        only_stale=True
+    )
+
+    assert result is None
+    assert fake_connection.executed == [
+        (
+            "SELECT pg_try_advisory_lock(%s)",
+            (daily_rank_pipeline_task._advisory_lock_id(),),
+        ),
+    ]
 
 
 async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None:
@@ -158,7 +369,9 @@ async def test_load_daily_rank_selection_uses_previous_utc_day_window(
     assert len(record_rows) == 3
     assert len(record_pbs) == 8
     record_pbs_by_steamid64 = {
-        steamid64: [record_pb for record_pb in record_pbs if record_pb.steamid64 == steamid64]
+        steamid64: [
+            record_pb for record_pb in record_pbs if record_pb.steamid64 == steamid64
+        ]
         for steamid64 in (lower_bound_player, middle_player, upper_bound_player)
     }
     records_by_steamid64 = {record.steamid64: record for record in record_rows}
@@ -261,7 +474,9 @@ async def test_load_daily_rank_selection_ignores_record_pb_updated_at_window_mis
     record_pbs = (await db.exec(select(RecordPb))).all()
     assert len(record_pbs) == 6
     record_pbs_by_steamid64 = {
-        steamid64: [record_pb for record_pb in record_pbs if record_pb.steamid64 == steamid64]
+        steamid64: [
+            record_pb for record_pb in record_pbs if record_pb.steamid64 == steamid64
+        ]
         for steamid64 in (excluded_player, included_player)
     }
     for record_pb in record_pbs_by_steamid64[excluded_player]:
