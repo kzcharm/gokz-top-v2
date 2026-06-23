@@ -252,7 +252,9 @@ async def _fetch_record_once(
     record_id: int,
 ) -> RecordFetchResult:
     try:
-        response = await client.get(f"{settings.GLOBALAPI_BASE_URL}/records/{record_id}")
+        response = await client.get(
+            f"{settings.GLOBALAPI_BASE_URL}/records/{record_id}"
+        )
     except httpx.TransportError as exc:
         raise GlobalApiRecordSyncTransientError(
             f"Transient failure while fetching record {record_id} from GlobalAPI"
@@ -436,12 +438,17 @@ async def _ensure_player(
         if steam_name and steam_name != str(steamid64)
         else player_name or str(steamid64)
     )
+    assignable_custom_id = await crud._get_assignable_custom_id(
+        session=session,
+        player_steamid64=steamid64,
+        custom_id=steam_data.get("custom_id"),
+    )
 
     if player is None:
         player = Player(
             steamid64=steamid64,
             name=resolved_name,
-            custom_id=crud.normalize_custom_id(steam_data.get("custom_id")),
+            custom_id=assignable_custom_id,
             avatar_hash=steam_data.get("avatar_hash"),
             country=steam_data.get("country"),
             created_at=created_on,
@@ -458,10 +465,8 @@ async def _ensure_player(
         resolved_player_name = steam_name
 
     resolved_custom_id = player.custom_id
-    if steam_data.get("custom_id") and player.custom_id is None:
-        normalized_custom_id = crud.normalize_custom_id(steam_data["custom_id"])
-        if normalized_custom_id:
-            resolved_custom_id = normalized_custom_id
+    if assignable_custom_id is not None and player.custom_id is None:
+        resolved_custom_id = assignable_custom_id
 
     resolved_avatar_hash = player.avatar_hash
     if steam_data.get("avatar_hash"):
@@ -637,16 +642,17 @@ async def _backfill_missing_records_in_db_range(
     attempted_missing_ids = 0
 
     while cursor <= max_record_id and attempted_missing_ids < MISSING_ID_ATTEMPT_LIMIT:
-        missing_record_ids, has_missing_record_ids = (
-            await _find_due_missing_record_ids_in_db_range(
-                session=session,
-                start_id=cursor,
-                end_id=max_record_id,
-                limit=min(
-                    MISSING_IDS_BATCH_SIZE,
-                    MISSING_ID_ATTEMPT_LIMIT - attempted_missing_ids,
-                ),
-            )
+        (
+            missing_record_ids,
+            has_missing_record_ids,
+        ) = await _find_due_missing_record_ids_in_db_range(
+            session=session,
+            start_id=cursor,
+            end_id=max_record_id,
+            limit=min(
+                MISSING_IDS_BATCH_SIZE,
+                MISSING_ID_ATTEMPT_LIMIT - attempted_missing_ids,
+            ),
         )
         if not missing_record_ids:
             if not has_missing_record_ids and (
@@ -798,14 +804,16 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                     max_record_id=max_record_id,
                 )
             else:
-                backfill_result, cursor, backfill_complete = (
-                    await _backfill_missing_records_in_db_range(
-                        session=session,
-                        client=client,
-                        state=state,
-                        start_cursor=backfill_cursor,
-                        max_record_id=max_record_id,
-                    )
+                (
+                    backfill_result,
+                    cursor,
+                    backfill_complete,
+                ) = await _backfill_missing_records_in_db_range(
+                    session=session,
+                    client=client,
+                    state=state,
+                    start_cursor=backfill_cursor,
+                    max_record_id=max_record_id,
                 )
                 processed += backfill_result.processed
                 created += backfill_result.created
@@ -833,7 +841,9 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
 
         while True:
             logger.debug("Fetching GlobalAPI record record_id=%s", cursor)
-            fetch_result = await _fetch_record_with_retry(client=client, record_id=cursor)
+            fetch_result = await _fetch_record_with_retry(
+                client=client, record_id=cursor
+            )
             if fetch_result.kind == "record":
                 hydrated_payload = await _hydrate_main_stage_points_from_top(
                     client=client,

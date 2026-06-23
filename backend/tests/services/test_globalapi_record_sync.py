@@ -662,6 +662,70 @@ async def test_sync_records_from_globalapi_discards_overlong_custom_id(
     assert player.custom_id is None
 
 
+async def test_sync_records_from_globalapi_ignores_colliding_custom_id(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record_id = 998200
+    await _set_records_cursor(db, record_id)
+    await _delete_record_by_id(db, record_id=record_id)
+    owner_steamid64 = random_steamid64()
+    syncing_steamid64 = random_steamid64()
+    db.add(
+        Player(
+            steamid64=owner_steamid64,
+            name="Existing Owner",
+            custom_id="sanitar3301",
+        )
+    )
+    db.add(Player(steamid64=syncing_steamid64, name=str(syncing_steamid64)))
+    await db.commit()
+    payload = _build_payload(
+        record_id=record_id,
+        steamid64=syncing_steamid64,
+        points=750,
+    )
+
+    async def _fake_fetch(
+        *, client: object, record_id: int
+    ) -> record_sync.RecordFetchResult:
+        del client
+        if record_id == payload["id"]:
+            return record_sync.RecordFetchResult(kind="record", payload=payload)
+        return record_sync.RecordFetchResult(kind="null")
+
+    async def _fake_player_fetch(_steamid64: int) -> dict[str, str | None]:
+        return {
+            "name": "Steam Runner",
+            "custom_id": "sanitar3301",
+            "avatar_hash": "a" * 40,
+            "country": "DE",
+        }
+
+    async def _no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", _fake_fetch)
+    monkeypatch.setattr(
+        record_sync.crud, "_fetch_player_from_steam_api", _fake_player_fetch
+    )
+    monkeypatch.setattr(record_sync.asyncio, "sleep", _no_sleep)
+
+    result = await record_sync.sync_records_from_globalapi(session=db)
+
+    assert result.processed == 1
+    assert result.created == 1
+    assert result.errors == 0
+
+    owner = await db.get(Player, owner_steamid64)
+    synced_player = await db.get(Player, syncing_steamid64)
+    assert owner is not None
+    assert owner.custom_id == "sanitar3301"
+    assert synced_player is not None
+    assert synced_player.custom_id is None
+    assert synced_player.name == "Steam Runner"
+
+
 async def test_sync_records_from_globalapi_probes_next_ids_after_null(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
