@@ -30,6 +30,7 @@ import { formatRecordTime, type RecentRecord } from "./utils"
 
 interface RecentRecordsTableProps {
   records: RecentRecord[]
+  emptyMessage?: string
   renderAdminActions?: (record: RecentRecord) => ReactNode
 }
 
@@ -188,6 +189,7 @@ function RecentRecordsTableRow({
 }
 
 export function RecentRecordsTable({
+  emptyMessage = "No recent records yet.",
   records,
   renderAdminActions,
 }: RecentRecordsTableProps) {
@@ -254,7 +256,7 @@ export function RecentRecordsTable({
                   colSpan={renderAdminActions ? 11 : 10}
                   className="h-32 text-center text-muted-foreground"
                 >
-                  No recent records yet.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}

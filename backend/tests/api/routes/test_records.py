@@ -501,7 +501,7 @@ async def test_read_recent_records_v1_rejects_limit_above_max(
 ) -> None:
     response = await client.get(
         f"{settings.API_V1_STR}/records/recent",
-        params={"limit": 10001},
+        params={"limit": 100001},
     )
 
     assert response.status_code == 422
@@ -581,6 +581,179 @@ async def test_read_recent_records_v1_scope_points_and_pro_filters(
     assert points_by_id[pb_pro.id] == 1000
     assert points_by_id[pb_nub.id] == 1000
     assert points_by_id[non_pb_nub.id] == 0
+
+
+async def test_read_recent_records_v1_filters_by_record_context(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_records(db)
+    player_id = random_steamid64()
+    await _seed_record_dependencies(db, players=[(player_id, "Context Runner")])
+    await _create_map(db, id=980201, name="kz_recent_beta", difficulty=7)
+    await _create_record_filter(
+        db,
+        id=980501,
+        map_id=980200,
+        stage=0,
+        mode_id=200,
+        tier=4,
+    )
+    await _create_record_filter(
+        db,
+        id=980502,
+        map_id=980200,
+        stage=2,
+        mode_id=201,
+        tier=6,
+    )
+    await _create_record_filter(
+        db,
+        id=980503,
+        map_id=980201,
+        stage=0,
+        mode_id=200,
+        tier=7,
+    )
+
+    pro_record = await _create_record(
+        db,
+        id=980470,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+        created_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+    )
+    skz_nub_record = await _create_record(
+        db,
+        id=980471,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=201,
+        map_id=980200,
+        stage=2,
+        time="21.000",
+        teleports=4,
+        created_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+    )
+    beta_nub_record = await _create_record(
+        db,
+        id=980472,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980201,
+        stage=0,
+        time="22.000",
+        teleports=5,
+        created_on=datetime(2026, 3, 30, 12, 2, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 2, tzinfo=UTC),
+    )
+    non_pb_record = await _create_record(
+        db,
+        id=980473,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="23.000",
+        teleports=6,
+        created_on=datetime(2026, 3, 30, 12, 3, tzinfo=UTC),
+        updated_on=datetime(2026, 3, 30, 12, 3, tzinfo=UTC),
+    )
+
+    for record, record_type, points in (
+        (pro_record, RecordType.PRO, 1000),
+        (skz_nub_record, RecordType.NUB, 850),
+        (beta_nub_record, RecordType.NUB, 950),
+    ):
+        record_pb = (
+            await db.exec(
+                select(RecordPb).where(
+                    RecordPb.record_uuid == record.uuid,
+                    RecordPb.scope == ModeScope.OVR,
+                    RecordPb.type == record_type,
+                )
+            )
+        ).one()
+        record_pb.points = points
+        db.add(record_pb)
+    await db.commit()
+
+    cases: list[tuple[dict[str, str | int], list[int | None]]] = [
+        ({"mode": "SKZ"}, [skz_nub_record.id]),
+        ({"map_id": 980201}, [beta_nub_record.id]),
+        ({"stage": 2}, [skz_nub_record.id]),
+        ({"is_bonus": "true"}, [skz_nub_record.id]),
+        ({"is_bonus": "false"}, [non_pb_record.id, beta_nub_record.id, pro_record.id]),
+        ({"tier": 6}, [skz_nub_record.id]),
+        ({"type": "PRO"}, [pro_record.id]),
+        (
+            {"points_more_or_equal_than": 800, "points_less_or_equal_than": 899},
+            [skz_nub_record.id],
+        ),
+        (
+            {"points_more_or_equal_than": 900, "points_less_or_equal_than": 999},
+            [beta_nub_record.id],
+        ),
+        (
+            {"points_more_or_equal_than": 1000, "points_less_or_equal_than": 1000},
+            [pro_record.id],
+        ),
+        (
+            {
+                "mode": "SKZ",
+                "map_id": 980200,
+                "stage": 2,
+                "tier": 6,
+                "type": "NUB",
+                "points_more_or_equal_than": 800,
+                "points_less_or_equal_than": 899,
+            },
+            [skz_nub_record.id],
+        ),
+    ]
+
+    for params, expected_ids in cases:
+        response = await client.get(
+            f"{settings.API_V1_STR}/records/recent",
+            params=params,
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert [row["id"] for row in payload["data"]] == expected_ids
+        assert payload["count"] == len(expected_ids)
+
+    positive_response = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"points_more_or_equal_than": 1},
+    )
+    assert positive_response.status_code == 200
+    positive_ids = [row["id"] for row in positive_response.json()["data"]]
+    assert non_pb_record.id not in positive_ids
+
+
+async def test_read_recent_records_v1_rejects_invalid_filter_bounds(
+    client: AsyncClient,
+) -> None:
+    for params in (
+        {"map_id": 0},
+        {"stage": -1},
+        {"tier": 9},
+        {"points_less_or_equal_than": 1001},
+    ):
+        response = await client.get(
+            f"{settings.API_V1_STR}/records/recent",
+            params=params,
+        )
+        assert response.status_code == 422
 
 
 async def test_patch_record_v1_updates_validity(

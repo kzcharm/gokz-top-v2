@@ -19,6 +19,7 @@ interface ModeSelectorProps {
   className?: string
   triggerClassName?: string
   ariaLabel?: string
+  showAllLabelInTrigger?: boolean
 }
 
 export function ModeSelector({
@@ -28,6 +29,7 @@ export function ModeSelector({
   className,
   triggerClassName,
   ariaLabel = "Filter by mode",
+  showAllLabelInTrigger = false,
 }: ModeSelectorProps) {
   const isAllSelected = value === "all"
   const selectedLabel = isAllSelected
@@ -45,13 +47,18 @@ export function ModeSelector({
       <SelectTrigger
         aria-label={ariaLabel}
         className={cn(
-          "h-8 w-12 min-w-12 justify-center px-1 text-[11px]",
+          "h-8 w-12 min-w-12 px-1 text-[11px]",
+          showAllLabelInTrigger ? "justify-between px-3" : "justify-center",
           triggerClassName,
         )}
-        showChevron={false}
+        showChevron={showAllLabelInTrigger}
       >
         {isAllSelected ? (
-          <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+          showAllLabelInTrigger ? (
+            <span>{allLabel}</span>
+          ) : (
+            <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+          )
         ) : (
           <ModeBadge mode={selectedLabel} className="w-full px-0 text-[11px]" />
         )}

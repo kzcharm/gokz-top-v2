@@ -99,7 +99,7 @@ def _get_friends_only_viewer_steamid64(
 async def read_maps(
     session: SessionDep,
     offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=10000)] = 100,
+    limit: Annotated[int, Query(ge=1, le=100000)] = 100,
     id: Annotated[list[int] | None, Query()] = None,
     name: Annotated[str | None, Query()] = None,
     larger_than_filesize: Annotated[int | None, Query()] = None,

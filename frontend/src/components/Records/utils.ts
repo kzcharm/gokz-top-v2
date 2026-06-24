@@ -58,6 +58,17 @@ export type RecentRecordRealtimeEvent =
       record: RecentRecord
     }
 
+export interface RecentRecordsFilters {
+  mode?: string | null
+  mapId?: number | null
+  stage?: number | null
+  isBonus?: boolean | null
+  tier?: number | null
+  type?: "NUB" | "PRO" | null
+  minPoints?: number | null
+  maxPoints?: number | null
+}
+
 export function buildRecentRecordsWebSocketUrl() {
   const configuredBase = OpenAPI.BASE || window.location.origin
   const baseUrl = new URL(configuredBase, window.location.origin)
@@ -123,13 +134,41 @@ export function formatRecordTime(seconds: number) {
   return `${minutes}:${secondPart.padStart(6, "0")}`
 }
 
-export async function fetchRecentRecords(limit = RECENT_RECORDS_LIVE_LIMIT) {
+export async function fetchRecentRecords(
+  limit = RECENT_RECORDS_LIVE_LIMIT,
+  filters: RecentRecordsFilters = {},
+) {
   const configuredBase = OpenAPI.BASE || window.location.origin
   const baseUrl = new URL(configuredBase, window.location.origin)
   const normalizedPath =
     baseUrl.pathname === "/" ? "" : baseUrl.pathname.replace(/\/$/, "")
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (filters.mode) {
+    params.set("mode", filters.mode)
+  }
+  if (filters.mapId) {
+    params.set("map_id", String(filters.mapId))
+  }
+  if (filters.stage !== null && filters.stage !== undefined) {
+    params.set("stage", String(filters.stage))
+  }
+  if (filters.isBonus !== null && filters.isBonus !== undefined) {
+    params.set("is_bonus", String(filters.isBonus))
+  }
+  if (filters.tier !== null && filters.tier !== undefined) {
+    params.set("tier", String(filters.tier))
+  }
+  if (filters.type) {
+    params.set("type", filters.type)
+  }
+  if (filters.minPoints !== null && filters.minPoints !== undefined) {
+    params.set("points_more_or_equal_than", String(filters.minPoints))
+  }
+  if (filters.maxPoints !== null && filters.maxPoints !== undefined) {
+    params.set("points_less_or_equal_than", String(filters.maxPoints))
+  }
   const response = await fetch(
-    `${baseUrl.origin}${normalizedPath}/v1/records/recent?limit=${limit}`,
+    `${baseUrl.origin}${normalizedPath}/v1/records/recent?${params.toString()}`,
     {
       credentials: "include",
       headers: {

@@ -700,9 +700,15 @@ class RecentRecordsPublic(SQLModel):
 
 class RecentRecordListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=50, ge=1, le=10000)
+    limit: int = Field(default=50, ge=1, le=100000)
     scope: ModeScope = ModeScope.OVR
+    mode: KZMode | None = None
+    map_id: int | None = Field(default=None, ge=1)
+    stage: int | None = Field(default=None, ge=0)
+    is_bonus: bool | None = None
+    tier: int | None = Field(default=None, ge=0, le=8)
     points_more_or_equal_than: int | None = Field(default=None, ge=0, le=1000)
+    points_less_or_equal_than: int | None = Field(default=None, ge=0, le=1000)
     type: RecordType | None = None
     is_pro_only: bool | None = None
 

@@ -33,6 +33,7 @@ interface TierSelectorProps {
   className?: string
   triggerClassName?: string
   ariaLabel?: string
+  showAllLabelInTrigger?: boolean
 }
 
 function TierSelectorValueContent({
@@ -71,6 +72,7 @@ export function TierSelector({
   className,
   triggerClassName,
   ariaLabel,
+  showAllLabelInTrigger = false,
 }: TierSelectorProps) {
   const { t } = useTranslation()
   const resolvedAllLabel = allLabel ?? t("common.tier")
@@ -89,13 +91,18 @@ export function TierSelector({
       <SelectTrigger
         aria-label={resolvedAriaLabel}
         className={cn(
-          "h-8 w-11 min-w-11 justify-center px-1 text-[11px]",
+          "h-8 w-11 min-w-11 px-1 text-[11px]",
+          showAllLabelInTrigger ? "justify-between px-3" : "justify-center",
           triggerClassName,
         )}
-        showChevron={false}
+        showChevron={showAllLabelInTrigger}
       >
         {isAllSelected ? (
-          <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+          showAllLabelInTrigger ? (
+            <span>{resolvedAllLabel}</span>
+          ) : (
+            <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+          )
         ) : (
           <TierSelectorValueContent
             value={value}

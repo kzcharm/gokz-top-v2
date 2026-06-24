@@ -29,6 +29,7 @@ from app.models import (
     Ban,
     Map,
     MapCourse,
+    MapCourseTier,
     MapPbLeaderboardPublic,
     MapWrPublic,
     Mode,
@@ -1727,6 +1728,47 @@ async def read_recent_records(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=scoped_points,
     )
+
+    scoped_tier = (
+        select(func.coalesce(func.min(func.nullif(MapCourseTier.tier, 0)), 0))
+        .select_from(MapCourse)
+        .join(MapCourseTier, col(MapCourseTier.course_id) == col(MapCourse.id))
+        .where(
+            col(MapCourse.map_id) == col(Record.map_id),
+            col(MapCourse.stage) == col(Record.stage),
+            col(MapCourseTier.mode).in_(list(mode_scope_modes(query.scope))),
+        )
+        .correlate(Record)
+        .scalar_subquery()
+    )
+
+    def apply_recent_record_filters(statement: Any) -> Any:
+        if requested_record_type is RecordType.PRO or query.is_pro_only is True:
+            statement = statement.where(col(Record.teleports) == 0)
+        elif requested_record_type is RecordType.NUB:
+            statement = statement.where(col(Record.teleports) > 0)
+        if query.mode is not None:
+            statement = statement.where(col(Record.mode) == query.mode)
+        if query.map_id is not None:
+            statement = statement.where(col(Record.map_id) == query.map_id)
+        if query.stage is not None:
+            statement = statement.where(col(Record.stage) == query.stage)
+        if query.is_bonus is True:
+            statement = statement.where(col(Record.stage) > 0)
+        elif query.is_bonus is False:
+            statement = statement.where(col(Record.stage) == 0)
+        if query.tier is not None:
+            statement = statement.where(scoped_tier == query.tier)
+        if query.points_more_or_equal_than is not None:
+            statement = statement.where(
+                public_scoped_points >= query.points_more_or_equal_than
+            )
+        if query.points_less_or_equal_than is not None:
+            statement = statement.where(
+                public_scoped_points <= query.points_less_or_equal_than
+            )
+        return statement
+
     statement = (
         select(
             Record,
@@ -1760,52 +1802,20 @@ async def read_recent_records(
         )
         .where(col(Record.is_valid).is_(True))
     )
-    if requested_record_type is RecordType.PRO or query.is_pro_only is True:
-        statement = statement.where(col(Record.teleports) == 0)
-    elif requested_record_type is RecordType.NUB:
-        statement = statement.where(col(Record.teleports) > 0)
-    if query.points_more_or_equal_than is not None:
-        statement = statement.where(
-            public_scoped_points >= query.points_more_or_equal_than
-        )
+    statement = apply_recent_record_filters(statement)
 
-    if (
-        query.points_more_or_equal_than is None
+    is_unfiltered_recent_query = (
+        query.scope is ModeScope.OVR
+        and query.mode is None
+        and query.map_id is None
+        and query.stage is None
+        and query.is_bonus is None
+        and query.tier is None
+        and query.points_more_or_equal_than is None
+        and query.points_less_or_equal_than is None
         and query.is_pro_only is not True
         and requested_record_type is None
-    ):
-        count = await _estimate_record_count(session=session, is_valid=True)
-    else:
-        count_statement = (
-            select(func.count())
-            .select_from(Record)
-            .outerjoin(
-                pro_pb,
-                and_(
-                    pro_pb.record_uuid == Record.uuid,
-                    pro_pb.scope == query.scope,
-                    pro_pb.type == RecordType.PRO,
-                ),
-            )
-            .outerjoin(
-                ovr_pb,
-                and_(
-                    ovr_pb.record_uuid == Record.uuid,
-                    ovr_pb.scope == query.scope,
-                    ovr_pb.type == RecordType.NUB,
-                ),
-            )
-            .where(col(Record.is_valid).is_(True))
-        )
-        if requested_record_type is RecordType.PRO or query.is_pro_only is True:
-            count_statement = count_statement.where(col(Record.teleports) == 0)
-        elif requested_record_type is RecordType.NUB:
-            count_statement = count_statement.where(col(Record.teleports) > 0)
-        if query.points_more_or_equal_than is not None:
-            count_statement = count_statement.where(
-                public_scoped_points >= query.points_more_or_equal_than
-            )
-        count = (await session.exec(count_statement)).one()
+    )
 
     rows = (
         await session.exec(
@@ -1818,6 +1828,10 @@ async def read_recent_records(
             .limit(query.limit)
         )
     ).all()
+    if is_unfiltered_recent_query:
+        count = await _estimate_record_count(session=session, is_valid=True)
+    else:
+        count = query.offset + len(rows)
     tiers_by_course = await _load_scoped_record_tiers(
         session=session,
         record_courses=[
