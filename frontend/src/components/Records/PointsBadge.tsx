@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 interface PointsBadgeProps {
   points: number
   className?: string
+  label?: string
 }
 
 function getPointsToneClassName(points: number) {
@@ -26,7 +27,7 @@ function getPointsToneClassName(points: number) {
   return "bg-slate-100 text-slate-600 ring-1 ring-slate-300"
 }
 
-export function PointsBadge({ points, className }: PointsBadgeProps) {
+export function PointsBadge({ points, className, label }: PointsBadgeProps) {
   return (
     <Badge
       className={cn(
@@ -35,7 +36,7 @@ export function PointsBadge({ points, className }: PointsBadgeProps) {
         className,
       )}
     >
-      {points}
+      {label ?? points}
     </Badge>
   )
 }

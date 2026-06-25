@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 interface TeleportsBadgeProps {
   teleports: number
   className?: string
+  label?: string
 }
 
 export function formatCompactCount(value: number) {
@@ -26,7 +27,11 @@ export function formatCompactCount(value: number) {
   return "999M"
 }
 
-export function TeleportsBadge({ teleports, className }: TeleportsBadgeProps) {
+export function TeleportsBadge({
+  teleports,
+  className,
+  label,
+}: TeleportsBadgeProps) {
   const hasTeleports = teleports > 0
 
   return (
@@ -40,7 +45,7 @@ export function TeleportsBadge({ teleports, className }: TeleportsBadgeProps) {
         backgroundColor: hasTeleports ? "#f2c40f" : "#3598db",
       }}
     >
-      {formatCompactCount(teleports)}
+      {label ?? formatCompactCount(teleports)}
     </Badge>
   )
 }

@@ -31,7 +31,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
@@ -41,7 +40,10 @@ import {
   DeleteCourseRecordsButton,
   useRecordAdminActions,
 } from "./admin-actions"
+import { PointsBadge } from "./PointsBadge"
 import { RecentRecordsTable } from "./RecentRecordsTable"
+import { StageBadge } from "./StageBadge"
+import { TeleportsBadge } from "./TeleportsBadge"
 import {
   buildRecentRecordsWebSocketUrl,
   compareRecentRecords,
@@ -61,6 +63,75 @@ const STAGE_FILTER_OPTIONS: Array<{ label: string; value: StageFilter }> = [
   { label: "Main", value: "main" },
   { label: "Bonus", value: "bonus" },
 ]
+
+const RECORD_TYPE_FILTER_OPTIONS: Array<{
+  label: string
+  teleports: number
+  value: RecordTypeFilter
+}> = [
+  { label: "NUB", teleports: 1, value: "NUB" },
+  { label: "PRO", teleports: 0, value: "PRO" },
+]
+
+const POINTS_FILTER_OPTIONS: Array<{
+  label: string
+  points: number
+  value: PointsFilter
+}> = [
+  { label: "PB", points: 1, value: "pb" },
+  { label: "800+", points: 800, value: "800-plus" },
+  { label: "900+", points: 900, value: "900-plus" },
+  { label: "WR", points: 1000, value: "wr" },
+]
+
+function StageFilterContent({ value }: { value: StageFilter }) {
+  if (value === "all") {
+    return <span>Stage</span>
+  }
+
+  const option = STAGE_FILTER_OPTIONS.find((item) => item.value === value)
+  const stage = value === "main" ? 0 : 1
+
+  return (
+    <StageBadge
+      stage={stage}
+      label={option?.label}
+      className="min-w-16 justify-center px-2 py-0.5 text-[11px]"
+    />
+  )
+}
+
+function RecordTypeFilterContent({ value }: { value: RecordTypeFilter }) {
+  if (value === "all") {
+    return <span>NUB / PRO</span>
+  }
+
+  const option = RECORD_TYPE_FILTER_OPTIONS.find((item) => item.value === value)
+
+  return option ? (
+    <TeleportsBadge
+      teleports={option.teleports}
+      label={option.label}
+      className="text-[11px]"
+    />
+  ) : null
+}
+
+function PointsFilterContent({ value }: { value: PointsFilter }) {
+  if (value === "all") {
+    return <span>Points</span>
+  }
+
+  const option = POINTS_FILTER_OPTIONS.find((item) => item.value === value)
+
+  return option ? (
+    <PointsBadge
+      points={option.points}
+      label={option.label}
+      className="text-[11px]"
+    />
+  ) : null
+}
 
 function getPointsFilterBounds(pointsFilter: PointsFilter) {
   switch (pointsFilter) {
@@ -429,13 +500,17 @@ export function RecentRecordsPanel() {
                 aria-label="Filter recent records by stage"
                 className="h-8 w-full border-border/70 bg-background/80 text-xs sm:w-28"
               >
-                <SelectValue />
+                <StageFilterContent value={selectedStage} />
               </SelectTrigger>
               <SelectContent align="start">
                 <SelectItem value="all">Stage</SelectItem>
                 {STAGE_FILTER_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    textValue={option.label}
+                  >
+                    <StageFilterContent value={option.value} />
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -458,12 +533,19 @@ export function RecentRecordsPanel() {
                 aria-label="Filter recent records by NUB or PRO"
                 className="h-8 w-full border-border/70 bg-background/80 text-xs sm:w-28"
               >
-                <SelectValue />
+                <RecordTypeFilterContent value={selectedType} />
               </SelectTrigger>
               <SelectContent align="start">
                 <SelectItem value="all">NUB / PRO</SelectItem>
-                <SelectItem value="NUB">NUB</SelectItem>
-                <SelectItem value="PRO">PRO</SelectItem>
+                {RECORD_TYPE_FILTER_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    textValue={option.label}
+                  >
+                    <RecordTypeFilterContent value={option.value} />
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select
@@ -479,14 +561,21 @@ export function RecentRecordsPanel() {
                   selectedPoints === "all" ? "sm:w-24" : "sm:w-28",
                 )}
               >
-                <SelectValue />
+                <PointsFilterContent value={selectedPoints} />
               </SelectTrigger>
               <SelectContent align="start">
-                <SelectItem value="all">Points</SelectItem>
-                <SelectItem value="pb">PB</SelectItem>
-                <SelectItem value="800-plus">800+</SelectItem>
-                <SelectItem value="900-plus">900+</SelectItem>
-                <SelectItem value="wr">WR</SelectItem>
+                <SelectItem value="all" textValue="Points">
+                  <PointsFilterContent value="all" />
+                </SelectItem>
+                {POINTS_FILTER_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    textValue={option.label}
+                  >
+                    <PointsFilterContent value={option.value} />
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

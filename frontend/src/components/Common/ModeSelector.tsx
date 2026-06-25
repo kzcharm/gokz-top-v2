@@ -66,8 +66,15 @@ export function ModeSelector({
       <SelectContent className={className} align="start">
         <SelectItem value="all">{allLabel}</SelectItem>
         {RECORD_MODE_OPTIONS.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            textValue={option.label}
+          >
+            <ModeBadge
+              mode={option.label}
+              className="w-full px-0 text-[11px]"
+            />
           </SelectItem>
         ))}
       </SelectContent>

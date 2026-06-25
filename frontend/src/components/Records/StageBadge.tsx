@@ -6,9 +6,10 @@ import { formatStageLabel } from "./utils"
 interface StageBadgeProps {
   stage: number
   className?: string
+  label?: string
 }
 
-export function StageBadge({ stage, className }: StageBadgeProps) {
+export function StageBadge({ stage, className, label }: StageBadgeProps) {
   const isMain = stage === 0
   const toneClassName = isMain
     ? "bg-sky-100 text-sky-900 ring-1 ring-sky-200"
@@ -22,7 +23,7 @@ export function StageBadge({ stage, className }: StageBadgeProps) {
         className,
       )}
     >
-      {formatStageLabel(stage)}
+      {label ?? formatStageLabel(stage)}
     </Badge>
   )
 }
