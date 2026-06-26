@@ -33,6 +33,7 @@ import { Route as LayoutSettingsWebhooksRouteImport } from './routes/_layout/set
 import { Route as LayoutSettingsSocialLinksRouteImport } from './routes/_layout/settings.social-links'
 import { Route as LayoutSettingsProfileRouteImport } from './routes/_layout/settings.profile'
 import { Route as LayoutSettingsNotificationsRouteImport } from './routes/_layout/settings.notifications'
+import { Route as LayoutSettingsBindingCodeRouteImport } from './routes/_layout/settings.binding-code'
 import { Route as LayoutSettingsAppearanceRouteImport } from './routes/_layout/settings.appearance'
 import { Route as LayoutProfileIdentifierRouteImport } from './routes/_layout/profile.$identifier'
 import { Route as LayoutLeaderboardsServersRouteImport } from './routes/_layout/leaderboards.servers'
@@ -180,6 +181,12 @@ const LayoutSettingsNotificationsRoute =
   LayoutSettingsNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
+    getParentRoute: () => LayoutSettingsRoute,
+  } as any)
+const LayoutSettingsBindingCodeRoute =
+  LayoutSettingsBindingCodeRouteImport.update({
+    id: '/binding-code',
+    path: '/binding-code',
     getParentRoute: () => LayoutSettingsRoute,
   } as any)
 const LayoutSettingsAppearanceRoute =
@@ -368,6 +375,7 @@ export interface FileRoutesByFullPath {
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
   '/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
@@ -419,6 +427,7 @@ export interface FileRoutesByTo {
   '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
   '/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/settings/profile': typeof LayoutSettingsProfileRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
@@ -473,6 +482,7 @@ export interface FileRoutesById {
   '/_layout/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
   '/_layout/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/_layout/settings/appearance': typeof LayoutSettingsAppearanceRoute
+  '/_layout/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
   '/_layout/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/_layout/settings/profile': typeof LayoutSettingsProfileRoute
   '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
@@ -527,6 +537,7 @@ export interface FileRouteTypes {
     | '/leaderboards/servers'
     | '/profile/$identifier'
     | '/settings/appearance'
+    | '/settings/binding-code'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/social-links'
@@ -578,6 +589,7 @@ export interface FileRouteTypes {
     | '/leaderboards/pow'
     | '/leaderboards/servers'
     | '/settings/appearance'
+    | '/settings/binding-code'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/social-links'
@@ -631,6 +643,7 @@ export interface FileRouteTypes {
     | '/_layout/leaderboards/servers'
     | '/_layout/profile/$identifier'
     | '/_layout/settings/appearance'
+    | '/_layout/settings/binding-code'
     | '/_layout/settings/notifications'
     | '/_layout/settings/profile'
     | '/_layout/settings/social-links'
@@ -828,6 +841,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof LayoutSettingsNotificationsRouteImport
+      parentRoute: typeof LayoutSettingsRoute
+    }
+    '/_layout/settings/binding-code': {
+      id: '/_layout/settings/binding-code'
+      path: '/binding-code'
+      fullPath: '/settings/binding-code'
+      preLoaderRoute: typeof LayoutSettingsBindingCodeRouteImport
       parentRoute: typeof LayoutSettingsRoute
     }
     '/_layout/settings/appearance': {
@@ -1097,6 +1117,7 @@ const LayoutLeaderboardsRouteWithChildren =
 
 interface LayoutSettingsRouteChildren {
   LayoutSettingsAppearanceRoute: typeof LayoutSettingsAppearanceRoute
+  LayoutSettingsBindingCodeRoute: typeof LayoutSettingsBindingCodeRoute
   LayoutSettingsNotificationsRoute: typeof LayoutSettingsNotificationsRoute
   LayoutSettingsProfileRoute: typeof LayoutSettingsProfileRoute
   LayoutSettingsSocialLinksRoute: typeof LayoutSettingsSocialLinksRoute
@@ -1105,6 +1126,7 @@ interface LayoutSettingsRouteChildren {
 
 const LayoutSettingsRouteChildren: LayoutSettingsRouteChildren = {
   LayoutSettingsAppearanceRoute: LayoutSettingsAppearanceRoute,
+  LayoutSettingsBindingCodeRoute: LayoutSettingsBindingCodeRoute,
   LayoutSettingsNotificationsRoute: LayoutSettingsNotificationsRoute,
   LayoutSettingsProfileRoute: LayoutSettingsProfileRoute,
   LayoutSettingsSocialLinksRoute: LayoutSettingsSocialLinksRoute,

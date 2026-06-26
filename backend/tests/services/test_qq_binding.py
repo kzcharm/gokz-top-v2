@@ -4,11 +4,8 @@ import pytest
 
 from app.services import qq_binding
 from app.services.qq_binding import (
-    QQ_BIND_TOKEN_AUDIENCE,
-    QQ_BIND_TOKEN_ISSUER,
     QQ_BIND_TOKEN_PREFIX,
-    QQ_BIND_TOKEN_SEPARATOR,
-    QQ_BIND_TOKEN_VERSION,
+    QQ_BIND_TOKEN_SUFFIX_LENGTH,
 )
 
 
@@ -18,34 +15,18 @@ def _mutate_code(
     mutate_payload: bool = False,
     mutate_signature: bool = False,
     resign_payload: bool = True,
-    issuer_id: int | None = None,
-    audience_id: int | None = None,
-    version: int | None = None,
 ) -> str:
     encoded_body = code.removeprefix(QQ_BIND_TOKEN_PREFIX)
-    payload_encoded, _, signature_encoded = encoded_body.partition(
-        QQ_BIND_TOKEN_SEPARATOR
+    raw_bytes = qq_binding._base62_decode(
+        encoded_body,
+        encoded_length=QQ_BIND_TOKEN_SUFFIX_LENGTH,
+        decoded_length=qq_binding._QQ_BIND_TOKEN_RAW_LENGTH,
     )
+    payload_bytes = bytearray(raw_bytes[: qq_binding._QQ_BIND_TOKEN_PAYLOAD_LENGTH])
+    signature_bytes = raw_bytes[qq_binding._QQ_BIND_TOKEN_PAYLOAD_LENGTH :]
 
-    payload_bytes = bytearray(
-        qq_binding._base36_decode(
-            payload_encoded,
-            length=qq_binding._QQ_BIND_TOKEN_PAYLOAD_LENGTH,
-        )
-    )
-    signature_bytes = qq_binding._base36_decode(
-        signature_encoded,
-        length=qq_binding._QQ_BIND_TOKEN_SIGNATURE_LENGTH,
-    )
-
-    if version is not None:
-        payload_bytes[0] = version
-    if issuer_id is not None:
-        payload_bytes[1] = issuer_id
-    if audience_id is not None:
-        payload_bytes[2] = audience_id
     if mutate_payload:
-        payload_bytes[10] ^= 0x01
+        payload_bytes[3] ^= 0x01
 
     new_payload_bytes = bytes(payload_bytes)
     new_signature_bytes = (
@@ -57,10 +38,7 @@ def _mutate_code(
         mutated_signature[-1] ^= 0x01
         new_signature_bytes = bytes(mutated_signature)
 
-    return (
-        f"{QQ_BIND_TOKEN_PREFIX}{qq_binding._base36_encode(new_payload_bytes)}"
-        f"{QQ_BIND_TOKEN_SEPARATOR}{qq_binding._base36_encode(new_signature_bytes)}"
-    )
+    return f"{QQ_BIND_TOKEN_PREFIX}{qq_binding._base62_encode(new_payload_bytes + new_signature_bytes)}"
 
 
 def test_create_and_verify_qq_binding_code_round_trip(
@@ -75,34 +53,29 @@ def test_create_and_verify_qq_binding_code_round_trip(
     )
 
     assert result.code.startswith(QQ_BIND_TOKEN_PREFIX)
-    assert QQ_BIND_TOKEN_SEPARATOR in result.code
-    assert "_" not in result.code
+    assert len(result.code) == len(QQ_BIND_TOKEN_PREFIX) + QQ_BIND_TOKEN_SUFFIX_LENGTH
     assert result.expires_at == now + timedelta(minutes=10)
 
     payload = qq_binding.verify_qq_binding_code(code=result.code, now=now)
 
     assert payload.steamid64 == "76561198000000001"
-    assert payload.iss == QQ_BIND_TOKEN_ISSUER
-    assert payload.aud == QQ_BIND_TOKEN_AUDIENCE
-    assert payload.v == QQ_BIND_TOKEN_VERSION
+    assert payload.exp == int((now + timedelta(minutes=10)).timestamp())
 
 
-def test_create_qq_binding_code_uses_compact_lowercase_base36_format(
+def test_create_qq_binding_code_uses_fixed_length_base62_format(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(qq_binding.settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
 
     code = qq_binding.create_qq_binding_code(steamid64="76561198000000001").code
-    encoded_body = code.removeprefix(QQ_BIND_TOKEN_PREFIX)
-    payload_encoded, separator, signature_encoded = encoded_body.partition(
-        QQ_BIND_TOKEN_SEPARATOR
-    )
+    suffix = code.removeprefix(QQ_BIND_TOKEN_PREFIX)
 
-    assert separator == QQ_BIND_TOKEN_SEPARATOR
-    assert payload_encoded
-    assert signature_encoded
-    assert payload_encoded == payload_encoded.lower()
-    assert signature_encoded == signature_encoded.lower()
+    assert len(code) == 27
+    assert len(suffix) == QQ_BIND_TOKEN_SUFFIX_LENGTH
+    assert suffix
+    assert all(character.isalnum() for character in code)
+    assert any(character.islower() for character in suffix)
+    assert any(character.isupper() for character in suffix)
 
 
 def test_verify_qq_binding_code_rejects_modified_payload(
@@ -143,26 +116,24 @@ def test_verify_qq_binding_code_rejects_invalid_prefix(
         qq_binding.verify_qq_binding_code(code=f"WRONG{code}")
 
 
-def test_verify_qq_binding_code_rejects_missing_separator(
+def test_verify_qq_binding_code_rejects_invalid_length(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(qq_binding.settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
     code = qq_binding.create_qq_binding_code(steamid64="76561198000000001").code
 
-    with pytest.raises(ValueError, match="format"):
-        qq_binding.verify_qq_binding_code(
-            code=code.replace(QQ_BIND_TOKEN_SEPARATOR, "", 1)
-        )
+    with pytest.raises(ValueError, match="length"):
+        qq_binding.verify_qq_binding_code(code=code[:-1])
 
 
-def test_verify_qq_binding_code_rejects_extra_separator(
+def test_verify_qq_binding_code_rejects_invalid_encoding(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(qq_binding.settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
     code = qq_binding.create_qq_binding_code(steamid64="76561198000000001").code
 
-    with pytest.raises(ValueError, match="format"):
-        qq_binding.verify_qq_binding_code(code=f"{code}{QQ_BIND_TOKEN_SEPARATOR}a")
+    with pytest.raises(ValueError, match="encoding"):
+        qq_binding.verify_qq_binding_code(code=f"{code[:-1]}_")
 
 
 def test_verify_qq_binding_code_rejects_expired_code(
@@ -182,38 +153,34 @@ def test_verify_qq_binding_code_rejects_expired_code(
         )
 
 
-def test_verify_qq_binding_code_rejects_wrong_issuer(
+def test_create_qq_binding_code_rejects_non_numeric_steamid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(qq_binding.settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
-    code = qq_binding.create_qq_binding_code(steamid64="76561198000000001").code
 
-    with pytest.raises(ValueError, match="issuer"):
-        qq_binding.verify_qq_binding_code(
-            code=_mutate_code(code=code, issuer_id=2)
+    with pytest.raises(ValueError, match="numeric"):
+        qq_binding.create_qq_binding_code(steamid64="abc")
+
+
+def test_create_qq_binding_code_rejects_out_of_range_steamid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qq_binding.settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
+
+    with pytest.raises(ValueError, match="out of range"):
+        qq_binding.create_qq_binding_code(
+            steamid64=str(qq_binding._QQ_BIND_TOKEN_STEAMID64_BASE - 1)
         )
 
 
-def test_verify_qq_binding_code_rejects_wrong_audience(
+def test_create_qq_binding_code_rejects_steamid_above_uint32_account_range(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(qq_binding.settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
-    code = qq_binding.create_qq_binding_code(steamid64="76561198000000001").code
+    too_large = qq_binding._QQ_BIND_TOKEN_STEAMID64_BASE + (1 << 32)
 
-    with pytest.raises(ValueError, match="audience"):
-        qq_binding.verify_qq_binding_code(
-            code=_mutate_code(code=code, audience_id=2)
-        )
-
-
-def test_verify_qq_binding_code_rejects_wrong_version(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(qq_binding.settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
-    code = qq_binding.create_qq_binding_code(steamid64="76561198000000001").code
-
-    with pytest.raises(ValueError, match="version"):
-        qq_binding.verify_qq_binding_code(code=_mutate_code(code=code, version=2))
+    with pytest.raises(ValueError, match="out of range"):
+        qq_binding.create_qq_binding_code(steamid64=str(too_large))
 
 
 def test_create_qq_binding_code_requires_secret(

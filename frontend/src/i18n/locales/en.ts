@@ -211,6 +211,7 @@ export const en = {
     title: "Settings",
     tabs: {
       profile: "My profile",
+      bindingCode: "Binding Code",
       notifications: "Notifications",
       socialLinks: "Social Links",
       webhooks: "Webhooks",
@@ -273,7 +274,7 @@ export const en = {
         codeLabel: "Binding Code",
         tooltip: "If you're not Chinese, you probably won't need this feature.",
         tooltipAriaLabel: "About QQ binding codes",
-        expiresAt: "Expires at",
+        expiresAt: "Expires",
         actions: {
           generate: "Generate QQ Binding Code",
         },

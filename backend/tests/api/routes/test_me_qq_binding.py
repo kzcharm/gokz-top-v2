@@ -3,7 +3,7 @@ from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.services.qq_binding import QQ_BIND_TOKEN_PREFIX
+from app.services.qq_binding import QQ_BIND_TOKEN_PREFIX, QQ_BIND_TOKEN_SUFFIX_LENGTH
 from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import random_steamid64
 
@@ -30,6 +30,8 @@ async def test_create_current_player_qq_binding_code_returns_code(
     assert response.status_code == 200
     payload = response.json()
     assert payload["code"].startswith(QQ_BIND_TOKEN_PREFIX)
+    assert len(payload["code"]) == len(QQ_BIND_TOKEN_PREFIX) + QQ_BIND_TOKEN_SUFFIX_LENGTH
+    assert payload["code"].isalnum()
     assert "expires_at" in payload
 
 
@@ -43,7 +45,7 @@ async def test_create_current_player_qq_binding_code_requires_auth(
 
 
 @pytest.mark.asyncio
-async def test_create_current_player_qq_binding_code_generates_distinct_codes(
+async def test_create_current_player_qq_binding_code_is_repeatable_for_same_user(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -67,7 +69,7 @@ async def test_create_current_player_qq_binding_code_generates_distinct_codes(
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
-    assert first_response.json()["code"] != second_response.json()["code"]
+    assert first_response.json()["code"] == second_response.json()["code"]
 
 
 @pytest.mark.asyncio

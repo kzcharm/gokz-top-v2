@@ -212,6 +212,7 @@ export const ru = {
     title: "Настройки",
     tabs: {
       profile: "Мой профиль",
+      bindingCode: "Код привязки",
       notifications: "Уведомления",
       socialLinks: "Соцсети",
       webhooks: "Webhooks",
@@ -274,7 +275,7 @@ export const ru = {
         codeLabel: "Код привязки",
         tooltip: "Если вы не из Китая, эта функция вам, скорее всего, не понадобится.",
         tooltipAriaLabel: "О кодах привязки QQ",
-        expiresAt: "Истекает",
+        expiresAt: "Срок действия",
         actions: {
           generate: "Сгенерировать код привязки QQ",
         },

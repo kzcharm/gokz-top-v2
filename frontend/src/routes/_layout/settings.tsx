@@ -39,6 +39,11 @@ const SETTINGS_TAB_OPTIONS = [
     labelKey: "settings.tabs.webhooks",
     to: "/settings/webhooks",
   },
+  {
+    value: "binding-code",
+    labelKey: "settings.tabs.bindingCode",
+    to: "/settings/binding-code",
+  },
 ] as const
 
 export const Route = createFileRoute("/_layout/settings")({

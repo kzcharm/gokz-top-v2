@@ -65,69 +65,71 @@ export default function QqBindingCodeSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader className="gap-2">
-        <CardTitle className="flex items-center gap-1.5">
-          <span>{t("settings.profile.qqBinding.title")}</span>
-          <Tooltip delayDuration={150}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={t("settings.profile.qqBinding.tooltipAriaLabel")}
-              >
-                <CircleHelp className="size-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent sideOffset={8} className="max-w-64">
-              {t("settings.profile.qqBinding.tooltip")}
-            </TooltipContent>
-          </Tooltip>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <LoadingButton
-            type="button"
-            loading={generateMutation.isPending}
-            onClick={() => generateMutation.mutate()}
-          >
-            {t("settings.profile.qqBinding.actions.generate")}
-          </LoadingButton>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={bindingCode === null}
-            onClick={() => void handleCopy()}
-            data-testid="settings-qq-binding-copy-button"
-          >
-            <Copy className="size-4" />
-            {t("common.copy")}
-          </Button>
-        </div>
-        {bindingCode ? (
-          <div className="space-y-3">
-            <div>
-              <Input
-                id="settings-qq-binding-code"
-                value={bindingCode.code}
-                readOnly
-                aria-label={t("settings.profile.qqBinding.codeLabel")}
-                className="font-mono text-xs tracking-wide"
-                data-testid="settings-qq-binding-code"
-              />
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <span>{t("settings.profile.qqBinding.expiresAt")} </span>
-              <FormattedDateTime
-                value={bindingCode.expires_at}
-                display="absolute"
-                fallback={t("common.notAvailable")}
-              />
-            </div>
+    <div className="max-w-2xl">
+      <Card>
+        <CardHeader className="gap-2">
+          <CardTitle className="flex items-center gap-1.5">
+            <span>{t("settings.profile.qqBinding.title")}</span>
+            <Tooltip delayDuration={150}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={t("settings.profile.qqBinding.tooltipAriaLabel")}
+                >
+                  <CircleHelp className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={8} className="max-w-64">
+                {t("settings.profile.qqBinding.tooltip")}
+              </TooltipContent>
+            </Tooltip>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <LoadingButton
+              type="button"
+              loading={generateMutation.isPending}
+              onClick={() => generateMutation.mutate()}
+            >
+              {t("settings.profile.qqBinding.actions.generate")}
+            </LoadingButton>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={bindingCode === null}
+              onClick={() => void handleCopy()}
+              data-testid="settings-qq-binding-copy-button"
+            >
+              <Copy className="size-4" />
+              {t("common.copy")}
+            </Button>
           </div>
-        ) : null}
-      </CardContent>
-    </Card>
+          {bindingCode ? (
+            <div className="space-y-3">
+              <div>
+                <Input
+                  id="settings-qq-binding-code"
+                  value={bindingCode.code}
+                  readOnly
+                  aria-label={t("settings.profile.qqBinding.codeLabel")}
+                  className="font-mono text-xs tracking-wide"
+                  data-testid="settings-qq-binding-code"
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <span>{t("settings.profile.qqBinding.expiresAt")} </span>
+                <FormattedDateTime
+                  value={bindingCode.expires_at}
+                  display="relative"
+                  fallback={t("common.notAvailable")}
+                />
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

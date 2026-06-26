@@ -210,6 +210,7 @@ export const zhCN = {
     title: "设置",
     tabs: {
       profile: "我的资料",
+      bindingCode: "绑定码",
       notifications: "通知",
       socialLinks: "社交链接",
       webhooks: "Webhooks",
@@ -269,7 +270,7 @@ export const zhCN = {
         codeLabel: "绑定码",
         tooltip: "如果你不是中国玩家，你大概率用不到这个功能。",
         tooltipAriaLabel: "关于 QQ 绑定码",
-        expiresAt: "过期时间",
+        expiresAt: "过期",
         actions: {
           generate: "生成 QQ 绑定码",
         },
