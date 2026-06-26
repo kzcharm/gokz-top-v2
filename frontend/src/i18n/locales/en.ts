@@ -268,6 +268,19 @@ export const en = {
       toast: {
         updated: "Profile settings updated.",
       },
+      qqBinding: {
+        title: "QQ Binding Code",
+        codeLabel: "Binding Code",
+        tooltip: "If you're not Chinese, you probably won't need this feature.",
+        tooltipAriaLabel: "About QQ binding codes",
+        expiresAt: "Expires at",
+        actions: {
+          generate: "Generate QQ Binding Code",
+        },
+        toast: {
+          generated: "QQ binding code generated.",
+        },
+      },
     },
     appearance: {
       themeTitle: "Theme",

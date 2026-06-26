@@ -264,6 +264,19 @@ export const zhCN = {
       toast: {
         updated: "个人资料设置已更新。",
       },
+      qqBinding: {
+        title: "QQ 绑定码",
+        codeLabel: "绑定码",
+        tooltip: "如果你不是中国玩家，你大概率用不到这个功能。",
+        tooltipAriaLabel: "关于 QQ 绑定码",
+        expiresAt: "过期时间",
+        actions: {
+          generate: "生成 QQ 绑定码",
+        },
+        toast: {
+          generated: "QQ 绑定码已生成。",
+        },
+      },
     },
     appearance: {
       themeTitle: "主题",

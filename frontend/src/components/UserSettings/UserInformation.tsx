@@ -9,6 +9,7 @@ import { CountryPicker } from "@/components/Common/CountryPicker"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getScopeTone, SCOPE_OPTIONS } from "@/components/Common/ScopeSelector"
+import QqBindingCodeSettings from "@/components/UserSettings/QqBindingCodeSettings"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -653,6 +654,7 @@ const UserInformation = () => {
           </form>
         </CardContent>
       </Card>
+      <QqBindingCodeSettings />
       <div className="flex justify-end">
         <Button
           type="button"

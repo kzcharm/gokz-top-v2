@@ -269,6 +269,19 @@ export const ru = {
       toast: {
         updated: "Настройки профиля обновлены.",
       },
+      qqBinding: {
+        title: "Код привязки QQ",
+        codeLabel: "Код привязки",
+        tooltip: "Если вы не из Китая, эта функция вам, скорее всего, не понадобится.",
+        tooltipAriaLabel: "О кодах привязки QQ",
+        expiresAt: "Истекает",
+        actions: {
+          generate: "Сгенерировать код привязки QQ",
+        },
+        toast: {
+          generated: "Код привязки QQ создан.",
+        },
+      },
     },
     appearance: {
       themeTitle: "Тема",

@@ -5917,6 +5917,24 @@ export const PlayersPublicSchema = {
     title: 'PlayersPublic'
 } as const;
 
+export const QQBindingCodePublicSchema = {
+    properties: {
+        code: {
+            type: 'string',
+            minLength: 1,
+            title: 'Code'
+        },
+        expires_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Expires At'
+        }
+    },
+    type: 'object',
+    required: ['code', 'expires_at'],
+    title: 'QQBindingCodePublic'
+} as const;
+
 export const RecentRecordMapPublicSchema = {
     properties: {
         id: {

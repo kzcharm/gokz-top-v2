@@ -15,6 +15,7 @@
   - `/v1/graphql` for player-focused GraphQL read queries
   - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying of Bilibili preview assets
   - `/v1/me/notifications` for authenticated player notification inbox reads, unread counts, and read-state mutations
+  - `/v1/me/qq-binding-code` for authenticated short-lived QQ bot binding code generation backed by a dedicated shared secret
   - `/v1/player-reports` for authenticated player report submissions with optional record context
   - `/v1/admin/servers` for RBAC-protected server and server-group management
   - `/v1/admin/player-social-links` for superuser management of player social links and verification state
@@ -41,6 +42,7 @@
   - Player notifications are stored in `player_notification`, keyed by UUIDv7 with an idempotent `source_key`, recipient/actor Steam IDs, read timestamps, target URLs, and typed payload fields for profile likes, profile comments, follows, and future-only WR-beaten events
   - Player reports are stored in `player_report`, keyed by UUIDv7 with reporter/target Steam IDs, optional record UUID context, and a bounded description; each submission sends `player_report` notifications to active admins, superusers, and the configured root user when present
   - Player social links are stored in `player_social_link` as platform-specific account identifiers, with URLs derived at API/UI edges; Twitch and YouTube support OAuth self-verification, Bilibili supports profile-code self-verification, and admins can still manage verification metadata
+  - QQ bot Steam-account binding is stateless on the website side: `/v1/me/qq-binding-code` emits a short-lived HMAC-signed proof string (`KZTOP...`) using `QQ_BIND_TOKEN_SECRET`, and the external QQ bot remains the source of truth for QQ-to-Steam bindings
   - Verified Bilibili, YouTube, and Twitch follower counts for community leaderboard display are cached in `cache.player_video_platform_followers`, keyed by `player_social_link.id`, and refreshed lazily with a TTL so public reads do not depend on live platform API success
   - Player-owned Discord webhooks are stored in `player_webhook`, keyed by UUIDv7 and owned by `user.steamid64`, with per-webhook enablement and last-used timestamps
   - Live stream observations are stored in `live_stream_state`, keyed by `player_social_link.id`, and retain the last successful live metadata needed for `/live` offline history cards

@@ -15,6 +15,7 @@ from app.api.v1 import (
     login,
     maps,
     me_notifications,
+    me_qq_binding,
     me_player_actions,
     me_settings,
     me_webhooks,
@@ -44,6 +45,7 @@ api_router.include_router(users.router)
 api_router.include_router(bans.router)
 api_router.include_router(players.router)
 api_router.include_router(me_settings.router)
+api_router.include_router(me_qq_binding.router)
 api_router.include_router(me_webhooks.router)
 api_router.include_router(me_player_actions.router)
 api_router.include_router(me_notifications.router)

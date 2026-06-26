@@ -119,6 +119,105 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText("VNL", { exact: true })).toBeVisible()
   })
 
+  test("Profile can generate, copy, and replace a QQ binding code", async ({
+    page,
+  }) => {
+    const steamid64 = randomSteamid64()
+    const responses = [
+      {
+        code: "KZTOP4rj4edqq85nr0jjlwm5zw2l4rjownqfxztl9qtym3ns-2r83jg4x7jv88qn5xkqlh0412",
+        expires_at: "2026-06-26T12:10:00Z",
+      },
+      {
+        code: "KZTOP4rj4edqq85nr0jjlwm5zw2l4rjownqfxztl9qtym3nt-18ra54djs9sbj3rsk5y2iu0hh",
+        expires_at: "2026-06-26T12:20:00Z",
+      },
+    ]
+    let requestCount = 0
+
+    await logInUser(page, steamid64)
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "__copiedText", {
+        configurable: true,
+        writable: true,
+        value: "",
+      })
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            ;(window as typeof window & { __copiedText: string }).__copiedText =
+              text
+          },
+        },
+      })
+    })
+    await page.route(/\/v1\/me\/qq-binding-code$/, async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback()
+        return
+      }
+
+      const response = responses[Math.min(requestCount, responses.length - 1)]
+      requestCount += 1
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(response),
+      })
+    })
+
+    await page.goto("/settings/profile")
+
+    await page.getByRole("button", { name: "Generate QQ Binding Code" }).click()
+    await expect(page.getByTestId("settings-qq-binding-code")).toHaveValue(
+      responses[0].code,
+    )
+    await page.getByTestId("settings-qq-binding-copy-button").click()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as typeof window & { __copiedText: string }).__copiedText,
+        ),
+      )
+      .toBe(responses[0].code)
+
+    await page.getByRole("button", { name: "Generate QQ Binding Code" }).click()
+    await expect(page.getByTestId("settings-qq-binding-code")).toHaveValue(
+      responses[1].code,
+    )
+    await expect(page.getByText("Send /bind <code> to the QQ bot.")).toHaveCount(
+      0,
+    )
+  })
+
+  test("QQ binding code generation shows backend errors", async ({ page }) => {
+    const steamid64 = randomSteamid64()
+    await logInUser(page, steamid64)
+    await page.route(/\/v1\/me\/qq-binding-code$/, async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback()
+        return
+      }
+
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: "QQ binding code generation is not configured",
+        }),
+      })
+    })
+
+    await page.goto("/settings/profile")
+    await page.getByRole("button", { name: "Generate QQ Binding Code" }).click()
+
+    await expect(
+      page.getByText("QQ binding code generation is not configured"),
+    ).toBeVisible()
+  })
+
   test("Appearance can configure player display preferences", async ({
     page,
   }) => {

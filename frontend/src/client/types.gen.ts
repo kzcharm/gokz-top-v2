@@ -1169,6 +1169,11 @@ export type PlayerWebhookUpdate = {
     enabled?: (boolean | null);
 };
 
+export type QQBindingCodePublic = {
+    code: string;
+    expires_at: string;
+};
+
 export type RecentRecordMapPublic = {
     id: number;
     name: string;
@@ -2017,6 +2022,8 @@ export type MeUpdateCurrentPlayerSettingsData = {
 
 export type MeUpdateCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
 
+export type MeCreateCurrentPlayerQqBindingCodeResponse = (QQBindingCodePublic);
+
 export type MeReadCurrentPlayerWebhooksResponse = (PlayerWebhooksPublic);
 
 export type MeCreateCurrentPlayerWebhookData = {
@@ -2425,11 +2432,17 @@ export type RecordsReadRecordsData = {
 export type RecordsReadRecordsResponse = (RecordsPublic);
 
 export type RecordsReadRecentRecordsData = {
+    isBonus?: (boolean | null);
     isProOnly?: (boolean | null);
     limit?: number;
+    mapId?: (number | null);
+    mode?: (KZMode | null);
     offset?: number;
+    pointsLessOrEqualThan?: (number | null);
     pointsMoreOrEqualThan?: (number | null);
     scope?: ModeScope;
+    stage?: (number | null);
+    tier?: (number | null);
     type?: (RecordType | null);
 };
 

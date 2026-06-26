@@ -188,6 +188,7 @@ from .player_profile_field_change import (
     PlayerSettingsPublic,
     PlayerSettingsUpdate,
 )
+from .qq_binding import QQBindingCodePublic, QQBindingTokenPayload
 from .player_profile_history import (
     PlayerProfileHistory,
     PlayerProfileHistoryEntryPublic,
@@ -563,6 +564,8 @@ __all__ = [
     "PlayerProfileHistoryPublic",
     "PlayerSettingsPublic",
     "PlayerSettingsUpdate",
+    "QQBindingCodePublic",
+    "QQBindingTokenPayload",
     "PlayerSession",
     "PlayerSessionBanEnforcementBanPublic",
     "PlayerSessionBanEnforcementPublic",
