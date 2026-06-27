@@ -238,7 +238,7 @@ export const ru = {
         steamId64: "SteamID64",
         alias: "Псевдоним",
         customId: "Custom ID",
-        countryRegion: "Страна / регион",
+        countryRegion: "Местоположение",
         primaryScope: "Основной scope",
         wrBasedProCompletion: "PRO-прогресс по WR",
         favoriteServer: "Любимый сервер",

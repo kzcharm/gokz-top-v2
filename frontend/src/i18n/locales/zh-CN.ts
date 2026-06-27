@@ -236,7 +236,7 @@ export const zhCN = {
         steamId64: "SteamID64",
         alias: "别名",
         customId: "自定义 ID",
-        countryRegion: "国家 / 地区",
+        countryRegion: "地区",
         primaryScope: "主要 Scope",
         wrBasedProCompletion: "基于 WR 的 PRO 完成度",
         favoriteServer: "最爱服务器",

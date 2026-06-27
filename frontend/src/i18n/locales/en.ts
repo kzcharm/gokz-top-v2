@@ -237,7 +237,7 @@ export const en = {
         steamId64: "SteamID64",
         alias: "Alias",
         customId: "Custom ID",
-        countryRegion: "Country / Region",
+        countryRegion: "Location",
         primaryScope: "Primary Scope",
         wrBasedProCompletion: "WR-Based PRO Completion",
         favoriteServer: "Fav Server",
