@@ -143,6 +143,7 @@ const ovrRecords = [
     },
     map_id: 980200,
     map_name: "kz_seed_alpha",
+    workshop_id: 1986459033,
     map_tier: 4,
     mode_id: 200,
     mode: "KZT",
@@ -169,6 +170,7 @@ const ovrRecords = [
     server_name: "Second Server",
     map_id: 980201,
     map_name: "kz_seed_beta",
+    workshop_id: null,
     map_tier: 6,
     mode_id: 201,
     mode: "SKZ",
@@ -195,6 +197,7 @@ const ovrRecords = [
     server_name: "NKZ Practice Hub",
     map_id: 980202,
     map_name: "kz_seed_gamma",
+    workshop_id: null,
     map_tier: 2,
     mode_id: 202,
     mode: "NKZ",
@@ -294,6 +297,14 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   )
 
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  const alphaMapTile = page
+    .getByRole("link", { name: "kz_seed_alpha" })
+    .locator("div")
+    .first()
+  await expect(alphaMapTile).toHaveAttribute(
+    "style",
+    /workshop\/1986459033\/preview-image/,
+  )
   await expect(
     page.getByRole("link", { name: "Seed Server Group" }),
   ).toHaveAttribute("href", "/servers/group/seed-server-group")
@@ -424,6 +435,52 @@ test("Profile records page shows grouped server links and filters by group name"
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
   await expect(page.getByText("kz_seed_beta")).toHaveCount(0)
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+})
+
+test("Profile records map tiles include workshop preview fallback URLs", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    const recordType = url.searchParams.get("type")
+    const isProOnly =
+      url.searchParams.get("is_pro_only") ??
+      (recordType === "PRO" ? "true" : recordType === "NUB" ? "false" : null)
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(isProOnly === "true" ? [ovrRecords[0]] : ovrRecords),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/records`)
+
+  const alphaMapTile = page
+    .getByRole("link", { name: "kz_seed_alpha" })
+    .locator("div")
+    .first()
+  await expect(alphaMapTile).toHaveAttribute(
+    "style",
+    /github\.com\/KZGlobalTeam\/map-images\/raw\/public\/webp\/kz_seed_alpha\.webp/,
+  )
+  await expect(alphaMapTile).toHaveAttribute(
+    "style",
+    /workshop\/1986459033\/preview-image/,
+  )
 })
 
 test("Profile records map context menu items do not open run history", async ({

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 
 import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { MapDisplay } from "@/components/Common/MapDisplay"
+import { getMapImageUrls, MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import {
   RowContextMenu,
@@ -193,6 +193,7 @@ function PbRecordTableRow({
           <MapDisplay
             mapName={record.map_name}
             mapId={record.map_id}
+            imageUrls={getMapImageUrls(record.map_name, record.workshop_id)}
             contextMenuItems={getMapContextMenu?.(record) ?? null}
           />
         </TableCell>

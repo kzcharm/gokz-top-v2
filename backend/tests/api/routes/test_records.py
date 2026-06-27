@@ -1043,6 +1043,7 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
         "Runner Beta",
     ]
     assert payload[0]["uuid"] == str(winning.uuid)
+    assert payload[0]["workshop_id"] == 1986459033
     assert payload[0]["mode_id"] == 201
     assert payload[0]["replay_id"] == 9001
     assert payload[0]["is_replay_available"] is True

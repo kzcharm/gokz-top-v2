@@ -1244,6 +1244,7 @@ export type RecordPublic = {
     server_group?: (ServerGroupSummary | null);
     map_id: number;
     map_name: string;
+    workshop_id?: (number | null);
     map_tier: number;
     mode_id: number;
     mode: string;

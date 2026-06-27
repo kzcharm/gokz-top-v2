@@ -6216,6 +6216,17 @@ export const RecordPublicSchema = {
             type: 'string',
             title: 'Map Name'
         },
+        workshop_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Workshop Id'
+        },
         map_tier: {
             type: 'integer',
             title: 'Map Tier'

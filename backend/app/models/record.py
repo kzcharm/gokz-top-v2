@@ -586,6 +586,7 @@ class RecordPublic(SQLModel):
     server_group: ServerGroupSummary | None = None
     map_id: int
     map_name: str
+    workshop_id: int | None = None
     map_tier: int
     mode_id: int
     mode: str
