@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -120,6 +121,8 @@ export default function WebhooksSettings() {
   const [newWebhook, setNewWebhook] = useState<PlayerWebhookPublic | null>(null)
   const [editingUrl, setEditingUrl] = useState("")
   const [editingWebhook, setEditingWebhook] =
+    useState<PlayerWebhookPublic | null>(null)
+  const [deletingWebhook, setDeletingWebhook] =
     useState<PlayerWebhookPublic | null>(null)
 
   const query = useQuery({
@@ -263,9 +266,7 @@ export default function WebhooksSettings() {
                     setEditingWebhook(currentWebhook)
                     setEditingUrl(currentWebhook.url)
                   }}
-                  onDelete={(currentWebhook) =>
-                    deleteMutation.mutate(currentWebhook.id)
-                  }
+                  onDelete={setDeletingWebhook}
                 />
               )
             })
@@ -422,6 +423,50 @@ export default function WebhooksSettings() {
               disabled={testMutation.isPending}
             >
               Save
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deletingWebhook !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingWebhook(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Discord webhook?</DialogTitle>
+            <DialogDescription>
+              Remove this webhook from stream notifications. This cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteMutation.isPending}
+              onClick={() => setDeletingWebhook(null)}
+            >
+              Cancel
+            </Button>
+            <LoadingButton
+              type="button"
+              variant="destructive"
+              loading={deleteMutation.isPending}
+              onClick={() => {
+                if (!deletingWebhook) {
+                  return
+                }
+                deleteMutation.mutate(deletingWebhook.id, {
+                  onSuccess: () => setDeletingWebhook(null),
+                })
+              }}
+            >
+              Delete webhook
             </LoadingButton>
           </DialogFooter>
         </DialogContent>
