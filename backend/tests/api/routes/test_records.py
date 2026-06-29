@@ -69,6 +69,7 @@ async def _create_map(
     id: int,
     name: str,
     difficulty: int = 4,
+    workshop_id: int | None = None,
 ) -> Map:
     await db.exec(delete(Map).where(Map.id == id))
     await db.commit()
@@ -78,6 +79,7 @@ async def _create_map(
         filesize=123456,
         validated=True,
         difficulty=difficulty,
+        workshop_id=workshop_id,
         approved_by_steamid64=76561198003275951,
     )
     db.add(map_obj)
@@ -258,12 +260,19 @@ async def _seed_record_dependencies(
     map_id: int = 980200,
     map_name: str = "kz_record_test",
     map_difficulty: int = 4,
+    map_workshop_id: int | None = None,
     server_id: int = 980300,
     server_name: str = "Record Test Server",
     server_group_id: uuid.UUID | None = None,
     players: list[tuple[int, str]] | None = None,
 ) -> None:
-    await _create_map(db, id=map_id, name=map_name, difficulty=map_difficulty)
+    await _create_map(
+        db,
+        id=map_id,
+        name=map_name,
+        difficulty=map_difficulty,
+        workshop_id=map_workshop_id,
+    )
     await _create_server_globalapi(
         db,
         id=server_id,
@@ -974,6 +983,7 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
     player_two = random_steamid64()
     await _seed_record_dependencies(
         db,
+        map_workshop_id=1986459033,
         players=[
             (player_one, "Runner Alpha"),
             (player_two, "Runner Beta"),

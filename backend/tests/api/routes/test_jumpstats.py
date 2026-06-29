@@ -236,6 +236,7 @@ async def test_read_jumpstats_returns_filtered_top_list(
     assert payload["data"][0]["server_group"] == {
         "id": str(group.id),
         "name": "Jump Group",
+        "custom_id": group.custom_id,
     }
     assert "strafe_stats" not in payload["data"][0]
 

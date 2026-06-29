@@ -129,7 +129,11 @@ async def test_import_v1_map_reviews_overwrites_website_reviews_and_rebuilds_sum
     await _create_map(db, id=map_two, name="kz_v1_review_two")
     await _create_player(db, steamid64=existing_player, name="Existing")
 
-    server_group = ServerGroup(name="Review Import Group", api_key="review-import-key")
+    server_group = ServerGroup(
+        name="Review Import Group",
+        custom_id="review-import-group",
+        api_key="review-import-key",
+    )
     db.add(server_group)
     await db.commit()
     await db.refresh(server_group)

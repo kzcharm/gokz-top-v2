@@ -5,7 +5,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.services.qq_binding import QQ_BIND_TOKEN_PREFIX, QQ_BIND_TOKEN_SUFFIX_LENGTH
 from tests.utils.user import authentication_token_from_steamid
-from tests.utils.utils import random_steamid64
 
 
 @pytest.mark.asyncio
@@ -15,7 +14,7 @@ async def test_create_current_player_qq_binding_code_returns_code(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
-    steamid64 = random_steamid64()
+    steamid64 = 76561198000000001
     headers = await authentication_token_from_steamid(
         client=client,
         steamid64=steamid64,
@@ -41,7 +40,7 @@ async def test_create_current_player_qq_binding_code_requires_auth(
 ) -> None:
     response = await client.post(f"{settings.API_V1_STR}/me/qq-binding-code")
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -51,7 +50,7 @@ async def test_create_current_player_qq_binding_code_is_repeatable_for_same_user
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "QQ_BIND_TOKEN_SECRET", "qq-secret")
-    steamid64 = random_steamid64()
+    steamid64 = 76561198000000002
     headers = await authentication_token_from_steamid(
         client=client,
         steamid64=steamid64,
@@ -79,7 +78,7 @@ async def test_create_current_player_qq_binding_code_returns_503_without_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "QQ_BIND_TOKEN_SECRET", None)
-    steamid64 = random_steamid64()
+    steamid64 = 76561198000000003
     headers = await authentication_token_from_steamid(
         client=client,
         steamid64=steamid64,
