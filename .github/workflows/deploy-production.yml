@@ -1,18 +1,26 @@
 name: Deploy Production
 
 on:
-  workflow_run:
-    workflows:
-      - Release Version
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to deploy from main
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy-production:
-    if: >-
-      github.repository_owner != 'fastapi' &&
-      github.event.workflow_run.conclusion == 'success'
+    if: github.repository_owner != 'fastapi'
     runs-on: self-hosted
+    environment: production
     env:
       ENVIRONMENT: production
       DOMAIN: gokz.top
@@ -37,39 +45,129 @@ jobs:
       GEOIPUPDATE_LICENSE_KEY: ${{ secrets.GEOIPUPDATE_LICENSE_KEY }}
       REPLAY_VIEWER_HOSTNAME_PRODUCTION: ${{ secrets.REPLAY_VIEWER_HOSTNAME_PRODUCTION }}
       REPLAY_VIEWER_RESOURCES_DIR_PRODUCTION: ${{ secrets.REPLAY_VIEWER_RESOURCES_DIR_PRODUCTION }}
-      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+      TARGET_REF: ${{ inputs.ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           clean: false
           fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
-      - name: Resolve release tag
-        id: version
+          ref: ${{ inputs.ref }}
+
+      - name: Resolve release and deploy SHA
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
+          git fetch origin main --tags
+
+          deploy_sha="$(git rev-parse HEAD)"
+          if ! git merge-base --is-ancestor "${deploy_sha}" origin/main; then
+            echo "::error::${TARGET_REF} (${deploy_sha}) is not contained in origin/main."
+            exit 1
+          fi
+
           semver_tag_regex="^v[0-9]+\\.[0-9]+\\.[0-9]+$"
           exact_tag="$(
-            git tag --points-at "${DEPLOY_SHA}" --list "v*.*.*" \
+            git tag --points-at "${deploy_sha}" --list "v*.*.*" \
               | grep -E "${semver_tag_regex}" \
               | head -n 1 \
               || true
           )"
 
-          if [ -z "${exact_tag}" ]; then
-            echo "should_deploy=false" >> "${GITHUB_OUTPUT}"
-            echo "No semver tag points at ${DEPLOY_SHA}; skipping production deploy."
-            exit 0
+          if [ -n "${exact_tag}" ]; then
+            app_version="${exact_tag}"
+            echo "Reusing existing release tag ${app_version} for ${deploy_sha}."
+          else
+            latest_tag="$(
+              git tag --merged "${deploy_sha}" --list "v*.*.*" --sort=-v:refname \
+                | grep -E "${semver_tag_regex}" \
+                | head -n 1 \
+                || true
+            )"
+
+            commits_file="$(mktemp)"
+            if [ -n "${latest_tag}" ]; then
+              commit_range="${latest_tag}..${deploy_sha}"
+            else
+              commit_range="${deploy_sha}"
+            fi
+
+            git log --reverse --format="%h%x09%s" "${commit_range}" > "${commits_file}"
+            if [ ! -s "${commits_file}" ]; then
+              echo "::error::No commits found in ${commit_range}; refusing to create an empty release."
+              exit 1
+            fi
+
+            if [ -z "${latest_tag}" ]; then
+              next_version="0.1.0"
+            else
+              version="${latest_tag#v}"
+              IFS=. read -r major minor patch <<< "${version}"
+
+              if cut -f2- "${commits_file}" | grep -Eq "^feat(\(.+\))?:"; then
+                minor=$((minor + 1))
+                patch=0
+              else
+                patch=$((patch + 1))
+              fi
+
+              next_version="${major}.${minor}.${patch}"
+            fi
+
+            app_version="v${next_version}"
+            release_body="$(mktemp)"
+            features_file="$(mktemp)"
+            fixes_file="$(mktemp)"
+            other_file="$(mktemp)"
+
+            awk -F '\t' '$2 ~ /^feat(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}" > "${features_file}"
+            awk -F '\t' '$2 ~ /^fix(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}" > "${fixes_file}"
+            awk -F '\t' '$2 !~ /^(feat|fix)(\(.+\))?:/ { print "- " $2 " (" $1 ")" }' "${commits_file}" > "${other_file}"
+
+            wrote_section=false
+            append_section() {
+              local title="$1"
+              local items_file="$2"
+
+              if [ ! -s "${items_file}" ]; then
+                return
+              fi
+
+              if [ "${wrote_section}" = true ]; then
+                echo
+              fi
+
+              echo "## ${title}"
+              cat "${items_file}"
+              wrote_section=true
+            }
+
+            {
+              append_section "Features" "${features_file}"
+              append_section "Fixes" "${fixes_file}"
+              append_section "Other" "${other_file}"
+            } > "${release_body}"
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git tag -a "${app_version}" "${deploy_sha}" -m "Release ${app_version}"
+            git push origin "refs/tags/${app_version}"
+            gh release create "${app_version}" \
+              --target "${deploy_sha}" \
+              --title "${app_version}" \
+              --notes-file "${release_body}"
           fi
 
-          echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
-          echo "app_version=${exact_tag}" >> "${GITHUB_OUTPUT}"
+          echo "deploy_sha=${deploy_sha}" >> "${GITHUB_OUTPUT}"
+          echo "app_version=${app_version}" >> "${GITHUB_OUTPUT}"
+
       - name: Write deployment env file
-        if: steps.version.outputs.should_deploy == 'true'
         env:
-          VITE_APP_VERSION: ${{ steps.version.outputs.app_version }}
+          VITE_APP_VERSION: ${{ steps.release.outputs.app_version }}
         run: |
           set -euo pipefail
 
@@ -137,16 +235,15 @@ jobs:
           DOCKER_IMAGE_REPLAY_VIEWER=${STACK_NAME}-replayviewer
           VITE_APP_VERSION=${VITE_APP_VERSION}
           EOF
+
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build backend frontend
-        if: steps.version.outputs.should_deploy == 'true'
       - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d backend frontend map-distributor
-        if: steps.version.outputs.should_deploy == 'true'
       - name: Verify production frontend and API
-        if: steps.version.outputs.should_deploy == 'true'
         run: |
           set -euo pipefail
 
           curl -fsS "https://${DOMAIN}" > /dev/null
+          curl -fsS "https://api.${DOMAIN}/v1/utils/health-check/" > /dev/null
           for _ in $(seq 1 20); do
             if docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
               curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then

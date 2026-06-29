@@ -66,13 +66,9 @@ chore(ci): include map data in production deploys; add map data dir env
 
 Do not use Title Case subjects like `Fix production domain routing` or `Implement map file distribution`; use `fix:` / `feat:` prefixes instead.
 
-For merge commits created by agents, prefer:
-
-```text
-merge: dev into main after green CI
-```
-
-but make sure the commits being merged include the correct `feat:` or `fix:` prefixes, because release versioning reads commit subjects from the pushed range.
+Normal development happens directly on `main`. Do not introduce a `dev -> main`
+merge step for routine deployments; use the manual production deployment
+workflow after staging succeeds instead.
 
 Pull requests should include a clear summary, linked issues or discussions for larger changes, updated tests, and screenshots for UI work. Open a GitHub Discussion before major features or refactors.
 

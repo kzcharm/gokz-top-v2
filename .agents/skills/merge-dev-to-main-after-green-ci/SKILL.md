@@ -1,43 +1,38 @@
 ---
-name: merge-dev-to-main-after-green-ci
-description: Use when an agent needs to push `dev`, monitor the exact GitHub Actions runs triggered by that push, fix any failing CI with minimal targeted changes, and merge `dev` into `main` only after the pushed commit is fully green.
+name: deploy-main-after-green-staging
+description: Use when an agent needs to push `main`, monitor the exact staging workflow triggered by that push, fix any failing CI or deploy steps with minimal targeted changes, and manually promote the same `main` SHA to production after staging is green.
 ---
 
-# Merge Dev To Main After Green CI
+# Deploy Main After Green Staging
 
 This skill is repository-specific for `kzcharm/gokz-top-v2`.
 
 Use it when the task is to:
-- push the current `dev` branch
+
+- push the current `main` branch
 - monitor the workflows triggered by that push
 - inspect and fix failing GitHub Actions checks
-- merge `dev` into `main` only after the pushed `dev` SHA is fully green
-- verify the resulting `main` release is actually deployed to production
+- manually deploy production only after the pushed `main` SHA is green on staging
+- verify the resulting release is actually deployed to production
 
 ## Expected workflow set
 
-For a push to `dev`, track the runs for the exact pushed `head_sha`.
+For a push to `main`, track the runs for the exact pushed `head_sha`.
 
 Expected workflows:
+
 - `Conflict detector`
 - `Deploy Staging`
-- `Test Docker Compose`
-- `Test Backend`
 
-Do not merge based on branch-level status alone. Confirm the exact workflow runs attached to the pushed SHA.
-
-After pushing or fetching, also check whether `origin/dev` is already contained in `origin/main`:
-
-```bash
-git merge-base --is-ancestor origin/dev origin/main
-```
-
-If `dev` is already merged, do not stop there. Continue with the production release/deploy verification below, because `main` may still not be live on `gokz.top`.
+Do not rely on branch-level status alone. Confirm the exact workflow runs
+attached to the pushed SHA.
 
 ## GitHub auth and repo targeting
 
-- Use the repo token via `GH_TOKEN="$GITHUB_TOKEN_KZCHARM"` for GitHub API and `gh` commands.
-- Do not rely on ambient `gh` repo context. This machine may resolve `gh` against the wrong repository.
+- Use the repo token via `GH_TOKEN="$GITHUB_TOKEN_KZCHARM"` for GitHub API and
+  `gh` commands.
+- Do not rely on ambient `gh` repo context. This machine may resolve `gh`
+  against the wrong repository.
 - Prefer explicit REST API calls like:
   - `gh api 'repos/kzcharm/gokz-top-v2/actions/runs?...'`
   - `gh api 'repos/kzcharm/gokz-top-v2/actions/runs/<run_id>/jobs'`
@@ -46,22 +41,24 @@ If `dev` is already merged, do not stop there. Continue with the production rele
 ## Push and map the run set
 
 1. Confirm the branch and local state with `git status --short --branch`.
-2. Push `dev` non-interactively with `git push origin dev`.
+2. Push `main` non-interactively with `git push origin main`.
 3. Capture the pushed SHA with `git rev-parse HEAD`.
 4. Resolve the triggered workflow runs with:
 
 ```bash
 GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh api \
-  'repos/kzcharm/gokz-top-v2/actions/runs?branch=dev&event=push&per_page=20'
+  'repos/kzcharm/gokz-top-v2/actions/runs?branch=main&event=push&per_page=20'
 ```
 
 5. Filter to `.workflow_runs[] | select(.head_sha=="<sha>")`.
 
 ## Monitoring
 
-- Use `gh run watch <run_id> --repo kzcharm/gokz-top-v2 --interval 10` for live progress.
+- Use `gh run watch <run_id> --repo kzcharm/gokz-top-v2 --interval 10` for
+  live progress.
 - Watch multiple runs in parallel when possible.
-- Reconfirm final conclusions with one last `gh api` query on the exact `head_sha`.
+- Reconfirm final conclusions with one last `gh api` query on the exact
+  `head_sha`.
 
 ## Failure investigation
 
@@ -84,37 +81,19 @@ GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh api \
 3. Fix only the actual failing cause. Do not make speculative cleanup changes.
 4. Prefer focused local verification that matches the failure.
 
-## When GitHub Actions are unavailable
+## Production promotion
 
-Sometimes the hosted workflows are not usable even though the repository code is fine, for example:
-- GitHub-hosted jobs fail immediately because the repo is out of minutes
-- the pushed SHA gets `failure` conclusions without meaningful logs
-- `gh api 'repos/kzcharm/gokz-top-v2/actions/jobs/<job_id>/logs'` returns `BlobNotFound` or another 404 for jobs that never really started
-- only the self-hosted `Deploy Staging` workflow is still runnable
-
-Treat those as CI infrastructure failures, not code regressions.
-
-When that happens:
-
-1. Still push `dev` and capture the exact `head_sha`.
-2. Confirm whether `Deploy Staging` for that same SHA is still available.
-3. Run focused local verification for the touched area instead of waiting on broken hosted workflows.
-4. Require either:
-   - a successful `Deploy Staging` run for the exact SHA, or
-   - a manual staging deploy on `kzcharm-v2` with healthy containers
-5. If staging-specific operational work is part of the task, complete and verify it on staging before touching `main`.
-6. Merge `origin/dev` into `main` from a clean worktree even though the hosted checks are unavailable, and state explicitly why the normal gate was bypassed.
-7. If the release workflow is unavailable, create the release tag manually with `gh release create`.
-8. Deploy production manually on `kzcharm-v2` and verify container health plus at least one live public surface.
-
-## Production release and deploy verification
-
-Merging `dev` into `main` is not complete until production is proven to serve the expected version.
-
-After `main` is pushed, always:
+After staging is green for the pushed `main` SHA:
 
 1. Capture the final `origin/main` SHA.
-2. Inspect the `Release Version` workflow for that exact SHA.
+2. Trigger production manually for that SHA or for `main`:
+
+```bash
+GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh workflow run deploy-production.yml \
+  --repo kzcharm/gokz-top-v2 \
+  -f ref=<green-main-sha>
+```
+
 3. Inspect recent releases and tags:
 
 ```bash
@@ -122,28 +101,22 @@ GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh api \
   'repos/kzcharm/gokz-top-v2/releases?per_page=5'
 ```
 
-4. Verify the production host is serving a frontend built from the expected release:
+4. Verify the production host is serving the expected release:
 
 ```bash
 curl -sS https://gokz.top | rg -o 'assets/index-[^" ]+\.js|v[0-9]+\.[0-9]+\.[0-9]+'
-curl -sS https://gokz.top/assets/<index-asset>.js | rg -o 'v[0-9]+\.[0-9]+\.[0-9]+'
-```
-
-5. Verify production health:
-
-```bash
 curl -sS https://api.gokz.top/v1/utils/health-check/
-ssh -o BatchMode=yes kzcharm-v2 \
-  'docker compose -f /root/code/gokz-top-v2-manual/compose.yml --project-name gokz-top-v2 ps'
 ```
 
-If `gokz.top` still shows an older version, or the latest `main` changes are not visible, treat the task as not done even if the merge succeeded.
+If `gokz.top` still shows an older version, or the latest `main` changes are
+not visible, treat the task as not done even if the workflow succeeded.
 
-### Manual release fallback
+## Manual release fallback
 
-Use this when the `Release Version` workflow fails or cannot run, especially when jobs fail immediately with no logs.
+Use this only when the `Deploy Production` workflow cannot create the release
+tag or GitHub is failing operationally.
 
-1. Determine the next patch version from the latest semver release.
+1. Determine the next patch or minor version from the latest semver release.
 2. Create the missing release/tag against the exact final `origin/main` SHA:
 
 ```bash
@@ -154,84 +127,18 @@ GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh release create vX.Y.Z \
   --notes '<short release notes>'
 ```
 
-3. Use `VITE_APP_VERSION=vX.Y.Z` for the production frontend build.
-
-### Manual deploy fallback for this repo
-
-If the server checkout cannot fetch from GitHub directly, sync a clean local tree to the server and deploy from that synced tree instead of relying on `git fetch` on the host.
-
-Typical production fallback on `kzcharm-v2`.
-
-Use a fresh directory named for the release, for example `/root/code/gokz-top-v2-manual-vX.Y.Z`. If `rsync` is unavailable on the server, use tar over SSH. On macOS, set `COPYFILE_DISABLE=1` or delete `._*` files after extraction; otherwise AppleDouble metadata files can be baked into the backend image and break Alembic with `SyntaxError: source code string cannot contain null bytes`.
-
-If private submodule commits are not fetchable, and the change does not affect the replay viewer, deploy the app services only:
+3. Re-run the production deploy for that tag:
 
 ```bash
-docker compose -f compose.yml --project-name gokz-top-v2 build backend frontend
-docker compose -f compose.yml --project-name gokz-top-v2 up -d backend frontend
+GH_TOKEN="$GITHUB_TOKEN_KZCHARM" gh workflow run deploy-production.yml \
+  --repo kzcharm/gokz-top-v2 \
+  -f ref=vX.Y.Z
 ```
-
-Do not run `docker compose down -v`.
-
-General production fallback:
-
-```bash
-cp /root/code/gokz-top-v2-manual-v<previous>/.env /root/code/gokz-top-v2-manual-vX.Y.Z/.env
-cd /root/code/gokz-top-v2-manual-vX.Y.Z
-mkdir -p /root/code/gokz-top-v2/.geoip /root/code/gokz-top-v2/.replays
-if grep -q '^GEOIP_DATA_DIR=' .env; then
-  sed -i 's#^GEOIP_DATA_DIR=.*#GEOIP_DATA_DIR=/root/code/gokz-top-v2/.geoip#' .env
-else
-  printf '\nGEOIP_DATA_DIR=/root/code/gokz-top-v2/.geoip\n' >> .env
-fi
-if grep -q '^REPLAY_DATA_DIR=' .env; then
-  sed -i 's#^REPLAY_DATA_DIR=.*#REPLAY_DATA_DIR=/root/code/gokz-top-v2/.replays#' .env
-else
-  printf '\nREPLAY_DATA_DIR=/root/code/gokz-top-v2/.replays\n' >> .env
-fi
-if grep -q '^VITE_APP_VERSION=' .env; then
-  sed -i 's#^VITE_APP_VERSION=.*#VITE_APP_VERSION=vX.Y.Z#' .env
-else
-  printf '\nVITE_APP_VERSION=vX.Y.Z\n' >> .env
-fi
-test -s /root/code/gokz-top-v2/.geoip/GeoLite2-City.mmdb
-find . -name '._*' -delete
-docker compose -f compose.yml --project-name gokz-top-v2 build backend frontend
-docker compose -f compose.yml --project-name gokz-top-v2 up -d backend frontend
-docker compose -f compose.yml --project-name gokz-top-v2 ps
-docker compose -f compose.yml --project-name gokz-top-v2 exec -T backend \
-  curl -fsS http://localhost:8000/v1/utils/health-check/
-```
-
-Typical staging fallback on `kzcharm-v2`:
-
-```bash
-cd /root/code/gokz-top-v2-staging
-docker compose -f compose.yml --project-name gokz-top-v2-staging build
-docker compose -f compose.yml --project-name gokz-top-v2-staging up -d
-docker compose -f compose.yml --project-name gokz-top-v2-staging ps
-```
-
-### Substitute gate when hosted CI is down
-
-Before merging or deploying under this fallback path, gather all of:
-- the exact pushed `dev` SHA
-- the exact local verification commands that passed
-- proof that staging for that SHA is healthy
-- proof that production after deploy is healthy
-- the final `main` SHA and release tag deployed to production
-- proof that the live frontend bundle contains the expected `VITE_APP_VERSION`
-
-In the final report, explicitly state:
-- which workflows were unavailable and why
-- which manual verifications replaced them
-- the `dev` SHA used for the manual path
-- the final `main` merge commit SHA
-- the production release tag and whether `gokz.top` serves that tag
 
 ## Clean-worktree pattern
 
-If the main checkout has unrelated uncommitted changes, do not fix CI directly there.
+If the main checkout has unrelated uncommitted changes, do not fix CI directly
+there.
 
 Use a temporary clean worktree from the pushed SHA:
 
@@ -240,71 +147,22 @@ git worktree add /private/tmp/gokz-top-v2-ci-fix <sha>
 ```
 
 Use the clean worktree to:
+
 - inspect the failing code at the pushed revision
 - patch the minimal fix
 - run focused verification
 - commit the fix cleanly
 
-Then apply that fix back to the real `dev` branch with `git cherry-pick <fix_commit>`.
-
-This avoids mixing CI fixes with the user’s unrelated working tree edits.
+Then apply that fix back to the real `main` branch with
+`git cherry-pick <fix_commit>`.
 
 ## Sandbox and permission notes
 
 This environment may block writes under `.git`, including:
+
 - `.git/worktrees/*`
 - `.git/index.lock`
 - `.git/FETCH_HEAD`
 
-When that happens, request escalation for the specific git command instead of working around it.
-
-Commands that commonly need escalation here:
-- `git worktree add ...`
-- `git cherry-pick ...`
-- `git fetch origin ...`
-- `git checkout -B main origin/main`
-
-## Merge strategy
-
-Prefer merging from a clean worktree after CI is green.
-
-Recommended sequence:
-
-1. `git fetch origin main dev`
-2. `git checkout -B main origin/main`
-3. `git merge --no-ff origin/dev -m 'merge: dev into main after green CI'`
-4. `git push origin main`
-
-This is the safest fallback when PR APIs are blocked by token scope.
-
-## Verification before merge
-
-Before merging, list the exact successful workflows for the green `dev` SHA. Include the run URLs in the final report when useful.
-
-Minimum required confirmation:
-- `Conflict detector` passed
-- `Deploy Staging` passed
-- `Test Docker Compose` passed
-- `Test Backend` passed
-
-## Final report checklist
-
-Report all of the following:
-- what failed, if anything
-- what was changed to fix it
-- which workflows passed for the final green SHA
-- the final merge status
-- the final `dev` SHA that went green
-- the final `main` merge commit SHA
-- the release tag created or detected for final `main`
-- proof that production is serving the expected version
-- production health checks and any services intentionally left untouched
-
-## Example from this repo
-
-During one real run:
-- initial `dev` SHA `473f1ff...` failed only in `Test Backend`
-- the failure was in `backend/tests/alembic/test_player_profile_field_change_migration.py`
-- the fix was a minimal test-only update aligned with the current schema head
-- fixed `dev` SHA `28c1f82...` then passed all four workflows
-- `main` was pushed at merge commit `198e767...`
+When that happens, request escalation for the specific git command instead of
+working around it.

@@ -104,4 +104,4 @@ Set production secrets through environment variables, never in committed files. 
 - `SUPER_USER_STEAMID64`
 - `STEAM_API_KEY`
 
-See [deployment.md](./deployment.md) and [development.md](./development.md) for Docker, Traefik, and environment details.
+See [docs/deployment.md](./docs/deployment.md) and [development.md](./development.md) for Docker, Traefik, and environment details.

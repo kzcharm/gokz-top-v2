@@ -3,12 +3,66 @@ name: Deploy Staging
 on:
   push:
     branches:
-      - dev
+      - main
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
 
 jobs:
+  test-backend:
+    if: github.repository_owner != 'fastapi'
+    runs-on: ubuntu-latest
+    env:
+      FRONTEND_HOST_RULE: 'Host(`localhost`)'
+      POSTGRES_DB: app_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Seed CI env
+        run: cp .env.example .env
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - run: docker compose down -v --remove-orphans
+      - run: docker compose up -d --wait db
+      - name: Migrate DB
+        run: uv run bash scripts/prestart.sh
+        working-directory: backend
+      - name: Run tests
+        run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
+        working-directory: backend
+      - run: docker compose down -v --remove-orphans
+
+  test-docker-compose:
+    if: github.repository_owner != 'fastapi'
+    runs-on: ubuntu-latest
+    env:
+      FRONTEND_HOST_RULE: 'Host(`localhost`)'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Seed CI env
+        run: cp .env.example .env
+      - run: docker compose -f compose.yml -f compose.override.yml build backend frontend
+      - run: docker compose -f compose.yml -f compose.override.yml down -v --remove-orphans
+      - run: docker compose -f compose.yml -f compose.override.yml up -d --wait backend frontend adminer
+      - name: Test backend is up
+        run: curl http://localhost:8000/v1/utils/health-check/
+      - name: Test frontend is up
+        run: curl http://localhost:5173
+      - run: docker compose -f compose.yml -f compose.override.yml down -v --remove-orphans
+
   deploy-staging:
     if: github.repository_owner != 'fastapi'
+    needs:
+      - test-backend
+      - test-docker-compose
     runs-on: self-hosted
+    environment: staging
     env:
       ENVIRONMENT: staging
       DOMAIN: ${{ secrets.DOMAIN_STAGING }}
@@ -69,7 +123,7 @@ jobs:
           ENVIRONMENT=${ENVIRONMENT}
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
-          BACKEND_CORS_ORIGINS=https://${DOMAIN},https://${api_host},https://${replay_viewer_hostname}
+          BACKEND_CORS_ORIGINS=https://${frontend_hostname},https://${api_host},https://${replay_viewer_hostname}
           BACKEND_PUBLIC_URL=https://${api_host}
           REPLAY_VIEWER_HOST=https://${replay_viewer_hostname}
           REPLAY_VIEWER_HOSTNAME=${replay_viewer_hostname}
@@ -104,7 +158,8 @@ jobs:
       - name: Verify staging frontend and API
         run: |
           set -euo pipefail
-          curl -fsS "https://${DOMAIN}" > /dev/null
+          curl -fsS "https://${FRONTEND_HOSTNAME_STAGING:-staging.${BASE_DOMAIN_STAGING:-${DOMAIN#staging.}}}" > /dev/null
+          curl -fsS "https://${API_HOST_STAGING:-staging-api.${BASE_DOMAIN_STAGING:-${DOMAIN#staging.}}}/v1/utils/health-check/" > /dev/null
           for _ in $(seq 1 20); do
             if docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
               curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
