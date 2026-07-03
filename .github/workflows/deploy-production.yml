@@ -63,6 +63,39 @@ jobs:
 
           git fetch origin main --tags
 
+          repo_api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          create_release() {
+            local tag_name="$1"
+            local target_sha="$2"
+            local notes_file="$3"
+            local payload_file
+
+            payload_file="$(mktemp)"
+            APP_VERSION="${tag_name}" DEPLOY_SHA="${target_sha}" NOTES_FILE="${notes_file}" python3 - <<'PY' > "${payload_file}"
+import json
+import os
+from pathlib import Path
+
+print(
+    json.dumps(
+        {
+            "tag_name": os.environ["APP_VERSION"],
+            "target_commitish": os.environ["DEPLOY_SHA"],
+            "name": os.environ["APP_VERSION"],
+            "body": Path(os.environ["NOTES_FILE"]).read_text(),
+        }
+    )
+)
+PY
+
+            curl -fsS \
+              -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${repo_api}/releases" \
+              --data-binary @"${payload_file}" > /dev/null
+          }
+
           deploy_sha="$(git rev-parse HEAD)"
           if ! git merge-base --is-ancestor "${deploy_sha}" origin/main; then
             echo "::error::${TARGET_REF} (${deploy_sha}) is not contained in origin/main."
@@ -80,6 +113,16 @@ jobs:
           if [ -n "${exact_tag}" ]; then
             app_version="${exact_tag}"
             echo "Reusing existing release tag ${app_version} for ${deploy_sha}."
+            if curl -fsS \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${repo_api}/releases/tags/${app_version}" > /dev/null; then
+              create_release_record=false
+            else
+              create_release_record=true
+              release_body="$(mktemp)"
+              echo "Release ${app_version}" > "${release_body}"
+            fi
           else
             latest_tag="$(
               git tag --merged "${deploy_sha}" --list "v*.*.*" --sort=-v:refname \
@@ -156,10 +199,11 @@ jobs:
 
             git tag -a "${app_version}" "${deploy_sha}" -m "Release ${app_version}"
             git push origin "refs/tags/${app_version}"
-            gh release create "${app_version}" \
-              --target "${deploy_sha}" \
-              --title "${app_version}" \
-              --notes-file "${release_body}"
+            create_release_record=true
+          fi
+
+          if [ "${create_release_record}" = true ]; then
+            create_release "${app_version}" "${deploy_sha}" "${release_body}"
           fi
 
           echo "deploy_sha=${deploy_sha}" >> "${GITHUB_OUTPUT}"
