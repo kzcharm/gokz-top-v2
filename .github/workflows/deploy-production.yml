@@ -71,22 +71,7 @@ jobs:
             local payload_file
 
             payload_file="$(mktemp)"
-            APP_VERSION="${tag_name}" DEPLOY_SHA="${target_sha}" NOTES_FILE="${notes_file}" python3 - <<'PY' > "${payload_file}"
-import json
-import os
-from pathlib import Path
-
-print(
-    json.dumps(
-        {
-            "tag_name": os.environ["APP_VERSION"],
-            "target_commitish": os.environ["DEPLOY_SHA"],
-            "name": os.environ["APP_VERSION"],
-            "body": Path(os.environ["NOTES_FILE"]).read_text(),
-        }
-    )
-)
-PY
+            APP_VERSION="${tag_name}" DEPLOY_SHA="${target_sha}" NOTES_FILE="${notes_file}" python3 -c 'import json, os, pathlib; print(json.dumps({"tag_name": os.environ["APP_VERSION"], "target_commitish": os.environ["DEPLOY_SHA"], "name": os.environ["APP_VERSION"], "body": pathlib.Path(os.environ["NOTES_FILE"]).read_text()}))' > "${payload_file}"
 
             curl -fsS \
               -X POST \
