@@ -242,11 +242,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          curl -fsS "https://${DOMAIN}" > /dev/null
-          curl -fsS "https://api.${DOMAIN}/v1/utils/health-check/" > /dev/null
           for _ in $(seq 1 20); do
-            if docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
-              curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
+            if curl -fsS "https://${DOMAIN}" > /dev/null \
+              && curl -fsS "https://api.${DOMAIN}/v1/utils/health-check/" > /dev/null \
+              && docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
+                curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
               exit 0
             fi
             sleep 2
