@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
 
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
-          base_domain="${BASE_DOMAIN_STAGING:-${DOMAIN#staging.}}"
+          base_domain="${BASE_DOMAIN_STAGING:-gokz.top}"
           frontend_hostname="${FRONTEND_HOSTNAME_STAGING:-staging.${base_domain}}"
           api_host="${API_HOST_STAGING:-staging-api.${base_domain}}"
           adminer_host="${ADMINER_HOST_STAGING:-adminer-staging.${base_domain}}"
@@ -160,8 +160,8 @@ jobs:
           set -euo pipefail
 
           for _ in $(seq 1 20); do
-            if curl -fsS "https://${FRONTEND_HOSTNAME_STAGING:-staging.${BASE_DOMAIN_STAGING:-${DOMAIN#staging.}}}" > /dev/null \
-              && curl -fsS "https://${API_HOST_STAGING:-staging-api.${BASE_DOMAIN_STAGING:-${DOMAIN#staging.}}}/v1/utils/health-check/" > /dev/null \
+            if curl -fsS "https://${FRONTEND_HOSTNAME_STAGING:-staging.${BASE_DOMAIN_STAGING:-gokz.top}}" > /dev/null \
+              && curl -fsS "https://${API_HOST_STAGING:-staging-api.${BASE_DOMAIN_STAGING:-gokz.top}}/v1/utils/health-check/" > /dev/null \
               && docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
                 curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
               exit 0
