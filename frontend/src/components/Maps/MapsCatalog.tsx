@@ -713,13 +713,13 @@ export function MapsCatalog() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="relative block w-full min-w-0 sm:flex-1 lg:max-w-sm">
+              <div className="relative block w-full min-w-0 sm:flex-1 lg:w-[16rem] lg:flex-none">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={searchInput}
                   onChange={(event) => {
+                    setSearchInput(event.target.value)
                     startTransition(() => {
-                      setSearchInput(event.target.value)
                       setPage(1)
                     })
                   }}
