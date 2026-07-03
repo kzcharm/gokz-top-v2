@@ -17,7 +17,7 @@ import { columns, type UserTableData } from "@/components/Admin/columns"
 import { DataTable } from "@/components/Common/DataTable"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Input } from "@/components/ui/input"
-import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import { isLoggedIn } from "@/hooks/useAuth"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { getPageTitle } from "@/lib/site"
 import { isSuperuser } from "@/lib/user-roles"
@@ -52,7 +52,6 @@ export const Route = createFileRoute("/_layout/admin/users")({
 })
 
 function AdminUsers() {
-  const { user: currentUser } = useAuth()
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = usePersistedPageSize({
     storageKey: "gokz-page-size-admin-users",
@@ -129,19 +128,12 @@ function AdminUsers() {
       }),
     )
 
-    return sortedUsers.map((user) => ({
-      ...user,
-      isCurrentUser: currentUser?.steamid64 === user.steamid64,
-    }))
-  }, [currentUser?.steamid64, searchUsers, sortBy, sortOrder])
+    return sortedUsers
+  }, [searchUsers, sortBy, sortOrder])
 
   const tableData = useMemo<UserTableData[]>(
-    () =>
-      (data?.data ?? []).map((user: UserPublic) => ({
-        ...user,
-        isCurrentUser: currentUser?.steamid64 === user.steamid64,
-      })),
-    [data?.data, currentUser?.steamid64],
+    () => data?.data ?? [],
+    [data?.data],
   )
 
   const visibleTableData = isSearchMode

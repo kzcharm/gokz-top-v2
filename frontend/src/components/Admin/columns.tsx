@@ -9,9 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { UserActionsMenu } from "./UserActionsMenu"
 
-export type UserTableData = UserPublic & {
-  isCurrentUser: boolean
-}
+export type UserTableData = UserPublic
 
 function SortableDateHeader({
   title,
@@ -29,7 +27,7 @@ function SortableDateHeader({
       type="button"
       variant="ghost"
       className="-ml-3 h-8 px-3"
-      onClick={() => column.toggleSorting(sorting === "asc")}
+      onClick={() => column.toggleSorting(sorting !== "desc")}
     >
       {title}
       {sorting === "asc" ? (
@@ -51,11 +49,6 @@ export const columns: ColumnDef<UserTableData>[] = [
           player={row.original.player}
           fallbackSteamid64={row.original.steamid64}
         />
-        {row.original.isCurrentUser && (
-          <Badge variant="outline" className="text-xs">
-            You
-          </Badge>
-        )}
       </div>
     ),
   },
