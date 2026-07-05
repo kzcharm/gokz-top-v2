@@ -273,7 +273,8 @@ export const ru = {
       qqBinding: {
         title: "Код привязки QQ",
         codeLabel: "Код привязки",
-        tooltip: "Если вы не из Китая, эта функция вам, скорее всего, не понадобится.",
+        tooltip:
+          "Если вы не из Китая, эта функция вам, скорее всего, не понадобится.",
         tooltipAriaLabel: "О кодах привязки QQ",
         expiresAt: "Срок действия",
         actions: {
@@ -288,6 +289,8 @@ export const ru = {
       themeTitle: "Тема",
       themeDescription:
         "Выберите, как приложение должно выглядеть в этом браузере.",
+      defaultPage: "Страница по умолчанию",
+      selectDefaultPage: "Выберите страницу по умолчанию",
       colorTheme: "Цветовая тема",
       selectTheme: "Выберите тему",
       activeTheme: "Активная тема",
@@ -316,6 +319,13 @@ export const ru = {
       ratingIconScopes: {
         primary: "Основной скоуп",
         global: "Скоуп навбара",
+      },
+      defaultPages: {
+        servers: "Серверы",
+        profile: "Мой профиль",
+        leaderboards: "Таблицы лидеров",
+        maps: "Карты",
+        live: "Live",
       },
       ratingIconScopeDescriptions: {
         primary: "Использовать рейтинг основного скоупа каждого игрока.",

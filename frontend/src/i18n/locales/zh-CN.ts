@@ -282,6 +282,8 @@ export const zhCN = {
     appearance: {
       themeTitle: "主题",
       themeDescription: "选择此浏览器中网站的显示方式。",
+      defaultPage: "默认页面",
+      selectDefaultPage: "选择默认页面",
       colorTheme: "颜色主题",
       selectTheme: "选择主题",
       activeTheme: "当前主题",
@@ -308,6 +310,13 @@ export const zhCN = {
       ratingIconScopes: {
         primary: "主要范围",
         global: "导航栏范围",
+      },
+      defaultPages: {
+        servers: "服务器",
+        profile: "我的个人资料",
+        leaderboards: "排行榜",
+        maps: "地图",
+        live: "直播",
       },
       ratingIconScopeDescriptions: {
         primary: "使用每位玩家的主要范围评级。",

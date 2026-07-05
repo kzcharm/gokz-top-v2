@@ -287,6 +287,8 @@ export const en = {
       themeTitle: "Theme",
       themeDescription:
         "Choose how the application should look on this browser.",
+      defaultPage: "Default Page",
+      selectDefaultPage: "Select default page",
       colorTheme: "Color theme",
       selectTheme: "Select theme",
       activeTheme: "Active theme",
@@ -314,6 +316,13 @@ export const en = {
       ratingIconScopes: {
         primary: "Target Player's Primary Scope",
         global: "My Selected Navbar Scope",
+      },
+      defaultPages: {
+        servers: "Servers",
+        profile: "My Profile",
+        leaderboards: "Leaderboards",
+        maps: "Maps",
+        live: "Live",
       },
       ratingIconScopeDescriptions: {
         primary:

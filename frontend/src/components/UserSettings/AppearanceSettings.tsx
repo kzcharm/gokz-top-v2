@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
@@ -25,6 +25,12 @@ import {
   getHourCycleOptions,
   type HourCyclePreference,
 } from "@/lib/date-time"
+import {
+  DEFAULT_PAGE_OPTIONS,
+  type DefaultPagePreference,
+  readDefaultPagePreference,
+  writeDefaultPagePreference,
+} from "@/lib/default-page"
 
 const PREVIEW_SAMPLE = new Date(2026, 2, 22, 14, 5, 9)
 
@@ -42,6 +48,9 @@ export default function AppearanceSettings() {
     showRatingIcon,
   } = usePlayerDisplayPreferences()
   const { resolvedTheme, setTheme, theme } = useTheme()
+  const [defaultPage, setDefaultPage] = useState<DefaultPagePreference>(
+    readDefaultPagePreference,
+  )
   const themeOptions = useMemo<
     Array<{
       value: Theme
@@ -80,6 +89,19 @@ export default function AppearanceSettings() {
         label: t("settings.appearance.ratingIconScopes.global"),
       },
     ],
+    [t],
+  )
+  const defaultPageOptions = useMemo<
+    Array<{
+      value: DefaultPagePreference
+      label: string
+    }>
+  >(
+    () =>
+      DEFAULT_PAGE_OPTIONS.map((value) => ({
+        value,
+        label: t(`settings.appearance.defaultPages.${value.slice(1)}`),
+      })),
     [t],
   )
   const dateTimePresetOptions = getDateTimePresetOptions()
@@ -201,6 +223,40 @@ export default function AppearanceSettings() {
           <CardTitle>{t("settings.appearance.themeTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              {t("settings.appearance.defaultPage")}
+            </p>
+            <Select
+              value={defaultPage}
+              onValueChange={(value) => {
+                const nextDefaultPage = value as DefaultPagePreference
+                setDefaultPage(nextDefaultPage)
+                writeDefaultPagePreference(nextDefaultPage)
+              }}
+            >
+              <SelectTrigger
+                className="w-full sm:w-72"
+                data-testid="appearance-default-page-select"
+              >
+                <SelectValue
+                  placeholder={t("settings.appearance.selectDefaultPage")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {defaultPageOptions.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    data-testid={`appearance-default-page-option-${option.value.slice(1)}`}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <p className="text-sm font-medium">
               {t("settings.appearance.colorTheme")}
