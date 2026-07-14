@@ -95,6 +95,8 @@ export const zhCN = {
     maps: "地图",
     live: "直播",
     bans: "封禁",
+    joinDiscord: "加入 Discord",
+    joinDiscordHelp: "遇到问题？加入我们的 Discord。",
     notifications: "通知",
     settings: "设置",
     admin: "管理",

@@ -95,6 +95,8 @@ export const en = {
     maps: "Maps",
     live: "Live",
     bans: "Bans",
+    joinDiscord: "Join Discord",
+    joinDiscordHelp: "Having problems? Join our Discord.",
     notifications: "Notifications",
     settings: "Settings",
     admin: "Admin",

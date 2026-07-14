@@ -96,6 +96,8 @@ export const ru = {
     maps: "Карты",
     live: "Live",
     bans: "Баны",
+    joinDiscord: "Присоединиться к Discord",
+    joinDiscordHelp: "Возникли проблемы? Присоединяйтесь к нашему Discord.",
     notifications: "Уведомления",
     settings: "Настройки",
     admin: "Админ",

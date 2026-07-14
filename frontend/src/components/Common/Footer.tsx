@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { FaDiscord, FaQq } from "react-icons/fa"
+import { FaQq } from "react-icons/fa"
 
 import { COMMUNITY_LINKS } from "@/lib/community-links"
 import { getCopyrightYearRange, SITE_NAME } from "@/lib/site"
@@ -13,18 +13,8 @@ export function Footer() {
       <div className="mx-auto flex w-full max-w-7xl items-center justify-center text-center text-sm text-muted-foreground">
         <div className="inline-flex flex-wrap items-center justify-center gap-2 leading-none">
           <span>
-            {SITE_NAME} {getCopyrightYearRange()} |
+            {SITE_NAME} {getCopyrightYearRange()}
           </span>
-          <a
-            href={COMMUNITY_LINKS.discord}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t("footer.joinDiscord")}
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
-          >
-            <span>{t("footer.joinDiscord")}</span>
-            <FaDiscord className="h-4 w-4" />
-          </a>
           {showQqGroup ? (
             <>
               <span>|</span>
