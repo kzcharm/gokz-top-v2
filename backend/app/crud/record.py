@@ -2268,12 +2268,15 @@ async def _get_pb_records_v0(
         .select_from(RecordPb)
         .join(Record, col(Record.uuid) == col(RecordPb.record_uuid))
         .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
+        .join(Map, col(Map.id) == col(MapCourse.map_id))
         .where(
             col(RecordPb.scope) == scope,
             col(RecordPb.type).in_(record_types),
             col(Record.is_valid).is_(True),
         )
     )
+    if teleports_type == TeleportsType.NUB:
+        statement = statement.where(~col(Map.name).startswith("kzpro_"))
     if map_id is not None:
         statement = statement.where(
             col(MapCourse.map_id) == map_id,

@@ -2337,21 +2337,17 @@ async def test_read_record_v0_top_nub_omits_kzpro_pro_pb(
         teleports=0,
         points=456,
     )
-    course = (
+    nub_pb = (
         await db.exec(
-            select(MapCourse).where(
-                MapCourse.map_id == 980201,
-                MapCourse.stage == 0,
+            select(RecordPb).where(
+                RecordPb.record_uuid == record.uuid,
+                RecordPb.scope == ModeScope.KZT,
+                RecordPb.type == RecordType.NUB,
             )
         )
     ).one()
-    await db.exec(
-        delete(RecordPb).where(
-            RecordPb.course_id == course.id,
-            RecordPb.steamid64 == player_id,
-            RecordPb.type == RecordType.NUB,
-        )
-    )
+    nub_pb.points = 765
+    db.add(nub_pb)
     pro_pb = (
         await db.exec(
             select(RecordPb).where(
