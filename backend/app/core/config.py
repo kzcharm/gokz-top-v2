@@ -25,6 +25,16 @@ def parse_cors(v: Any) -> list[str] | str:
 
 
 EXTRA_CORS_ORIGINS = ("https://cs2kz.org",)
+PUBLIC_CORS_DOMAIN_REGEX = (
+    r"([a-z0-9-]+\.)*("
+    r"kzgo\.eu|"
+    r"kzprofile\.com|"
+    r"gokzstats\.com|"
+    r"gokz\.top|"
+    r"cs2kz\.org|"
+    r"axekz\.com"
+    r")"
+)
 
 
 class Settings(BaseSettings):
@@ -79,8 +89,8 @@ class Settings(BaseSettings):
             r"^https?://("
             r"localhost|"
             r"127\.0\.0\.1|"
-            r"([a-z0-9-]+\.)*axekz\.com"
-            r")(:\d+)?$"
+            + PUBLIC_CORS_DOMAIN_REGEX
+            + r")(:\d+)?$"
         )
 
     PROJECT_NAME: str

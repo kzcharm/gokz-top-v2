@@ -102,6 +102,16 @@ def test_cors_allow_origin_regex_allows_localhost_and_axekz_hosts() -> None:
     allowed_origins = [
         "http://localhost:5173",
         "http://127.0.0.1:8000",
+        "https://kzgo.eu",
+        "https://api.kzgo.eu",
+        "https://kzprofile.com",
+        "https://assets.kzprofile.com",
+        "https://gokzstats.com",
+        "https://dev.gokzstats.com",
+        "https://gokz.top",
+        "https://api.gokz.top",
+        "https://cs2kz.org",
+        "https://staging.cs2kz.org",
         "https://axekz.com",
         "https://www.axekz.com",
         "https://api.axekz.com",
@@ -109,3 +119,10 @@ def test_cors_allow_origin_regex_allows_localhost_and_axekz_hosts() -> None:
 
     for origin in allowed_origins:
         assert re.fullmatch(settings.cors_allow_origin_regex, origin)
+
+
+def test_cors_allow_origin_regex_rejects_unknown_hosts() -> None:
+    settings = _build_settings()
+
+    assert settings.cors_allow_origin_regex is not None
+    assert not re.fullmatch(settings.cors_allow_origin_regex, "https://example.com")

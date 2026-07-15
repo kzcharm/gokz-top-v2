@@ -204,7 +204,7 @@ jobs:
           replay_viewer_hostname="${REPLAY_VIEWER_HOSTNAME_PRODUCTION:-replays.gokz.top}"
           replay_viewer_resources_dir="${REPLAY_VIEWER_RESOURCES_DIR_PRODUCTION:-/root/code/gokz-replay-viewer-export/local-src/.local/replayviewer-data-volume/resources}"
           frontend_host_rule="Host(\`${DOMAIN}\`)"
-          backend_cors_origins="*"
+          backend_cors_origins="https://kzgo.eu,https://kzprofile.com,https://gokzstats.com,https://gokz.top,https://cs2kz.org,https://axekz.com"
 
           if [ -n "${FRONTEND_HOST_ALIASES:-}" ]; then
             IFS=',' read -r -a frontend_host_aliases <<< "${FRONTEND_HOST_ALIASES}"
