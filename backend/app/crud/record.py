@@ -2299,8 +2299,6 @@ async def _get_pb_records_v0(
         )
     if teleports_type == TeleportsType.PRO:
         statement = statement.where(col(Record.teleports) == 0)
-    elif teleports_type == TeleportsType.NUB:
-        statement = statement.where(col(Record.teleports) > 0)
 
     if map_id is not None:
         statement = statement.order_by(

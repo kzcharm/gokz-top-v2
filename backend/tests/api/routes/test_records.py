@@ -2266,6 +2266,54 @@ async def test_read_record_v0_top_accepts_steam_id_and_filters_player_pbs(
     assert [row["id"] for row in pro_response.json()] == [980436]
 
 
+async def test_read_record_v0_top_nub_includes_zero_teleport_overall_pb(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = 76561199960263728
+    await _seed_record_dependencies(
+        db,
+        players=[(player_id, "Zero TP Overall")],
+    )
+    await _create_record(
+        db,
+        id=980438,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="12.000",
+        teleports=0,
+        points=321,
+    )
+
+    nub_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999999000",
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "has_teleports": "true",
+        },
+    )
+    pro_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999999000",
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "has_teleports": "false",
+        },
+    )
+
+    assert nub_response.status_code == 200
+    assert pro_response.status_code == 200
+    assert [row["id"] for row in nub_response.json()] == [980438]
+    assert nub_response.json()[0]["teleports"] == 0
+    assert [row["id"] for row in pro_response.json()] == [980438]
+
+
 async def test_read_record_v0_top_rejects_malformed_steam_id(
     client: AsyncClient,
 ) -> None:
