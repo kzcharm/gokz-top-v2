@@ -2314,6 +2314,75 @@ async def test_read_record_v0_top_nub_includes_zero_teleport_overall_pb(
     assert [row["id"] for row in pro_response.json()] == [980438]
 
 
+async def test_read_record_v0_top_nub_falls_back_to_kzpro_pro_pb(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = 76561199960261728
+    await _seed_record_dependencies(
+        db,
+        map_id=980201,
+        map_name="kzpro_record_test",
+        players=[(player_id, "KZPRO Runner")],
+    )
+    record = await _create_record(
+        db,
+        id=980439,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980201,
+        stage=0,
+        time="13.000",
+        teleports=0,
+        points=456,
+    )
+    course = (
+        await db.exec(
+            select(MapCourse).where(
+                MapCourse.map_id == 980201,
+                MapCourse.stage == 0,
+            )
+        )
+    ).one()
+    await db.exec(
+        delete(RecordPb).where(
+            RecordPb.course_id == course.id,
+            RecordPb.steamid64 == player_id,
+            RecordPb.type == RecordType.NUB,
+        )
+    )
+    pro_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.record_uuid == record.uuid,
+                RecordPb.scope == ModeScope.KZT,
+                RecordPb.type == RecordType.PRO,
+            )
+        )
+    ).one()
+    pro_pb.points = 654
+    db.add(pro_pb)
+    await db.commit()
+
+    response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999998000",
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "has_teleports": "true",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [row["id"] for row in payload] == [980439]
+    assert payload[0]["map_name"] == "kzpro_record_test"
+    assert payload[0]["teleports"] == 0
+    assert payload[0]["points"] == 654
+
+
 async def test_read_record_v0_top_rejects_malformed_steam_id(
     client: AsyncClient,
 ) -> None:
