@@ -1,5 +1,9 @@
 import re
 
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from starlette.middleware.cors import CORSMiddleware
+
 from app.core.config import Settings
 
 
@@ -52,15 +56,41 @@ def test_all_cors_origins_prefers_explicit_replay_viewer_host() -> None:
     ]
 
 
-def test_all_cors_origins_allows_wildcard() -> None:
+def test_cors_wildcard_uses_regex_to_support_credentials() -> None:
     settings = _build_settings(
         ENVIRONMENT="production",
         FRONTEND_HOST="https://gokz.top",
         BACKEND_CORS_ORIGINS="*",
     )
 
-    assert settings.all_cors_origins == ["*"]
-    assert settings.cors_allow_origin_regex is None
+    assert settings.all_cors_origins == []
+    assert settings.cors_allow_origin_regex == ".*"
+
+
+def test_wildcard_cors_reflects_origin_for_credentialed_requests() -> None:
+    settings = _build_settings(
+        ENVIRONMENT="production",
+        FRONTEND_HOST="https://gokz.top",
+        BACKEND_CORS_ORIGINS="*",
+    )
+    app = FastAPI()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.all_cors_origins,
+        allow_origin_regex=settings.cors_allow_origin_regex,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.get("/")
+    def read_root() -> dict[str, bool]:
+        return {"ok": True}
+
+    response = TestClient(app).get("/", headers={"Origin": "https://gokz.top"})
+
+    assert response.headers["access-control-allow-origin"] == "https://gokz.top"
+    assert response.headers["access-control-allow-credentials"] == "true"
 
 
 def test_cors_allow_origin_regex_allows_localhost_and_axekz_hosts() -> None:

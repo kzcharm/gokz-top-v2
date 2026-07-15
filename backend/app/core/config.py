@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     @property
     def all_cors_origins(self) -> list[str]:
         if self.BACKEND_CORS_ORIGINS == "*":
-            return ["*"]
+            return []
 
         origins = [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS]
         origins.append(self.FRONTEND_HOST.rstrip("/"))
@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     @property
     def cors_allow_origin_regex(self) -> str | None:
         if self.BACKEND_CORS_ORIGINS == "*":
-            return None
+            return ".*"
 
         return (
             r"^https?://("
