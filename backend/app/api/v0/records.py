@@ -74,6 +74,10 @@ def _resolve_steamid64(
     return parsed
 
 
+def _format_globalapi_datetime(value: datetime) -> str:
+    return value.replace(tzinfo=None).isoformat(timespec="seconds")
+
+
 async def _to_record_compat_public_v0(
     session: SessionDep,
     record: Record,
@@ -112,8 +116,8 @@ async def _to_top_record_compat_public_v0(
         tickrate=compat.tickrate,
         time=compat.time,
         teleports=compat.teleports,
-        created_on=compat.created_on,
-        updated_on=compat.updated_on,
+        created_on=_format_globalapi_datetime(compat.created_on),
+        updated_on=_format_globalapi_datetime(compat.updated_on),
         updated_by=compat.updated_by,
         record_filter_id=compat.record_filter_id,
         server_name=compat.server_name,

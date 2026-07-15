@@ -759,8 +759,8 @@ class TopRecordCompatPublicV0(SQLModel):
     tickrate: int = 128
     time: float
     teleports: int
-    created_on: datetime
-    updated_on: datetime
+    created_on: str
+    updated_on: str
     updated_by: int
     record_filter_id: int = 0
     server_name: str

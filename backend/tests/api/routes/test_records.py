@@ -2224,6 +2224,8 @@ async def test_read_record_v0_top_accepts_steam_id_and_filters_player_pbs(
     ]
     assert payload[0]["steamid64"] == str(player_id)
     assert payload[0]["steam_id"] == "STEAM_1:0:999999999"
+    assert payload[0]["created_on"] == "2026-01-01T00:00:00"
+    assert payload[0]["updated_on"] == "2026-01-01T00:00:00"
     assert payload[0]["points"] == 777
 
     globalapi_points_response = await client.get(
