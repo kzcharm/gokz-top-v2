@@ -2260,7 +2260,6 @@ async def _get_pb_records_v0(
     elif teleports_type == TeleportsType.OVR:
         record_types = [RecordType.NUB, RecordType.PRO]
 
-    nub_pb = aliased(RecordPb)
     statement = (
         select(
             Record,
@@ -2269,32 +2268,12 @@ async def _get_pb_records_v0(
         .select_from(RecordPb)
         .join(Record, col(Record.uuid) == col(RecordPb.record_uuid))
         .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
-        .join(Map, col(Map.id) == col(MapCourse.map_id))
         .where(
             col(RecordPb.scope) == scope,
+            col(RecordPb.type).in_(record_types),
             col(Record.is_valid).is_(True),
         )
     )
-    if teleports_type == TeleportsType.NUB:
-        statement = statement.where(
-            or_(
-                col(RecordPb.type) == RecordType.NUB,
-                and_(
-                    col(Map.name).startswith("kzpro_"),
-                    col(RecordPb.type) == RecordType.PRO,
-                    ~exists(
-                        select(nub_pb.record_uuid).where(
-                            col(nub_pb.scope) == col(RecordPb.scope),
-                            col(nub_pb.course_id) == col(RecordPb.course_id),
-                            col(nub_pb.steamid64) == col(RecordPb.steamid64),
-                            col(nub_pb.type) == RecordType.NUB,
-                        )
-                    ),
-                ),
-            )
-        )
-    else:
-        statement = statement.where(col(RecordPb.type).in_(record_types))
     if map_id is not None:
         statement = statement.where(
             col(MapCourse.map_id) == map_id,

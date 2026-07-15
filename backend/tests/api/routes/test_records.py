@@ -2314,7 +2314,7 @@ async def test_read_record_v0_top_nub_includes_zero_teleport_overall_pb(
     assert [row["id"] for row in pro_response.json()] == [980438]
 
 
-async def test_read_record_v0_top_nub_falls_back_to_kzpro_pro_pb(
+async def test_read_record_v0_top_nub_omits_kzpro_pro_pb(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -2365,7 +2365,7 @@ async def test_read_record_v0_top_nub_falls_back_to_kzpro_pro_pb(
     db.add(pro_pb)
     await db.commit()
 
-    response = await client.get(
+    nub_response = await client.get(
         "/v0/records/top",
         params={
             "steam_id": "STEAM_1:0:999998000",
@@ -2374,13 +2374,24 @@ async def test_read_record_v0_top_nub_falls_back_to_kzpro_pro_pb(
             "has_teleports": "true",
         },
     )
+    pro_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999998000",
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "has_teleports": "false",
+        },
+    )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert [row["id"] for row in payload] == [980439]
-    assert payload[0]["map_name"] == "kzpro_record_test"
-    assert payload[0]["teleports"] == 0
-    assert payload[0]["points"] == 654
+    assert nub_response.status_code == 200
+    assert pro_response.status_code == 200
+    assert nub_response.json() == []
+    pro_payload = pro_response.json()
+    assert [row["id"] for row in pro_payload] == [980439]
+    assert pro_payload[0]["map_name"] == "kzpro_record_test"
+    assert pro_payload[0]["teleports"] == 0
+    assert pro_payload[0]["points"] == 654
 
 
 async def test_read_record_v0_top_rejects_malformed_steam_id(
