@@ -15,6 +15,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def parse_cors(v: Any) -> list[str] | str:
+    if isinstance(v, str) and v.strip() == "*":
+        return "*"
     if isinstance(v, str) and not v.startswith("["):
         return [i.strip() for i in v.split(",") if i.strip()]
     elif isinstance(v, list | str):
@@ -44,12 +46,15 @@ class Settings(BaseSettings):
     QQ_BIND_TOKEN_SECRET: str | None = None
 
     BACKEND_CORS_ORIGINS: Annotated[
-        list[AnyUrl] | str, BeforeValidator(parse_cors)
+        list[AnyUrl] | Literal["*"], BeforeValidator(parse_cors)
     ] = []
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def all_cors_origins(self) -> list[str]:
+        if self.BACKEND_CORS_ORIGINS == "*":
+            return ["*"]
+
         origins = [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS]
         origins.append(self.FRONTEND_HOST.rstrip("/"))
 
@@ -67,6 +72,9 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def cors_allow_origin_regex(self) -> str | None:
+        if self.BACKEND_CORS_ORIGINS == "*":
+            return None
+
         return (
             r"^https?://("
             r"localhost|"

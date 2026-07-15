@@ -52,6 +52,17 @@ def test_all_cors_origins_prefers_explicit_replay_viewer_host() -> None:
     ]
 
 
+def test_all_cors_origins_allows_wildcard() -> None:
+    settings = _build_settings(
+        ENVIRONMENT="production",
+        FRONTEND_HOST="https://gokz.top",
+        BACKEND_CORS_ORIGINS="*",
+    )
+
+    assert settings.all_cors_origins == ["*"]
+    assert settings.cors_allow_origin_regex is None
+
+
 def test_cors_allow_origin_regex_allows_localhost_and_axekz_hosts() -> None:
     settings = _build_settings()
 
