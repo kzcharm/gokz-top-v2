@@ -167,6 +167,16 @@ def _parse_direct_steam_identifier_to_steamid64(identifier: str) -> int | None:
     return None
 
 
+def parse_direct_steam_identifier_to_steamid64(identifier: str) -> int | None:
+    return _parse_direct_steam_identifier_to_steamid64(identifier)
+
+
+def steamid64_to_steam2(steamid64: int) -> str:
+    account_id = steamid64 & 0xFFFFFFFF
+    universe = steamid64 >> 56
+    return f"STEAM_{universe}:{account_id & 1}:{account_id >> 1}"
+
+
 async def _resolve_steam_vanity_url_to_steamid64(vanity_url: str) -> int | None:
     if not settings.STEAM_API_KEY:
         return None

@@ -27,6 +27,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.regions import get_region_country_codes
 from app.models import (
     Ban,
+    KZMode,
     Map,
     MapCourse,
     MapCourseTier,
@@ -80,7 +81,7 @@ from app.services.run_replay_storage import has_run_replay
 from .ban import active_ban_exists_clause, not_active_ban_exists_clause
 from .map import get_map_by_name
 from .map_leaderboard import rebuild_map_leaderboards_for_keys
-from .player import read_players_batch, to_player_ref_public
+from .player import read_players_batch, steamid64_to_steam2, to_player_ref_public
 from .player_notification import create_wr_beaten_notification
 from .record_filter import load_scoped_course_tiers
 
@@ -1574,9 +1575,9 @@ def to_record_compat_public_v0(
         raise ValueError("Compat responses require a non-null GlobalAPI id")
     return RecordCompatPublicV0(
         id=record.id,
-        steamid64=record.steamid64,
+        steamid64=str(record.steamid64),
         player_name=player.name,
-        steam_id=None,
+        steam_id=steamid64_to_steam2(record.steamid64),
         server_id=record.server_id,
         server_name=server.name or "",
         map_id=record.map_id,
@@ -2231,12 +2232,61 @@ async def _get_pb_records_v0(
     map_id: int | None,
     stage: int,
     steamid64: int | None,
+    steamid64s: Sequence[int] | None,
     mode_ids: Sequence[int],
     teleports_type: TeleportsType,
     server_ids: Sequence[int] | None,
     exclude_cheaters: bool,
-) -> list[Record]:
-    statement = select(Record).where(col(Record.is_valid).is_(True))
+    use_gokz_top_points: bool,
+    offset: int,
+    limit: int,
+) -> list[tuple[Record, int]]:
+    if map_id is None and steamid64 is None and not steamid64s:
+        return []
+
+    scope = ModeScope.OVR
+    if mode_ids:
+        mode_set = {legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids}
+        if mode_set <= {KZMode.KZT, KZMode.NKZ}:
+            scope = ModeScope.KZT
+        elif mode_set == {KZMode.SKZ}:
+            scope = ModeScope.SKZ
+        elif mode_set == {KZMode.VNL}:
+            scope = ModeScope.VNL
+
+    record_types = [RecordType.NUB]
+    if teleports_type == TeleportsType.PRO:
+        record_types = [RecordType.PRO]
+    elif teleports_type == TeleportsType.OVR:
+        record_types = [RecordType.NUB, RecordType.PRO]
+
+    statement = (
+        select(
+            Record,
+            (RecordPb.points if use_gokz_top_points else Record.points).label("points"),
+        )
+        .select_from(RecordPb)
+        .join(Record, col(Record.uuid) == col(RecordPb.record_uuid))
+        .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
+        .where(
+            col(RecordPb.scope) == scope,
+            col(RecordPb.type).in_(record_types),
+            col(Record.is_valid).is_(True),
+        )
+    )
+    if map_id is not None:
+        statement = statement.where(
+            col(MapCourse.map_id) == map_id,
+            col(MapCourse.stage) == stage,
+        )
+    if steamid64 is not None:
+        statement = statement.where(col(RecordPb.steamid64) == steamid64)
+        if map_id is None:
+            statement = statement.where(col(MapCourse.stage) == stage)
+    elif steamid64s:
+        statement = statement.where(col(RecordPb.steamid64).in_(list(steamid64s)))
+        if map_id is None:
+            statement = statement.where(col(MapCourse.stage) == stage)
     if mode_ids:
         statement = statement.where(
             col(Record.mode).in_([legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids])
@@ -2245,60 +2295,29 @@ async def _get_pb_records_v0(
         statement = statement.where(col(Record.server_id).in_(list(server_ids)))
     if exclude_cheaters:
         statement = statement.where(
-            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
+            not_active_ban_exists_clause(steamid64_column=col(RecordPb.steamid64))
         )
+    if teleports_type == TeleportsType.PRO:
+        statement = statement.where(col(Record.teleports) == 0)
+    elif teleports_type == TeleportsType.NUB:
+        statement = statement.where(col(Record.teleports) > 0)
 
     if map_id is not None:
-        statement = statement.where(
-            col(Record.map_id) == map_id,
-            col(Record.stage) == stage,
+        statement = statement.order_by(
+            col(RecordPb.time).asc(),
+            col(RecordPb.record_uuid).asc(),
         )
-        statement = _apply_teleports_type(statement, teleports_type)
-        subquery = (
-            statement.with_only_columns(Record.uuid)
-            .distinct(col(Record.steamid64))
-            .order_by(
-                col(Record.steamid64),
-                col(Record.time).asc(),
-                *_record_tie_breakers(),
-            )
-            .subquery()
+    else:
+        statement = statement.order_by(
+            col(MapCourse.map_id).asc(),
+            col(MapCourse.stage).asc(),
+            col(Record.mode).asc(),
+            col(RecordPb.type).asc(),
+            col(RecordPb.time).asc(),
+            col(RecordPb.record_uuid).asc(),
         )
-        final_statement = (
-            select(Record)
-            .join(subquery, col(Record.uuid) == subquery.c.uuid)
-            .order_by(
-                col(Record.time).asc(),
-                *_record_tie_breakers(),
-            )
-        )
-        return list((await session.exec(final_statement)).all())
-
-    if steamid64 is not None:
-        statement = statement.where(col(Record.steamid64) == steamid64)
-        statement = _apply_teleports_type(statement, teleports_type)
-        subquery = (
-            statement.with_only_columns(Record.uuid)
-            .distinct(col(Record.map_id), col(Record.stage))
-            .order_by(
-                col(Record.map_id),
-                col(Record.stage),
-                col(Record.time).asc(),
-                *_record_tie_breakers(),
-            )
-            .subquery()
-        )
-        final_statement = (
-            select(Record)
-            .join(subquery, col(Record.uuid) == subquery.c.uuid)
-            .order_by(
-                col(Record.map_id).asc(),
-                col(Record.stage).asc(),
-            )
-        )
-        return list((await session.exec(final_statement)).all())
-
-    return []
+    statement = statement.offset(offset).limit(limit)
+    return [(record, points) for record, points in (await session.exec(statement)).all()]
 
 
 async def get_pb_records(
@@ -3104,9 +3123,10 @@ async def get_top_records_v0(
     has_teleports: bool | None,
     player_name: str | None,
     exclude_cheaters: bool,
+    use_gokz_top_points: bool,
     offset: int,
     limit: int,
-) -> list[Record]:
+) -> list[tuple[Record, int]]:
     teleports_type = TeleportsType.OVR
     if has_teleports is True:
         teleports_type = TeleportsType.NUB
@@ -3130,48 +3150,24 @@ async def get_top_records_v0(
             return []
         if steamid64 is not None and steamid64 not in player_ids:
             return []
-        if steamid64 is None:
-            # For name searches without an explicit steamid, fall back to direct rows.
-            statement = select(Record).where(
-                col(Record.is_valid).is_(True),
-                col(Record.id).is_not(None),
-                col(Record.steamid64).in_(player_ids),
-            )
-            if resolved_map_id is not None:
-                statement = statement.where(col(Record.map_id) == resolved_map_id)
-            if server_id is not None:
-                statement = statement.where(col(Record.server_id) == server_id)
-            if mode_ids:
-                statement = statement.where(
-                    col(Record.mode).in_([legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids])
-                )
-            if exclude_cheaters:
-                statement = statement.where(
-                    not_active_ban_exists_clause(
-                        steamid64_column=col(Record.steamid64)
-                    )
-                )
-            statement = _apply_teleports_type(statement, teleports_type)
-            statement = statement.where(col(Record.stage) == stage)
-            statement = statement.order_by(
-                col(Record.time).asc(),
-                *_record_tie_breakers(),
-            )
-            statement = statement.offset(offset).limit(limit)
-            return list((await session.exec(statement)).all())
+    else:
+        player_ids = []
 
-    if resolved_map_id is not None or steamid64 is not None:
-        records = await _get_pb_records_v0(
+    if resolved_map_id is not None or steamid64 is not None or player_ids:
+        return await _get_pb_records_v0(
             session,
             map_id=resolved_map_id,
             stage=stage,
             steamid64=steamid64,
+            steamid64s=player_ids if steamid64 is None else None,
             mode_ids=mode_ids,
             teleports_type=teleports_type,
             server_ids=[server_id] if server_id is not None else None,
             exclude_cheaters=exclude_cheaters,
+            use_gokz_top_points=use_gokz_top_points,
+            offset=offset,
+            limit=limit,
         )
-        return records[offset : offset + limit]
 
     return []
 

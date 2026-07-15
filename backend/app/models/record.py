@@ -726,7 +726,7 @@ class RecentRecordUpsertEvent(SQLModel):
 
 class RecordCompatPublicV0(SQLModel):
     id: int
-    steamid64: int
+    steamid64: str
     player_name: str
     steam_id: str | None = None
     server_id: int
@@ -745,6 +745,28 @@ class RecordCompatPublicV0(SQLModel):
     record_filter_id: int = 0
     replay_id: int | None = None
     server: ServerGlobalapiCompatPublicV0 | None = None
+
+
+class TopRecordCompatPublicV0(SQLModel):
+    id: int
+    steamid64: str
+    player_name: str
+    steam_id: str | None = None
+    server_id: int
+    map_id: int
+    stage: int
+    mode: str
+    tickrate: int = 128
+    time: float
+    teleports: int
+    created_on: datetime
+    updated_on: datetime
+    updated_by: int
+    record_filter_id: int = 0
+    server_name: str
+    map_name: str
+    points: int
+    replay_id: int = 0
 
 
 class RecentRecordCompatPublicV0(RecordCompatPublicV0):

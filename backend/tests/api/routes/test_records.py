@@ -2099,6 +2099,182 @@ async def test_read_record_v0_top_place_world_records_and_recent(
     assert recent_payload[1]["place"] == 2
 
 
+async def test_read_record_v0_top_accepts_steam_id_and_filters_player_pbs(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player_id = 76561199960265726
+    await _seed_record_dependencies(
+        db,
+        players=[(player_id, "Steam2 Runner")],
+    )
+    await _create_record(
+        db,
+        id=980434,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="19.500",
+        teleports=2,
+        points=100,
+    )
+    nub_record = await _create_record(
+        db,
+        id=980435,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="18.500",
+        teleports=4,
+        points=120,
+    )
+    pro_record = await _create_record(
+        db,
+        id=980436,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.500",
+        teleports=0,
+        points=140,
+    )
+    await _create_record(
+        db,
+        id=980437,
+        steamid64=player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=1,
+        time="16.500",
+        teleports=3,
+        points=160,
+    )
+    for record, record_type, points in (
+        (nub_record, RecordType.NUB, 777),
+        (pro_record, RecordType.PRO, 888),
+    ):
+        record_pb = (
+            await db.exec(
+                select(RecordPb).where(
+                    RecordPb.record_uuid == record.uuid,
+                    RecordPb.scope == ModeScope.KZT,
+                    RecordPb.type == record_type,
+                )
+            )
+        ).one()
+        record_pb.points = points
+        db.add(record_pb)
+    await db.commit()
+
+    steam_id_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999999999",
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "tickrate": 128,
+            "has_teleports": "true",
+            "limit": 9999,
+        },
+    )
+    steamid64_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steamid64": player_id,
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "tickrate": 128,
+            "has_teleports": "true",
+            "limit": 9999,
+        },
+    )
+
+    assert steam_id_response.status_code == 200
+    assert steamid64_response.status_code == 200
+    assert steam_id_response.json() == steamid64_response.json()
+    payload = steam_id_response.json()
+    assert [row["id"] for row in payload] == [980435]
+    assert list(payload[0]) == [
+        "id",
+        "steamid64",
+        "player_name",
+        "steam_id",
+        "server_id",
+        "map_id",
+        "stage",
+        "mode",
+        "tickrate",
+        "time",
+        "teleports",
+        "created_on",
+        "updated_on",
+        "updated_by",
+        "record_filter_id",
+        "server_name",
+        "map_name",
+        "points",
+        "replay_id",
+    ]
+    assert payload[0]["steamid64"] == str(player_id)
+    assert payload[0]["steam_id"] == "STEAM_1:0:999999999"
+    assert payload[0]["points"] == 777
+
+    globalapi_points_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999999999",
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "has_teleports": "true",
+            "use_gokz_top_points": "false",
+        },
+    )
+    assert globalapi_points_response.status_code == 200
+    assert globalapi_points_response.json()[0]["points"] == 120
+
+    stage_one_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999999999",
+            "modes_list_string": "kz_timer",
+            "stage": 1,
+            "has_teleports": "true",
+        },
+    )
+    assert stage_one_response.status_code == 200
+    assert [row["id"] for row in stage_one_response.json()] == [980437]
+
+    pro_response = await client.get(
+        "/v0/records/top",
+        params={
+            "steam_id": "STEAM_1:0:999999999",
+            "modes_list_string": "kz_timer",
+            "stage": 0,
+            "has_teleports": "false",
+        },
+    )
+    assert pro_response.status_code == 200
+    assert [row["id"] for row in pro_response.json()] == [980436]
+
+
+async def test_read_record_v0_top_rejects_malformed_steam_id(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(
+        "/v0/records/top",
+        params={"steam_id": "not-a-steam-id"},
+    )
+
+    assert response.status_code == 500
+
+
 async def test_record_foreign_keys_and_nullable_globalapi_id_uniqueness(
     db: AsyncSession,
 ) -> None:

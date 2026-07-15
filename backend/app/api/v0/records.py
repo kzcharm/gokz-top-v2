@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
 from app.api.deps import SessionDep
+from app.crud.player import parse_direct_steam_identifier_to_steamid64
 from app.models import (
     CANONICAL_MODE_SEEDS,
     Map,
@@ -15,6 +16,7 @@ from app.models import (
     ServerGlobalapi,
     WorldRecordCountCompatPublicV0,
 )
+from app.models.record import TopRecordCompatPublicV0
 
 router = APIRouter(prefix="/records", tags=["records"])
 
@@ -57,6 +59,21 @@ def _resolve_mode_ids(
     return sorted(set(resolved))
 
 
+def _resolve_steamid64(
+    *,
+    steamid64: int | None,
+    steam_id: str | None,
+) -> int | None:
+    if steamid64 is not None:
+        return steamid64
+    if steam_id is None:
+        return None
+    parsed = parse_direct_steam_identifier_to_steamid64(steam_id)
+    if parsed is None:
+        raise HTTPException(status_code=500, detail="Invalid steam_id")
+    return parsed
+
+
 async def _to_record_compat_public_v0(
     session: SessionDep,
     record: Record,
@@ -76,6 +93,36 @@ async def _to_record_compat_public_v0(
     )
 
 
+async def _to_top_record_compat_public_v0(
+    session: SessionDep,
+    record: Record,
+    *,
+    points: int,
+) -> TopRecordCompatPublicV0:
+    compat = await _to_record_compat_public_v0(session, record)
+    return TopRecordCompatPublicV0(
+        id=compat.id,
+        steamid64=compat.steamid64,
+        player_name=compat.player_name,
+        steam_id=compat.steam_id,
+        server_id=compat.server_id,
+        map_id=compat.map_id,
+        stage=compat.stage,
+        mode=compat.mode,
+        tickrate=compat.tickrate,
+        time=compat.time,
+        teleports=compat.teleports,
+        created_on=compat.created_on,
+        updated_on=compat.updated_on,
+        updated_by=compat.updated_by,
+        record_filter_id=compat.record_filter_id,
+        server_name=compat.server_name,
+        map_name=compat.map_name,
+        points=points,
+        replay_id=compat.replay_id or 0,
+    )
+
+
 @router.get("/{id:int}", response_model=RecordCompatPublicV0)
 async def read_record_by_id(session: SessionDep, id: int) -> Any:
     record = await crud.get_record_by_id(session=session, record_id=id)
@@ -92,10 +139,11 @@ async def read_record_place(session: SessionDep, id: int) -> Any:
     return await crud.get_record_place(session=session, record=record)
 
 
-@router.get("/top", response_model=list[RecordCompatPublicV0])
+@router.get("/top", response_model=list[TopRecordCompatPublicV0])
 async def read_top_records(
     session: SessionDep,
     steamid64: Annotated[int | None, Query()] = None,
+    steam_id: Annotated[str | None, Query()] = None,
     server_id: Annotated[int | None, Query()] = None,
     map_id: Annotated[int | None, Query()] = None,
     map_name: Annotated[str | None, Query()] = None,
@@ -105,6 +153,7 @@ async def read_top_records(
     has_teleports: Annotated[bool | None, Query()] = None,
     player_name: Annotated[str | None, Query()] = None,
     exclude_cheaters: Annotated[bool, Query()] = True,
+    use_gokz_top_points: Annotated[bool, Query()] = True,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=10000)] = 100,
     tickrate: Annotated[int | None, Query()] = None,
@@ -116,9 +165,10 @@ async def read_top_records(
         modes_list=modes_list,
         modes_list_string=modes_list_string,
     )
+    resolved_steamid64 = _resolve_steamid64(steamid64=steamid64, steam_id=steam_id)
     records = await crud.get_top_records_v0(
         session=session,
-        steamid64=steamid64,
+        steamid64=resolved_steamid64,
         server_id=server_id,
         map_id=map_id,
         map_name=map_name,
@@ -127,10 +177,14 @@ async def read_top_records(
         has_teleports=has_teleports,
         player_name=player_name,
         exclude_cheaters=exclude_cheaters,
+        use_gokz_top_points=use_gokz_top_points,
         offset=offset,
         limit=limit,
     )
-    return [await _to_record_compat_public_v0(session, record) for record in records]
+    return [
+        await _to_top_record_compat_public_v0(session, record, points=points)
+        for record, points in records
+    ]
 
 
 @router.get(
@@ -168,6 +222,7 @@ async def read_world_record_counts(
 async def read_recent_top_records(
     session: SessionDep,
     steamid64: Annotated[int | None, Query()] = None,
+    steam_id: Annotated[str | None, Query()] = None,
     map_id: Annotated[int | None, Query()] = None,
     map_name: Annotated[str | None, Query()] = None,
     has_teleports: Annotated[bool | None, Query()] = None,
@@ -187,9 +242,10 @@ async def read_recent_top_records(
         modes_list=modes_list,
         modes_list_string=modes_list_string,
     )
+    resolved_steamid64 = _resolve_steamid64(steamid64=steamid64, steam_id=steam_id)
     return await crud.get_recent_top_records_v0(
         session=session,
-        steamid64=steamid64,
+        steamid64=resolved_steamid64,
         map_id=map_id,
         map_name=map_name,
         mode_ids=mode_ids,
