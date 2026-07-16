@@ -10,6 +10,7 @@ from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import (
+    ModeScope,
     RecentRecordListQuery,
     RecentRecordSnapshotEvent,
     RecentRecordUpsertEvent,
@@ -20,24 +21,31 @@ RECENT_RECORD_SNAPSHOT_LIMIT = 50
 
 class RecentRecordEventHub:
     def __init__(self) -> None:
-        self._connections: set[WebSocket] = set()
+        self._connections: dict[WebSocket, ModeScope] = {}
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def connect(
+        self,
+        websocket: WebSocket,
+        scope: ModeScope = ModeScope.OVR,
+    ) -> None:
         await websocket.accept()
         async with self._lock:
-            self._connections.add(websocket)
+            self._connections[websocket] = scope
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
-            self._connections.discard(websocket)
+            self._connections.pop(websocket, None)
 
-    async def broadcast_json(self, payload: dict[str, Any]) -> None:
+    async def _broadcast_json(self, payloads: dict[WebSocket, dict[str, Any]]) -> None:
         async with self._lock:
-            connections = list(self._connections)
+            connections = dict(self._connections)
 
         stale_connections: list[WebSocket] = []
         for connection in connections:
+            payload = payloads.get(connection)
+            if payload is None:
+                continue
             try:
                 await connection.send_json(payload)
             except Exception:
@@ -48,23 +56,45 @@ class RecentRecordEventHub:
 
         async with self._lock:
             for connection in stale_connections:
-                self._connections.discard(connection)
+                self._connections.pop(connection, None)
+
+    async def broadcast_record_upsert(self, record_uuid: str) -> None:
+        async with self._lock:
+            scopes_by_connection = dict(self._connections)
+
+        payloads: dict[WebSocket, dict[str, Any]] = {}
+        for scope in set(scopes_by_connection.values()):
+            event = await build_recent_record_upsert_event(record_uuid, scope=scope)
+            if event is None:
+                continue
+            payload = event.model_dump(mode="json")
+            for connection, connection_scope in scopes_by_connection.items():
+                if connection_scope == scope:
+                    payloads[connection] = payload
+
+        await self._broadcast_json(payloads)
 
 
 recent_record_event_hub = RecentRecordEventHub()
 
 
-async def build_recent_record_snapshot_event() -> RecentRecordSnapshotEvent:
+async def build_recent_record_snapshot_event(
+    scope: ModeScope = ModeScope.OVR,
+) -> RecentRecordSnapshotEvent:
     async with async_session_maker() as session:
         records, _ = await crud.read_recent_records(
             session=session,
-            query=RecentRecordListQuery(limit=RECENT_RECORD_SNAPSHOT_LIMIT),
+            query=RecentRecordListQuery(
+                limit=RECENT_RECORD_SNAPSHOT_LIMIT,
+                scope=scope,
+            ),
         )
     return RecentRecordSnapshotEvent(records=records)
 
 
 async def build_recent_record_upsert_event(
     record_uuid: str,
+    scope: ModeScope = ModeScope.OVR,
 ) -> RecentRecordUpsertEvent | None:
     try:
         parsed_record_uuid = uuid.UUID(record_uuid)
@@ -75,6 +105,7 @@ async def build_recent_record_upsert_event(
         record = await crud.get_recent_record_public_by_uuid(
             session=session,
             record_uuid=parsed_record_uuid,
+            scope=scope,
         )
         if record is None:
             return None
@@ -97,12 +128,7 @@ async def listen_for_recent_record_updates() -> None:
                 async with connection.cursor() as cursor:
                     await cursor.execute(f"LISTEN {crud.RECENT_RECORD_NOTIFY_CHANNEL}")
                 async for notify in connection.notifies(timeout=5.0):
-                    event = await build_recent_record_upsert_event(notify.payload)
-                    if event is None:
-                        continue
-                    await recent_record_event_hub.broadcast_json(
-                        event.model_dump(mode="json")
-                    )
+                    await recent_record_event_hub.broadcast_record_upsert(notify.payload)
         except asyncio.CancelledError:
             raise
         except Exception:

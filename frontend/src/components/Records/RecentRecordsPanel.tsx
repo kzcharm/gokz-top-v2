@@ -14,14 +14,10 @@ import {
   useAdminModeSurface,
 } from "@/components/admin-mode-provider"
 import {
-  ModeSelector,
-  type ModeSelectorValue,
-} from "@/components/Common/ModeSelector"
-import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
-import { normalizeRecordMode } from "@/components/Records/mode"
+import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -63,6 +59,13 @@ const STAGE_FILTER_OPTIONS: Array<{ label: string; value: StageFilter }> = [
   { label: "Main", value: "main" },
   { label: "Bonus", value: "bonus" },
 ]
+
+const SCOPE_MODES: Record<AppScope, string[]> = {
+  OVR: ["KZT", "SKZ", "VNL", "NKZ"],
+  KZT: ["KZT", "NKZ"],
+  SKZ: ["SKZ"],
+  VNL: ["VNL"],
+}
 
 const RECORD_TYPE_FILTER_OPTIONS: Array<{
   label: string
@@ -250,9 +253,9 @@ function MapPicker({
 export function RecentRecordsPanel() {
   const { enabled: adminModeEnabled } = useAdminMode()
   const { user } = useAuth()
+  const { scope } = useScope()
   const { bulkDeleteMutation } = useRecordAdminActions()
   const [records, setRecords] = useState<RecentRecord[]>([])
-  const [selectedMode, setSelectedMode] = useState<ModeSelectorValue>("all")
   const [mapInput, setMapInput] = useState("")
   const [selectedMap, setSelectedMap] = useState<Pick<
     MapPublic,
@@ -281,7 +284,7 @@ export function RecentRecordsPanel() {
   const filters = useMemo<RecentRecordsFilters>(() => {
     const pointsBounds = getPointsFilterBounds(selectedPoints)
     return {
-      mode: selectedMode === "all" ? null : selectedMode,
+      scope,
       mapId: selectedMap?.id ?? null,
       stage: selectedStage === "main" ? 0 : null,
       isBonus: selectedStage === "bonus" ? true : null,
@@ -292,15 +295,14 @@ export function RecentRecordsPanel() {
     }
   }, [
     selectedMap,
-    selectedMode,
     selectedPoints,
     selectedStage,
     selectedTier,
     selectedType,
+    scope,
   ])
 
   const hasActiveFilters =
-    filters.mode !== null ||
     filters.mapId !== null ||
     filters.stage !== null ||
     filters.isBonus !== null ||
@@ -331,10 +333,7 @@ export function RecentRecordsPanel() {
 
   const recordMatchesFilters = useCallback(
     (record: RecentRecord) => {
-      if (
-        filters.mode &&
-        normalizeRecordMode(record.mode.name) !== filters.mode
-      ) {
+      if (!SCOPE_MODES[scope].includes(record.mode.name)) {
         return false
       }
       if (filters.mapId !== null && record.map.id !== filters.mapId) {
@@ -371,7 +370,7 @@ export function RecentRecordsPanel() {
       }
       return true
     },
-    [filters],
+    [filters, scope],
   )
 
   const handleRealtimeEvent = useEffectEvent(
@@ -411,7 +410,7 @@ export function RecentRecordsPanel() {
     let shouldReconnect = true
 
     const connect = () => {
-      websocket = new WebSocket(buildRecentRecordsWebSocketUrl())
+      websocket = new WebSocket(buildRecentRecordsWebSocketUrl(scope))
 
       websocket.onopen = () => {
         attempt = 0
@@ -451,7 +450,7 @@ export function RecentRecordsPanel() {
       }
       websocket?.close()
     }
-  }, [])
+  }, [scope])
 
   return (
     <div className="flex flex-col gap-4">
@@ -483,14 +482,6 @@ export function RecentRecordsPanel() {
                 setSelectedMap(null)
                 setMapInput("")
               }}
-            />
-            <ModeSelector
-              value={selectedMode}
-              onValueChange={setSelectedMode}
-              allLabel="Mode"
-              triggerClassName="h-8 w-full min-w-20 border-border/70 bg-background/80 text-xs sm:w-auto"
-              ariaLabel="Filter recent records by mode"
-              showAllLabelInTrigger
             />
             <Select
               value={selectedStage}

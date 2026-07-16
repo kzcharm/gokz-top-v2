@@ -1749,6 +1749,9 @@ async def read_recent_records(
             statement = statement.where(col(Record.teleports) == 0)
         elif requested_record_type is RecordType.NUB:
             statement = statement.where(col(Record.teleports) > 0)
+        statement = statement.where(
+            col(Record.mode).in_(list(mode_scope_modes(query.scope)))
+        )
         if query.mode is not None:
             statement = statement.where(col(Record.mode) == query.mode)
         if query.map_id is not None:
@@ -1977,6 +1980,7 @@ async def get_recent_record_public_by_uuid(
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(col(Record.uuid) == record_uuid)
+        .where(col(Record.mode).in_(list(mode_scope_modes(scope))))
         .limit(1)
     )
     row = (await session.exec(statement)).first()

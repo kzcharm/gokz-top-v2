@@ -96,7 +96,7 @@ const filterableRecentRecords = [
     },
     map: { id: 980201, name: "kz_recent_beta", tier: 7 },
     server: { id: 980300, name: "Filter Server" },
-    mode: { id: 200, name: "KZT" },
+    mode: { id: 201, name: "SKZ" },
     stage: 0,
     teleports: 5,
     time: 32.333,
@@ -324,6 +324,8 @@ test("Public dashboard sends recent record filters to the backend and guards liv
         }
       },
     })
+
+    window.localStorage.setItem("gokz-app-scope", "SKZ")
   })
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
@@ -338,7 +340,7 @@ test("Public dashboard sends recent record filters to the backend and guards liv
     const url = new URL(route.request().url())
     recentRequestUrls.push(url.toString())
     const rows = filterableRecentRecords.filter((record) => {
-      const mode = url.searchParams.get("mode")
+      const scope = url.searchParams.get("scope")
       const mapId = url.searchParams.get("map_id")
       const stage = url.searchParams.get("stage")
       const isBonus = url.searchParams.get("is_bonus")
@@ -347,7 +349,7 @@ test("Public dashboard sends recent record filters to the backend and guards liv
       const minPoints = url.searchParams.get("points_more_or_equal_than")
       const maxPoints = url.searchParams.get("points_less_or_equal_than")
 
-      if (mode && record.mode.name !== mode) return false
+      if (scope === "SKZ" && record.mode.name !== "SKZ") return false
       if (mapId && record.map.id !== Number(mapId)) return false
       if (stage && record.stage !== Number(stage)) return false
       if (isBonus === "true" && record.stage <= 0) return false
@@ -369,9 +371,10 @@ test("Public dashboard sends recent record filters to the backend and guards liv
 
   await page.goto("/dashboard/records")
 
-  await expect(page.getByText("Alpha Pro")).toBeVisible()
+  await expect(page.getByText("Alpha Pro")).not.toBeVisible()
   await expect(page.getByText("Alpha Nub")).toBeVisible()
   await expect(page.getByText("Beta Nub")).toBeVisible()
+  expect(recentRequestUrls.at(-1)).toContain("scope=SKZ")
 
   await page.getByRole("combobox", { name: "Choose map" }).fill("beta")
   await page.getByRole("option", { name: "kz_recent_beta" }).click()
@@ -380,10 +383,6 @@ test("Public dashboard sends recent record filters to the backend and guards liv
   expect(recentRequestUrls.at(-1)).toContain("map_id=980201")
 
   await page.getByRole("button", { name: "Clear selected map" }).click()
-  await page
-    .getByRole("combobox", { name: "Filter recent records by mode" })
-    .click()
-  await page.getByRole("option", { name: "SKZ" }).click()
   await page
     .getByRole("combobox", { name: "Filter recent records by stage" })
     .click()
@@ -404,7 +403,8 @@ test("Public dashboard sends recent record filters to the backend and guards liv
   await expect(page.getByText("Alpha Nub")).toBeVisible()
   await expect(page.getByText("Alpha Pro")).not.toBeVisible()
   const filteredUrl = recentRequestUrls.at(-1)
-  expect(filteredUrl).toContain("mode=SKZ")
+  expect(filteredUrl).toContain("scope=SKZ")
+  expect(filteredUrl).not.toContain("mode=")
   expect(filteredUrl).toContain("is_bonus=true")
   expect(filteredUrl).toContain("tier=6")
   expect(filteredUrl).toContain("type=NUB")

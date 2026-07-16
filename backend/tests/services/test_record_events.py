@@ -12,6 +12,7 @@ from app.models import (
     Map,
     MapCourse,
     MapCourseTier,
+    ModeScope,
     Player,
     Record,
     ServerGlobalapi,
@@ -187,6 +188,9 @@ async def test_build_recent_record_snapshot_event_returns_latest_records(
     assert event.records[0].map.tier == 5
     assert event.records[0].mode.name == "SKZ"
 
+    skz_event = await build_recent_record_snapshot_event(scope=ModeScope.SKZ)
+    assert [record.uuid for record in skz_event.records] == [newest.uuid]
+
 
 async def test_build_recent_record_upsert_event_returns_single_record_payload(
     db: AsyncSession,
@@ -220,6 +224,10 @@ async def test_build_recent_record_upsert_event_returns_single_record_payload(
     assert event.record.player.display_name == "Realtime Runner"
     assert event.record.server.name == "Realtime Server"
     assert event.record.mode.name == "KZT"
+    assert await build_recent_record_upsert_event(
+        str(record.uuid),
+        scope=ModeScope.SKZ,
+    ) is None
 
 
 async def test_build_recent_record_upsert_event_rejects_invalid_or_missing_record() -> (

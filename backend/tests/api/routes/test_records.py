@@ -591,6 +591,25 @@ async def test_read_recent_records_v1_scope_points_and_pro_filters(
     assert points_by_id[pb_nub.id] == 1000
     assert points_by_id[non_pb_nub.id] == 0
 
+    skz_recent = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"scope": "SKZ"},
+    )
+    assert skz_recent.status_code == 200
+    skz_payload = skz_recent.json()
+    assert [row["id"] for row in skz_payload["data"]] == [pb_nub.id]
+    assert skz_payload["data"][0]["points"] == 1000
+
+    kzt_recent = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"scope": "KZT"},
+    )
+    assert kzt_recent.status_code == 200
+    assert [row["id"] for row in kzt_recent.json()["data"]] == [
+        non_pb_nub.id,
+        pb_pro.id,
+    ]
+
 
 async def test_read_recent_records_v1_filters_by_record_context(
     client: AsyncClient,

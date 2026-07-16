@@ -1,5 +1,6 @@
 import type { ServerGroupSummary } from "@/client"
 import { OpenAPI } from "@/client"
+import type { AppScope } from "@/components/scope-provider"
 
 export const RECENT_RECORDS_LIVE_LIMIT = 50
 
@@ -59,6 +60,7 @@ export type RecentRecordRealtimeEvent =
     }
 
 export interface RecentRecordsFilters {
+  scope?: AppScope
   mode?: string | null
   mapId?: number | null
   stage?: number | null
@@ -69,14 +71,15 @@ export interface RecentRecordsFilters {
   maxPoints?: number | null
 }
 
-export function buildRecentRecordsWebSocketUrl() {
+export function buildRecentRecordsWebSocketUrl(scope: AppScope = "OVR") {
   const configuredBase = OpenAPI.BASE || window.location.origin
   const baseUrl = new URL(configuredBase, window.location.origin)
   const protocol = baseUrl.protocol === "https:" ? "wss:" : "ws:"
   const normalizedPath =
     baseUrl.pathname === "/" ? "" : baseUrl.pathname.replace(/\/$/, "")
 
-  return `${protocol}//${baseUrl.host}${normalizedPath}/v1/ws/records/recent`
+  const params = new URLSearchParams({ scope })
+  return `${protocol}//${baseUrl.host}${normalizedPath}/v1/ws/records/recent?${params.toString()}`
 }
 
 export function compareRecentRecords(left: RecentRecord, right: RecentRecord) {
@@ -143,6 +146,9 @@ export async function fetchRecentRecords(
   const normalizedPath =
     baseUrl.pathname === "/" ? "" : baseUrl.pathname.replace(/\/$/, "")
   const params = new URLSearchParams({ limit: String(limit) })
+  if (filters.scope) {
+    params.set("scope", filters.scope)
+  }
   if (filters.mode) {
     params.set("mode", filters.mode)
   }
