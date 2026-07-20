@@ -1,5 +1,7 @@
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -10,13 +12,20 @@ from app.api.v1 import servers as servers_route
 from app.core.config import settings
 from app.crud import server as server_crud
 from app.models import (
+    KZMode,
+    LeaderboardPlayer,
     Map,
+    ModeScope,
+    Player,
+    Record,
+    ServerGlobalapi,
     ServerGroup,
     ServerGroupStatus,
     ServerGroupUpdate,
     ServerStatus,
     ServerStatusPut,
 )
+from app.models.leaderboard_player import scale_public_rating
 from app.services.geoip import GeoIPLocation
 from app.services.server_status import (
     A2SInfoResult,
@@ -59,6 +68,107 @@ async def _create_map(
     return map_obj
 
 
+async def _create_activity_player(
+    db: AsyncSession,
+    *,
+    steamid64: int,
+    custom_id: str | None = None,
+    primary_scope: ModeScope = ModeScope.KZT,
+) -> Player:
+    player = Player(
+        steamid64=steamid64,
+        name=f"Player {steamid64}",
+        custom_id=custom_id,
+        primary_scope=primary_scope,
+    )
+    db.add(player)
+    await db.commit()
+    await db.refresh(player)
+    return player
+
+
+async def _create_activity_group(
+    db: AsyncSession,
+    *,
+    custom_id: str,
+    name: str,
+) -> ServerGroup:
+    group, _api_key = await create_server_group(db, name=name)
+    group = await crud.update_server_group(
+        session=db,
+        group=group,
+        group_in=ServerGroupUpdate(custom_id=custom_id),
+    )
+    return group
+
+
+async def _create_activity_globalapi_server(
+    db: AsyncSession,
+    *,
+    id: int,
+    group_id: uuid.UUID,
+    name: str,
+) -> ServerGlobalapi:
+    server = ServerGlobalapi(
+        id=id,
+        port=27015,
+        ip=f"203.0.113.{id % 255}",
+        name=name,
+        group_id=group_id,
+        owner_steamid64=None,
+        approval_status=1,
+        approved_by_steamid64=None,
+    )
+    db.add(server)
+    await db.commit()
+    await db.refresh(server)
+    return server
+
+
+async def _create_activity_record(
+    db: AsyncSession,
+    *,
+    id: int,
+    steamid64: int,
+    server_id: int,
+    map_id: int,
+    created_at: datetime,
+    time_seconds: str,
+    is_valid: bool = True,
+) -> Record:
+    record = Record(
+        id=id,
+        steamid64=steamid64,
+        server_id=server_id,
+        mode=KZMode.KZT,
+        map_id=map_id,
+        stage=0,
+        time=Decimal(time_seconds),
+        teleports=1,
+        points=0,
+        created_at=created_at,
+        updated_at=created_at,
+        updated_by=steamid64,
+        is_valid=is_valid,
+    )
+    db.add(record)
+    await db.commit()
+    await db.refresh(record)
+    return record
+
+
+def _activity_summary_url(
+    *,
+    server_id: str,
+    identifier: str,
+    recent_hours: int = 50,
+) -> str:
+    return (
+        f"{settings.API_V1_STR}/servers/{server_id}/players/{identifier}"
+        f"/activity-summary?recent_hours={recent_hours}"
+    )
+
+
 def _plugin_player(
     *,
     name: str = "Player One",
@@ -87,6 +197,226 @@ def _async_location(
         return location
 
     return _lookup_ip_location
+
+
+async def test_read_player_server_activity_summary_uses_record_playtime_window(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = 76561198000050101
+    generated_at = datetime(2026, 7, 20, 12, 0, tzinfo=UTC)
+    monkeypatch.setattr(servers_route, "get_datetime_utc", lambda: generated_at)
+    player = await _create_activity_player(db, steamid64=steamid64)
+    target_group = await _create_activity_group(
+        db,
+        custom_id="axe-gokz",
+        name="AXE GOKZ",
+    )
+    other_group = await _create_activity_group(
+        db,
+        custom_id="other-kz",
+        name="Other KZ",
+    )
+    await _create_map(db, id=990101, name="kz_activity_summary", difficulty=4)
+    target_server = await _create_activity_globalapi_server(
+        db,
+        id=990201,
+        group_id=target_group.id,
+        name="AXE Server",
+    )
+    other_server = await _create_activity_globalapi_server(
+        db,
+        id=990202,
+        group_id=other_group.id,
+        name="Other Server",
+    )
+    raw_rating = 30000
+    db.add(
+        LeaderboardPlayer(
+            scope=ModeScope.KZT,
+            steamid64=steamid64,
+            rating=raw_rating,
+        )
+    )
+    await db.commit()
+    await db.refresh(player)
+
+    await _create_activity_record(
+        db,
+        id=990301,
+        steamid64=steamid64,
+        server_id=target_server.id,
+        map_id=990101,
+        created_at=datetime(2026, 3, 23, 18, 22, 11, tzinfo=UTC),
+        time_seconds="1000.000",
+        is_valid=False,
+    )
+    await _create_activity_record(
+        db,
+        id=990302,
+        steamid64=steamid64,
+        server_id=other_server.id,
+        map_id=990101,
+        created_at=datetime(2026, 3, 24, 18, 22, 11, tzinfo=UTC),
+        time_seconds="2000.000",
+    )
+    await _create_activity_record(
+        db,
+        id=990303,
+        steamid64=steamid64,
+        server_id=target_server.id,
+        map_id=990101,
+        created_at=datetime(2026, 3, 25, 18, 22, 11, tzinfo=UTC),
+        time_seconds="2000.000",
+    )
+
+    response = await client.get(
+        _activity_summary_url(
+            server_id="AXE-GOKZ",
+            identifier=str(steamid64),
+            recent_hours=1,
+        )
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "steam_id": str(steamid64),
+        "server_id": "axe-gokz",
+        "generated_at": "2026-07-20T12:00:00Z",
+        "ratings": [
+            {
+                "mode": "KZT",
+                "rating": scale_public_rating(raw_rating),
+                "is_primary": True,
+            }
+        ],
+        "activity": {
+            "first_seen_at": "2026-03-23T18:22:11Z",
+            "first_server_record_at": "2026-03-23T18:22:11Z",
+            "active_days": 3,
+            "total_playtime_seconds": 5000.0,
+            "recent_playtime": {
+                "requested_hours": 1,
+                "window_seconds": 3600.0,
+                "on_server_seconds": 2000.0,
+                "ratio": 0.556,
+            },
+        },
+    }
+
+
+async def test_read_player_server_activity_summary_uses_short_record_history(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = 76561198000050102
+    await _create_activity_player(
+        db,
+        steamid64=steamid64,
+        custom_id="short-runner",
+    )
+    target_group = await _create_activity_group(
+        db,
+        custom_id="short-kz",
+        name="Short KZ",
+    )
+    await _create_map(db, id=990102, name="kz_short_summary", difficulty=3)
+    target_server = await _create_activity_globalapi_server(
+        db,
+        id=990203,
+        group_id=target_group.id,
+        name="Short Server",
+    )
+    await _create_activity_record(
+        db,
+        id=990304,
+        steamid64=steamid64,
+        server_id=target_server.id,
+        map_id=990102,
+        created_at=datetime(2026, 4, 1, 12, 0, tzinfo=UTC),
+        time_seconds="1200.000",
+    )
+
+    response = await client.get(
+        _activity_summary_url(
+            server_id="short-kz",
+            identifier="short-runner",
+            recent_hours=1,
+        )
+    )
+
+    assert response.status_code == 200
+    activity = response.json()["activity"]
+    assert activity["first_server_record_at"] == "2026-04-01T12:00:00Z"
+    recent_playtime = activity["recent_playtime"]
+    assert recent_playtime == {
+        "requested_hours": 1,
+        "window_seconds": 1200.0,
+        "on_server_seconds": 1200.0,
+        "ratio": 1.0,
+    }
+
+
+async def test_read_player_server_activity_summary_returns_not_found_for_missing_group(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = 76561198000050103
+    await _create_activity_player(db, steamid64=steamid64)
+
+    response = await client.get(
+        _activity_summary_url(
+            server_id="missing-kz",
+            identifier=str(steamid64),
+        )
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Server group not found"
+
+
+async def test_read_player_server_activity_summary_returns_not_found_for_missing_player(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_activity_group(
+        db,
+        custom_id="known-kz",
+        name="Known KZ",
+    )
+
+    response = await client.get(
+        _activity_summary_url(
+            server_id="known-kz",
+            identifier="76561198000050104",
+        )
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Player not found"
+
+
+async def test_read_player_server_activity_summary_returns_not_found_for_unknown_identifier(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _create_activity_group(
+        db,
+        custom_id="axe-gokz",
+        name="AXE GOKZ",
+    )
+
+    response = await client.get(
+        _activity_summary_url(
+            server_id="axe-gokz",
+            identifier="not-a-steamid",
+        )
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Player not found"
 
 
 async def test_create_server_requires_successful_a2s_query(

@@ -419,6 +419,35 @@ class ServersPublic(SQLModel):
     count: int
 
 
+class PlayerServerActivityRatingPublic(SQLModel):
+    mode: str
+    rating: float
+    is_primary: bool = False
+
+
+class PlayerServerRecentPlaytimePublic(SQLModel):
+    requested_hours: int = Field(ge=1)
+    window_seconds: float = Field(default=0, ge=0)
+    on_server_seconds: float = Field(default=0, ge=0)
+    ratio: float = Field(default=0, ge=0, le=1)
+
+
+class PlayerServerActivityPublic(SQLModel):
+    first_seen_at: datetime | None = None
+    first_server_record_at: datetime | None = None
+    active_days: int = Field(default=0, ge=0)
+    total_playtime_seconds: float = Field(default=0, ge=0)
+    recent_playtime: PlayerServerRecentPlaytimePublic
+
+
+class PlayerServerActivitySummaryPublic(SQLModel):
+    steam_id: str
+    server_id: str
+    generated_at: datetime
+    ratings: list[PlayerServerActivityRatingPublic] = Field(default_factory=list)
+    activity: PlayerServerActivityPublic
+
+
 class ServerGroupPublic(ServerGroupBase):
     id: uuid.UUID
     owner_steamid64: str | None = None

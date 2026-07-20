@@ -1,16 +1,28 @@
 import logging
 import uuid
+from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query
+from sqlalchemy import func
+from sqlmodel import col, select
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.api.v1.player_sessions import _resolve_server_group_api_key
+from app.crud import player as player_crud
 from app.crud.server import mark_server_group_api_key_used
 from app.models import (
     Message,
+    Player,
+    PlayerServerActivityPublic,
+    PlayerServerActivityRatingPublic,
+    PlayerServerActivitySummaryPublic,
+    PlayerServerRecentPlaytimePublic,
+    Record,
     ServerCreate,
+    ServerGlobalapi,
+    ServerGroup,
     ServerGroupStatus,
     ServerHistoryPublic,
     ServerHistoryQuery,
@@ -21,6 +33,8 @@ from app.models import (
     ServerUpdate,
     User,
 )
+from app.models.leaderboard_player import scale_public_rating
+from app.models.utils import get_datetime_utc
 from app.services.server_events import broadcast_server_update
 from app.services.server_query import (
     ServerQueryError,
@@ -32,6 +46,120 @@ router = APIRouter(prefix="/servers", tags=["servers"])
 logger = logging.getLogger(__name__)
 
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+
+
+_SECONDS_PER_HOUR = 3600
+_SECOND_PRECISION = Decimal("0.001")
+
+
+def _to_public_seconds(value: Decimal) -> float:
+    return float(value.quantize(_SECOND_PRECISION))
+
+
+async def _read_recent_record_playtime(
+    *,
+    session: SessionDep,
+    steamid64: int,
+    server_group_id: uuid.UUID,
+    requested_hours: int,
+) -> PlayerServerRecentPlaytimePublic:
+    requested_seconds = Decimal(requested_hours * _SECONDS_PER_HOUR)
+    window_seconds = Decimal("0")
+    on_server_seconds = Decimal("0")
+    statement = (
+        select(col(Record.time), col(ServerGlobalapi.group_id))
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .where(col(Record.steamid64) == steamid64)
+        .order_by(
+            col(Record.created_at).desc(),
+            col(Record.id).desc().nulls_last(),
+            col(Record.uuid).desc(),
+        )
+    )
+    rows = (await session.exec(statement)).all()
+    for record_time, record_group_id in rows:
+        if window_seconds >= requested_seconds:
+            break
+        record_seconds = Decimal(record_time)
+        if record_seconds <= 0:
+            continue
+        consumed_seconds = min(record_seconds, requested_seconds - window_seconds)
+        window_seconds += consumed_seconds
+        if record_group_id == server_group_id:
+            on_server_seconds += consumed_seconds
+
+    ratio = (
+        round(float(on_server_seconds / window_seconds), 3)
+        if window_seconds > 0
+        else 0
+    )
+    return PlayerServerRecentPlaytimePublic(
+        requested_hours=requested_hours,
+        window_seconds=_to_public_seconds(window_seconds),
+        on_server_seconds=_to_public_seconds(on_server_seconds),
+        ratio=ratio,
+    )
+
+
+async def _read_player_server_activity_summary(
+    *,
+    session: SessionDep,
+    player: Player,
+    server_group: ServerGroup,
+    requested_hours: int,
+) -> PlayerServerActivitySummaryPublic:
+    record_day = func.date_trunc("day", Record.created_at)
+    activity_statement = (
+        select(
+            func.min(Record.created_at),
+            func.min(Record.created_at).filter(
+                col(ServerGlobalapi.group_id) == server_group.id
+            ),
+            func.count(func.distinct(record_day)),
+            func.coalesce(func.sum(Record.time), Decimal("0")),
+        )
+        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .where(col(Record.steamid64) == player.steamid64)
+    )
+    first_seen_at, first_server_record_at, active_days, total_playtime_seconds = (
+        await session.exec(activity_statement)
+    ).one()
+    ratings_by_player = await crud.load_player_ratings_by_scope(
+        session=session,
+        steamid64s=[player.steamid64],
+    )
+    ratings_by_scope = ratings_by_player.get(player.steamid64, {})
+    ratings = [
+        PlayerServerActivityRatingPublic(
+            mode=scope.value,
+            rating=scale_public_rating(raw_rating) or 0,
+            is_primary=scope == player.primary_scope,
+        )
+        for scope, raw_rating in sorted(
+            ratings_by_scope.items(),
+            key=lambda item: item[0].scope_id,
+        )
+    ]
+    return PlayerServerActivitySummaryPublic(
+        steam_id=str(player.steamid64),
+        server_id=server_group.custom_id,
+        generated_at=get_datetime_utc(),
+        ratings=ratings,
+        activity=PlayerServerActivityPublic(
+            first_seen_at=first_seen_at,
+            first_server_record_at=first_server_record_at,
+            active_days=int(active_days or 0),
+            total_playtime_seconds=_to_public_seconds(
+                Decimal(total_playtime_seconds or 0)
+            ),
+            recent_playtime=await _read_recent_record_playtime(
+                session=session,
+                steamid64=player.steamid64,
+                server_group_id=server_group.id,
+                requested_hours=requested_hours,
+            ),
+        ),
+    )
 
 
 @router.put("/status", response_model=ServerPublic)
@@ -140,6 +268,46 @@ async def read_server_history(
         query=query,
     )
     return ServerHistoryPublic(data=history, count=len(history))
+
+
+@router.get(
+    "/{server_id}/players/{identifier:path}/activity-summary",
+    response_model=PlayerServerActivitySummaryPublic,
+)
+async def read_player_server_activity_summary(
+    *,
+    session: SessionDep,
+    server_id: Annotated[str, Path(min_length=1, max_length=25)],
+    identifier: Annotated[str, Path(min_length=1)],
+    recent_hours: Annotated[int, Query(ge=1, le=500)] = 50,
+) -> PlayerServerActivitySummaryPublic:
+    try:
+        normalized_server_id = crud.normalize_custom_id(server_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Server group not found") from exc
+    if normalized_server_id is None:
+        raise HTTPException(status_code=404, detail="Server group not found")
+
+    server_group_statement = select(ServerGroup).where(
+        col(ServerGroup.custom_id) == normalized_server_id
+    )
+    server_group = (await session.exec(server_group_statement)).first()
+    if server_group is None:
+        raise HTTPException(status_code=404, detail="Server group not found")
+
+    player = await player_crud.get_player_by_identifier(
+        session=session,
+        identifier=identifier,
+    )
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    return await _read_player_server_activity_summary(
+        session=session,
+        player=player,
+        server_group=server_group,
+        requested_hours=recent_hours,
+    )
 
 
 @router.get("/{server_id}", response_model=ServerPublic)

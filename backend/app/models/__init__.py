@@ -188,7 +188,6 @@ from .player_profile_field_change import (
     PlayerSettingsPublic,
     PlayerSettingsUpdate,
 )
-from .qq_binding import QQBindingCodePublic, QQBindingTokenPayload
 from .player_profile_history import (
     PlayerProfileHistory,
     PlayerProfileHistoryEntryPublic,
@@ -270,6 +269,7 @@ from .player_webhook import (
     PlayerWebhookUpdate,
     normalize_discord_webhook_url,
 )
+from .qq_binding import QQBindingCodePublic, QQBindingTokenPayload
 from .record import (
     AdminCourseTierPublic,
     AdminCourseTierUpdate,
@@ -334,6 +334,10 @@ from .server import (
     AdminServerGroupPublic,
     AdminServerGroupsPublic,
     AdminServerRole,
+    PlayerServerActivityPublic,
+    PlayerServerActivityRatingPublic,
+    PlayerServerActivitySummaryPublic,
+    PlayerServerRecentPlaytimePublic,
     Server,
     ServerBase,
     ServerCreate,
@@ -574,6 +578,10 @@ __all__ = [
     "PlayerSessionDisconnect",
     "PlayerSessionHeartbeat",
     "PlayerSessionPublic",
+    "PlayerServerActivityPublic",
+    "PlayerServerActivityRatingPublic",
+    "PlayerServerActivitySummaryPublic",
+    "PlayerServerRecentPlaytimePublic",
     "PlayerSocialLinkBilibiliVerificationStart",
     "PlayerSocialLink",
     "PlayerSocialLinkCreate",
