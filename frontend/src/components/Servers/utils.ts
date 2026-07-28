@@ -47,6 +47,7 @@ export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
 export const SERVER_CONFIG_FILENAME = "servers.cfg"
 const SERVERS_FILTER_PREFERENCES_STORAGE_KEY = "gokz-server-browser-filters"
 const SERVERS_FILTER_PREFERENCES_VERSION = 1
+const PINNED_SERVER_GROUP_NAMES = ["AXE GOKZ"]
 
 interface ServersFilterPreferences {
   version: typeof SERVERS_FILTER_PREFERENCES_VERSION
@@ -503,6 +504,12 @@ export function getRegionCounts(
   )
 }
 
+function isPinnedServerGroupName(groupName: string) {
+  const normalizedGroupName = groupName.trim().toUpperCase()
+
+  return PINNED_SERVER_GROUP_NAMES.includes(normalizedGroupName)
+}
+
 export function getServerGroupCounts(
   servers: ServerPublic[],
   statusFilter: ServerStatusFilter,
@@ -540,7 +547,16 @@ export function getServerGroupCounts(
   }
 
   return Array.from(counts.entries())
-    .sort((left, right) => left[1].name.localeCompare(right[1].name))
+    .sort((left, right) => {
+      const pinnedComparison =
+        Number(isPinnedServerGroupName(right[1].name)) -
+        Number(isPinnedServerGroupName(left[1].name))
+      if (pinnedComparison !== 0) {
+        return pinnedComparison
+      }
+
+      return left[1].name.localeCompare(right[1].name)
+    })
     .filter(([, group]) => group.count > 0)
 }
 
