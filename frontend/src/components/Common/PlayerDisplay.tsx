@@ -205,40 +205,6 @@ function getPlayerClanTag(player?: PlayerDisplayPlayer | null): string | null {
   return clanTag ? clanTag : null
 }
 
-function shouldHydratePlayer(
-  player?: PlayerDisplayPlayer | null,
-  scope?: ModeScope,
-): boolean {
-  if (scope) {
-    return true
-  }
-
-  if (!player) {
-    return true
-  }
-
-  const hasDisplayName =
-    Boolean(player.displayName?.trim()) ||
-    Boolean(player.display_name?.trim()) ||
-    Boolean(player.alias?.trim()) ||
-    Boolean(player.name?.trim())
-  const hasCountry = Boolean(player.country?.trim())
-  const hasAvatarHash = Boolean(getPlayerAvatarHash(player))
-  const hasRoleState = player.roles !== undefined
-  const hasPrimaryScope =
-    player.primaryScope !== undefined || player.primary_scope !== undefined
-  const hasRating = player.rating !== undefined && player.rating !== null
-
-  return (
-    !hasDisplayName ||
-    !hasCountry ||
-    !hasAvatarHash ||
-    !hasRoleState ||
-    !hasPrimaryScope ||
-    !hasRating
-  )
-}
-
 export function PlayerContextMenuItems({
   adminChildren,
   closeMenu,
@@ -491,9 +457,7 @@ export function PlayerDisplay({
       steamid64,
       effectiveHydrationScope ?? "PRIMARY",
     ],
-    enabled:
-      steamid64Pattern.test(steamid64) &&
-      shouldHydratePlayer(player, effectiveHydrationScope),
+    enabled: steamid64Pattern.test(steamid64),
     queryFn: () => loadPlayerForDisplay(steamid64, effectiveHydrationScope),
     staleTime: 60_000,
   })

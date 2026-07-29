@@ -46,6 +46,7 @@ type PendingPlayerBatchEntry = {
 }
 
 const PLAYER_BATCH_DELAY_MS = 10
+const DISPLAY_PLAYER_CACHE_STALE_TIME_MS = 60_000
 
 const DISPLAY_PLAYER_FIELDS = `
   steamid64
@@ -127,7 +128,12 @@ async function requestPlayersForDisplay(
 
 let pendingPlayerBatch = new Map<string, PendingPlayerBatchEntry[]>()
 let pendingPlayerBatchTimer: ReturnType<typeof setTimeout> | null = null
-const cachedDisplayPlayers = new Map<string, GraphqlPlayer | null>()
+type CachedDisplayPlayer = {
+  player: GraphqlPlayer | null
+  storedAt: number
+}
+
+const cachedDisplayPlayers = new Map<string, CachedDisplayPlayer>()
 const inflightDisplayPlayers = new Map<string, Promise<GraphqlPlayer | null>>()
 
 function queuePlayerBatchLoad(steamid64: string, scope?: ModeScope) {
@@ -176,7 +182,10 @@ async function flushPendingPlayerBatch() {
         const cacheKey = getDisplayPlayerCacheKey(steamid64, scope)
         const resolvers = currentBatch.get(cacheKey) ?? []
         const player = players[index] ?? null
-        cachedDisplayPlayers.set(cacheKey, player)
+        cachedDisplayPlayers.set(cacheKey, {
+          player,
+          storedAt: Date.now(),
+        })
         inflightDisplayPlayers.delete(cacheKey)
         for (const entry of resolvers) {
           entry.resolve(player)
@@ -203,10 +212,13 @@ export async function fetchPlayersForDisplay(
     return []
   }
 
-  const uncachedSteamid64s = steamid64s.filter(
-    (steamid64) =>
-      !cachedDisplayPlayers.has(getDisplayPlayerCacheKey(steamid64, scope)),
-  )
+  const now = Date.now()
+  const uncachedSteamid64s = steamid64s.filter((steamid64) => {
+    const cached = cachedDisplayPlayers.get(
+      getDisplayPlayerCacheKey(steamid64, scope),
+    )
+    return !cached || now - cached.storedAt >= DISPLAY_PLAYER_CACHE_STALE_TIME_MS
+  })
 
   await Promise.all(
     uncachedSteamid64s.map((steamid64) =>
@@ -216,9 +228,17 @@ export async function fetchPlayersForDisplay(
 
   return steamid64s.map(
     (steamid64) =>
-      cachedDisplayPlayers.get(getDisplayPlayerCacheKey(steamid64, scope)) ??
-      null,
+      cachedDisplayPlayers.get(getDisplayPlayerCacheKey(steamid64, scope))
+        ?.player ?? null,
   )
+}
+
+export function invalidateDisplayPlayerCache(steamid64: string) {
+  for (const cacheKey of cachedDisplayPlayers.keys()) {
+    if (cacheKey.startsWith(`${steamid64}:`)) {
+      cachedDisplayPlayers.delete(cacheKey)
+    }
+  }
 }
 
 export async function loadPlayerForDisplay(

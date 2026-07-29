@@ -908,6 +908,60 @@ async def test_sync_player_steam_profile_if_due_updates_hash(
 
 
 @pytest.mark.asyncio
+async def test_sync_player_steam_profile_if_due_notifies_identity_update(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Before Steam Refresh",
+    )
+    notified_steamid64s: list[int] = []
+
+    @asynccontextmanager
+    async def _session_maker():
+        yield db
+
+    async def _fake_fetch_players_from_steam_api_if_available(
+        steamid64s: list[int],
+    ) -> dict[int, dict[str, str | bool | None]] | None:
+        return {
+            steamid64s[0]: {
+                "name": "After Steam Refresh",
+                "custom_id": None,
+                "avatar_hash": "a" * 40,
+                "country": "DE",
+                "fetched": True,
+            }
+        }
+
+    async def _fake_notify_player_steam_profile_updated(
+        *, session: AsyncSession, steamid64: int
+    ) -> None:
+        del session
+        notified_steamid64s.append(steamid64)
+
+    monkeypatch.setattr(player_steam_profile, "async_session_maker", _session_maker)
+    monkeypatch.setattr(
+        player_steam_profile,
+        "_fetch_players_from_steam_api_if_available",
+        _fake_fetch_players_from_steam_api_if_available,
+    )
+    monkeypatch.setattr(
+        player_steam_profile,
+        "notify_player_steam_profile_updated",
+        _fake_notify_player_steam_profile_updated,
+    )
+
+    await player_steam_profile.sync_player_steam_profile_if_due(
+        steamid64=player.steamid64,
+    )
+
+    assert notified_steamid64s == [player.steamid64]
+
+
+@pytest.mark.asyncio
 async def test_sync_player_steam_profile_if_due_sets_empty_hash_when_not_found(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -991,7 +1045,8 @@ async def test_sync_player_steam_profile_if_due_leaves_hash_null_on_fetch_failur
     refreshed = await db.get(Player, player.steamid64)
     assert refreshed is not None
     assert refreshed.avatar_hash is None
-    assert refreshed.steam_profile_synced_at is not None
+    assert refreshed.steam_profile_synced_at is None
+    assert refreshed.steam_profile_sync_attempted_at is not None
     assert fetch_calls == 1
     assert await _get_profile_history_rows(db=db, steamid64=player.steamid64) == []
 

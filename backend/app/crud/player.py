@@ -7,7 +7,7 @@ from typing import cast
 from urllib.parse import urlsplit
 
 import httpx
-from sqlalchemy import case, exists, false, func, literal, or_
+from sqlalchemy import case, exists, false, func, literal, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -52,6 +52,7 @@ STEAM_COMMUNITY_HOSTS = {"steamcommunity.com", "www.steamcommunity.com"}
 STEAM_ID_TYPE_INDIVIDUAL = 1
 STEAM_ID_INSTANCE_DESKTOP = 1
 PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR = "<%"
+PLAYER_STEAM_PROFILE_NOTIFY_CHANNEL = "player_steam_profile_updates"
 _UNCHANGED = object()
 
 
@@ -291,6 +292,15 @@ async def _fetch_player_from_steam_api(
 ) -> dict[str, str | bool | None]:
     steam_data_by_steamid64 = await _fetch_players_from_steam_api([steamid64])
     return steam_data_by_steamid64.get(steamid64, _steam_api_fallback_payload(steamid64))
+
+
+async def notify_player_steam_profile_updated(
+    *, session: AsyncSession, steamid64: int
+) -> None:
+    await session.execute(
+        text(f"SELECT pg_notify('{PLAYER_STEAM_PROFILE_NOTIFY_CHANNEL}', :steamid64)"),
+        {"steamid64": str(steamid64)},
+    )
 
 
 async def get_player_by_steamid64(

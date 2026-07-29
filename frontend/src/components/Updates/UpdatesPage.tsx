@@ -238,10 +238,7 @@ export function UpdatesPage() {
   })
   const releasesData = isPreview ? PREVIEW_RELEASES : releasesQuery.data
   const needsMapDefault = releaseBodyIncludes(releasesData, "/maps/:")
-  const needsProfileDefault = releaseBodyIncludes(
-    releasesData,
-    "/profile/:",
-  )
+  const needsProfileDefault = releaseBodyIncludes(releasesData, "/profile/:")
   const defaultMapQuery = useQuery({
     queryKey: ["updates", "default-route-map", scope],
     queryFn: () =>

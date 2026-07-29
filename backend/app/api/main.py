@@ -15,8 +15,8 @@ from app.api.v1 import (
     login,
     maps,
     me_notifications,
-    me_qq_binding,
     me_player_actions,
+    me_qq_binding,
     me_settings,
     me_webhooks,
     misc,
@@ -25,6 +25,7 @@ from app.api.v1 import (
     player_reports,
     player_sessions,
     player_social_links,
+    player_ws,
     players,
     private,
     record_ws,
@@ -61,6 +62,7 @@ api_router.include_router(maps.router)
 api_router.include_router(misc.router)
 api_router.include_router(modes.router)
 api_router.include_router(player_sessions.router)
+api_router.include_router(player_ws.router)
 api_router.include_router(records.router)
 api_router.include_router(replays.router)
 api_router.include_router(regions.router)

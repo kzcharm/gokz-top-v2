@@ -177,6 +177,10 @@ class Player(PlayerBase, table=True):
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
+    steam_profile_sync_attempted_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
     friends_visibility: PlayerFriendsVisibility | None = Field(
         default=None,
         sa_column=Column(
@@ -260,6 +264,11 @@ class PlayerDetailPublic(PlayerBase):
     steamid64: str
     roles: list[UserRole] | None = None
     favorite_server: PlayerFavoriteServerPublic | None = None
+
+
+class PlayerSteamProfileUpdatedEvent(SQLModel):
+    type: Literal["player.steam-profile-updated"] = "player.steam-profile-updated"
+    steamid64: str
 
 
 class PlayerRefPublic(SQLModel):

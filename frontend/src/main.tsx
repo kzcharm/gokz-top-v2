@@ -12,6 +12,7 @@ import { AdminModeProvider } from "./components/admin-mode-provider"
 import { WASDNavigationProvider } from "./components/Common/WASDNavigation"
 import { DateTimeFormatProvider } from "./components/date-time-format-provider"
 import { PlayerDisplayPreferencesProvider } from "./components/player-display-preferences-provider"
+import { PlayerSteamProfileUpdatesProvider } from "./components/player-steam-profile-updates-provider"
 import { ScopeProvider } from "./components/scope-provider"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
@@ -80,12 +81,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <PlayerDisplayPreferencesProvider>
           <DateTimeFormatProvider>
             <QueryClientProvider client={queryClient}>
-              <AdminModeProvider>
-                <WASDNavigationProvider>
-                  <RouterProvider router={router} />
-                </WASDNavigationProvider>
-              </AdminModeProvider>
-              <Toaster richColors closeButton />
+              <PlayerSteamProfileUpdatesProvider>
+                <AdminModeProvider>
+                  <WASDNavigationProvider>
+                    <RouterProvider router={router} />
+                  </WASDNavigationProvider>
+                </AdminModeProvider>
+                <Toaster richColors closeButton />
+              </PlayerSteamProfileUpdatesProvider>
             </QueryClientProvider>
           </DateTimeFormatProvider>
         </PlayerDisplayPreferencesProvider>

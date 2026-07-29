@@ -7,7 +7,12 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.crud.leaderboard_player import PlayerPbRow, _build_leaderboard_values
+from app.crud.leaderboard_player import (
+    PlayerPbRow,
+    _build_leaderboard_values,
+    _build_raw_rating_contributions,
+    _truncate_rating,
+)
 from app.models import (
     Ban,
     BanType,
@@ -263,8 +268,35 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
             )
         )
     ).all()
-    assert sum(pb.raw_rating_contribution for pb in pb_rows) == row.rating
+    assert max(pb.raw_rating_contribution for pb in pb_rows) == 1000
     assert sum(1 for pb in pb_rows if pb.raw_rating_contribution > 0) == 10
+
+
+async def test_build_raw_rating_contributions_does_not_add_rounding_to_top_course() -> None:
+    rows = [
+        PlayerPbRow(index, index, RecordType.NUB, UUID(int=index), 1000)
+        for index in range(1, 1002)
+    ]
+
+    contributions = _build_raw_rating_contributions(rows=rows)
+
+    assert contributions[(1, RecordType.NUB)] == 1000
+    assert max(contributions.values()) == 1000
+
+
+async def test_rating_integer_conversion_truncates_decimal_part() -> None:
+    assert _truncate_rating(Decimal("999.99")) == 999
+
+
+async def test_build_raw_rating_contributions_truncates_decimal_part() -> None:
+    rows = [
+        PlayerPbRow(1, 1, RecordType.NUB, UUID(int=1), 1000),
+        PlayerPbRow(2, 2, RecordType.NUB, UUID(int=2), 333),
+    ]
+
+    contributions = _build_raw_rating_contributions(rows=rows)
+
+    assert contributions[(2, RecordType.NUB)] == 324
 
 
 async def test_build_leaderboard_values_counts_high_point_records_once_per_map() -> None:

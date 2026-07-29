@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from typing import Annotated
 
@@ -14,6 +15,7 @@ from app.crud.leaderboard_player import load_player_ratings_by_scope
 from app.crud.player_profile_view import count_player_profile_views_batch
 from app.models import ModeScope, Player, UserRole
 from app.models.leaderboard_player import scale_public_rating
+from app.services.player_steam_profile import sync_player_steam_profiles_if_due
 
 strawberry.enum(ModeScope, name="ModeScope")
 strawberry.enum(UserRole, name="UserRole")
@@ -55,6 +57,12 @@ def _serialize_datetime(value: datetime | None) -> str | None:
 
 def _get_session(info: strawberry.Info[dict[str, AsyncSession], None]) -> AsyncSession:
     return info.context["session"]
+
+
+def _schedule_player_steam_profile_sync(players: list[Player | None]) -> None:
+    steamid64s = [player.steamid64 for player in players if player is not None]
+    if steamid64s:
+        asyncio.create_task(sync_player_steam_profiles_if_due(steamid64s=steamid64s))
 
 
 async def _to_graphql_players(
@@ -100,7 +108,9 @@ async def _to_graphql_players(
         for player in existing_players
     }
     return [
-        graphql_players_by_steamid64.get(player.steamid64) if player is not None else None
+        graphql_players_by_steamid64.get(player.steamid64)
+        if player is not None
+        else None
         for player in players
     ]
 
@@ -121,6 +131,7 @@ class Query:
             session=_get_session(info),
             players=[player],
         )
+        _schedule_player_steam_profile_sync([player])
         return graphql_players[0]
 
     @strawberry.field
@@ -154,10 +165,12 @@ class Query:
             else None
             for parsed_steamid64 in parsed_steamid64s
         ]
-        return await _to_graphql_players(
+        graphql_players = await _to_graphql_players(
             session=_get_session(info),
             players=ordered_players,
         )
+        _schedule_player_steam_profile_sync(ordered_players)
+        return graphql_players
 
     @strawberry.field
     async def search_players(
@@ -177,6 +190,7 @@ class Query:
             session=_get_session(info),
             players=list(players),
         )
+        _schedule_player_steam_profile_sync(list(players))
         return PlayerConnectionGQL(
             data=[player for player in graphql_players if player is not None],
             count=count,

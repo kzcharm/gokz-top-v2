@@ -4,7 +4,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal, localcontext
+from decimal import Decimal, localcontext
 from typing import Any, Literal, NamedTuple
 
 from sqlalchemy import exists, func, or_, update
@@ -87,8 +87,8 @@ def _scope_ids_for_mode_id(mode_id: int) -> tuple[int, ...]:
     )
 
 
-def _round_rating(value: Decimal) -> int:
-    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+def _truncate_rating(value: Decimal) -> int:
+    return int(value)
 
 
 def calculate_weighted_rating(points: Iterable[int]) -> int:
@@ -105,7 +105,7 @@ def calculate_weighted_rating(points: Iterable[int]) -> int:
             total += Decimal(point) * multiplier
             multiplier *= settings.decay
         total *= settings.multiplier
-    return _round_rating(total)
+    return _truncate_rating(total)
 
 
 def _not_banned_clause() -> ColumnElement[bool]:
@@ -460,16 +460,8 @@ def _build_raw_rating_contributions(
             multiplier *= settings.decay
 
     contributions = {
-        key: _round_rating(value) for key, value in unrounded_contributions
+        key: _truncate_rating(value) for key, value in unrounded_contributions
     }
-    expected_rating = calculate_weighted_rating(row.points for row in sorted_rows)
-    rounding_difference = expected_rating - sum(contributions.values())
-    if rounding_difference:
-        first_key = unrounded_contributions[0][0]
-        contributions[first_key] = max(
-            0,
-            contributions[first_key] + rounding_difference,
-        )
     return contributions
 
 

@@ -187,9 +187,9 @@ test.describe("Profile and theme", () => {
     await expect(page.getByTestId("settings-qq-binding-code")).toHaveValue(
       responses[1].code,
     )
-    await expect(page.getByText("Send /bind <code> to the QQ bot.")).toHaveCount(
-      0,
-    )
+    await expect(
+      page.getByText("Send /bind <code> to the QQ bot."),
+    ).toHaveCount(0)
   })
 
   test("QQ binding code generation shows backend errors", async ({ page }) => {

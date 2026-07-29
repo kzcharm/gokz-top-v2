@@ -1,9 +1,11 @@
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.api.v1 import graphql as graphql_api
 from app.models import Ban, BanType, LeaderboardPlayer, ModeScope, Player, User
 from app.models.player_profile_view import PlayerProfileView
 from tests.utils.utils import random_steamid64
@@ -149,6 +151,42 @@ async def test_graphql_players_batch_preserves_order_and_returns_null_for_unknow
     assert players[1] is None
     assert players[2]["steamid64"] == str(alpha)
     assert players[2]["displayName"] == "Alpha"
+
+
+async def test_graphql_players_schedule_non_blocking_steam_profile_sync(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = random_steamid64()
+    db.add(Player(steamid64=steamid64, name=str(steamid64)))
+    await db.commit()
+    scheduled_steamid64s: list[list[int]] = []
+
+    async def _fake_sync_player_steam_profiles_if_due(*, steamid64s: list[int]) -> None:
+        scheduled_steamid64s.append(steamid64s)
+
+    monkeypatch.setattr(
+        graphql_api,
+        "sync_player_steam_profiles_if_due",
+        _fake_sync_player_steam_profiles_if_due,
+    )
+
+    payload = await _post_graphql(
+        client,
+        query="""
+        query PlayersBatch($steamid64s: [ID!]!) {
+          players(steamid64s: $steamid64s) {
+            steamid64
+          }
+        }
+        """,
+        variables={"steamid64s": [str(steamid64)]},
+    )
+
+    assert payload.get("errors") is None
+    await asyncio.sleep(0)
+    assert scheduled_steamid64s == [[steamid64]]
 
 
 async def test_graphql_player_rating_uses_primary_scope_and_explicit_scope_override(

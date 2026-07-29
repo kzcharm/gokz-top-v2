@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-06-08
+- Last Updated: 2026-07-29
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -13,6 +13,7 @@
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
+  - `/v1/ws/players` for live completion events when an on-demand Steam player-profile refresh changes visible identity data
   - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying of Bilibili preview assets
   - `/v1/me/notifications` for authenticated player notification inbox reads, unread counts, and read-state mutations
   - `/v1/me/qq-binding-code` for authenticated short-lived QQ bot binding code generation backed by a dedicated shared secret
@@ -72,6 +73,7 @@
   - Discovery uses Steam `IGameServersService/GetServerList` across regions `0..7`, with a one-hour background interval and a superuser-triggered manual run endpoint
   - A separate collector process handles Steam server-list discovery, A2S refresh, offline marking, and raw heartbeat partition maintenance
   - WebSocket updates are delivered from `/v1/ws/servers` after cache updates, using PostgreSQL `LISTEN/NOTIFY` to fan out change events from the backend
+  - Player displays schedule non-blocking Steam identity refreshes for profiles that have never completed a Steam response or are older than seven days; successful changes fan out through `/v1/ws/players`, while failed Steam requests retry after one hour
 - Scheduled background maintenance:
   - Continuous GlobalAPI sync remains responsible for ingesting mirrored upstream records and other mirrored entities
   - Forward GlobalAPI record sync emits WR-beaten notifications for future KZT/SKZ/VNL NUB and PRO world-record owner changes while repair/backfill paths avoid historical notification floods

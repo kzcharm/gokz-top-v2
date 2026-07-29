@@ -41,6 +41,12 @@ from app.services.player_session_timeout import (
     run_player_session_timeout_runner_in_app,
     stop_player_session_timeout_runner,
 )
+from app.services.player_steam_profile_events import (
+    listen_for_player_steam_profile_updates,
+)
+from app.services.player_steam_profile_events import (
+    stop_listener as stop_player_steam_profile_listener,
+)
 from app.services.record_events import (
     listen_for_recent_record_updates,
 )
@@ -70,6 +76,9 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 async def lifespan(_: FastAPI):
     listener_task = asyncio.create_task(listen_for_server_updates())
     recent_record_listener_task = asyncio.create_task(listen_for_recent_record_updates())
+    player_steam_profile_listener_task = asyncio.create_task(
+        listen_for_player_steam_profile_updates()
+    )
     collector_task: asyncio.Task[None] | None = None
     globalapi_sync_task: asyncio.Task[None] | None = None
     daily_rank_pipeline_task: asyncio.Task[None] | None = None
@@ -104,6 +113,7 @@ async def lifespan(_: FastAPI):
     finally:
         await stop_listener(listener_task)
         await stop_record_listener(recent_record_listener_task)
+        await stop_player_steam_profile_listener(player_steam_profile_listener_task)
         await stop_collector(collector_task)
         await stop_globalapi_sync_runner(globalapi_sync_task)
         await stop_daily_rank_pipeline_runner(daily_rank_pipeline_task)

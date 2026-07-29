@@ -84,6 +84,7 @@ Scope model:
 
 ### 5.4 Player Profile Experience
 - Rich profile overview (identity, ranking highlights, competitive summary).
+- Profile and shared player-display reads must refresh missing or seven-day-stale Steam identity data in the background, then update visible names, avatars, countries, and Steam custom IDs immediately when the refresh completes.
 - SourceMod servers can run `gokz-top-profile` for in-game profile menus, rank/chat/clan tags, rating lookups, and scoreboard level icons backed by `/v1/leaderboards/players/{identifier}` while preserving the legacy `gokz-profile` native compatibility surface.
 - Player profiles show linked X, Bilibili, YouTube, GitHub, and Twitch accounts from v2-native social-link records, with unverified links visible but marked.
 - Verified Bilibili, YouTube, and Twitch social links can contribute lazily cached follower counts to community-facing leaderboard context, while unverified links are ignored for follower display.

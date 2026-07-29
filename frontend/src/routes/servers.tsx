@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppShell } from "@/components/Common/AppShell"
 import { ServerBrowser } from "@/components/Servers/ServerBrowser"
-import { SITE_DEFAULT_DESCRIPTION, getPageTitle } from "@/lib/site"
+import { getPageTitle, SITE_DEFAULT_DESCRIPTION } from "@/lib/site"
 
 export const Route = createFileRoute("/servers")({
   component: ServersRoute,

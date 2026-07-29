@@ -140,6 +140,7 @@ from .player import (
     PlayerSearchQuery,
     PlayersListQuery,
     PlayersPublic,
+    PlayerSteamProfileUpdatedEvent,
     PlayerUpdate,
 )
 from .player_comment import (
@@ -591,6 +592,7 @@ __all__ = [
     "PlayerSocialLinkUpdate",
     "PlayerSocialPlatform",
     "PlayerPublic",
+    "PlayerSteamProfileUpdatedEvent",
     "PlayerRefPublic",
     "PlayerSearchQuery",
     "PlayersBatchPublic",
