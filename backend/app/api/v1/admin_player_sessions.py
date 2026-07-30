@@ -25,10 +25,19 @@ async def read_admin_player_sessions(
     query: Annotated[AdminPlayerSessionListQuery, Query()],
     _current_user: CurrentSuperuser,
 ) -> AdminPlayerSessionsPublic:
+    player_steamid64 = None
+    if query.player_steamid64:
+        normalized_steamid64 = query.player_steamid64.strip()
+        if not normalized_steamid64.isdigit():
+            raise HTTPException(status_code=422, detail="player_steamid64 must be numeric")
+        player_steamid64 = int(normalized_steamid64)
+
     rows, count = await crud.read_admin_player_sessions(
         session=session,
         offset=query.offset,
         limit=query.limit,
+        player_steamid64=player_steamid64,
+        server_group_id=query.server_group_id,
         latest_only=query.latest_only,
         sort_by=query.sort_by,
         sort_order=query.sort_order,

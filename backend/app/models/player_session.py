@@ -292,6 +292,8 @@ class AdminPlayerSessionIpLinksPublic(SQLModel):
 class AdminPlayerSessionListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)
+    player_steamid64: str | None = Field(default=None, max_length=20)
+    server_group_id: uuid.UUID | None = None
     latest_only: bool = False
     sort_by: Literal[
         "connected_at",

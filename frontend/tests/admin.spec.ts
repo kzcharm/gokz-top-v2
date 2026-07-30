@@ -347,10 +347,14 @@ test("Superuser can view player sessions, filter latest sessions, and reveal IPs
   page,
 }) => {
   let latestOnly = false
+  let playerSteamid64Filter: string | null = null
+  let serverGroupIdFilter: string | null = null
 
   await page.route(/\/v1\/admin\/player-sessions(\?.*)?$/, async (route) => {
     const url = new URL(route.request().url())
     latestOnly = url.searchParams.get("latest_only") === "true"
+    playerSteamid64Filter = url.searchParams.get("player_steamid64")
+    serverGroupIdFilter = url.searchParams.get("server_group_id")
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -361,6 +365,25 @@ test("Superuser can view player sessions, filter latest sessions, and reveal IPs
           }),
         ],
         count: latestOnly ? 1 : 2,
+      }),
+    })
+  })
+  await page.route("**/v1/admin/servers/groups", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            id: "01966858-7280-7000-8000-000000000010",
+            name: "Session Group",
+            custom_id: "session-group",
+            status: "validated",
+            api_key: "session-group-api-key",
+            created_at: "2026-04-01T00:00:00Z",
+            updated_at: "2026-04-28T12:00:00Z",
+          },
+        ],
+        count: 1,
       }),
     })
   })
@@ -395,6 +418,29 @@ test("Superuser can view player sessions, filter latest sessions, and reveal IPs
     page.getByRole("switch", { name: "Latest session per player" }),
   ).toHaveAttribute("aria-checked", "true")
   await expect.poll(() => latestOnly).toBe(true)
+
+  await page.route("**/v1/players/search**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          adminPlayerSessionPayload({
+            latestOnly,
+            sessionId: "01966858-7280-7000-8000-000000000001",
+          }).player,
+        ],
+        count: 1,
+      }),
+    })
+  })
+  await page.getByLabel("Filter sessions by player").fill("Session Runner")
+  await page.getByText("Session Runner").last().click()
+  await page.getByLabel("Filter sessions by server").click()
+  await page.getByRole("option", { name: "Session Group" }).click()
+  await expect.poll(() => playerSteamid64Filter).toBe("76561198012345678")
+  await expect
+    .poll(() => serverGroupIdFilter)
+    .toBe("01966858-7280-7000-8000-000000000010")
 })
 
 test("Superuser can manage map validation and 128-tick record filter tiers", async ({

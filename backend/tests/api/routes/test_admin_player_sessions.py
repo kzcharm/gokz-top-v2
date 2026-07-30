@@ -203,6 +203,62 @@ async def test_read_admin_player_sessions_latest_only_returns_newest_per_player(
     assert [row["map_name"] for row in payload["data"]] == ["kz_latest", "kz_other"]
 
 
+async def test_read_admin_player_sessions_filters_selected_player_and_server(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    matching_group, _api_key = await create_server_group(db, name="North Server")
+    other_group, _api_key = await create_server_group(db, name="South Server")
+    alpha_steamid64 = random_steamid64()
+    bravo_steamid64 = random_steamid64()
+    first_time = datetime(2026, 4, 28, 10, 0, tzinfo=UTC)
+
+    matching_session = await _create_player_session(
+        db,
+        steamid64=alpha_steamid64,
+        group_id=matching_group.id,
+        connected_at=first_time,
+        name="Alpha Prime",
+        map_name="kz_north",
+        ip_address="127.0.0.30",
+    )
+    await _create_player_session(
+        db,
+        steamid64=alpha_steamid64,
+        group_id=other_group.id,
+        connected_at=first_time + timedelta(hours=1),
+        name="Alpha Prime",
+        map_name="kz_south",
+        ip_address="127.0.0.31",
+    )
+    await _create_player_session(
+        db,
+        steamid64=bravo_steamid64,
+        group_id=matching_group.id,
+        connected_at=first_time + timedelta(hours=2),
+        name="Bravo Runner",
+        map_name="kz_bravo",
+        ip_address="127.0.0.32",
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/player-sessions",
+        headers=superuser_token_headers,
+        params={
+            "player_steamid64": str(alpha_steamid64),
+            "server_group_id": str(matching_group.id),
+            "latest_only": "true",
+            "limit": 100,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert [row["id"] for row in payload["data"]] == [str(matching_session.id)]
+
+
 async def test_admin_player_session_ip_links_require_superuser(
     client: AsyncClient,
     normal_user_token_headers: dict[str, str],

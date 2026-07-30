@@ -1007,6 +1007,35 @@ export type PlayersBatchRead = {
     steamid64s: Array<(string)>;
 };
 
+export type PlayerServerActivityPublic = {
+    first_seen_at?: (string | null);
+    first_server_record_at?: (string | null);
+    active_days?: number;
+    total_playtime_seconds?: number;
+    recent_playtime: PlayerServerRecentPlaytimePublic;
+};
+
+export type PlayerServerActivityRatingPublic = {
+    mode: string;
+    rating: number;
+    is_primary?: boolean;
+};
+
+export type PlayerServerActivitySummaryPublic = {
+    steam_id: string;
+    server_id: string;
+    generated_at: string;
+    ratings?: Array<PlayerServerActivityRatingPublic>;
+    activity: PlayerServerActivityPublic;
+};
+
+export type PlayerServerRecentPlaytimePublic = {
+    requested_hours: number;
+    window_seconds?: number;
+    on_server_seconds?: number;
+    ratio?: number;
+};
+
 export type PlayerSessionBanEnforcementBanPublic = {
     uuid: string;
     ban_type: BanType;
@@ -1615,6 +1644,8 @@ export type AdminPlayerSessionsReadAdminPlayerSessionsData = {
     latestOnly?: boolean;
     limit?: number;
     offset?: number;
+    playerSteamid64?: (string | null);
+    serverGroupId?: (string | null);
     sortBy?: 'connected_at' | 'last_heartbeat_at' | 'disconnect_at' | 'duration_seconds';
     sortOrder?: 'asc' | 'desc';
 };
@@ -2606,6 +2637,14 @@ export type ServersReadServerHistoryData = {
 };
 
 export type ServersReadServerHistoryResponse = (ServerHistoryPublic);
+
+export type ServersReadPlayerServerActivitySummaryData = {
+    identifier: string;
+    recentHours?: number;
+    serverId: string;
+};
+
+export type ServersReadPlayerServerActivitySummaryResponse = (PlayerServerActivitySummaryPublic);
 
 export type ServersReadServerData = {
     serverId: string;

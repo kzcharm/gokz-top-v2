@@ -5107,6 +5107,137 @@ export const PlayerReportPublicSchema = {
     title: 'PlayerReportPublic'
 } as const;
 
+export const PlayerServerActivityPublicSchema = {
+    properties: {
+        first_seen_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'First Seen At'
+        },
+        first_server_record_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'First Server Record At'
+        },
+        active_days: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Active Days',
+            default: 0
+        },
+        total_playtime_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Playtime Seconds',
+            default: 0
+        },
+        recent_playtime: {
+            '$ref': '#/components/schemas/PlayerServerRecentPlaytimePublic'
+        }
+    },
+    type: 'object',
+    required: ['recent_playtime'],
+    title: 'PlayerServerActivityPublic'
+} as const;
+
+export const PlayerServerActivityRatingPublicSchema = {
+    properties: {
+        mode: {
+            type: 'string',
+            title: 'Mode'
+        },
+        rating: {
+            type: 'number',
+            title: 'Rating'
+        },
+        is_primary: {
+            type: 'boolean',
+            title: 'Is Primary',
+            default: false
+        }
+    },
+    type: 'object',
+    required: ['mode', 'rating'],
+    title: 'PlayerServerActivityRatingPublic'
+} as const;
+
+export const PlayerServerActivitySummaryPublicSchema = {
+    properties: {
+        steam_id: {
+            type: 'string',
+            title: 'Steam Id'
+        },
+        server_id: {
+            type: 'string',
+            title: 'Server Id'
+        },
+        generated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Generated At'
+        },
+        ratings: {
+            items: {
+                '$ref': '#/components/schemas/PlayerServerActivityRatingPublic'
+            },
+            type: 'array',
+            title: 'Ratings'
+        },
+        activity: {
+            '$ref': '#/components/schemas/PlayerServerActivityPublic'
+        }
+    },
+    type: 'object',
+    required: ['steam_id', 'server_id', 'generated_at', 'activity'],
+    title: 'PlayerServerActivitySummaryPublic'
+} as const;
+
+export const PlayerServerRecentPlaytimePublicSchema = {
+    properties: {
+        requested_hours: {
+            type: 'integer',
+            minimum: 1,
+            title: 'Requested Hours'
+        },
+        window_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Window Seconds',
+            default: 0
+        },
+        on_server_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'On Server Seconds',
+            default: 0
+        },
+        ratio: {
+            type: 'number',
+            maximum: 1,
+            minimum: 0,
+            title: 'Ratio',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: ['requested_hours'],
+    title: 'PlayerServerRecentPlaytimePublic'
+} as const;
+
 export const PlayerSessionBanEnforcementBanPublicSchema = {
     properties: {
         uuid: {

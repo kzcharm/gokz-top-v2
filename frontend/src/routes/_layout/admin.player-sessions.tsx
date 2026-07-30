@@ -13,6 +13,7 @@ import {
   type AdminPlayerSessionIpLinksPublic,
   type AdminPlayerSessionPublic,
   AdminPlayerSessionsService,
+  AdminServersService,
   type PlayerPublic,
   PlayersService,
   UsersService,
@@ -101,6 +102,13 @@ function AdminPlayerSessions() {
     storageKey: "gokz-page-size-admin-player-sessions",
   })
   const [latestOnly, setLatestOnly] = useState(false)
+  const [playerFilterInput, setPlayerFilterInput] = useState("")
+  const [selectedPlayerFilter, setSelectedPlayerFilter] =
+    useState<PlayerPublic | null>(null)
+  const [isPlayerFilterFocused, setIsPlayerFilterFocused] = useState(false)
+  const [serverGroupFilterId, setServerGroupFilterId] = useState<string | null>(
+    null,
+  )
   const [revealedSessionIds, setRevealedSessionIds] = useState<Set<string>>(
     () => new Set(),
   )
@@ -110,12 +118,37 @@ function AdminPlayerSessions() {
   const activeSort = sorting[0] ?? { id: "connected_at", desc: true }
   const sortBy = toSessionSortBy(activeSort.id)
   const sortOrder = activeSort.desc ? "desc" : "asc"
+  const deferredPlayerFilterInput = useDeferredValue(playerFilterInput)
+  const playerFilterSearch = deferredPlayerFilterInput.trim()
+  const playerSearchQuery = useQuery({
+    queryKey: ["admin-player-sessions", "player-filter", playerFilterSearch],
+    queryFn: () =>
+      PlayersService.searchPlayers({
+        q: playerFilterSearch,
+        offset: 0,
+        limit: 8,
+      }),
+    enabled: selectedPlayerFilter === null && playerFilterSearch.length > 0,
+    staleTime: 30_000,
+  })
+  const serverGroupsQuery = useQuery({
+    queryKey: ["admin-player-sessions", "server-groups"],
+    queryFn: () => AdminServersService.readAdminServerGroups(),
+    staleTime: 30_000,
+  })
+  const playerSearchResults = playerSearchQuery.data?.data ?? []
+  const showPlayerSearchResults =
+    isPlayerFilterFocused &&
+    selectedPlayerFilter === null &&
+    playerFilterSearch.length > 0
 
   const query = useQuery({
     queryKey: [
       "admin-player-sessions",
       pageIndex,
       pageSize,
+      selectedPlayerFilter?.steamid64,
+      serverGroupFilterId,
       latestOnly,
       sortBy,
       sortOrder,
@@ -124,6 +157,8 @@ function AdminPlayerSessions() {
       AdminPlayerSessionsService.readAdminPlayerSessions({
         offset: pageIndex * pageSize,
         limit: pageSize,
+        playerSteamid64: selectedPlayerFilter?.steamid64,
+        serverGroupId: serverGroupFilterId ?? undefined,
         latestOnly,
         sortBy,
         sortOrder,
@@ -238,6 +273,97 @@ function AdminPlayerSessions() {
       <AdminControlsCard>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <FindAltsDialog />
+          <div className="relative w-full sm:w-56">
+            <Input
+              aria-label="Filter sessions by player"
+              placeholder="Select player..."
+              value={playerFilterInput}
+              onChange={(event) => {
+                setPlayerFilterInput(event.target.value)
+                setSelectedPlayerFilter(null)
+                setPageIndex(0)
+              }}
+              onFocus={() => setIsPlayerFilterFocused(true)}
+              onBlur={() => {
+                window.setTimeout(() => setIsPlayerFilterFocused(false), 100)
+              }}
+              className="pr-10"
+            />
+            {selectedPlayerFilter ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-1/2 right-1 -translate-y-1/2"
+                aria-label="Clear selected player filter"
+                onClick={() => {
+                  setPlayerFilterInput("")
+                  setSelectedPlayerFilter(null)
+                  setPageIndex(0)
+                }}
+              >
+                <X className="size-4" />
+              </Button>
+            ) : null}
+            {showPlayerSearchResults ? (
+              <div className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 overflow-hidden rounded-lg border bg-card shadow-lg">
+                {playerSearchQuery.isLoading ? (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">
+                    Searching players...
+                  </div>
+                ) : playerSearchResults.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">
+                    No players found.
+                  </div>
+                ) : (
+                  <div className="flex flex-col py-1">
+                    {playerSearchResults.map((player) => (
+                      <button
+                        key={player.steamid64}
+                        type="button"
+                        className="flex w-full px-4 py-2 text-left text-sm transition-colors hover:bg-muted/60"
+                        onMouseDown={(event) => {
+                          event.preventDefault()
+                          setSelectedPlayerFilter(player)
+                          setPlayerFilterInput(getPlayerDisplayName(player))
+                          setIsPlayerFilterFocused(false)
+                          setPageIndex(0)
+                        }}
+                      >
+                        <PlayerDisplay
+                          player={player}
+                          disableProfileLink
+                          className="min-w-0"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+          <Select
+            value={serverGroupFilterId ?? "all"}
+            onValueChange={(value) => {
+              setServerGroupFilterId(value === "all" ? null : value)
+              setPageIndex(0)
+            }}
+          >
+            <SelectTrigger
+              aria-label="Filter sessions by server"
+              className="w-full sm:w-56"
+            >
+              <SelectValue placeholder="Select server..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Servers</SelectItem>
+              {serverGroupsQuery.data?.data.map((serverGroup) => (
+                <SelectItem key={serverGroup.id} value={serverGroup.id}>
+                  {serverGroup.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex items-center gap-3">
             <Switch
               id="latest-session-per-player"

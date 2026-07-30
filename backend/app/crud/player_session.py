@@ -79,6 +79,8 @@ async def read_admin_player_sessions(
     session: AsyncSession,
     offset: int = 0,
     limit: int = 20,
+    player_steamid64: int | None = None,
+    server_group_id: uuid.UUID | None = None,
     latest_only: bool = False,
     sort_by: str = "connected_at",
     sort_order: str = "desc",
@@ -100,6 +102,12 @@ async def read_admin_player_sessions(
         .join(ServerGroup, col(ServerGroup.id) == col(PlayerSession.server_group_id))
     )
 
+    filters = []
+    if player_steamid64 is not None:
+        filters.append(col(PlayerSession.player_steamid64) == player_steamid64)
+    if server_group_id is not None:
+        filters.append(col(PlayerSession.server_group_id) == server_group_id)
+
     if latest_only:
         session_rank = (
             func.row_number()
@@ -115,7 +123,10 @@ async def read_admin_player_sessions(
         latest_sessions = select(
             col(PlayerSession.id).label("session_id"),
             session_rank,
-        ).subquery()
+        ).select_from(PlayerSession)
+        if filters:
+            latest_sessions = latest_sessions.where(*filters)
+        latest_sessions = latest_sessions.subquery()
         statement = statement.join(
             latest_sessions,
             latest_sessions.c.session_id == col(PlayerSession.id),
@@ -126,7 +137,11 @@ async def read_admin_player_sessions(
             .subquery()
         )
     else:
-        count_statement = select(func.count()).select_from(PlayerSession)
+        if filters:
+            statement = statement.where(*filters)
+            count_statement = select(func.count()).select_from(PlayerSession).where(*filters)
+        else:
+            count_statement = select(func.count()).select_from(PlayerSession)
 
     count = (await session.exec(count_statement)).one()
     rows = cast(
