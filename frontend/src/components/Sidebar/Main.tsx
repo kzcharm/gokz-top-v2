@@ -20,6 +20,7 @@ type LinkItem = {
   icon: LucideIcon
   title: string
   path: string
+  external?: boolean
   activePrefixes?: string[]
   showNotificationDot?: boolean
 }
@@ -76,27 +77,47 @@ function MainMenuLink({
 }) {
   const isActive = isLinkItemActive(item, currentPath)
 
+  const linkContent = (
+    <>
+      <item.icon />
+      <span className="flex items-center gap-2">
+        <span>{item.title}</span>
+        {item.showNotificationDot && !isActive ? (
+          <span
+            aria-hidden="true"
+            className="size-2 shrink-0 rounded-full bg-red-500 animate-pulse"
+          />
+        ) : null}
+      </span>
+    </>
+  )
+
   return (
     <SidebarMenuItem>
       <SidebarMenuButton tooltip={item.title} isActive={isActive} asChild>
-        <RouterLink
-          to={item.path}
-          onClick={() => {
-            onLinkNavigate?.(item.path)
-            onNavigate()
-          }}
-        >
-          <item.icon />
-          <span className="flex items-center gap-2">
-            <span>{item.title}</span>
-            {item.showNotificationDot && !isActive ? (
-              <span
-                aria-hidden="true"
-                className="size-2 shrink-0 rounded-full bg-red-500 animate-pulse"
-              />
-            ) : null}
-          </span>
-        </RouterLink>
+        {item.external ? (
+          <a
+            href={item.path}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => {
+              onLinkNavigate?.(item.path)
+              onNavigate()
+            }}
+          >
+            {linkContent}
+          </a>
+        ) : (
+          <RouterLink
+            to={item.path}
+            onClick={() => {
+              onLinkNavigate?.(item.path)
+              onNavigate()
+            }}
+          >
+            {linkContent}
+          </RouterLink>
+        )}
       </SidebarMenuButton>
     </SidebarMenuItem>
   )

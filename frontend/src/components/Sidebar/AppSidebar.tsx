@@ -32,6 +32,7 @@ export function AppSidebar() {
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [hasClickedLive, setHasClickedLive] = useState(false)
+  const [hasClickedMinor, setHasClickedMinor] = useState(false)
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
   const currentUserIsSuperuser = isSuperuser(currentUser)
   const serverAdminAccessQuery = useQuery({
@@ -74,6 +75,14 @@ export function AppSidebar() {
       title: t("nav.live"),
       path: "/live",
       showNotificationDot: showLiveDot,
+    },
+    {
+      type: "link",
+      icon: Trophy,
+      title: "AXE KZ Minor",
+      path: "https://axekz.com/tournament/axekz-minor",
+      external: true,
+      showNotificationDot: !hasClickedMinor,
     },
     { type: "link", icon: ShieldAlert, title: t("nav.bans"), path: "/bans" },
   ]
@@ -142,6 +151,9 @@ export function AppSidebar() {
           onLinkNavigate={(path) => {
             if (path === "/live") {
               setHasClickedLive(true)
+            }
+            if (path === "https://axekz.com/tournament/axekz-minor") {
+              setHasClickedMinor(true)
             }
           }}
         />
