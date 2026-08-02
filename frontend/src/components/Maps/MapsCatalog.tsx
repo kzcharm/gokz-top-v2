@@ -8,7 +8,9 @@ import {
   ChevronsRight,
   Copy,
   Download,
+  Filter,
   Search,
+  SearchX,
 } from "lucide-react"
 import {
   startTransition,
@@ -47,6 +49,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { compareLocaleText, formatNumber } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
@@ -81,6 +84,156 @@ type ReviewSortField = (typeof REVIEW_SORT_OPTIONS)[number]["value"]
 type MapsSortField = Exclude<MapsSortOption, "review"> | ReviewSortField
 type MapsSortDirection = "asc" | "desc"
 type SortableSkillKey = Exclude<MapSkillKey, "unknown">
+
+type MapFilterValues = {
+  wrMin: string
+  wrMax: string
+  createdMin: string
+  createdMax: string
+  updatedMin: string
+  updatedMax: string
+  ratingMin: string
+  ratingMax: string
+  reviewsMin: string
+  reviewsMax: string
+  commentsMin: string
+  commentsMax: string
+}
+
+const EMPTY_MAP_FILTERS: MapFilterValues = {
+  wrMin: "",
+  wrMax: "",
+  createdMin: "",
+  createdMax: "",
+  updatedMin: "",
+  updatedMax: "",
+  ratingMin: "",
+  ratingMax: "",
+  reviewsMin: "",
+  reviewsMax: "",
+  commentsMin: "",
+  commentsMax: "",
+}
+
+function parseWrTime(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    const seconds = Number(trimmed)
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds : null
+  }
+
+  const match = /^(\d+):(\d{1,2})(?:\.(\d+))?$/.exec(trimmed)
+  if (!match) {
+    return null
+  }
+
+  const minutes = Number(match[1])
+  const seconds = Number(`${match[2]}${match[3] ? `.${match[3]}` : ""}`)
+  return seconds < 60 ? minutes * 60 + seconds : null
+}
+
+function parseNumber(value: string) {
+  if (!value.trim()) {
+    return null
+  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
+function parseDateBound(value: string, endOfDay = false) {
+  if (!value) {
+    return null
+  }
+  const parsed = Date.parse(
+    `${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`,
+  )
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function hasValue(value: string) {
+  return value.trim() !== ""
+}
+
+function isRangeReversed(
+  min: string,
+  max: string,
+  parser: (value: string) => number | null,
+) {
+  const minValue = parser(min)
+  const maxValue = parser(max)
+  return (
+    hasValue(min) &&
+    hasValue(max) &&
+    minValue !== null &&
+    maxValue !== null &&
+    minValue > maxValue
+  )
+}
+
+function isInvalidValue(
+  value: string,
+  parser: (value: string) => number | null,
+) {
+  return hasValue(value) && parser(value) === null
+}
+
+function RangeInputs({
+  id,
+  label,
+  min,
+  max,
+  onMinChange,
+  onMaxChange,
+  minPlaceholder,
+  maxPlaceholder,
+  type = "number",
+  inputMode = "decimal",
+}: {
+  id: string
+  label: string
+  min: string
+  max: string
+  onMinChange: (value: string) => void
+  onMaxChange: (value: string) => void
+  minPlaceholder: string
+  maxPlaceholder: string
+  type?: "date" | "number" | "text"
+  inputMode?: "decimal" | "numeric" | "text"
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={`${id}-min`}>{label}</Label>
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          id={`${id}-min`}
+          type={type}
+          inputMode={inputMode}
+          value={min}
+          onChange={(event) => onMinChange(event.target.value)}
+          placeholder={minPlaceholder}
+          aria-label={`${label} ${t("maps.filterMin")}`}
+          min={type === "number" ? 0 : undefined}
+        />
+        <Input
+          id={`${id}-max`}
+          type={type}
+          inputMode={inputMode}
+          value={max}
+          onChange={(event) => onMaxChange(event.target.value)}
+          placeholder={maxPlaceholder}
+          aria-label={`${label} ${t("maps.filterMax")}`}
+          min={type === "number" ? 0 : undefined}
+        />
+      </div>
+    </div>
+  )
+}
 
 function isReviewSortField(value: MapsSortField): value is ReviewSortField {
   return REVIEW_SORT_OPTIONS.some((option) => option.value === value)
@@ -473,7 +626,12 @@ export function MapsCatalog() {
   const [selectedReviewSort, setSelectedReviewSort] =
     useState<ReviewSortField>("overall")
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
+  const [minimumTier, setMinimumTier] = useState<TierSelectorValue>("all")
+  const [maximumTier, setMaximumTier] = useState<TierSelectorValue>("all")
   const [withBonusOnly, setWithBonusOnly] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [mapFilters, setMapFilters] =
+    useState<MapFilterValues>(EMPTY_MAP_FILTERS)
   const [page, setPage] = useState(1)
 
   const mapsQuery = useQuery({
@@ -530,25 +688,232 @@ export function MapsCatalog() {
 
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
+    const wrMin = parseWrTime(mapFilters.wrMin)
+    const wrMax = parseWrTime(mapFilters.wrMax)
+    const createdMin = parseDateBound(mapFilters.createdMin)
+    const createdMax = parseDateBound(mapFilters.createdMax, true)
+    const updatedMin = parseDateBound(mapFilters.updatedMin)
+    const updatedMax = parseDateBound(mapFilters.updatedMax, true)
+    const ratingMin = parseNumber(mapFilters.ratingMin)
+    const ratingMax = parseNumber(mapFilters.ratingMax)
+    const reviewsMin = parseNumber(mapFilters.reviewsMin)
+    const reviewsMax = parseNumber(mapFilters.reviewsMax)
+    const commentsMin = parseNumber(mapFilters.commentsMin)
+    const commentsMax = parseNumber(mapFilters.commentsMax)
+    const hasWrFilter = hasValue(mapFilters.wrMin) || hasValue(mapFilters.wrMax)
+    const hasCreatedFilter =
+      hasValue(mapFilters.createdMin) || hasValue(mapFilters.createdMax)
+    const hasUpdatedFilter =
+      hasValue(mapFilters.updatedMin) || hasValue(mapFilters.updatedMax)
+    const hasRatingFilter =
+      hasValue(mapFilters.ratingMin) || hasValue(mapFilters.ratingMax)
+    const hasReviewsFilter =
+      hasValue(mapFilters.reviewsMin) || hasValue(mapFilters.reviewsMax)
+    const hasCommentsFilter =
+      hasValue(mapFilters.commentsMin) || hasValue(mapFilters.commentsMax)
+    const wrFilterValid =
+      !isInvalidValue(mapFilters.wrMin, parseWrTime) &&
+      !isInvalidValue(mapFilters.wrMax, parseWrTime) &&
+      !isRangeReversed(mapFilters.wrMin, mapFilters.wrMax, parseWrTime)
+    const dateFilterValid = (min: string, max: string) => {
+      const dateParser = (value: string) => parseDateBound(value)
+      return (
+        !isInvalidValue(min, dateParser) &&
+        !isInvalidValue(max, dateParser) &&
+        !isRangeReversed(min, max, dateParser)
+      )
+    }
+    const numberFilterValid = (min: string, max: string) =>
+      !isInvalidValue(min, parseNumber) &&
+      !isInvalidValue(max, parseNumber) &&
+      !isRangeReversed(min, max, parseNumber)
+
     return searchableMaps.flatMap(({ map, normalizedName }) => {
       if (normalizedQuery !== "" && !normalizedName.includes(normalizedQuery)) {
         return []
       }
 
-      if (selectedTier !== "all") {
-        const activeTier = normalizeTierValue(getMapTierForScope(map, scope))
-        if (activeTier !== Number(selectedTier)) {
-          return []
-        }
+      const activeTier = normalizeTierValue(getMapTierForScope(map, scope))
+      const effectiveMinimumTier =
+        selectedTier !== "all"
+          ? Number(selectedTier)
+          : minimumTier === "all"
+            ? null
+            : Number(minimumTier)
+      const effectiveMaximumTier =
+        selectedTier !== "all"
+          ? Number(selectedTier)
+          : maximumTier === "all"
+            ? null
+            : Number(maximumTier)
+      if (
+        (selectedTier !== "all" ||
+          minimumTier !== "all" ||
+          maximumTier !== "all") &&
+        (selectedTier !== "all" ||
+          minimumTier === "all" ||
+          maximumTier === "all" ||
+          Number(minimumTier) <= Number(maximumTier)) &&
+        (activeTier === null ||
+          (effectiveMinimumTier !== null &&
+            activeTier < effectiveMinimumTier) ||
+          (effectiveMaximumTier !== null && activeTier > effectiveMaximumTier))
+      ) {
+        return []
       }
 
       if (withBonusOnly && (map.bonus_count ?? 0) <= 0) {
         return []
       }
 
+      const wrTime = wrTimeByMapId.get(map.id)
+      if (
+        hasWrFilter &&
+        wrFilterValid &&
+        (wrTime === undefined ||
+          (wrMin !== null && wrTime < wrMin) ||
+          (wrMax !== null && wrTime > wrMax))
+      ) {
+        return []
+      }
+
+      const createdAt = Date.parse(map.created_on)
+      if (
+        hasCreatedFilter &&
+        dateFilterValid(mapFilters.createdMin, mapFilters.createdMax) &&
+        ((createdMin !== null && createdAt < createdMin) ||
+          (createdMax !== null && createdAt > createdMax))
+      ) {
+        return []
+      }
+
+      const updatedAt = Date.parse(map.updated_on)
+      if (
+        hasUpdatedFilter &&
+        dateFilterValid(mapFilters.updatedMin, mapFilters.updatedMax) &&
+        ((updatedMin !== null && updatedAt < updatedMin) ||
+          (updatedMax !== null && updatedAt > updatedMax))
+      ) {
+        return []
+      }
+
+      const reviewSummary = map.review_summary
+      const overallRating = reviewSummary?.overall_avg
+      const reviewsCount = reviewSummary?.reviews_count
+      const commentsCount = reviewSummary?.comments_count
+      if (
+        (hasRatingFilter &&
+          numberFilterValid(mapFilters.ratingMin, mapFilters.ratingMax) &&
+          (overallRating === undefined ||
+            overallRating === null ||
+            (ratingMin !== null && overallRating < ratingMin) ||
+            (ratingMax !== null && overallRating > ratingMax))) ||
+        (hasReviewsFilter &&
+          numberFilterValid(mapFilters.reviewsMin, mapFilters.reviewsMax) &&
+          (reviewsCount === undefined ||
+            reviewsCount === null ||
+            (reviewsMin !== null && reviewsCount < reviewsMin) ||
+            (reviewsMax !== null && reviewsCount > reviewsMax))) ||
+        (hasCommentsFilter &&
+          numberFilterValid(mapFilters.commentsMin, mapFilters.commentsMax) &&
+          (commentsCount === undefined ||
+            commentsCount === null ||
+            (commentsMin !== null && commentsCount < commentsMin) ||
+            (commentsMax !== null && commentsCount > commentsMax)))
+      ) {
+        return []
+      }
+
       return map
     })
-  }, [deferredSearch, scope, searchableMaps, selectedTier, withBonusOnly])
+  }, [
+    deferredSearch,
+    mapFilters,
+    maximumTier,
+    minimumTier,
+    scope,
+    searchableMaps,
+    selectedTier,
+    withBonusOnly,
+    wrTimeByMapId,
+  ])
+
+  const mapFilterErrors = useMemo(() => {
+    const errors: string[] = []
+    if (
+      selectedTier === "all" &&
+      minimumTier !== "all" &&
+      maximumTier !== "all" &&
+      Number(minimumTier) > Number(maximumTier)
+    ) {
+      errors.push(t("maps.invalidRange"))
+    }
+    if (
+      isInvalidValue(mapFilters.wrMin, parseWrTime) ||
+      isInvalidValue(mapFilters.wrMax, parseWrTime)
+    ) {
+      errors.push(t("maps.invalidWrTime"))
+    } else if (
+      isRangeReversed(mapFilters.wrMin, mapFilters.wrMax, parseWrTime)
+    ) {
+      errors.push(t("maps.invalidRange"))
+    }
+
+    const dateParser = (value: string) => parseDateBound(value)
+    for (const [min, max] of [
+      [mapFilters.createdMin, mapFilters.createdMax],
+      [mapFilters.updatedMin, mapFilters.updatedMax],
+    ]) {
+      if (isInvalidValue(min, dateParser) || isInvalidValue(max, dateParser)) {
+        errors.push(t("maps.invalidDate"))
+      } else if (isRangeReversed(min, max, dateParser)) {
+        errors.push(t("maps.invalidRange"))
+      }
+    }
+
+    for (const [min, max] of [
+      [mapFilters.ratingMin, mapFilters.ratingMax],
+      [mapFilters.reviewsMin, mapFilters.reviewsMax],
+      [mapFilters.commentsMin, mapFilters.commentsMax],
+    ]) {
+      if (
+        isInvalidValue(min, parseNumber) ||
+        isInvalidValue(max, parseNumber)
+      ) {
+        errors.push(t("maps.invalidNumber"))
+      } else if (isRangeReversed(min, max, parseNumber)) {
+        errors.push(t("maps.invalidRange"))
+      }
+    }
+
+    return [...new Set(errors)]
+  }, [mapFilters, maximumTier, minimumTier, selectedTier, t])
+
+  const activeFilterCount = [
+    selectedTier !== "all",
+    minimumTier !== "all",
+    maximumTier !== "all",
+    withBonusOnly,
+    ...Object.values(mapFilters).map(hasValue),
+  ].filter(Boolean).length
+
+  function updateMapFilter(key: keyof MapFilterValues, value: string) {
+    startTransition(() => {
+      setMapFilters((current) => ({ ...current, [key]: value }))
+      setPage(1)
+    })
+  }
+
+  function clearMapFilters() {
+    startTransition(() => {
+      setSelectedTier("all")
+      setMinimumTier("all")
+      setMaximumTier("all")
+      setWithBonusOnly(false)
+      setMapFilters(EMPTY_MAP_FILTERS)
+      setPage(1)
+    })
+  }
 
   const sortedMaps = useMemo(
     () =>
@@ -739,28 +1104,192 @@ export function MapsCatalog() {
                 triggerClassName="w-auto"
                 ariaLabel={t("maps.filterTier")}
               />
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 className={cn(
-                  "flex h-9 w-fit items-center rounded-md border border-border/70 bg-background px-3 text-sm font-medium text-muted-foreground shadow-xs transition-colors outline-none hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                  withBonusOnly &&
-                    "border-primary/50 bg-primary/10 text-primary hover:text-primary",
+                  "gap-2",
+                  activeFilterCount > 0 &&
+                    "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                 )}
-                aria-label={t("maps.withBonusAria")}
-                aria-pressed={withBonusOnly}
+                aria-expanded={showFilters}
+                aria-controls="maps-filter-panel"
                 onClick={() => {
-                  startTransition(() => {
-                    setWithBonusOnly((currentValue) => !currentValue)
-                    setPage(1)
-                  })
+                  setShowFilters((currentValue) => !currentValue)
                 }}
               >
-                <span>{t("maps.withBonus")}</span>
-              </button>
+                <Filter className="size-4" />
+                <span>
+                  {showFilters ? t("maps.hideFilters") : t("maps.showFilters")}
+                </span>
+                {activeFilterCount > 0 ? (
+                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </Button>
             </div>
 
             <MapsDownloadDialog />
           </div>
+
+          {showFilters ? (
+            <div
+              id="maps-filter-panel"
+              className="space-y-4 rounded-xl border border-border/70 bg-muted/20 p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">
+                  {t("maps.filterTitle")}
+                </h2>
+                {activeFilterCount > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 text-muted-foreground"
+                    onClick={clearMapFilters}
+                  >
+                    <SearchX className="size-4" />
+                    {t("maps.clearFilters")}
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  className={cn(
+                    "flex h-9 w-fit items-center rounded-md border border-border/70 bg-background px-3 text-sm font-medium text-muted-foreground shadow-xs transition-colors outline-none hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    withBonusOnly &&
+                      "border-primary/50 bg-primary/10 text-primary hover:text-primary",
+                  )}
+                  aria-label={t("maps.withBonusAria")}
+                  aria-pressed={withBonusOnly}
+                  onClick={() => {
+                    startTransition(() => {
+                      setWithBonusOnly((currentValue) => !currentValue)
+                      setPage(1)
+                    })
+                  }}
+                >
+                  <span>{t("maps.withBonus")}</span>
+                </button>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>{t("maps.filterFields.tier")}</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <TierSelector
+                        value={minimumTier}
+                        onValueChange={(nextValue) => {
+                          startTransition(() => {
+                            setMinimumTier(nextValue)
+                            setPage(1)
+                          })
+                        }}
+                        allLabel={t("maps.filterMin")}
+                        showAllLabelInTrigger
+                        triggerClassName="w-full"
+                        ariaLabel={t("maps.minimumTierAria")}
+                      />
+                    </div>
+                    <div>
+                      <TierSelector
+                        value={maximumTier}
+                        onValueChange={(nextValue) => {
+                          startTransition(() => {
+                            setMaximumTier(nextValue)
+                            setPage(1)
+                          })
+                        }}
+                        allLabel={t("maps.filterMax")}
+                        showAllLabelInTrigger
+                        triggerClassName="w-full"
+                        ariaLabel={t("maps.maximumTierAria")}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <RangeInputs
+                  id="maps-filter-wr"
+                  label={t("maps.filterFields.wrTime")}
+                  min={mapFilters.wrMin}
+                  max={mapFilters.wrMax}
+                  onMinChange={(value) => updateMapFilter("wrMin", value)}
+                  onMaxChange={(value) => updateMapFilter("wrMax", value)}
+                  minPlaceholder={t("maps.filterMin")}
+                  maxPlaceholder={t("maps.filterMax")}
+                  type="text"
+                  inputMode="text"
+                />
+                <RangeInputs
+                  id="maps-filter-created"
+                  label={t("maps.filterFields.createdAt")}
+                  min={mapFilters.createdMin}
+                  max={mapFilters.createdMax}
+                  onMinChange={(value) => updateMapFilter("createdMin", value)}
+                  onMaxChange={(value) => updateMapFilter("createdMax", value)}
+                  minPlaceholder={t("maps.filterMin")}
+                  maxPlaceholder={t("maps.filterMax")}
+                  type="date"
+                  inputMode="text"
+                />
+                <RangeInputs
+                  id="maps-filter-updated"
+                  label={t("maps.filterFields.updatedAt")}
+                  min={mapFilters.updatedMin}
+                  max={mapFilters.updatedMax}
+                  onMinChange={(value) => updateMapFilter("updatedMin", value)}
+                  onMaxChange={(value) => updateMapFilter("updatedMax", value)}
+                  minPlaceholder={t("maps.filterMin")}
+                  maxPlaceholder={t("maps.filterMax")}
+                  type="date"
+                  inputMode="text"
+                />
+                <RangeInputs
+                  id="maps-filter-rating"
+                  label={t("maps.filterFields.overallRating")}
+                  min={mapFilters.ratingMin}
+                  max={mapFilters.ratingMax}
+                  onMinChange={(value) => updateMapFilter("ratingMin", value)}
+                  onMaxChange={(value) => updateMapFilter("ratingMax", value)}
+                  minPlaceholder={t("maps.filterMin")}
+                  maxPlaceholder={t("maps.filterMax")}
+                />
+                <RangeInputs
+                  id="maps-filter-reviews"
+                  label={t("maps.filterFields.reviewCount")}
+                  min={mapFilters.reviewsMin}
+                  max={mapFilters.reviewsMax}
+                  onMinChange={(value) => updateMapFilter("reviewsMin", value)}
+                  onMaxChange={(value) => updateMapFilter("reviewsMax", value)}
+                  minPlaceholder={t("maps.filterMin")}
+                  maxPlaceholder={t("maps.filterMax")}
+                  inputMode="numeric"
+                />
+                <RangeInputs
+                  id="maps-filter-comments"
+                  label={t("maps.filterFields.commentsCount")}
+                  min={mapFilters.commentsMin}
+                  max={mapFilters.commentsMax}
+                  onMinChange={(value) => updateMapFilter("commentsMin", value)}
+                  onMaxChange={(value) => updateMapFilter("commentsMax", value)}
+                  minPlaceholder={t("maps.filterMin")}
+                  maxPlaceholder={t("maps.filterMax")}
+                  inputMode="numeric"
+                />
+              </div>
+
+              {mapFilterErrors.length > 0 ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {mapFilterErrors.join(" ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <fieldset className="min-w-0 border-0 p-0">

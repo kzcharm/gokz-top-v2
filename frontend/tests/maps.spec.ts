@@ -334,6 +334,155 @@ test("Maps catalog shows map updater commands", async ({ page }) => {
   )
 })
 
+test("Maps catalog filters maps with collapsible range controls", async ({
+  page,
+}) => {
+  await stubRegions(page)
+  const maps = [
+    {
+      ...seededMaps[0],
+      created_on: "2026-03-01T08:00:00Z",
+      review_summary: {
+        overall_avg: 4.2,
+        gameplay_avg: 4.2,
+        visuals_avg: 4.2,
+        reviews_count: 10,
+        gameplay_count: 10,
+        visuals_count: 10,
+        comments_count: 3,
+        updated_at: "2026-03-01T12:00:00Z",
+      },
+    },
+    {
+      ...seededMaps[1],
+      created_on: "2026-03-30T08:00:00Z",
+      review_summary: {
+        overall_avg: 2.5,
+        gameplay_avg: 2.5,
+        visuals_avg: 2.5,
+        reviews_count: 2,
+        gameplay_count: 2,
+        visuals_count: 2,
+        comments_count: 0,
+        updated_at: "2026-03-30T12:00:00Z",
+      },
+    },
+    {
+      ...seededMaps[2],
+      created_on: "2026-03-15T08:00:00Z",
+      review_summary: {
+        overall_avg: 4.8,
+        gameplay_avg: 4.8,
+        visuals_avg: 4.8,
+        reviews_count: 20,
+        gameplay_count: 20,
+        visuals_count: 20,
+        comments_count: 7,
+        updated_at: "2026-03-15T12:00:00Z",
+      },
+    },
+  ]
+
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(maps),
+    })
+  })
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          record_uuid: "019fc000-0000-7000-8000-000000000001",
+          map_id: seededMaps[0].id,
+          scope: "OVR",
+          type: "NUB",
+          mode_id: 200,
+          player: { steamid64: "76561198000000001", display_name: "Alpha" },
+          time: 45.67,
+          updated_at: "2026-03-01T12:00:00Z",
+        },
+        {
+          record_uuid: "019fc000-0000-7000-8000-000000000002",
+          map_id: seededMaps[1].id,
+          scope: "OVR",
+          type: "NUB",
+          mode_id: 200,
+          player: { steamid64: "76561198000000002", display_name: "Omega" },
+          time: 83.456,
+          updated_at: "2026-03-30T12:00:00Z",
+        },
+        {
+          record_uuid: "019fc000-0000-7000-8000-000000000003",
+          map_id: seededMaps[2].id,
+          scope: "OVR",
+          type: "NUB",
+          mode_id: 200,
+          player: { steamid64: "76561198000000003", display_name: "Special" },
+          time: 70,
+          updated_at: "2026-03-15T12:00:00Z",
+        },
+      ]),
+    })
+  })
+
+  await page.goto("/maps")
+
+  const filtersButton = page.getByRole("button", { name: "Filters" })
+  await expect(
+    page.getByRole("combobox", { name: "Filter maps by tier" }),
+  ).toBeVisible()
+  await expect(filtersButton).toHaveAttribute("aria-expanded", "false")
+  await expect(page.locator("#maps-filter-panel")).toHaveCount(0)
+  await filtersButton.click()
+  await expect(filtersButton).toHaveAttribute("aria-expanded", "true")
+  await expect(page.locator("#maps-filter-panel")).toBeVisible()
+  await expect(
+    page.getByRole("combobox", { name: "Minimum map tier" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("combobox", { name: "Maximum map tier" }),
+  ).toBeVisible()
+
+  await page.getByRole("textbox", { name: "WR Time Min" }).fill("1:00")
+  await page.getByRole("textbox", { name: "WR Time Max" }).fill("75")
+  await expect(page.getByText("1 / 3")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_alpha")).toHaveCount(0)
+  await expect(page.getByTestId("map-card-kz_special_search")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_omega")).toHaveCount(0)
+
+  await page.getByRole("spinbutton", { name: "Overall Rating Min" }).fill("4.5")
+  await expect(page.getByText("1 / 3")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_special_search")).toBeVisible()
+
+  await page.getByRole("button", { name: "Clear Filters" }).click()
+  await expect(page.getByText("3 / 3")).toBeVisible()
+
+  await page.getByRole("textbox", { name: "WR Time Min" }).fill("invalid")
+  await expect(
+    page.getByText("Enter a WR time in seconds or M:SS.mmm format."),
+  ).toBeVisible()
+  await expect(page.getByText("3 / 3")).toBeVisible()
+  await page.getByRole("textbox", { name: "WR Time Min" }).fill("")
+
+  await page.getByLabel("Created At Min").fill("2026-03-15")
+  await expect(page.getByText("2 / 3")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_alpha")).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Clear Filters" }).click()
+  await page.getByLabel("Updated At Max").fill("2026-03-15")
+  await expect(page.getByText("2 / 3")).toBeVisible()
+
+  await page.getByRole("button", { name: "Clear Filters" }).click()
+  await page.getByRole("spinbutton", { name: "Review Count Min" }).fill("10")
+  await expect(page.getByText("2 / 3")).toBeVisible()
+  await page.getByRole("spinbutton", { name: "Comments Count Max" }).fill("3")
+  await expect(page.getByText("1 / 3")).toBeVisible()
+})
+
 test("Maps catalog supports search, sorting, pagination, and map detail navigation", async ({
   page,
 }) => {
@@ -574,6 +723,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByTestId("map-card-kz_alpha")).toHaveCount(0)
 
   await page.getByRole("textbox", { name: "Search maps by name" }).fill("")
+  await page.getByRole("button", { name: "Filters" }).click()
   await page
     .getByRole("button", { name: "Show only maps with bonuses" })
     .click()
@@ -599,9 +749,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
 
   await page.getByRole("button", { name: "Go to previous page" }).click()
 
-  await page.getByRole("button", { name: "Tier" }).click()
+  await page.getByRole("button", { name: "Tier", exact: true }).click()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_08")
-  await page.getByRole("button", { name: "Tier" }).click()
+  await page.getByRole("button", { name: "Tier", exact: true }).click()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_07")
 
   await page.getByRole("button", { name: "Select record scope" }).click()
