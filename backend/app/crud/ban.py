@@ -22,6 +22,7 @@ from app.models import (
     Player,
     ServerGlobalapi,
 )
+from app.models.ban import BanStatus
 from app.models.utils import get_datetime_utc
 
 type BanReadRow = tuple[Ban, Player | None, Player | None, ServerGlobalapi | None]
@@ -245,6 +246,34 @@ async def read_bans(
                 )
             )
 
+    if query.status is not None:
+        now = get_datetime_utc()
+        if query.status is BanStatus.PERMANENT:
+            filters.append(col(Ban.expires_at).is_(None))
+        elif query.status is BanStatus.ACTIVE:
+            filters.extend(
+                [
+                    col(Ban.expires_at).is_not(None),
+                    col(Ban.expires_at) >= now,
+                    col(Ban.expires_at) > col(Ban.created_at),
+                ]
+            )
+        elif query.status is BanStatus.EXPIRED:
+            filters.extend(
+                [
+                    col(Ban.expires_at).is_not(None),
+                    col(Ban.expires_at) < now,
+                    col(Ban.expires_at) > col(Ban.created_at),
+                ]
+            )
+        elif query.status is BanStatus.UNBANNED:
+            filters.extend(
+                [
+                    col(Ban.expires_at).is_not(None),
+                    col(Ban.expires_at) <= col(Ban.created_at),
+                ]
+            )
+
     if query.ip is not None:
         filters.append(col(Ban.ip) == query.ip)
     if query.steamid64 is not None:
@@ -255,6 +284,12 @@ async def read_bans(
         filters.append(col(Ban.stats).ilike(f"%{query.stats_contains}%"))
     if query.server_id is not None:
         filters.append(col(Ban.server_id) == query.server_id)
+    if query.has_server is not None:
+        filters.append(
+            col(Ban.server_id).is_not(None)
+            if query.has_server
+            else col(Ban.server_id).is_(None)
+        )
     if query.created_since is not None:
         filters.append(col(Ban.created_at) >= query.created_since)
     if query.updated_since is not None:

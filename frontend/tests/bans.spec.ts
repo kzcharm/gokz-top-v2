@@ -320,6 +320,105 @@ test("Bans player filter keeps the selected player in the search input", async (
   await expect(page.getByText("Picked Player", { exact: true })).toHaveCount(1)
 })
 
+test("Bans filters are server-side, URL-backed, and reset pagination", async ({
+  page,
+}) => {
+  const banRequests: Array<Record<string, string | null>> = []
+
+  await page.addInitScript(() => {
+    localStorage.clear()
+  })
+  await page.route(/\/v0\/servers(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([{ id: 71, name: "Filtered Server" }]),
+    })
+  })
+  await page.route(/\/v1\/bans(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    banRequests.push({
+      ban_types: url.searchParams.get("ban_types"),
+      has_server: url.searchParams.get("has_server"),
+      offset: url.searchParams.get("offset"),
+      server_id: url.searchParams.get("server_id"),
+      status: url.searchParams.get("status"),
+    })
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ count: 0, data: [] }),
+    })
+  })
+  await page.route("**/v1/graphql", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: { searchPlayers: { count: 0, data: [] } } }),
+    })
+  })
+
+  await page.goto("/bans?banType=bhop_hack&status=active")
+
+  await expect(page.getByLabel("Filter by ban type")).toHaveText(/Bhop Hack/)
+  await expect(page.getByLabel("Filter by ban status")).toHaveText(/Active/)
+  await expect
+    .poll(() => banRequests.at(-1))
+    .toMatchObject({
+      ban_types: "bhop_hack",
+      offset: "0",
+      server_id: null,
+      status: "active",
+    })
+
+  await page.getByLabel("Filter by server").click()
+  await page.getByRole("option", { name: "Filtered Server" }).click()
+
+  await expect(page).toHaveURL(
+    "/bans?banType=bhop_hack&status=active&serverId=71",
+  )
+  await expect
+    .poll(() => banRequests.at(-1))
+    .toMatchObject({
+      ban_types: "bhop_hack",
+      offset: "0",
+      server_id: "71",
+      status: "active",
+    })
+
+  await page.getByLabel("Filter by server").click()
+  await page.getByRole("option", { name: "No Server" }).click()
+
+  await expect(page).toHaveURL(
+    "/bans?banType=bhop_hack&status=active&serverId=none",
+  )
+  await expect
+    .poll(() => banRequests.at(-1))
+    .toMatchObject({
+      ban_types: "bhop_hack",
+      has_server: "false",
+      offset: "0",
+      server_id: null,
+      status: "active",
+    })
+
+  await page.getByRole("button", { name: "Clear ban filters" }).click()
+  await expect(page).toHaveURL("/bans")
+  await expect(page.getByLabel("Filter by ban type")).toHaveText(
+    /All Ban Types/,
+  )
+  await expect(page.getByLabel("Filter by ban status")).toHaveText(
+    /All Statuses/,
+  )
+  await expect(page.getByLabel("Filter by server")).toHaveText(/All Servers/)
+  await expect
+    .poll(() => banRequests.at(-1))
+    .toMatchObject({
+      ban_types: null,
+      has_server: null,
+      offset: "0",
+      server_id: null,
+      status: null,
+    })
+})
+
 test("Bans page shows Add Ban flows to admins and refreshes after create", async ({
   page,
 }) => {

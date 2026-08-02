@@ -193,6 +193,92 @@ async def test_read_bans_v0_and_v1_list_filters_and_shapes(
     assert "player_name" not in payload["data"][1]
 
 
+async def test_read_bans_v1_filters_by_status_and_server(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_bans(db)
+    now = datetime.now(UTC)
+    created_at = now - timedelta(days=30)
+    await _create_server(db, server_id=71, name="Filtered Server")
+    permanent = await _create_ban(
+        db,
+        id=1011,
+        ban_type=BanType.BHOP_HACK,
+        steamid64=76561198000000011,
+        expires_at=None,
+        player_name="Permanent",
+        created_at=created_at,
+    )
+    active = await _create_ban(
+        db,
+        id=1012,
+        ban_type=BanType.BHOP_HACK,
+        steamid64=76561198000000012,
+        expires_at=now + timedelta(days=1),
+        player_name="Active",
+        server_id=71,
+        created_at=created_at,
+    )
+    expired = await _create_ban(
+        db,
+        id=1013,
+        ban_type=BanType.OTHER,
+        steamid64=76561198000000013,
+        expires_at=now - timedelta(days=1),
+        player_name="Expired",
+        server_id=71,
+        created_at=created_at,
+    )
+    unbanned = await _create_ban(
+        db,
+        id=1014,
+        ban_type=BanType.BHOP_MACRO,
+        steamid64=76561198000000014,
+        expires_at=created_at,
+        player_name="Unbanned",
+        created_at=created_at,
+    )
+
+    expected_by_status = {
+        "permanent": permanent.uuid,
+        "active": active.uuid,
+        "expired": expired.uuid,
+        "unbanned": unbanned.uuid,
+    }
+    for status, expected_uuid in expected_by_status.items():
+        response = await client.get(
+            f"{settings.API_V1_STR}/bans",
+            params={"status": status},
+        )
+        assert response.status_code == 200
+        assert response.json()["count"] == 1
+        assert response.json()["data"][0]["uuid"] == str(expected_uuid)
+
+    combined = await client.get(
+        f"{settings.API_V1_STR}/bans",
+        params={"status": "active", "ban_types": "bhop_hack", "server_id": 71},
+    )
+    assert combined.status_code == 200
+    assert [row["uuid"] for row in combined.json()["data"]] == [str(active.uuid)]
+
+    no_server = await client.get(
+        f"{settings.API_V1_STR}/bans",
+        params={"has_server": "false"},
+    )
+    assert no_server.status_code == 200
+    assert {row["uuid"] for row in no_server.json()["data"]} == {
+        str(permanent.uuid),
+        str(unbanned.uuid),
+    }
+
+    invalid_status = await client.get(
+        f"{settings.API_V1_STR}/bans",
+        params={"status": "pending"},
+    )
+    assert invalid_status.status_code == 422
+
+
 async def test_read_ban_v1_detail_and_missing(
     client: AsyncClient,
     db: AsyncSession,

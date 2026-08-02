@@ -28,6 +28,13 @@ class BanType(StrEnum):
     OTHER = "other"
 
 
+class BanStatus(StrEnum):
+    PERMANENT = "permanent"
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    UNBANNED = "unbanned"
+
+
 class BanBase(LegacyDatetimeNamesMixin):
     ban_type: BanType = Field(
         sa_column=Column(
@@ -182,10 +189,12 @@ class BanListQuery(SQLModel):
     ban_types: str | None = None
     ban_types_list: list[str] | None = None
     is_expired: bool | None = None
+    status: BanStatus | None = None
     ip: str | None = Field(default=None, max_length=64)
     steamid64: int | None = Field(default=None, sa_type=BigInteger)
     notes_contains: str | None = None
     stats_contains: str | None = None
     server_id: int | None = None
+    has_server: bool | None = None
     created_since: datetime | None = None
     updated_since: datetime | None = None
