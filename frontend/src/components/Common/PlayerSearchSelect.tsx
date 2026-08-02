@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
+import { cn } from "@/lib/utils"
 
 import {
   getPlayerDisplayName,
@@ -100,7 +101,9 @@ export function PlayerSearchSelect({
         </label>
       ) : null}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        {selectedPlayer ? null : (
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        )}
         <Input
           id={id}
           aria-label={ariaLabel}
@@ -136,8 +139,24 @@ export function PlayerSearchSelect({
             }
           }}
           placeholder={placeholder}
-          className="pr-10 pl-9"
+          className={cn(
+            "pr-10",
+            selectedPlayer ? "caret-transparent text-transparent" : "pl-9",
+          )}
         />
+        {selectedPlayer ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-3 right-10 flex items-center overflow-hidden"
+          >
+            <PlayerDisplay
+              player={selectedPlayer}
+              compact
+              disableProfileLink
+              className="min-w-0"
+            />
+          </div>
+        ) : null}
         {selectedPlayer ? (
           <Button
             type="button"
@@ -192,11 +211,6 @@ export function PlayerSearchSelect({
           </div>
         ) : null}
       </div>
-      {selectedPlayer ? (
-        <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2">
-          <PlayerDisplay player={selectedPlayer} disableProfileLink />
-        </div>
-      ) : null}
     </div>
   )
 }

@@ -289,6 +289,37 @@ test("Bans page reads q from the URL, sends it to the API, and expands one match
   await expect.poll(() => banRequests.includes("765611")).toBe(true)
 })
 
+test("Bans player filter keeps the selected player in the search input", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.clear()
+    localStorage.setItem("gokz-datetime-format", "iso")
+  })
+  await stubGraphqlPlayers(page)
+
+  await page.route(/\/v1\/bans(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ count: 0, data: [] }),
+    })
+  })
+
+  await page.goto("/bans")
+
+  const playerSearch = page.getByRole("textbox", { name: "Search players" })
+  await playerSearch.fill("picked")
+  await page.getByText("Picked Player", { exact: true }).click()
+
+  await expect(playerSearch).toHaveValue("Picked Player")
+  await expect(
+    playerSearch.locator("xpath=..").getByText("Picked Player", {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(page.getByText("Picked Player", { exact: true })).toHaveCount(1)
+})
+
 test("Bans page shows Add Ban flows to admins and refreshes after create", async ({
   page,
 }) => {

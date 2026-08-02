@@ -141,6 +141,7 @@ interface PlayerDisplayProps {
   showCountryFlag?: boolean
   subline?: PlayerDisplaySubline | null
   className?: string
+  compact?: boolean
   nameMaxLength?: number
   disableProfileLink?: boolean
   hideAvatarWithoutSteamid64?: boolean
@@ -430,6 +431,7 @@ export function PlayerDisplay({
   showCountryFlag = true,
   subline = null,
   className,
+  compact = false,
   nameMaxLength,
   disableProfileLink = false,
   hideAvatarWithoutSteamid64 = false,
@@ -596,13 +598,14 @@ export function PlayerDisplay({
       data-drag-scroll-ignore
       data-current-user={isCurrentUser ? "true" : undefined}
       className={cn(
-        "flex min-w-0 items-center gap-2.5 transition-colors",
+        "flex min-w-0 items-center transition-colors",
+        compact ? "gap-2" : "gap-2.5",
         hasProfileLink &&
           "group-hover:text-foreground group-focus-visible:text-foreground",
         className,
       )}
     >
-      <div className="flex items-center gap-2">
+      <div className={cn("flex items-center", compact ? "gap-1.5" : "gap-2")}>
         <div className="flex items-center gap-1">
           {showEffectiveCountryFlag ? (
             FlagComponent ? (
@@ -614,7 +617,12 @@ export function PlayerDisplay({
                     role="img"
                     aria-label={countryName || countryCode || "Unknown country"}
                   >
-                    <FlagComponent className="h-4 w-6 shrink-0" />
+                    <FlagComponent
+                      className={cn(
+                        "shrink-0",
+                        compact ? "h-3.5 w-5" : "h-4 w-6",
+                      )}
+                    />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent sideOffset={8}>
@@ -625,20 +633,28 @@ export function PlayerDisplay({
               <img
                 src={noneFlagSrc}
                 alt="Unknown country"
-                className="h-4 w-6 shrink-0 rounded-[2px] border border-border/80"
+                className={cn(
+                  "shrink-0 rounded-[2px] border border-border/80",
+                  compact ? "h-3.5 w-5" : "h-4 w-6",
+                )}
                 title="Unknown country"
               />
             )
           ) : null}
 
           {showRatingBadge ? (
-            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center justify-center",
+                compact ? "h-4 w-4" : "h-5 w-5",
+              )}
+            >
               {ratingBadgeSrc ? (
                 <img
                   src={ratingBadgeSrc}
                   alt={`Rating level ${ratingLevel}`}
                   data-testid={`rating-icon-${steamid64}`}
-                  className="h-5 w-5 shrink-0"
+                  className={cn("shrink-0", compact ? "h-4 w-4" : "h-5 w-5")}
                 />
               ) : null}
             </span>
@@ -651,8 +667,12 @@ export function PlayerDisplay({
               showRoleRing ? `player-avatar-ring-${steamid64}` : undefined
             }
             className={cn(
-              "size-8 rounded-lg transition-transform duration-200",
-              showRoleRing && "ring-2 ring-offset-2 ring-offset-background",
+              "transition-transform duration-200",
+              compact ? "size-6 rounded-md" : "size-8 rounded-lg",
+              showRoleRing &&
+                (compact
+                  ? "ring-2 ring-offset-1 ring-offset-background"
+                  : "ring-2 ring-offset-2 ring-offset-background"),
               highestPermission &&
                 PLAYER_PERMISSION_RING_CLASS_NAMES[highestPermission],
               hasProfileLink &&
@@ -666,7 +686,12 @@ export function PlayerDisplay({
                 setAvatarLoadFailed(true)
               }}
             />
-            <AvatarFallback className="rounded-lg bg-zinc-600 text-white">
+            <AvatarFallback
+              className={cn(
+                "bg-zinc-600 text-white",
+                compact ? "rounded-md" : "rounded-lg",
+              )}
+            >
               {getInitials(displayName)}
             </AvatarFallback>
           </Avatar>
