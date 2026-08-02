@@ -45,6 +45,8 @@ export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
 }
 
 export const SERVER_CONFIG_FILENAME = "servers.cfg"
+export const UNASSIGNED_SERVER_GROUP_ID = "unassigned"
+export const UNASSIGNED_SERVER_GROUP_NAME = "Independent Servers"
 const SERVERS_FILTER_PREFERENCES_STORAGE_KEY = "gokz-server-browser-filters"
 const SERVERS_FILTER_PREFERENCES_VERSION = 1
 const PINNED_SERVER_GROUP_NAMES = ["AXE GOKZ"]
@@ -280,7 +282,15 @@ export function matchesServerGroupFilter(
   server: ServerPublic,
   groupFilter: string,
 ) {
-  return groupFilter === "all" || getServerGroupId(server) === groupFilter
+  if (groupFilter === "all") {
+    return true
+  }
+
+  if (groupFilter === UNASSIGNED_SERVER_GROUP_ID) {
+    return getServerGroupId(server) === null
+  }
+
+  return getServerGroupId(server) === groupFilter
 }
 
 export function getServerPlayerCount(server: ServerPublic) {
@@ -528,6 +538,20 @@ export function getServerGroupCounts(
     const groupId = getServerGroupId(server)
     const groupName = getServerGroupName(server)
     if (!groupId || !groupName) {
+      if (groupId) {
+        continue
+      }
+
+      const current = counts.get(UNASSIGNED_SERVER_GROUP_ID)
+      const matchesStatus = matchesServerStatusFilter(server, statusFilter)
+      const playerCount =
+        matchesStatus && isServerOnline(server) ? getServerPlayerCount(server) : 0
+      counts.set(UNASSIGNED_SERVER_GROUP_ID, {
+        count: (current?.count || 0) + (matchesStatus ? 1 : 0),
+        customId: null,
+        name: UNASSIGNED_SERVER_GROUP_NAME,
+        playerCount: (current?.playerCount || 0) + playerCount,
+      })
       continue
     }
 
@@ -548,6 +572,13 @@ export function getServerGroupCounts(
 
   return Array.from(counts.entries())
     .sort((left, right) => {
+      const unassignedComparison =
+        Number(left[0] === UNASSIGNED_SERVER_GROUP_ID) -
+        Number(right[0] === UNASSIGNED_SERVER_GROUP_ID)
+      if (unassignedComparison !== 0) {
+        return unassignedComparison
+      }
+
       const pinnedComparison =
         Number(isPinnedServerGroupName(right[1].name)) -
         Number(isPinnedServerGroupName(left[1].name))

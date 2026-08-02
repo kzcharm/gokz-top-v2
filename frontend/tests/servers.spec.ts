@@ -534,6 +534,21 @@ test("Public servers page supports live updates, filters, and route-bound detail
       'url("https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_gamma.webp")',
     )
 
+  await page.evaluate((server) => {
+    ;(window as any).__dispatchServerMessage({
+      server,
+      type: "server.updated",
+    })
+  }, addedServer)
+
+  await expect(
+    page.getByRole("button", { name: /Independent Servers/ }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: /Independent Servers/ }).click()
+  await expect(page.getByTestId("server-card-10.0.0.4:27018")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
+  await page.getByRole("button", { name: /Independent Servers/ }).click()
+
   const hoverCard = page.getByTestId("server-card-10.0.0.3:27017")
   await hoverCard.hover()
   await page.waitForTimeout(250)
