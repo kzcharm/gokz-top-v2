@@ -909,6 +909,60 @@ export const AdminServerRoleSchema = {
     title: 'AdminServerRole'
 } as const;
 
+export const AdminTournamentAchievementPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        tournament: {
+            '$ref': '#/components/schemas/TournamentPublic'
+        },
+        placement: {
+            type: 'integer',
+            maximum: 4,
+            minimum: 1,
+            title: 'Placement'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        }
+    },
+    type: 'object',
+    required: ['id', 'tournament', 'placement', 'created_at', 'updated_at', 'player'],
+    title: 'AdminTournamentAchievementPublic'
+} as const;
+
+export const AdminTournamentAchievementsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/AdminTournamentAchievementPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'AdminTournamentAchievementsPublic'
+} as const;
+
 export const BanCreateSchema = {
     properties: {
         steamid64: {
@@ -1247,6 +1301,12 @@ export const BanServerPublicSchema = {
     type: 'object',
     required: ['id'],
     title: 'BanServerPublic'
+} as const;
+
+export const BanStatusSchema = {
+    type: 'string',
+    enum: ['permanent', 'active', 'expired', 'unbanned'],
+    title: 'BanStatus'
 } as const;
 
 export const BanTypeSchema = {
@@ -8032,6 +8092,280 @@ export const ServersPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ServersPublic'
+} as const;
+
+export const TournamentAchievementCreateSchema = {
+    properties: {
+        tournament_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Tournament Id'
+        },
+        player_steamid64: {
+            type: 'string',
+            maxLength: 32,
+            minLength: 1,
+            title: 'Player Steamid64'
+        },
+        placement: {
+            type: 'integer',
+            maximum: 4,
+            minimum: 1,
+            title: 'Placement'
+        }
+    },
+    type: 'object',
+    required: ['tournament_id', 'player_steamid64', 'placement'],
+    title: 'TournamentAchievementCreate'
+} as const;
+
+export const TournamentAchievementPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        tournament: {
+            '$ref': '#/components/schemas/TournamentPublic'
+        },
+        placement: {
+            type: 'integer',
+            maximum: 4,
+            minimum: 1,
+            title: 'Placement'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'tournament', 'placement', 'created_at', 'updated_at'],
+    title: 'TournamentAchievementPublic'
+} as const;
+
+export const TournamentAchievementUpdateSchema = {
+    properties: {
+        placement: {
+            type: 'integer',
+            maximum: 4,
+            minimum: 1,
+            title: 'Placement'
+        }
+    },
+    type: 'object',
+    required: ['placement'],
+    title: 'TournamentAchievementUpdate'
+} as const;
+
+export const TournamentAchievementsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/TournamentAchievementPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'TournamentAchievementsPublic'
+} as const;
+
+export const TournamentCreateSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        starts_on: {
+            type: 'string',
+            format: 'date',
+            title: 'Starts On'
+        },
+        ends_on: {
+            type: 'string',
+            format: 'date',
+            title: 'Ends On'
+        },
+        official_url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Official Url'
+        },
+        level: {
+            '$ref': '#/components/schemas/TournamentLevel'
+        }
+    },
+    type: 'object',
+    required: ['name', 'starts_on', 'ends_on', 'level'],
+    title: 'TournamentCreate'
+} as const;
+
+export const TournamentLevelSchema = {
+    type: 'string',
+    enum: ['S', 'A', 'B', 'C'],
+    title: 'TournamentLevel'
+} as const;
+
+export const TournamentPublicSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Name'
+        },
+        starts_on: {
+            type: 'string',
+            format: 'date',
+            title: 'Starts On'
+        },
+        ends_on: {
+            type: 'string',
+            format: 'date',
+            title: 'Ends On'
+        },
+        official_url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Official Url'
+        },
+        level: {
+            '$ref': '#/components/schemas/TournamentLevel'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['name', 'starts_on', 'ends_on', 'level', 'id', 'created_at', 'updated_at'],
+    title: 'TournamentPublic'
+} as const;
+
+export const TournamentUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        starts_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Starts On'
+        },
+        ends_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ends On'
+        },
+        official_url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Official Url'
+        },
+        level: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/TournamentLevel'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    type: 'object',
+    title: 'TournamentUpdate'
+} as const;
+
+export const TournamentsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/TournamentPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'TournamentsPublic'
 } as const;
 
 export const UserPublicSchema = {

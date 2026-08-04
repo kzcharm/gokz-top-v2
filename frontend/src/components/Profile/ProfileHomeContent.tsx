@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { PlayerDailyActivityPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { TROPHY_ASSETS } from "@/components/Common/trophy-assets"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
@@ -45,11 +46,6 @@ const activityToneClasses = [
   "bg-[#216e39] dark:bg-[#39d353]",
 ]
 
-const TROPHY_ASSETS = {
-  gold: "https://kzgo.eu/trophy4.png",
-  silver: "https://kzgo.eu/trophy_silver2.png",
-  bronze: "https://kzgo.eu/trophy_bronze.png",
-} as const
 const PROFILE_COMPLETION_TWO_COLUMN_MIN_WIDTH = 960
 const ROLLING_ACTIVITY_WINDOW_ID = "last-365-days"
 const PROFILE_DISTRIBUTION_TWO_COLUMN_MIN_WIDTH = 1080

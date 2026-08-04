@@ -545,7 +545,9 @@ export function getServerGroupCounts(
       const current = counts.get(UNASSIGNED_SERVER_GROUP_ID)
       const matchesStatus = matchesServerStatusFilter(server, statusFilter)
       const playerCount =
-        matchesStatus && isServerOnline(server) ? getServerPlayerCount(server) : 0
+        matchesStatus && isServerOnline(server)
+          ? getServerPlayerCount(server)
+          : 0
       counts.set(UNASSIGNED_SERVER_GROUP_ID, {
         count: (current?.count || 0) + (matchesStatus ? 1 : 0),
         customId: null,

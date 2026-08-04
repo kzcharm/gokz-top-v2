@@ -64,7 +64,53 @@ test.describe("Map admin access", () => {
 
     await page.goto("/admin/player-social-links")
     await expect(page).not.toHaveURL(/\/admin\/player-social-links$/)
+
+    await page.goto("/admin/tournaments")
+    await expect(page).not.toHaveURL(/\/admin\/tournaments$/)
   })
+})
+
+test("Superusers can open tournament management", async ({ page }) => {
+  await page.route(/\/v1\/admin\/tournaments(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            id: "01988888-8888-7888-8888-888888888888",
+            name: "2026 AXE Major",
+            starts_on: "2026-08-01",
+            ends_on: "2026-08-03",
+            official_url: null,
+            level: "S",
+            created_at: "2026-08-01T00:00:00Z",
+            updated_at: "2026-08-01T00:00:00Z",
+          },
+        ],
+        count: 1,
+      }),
+    })
+  })
+  await page.route(
+    /\/v1\/admin\/tournaments\/achievements(\?.*)?$/,
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ data: [], count: 0 }),
+      })
+    },
+  )
+  await logInUser(page, randomSteamid64(), {
+    roles: ["superuser"],
+    name: "Tournament Admin",
+  })
+
+  await page.goto("/admin/tournaments")
+  await expect(page.getByRole("heading", { name: "Tournaments" })).toBeVisible()
+  await expect(page.getByText("2026 AXE Major", { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Assign Achievement" }),
+  ).toBeEnabled()
 })
 
 test.describe("Server owner access", () => {

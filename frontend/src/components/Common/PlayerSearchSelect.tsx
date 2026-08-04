@@ -22,6 +22,7 @@ import {
 type PlayerSearchSelectProps = {
   ariaLabel: string
   clearButtonLabel?: string
+  disabled?: boolean
   id?: string
   label?: ReactNode
   placeholder?: string
@@ -36,6 +37,7 @@ type PlayerSearchSelectProps = {
 export function PlayerSearchSelect({
   ariaLabel,
   clearButtonLabel = "Clear selected player",
+  disabled = false,
   id,
   label,
   placeholder = "Search player ...",
@@ -107,6 +109,7 @@ export function PlayerSearchSelect({
         <Input
           id={id}
           aria-label={ariaLabel}
+          disabled={disabled}
           value={searchInput}
           onChange={(event) => {
             if (searchBlurTimeoutRef.current !== null) {
@@ -157,7 +160,7 @@ export function PlayerSearchSelect({
             />
           </div>
         ) : null}
-        {selectedPlayer ? (
+        {selectedPlayer && !disabled ? (
           <Button
             type="button"
             variant="ghost"
@@ -173,7 +176,7 @@ export function PlayerSearchSelect({
             <X className="size-4" />
           </Button>
         ) : null}
-        {showSearchResults ? (
+        {showSearchResults && !disabled ? (
           <div className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
             {playerSearchQueryResult.isLoading ? (
               <div className="px-4 py-3 text-sm text-muted-foreground">

@@ -196,6 +196,20 @@ export type AdminServerGroupsPublic = {
 
 export type AdminServerRole = 'root_admin' | 'server_owner';
 
+export type AdminTournamentAchievementPublic = {
+    id: string;
+    tournament: TournamentPublic;
+    placement: number;
+    created_at: string;
+    updated_at: string;
+    player: PlayerRefPublic;
+};
+
+export type AdminTournamentAchievementsPublic = {
+    data: Array<AdminTournamentAchievementPublic>;
+    count: number;
+};
+
 export type BanCreate = {
     steamid64: string;
     ban_type: BanType;
@@ -247,6 +261,8 @@ export type BansPublic = {
     data: Array<BanListItemPublic>;
     count: number;
 };
+
+export type BanStatus = 'permanent' | 'active' | 'expired' | 'unbanned';
 
 export type BanType = 'ban_evasion' | 'bhop_hack' | 'bhop_macro' | 'boosting' | 'exploiting' | 'strafe_hack' | 'strafe_macro' | 'other';
 
@@ -1559,6 +1575,63 @@ export type ServerUpdate = {
     longitude?: (number | null);
 };
 
+export type TournamentAchievementCreate = {
+    tournament_id: string;
+    player_steamid64: string;
+    placement: number;
+};
+
+export type TournamentAchievementPublic = {
+    id: string;
+    tournament: TournamentPublic;
+    placement: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type TournamentAchievementsPublic = {
+    data: Array<TournamentAchievementPublic>;
+    count: number;
+};
+
+export type TournamentAchievementUpdate = {
+    placement: number;
+};
+
+export type TournamentCreate = {
+    name: string;
+    starts_on: string;
+    ends_on: string;
+    official_url?: (string | null);
+    level: TournamentLevel;
+};
+
+export type TournamentLevel = 'S' | 'A' | 'B' | 'C';
+
+export type TournamentPublic = {
+    name: string;
+    starts_on: string;
+    ends_on: string;
+    official_url?: (string | null);
+    level: TournamentLevel;
+    id: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type TournamentsPublic = {
+    data: Array<TournamentPublic>;
+    count: number;
+};
+
+export type TournamentUpdate = {
+    name?: (string | null);
+    starts_on?: (string | null);
+    ends_on?: (string | null);
+    official_url?: (string | null);
+    level?: (TournamentLevel | null);
+};
+
 export type UserPublic = {
     is_active?: boolean;
     steamid64: string;
@@ -1774,10 +1847,67 @@ export type AdminServersRotateAdminServerGroupApiKeyData = {
 
 export type AdminServersRotateAdminServerGroupApiKeyResponse = (ServerGroupApiKeyPublic);
 
+export type AdminTournamentsReadAdminTournamentsData = {
+    limit?: number;
+    offset?: number;
+};
+
+export type AdminTournamentsReadAdminTournamentsResponse = (TournamentsPublic);
+
+export type AdminTournamentsCreateAdminTournamentData = {
+    requestBody: TournamentCreate;
+};
+
+export type AdminTournamentsCreateAdminTournamentResponse = (TournamentPublic);
+
+export type AdminTournamentsUpdateAdminTournamentData = {
+    requestBody: TournamentUpdate;
+    tournamentId: string;
+};
+
+export type AdminTournamentsUpdateAdminTournamentResponse = (TournamentPublic);
+
+export type AdminTournamentsDeleteAdminTournamentData = {
+    tournamentId: string;
+};
+
+export type AdminTournamentsDeleteAdminTournamentResponse = ({
+    [key: string]: (string);
+});
+
+export type AdminTournamentsReadAdminTournamentAchievementsData = {
+    limit?: number;
+    offset?: number;
+};
+
+export type AdminTournamentsReadAdminTournamentAchievementsResponse = (AdminTournamentAchievementsPublic);
+
+export type AdminTournamentsCreateAdminTournamentAchievementData = {
+    requestBody: TournamentAchievementCreate;
+};
+
+export type AdminTournamentsCreateAdminTournamentAchievementResponse = (AdminTournamentAchievementPublic);
+
+export type AdminTournamentsUpdateAdminTournamentAchievementData = {
+    achievementId: string;
+    requestBody: TournamentAchievementUpdate;
+};
+
+export type AdminTournamentsUpdateAdminTournamentAchievementResponse = (AdminTournamentAchievementPublic);
+
+export type AdminTournamentsDeleteAdminTournamentAchievementData = {
+    achievementId: string;
+};
+
+export type AdminTournamentsDeleteAdminTournamentAchievementResponse = ({
+    [key: string]: (string);
+});
+
 export type BansReadBansData = {
     banTypes?: (string | null);
     banTypesList?: (Array<(string)> | null);
     createdSince?: (string | null);
+    hasServer?: (boolean | null);
     ip?: (string | null);
     isExpired?: (boolean | null);
     limit?: number;
@@ -1786,6 +1916,7 @@ export type BansReadBansData = {
     q?: (string | null);
     serverId?: (number | null);
     statsContains?: (string | null);
+    status?: (BanStatus | null);
     steamid64?: (number | null);
     updatedSince?: (string | null);
 };
@@ -2304,6 +2435,12 @@ export type PlayersReadPlayerProfileHistoryData = {
 };
 
 export type PlayersReadPlayerProfileHistoryResponse = (PlayerProfileHistoryPublic);
+
+export type PlayersReadPlayerTournamentAchievementsData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerTournamentAchievementsResponse = (TournamentAchievementsPublic);
 
 export type PlayersReadPlayerData = {
     identifier: string;

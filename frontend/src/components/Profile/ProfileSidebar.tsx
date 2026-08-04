@@ -78,6 +78,7 @@ import {
   ProfileSocialDialog,
   type ProfileSocialTab,
 } from "./ProfileSocialDialog"
+import { ProfileTournamentAchievements } from "./ProfileTournamentAchievements"
 import { profileHomePlaceholder } from "./profile-home-placeholder"
 import {
   getRatingRankLadder,
@@ -504,6 +505,7 @@ function ProfileIdentityCard({
                   ? `${t("profile.summary.regional")} ...`
                   : regionalStandingLabel}
               </span>
+              <ProfileTournamentAchievements steamid64={player.steamid64} />
             </div>
           </div>
         </CardContent>

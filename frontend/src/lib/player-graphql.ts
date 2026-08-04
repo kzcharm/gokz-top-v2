@@ -217,7 +217,9 @@ export async function fetchPlayersForDisplay(
     const cached = cachedDisplayPlayers.get(
       getDisplayPlayerCacheKey(steamid64, scope),
     )
-    return !cached || now - cached.storedAt >= DISPLAY_PLAYER_CACHE_STALE_TIME_MS
+    return (
+      !cached || now - cached.storedAt >= DISPLAY_PLAYER_CACHE_STALE_TIME_MS
+    )
   })
 
   await Promise.all(

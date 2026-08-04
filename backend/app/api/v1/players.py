@@ -54,6 +54,7 @@ from app.models import (
     PlayerStatsPublic,
     PlayerStatType,
     PlayerUpdate,
+    TournamentAchievementsPublic,
     User,
     UserRole,
 )
@@ -313,7 +314,9 @@ async def read_player_likers(
     )
 
 
-@router.get("/{identifier:path}/pinned-records", response_model=PlayerPinnedRecordsPublic)
+@router.get(
+    "/{identifier:path}/pinned-records", response_model=PlayerPinnedRecordsPublic
+)
 async def read_player_pinned_records(
     identifier: str,
     session: SessionDep,
@@ -365,9 +368,11 @@ async def read_player_stats(
                 **playtime.content.model_dump(mode="json"),
             )
         elif type == PlayerStatType.MOST_PLAYED_SERVER:
-            most_played_server = await crud.get_or_rebuild_player_most_played_server_stat(
-                session=session,
-                steamid64=player.steamid64,
+            most_played_server = (
+                await crud.get_or_rebuild_player_most_played_server_stat(
+                    session=session,
+                    steamid64=player.steamid64,
+                )
             )
             payload = PlayerMostPlayedServerPublic(
                 updated_at=most_played_server.updated_at,
@@ -454,6 +459,30 @@ async def read_player_profile_history(
     return PlayerProfileHistoryPublic(
         data=crud.to_player_profile_history_publics(histories=rows),
         count=count,
+    )
+
+
+@router.get(
+    "/{identifier:path}/tournament-achievements",
+    response_model=TournamentAchievementsPublic,
+)
+async def read_player_tournament_achievements(
+    *,
+    session: SessionDep,
+    identifier: str,
+) -> TournamentAchievementsPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    rows = await crud.read_player_tournament_achievements(
+        session=session, player_steamid64=player.steamid64
+    )
+    return TournamentAchievementsPublic(
+        data=[
+            crud.to_tournament_achievement_public(
+                achievement=achievement, tournament=tournament
+            )
+            for achievement, tournament in rows
+        ],
+        count=len(rows),
     )
 
 

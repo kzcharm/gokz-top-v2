@@ -101,6 +101,7 @@ export function AppSidebar() {
     ? [
         { title: t("nav.users"), path: "/admin/users", icon: Users },
         { title: t("nav.players"), path: "/admin/players", icon: UserIcon },
+        { title: "Tournaments", path: "/admin/tournaments", icon: Trophy },
         {
           title: t("nav.socialLinks"),
           path: "/admin/player-social-links",
