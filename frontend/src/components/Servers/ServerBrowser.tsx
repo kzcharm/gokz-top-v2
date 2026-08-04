@@ -71,6 +71,8 @@ import {
   readServersFilterPreferences,
   SERVER_CONFIG_FILENAME,
   sortServers,
+  UNASSIGNED_SERVER_GROUP_CUSTOM_ID,
+  UNASSIGNED_SERVER_GROUP_ID,
   writeServersFilterPreferences,
 } from "./utils"
 
@@ -357,11 +359,16 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
       return null
     }
 
-    return (
-      servers.find(
-        (server) => server.group?.custom_id === selectedGroupCustomId,
-      )?.group_id ?? null
-    )
+    const serverGroupId = servers.find(
+      (server) => server.group?.custom_id === selectedGroupCustomId,
+    )?.group_id
+    if (serverGroupId) {
+      return serverGroupId
+    }
+
+    return selectedGroupCustomId === UNASSIGNED_SERVER_GROUP_CUSTOM_ID
+      ? UNASSIGNED_SERVER_GROUP_ID
+      : null
   }, [selectedGroupCustomId, servers])
 
   const activeSearch = useMemo(

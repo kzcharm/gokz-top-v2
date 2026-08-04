@@ -542,12 +542,13 @@ test("Public servers page supports live updates, filters, and route-bound detail
   }, addedServer)
 
   await expect(
-    page.getByRole("button", { name: /Independent Servers/ }),
+    page.getByRole("button", { name: /Others/ }),
   ).toBeVisible()
-  await page.getByRole("button", { name: /Independent Servers/ }).click()
+  await page.getByRole("button", { name: /Others/ }).click()
+  await expect(page).toHaveURL(/\/servers\/group\/others$/)
   await expect(page.getByTestId("server-card-10.0.0.4:27018")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
-  await page.getByRole("button", { name: /Independent Servers/ }).click()
+  await page.getByRole("button", { name: /Others/ }).click()
 
   const hoverCard = page.getByTestId("server-card-10.0.0.3:27017")
   await hoverCard.hover()

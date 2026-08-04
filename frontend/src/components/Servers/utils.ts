@@ -46,7 +46,8 @@ export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
 
 export const SERVER_CONFIG_FILENAME = "servers.cfg"
 export const UNASSIGNED_SERVER_GROUP_ID = "unassigned"
-export const UNASSIGNED_SERVER_GROUP_NAME = "Independent Servers"
+export const UNASSIGNED_SERVER_GROUP_CUSTOM_ID = "others"
+export const UNASSIGNED_SERVER_GROUP_NAME = "Others"
 const SERVERS_FILTER_PREFERENCES_STORAGE_KEY = "gokz-server-browser-filters"
 const SERVERS_FILTER_PREFERENCES_VERSION = 1
 const PINNED_SERVER_GROUP_NAMES = ["AXE GOKZ"]
@@ -550,7 +551,7 @@ export function getServerGroupCounts(
           : 0
       counts.set(UNASSIGNED_SERVER_GROUP_ID, {
         count: (current?.count || 0) + (matchesStatus ? 1 : 0),
-        customId: null,
+        customId: UNASSIGNED_SERVER_GROUP_CUSTOM_ID,
         name: UNASSIGNED_SERVER_GROUP_NAME,
         playerCount: (current?.playerCount || 0) + playerCount,
       })
