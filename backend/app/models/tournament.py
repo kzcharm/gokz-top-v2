@@ -66,7 +66,7 @@ class TournamentBase(SQLModel):
 
     @model_validator(mode="after")
     def _validate_date_range(self) -> TournamentBase:
-        if self.ends_on < self.starts_on:
+        if self.ends_on is not None and self.ends_on < self.starts_on:
             raise ValueError("ends_on must not be before starts_on")
         return self
 
@@ -129,7 +129,13 @@ class TournamentAchievement(SQLModel, table=True):
 
 
 class TournamentCreate(TournamentBase):
-    pass
+    ends_on: date | None = None
+
+    @model_validator(mode="after")
+    def _default_end_date(self) -> TournamentCreate:
+        if self.ends_on is None:
+            self.ends_on = self.starts_on
+        return self
 
 
 class TournamentUpdate(SQLModel):

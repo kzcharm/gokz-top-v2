@@ -64,6 +64,9 @@ async def update_tournament(
     changes = tournament_in.model_dump(exclude_unset=True)
     starts_on = changes.get("starts_on", tournament.starts_on)
     ends_on = changes.get("ends_on", tournament.ends_on)
+    if ends_on is None:
+        ends_on = starts_on
+        changes["ends_on"] = ends_on
     if not isinstance(starts_on, date) or not isinstance(ends_on, date):
         raise ValueError("Tournament dates are invalid")
     if ends_on < starts_on:

@@ -128,7 +128,7 @@ function TournamentDialog({
         requestBody: {
           name: name.trim(),
           starts_on: startsOn,
-          ends_on: endsOn,
+          ...(endsOn ? { ends_on: endsOn } : {}),
           official_url: officialUrl.trim() || null,
           level,
         },
@@ -147,7 +147,7 @@ function TournamentDialog({
             requestBody: {
               name: name.trim(),
               starts_on: startsOn,
-              ends_on: endsOn,
+              ...(endsOn ? { ends_on: endsOn } : { ends_on: null }),
               official_url: officialUrl.trim() || null,
               level,
             },
@@ -171,7 +171,12 @@ function TournamentDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2 text-sm font-medium">
-            <label htmlFor="tournament-name">Name</label>
+            <label htmlFor="tournament-name">
+              Name
+              <span aria-hidden="true" className="ml-1 text-destructive">
+                *
+              </span>
+            </label>
             <Input
               id="tournament-name"
               value={name}
@@ -180,7 +185,12 @@ function TournamentDialog({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2 text-sm font-medium">
-              <label htmlFor="tournament-start-date">Start Date</label>
+              <label htmlFor="tournament-start-date">
+                Start Date
+                <span aria-hidden="true" className="ml-1 text-destructive">
+                  *
+                </span>
+              </label>
               <Input
                 id="tournament-start-date"
                 type="date"
@@ -210,7 +220,12 @@ function TournamentDialog({
             />
           </div>
           <div className="grid gap-2 text-sm font-medium">
-            <label htmlFor="tournament-level">Level</label>
+            <label htmlFor="tournament-level">
+              Level
+              <span aria-hidden="true" className="ml-1 text-destructive">
+                *
+              </span>
+            </label>
             <Select
               value={level}
               onValueChange={(value) => setLevel(value as TournamentLevel)}
@@ -325,7 +340,12 @@ function AchievementDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2 text-sm font-medium">
-            <label htmlFor="achievement-tournament">Tournament</label>
+            <label htmlFor="achievement-tournament">
+              Tournament
+              <span aria-hidden="true" className="ml-1 text-destructive">
+                *
+              </span>
+            </label>
             <Select
               value={tournamentId}
               onValueChange={setTournamentId}
@@ -355,7 +375,12 @@ function AchievementDialog({
             onClearPlayer={() => setSelectedPlayer(null)}
           />
           <div className="grid gap-2 text-sm font-medium">
-            <label htmlFor="achievement-placement">Placement</label>
+            <label htmlFor="achievement-placement">
+              Placement
+              <span aria-hidden="true" className="ml-1 text-destructive">
+                *
+              </span>
+            </label>
             <Select value={placement} onValueChange={setPlacement}>
               <SelectTrigger id="achievement-placement">
                 <SelectValue />

@@ -41,6 +41,26 @@ async def test_superuser_manages_tournament_achievements_and_profiles_show_them(
     tournament = create_tournament.json()
     assert tournament["level"] == "S"
 
+    one_day_tournament = await client.post(
+        f"{settings.API_V1_STR}/admin/tournaments",
+        headers=headers,
+        json={
+            "name": "2026 AXE One Day",
+            "starts_on": "2026-08-04",
+            "level": "A",
+        },
+    )
+    assert one_day_tournament.status_code == 200
+    assert one_day_tournament.json()["ends_on"] == "2026-08-04"
+
+    cleared_end_date = await client.patch(
+        f"{settings.API_V1_STR}/admin/tournaments/{tournament['id']}",
+        headers=headers,
+        json={"ends_on": None},
+    )
+    assert cleared_end_date.status_code == 200
+    assert cleared_end_date.json()["ends_on"] == tournament["starts_on"]
+
     create_achievement = await client.post(
         f"{settings.API_V1_STR}/admin/tournaments/achievements",
         headers=headers,

@@ -8198,8 +8198,15 @@ export const TournamentCreateSchema = {
             title: 'Starts On'
         },
         ends_on: {
-            type: 'string',
-            format: 'date',
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Ends On'
         },
         official_url: {
@@ -8219,7 +8226,7 @@ export const TournamentCreateSchema = {
         }
     },
     type: 'object',
-    required: ['name', 'starts_on', 'ends_on', 'level'],
+    required: ['name', 'starts_on', 'level'],
     title: 'TournamentCreate'
 } as const;
 
