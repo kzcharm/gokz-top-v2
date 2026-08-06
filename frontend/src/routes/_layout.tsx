@@ -18,6 +18,7 @@ function Layout() {
         pathname.startsWith("/profile") ||
         pathname.startsWith("/leaderboards") ||
         pathname.startsWith("/admin/servers") ||
+        pathname.startsWith("/admin/player-sessions") ||
         pathname.startsWith("/bans") ||
         pathname.startsWith("/live") ||
         pathname.startsWith("/updates")

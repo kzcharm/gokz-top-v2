@@ -390,7 +390,7 @@ function AdminPlayerSessions() {
           isLoading={query.isLoading}
           stickyHeader
           stickyHeaderTopClassName="top-16"
-          tableContainerClassName="md:overflow-visible"
+          tableContainerClassName="max-w-full md:overflow-visible"
           tableClassName="border-separate border-spacing-0"
           showFooter={false}
           emptyText="No player sessions found."
