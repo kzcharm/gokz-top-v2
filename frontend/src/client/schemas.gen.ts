@@ -7847,9 +7847,15 @@ export const ServerStatusPlayerPutSchema = {
             title: 'Tag'
         },
         mode: {
-            type: 'string',
-            maxLength: 16,
-            minLength: 1,
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 16
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Mode'
         },
         name: {
@@ -7912,7 +7918,7 @@ export const ServerStatusPlayerPutSchema = {
     },
     additionalProperties: false,
     type: 'object',
-    required: ['mode', 'name', 'score', 'status', 'duration_seconds', 'is_paused', 'steamid64', 'teleports'],
+    required: ['name', 'score', 'status', 'duration_seconds', 'is_paused', 'steamid64', 'teleports'],
     title: 'ServerStatusPlayerPut'
 } as const;
 

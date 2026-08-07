@@ -1541,7 +1541,7 @@ export type ServerStatus = 'enabled' | 'invalid' | 'disabled';
 
 export type ServerStatusPlayerPut = {
     tag?: (string | null);
-    mode: string;
+    mode?: (string | null);
     name: string;
     score: number;
     status: ServerPlayerRunStatus;
@@ -1801,8 +1801,11 @@ export type AdminServersReadAdminPublicServersData = {
     limit?: number;
     offset?: number;
     online?: (boolean | null);
+    q?: (string | null);
     region?: (string | null);
     sourceType?: (ServerSource | null);
+    status?: (ServerStatus | null);
+    ungrouped?: (boolean | null);
 };
 
 export type AdminServersReadAdminPublicServersResponse = (ServersPublic);
@@ -2754,8 +2757,11 @@ export type ServersReadServersData = {
     limit?: number;
     offset?: number;
     online?: (boolean | null);
+    q?: (string | null);
     region?: (string | null);
     sourceType?: (ServerSource | null);
+    status?: (ServerStatus | null);
+    ungrouped?: (boolean | null);
 };
 
 export type ServersReadServersResponse = (ServersPublic);

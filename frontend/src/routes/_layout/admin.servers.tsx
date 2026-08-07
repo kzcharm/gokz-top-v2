@@ -14,6 +14,7 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   Copy,
   Github,
   KeyRound,
@@ -22,6 +23,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  X,
 } from "lucide-react"
 import { useCallback, useEffect, useId, useMemo, useState } from "react"
 
@@ -39,9 +41,11 @@ import {
   AdminPageHeader,
   AdminTableCard,
 } from "@/components/Admin/AdminPageLayout"
+import { CountryFlag } from "@/components/Common/CountryFlag"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { RegionFlag } from "@/components/Common/RegionFlag"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -596,16 +600,41 @@ export function PublicServersTab({
   const [pageSize, setPageSize] = usePersistedPageSize({
     storageKey: "gokz-page-size-admin-public-servers",
   })
+  const [search, setSearch] = useState("")
   const [groupFilter, setGroupFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [regionFilter, setRegionFilter] = useState("all")
+  const [editingServerId, setEditingServerId] = useState<string | null>(null)
+  const [draftGroupId, setDraftGroupId] = useState<string>(NO_GROUP)
+  const [draftStatus, setDraftStatus] =
+    useState<NonNullable<ServerPublic["status"]>>("enabled")
   const canClearGroup = access?.role !== "server_owner"
 
   const query = useQuery({
-    queryKey: ["admin-public-servers", pageIndex, pageSize, groupFilter],
+    queryKey: [
+      "admin-public-servers",
+      pageIndex,
+      pageSize,
+      search,
+      groupFilter,
+      statusFilter,
+      regionFilter,
+    ],
     queryFn: () =>
       AdminServersService.readAdminPublicServers({
         offset: pageIndex * pageSize,
         limit: pageSize,
-        groupId: groupFilter === "all" ? undefined : groupFilter,
+        q: search.trim() || undefined,
+        groupId:
+          groupFilter === "all" || groupFilter === "ungrouped"
+            ? undefined
+            : groupFilter,
+        ungrouped: groupFilter === "ungrouped" ? true : undefined,
+        status:
+          statusFilter === "all"
+            ? undefined
+            : (statusFilter as ServerPublic["status"]),
+        region: regionFilter === "all" ? undefined : regionFilter,
       }),
   })
 
@@ -646,40 +675,192 @@ export function PublicServersTab({
   const columns = useMemo<ColumnDef<ServerPublic>[]>(
     () => [
       {
-        accessorKey: "ip",
-        header: "Server",
+        id: "server_name",
+        accessorFn: (server) => server.live_status?.hostname ?? "",
+        header: "Server Name",
         cell: ({ row }) => (
-          <div>
-            <div className="font-mono text-sm">
-              {row.original.ip}:{row.original.port}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {row.original.live_status?.hostname || "No live hostname"}
-            </div>
-          </div>
+          <span
+            className="font-medium"
+            title={row.original.live_status?.hostname ?? undefined}
+          >
+            {row.original.live_status?.hostname || "Unnamed server"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "ip",
+        header: "IP",
+        cell: ({ row }) => (
+          <span className="font-mono text-sm">
+            {row.original.ip}:{row.original.port}
+          </span>
         ),
       },
       {
         accessorKey: "group_id",
         header: "Group",
+        cell: ({ row }) =>
+          editingServerId === row.original.id ? (
+            <Select value={draftGroupId} onValueChange={setDraftGroupId}>
+              <SelectTrigger className="w-52">
+                <SelectValue placeholder="No group" />
+              </SelectTrigger>
+              <SelectContent>
+                {canClearGroup ? (
+                  <SelectItem value={NO_GROUP}>No group</SelectItem>
+                ) : null}
+                {groups.map((group) => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="text-sm">
+              {row.original.group?.name || "No group"}
+            </span>
+          ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) =>
+          editingServerId === row.original.id ? (
+            <Select
+              value={draftStatus}
+              onValueChange={(value) =>
+                setDraftStatus(value as typeof draftStatus)
+              }
+            >
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="enabled">Enabled</SelectItem>
+                <SelectItem value="invalid">Invalid</SelectItem>
+                <SelectItem value="disabled">Disabled</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <ServerStatusBadge status={row.original.status} />
+          ),
+      },
+      {
+        accessorKey: "country",
+        header: "Location",
         cell: ({ row }) => (
+          <div className="flex items-center gap-2 text-sm">
+            <CountryFlag
+              countryCode={row.original.country}
+              showTooltip={false}
+            />
+            <span>{row.original.city || "Unknown"}</span>
+          </div>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) =>
+          editingServerId === row.original.id ? (
+            <div className="flex justify-end gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Save public server"
+                disabled={updateMutation.isPending}
+                onClick={() =>
+                  updateMutation.mutate(
+                    {
+                      serverId: row.original.id,
+                      groupId: draftGroupId === NO_GROUP ? null : draftGroupId,
+                      status: draftStatus,
+                    },
+                    { onSuccess: () => setEditingServerId(null) },
+                  )
+                }
+              >
+                <Check />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Cancel editing"
+                onClick={() => setEditingServerId(null)}
+              >
+                <X />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Edit public server"
+                onClick={() => {
+                  setEditingServerId(row.original.id)
+                  setDraftGroupId(row.original.group_id ?? NO_GROUP)
+                  setDraftStatus(row.original.status ?? "enabled")
+                }}
+              >
+                <Pencil />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive hover:text-destructive"
+                aria-label="Delete public server"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(row.original.id)}
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          ),
+      },
+    ],
+    [
+      canClearGroup,
+      deleteMutation,
+      draftGroupId,
+      draftStatus,
+      editingServerId,
+      groups,
+      updateMutation,
+    ],
+  )
+
+  return (
+    <div className="flex flex-col gap-4">
+      <AdminControlsCard>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <Input
+            className="sm:w-64"
+            placeholder="Search servers..."
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPageIndex(0)
+            }}
+          />
           <Select
-            value={row.original.group_id ?? NO_GROUP}
-            disabled={updateMutation.isPending}
-            onValueChange={(value) =>
-              updateMutation.mutate({
-                serverId: row.original.id,
-                groupId: value === NO_GROUP ? null : value,
-              })
-            }
+            value={groupFilter}
+            onValueChange={(value) => {
+              setGroupFilter(value)
+              setPageIndex(0)
+            }}
           >
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="No group" />
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {canClearGroup ? (
-                <SelectItem value={NO_GROUP}>No group</SelectItem>
-              ) : null}
+              <SelectItem value="all">All groups</SelectItem>
+              <SelectItem value="ungrouped">No group</SelectItem>
               {groups.map((group) => (
                 <SelectItem key={group.id} value={group.id}>
                   {group.name}
@@ -687,87 +868,52 @@ export function PublicServersTab({
               ))}
             </SelectContent>
           </Select>
-        ),
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => (
           <Select
-            value={row.original.status}
-            disabled={updateMutation.isPending}
-            onValueChange={(value) =>
-              updateMutation.mutate({
-                serverId: row.original.id,
-                status: value as ServerPublic["status"],
-              })
-            }
+            value={statusFilter}
+            onValueChange={(value) => {
+              setStatusFilter(value)
+              setPageIndex(0)
+            }}
           >
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="enabled">Enabled</SelectItem>
-              <SelectItem value="invalid">Invalid</SelectItem>
-              <SelectItem value="disabled">Disabled</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="enabled">
+                <ServerStatusBadge status="enabled" />
+              </SelectItem>
+              <SelectItem value="invalid">
+                <ServerStatusBadge status="invalid" />
+              </SelectItem>
+              <SelectItem value="disabled">
+                <ServerStatusBadge status="disabled" />
+              </SelectItem>
             </SelectContent>
           </Select>
-        ),
-      },
-      {
-        accessorKey: "country",
-        header: "Location",
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {[row.original.country, row.original.city]
-              .filter(Boolean)
-              .join(", ") || "Unknown"}
-          </span>
-        ),
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-destructive hover:text-destructive"
-            aria-label="Delete public server"
-            disabled={deleteMutation.isPending}
-            onClick={() => deleteMutation.mutate(row.original.id)}
+          <Select
+            value={regionFilter}
+            onValueChange={(value) => {
+              setRegionFilter(value)
+              setPageIndex(0)
+            }}
           >
-            <Trash2 />
-          </Button>
-        ),
-      },
-    ],
-    [canClearGroup, deleteMutation, groups, updateMutation],
-  )
-
-  return (
-    <div className="flex flex-col gap-4">
-      <AdminControlsCard>
-        <Select
-          value={groupFilter}
-          onValueChange={(value) => {
-            setGroupFilter(value)
-            setPageIndex(0)
-          }}
-        >
-          <SelectTrigger className="w-full sm:w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All groups</SelectItem>
-            {groups.map((group) => (
-              <SelectItem key={group.id} value={group.id}>
-                {group.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All regions</SelectItem>
+              {["AF", "AS", "CIS", "CN", "EU", "ME", "NA", "OC", "SA"].map(
+                (region) => (
+                  <SelectItem key={region} value={region}>
+                    <RegionFlag regionCode={region} showTooltip={false} />
+                    {region}
+                  </SelectItem>
+                ),
+              )}
+            </SelectContent>
+          </Select>
+        </div>
       </AdminControlsCard>
       <AdminTableCard>
         <DataTable
@@ -811,6 +957,25 @@ export function PublicServersTab({
       </AdminTableCard>
     </div>
   )
+}
+
+function ServerStatusBadge({ status }: { status?: ServerPublic["status"] }) {
+  const labels = {
+    enabled: "Enabled",
+    invalid: "Invalid",
+    disabled: "Disabled",
+  } as const
+  const value = status ?? "disabled"
+  const classNames = {
+    enabled:
+      "border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300",
+    invalid:
+      "border-red-200 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300",
+    disabled:
+      "border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  } as const
+
+  return <Badge className={classNames[value]}>{labels[value]}</Badge>
 }
 
 export function ServerGroupsTab({
@@ -1132,6 +1297,7 @@ function ServerGroupDialog({
             label="Custom ID"
             value={customId}
             onChange={setCustomId}
+            required
           />
           <LabeledInput label="Website" value={website} onChange={setWebsite} />
           <LabeledInput label="Discord" value={discord} onChange={setDiscord} />

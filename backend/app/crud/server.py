@@ -630,6 +630,18 @@ async def read_servers(
     owned_group_ids: set[uuid.UUID] | frozenset[uuid.UUID] | None = None,
 ) -> tuple[list[Server], int]:
     statement = select(Server)
+    if query.q:
+        search = f"%{query.q.strip()}%"
+        statement = statement.outerjoin(
+            ServerLiveStatus,
+            col(ServerLiveStatus.server_id) == col(Server.id),
+        ).where(
+            or_(
+                col(Server.ip).ilike(search),
+                col(Server.city).ilike(search),
+                col(ServerLiveStatus.hostname).ilike(search),
+            )
+        )
     if owned_group_ids is not None:
         if not owned_group_ids:
             return [], 0
@@ -638,6 +650,10 @@ async def read_servers(
         if owned_group_ids is not None and query.group_id not in owned_group_ids:
             return [], 0
         statement = statement.where(col(Server.group_id) == query.group_id)
+    if query.ungrouped:
+        statement = statement.where(col(Server.group_id).is_(None))
+    if query.status is not None:
+        statement = statement.where(col(Server.status) == query.status)
     if query.country:
         statement = statement.where(col(Server.country) == query.country.upper())
     if query.region:

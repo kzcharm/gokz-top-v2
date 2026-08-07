@@ -515,8 +515,11 @@ class AdminServerAccessPublic(SQLModel):
 class ServerListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=1000)
+    q: str | None = Field(default=None, max_length=255)
     online: bool | None = None
     group_id: uuid.UUID | None = None
+    ungrouped: bool | None = None
+    status: ServerStatus | None = None
     country: str | None = Field(default=None, max_length=2)
     region: str | None = Field(default=None, max_length=3)
     city: str | None = Field(default=None, max_length=255)

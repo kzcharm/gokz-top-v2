@@ -396,8 +396,11 @@ export class AdminServersService {
      * @param data The data for the request.
      * @param data.offset
      * @param data.limit
+     * @param data.q
      * @param data.online
      * @param data.groupId
+     * @param data.ungrouped
+     * @param data.status
      * @param data.country
      * @param data.region
      * @param data.city
@@ -412,8 +415,11 @@ export class AdminServersService {
             query: {
                 offset: data.offset,
                 limit: data.limit,
+                q: data.q,
                 online: data.online,
                 group_id: data.groupId,
+                ungrouped: data.ungrouped,
+                status: data.status,
                 country: data.country,
                 region: data.region,
                 city: data.city,
@@ -3442,8 +3448,11 @@ export class ServersService {
      * @param data The data for the request.
      * @param data.offset
      * @param data.limit
+     * @param data.q
      * @param data.online
      * @param data.groupId
+     * @param data.ungrouped
+     * @param data.status
      * @param data.country
      * @param data.region
      * @param data.city
@@ -3458,8 +3467,11 @@ export class ServersService {
             query: {
                 offset: data.offset,
                 limit: data.limit,
+                q: data.q,
                 online: data.online,
                 group_id: data.groupId,
+                ungrouped: data.ungrouped,
+                status: data.status,
                 country: data.country,
                 region: data.region,
                 city: data.city,
