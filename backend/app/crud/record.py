@@ -3,7 +3,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Literal
@@ -1179,6 +1179,7 @@ async def read_map_wr_history(
             col(Record.steamid64),
             col(Record.server_id),
             col(Record.mode),
+            col(Record.teleports),
             col(Record.time),
             col(Record.created_at),
             col(Record.id),
@@ -1217,6 +1218,7 @@ async def read_map_wr_history(
                 events_cte.c.server_id,
                 ServerGlobalapi.name,
                 Mode,
+                events_cte.c.teleports,
                 events_cte.c.time,
                 events_cte.c.created_at,
             )
@@ -1231,6 +1233,21 @@ async def read_map_wr_history(
         )
     ).all()
 
+    if rows:
+        first_wr_created_at = rows[0][7]
+        stabilization_end = first_wr_created_at + timedelta(days=30)
+        initial_window_rows = [
+            row for row in rows if row[7] < stabilization_end
+        ]
+        first_wr = min(
+            initial_window_rows,
+            key=lambda row: (row[6], row[7], str(row[0])),
+        )
+        rows = [
+            first_wr,
+            *(row for row in rows if row[7] >= stabilization_end),
+        ]
+
     entries = [
         MapWrHistoryEntryPublic(
             record_uuid=record_uuid,
@@ -1239,6 +1256,7 @@ async def read_map_wr_history(
             server_name=server_name or "",
             mode_id=mode.name_short.mode_id,
             mode=mode.name_short,
+            teleports=teleports,
             time=float(record_time),
             created_on=created_on,
         )
@@ -1248,6 +1266,7 @@ async def read_map_wr_history(
             server_id,
             server_name,
             mode,
+            teleports,
             record_time,
             created_on,
         ) in rows

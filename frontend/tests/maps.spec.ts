@@ -1071,6 +1071,7 @@ test("Map WR history shows WR events and switches record type", async ({
                 server_name: "Pro Server",
                 mode_id: 200,
                 mode: "KZT",
+                teleports: 0,
                 time: 41.123,
                 created_on: "2026-03-04T12:00:00Z",
               },
@@ -1086,6 +1087,7 @@ test("Map WR history shows WR events and switches record type", async ({
                 server_name: "History Server",
                 mode_id: 200,
                 mode: "KZT",
+                teleports: 1,
                 time: 50,
                 created_on: "2026-03-01T12:00:00Z",
               },
@@ -1099,6 +1101,7 @@ test("Map WR history shows WR events and switches record type", async ({
                 server_name: "History Server",
                 mode_id: 201,
                 mode: "SKZ",
+                teleports: 2,
                 time: 47.5,
                 created_on: "2026-03-02T12:00:00Z",
               },
@@ -1112,6 +1115,7 @@ test("Map WR history shows WR events and switches record type", async ({
                 server_name: "History Server",
                 mode_id: 201,
                 mode: "SKZ",
+                teleports: 3,
                 time: 45,
                 created_on: "2026-03-03T12:00:00Z",
               },
@@ -1123,7 +1127,7 @@ test("Map WR history shows WR events and switches record type", async ({
   await page.goto("/maps/kz_alpha/wr_history")
 
   await expect(page.getByRole("tab", { name: "WR History" })).toBeVisible()
-  await expect(page.getByText("World Record History")).toBeVisible()
+  await expect(page.getByText("WR History", { exact: true })).toBeVisible()
   await expect(page.getByTestId("map-wr-history-chart")).toBeVisible()
   await expect(page.getByTestId("map-wr-history-legend")).toContainText(
     "Alpha Holder",
@@ -1131,14 +1135,17 @@ test("Map WR history shows WR events and switches record type", async ({
   await expect(page.getByTestId("map-wr-history-legend")).toContainText(
     "Bravo Holder",
   )
-  const historyEvents = page.getByTestId("map-wr-history-events")
-  await expect(historyEvents).toContainText("50.000")
-  await expect(historyEvents).toContainText("45.000")
-  await expect(historyEvents.locator("button").first()).toContainText("45.000")
+  const historyTable = page.getByTestId("map-wr-history-table")
+  await expect(historyTable.locator("thead")).toContainText("Prev")
+  await expect(historyTable.locator("tbody tr")).toHaveCount(3)
+  await expect(historyTable.locator("tbody tr").first()).toContainText("#3")
+  await expect(historyTable.locator("tbody tr").first()).toContainText("45.000")
+  await expect(historyTable.locator("tbody tr").first()).toContainText("-2.500")
+  await expect(historyTable.locator("tbody tr").last()).toContainText("#1")
 
   await page.getByRole("button", { name: "NUB", exact: true }).click()
   await expect.poll(() => historyRequests.at(-1)).toContain("type=PRO")
-  await expect(page.getByTestId("map-wr-history-events")).toContainText(
+  await expect(page.getByTestId("map-wr-history-table")).toContainText(
     "Pro Holder",
   )
 })

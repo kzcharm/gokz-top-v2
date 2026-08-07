@@ -61,6 +61,7 @@ interface DataTableProps<TData, TValue> {
   showFooter?: boolean
   footerSummary?: ReactNode
   pageInputEnabled?: boolean
+  disablePagination?: boolean
   getRowClassName?: (row: TData) => string | undefined
   getRowProps?: (row: TData) => ComponentProps<typeof TableRow> | undefined
   getRowContextMenu?: (row: TData) => ReactNode
@@ -226,6 +227,7 @@ export function DataTable<TData, TValue>({
   showFooter = true,
   footerSummary,
   pageInputEnabled = false,
+  disablePagination = false,
   getRowClassName,
   getRowProps,
   getRowContextMenu,
@@ -303,7 +305,9 @@ export function DataTable<TData, TValue>({
         )
       : undefined,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(disablePagination
+      ? {}
+      : { getPaginationRowModel: getPaginationRowModel() }),
   })
 
   const totalCount = serverPagination

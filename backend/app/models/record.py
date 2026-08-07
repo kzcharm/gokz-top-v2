@@ -668,6 +668,7 @@ class MapWrHistoryEntryPublic(SQLModel):
     server_name: str
     mode_id: int
     mode: KZMode
+    teleports: int
     time: float
     created_on: datetime
 

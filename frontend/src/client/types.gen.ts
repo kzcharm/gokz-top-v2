@@ -648,6 +648,7 @@ export type MapWrHistoryEntryPublic = {
     server_name: string;
     mode_id: number;
     mode: KZMode;
+    teleports: number;
     time: number;
     created_on: string;
 };

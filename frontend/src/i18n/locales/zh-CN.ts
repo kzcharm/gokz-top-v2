@@ -48,6 +48,8 @@ export const zhCN = {
     tps: "TPs",
     time: "用时",
     points: "分数",
+    number: "#",
+    prev: "前次",
     rating: "Rating",
     playtime: "游玩时长",
     server: "服务器",
@@ -916,7 +918,6 @@ export const zhCN = {
     },
     wrHistory: {
       title: "世界纪录历史",
-      description: "这里只显示创造主关世界纪录的记录。",
       loadFailedBody: "无法加载 WR 历史，请尝试刷新页面。",
       empty: "这个范围还没有可用的世界纪录事件。",
       xAxis: {

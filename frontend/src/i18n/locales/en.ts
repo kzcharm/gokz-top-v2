@@ -48,6 +48,8 @@ export const en = {
     tps: "TPs",
     time: "Time",
     points: "Points",
+    number: "#",
+    prev: "Prev",
     rating: "Rating",
     playtime: "Playtime",
     server: "Server",
@@ -937,9 +939,7 @@ export const en = {
       reviews: "Reviews",
     },
     wrHistory: {
-      title: "World Record History",
-      description:
-        "Only runs that established a new main-course world record are shown.",
+      title: "WR History",
       loadFailedBody: "Unable to load WR history. Try refreshing the page.",
       empty: "No world-record events are available for this view yet.",
       xAxis: {

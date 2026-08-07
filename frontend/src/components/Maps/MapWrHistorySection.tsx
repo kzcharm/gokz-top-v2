@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import type { ColumnDef } from "@tanstack/react-table"
 import type { EChartsOption, EChartsType } from "echarts"
 import * as echarts from "echarts"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -9,11 +10,19 @@ import {
   type MapWrHistoryEntryPublic,
   type RecordType,
 } from "@/client"
+import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { getPlayerDisplayName } from "@/components/Common/PlayerDisplay"
+import {
+  getPlayerDisplayName,
+  PlayerDisplay,
+} from "@/components/Common/PlayerDisplay"
+import { ModeBadge } from "@/components/Records/ModeBadge"
+import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
+import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
 import type { AppScope } from "@/components/scope-provider"
 import { useTheme } from "@/components/theme-provider"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -30,8 +39,18 @@ const HOLDER_COLORS = [
   "#b45309",
 ]
 
+type WrHistoryTableRow = {
+  number: number
+  entry: MapWrHistoryEntryPublic
+  previousDelta: number | null
+}
+
 function getHolderName(row: MapWrHistoryEntryPublic) {
   return getPlayerDisplayName(row.player, row.player.steamid64)
+}
+
+function formatWrDelta(delta: number) {
+  return `${delta < 0 ? "-" : "+"}${formatRecordTime(Math.abs(delta))}`
 }
 
 function escapeHtml(value: string) {
@@ -379,7 +398,124 @@ export function MapWrHistorySection({
     retry: false,
   })
   const rows = historyQuery.data?.data ?? []
-  const eventRows = useMemo(() => [...rows].reverse(), [rows])
+  const tableData = useMemo<WrHistoryTableRow[]>(
+    () =>
+      rows
+        .map((entry, index) => ({
+          number: index + 1,
+          entry,
+          previousDelta: index > 0 ? entry.time - rows[index - 1].time : null,
+        }))
+        .reverse(),
+    [rows],
+  )
+  const columns = useMemo<ColumnDef<WrHistoryTableRow>[]>(
+    () => [
+      {
+        accessorKey: "number",
+        size: 96,
+        header: () => t("labels.number"),
+        cell: ({ row }) => (
+          <span className="font-mono font-semibold text-foreground/90">
+            #{row.original.number}
+          </span>
+        ),
+      },
+      {
+        id: "player",
+        size: 300,
+        header: () => t("labels.player"),
+        cell: ({ row }) => (
+          <PlayerDisplay
+            player={row.original.entry.player}
+            className="max-w-[15rem]"
+            nameMaxLength={24}
+          />
+        ),
+      },
+      {
+        id: "mode",
+        size: 96,
+        header: () => t("labels.mode"),
+        cell: ({ row }) => <ModeBadge mode={row.original.entry.mode} />,
+      },
+      {
+        id: "tps",
+        size: 96,
+        header: () => t("labels.tps"),
+        cell: ({ row }) => (
+          <TeleportsBadge teleports={row.original.entry.teleports} />
+        ),
+      },
+      {
+        id: "time",
+        size: 148,
+        meta: {
+          headerClassName: "text-right",
+          cellClassName: "text-right",
+        },
+        header: () => <div className="text-right">{t("labels.time")}</div>,
+        cell: ({ row }) => (
+          <div className="text-right font-mono font-medium">
+            {formatRecordTime(row.original.entry.time)}
+          </div>
+        ),
+      },
+      {
+        id: "previous",
+        size: 128,
+        meta: {
+          headerClassName: "text-right",
+          cellClassName: "text-right",
+        },
+        header: () => <div className="text-right">{t("labels.prev")}</div>,
+        cell: ({ row }) => {
+          const delta = row.original.previousDelta
+          if (delta === null) {
+            return <div className="text-right text-muted-foreground">-</div>
+          }
+
+          return (
+            <div className="flex justify-end">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "font-mono tabular-nums",
+                  delta < 0
+                    ? "border-emerald-300/70 bg-emerald-100 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200"
+                    : "border-red-300/70 bg-red-100 text-red-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-200",
+                )}
+              >
+                {formatWrDelta(delta)}
+              </Badge>
+            </div>
+          )
+        },
+      },
+      {
+        id: "server",
+        size: 320,
+        header: () => t("labels.server"),
+        cell: ({ row }) => (
+          <RecordServerDisplay serverName={row.original.entry.server_name} />
+        ),
+      },
+      {
+        id: "datetime",
+        size: 176,
+        header: () => t("labels.datetime"),
+        cell: ({ row }) => (
+          <FormattedDateTime
+            className="text-sm text-muted-foreground"
+            value={row.original.entry.created_on}
+            display="contextual-relative"
+            fallback="-"
+          />
+        ),
+      },
+    ],
+    [t],
+  )
   const holderColors = useMemo(() => getHolderColors(rows), [rows])
   const holders = useMemo(() => {
     const seen = new Set<string>()
@@ -420,9 +556,6 @@ export function MapWrHistorySection({
             <h2 className="text-xl font-semibold tracking-tight">
               {t("maps.wrHistory.title")}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("maps.wrHistory.description")}
-            </p>
           </div>
           <Tabs
             value={xAxisMode}
@@ -476,38 +609,28 @@ export function MapWrHistorySection({
               ))}
             </div>
             <div
-              className="max-h-72 overflow-y-auto rounded-lg border border-border/70"
-              data-testid="map-wr-history-events"
+              className="overflow-visible rounded-[28px] border border-border/70 bg-card shadow-sm"
+              data-testid="map-wr-history-table"
             >
-              {eventRows.map((row) => (
-                <button
-                  type="button"
-                  key={row.record_uuid}
-                  className={cn(
-                    "flex w-full flex-wrap items-center gap-x-4 gap-y-1 border-b border-border/60 px-3 py-3 text-left text-sm last:border-b-0",
-                    highlightedUuid === row.record_uuid && "bg-primary/8",
-                  )}
-                  onMouseEnter={() => setHighlightedUuid(row.record_uuid)}
-                  onMouseLeave={() => setHighlightedUuid(null)}
-                >
-                  <span className="font-mono text-base font-semibold">
-                    {formatRecordTime(row.time)}
-                  </span>
-                  <span
-                    className="font-medium"
-                    style={{ color: holderColors.get(row.player.steamid64) }}
-                  >
-                    {getHolderName(row)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {row.mode} · {row.server_name}
-                  </span>
-                  <FormattedDateTime
-                    value={row.created_on}
-                    className="ml-auto text-xs text-muted-foreground"
-                  />
-                </button>
-              ))}
+              <div className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
+                <DataTable
+                  columns={columns}
+                  data={tableData}
+                  disablePagination
+                  getRowId={(row) => row.entry.record_uuid}
+                  getRowProps={(row) => ({
+                    className:
+                      highlightedUuid === row.entry.record_uuid
+                        ? "bg-primary/8"
+                        : undefined,
+                    onMouseEnter: () =>
+                      setHighlightedUuid(row.entry.record_uuid),
+                    onMouseLeave: () => setHighlightedUuid(null),
+                  })}
+                  showFooter={false}
+                  tableClassName="table-fixed border-separate border-spacing-0"
+                />
+              </div>
             </div>
           </>
         )}

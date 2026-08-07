@@ -1092,7 +1092,7 @@ async def test_read_map_wrs_v1_supports_map_name_scope_type_and_updates_without_
 
 
 @pytest.mark.asyncio
-async def test_read_map_wr_history_v1_returns_only_new_records(
+async def test_read_map_wr_history_v1_collapses_initial_month_and_returns_later_records(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -1156,6 +1156,24 @@ async def test_read_map_wr_history_v1_returns_only_new_records(
         replay_id=None,
         is_valid=True,
     )
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_145,
+        record_uuid=None,
+        steamid64=second_player,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_obj.id,
+        stage=0,
+        time_seconds=Decimal("39.000"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2026, 2, 10, tzinfo=UTC),
+        updated_on=datetime(2026, 2, 10, tzinfo=UTC),
+        updated_by=second_player,
+        replay_id=None,
+        is_valid=True,
+    )
     await db.commit()
 
     response = await client.get(
@@ -1165,11 +1183,10 @@ async def test_read_map_wr_history_v1_returns_only_new_records(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] == 4
-    assert [row["time"] for row in payload["data"]] == [50.0, 48.0, 45.0, 40.0]
+    assert payload["count"] == 2
+    assert [row["time"] for row in payload["data"]] == [40.0, 39.0]
+    assert [row["teleports"] for row in payload["data"]] == [0, 1]
     assert [row["player"]["display_name"] for row in payload["data"]] == [
-        "First Holder",
-        "First Holder",
         "Second Holder",
         "Second Holder",
     ]

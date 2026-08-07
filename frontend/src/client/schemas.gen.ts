@@ -3153,6 +3153,10 @@ export const MapWrHistoryEntryPublicSchema = {
         mode: {
             '$ref': '#/components/schemas/KZMode'
         },
+        teleports: {
+            type: 'integer',
+            title: 'Teleports'
+        },
         time: {
             type: 'number',
             title: 'Time'
@@ -3164,7 +3168,7 @@ export const MapWrHistoryEntryPublicSchema = {
         }
     },
     type: 'object',
-    required: ['record_uuid', 'player', 'server_id', 'server_name', 'mode_id', 'mode', 'time', 'created_on'],
+    required: ['record_uuid', 'player', 'server_id', 'server_name', 'mode_id', 'mode', 'teleports', 'time', 'created_on'],
     title: 'MapWrHistoryEntryPublic'
 } as const;
 
