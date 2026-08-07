@@ -252,7 +252,7 @@ class ServerStatusPlayerPut(SQLModel):
     model_config = ConfigDict(extra="forbid")
 
     tag: str | None = Field(default=None, max_length=64)
-    mode: str = Field(min_length=1, max_length=16)
+    mode: str | None = Field(default=None, max_length=16)
     name: str = Field(min_length=1, max_length=255)
     score: int
     status: ServerPlayerRunStatus
@@ -266,6 +266,14 @@ class ServerStatusPlayerPut(SQLModel):
     @field_validator("tag", mode="after")
     @classmethod
     def _normalize_optional_tag(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def _normalize_optional_mode(cls, value: str | None) -> str | None:
         if value is None:
             return None
         normalized = value.strip()

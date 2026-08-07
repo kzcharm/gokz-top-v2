@@ -1193,6 +1193,36 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert refreshed_group.last_api_key_used_at >= observed_at
 
 
+async def test_put_server_status_accepts_blank_player_mode(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    server = await create_server(db, group_id=group.id)
+    player = _plugin_player(name="Mode Pending")
+    player["mode"] = ""
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": datetime.now(UTC).isoformat(),
+            "hostname": "Plugin Host",
+            "map": "kz_plugin",
+            "player_count": 1,
+            "max_players": 16,
+            "players": [player],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["live_status"]["players"][0]["name"] == "Mode Pending"
+    assert payload["live_status"]["players"][0]["mode"] is None
+
+
 async def test_put_server_status_auto_creates_missing_server_for_group(
     client: AsyncClient,
     db: AsyncSession,
