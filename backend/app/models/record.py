@@ -661,6 +661,22 @@ class MapWrPublic(SQLModel):
     updated_at: datetime
 
 
+class MapWrHistoryEntryPublic(SQLModel):
+    record_uuid: uuid.UUID
+    player: PlayerRefPublic
+    server_id: int
+    server_name: str
+    mode_id: int
+    mode: KZMode
+    time: float
+    created_on: datetime
+
+
+class MapWrHistoryPublic(SQLModel):
+    data: list[MapWrHistoryEntryPublic]
+    count: int
+
+
 class RecentRecordMapPublic(SQLModel):
     id: int
     name: str

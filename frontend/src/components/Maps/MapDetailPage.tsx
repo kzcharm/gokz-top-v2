@@ -62,6 +62,7 @@ import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapStatsSection } from "./MapStatsSection"
 import { MapTopTable } from "./MapTopTable"
+import { MapWrHistorySection } from "./MapWrHistorySection"
 import { fetchMapByName } from "./map-utils"
 
 function MapDetailSkeleton() {
@@ -167,6 +168,11 @@ const MAP_TAB_OPTIONS = [
     value: "stats",
     to: "/maps/$mapName/stats",
     labelKey: "maps.tabs.stats",
+  },
+  {
+    value: "wrHistory",
+    to: "/maps/$mapName/wr_history",
+    labelKey: "maps.tabs.wrHistory",
   },
   {
     value: "reviews",
@@ -1076,6 +1082,21 @@ export function MapDetailPage({
                     </Button>
                   </div>
                 </div>
+              ) : activeTab === "wrHistory" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={isProOnly}
+                  className={cn(
+                    "border-border/70 bg-background/80",
+                    isProOnly
+                      ? "border-[#3598db] bg-[#3598db] text-white hover:bg-[#2c84bf] hover:text-white dark:border-[#3598db] dark:bg-[#3598db] dark:text-white"
+                      : "border-[#f3c40f] bg-[#f3c40f] text-white hover:bg-[#d8ad0d] hover:text-white dark:border-[#f3c40f] dark:bg-[#f3c40f] dark:text-white",
+                  )}
+                  onClick={() => setIsProOnly((currentValue) => !currentValue)}
+                >
+                  {isProOnly ? "PRO" : "NUB"}
+                </Button>
               ) : activeTab === "reviews" ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Label
@@ -1186,6 +1207,14 @@ export function MapDetailPage({
               showPlayerMarker={authenticatedUserSteamid64 !== null}
             />
           ) : null}
+        </TabsContent>
+
+        <TabsContent value="wrHistory" className="space-y-6">
+          <MapWrHistorySection
+            mapId={map.id}
+            scope={scope}
+            type={isProOnly ? "PRO" : "NUB"}
+          />
         </TabsContent>
 
         <TabsContent value="reviews" className="space-y-6">

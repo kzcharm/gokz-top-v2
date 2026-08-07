@@ -933,7 +933,19 @@ export const en = {
     tabs: {
       top: "Map Top",
       stats: "Stats",
+      wrHistory: "WR History",
       reviews: "Reviews",
+    },
+    wrHistory: {
+      title: "World Record History",
+      description:
+        "Only runs that established a new main-course world record are shown.",
+      loadFailedBody: "Unable to load WR history. Try refreshing the page.",
+      empty: "No world-record events are available for this view yet.",
+      xAxis: {
+        time: "Date",
+        record: "Each record",
+      },
     },
     stats: {
       loadFailedTitle: "Unable to load map stats",

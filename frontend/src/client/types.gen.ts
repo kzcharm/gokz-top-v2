@@ -641,6 +641,22 @@ export type MapWrGapDistributionContentPublic = {
     bins?: Array<MapWrGapDistributionBinPublic>;
 };
 
+export type MapWrHistoryEntryPublic = {
+    record_uuid: string;
+    player: PlayerRefPublic;
+    server_id: number;
+    server_name: string;
+    mode_id: number;
+    mode: KZMode;
+    time: number;
+    created_on: string;
+};
+
+export type MapWrHistoryPublic = {
+    data: Array<MapWrHistoryEntryPublic>;
+    count: number;
+};
+
 export type MapWrPublic = {
     record_uuid: string;
     map_id: number;
@@ -2131,6 +2147,14 @@ export type MapsReadMapWrsData = {
 };
 
 export type MapsReadMapWrsResponse = (Array<MapWrPublic>);
+
+export type MapsReadMapWrHistoryData = {
+    mapId: number;
+    scope?: ModeScope;
+    type?: RecordType;
+};
+
+export type MapsReadMapWrHistoryResponse = (MapWrHistoryPublic);
 
 export type MapsReadMapStatsData = {
     mapId: number;

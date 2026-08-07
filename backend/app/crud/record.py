@@ -32,6 +32,8 @@ from app.models import (
     MapCourse,
     MapCourseTier,
     MapPbLeaderboardPublic,
+    MapWrHistoryEntryPublic,
+    MapWrHistoryPublic,
     MapWrPublic,
     Mode,
     ModeScope,
@@ -1157,6 +1159,100 @@ async def read_map_wrs(
             record_time,
         ) in rows
     ]
+
+
+async def read_map_wr_history(
+    *,
+    session: AsyncSession,
+    map_id: int,
+    scope: ModeScope,
+    record_type: RecordType,
+) -> MapWrHistoryPublic:
+    order_by = (
+        col(Record.created_at).asc(),
+        col(Record.id).asc().nullslast(),
+        col(Record.uuid).asc(),
+    )
+    ordered = (
+        select(
+            col(Record.uuid).label("record_uuid"),
+            col(Record.steamid64),
+            col(Record.server_id),
+            col(Record.mode),
+            col(Record.time),
+            col(Record.created_at),
+            col(Record.id),
+            func.min(col(Record.time))
+            .over(order_by=order_by, rows=(None, -1))
+            .label("previous_wr"),
+        )
+        .where(
+            col(Record.map_id) == map_id,
+            col(Record.stage) == 0,
+            col(Record.is_valid).is_(True),
+            col(Record.mode).in_(list(mode_scope_modes(scope))),
+            not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
+        )
+        .order_by(*order_by)
+    )
+    if record_type.is_pro:
+        ordered = ordered.where(col(Record.teleports) == 0)
+
+    ordered_cte = ordered.cte("ordered")
+    events_cte = (
+        select(ordered_cte)
+        .where(
+            or_(
+                ordered_cte.c.previous_wr.is_(None),
+                ordered_cte.c.time < ordered_cte.c.previous_wr,
+            )
+        )
+        .cte("events")
+    )
+    rows = (
+        await session.exec(
+            select(
+                events_cte.c.record_uuid,
+                Player,
+                events_cte.c.server_id,
+                ServerGlobalapi.name,
+                Mode,
+                events_cte.c.time,
+                events_cte.c.created_at,
+            )
+            .join(Player, col(Player.steamid64) == events_cte.c.steamid64)
+            .join(ServerGlobalapi, col(ServerGlobalapi.id) == events_cte.c.server_id)
+            .join(Mode, col(Mode.name_short) == events_cte.c.mode)
+            .order_by(
+                events_cte.c.created_at.asc(),
+                events_cte.c.id.asc().nullslast(),
+                events_cte.c.record_uuid.asc(),
+            )
+        )
+    ).all()
+
+    entries = [
+        MapWrHistoryEntryPublic(
+            record_uuid=record_uuid,
+            player=to_player_ref_public(player=player),
+            server_id=server_id,
+            server_name=server_name or "",
+            mode_id=mode.name_short.mode_id,
+            mode=mode.name_short,
+            time=float(record_time),
+            created_on=created_on,
+        )
+        for (
+            record_uuid,
+            player,
+            server_id,
+            server_name,
+            mode,
+            record_time,
+            created_on,
+        ) in rows
+    ]
+    return MapWrHistoryPublic(data=entries, count=len(entries))
 
 
 async def _pb_keys_for_record_snapshot(

@@ -26,6 +26,7 @@ import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as ServersGroupCustomIdRouteImport } from './routes/servers.group.$customId'
+import { Route as MapsMapNameWr_historyRouteImport } from './routes/maps.$mapName.wr_history'
 import { Route as MapsMapNameStatsRouteImport } from './routes/maps.$mapName.stats'
 import { Route as MapsMapNameReviewsRouteImport } from './routes/maps.$mapName.reviews'
 import { Route as MapsMapNameMaptopRouteImport } from './routes/maps.$mapName.maptop'
@@ -146,6 +147,11 @@ const ServersGroupCustomIdRoute = ServersGroupCustomIdRouteImport.update({
   id: '/group/$customId',
   path: '/group/$customId',
   getParentRoute: () => ServersRoute,
+} as any)
+const MapsMapNameWr_historyRoute = MapsMapNameWr_historyRouteImport.update({
+  id: '/wr_history',
+  path: '/wr_history',
+  getParentRoute: () => MapsMapNameRoute,
 } as any)
 const MapsMapNameStatsRoute = MapsMapNameStatsRouteImport.update({
   id: '/stats',
@@ -390,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/maps/$mapName/wr_history': typeof MapsMapNameWr_historyRoute
   '/servers/group/$customId': typeof ServersGroupCustomIdRoute
   '/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
   '/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
@@ -443,6 +450,7 @@ export interface FileRoutesByTo {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/maps/$mapName/wr_history': typeof MapsMapNameWr_historyRoute
   '/servers/group/$customId': typeof ServersGroupCustomIdRoute
   '/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
   '/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
@@ -499,6 +507,7 @@ export interface FileRoutesById {
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
+  '/maps/$mapName/wr_history': typeof MapsMapNameWr_historyRoute
   '/servers/group/$customId': typeof ServersGroupCustomIdRoute
   '/_layout/admin/servers/globalapi-server': typeof LayoutAdminServersGlobalapiServerRoute
   '/_layout/admin/servers/public-server': typeof LayoutAdminServersPublicServerRoute
@@ -555,6 +564,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/maps/$mapName/wr_history'
     | '/servers/group/$customId'
     | '/admin/servers/globalapi-server'
     | '/admin/servers/public-server'
@@ -608,6 +618,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/maps/$mapName/wr_history'
     | '/servers/group/$customId'
     | '/admin/servers/globalapi-server'
     | '/admin/servers/public-server'
@@ -663,6 +674,7 @@ export interface FileRouteTypes {
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
+    | '/maps/$mapName/wr_history'
     | '/servers/group/$customId'
     | '/_layout/admin/servers/globalapi-server'
     | '/_layout/admin/servers/public-server'
@@ -805,6 +817,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/servers/group/$customId'
       preLoaderRoute: typeof ServersGroupCustomIdRouteImport
       parentRoute: typeof ServersRoute
+    }
+    '/maps/$mapName/wr_history': {
+      id: '/maps/$mapName/wr_history'
+      path: '/wr_history'
+      fullPath: '/maps/$mapName/wr_history'
+      preLoaderRoute: typeof MapsMapNameWr_historyRouteImport
+      parentRoute: typeof MapsMapNameRoute
     }
     '/maps/$mapName/stats': {
       id: '/maps/$mapName/stats'
@@ -1221,12 +1240,14 @@ interface MapsMapNameRouteChildren {
   MapsMapNameMaptopRoute: typeof MapsMapNameMaptopRoute
   MapsMapNameReviewsRoute: typeof MapsMapNameReviewsRoute
   MapsMapNameStatsRoute: typeof MapsMapNameStatsRoute
+  MapsMapNameWr_historyRoute: typeof MapsMapNameWr_historyRoute
 }
 
 const MapsMapNameRouteChildren: MapsMapNameRouteChildren = {
   MapsMapNameMaptopRoute: MapsMapNameMaptopRoute,
   MapsMapNameReviewsRoute: MapsMapNameReviewsRoute,
   MapsMapNameStatsRoute: MapsMapNameStatsRoute,
+  MapsMapNameWr_historyRoute: MapsMapNameWr_historyRoute,
 }
 
 const MapsMapNameRouteWithChildren = MapsMapNameRoute._addFileChildren(

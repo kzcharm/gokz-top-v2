@@ -3128,6 +3128,65 @@ export const MapWrGapDistributionContentPublicSchema = {
     title: 'MapWrGapDistributionContentPublic'
 } as const;
 
+export const MapWrHistoryEntryPublicSchema = {
+    properties: {
+        record_uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Record Uuid'
+        },
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        server_id: {
+            type: 'integer',
+            title: 'Server Id'
+        },
+        server_name: {
+            type: 'string',
+            title: 'Server Name'
+        },
+        mode_id: {
+            type: 'integer',
+            title: 'Mode Id'
+        },
+        mode: {
+            '$ref': '#/components/schemas/KZMode'
+        },
+        time: {
+            type: 'number',
+            title: 'Time'
+        },
+        created_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created On'
+        }
+    },
+    type: 'object',
+    required: ['record_uuid', 'player', 'server_id', 'server_name', 'mode_id', 'mode', 'time', 'created_on'],
+    title: 'MapWrHistoryEntryPublic'
+} as const;
+
+export const MapWrHistoryPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/MapWrHistoryEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'MapWrHistoryPublic'
+} as const;
+
 export const MapWrPublicSchema = {
     properties: {
         record_uuid: {

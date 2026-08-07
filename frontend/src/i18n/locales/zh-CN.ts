@@ -911,7 +911,18 @@ export const zhCN = {
     tabs: {
       top: "地图排行",
       stats: "统计",
+      wrHistory: "WR 历史",
       reviews: "评论",
+    },
+    wrHistory: {
+      title: "世界纪录历史",
+      description: "这里只显示创造主关世界纪录的记录。",
+      loadFailedBody: "无法加载 WR 历史，请尝试刷新页面。",
+      empty: "这个范围还没有可用的世界纪录事件。",
+      xAxis: {
+        time: "日期",
+        record: "每条记录",
+      },
     },
     stats: {
       loadFailedTitle: "无法加载地图统计",

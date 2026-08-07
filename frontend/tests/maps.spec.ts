@@ -1002,6 +1002,147 @@ test("Map top shows grouped server links and ungrouped server names", async ({
   await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0)
 })
 
+test("Map WR history shows WR events and switches record type", async ({
+  page,
+}) => {
+  const historyRequests: string[] = []
+  await stubRegions(page)
+
+  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seededMaps[0]),
+    })
+  })
+  await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [],
+        count: 0,
+        unique_nub_finishes: 0,
+        unique_pro_finishes: 0,
+        current_user_rank: null,
+        current_user_steamid64: null,
+      }),
+    })
+  })
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "[]",
+    })
+  })
+  await page.route(/\/v1\/maps\/\d+\/stats(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "{}",
+    })
+  })
+  await page.route(/\/v1\/maps\/reviews(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+  await page.route(/\/v1\/maps\/\d+\/wr-history(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    historyRequests.push(url.search)
+    const isPro = url.searchParams.get("type") === "PRO"
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: isPro ? 1 : 3,
+        data: isPro
+          ? [
+              {
+                record_uuid: "019e0004-0004-7004-8004-000000000004",
+                player: {
+                  steamid64: "76561198000000004",
+                  display_name: "Pro Holder",
+                },
+                server_id: 980304,
+                server_name: "Pro Server",
+                mode_id: 200,
+                mode: "KZT",
+                time: 41.123,
+                created_on: "2026-03-04T12:00:00Z",
+              },
+            ]
+          : [
+              {
+                record_uuid: "019e0001-0001-7001-8001-000000000001",
+                player: {
+                  steamid64: "76561198000000001",
+                  display_name: "Alpha Holder",
+                },
+                server_id: 980301,
+                server_name: "History Server",
+                mode_id: 200,
+                mode: "KZT",
+                time: 50,
+                created_on: "2026-03-01T12:00:00Z",
+              },
+              {
+                record_uuid: "019e0002-0002-7002-8002-000000000002",
+                player: {
+                  steamid64: "76561198000000002",
+                  display_name: "Bravo Holder",
+                },
+                server_id: 980302,
+                server_name: "History Server",
+                mode_id: 201,
+                mode: "SKZ",
+                time: 47.5,
+                created_on: "2026-03-02T12:00:00Z",
+              },
+              {
+                record_uuid: "019e0003-0003-7003-8003-000000000003",
+                player: {
+                  steamid64: "76561198000000002",
+                  display_name: "Bravo Holder",
+                },
+                server_id: 980303,
+                server_name: "History Server",
+                mode_id: 201,
+                mode: "SKZ",
+                time: 45,
+                created_on: "2026-03-03T12:00:00Z",
+              },
+            ],
+      }),
+    })
+  })
+
+  await page.goto("/maps/kz_alpha/wr_history")
+
+  await expect(page.getByRole("tab", { name: "WR History" })).toBeVisible()
+  await expect(page.getByText("World Record History")).toBeVisible()
+  await expect(page.getByTestId("map-wr-history-chart")).toBeVisible()
+  await expect(page.getByTestId("map-wr-history-legend")).toContainText(
+    "Alpha Holder",
+  )
+  await expect(page.getByTestId("map-wr-history-legend")).toContainText(
+    "Bravo Holder",
+  )
+  const historyEvents = page.getByTestId("map-wr-history-events")
+  await expect(historyEvents).toContainText("50.000")
+  await expect(historyEvents).toContainText("45.000")
+  await expect(historyEvents.locator("button").first()).toContainText("45.000")
+
+  await page.getByRole("button", { name: "NUB", exact: true }).click()
+  await expect.poll(() => historyRequests.at(-1)).toContain("type=PRO")
+  await expect(page.getByTestId("map-wr-history-events")).toContainText(
+    "Pro Holder",
+  )
+})
+
 test("Map detail shows not found for an unknown map", async ({ page }) => {
   await stubRegions(page)
   await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {

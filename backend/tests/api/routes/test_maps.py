@@ -1092,6 +1092,97 @@ async def test_read_map_wrs_v1_supports_map_name_scope_type_and_updates_without_
 
 
 @pytest.mark.asyncio
+async def test_read_map_wr_history_v1_returns_only_new_records(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930214)
+    server_id = 930314
+    db.add(
+        ServerGlobalapi(
+            id=server_id,
+            port=27015,
+            ip="203.0.113.90",
+            name="WR History Server",
+            owner_steamid64=None,
+            approval_status=1,
+            approved_by_steamid64=None,
+        )
+    )
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _create_player(db, steamid64=first_player, name="First Holder")
+    await _create_player(db, steamid64=second_player, name="Second Holder")
+
+    for record_id, steamid64, time, created_on in [
+        (9_302_140, first_player, "50.000", datetime(2026, 1, 1, tzinfo=UTC)),
+        (9_302_141, first_player, "48.000", datetime(2026, 1, 2, tzinfo=UTC)),
+        (9_302_142, second_player, "49.000", datetime(2026, 1, 3, tzinfo=UTC)),
+        (9_302_143, second_player, "45.000", datetime(2026, 1, 4, tzinfo=UTC)),
+    ]:
+        await crud.upsert_record(
+            session=db,
+            record_id=record_id,
+            record_uuid=None,
+            steamid64=steamid64,
+            server_id=server_id,
+            mode_id=200,
+            map_id=map_obj.id,
+            stage=0,
+            time_seconds=Decimal(time),
+            teleports=1,
+            points=0,
+            created_on=created_on,
+            updated_on=created_on,
+            updated_by=steamid64,
+            replay_id=None,
+            is_valid=True,
+        )
+    await crud.upsert_record(
+        session=db,
+        record_id=9_302_144,
+        record_uuid=None,
+        steamid64=second_player,
+        server_id=server_id,
+        mode_id=200,
+        map_id=map_obj.id,
+        stage=0,
+        time_seconds=Decimal("40.000"),
+        teleports=0,
+        points=0,
+        created_on=datetime(2026, 1, 5, tzinfo=UTC),
+        updated_on=datetime(2026, 1, 5, tzinfo=UTC),
+        updated_by=second_player,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/{map_obj.id}/wr-history",
+        params={"scope": "OVR", "type": "NUB"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 4
+    assert [row["time"] for row in payload["data"]] == [50.0, 48.0, 45.0, 40.0]
+    assert [row["player"]["display_name"] for row in payload["data"]] == [
+        "First Holder",
+        "First Holder",
+        "Second Holder",
+        "Second Holder",
+    ]
+
+    pro_response = await client.get(
+        f"{settings.API_V1_STR}/maps/{map_obj.id}/wr-history",
+        params={"scope": "OVR", "type": "PRO"},
+    )
+    assert pro_response.status_code == 200
+    assert [row["time"] for row in pro_response.json()["data"]] == [40.0]
+
+
+@pytest.mark.asyncio
 async def test_read_map_v1_returns_scope_aware_main_course_tiers(
     client: AsyncClient,
     db: AsyncSession,
