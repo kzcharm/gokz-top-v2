@@ -52,7 +52,6 @@ function GlobalStatusDetails({
           label={t("serverGlobalStatus.map")}
           value={status?.map_valid ?? false}
         />
-        <span>|</span>
       </div>
       <div className="flex items-center gap-1">
         {GLOBAL_MODES.map((mode, index) => (
