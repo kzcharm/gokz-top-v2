@@ -541,9 +541,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
     })
   }, addedServer)
 
-  await expect(
-    page.getByRole("button", { name: /Others/ }),
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: /Others/ })).toBeVisible()
   await page.getByRole("button", { name: /Others/ }).click()
   await expect(page).toHaveURL(/\/servers\/group\/others$/)
   await expect(page.getByTestId("server-card-10.0.0.4:27018")).toBeVisible()
