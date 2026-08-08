@@ -282,7 +282,7 @@ export const ServerCard = memo(function ServerCard({
 
       <div className="relative z-10 bg-white p-3 dark:bg-gray-800">
         <div className="flex items-center gap-2">
-          <CountryFlag countryCode={server.country} showTooltip={false} />
+          <CountryFlag countryCode={server.country} />
           <span
             className="truncate font-semibold"
             title={getServerHostname(server)}

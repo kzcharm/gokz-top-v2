@@ -158,10 +158,7 @@ export function ServerTable({
                 >
                   <TableCell>
                     <div className="flex justify-center">
-                      <CountryFlag
-                        countryCode={server.country}
-                        showTooltip={false}
-                      />
+                      <CountryFlag countryCode={server.country} />
                     </div>
                   </TableCell>
                   <TableCell>

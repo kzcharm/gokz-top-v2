@@ -380,7 +380,6 @@ function ProfileIdentityCard({
                       countryCode={player.country}
                       className="h-5 w-7 rounded-[4px]"
                       fallbackClassName="h-5 w-7 rounded-[4px]"
-                      showTooltip={false}
                     />
                     {steamProfileUrl ? (
                       <div className="relative">

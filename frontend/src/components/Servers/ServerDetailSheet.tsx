@@ -67,7 +67,7 @@ export function ServerDetailSheet({
           <>
             <DialogHeader>
               <DialogTitle className="flex flex-wrap items-center gap-2">
-                <CountryFlag countryCode={server.country} showTooltip={false} />
+                <CountryFlag countryCode={server.country} />
                 <span>{getServerHostname(server)}</span>
                 <Badge className={cn(getOccupancyVariant(server))}>
                   {getServerPlayerCount(server)}/
