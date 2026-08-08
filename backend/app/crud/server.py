@@ -1337,8 +1337,9 @@ async def _record_server_status(
         status.max_players = max_players
         status.players = players
         status.is_online = True
-        if global_status is not None:
-            status.global_status = global_status
+        # A heartbeat without global_status comes from an older plugin build;
+        # clear any previously reported result so the UI cannot show stale checks.
+        status.global_status = global_status
         state.last_plugin_seen_at = observed_at
         state.last_successful_seen_at = observed_at
     else:

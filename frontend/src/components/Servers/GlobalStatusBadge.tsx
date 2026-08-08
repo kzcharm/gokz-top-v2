@@ -9,11 +9,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-const GLOBAL_MODES = [
-  ["VNL", "serverGlobalStatus.vanilla"],
-  ["SKZ", "serverGlobalStatus.simpleKZ"],
-  ["KZT", "serverGlobalStatus.kzTimer"],
-] as const
+const GLOBAL_MODES = ["KZT", "SKZ", "VNL"] as const
 
 function CheckItem({ label, value }: { label: string; value: boolean }) {
   const Icon = value ? Check : X
@@ -57,16 +53,12 @@ function GlobalStatusDetails({
           value={status?.map_valid ?? false}
         />
         <span>|</span>
-        <CheckItem label={t("serverGlobalStatus.you")} value />
       </div>
       <div className="flex items-center gap-1">
-        {GLOBAL_MODES.map(([mode, labelKey], index) => (
+        {GLOBAL_MODES.map((mode, index) => (
           <span className="inline-flex items-center gap-1" key={mode}>
             {index > 0 && <span>|</span>}
-            <CheckItem
-              label={t(labelKey)}
-              value={status?.modes?.[mode] ?? false}
-            />
+            <CheckItem label={mode} value={status?.modes?.[mode] ?? false} />
           </span>
         ))}
       </div>
@@ -95,7 +87,7 @@ export function GlobalStatusBadge({ server }: { server: ServerPublic }) {
           )}
           className={cn(
             "absolute bottom-2 left-2 z-10 inline-flex items-center rounded-md p-1.5 text-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-white/80",
-            eligible ? "bg-emerald-500" : "bg-black/60",
+            eligible ? "bg-emerald-500" : "bg-red-500",
           )}
         >
           <Globe className="h-4 w-4" />

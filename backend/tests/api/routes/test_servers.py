@@ -1206,6 +1206,24 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert refreshed_group.last_api_key_used_at is not None
     assert refreshed_group.last_api_key_used_at >= observed_at
 
+    old_plugin_response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": (observed_at + timedelta(seconds=1)).isoformat(),
+            "hostname": "Old Plugin Host",
+            "map": "kz_plugin",
+            "player_count": 0,
+            "max_players": 24,
+            "players": [],
+        },
+    )
+
+    assert old_plugin_response.status_code == 200
+    assert old_plugin_response.json()["live_status"]["global_status"] is None
+
 
 async def test_put_server_status_accepts_blank_player_mode(
     client: AsyncClient,
