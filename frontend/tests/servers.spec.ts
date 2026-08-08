@@ -38,6 +38,15 @@ const seedServers = {
           last_a2s_seen_at: "2026-03-12T10:00:00Z",
           last_successful_seen_at: "2026-03-12T10:00:00Z",
         },
+        global_status: {
+          api_key_valid: true,
+          plugins_valid: true,
+          settings_enforcer_valid: true,
+          map_valid: true,
+          modes: { KZT: true, SKZ: false, VNL: false },
+          checked_at: "2026-03-12T10:00:00Z",
+          eligible: true,
+        },
       },
     },
   ],
@@ -466,6 +475,18 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect.poll(() => new URL(page.url()).search).toBe("")
   await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await expect(
+    page
+      .getByTestId("server-card-10.0.0.1:27015")
+      .getByRole("img", { name: "GlobalAPI records enabled" }),
+  ).toBeVisible()
+  await page
+    .getByTestId("server-card-10.0.0.1:27015")
+    .getByRole("img", { name: "GlobalAPI records enabled" })
+    .hover()
+  await expect(page.getByText("GlobalAPI check")).toBeVisible()
+  await expect(page.getByText("Settings enforcer")).toBeVisible()
+  await expect(page.getByText("KZT")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
   await expect(page.getByRole("button", { name: /All/ })).toBeVisible()
   await expect

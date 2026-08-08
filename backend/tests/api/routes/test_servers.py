@@ -1164,6 +1164,14 @@ async def test_put_server_status_updates_live_status_from_plugin(
             "player_count": 9,
             "max_players": 24,
             "players": [_plugin_player()],
+            "global_status": {
+                "api_key_valid": True,
+                "plugins_valid": True,
+                "settings_enforcer_valid": True,
+                "map_valid": True,
+                "modes": {"KZT": True, "SKZ": False, "VNL": False},
+                "checked_at": observed_at.isoformat(),
+            },
         },
     )
 
@@ -1175,6 +1183,12 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert payload["live_status"]["players"][0]["name"] == "Player One"
     assert payload["live_status"]["players"][0]["status"] == "in_progress"
     assert payload["live_status"]["players"][0]["teleports"] == 3
+    assert payload["live_status"]["global_status"]["eligible"] is True
+    assert payload["live_status"]["global_status"]["modes"] == {
+        "KZT": True,
+        "SKZ": False,
+        "VNL": False,
+    }
     assert (
         datetime.fromisoformat(
             payload["live_status"]["state"]["last_plugin_seen_at"].replace(
@@ -1221,6 +1235,41 @@ async def test_put_server_status_accepts_blank_player_mode(
     payload = response.json()
     assert payload["live_status"]["players"][0]["name"] == "Mode Pending"
     assert payload["live_status"]["players"][0]["mode"] is None
+
+
+async def test_put_server_status_requires_available_global_mode(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    server = await create_server(db, group_id=group.id)
+    observed_at = datetime.now(UTC)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": observed_at.isoformat(),
+            "hostname": "Global Check Host",
+            "map": "kz_global_check",
+            "player_count": 0,
+            "max_players": 16,
+            "players": [],
+            "global_status": {
+                "api_key_valid": True,
+                "plugins_valid": True,
+                "settings_enforcer_valid": True,
+                "map_valid": True,
+                "modes": {"KZT": False, "SKZ": False, "VNL": False},
+                "checked_at": observed_at.isoformat(),
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["live_status"]["global_status"]["eligible"] is False
 
 
 async def test_put_server_status_auto_creates_missing_server_for_group(

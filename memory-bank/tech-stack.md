@@ -68,6 +68,7 @@
   - SourceMod server heartbeats are sent by `gokz-top-servers`, which reuses `gokz-top-core` auth config and resolves the target server by cached public IPv4 plus `hostport`
   - SourceMod in-game profile/rating reads are served by `gokz-top-profile`, which preserves the legacy `gokz-profile` library/native surface while reading cached `/v1/leaderboards/players/{identifier}` data through `gokz-top-core`
   - Plugin heartbeats ingest through `PUT /v1/servers/status` with a server-group API key and resolve servers by `(ip, port)`
+  - Plugin heartbeats also carry cached `gokz-global` GlobalAPI check results; public `/v1/servers` reads expose the per-check and KZT/SKZ/VNL mode results used by the servers-page GlobalAPI badge
   - Plugin heartbeat player payloads are typed and richer than A2S player rows, including GOKZ timer status, mode, teleports, timer time, pause state, stage, and per-connection duration
   - Player session events ingest through `/v1/player-sessions/connect`, `/heartbeat`, and `/disconnect` with `X-Server-Group-Key`; server group identity is derived from the API key rather than request JSON
   - Superuser session investigations use `/v1/admin/player-sessions/ip-links` to traverse shared-IP session buckets with bounded depth and busy-bucket skipping

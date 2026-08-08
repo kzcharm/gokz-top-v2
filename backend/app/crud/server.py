@@ -21,6 +21,8 @@ from app.models import (
     Server,
     ServerCreate,
     ServerGlobalapi,
+    ServerGlobalStatusPublic,
+    ServerGlobalStatusPut,
     ServerGroup,
     ServerGroupCreate,
     ServerGroupDependencyCounts,
@@ -157,6 +159,7 @@ def _build_server_live_status_public(
     if status is None:
         return None
     state = _get_live_status_state(status)
+    global_status = _build_server_global_status_public(status.global_status)
     parsed_workshop_id = parse_server_workshop_id(status.map)
     return ServerLiveStatusPublic(
         hostname=status.hostname,
@@ -166,8 +169,39 @@ def _build_server_live_status_public(
         max_players=status.max_players,
         players=_build_server_player_public_list(status.players),
         is_online=status.is_online,
+        global_status=global_status,
         state=state,
         updated_at=status.updated_at,
+    )
+
+
+SUPPORTED_GLOBAL_MODES = ("KZT", "SKZ", "VNL")
+
+
+def _build_server_global_status_public(
+    raw_status: dict[str, Any] | None,
+) -> ServerGlobalStatusPublic | None:
+    if not isinstance(raw_status, dict):
+        return None
+    try:
+        status = ServerGlobalStatusPut.model_validate(raw_status)
+    except ValidationError:
+        return None
+    modes = {
+        mode: bool(status.modes.get(mode, False))
+        for mode in SUPPORTED_GLOBAL_MODES
+    }
+    public_data = status.model_dump()
+    public_data["modes"] = modes
+    return ServerGlobalStatusPublic(
+        **public_data,
+        eligible=(
+            status.api_key_valid
+            and status.plugins_valid
+            and status.settings_enforcer_valid
+            and status.map_valid
+            and any(modes.values())
+        ),
     )
 
 
@@ -1042,6 +1076,11 @@ async def record_plugin_heartbeat(
         max_players=payload.max_players,
         players=[player.model_dump(mode="json") for player in payload.players],
         is_online=True,
+        global_status=(
+            payload.global_status.model_dump(mode="json")
+            if payload.global_status is not None
+            else None
+        ),
     )
     if (
         _should_auto_validate_server_group(group=group, server=server)
@@ -1270,6 +1309,7 @@ async def _record_server_status(
     max_players: int,
     players: list[dict[str, Any]],
     is_online: bool,
+    global_status: dict[str, Any] | None = None,
 ) -> None:
     status = await _get_server_live_status(session=session, server=server)
     effective_map_name = map_name
@@ -1282,6 +1322,7 @@ async def _record_server_status(
             max_players=max_players,
             players=players,
             is_online=is_online,
+            global_status=global_status,
             state=ServerLiveStatusStatePublic().model_dump(mode="json"),
             updated_at=observed_at,
         )
@@ -1296,6 +1337,8 @@ async def _record_server_status(
         status.max_players = max_players
         status.players = players
         status.is_online = True
+        if global_status is not None:
+            status.global_status = global_status
         state.last_plugin_seen_at = observed_at
         state.last_successful_seen_at = observed_at
     else:

@@ -108,6 +108,17 @@ export const ru = {
     socialLinks: "Соцсети",
     playerSessions: "Сессии игроков",
   },
+  serverGlobalStatus: {
+    title: "Проверка GlobalAPI",
+    apiKey: "Ключ API",
+    plugins: "Плагины",
+    settingsEnforcer: "Проверка настроек",
+    map: "Карта",
+    modes: "Доступные на карте режимы",
+    playerNotEvaluated: "Проверка игрока на уровне сервера не выполняется.",
+    eligibleAria: "Записи GlobalAPI включены",
+    ineligibleAria: "Записи GlobalAPI недоступны или не проверены",
+  },
   footer: {
     joinDiscord: "Присоединяйтесь к нам в Discord",
     joinQqGroup: "Вступайте в нашу группу QQ",

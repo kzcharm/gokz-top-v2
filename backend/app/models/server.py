@@ -238,6 +238,10 @@ class ServerLiveStatusBase(SQLModel):
         sa_column=Column(JSONB, nullable=False),
     )
     is_online: bool = False
+    global_status: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
     state: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSONB, nullable=False),
@@ -395,6 +399,21 @@ class ServerLiveStatusStatePublic(SQLModel):
     timeout_count: int = Field(default=0, ge=0)
 
 
+class ServerGlobalStatusPut(SQLModel):
+    model_config = ConfigDict(extra="forbid")
+
+    api_key_valid: bool
+    plugins_valid: bool
+    settings_enforcer_valid: bool
+    map_valid: bool
+    modes: dict[str, bool] = Field(default_factory=dict)
+    checked_at: datetime
+
+
+class ServerGlobalStatusPublic(ServerGlobalStatusPut):
+    eligible: bool = False
+
+
 class ServerLiveStatusPublic(SQLModel):
     hostname: str | None = None
     map: str | None = None
@@ -403,6 +422,7 @@ class ServerLiveStatusPublic(SQLModel):
     max_players: int = Field(default=0, ge=0)
     players: list[ServerPlayerPublic] = Field(default_factory=list)
     is_online: bool = False
+    global_status: ServerGlobalStatusPublic | None = None
     state: ServerLiveStatusStatePublic = Field(
         default_factory=ServerLiveStatusStatePublic
     )
@@ -565,6 +585,7 @@ class ServerStatusPut(SQLModel):
     player_count: int = Field(ge=0)
     max_players: int = Field(ge=0)
     players: list[ServerStatusPlayerPut] = Field(default_factory=list)
+    global_status: ServerGlobalStatusPut | None = None
 
 
 class ServerUpdateEvent(BaseModel):

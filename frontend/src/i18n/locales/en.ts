@@ -107,6 +107,17 @@ export const en = {
     socialLinks: "Social Links",
     playerSessions: "Player Sessions",
   },
+  serverGlobalStatus: {
+    title: "GlobalAPI check",
+    apiKey: "API key",
+    plugins: "Plugins",
+    settingsEnforcer: "Settings enforcer",
+    map: "Map",
+    modes: "Modes available on this map",
+    playerNotEvaluated: "Player validity is not evaluated server-wide.",
+    eligibleAria: "GlobalAPI records enabled",
+    ineligibleAria: "GlobalAPI records unavailable or unchecked",
+  },
   footer: {
     joinDiscord: "Join us on Discord",
     joinQqGroup: "Join our QQ group",

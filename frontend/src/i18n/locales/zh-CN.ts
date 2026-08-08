@@ -107,6 +107,17 @@ export const zhCN = {
     socialLinks: "社交链接",
     playerSessions: "玩家会话",
   },
+  serverGlobalStatus: {
+    title: "GlobalAPI 检查",
+    apiKey: "API 密钥",
+    plugins: "插件",
+    settingsEnforcer: "设置强制器",
+    map: "地图",
+    modes: "此地图可用的模式",
+    playerNotEvaluated: "服务器级别不会检查玩家有效性。",
+    eligibleAria: "GlobalAPI 记录已启用",
+    ineligibleAria: "GlobalAPI 记录不可用或尚未检查",
+  },
   footer: {
     joinDiscord: "加入我们的 Discord",
     joinQqGroup: "加入我们的 QQ 群",

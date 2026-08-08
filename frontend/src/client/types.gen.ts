@@ -1420,6 +1420,29 @@ export type ServerGlobalapiAdminUpdate = {
     approval_status?: (number | null);
 };
 
+export type ServerGlobalStatusPublic = {
+    api_key_valid: boolean;
+    plugins_valid: boolean;
+    settings_enforcer_valid: boolean;
+    map_valid: boolean;
+    modes?: {
+        [key: string]: (boolean);
+    };
+    checked_at: string;
+    eligible?: boolean;
+};
+
+export type ServerGlobalStatusPut = {
+    api_key_valid: boolean;
+    plugins_valid: boolean;
+    settings_enforcer_valid: boolean;
+    map_valid: boolean;
+    modes?: {
+        [key: string]: (boolean);
+    };
+    checked_at: string;
+};
+
 export type ServerGroupApiKeyPublic = {
     group: ServerGroupPublic;
     api_key: string;
@@ -1494,6 +1517,7 @@ export type ServerLiveStatusPublic = {
     max_players?: number;
     players?: Array<ServerPlayerPublic>;
     is_online?: boolean;
+    global_status?: (ServerGlobalStatusPublic | null);
     state?: ServerLiveStatusStatePublic;
     updated_at: string;
 };
@@ -1579,6 +1603,7 @@ export type ServerStatusPut = {
     player_count: number;
     max_players: number;
     players?: Array<ServerStatusPlayerPut>;
+    global_status?: (ServerGlobalStatusPut | null);
 };
 
 export type ServerUpdate = {

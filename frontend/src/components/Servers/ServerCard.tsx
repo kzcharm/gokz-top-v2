@@ -6,6 +6,7 @@ import { memo, useEffect, useMemo, useState } from "react"
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { MapNameContextMenu } from "@/components/Common/MapDisplay"
+import { GlobalStatusBadge } from "@/components/Servers/GlobalStatusBadge"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -278,6 +279,7 @@ export const ServerCard = memo(function ServerCard({
           </div>
           <div className="h-6 w-14 shrink-0" />
         </div>
+        <GlobalStatusBadge server={server} />
       </div>
 
       <div className="relative z-10 bg-white p-3 dark:bg-gray-800">

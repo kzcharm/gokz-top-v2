@@ -6902,6 +6902,85 @@ export const ServerDiscoveryRunPublicSchema = {
     title: 'ServerDiscoveryRunPublic'
 } as const;
 
+export const ServerGlobalStatusPublicSchema = {
+    properties: {
+        api_key_valid: {
+            type: 'boolean',
+            title: 'Api Key Valid'
+        },
+        plugins_valid: {
+            type: 'boolean',
+            title: 'Plugins Valid'
+        },
+        settings_enforcer_valid: {
+            type: 'boolean',
+            title: 'Settings Enforcer Valid'
+        },
+        map_valid: {
+            type: 'boolean',
+            title: 'Map Valid'
+        },
+        modes: {
+            additionalProperties: {
+                type: 'boolean'
+            },
+            type: 'object',
+            title: 'Modes'
+        },
+        checked_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Checked At'
+        },
+        eligible: {
+            type: 'boolean',
+            title: 'Eligible',
+            default: false
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['api_key_valid', 'plugins_valid', 'settings_enforcer_valid', 'map_valid', 'checked_at'],
+    title: 'ServerGlobalStatusPublic'
+} as const;
+
+export const ServerGlobalStatusPutSchema = {
+    properties: {
+        api_key_valid: {
+            type: 'boolean',
+            title: 'Api Key Valid'
+        },
+        plugins_valid: {
+            type: 'boolean',
+            title: 'Plugins Valid'
+        },
+        settings_enforcer_valid: {
+            type: 'boolean',
+            title: 'Settings Enforcer Valid'
+        },
+        map_valid: {
+            type: 'boolean',
+            title: 'Map Valid'
+        },
+        modes: {
+            additionalProperties: {
+                type: 'boolean'
+            },
+            type: 'object',
+            title: 'Modes'
+        },
+        checked_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Checked At'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['api_key_valid', 'plugins_valid', 'settings_enforcer_valid', 'map_valid', 'checked_at'],
+    title: 'ServerGlobalStatusPut'
+} as const;
+
 export const ServerGlobalapiAdminPublicSchema = {
     properties: {
         id: {
@@ -7489,6 +7568,16 @@ export const ServerLiveStatusPublicSchema = {
             title: 'Is Online',
             default: false
         },
+        global_status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGlobalStatusPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
         state: {
             '$ref': '#/components/schemas/ServerLiveStatusStatePublic'
         },
@@ -8032,6 +8121,16 @@ export const ServerStatusPutSchema = {
             },
             type: 'array',
             title: 'Players'
+        },
+        global_status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGlobalStatusPut'
+                },
+                {
+                    type: 'null'
+                }
+            ]
         }
     },
     type: 'object',
