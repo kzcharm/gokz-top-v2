@@ -5,6 +5,10 @@ import { useTranslation } from "react-i18next"
 import { FaDiscord, FaQq } from "react-icons/fa"
 
 import { OpenAPI } from "@/client/core/OpenAPI"
+import {
+  useAdminMode,
+  useAdminModeSurface,
+} from "@/components/admin-mode-provider"
 import { DataTable } from "@/components/Common/DataTable"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
@@ -138,6 +142,9 @@ export function BansPage({
 }) {
   const { i18n } = useTranslation()
   const { user } = useAuth()
+  const { enabled: adminModeEnabled } = useAdminMode()
+  const canModerateBans = canModerateBansAndRecords(user)
+  useAdminModeSurface(canModerateBans)
   const reportLink =
     i18n.resolvedLanguage === "zh-CN"
       ? COMMUNITY_LINKS.qq
@@ -252,9 +259,9 @@ export function BansPage({
     banServers.some((server) => server.id === serverFilter)
   const totalCount = bansQuery.data?.count ?? 0
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const canAddBan = canModerateBansAndRecords(user)
-  const showUpdaterColumn = canAddBan
-  const showEditActions = canAddBan
+  const canAdministerBans = adminModeEnabled && canModerateBans
+  const showUpdaterColumn = canModerateBans
+  const showEditActions = canAdministerBans
   const columns = getBanColumns({
     showUpdaterColumn,
     showEditActions,
@@ -369,7 +376,7 @@ export function BansPage({
               Report
             </a>
           </Button>
-          {canAddBan ? (
+          {canAdministerBans ? (
             <Button
               type="button"
               variant="destructive"

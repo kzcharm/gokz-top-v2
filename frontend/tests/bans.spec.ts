@@ -630,7 +630,7 @@ test("Chinese users get the QQ report link on the bans page", async ({
   )
 })
 
-test("Admins see updater and can edit and unban bans directly", async ({
+test("Admins can enable moderation mode to edit and unban bans", async ({
   page,
 }) => {
   const patchBodies: Array<Record<string, unknown>> = []
@@ -680,7 +680,8 @@ test("Admins see updater and can edit and unban bans directly", async ({
 
   await page.goto("/bans")
 
-  await expect(page.getByRole("button", { name: "Admin mode" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Admin mode" })).toBeVisible()
+  await page.getByRole("button", { name: "Admin mode" }).click()
   await expect(
     page.getByRole("columnheader", { name: "Updated By" }),
   ).toBeVisible()
@@ -759,7 +760,8 @@ test("Superusers can directly delete local bans without external ids", async ({
 
   await page.goto("/bans")
 
-  await expect(page.getByRole("button", { name: "Admin mode" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Admin mode" })).toBeVisible()
+  await page.getByRole("button", { name: "Admin mode" }).click()
   await page
     .getByRole("row", { name: /Banned Player 1/ })
     .getByRole("button", { name: "Edit ban" })
