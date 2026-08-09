@@ -796,7 +796,9 @@ export const ru = {
       activePlayers: "Активные игроки",
       activePlayersTooltip: "Игроки, игравшие за последние 30 дней.",
       topPlayers: "Лучшие игроки",
-      medianRating: "Медианный рейтинг",
+      top10PercentileRating: "Рейтинг топ-10%",
+      top10PercentileRatingTooltip:
+        "Минимальный рейтинг среди лучших 10% игроков этой страны.",
       top10AverageRating: "Средний рейтинг топ-10",
       empty: "Записи рейтинга стран не найдены.",
       loadFailedTitle: "Не удалось загрузить рейтинг стран",

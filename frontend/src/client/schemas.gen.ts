@@ -1482,7 +1482,7 @@ export const CountryLeaderboardEntryPublicSchema = {
             type: 'array',
             title: 'Top Players'
         },
-        median_rating: {
+        top10_percentile_rating: {
             anyOf: [
                 {
                     type: 'number'
@@ -1491,7 +1491,7 @@ export const CountryLeaderboardEntryPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'Median Rating'
+            title: 'Top10 Percentile Rating'
         },
         top10_average_rating: {
             anyOf: [
@@ -1506,7 +1506,7 @@ export const CountryLeaderboardEntryPublicSchema = {
         }
     },
     type: 'object',
-    required: ['rank', 'country', 'ranked_players', 'active_players', 'top_players', 'median_rating', 'top10_average_rating'],
+    required: ['rank', 'country', 'ranked_players', 'active_players', 'top_players', 'top10_percentile_rating', 'top10_average_rating'],
     title: 'CountryLeaderboardEntryPublic'
 } as const;
 

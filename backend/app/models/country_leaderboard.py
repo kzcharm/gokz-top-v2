@@ -12,10 +12,10 @@ class CountryLeaderboardEntryPublic(SQLModel):
     ranked_players: int = Field(ge=0)
     active_players: int = Field(ge=0)
     top_players: list[PlayerRefPublic]
-    median_rating: float | None
+    top10_percentile_rating: float | None
     top10_average_rating: float | None
 
-    @field_serializer("median_rating", "top10_average_rating")
+    @field_serializer("top10_percentile_rating", "top10_average_rating")
     def serialize_rating(self, value: float | None) -> float | None:
         return scale_public_rating(value)
 

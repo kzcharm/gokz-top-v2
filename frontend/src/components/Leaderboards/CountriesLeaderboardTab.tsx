@@ -33,7 +33,7 @@ function rating(value: number | null) {
 type CountryMetric =
   | "ranked_players"
   | "active_players"
-  | "median_rating"
+  | "top10_percentile_rating"
   | "top10_average_rating"
 
 function metricColumn(
@@ -43,23 +43,32 @@ function metricColumn(
 ): ColumnDef<CountryLeaderboardEntryPublic> {
   return {
     accessorKey: key,
-    size: key === "active_players" ? 130 : 120,
+    size:
+      key === "top10_percentile_rating"
+        ? 195
+        : key === "top10_average_rating"
+          ? 165
+          : key === "active_players"
+            ? 170
+            : 150,
     header: ({ column }) => {
       const sorting = column.getIsSorted()
       return (
-        <div className="flex w-full justify-end">
+        <div className="flex w-full justify-center">
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-right text-xs font-semibold uppercase tracking-wider transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="inline-flex min-h-8 h-auto items-center justify-center gap-1 rounded-md px-2 py-1 text-center text-xs font-semibold uppercase tracking-wider transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             onClick={() => column.toggleSorting(sorting !== "desc")}
           >
             {options?.tooltip ? (
               <Tooltip delayDuration={250}>
                 <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1">
-                    {title}
+                  <span className="inline-flex min-w-0 items-center justify-center gap-1">
+                    <span className="whitespace-normal leading-tight">
+                      {title}
+                    </span>
                     <Info
-                      className="size-3.5 text-muted-foreground"
+                      className="size-3.5 shrink-0 text-muted-foreground"
                       aria-hidden="true"
                     />
                   </span>
@@ -69,20 +78,20 @@ function metricColumn(
                 </TooltipContent>
               </Tooltip>
             ) : (
-              title
+              <span className="whitespace-normal leading-tight">{title}</span>
             )}
             {sorting === "desc" ? (
-              <ArrowDown className="size-3.5" aria-hidden="true" />
+              <ArrowDown className="size-3.5 shrink-0" aria-hidden="true" />
             ) : sorting === "asc" ? (
-              <ArrowUp className="size-3.5" aria-hidden="true" />
+              <ArrowUp className="size-3.5 shrink-0" aria-hidden="true" />
             ) : null}
           </button>
         </div>
       )
     },
     cell: ({ row }) => (
-      <div className="flex w-full justify-end font-medium tabular-nums">
-        {key === "median_rating" || key === "top10_average_rating"
+      <div className="flex w-full justify-center font-medium tabular-nums">
+        {key === "top10_percentile_rating" || key === "top10_average_rating"
           ? rating(row.original[key])
           : formatNumber(row.original[key])}
       </div>
@@ -165,7 +174,11 @@ export function CountriesLeaderboardTab() {
         "top10_average_rating",
         t("leaderboards.countries.top10AverageRating"),
       ),
-      metricColumn("median_rating", t("leaderboards.countries.medianRating")),
+      metricColumn(
+        "top10_percentile_rating",
+        t("leaderboards.countries.top10PercentileRating"),
+        { tooltip: t("leaderboards.countries.top10PercentileRatingTooltip") },
+      ),
       metricColumn("ranked_players", t("leaderboards.countries.rankedPlayers")),
       metricColumn(
         "active_players",
@@ -174,10 +187,10 @@ export function CountriesLeaderboardTab() {
       ),
       {
         accessorKey: "top_players",
-        size: 440,
+        size: 560,
         header: () => t("leaderboards.countries.topPlayers"),
         cell: ({ row }) => (
-          <div className="grid min-w-0 grid-cols-3 gap-4">
+          <div className="grid min-w-0 grid-cols-3 gap-3">
             {row.original.top_players.map((player) => (
               <div key={player.steamid64} className="min-w-0">
                 <PlayerDisplay
@@ -206,9 +219,6 @@ export function CountriesLeaderboardTab() {
           <h2 className="text-lg font-semibold">
             {t("leaderboards.countries.title")}
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("leaderboards.countries.subtitle")}
-          </p>
         </CardContent>
       </Card>
       {query.isError ? (
@@ -227,7 +237,7 @@ export function CountriesLeaderboardTab() {
             isLoading={query.isLoading}
             emptyText={t("leaderboards.countries.empty")}
             tableContainerClassName="overflow-x-auto md:overflow-visible"
-            tableClassName="table-fixed min-w-[1126px] border-separate border-spacing-0"
+            tableClassName="table-fixed min-w-[1411px] border-separate border-spacing-0"
             showFooter={false}
             disablePagination
             sorting={{

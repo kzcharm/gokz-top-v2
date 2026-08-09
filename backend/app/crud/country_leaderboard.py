@@ -57,23 +57,24 @@ async def read_country_leaderboard(
             func.sum(
                 case((eligible.c.last_played_at >= active_cutoff, 1), else_=0)
             ).label("active_players"),
-            func.percentile_cont(0.5)
+            func.percentile_cont(0.9)
             .within_group(eligible.c.rating)
-            .label("median_rating"),
+            .label("top10_percentile_rating"),
             func.avg(eligible.c.rating)
             .filter(eligible.c.country_rating_rank <= 10)
             .label("top10_average_rating"),
         )
         .group_by(eligible.c.country)
+        .having(func.count() > MIN_RANKED_PLAYERS)
         .subquery()
     )
     rows = (
         await session.execute(
             select(aggregates)
             .order_by(
-                (aggregates.c.ranked_players >= MIN_RANKED_PLAYERS).desc(),
+                (aggregates.c.ranked_players > MIN_RANKED_PLAYERS).desc(),
                 aggregates.c.top10_average_rating.desc().nullslast(),
-                aggregates.c.median_rating.desc().nullslast(),
+                aggregates.c.top10_percentile_rating.desc().nullslast(),
                 aggregates.c.country.asc().nullslast(),
             )
             .offset(query.offset)
@@ -107,7 +108,7 @@ async def read_country_leaderboard(
     ranked_position = query.offset
     data: list[CountryLeaderboardEntryPublic] = []
     for row in rows:
-        if row.ranked_players >= MIN_RANKED_PLAYERS:
+        if row.ranked_players > MIN_RANKED_PLAYERS:
             ranked_position += 1
             rank: int | None = ranked_position
         else:
@@ -122,7 +123,11 @@ async def read_country_leaderboard(
                     to_player_ref_public(player=player)
                     for player in top_players_by_country.get(row.country, [])
                 ],
-                median_rating=float(row.median_rating) if row.median_rating is not None else None,
+                top10_percentile_rating=(
+                    float(row.top10_percentile_rating)
+                    if row.top10_percentile_rating is not None
+                    else None
+                ),
                 top10_average_rating=(
                     float(row.top10_average_rating)
                     if row.top10_average_rating is not None

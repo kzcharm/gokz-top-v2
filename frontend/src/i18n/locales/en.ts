@@ -787,7 +787,9 @@ export const en = {
       activePlayers: "Active Players",
       activePlayersTooltip: "Players who played within the last 30 days.",
       topPlayers: "Top Players",
-      medianRating: "Median Rating",
+      top10PercentileRating: "Top-10% Rating",
+      top10PercentileRatingTooltip:
+        "The minimum rating among the top 10% of ranked players in this country.",
       top10AverageRating: "Top-10 Avg. Rating",
       empty: "No country ranking entries found.",
       loadFailedTitle: "Unable to load country rankings",

@@ -297,7 +297,7 @@ export type CountryLeaderboardEntryPublic = {
     ranked_players: number;
     active_players: number;
     top_players: Array<PlayerRefPublic>;
-    median_rating: (number | null);
+    top10_percentile_rating: (number | null);
     top10_average_rating: (number | null);
 };
 
