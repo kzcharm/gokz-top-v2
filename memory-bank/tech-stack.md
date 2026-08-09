@@ -61,6 +61,7 @@
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned
   - `GET /v1/leaderboards/players` reads from `leaderboard_player` with order-specific composite indexes for the supported sort modes and a cached per-scope count read model for shared no-geo totals
   - `GET /v1/leaderboards/community` returns profile-view/like rankings plus the highest cached verified platform follower count among Bilibili, YouTube, and Twitch for each returned player, and supports sorting by `platform_followers`
+  - `GET /v1/leaderboards/countries` aggregates eligible unbanned `leaderboard_player` rows by player country and scope, exposing ranked-player and 30-day active-player counts, top-three players, median rating, and top-10 average rating; only countries with at least 10 ranked players receive a competitive rank
   - Active mirrored bans are enforced as query-time exclusions for selected leaderboard and record reads via `EXISTS`/`NOT EXISTS` predicates instead of direct joins
 - Live server status subsystem:
   - Public reads come from cached `/v1/servers` and `/v1/servers/{id}` responses only; browsers never trigger upstream A2S or Steam server-list queries

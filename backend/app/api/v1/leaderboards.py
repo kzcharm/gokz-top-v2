@@ -9,6 +9,8 @@ from app.crud import player as player_crud
 from app.models import (
     CommunityLeaderboardListQuery,
     CommunityLeaderboardsPublic,
+    CountryLeaderboardListQuery,
+    CountryLeaderboardsPublic,
     JumpstatLeaderboardListQuery,
     JumpstatLeaderboardsPublic,
     MapLeaderboardsPublic,
@@ -86,6 +88,14 @@ async def read_community_leaderboard(
         query=query,
     )
     return CommunityLeaderboardsPublic(data=data, count=count)
+
+
+@router.get("/countries", response_model=CountryLeaderboardsPublic)
+async def read_country_leaderboard(
+    session: SessionDep,
+    query: Annotated[CountryLeaderboardListQuery, Query()],
+) -> CountryLeaderboardsPublic:
+    return await crud.read_country_leaderboard(session=session, query=query)
 
 
 @router.get("/players", response_model=PlayerLeaderboardsPublic)

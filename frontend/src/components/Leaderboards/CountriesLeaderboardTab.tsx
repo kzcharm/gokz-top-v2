@@ -1,0 +1,243 @@
+import { useQuery } from "@tanstack/react-query"
+import {
+  type ColumnDef,
+  functionalUpdate,
+  type OnChangeFn,
+  type SortingState,
+} from "@tanstack/react-table"
+import { ArrowDown, ArrowUp, Info } from "lucide-react"
+import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
+import {
+  type CountryLeaderboardEntryPublic,
+  LeaderboardsService,
+} from "@/client"
+import { CountryFlag, getCountryName } from "@/components/Common/CountryFlag"
+import { DataTable } from "@/components/Common/DataTable"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { useScope } from "@/components/scope-provider"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { formatNumber } from "@/i18n/locale"
+import { extractErrorMessage } from "@/utils"
+
+function rating(value: number | null) {
+  return value === null ? "N/A" : value.toFixed(2)
+}
+
+type CountryMetric =
+  | "ranked_players"
+  | "active_players"
+  | "median_rating"
+  | "top10_average_rating"
+
+function metricColumn(
+  key: CountryMetric,
+  title: string,
+  options?: { tooltip?: string },
+): ColumnDef<CountryLeaderboardEntryPublic> {
+  return {
+    accessorKey: key,
+    size: key === "active_players" ? 130 : 120,
+    header: ({ column }) => {
+      const sorting = column.getIsSorted()
+      return (
+        <div className="flex w-full justify-end">
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-right text-xs font-semibold uppercase tracking-wider transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            onClick={() => column.toggleSorting(sorting !== "desc")}
+          >
+            {options?.tooltip ? (
+              <Tooltip delayDuration={250}>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1">
+                    {title}
+                    <Info
+                      className="size-3.5 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>
+                  {options.tooltip}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              title
+            )}
+            {sorting === "desc" ? (
+              <ArrowDown className="size-3.5" aria-hidden="true" />
+            ) : sorting === "asc" ? (
+              <ArrowUp className="size-3.5" aria-hidden="true" />
+            ) : null}
+          </button>
+        </div>
+      )
+    },
+    cell: ({ row }) => (
+      <div className="flex w-full justify-end font-medium tabular-nums">
+        {key === "median_rating" || key === "top10_average_rating"
+          ? rating(row.original[key])
+          : formatNumber(row.original[key])}
+      </div>
+    ),
+  }
+}
+
+function sortCountryRows(
+  rows: CountryLeaderboardEntryPublic[],
+  sorting: SortingState,
+) {
+  const sort = sorting[0]
+  if (!sort) return rows
+  const key = sort.id as CountryMetric
+  const sortedRows = [...rows].sort((left, right) => {
+    const leftValue = left[key] ?? Number.NEGATIVE_INFINITY
+    const rightValue = right[key] ?? Number.NEGATIVE_INFINITY
+    const comparison = Number(leftValue) - Number(rightValue)
+    if (comparison !== 0) return sort.desc ? -comparison : comparison
+    return (left.country ?? "").localeCompare(right.country ?? "")
+  })
+  let rankedPosition = 0
+  return sortedRows.map((row) => ({
+    ...row,
+    rank: row.rank === null ? null : ++rankedPosition,
+  }))
+}
+
+export function CountriesLeaderboardTab() {
+  const { t, i18n } = useTranslation()
+  const { scope } = useScope()
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "top10_average_rating", desc: true },
+  ])
+  const query = useQuery({
+    queryKey: ["leaderboards", "countries", scope],
+    queryFn: () =>
+      LeaderboardsService.readCountryLeaderboard({
+        scope,
+        offset: 0,
+        limit: 200,
+      }),
+    staleTime: 30_000,
+  })
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = functionalUpdate(updater, sorting)
+    setSorting(next.length ? [next[0]] : sorting)
+  }
+  const rows = useMemo(
+    () => sortCountryRows(query.data?.data ?? [], sorting),
+    [query.data?.data, sorting],
+  )
+  const columns = useMemo<ColumnDef<CountryLeaderboardEntryPublic>[]>(
+    () => [
+      {
+        accessorKey: "rank",
+        size: 56,
+        header: () => <div className="flex w-full justify-center">#</div>,
+        cell: ({ row }) => (
+          <div className="flex w-full justify-center font-semibold tabular-nums">
+            {row.original.rank === null ? "-" : formatNumber(row.original.rank)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "country",
+        size: 140,
+        header: () => t("leaderboards.countries.country"),
+        cell: ({ row }) => (
+          <div className="flex items-center gap-3">
+            <CountryFlag countryCode={row.original.country} />
+            <span className="truncate">
+              {getCountryName(row.original.country, i18n.resolvedLanguage) ??
+                row.original.country}
+            </span>
+          </div>
+        ),
+      },
+      metricColumn(
+        "top10_average_rating",
+        t("leaderboards.countries.top10AverageRating"),
+      ),
+      metricColumn("median_rating", t("leaderboards.countries.medianRating")),
+      metricColumn("ranked_players", t("leaderboards.countries.rankedPlayers")),
+      metricColumn(
+        "active_players",
+        t("leaderboards.countries.activePlayers"),
+        { tooltip: t("leaderboards.countries.activePlayersTooltip") },
+      ),
+      {
+        accessorKey: "top_players",
+        size: 440,
+        header: () => t("leaderboards.countries.topPlayers"),
+        cell: ({ row }) => (
+          <div className="grid min-w-0 grid-cols-3 gap-4">
+            {row.original.top_players.map((player) => (
+              <div key={player.steamid64} className="min-w-0">
+                <PlayerDisplay
+                  player={{
+                    steamid64: player.steamid64,
+                    displayName: player.display_name,
+                    name: player.display_name,
+                  }}
+                  scope={scope}
+                  showCountryFlag={false}
+                  className="min-w-0"
+                />
+              </div>
+            ))}
+          </div>
+        ),
+      },
+    ],
+    [i18n.resolvedLanguage, t, scope],
+  )
+
+  return (
+    <div className="space-y-6">
+      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-6 sm:px-8">
+          <h2 className="text-lg font-semibold">
+            {t("leaderboards.countries.title")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("leaderboards.countries.subtitle")}
+          </p>
+        </CardContent>
+      </Card>
+      {query.isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t("leaderboards.countries.loadFailedTitle")}</AlertTitle>
+          <AlertDescription>
+            {extractErrorMessage(query.error)}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
+          <DataTable
+            columns={columns}
+            data={rows}
+            isLoading={query.isLoading}
+            emptyText={t("leaderboards.countries.empty")}
+            tableContainerClassName="overflow-x-auto md:overflow-visible"
+            tableClassName="table-fixed min-w-[1126px] border-separate border-spacing-0"
+            showFooter={false}
+            disablePagination
+            sorting={{
+              state: sorting,
+              onSortingChange,
+              manualSorting: true,
+            }}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

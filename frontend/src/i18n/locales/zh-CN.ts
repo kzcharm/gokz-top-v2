@@ -649,6 +649,7 @@ export const zhCN = {
       jumpstats: "Jumpstats",
       servers: "服务器",
       maps: "地图",
+      countries: "国家",
     },
     jumpstats: {
       filters: "筛选",
@@ -755,6 +756,19 @@ export const zhCN = {
         likes: "喜欢",
         uniqueLikers: "独立点赞者",
       },
+    },
+    countries: {
+      title: "国家排行",
+      subtitle: "按玩家所属国家查看竞技深度。排名至少需要 10 名上榜玩家。",
+      country: "国家",
+      rankedPlayers: "上榜玩家",
+      activePlayers: "活跃玩家",
+      activePlayersTooltip: "过去 30 天内进行过游戏的玩家。",
+      topPlayers: "顶尖玩家",
+      medianRating: "评级中位数",
+      top10AverageRating: "前十平均评级",
+      empty: "暂无国家排行数据。",
+      loadFailedTitle: "无法加载国家排行",
     },
     mapColumns: {
       playtime: "游玩时长",

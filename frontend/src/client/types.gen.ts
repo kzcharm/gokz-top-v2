@@ -291,6 +291,21 @@ export type CommunityLeaderboardsPublic = {
     count: number;
 };
 
+export type CountryLeaderboardEntryPublic = {
+    rank: (number | null);
+    country: (string | null);
+    ranked_players: number;
+    active_players: number;
+    top_players: Array<PlayerRefPublic>;
+    median_rating: (number | null);
+    top10_average_rating: (number | null);
+};
+
+export type CountryLeaderboardsPublic = {
+    data: Array<CountryLeaderboardEntryPublic>;
+    count: number;
+};
+
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
@@ -2068,6 +2083,14 @@ export type LeaderboardsReadCommunityLeaderboardData = {
 };
 
 export type LeaderboardsReadCommunityLeaderboardResponse = (CommunityLeaderboardsPublic);
+
+export type LeaderboardsReadCountryLeaderboardData = {
+    limit?: number;
+    offset?: number;
+    scope?: ModeScope;
+};
+
+export type LeaderboardsReadCountryLeaderboardResponse = (CountryLeaderboardsPublic);
 
 export type LeaderboardsReadPlayerLeaderboardData = {
     country?: (string | null);

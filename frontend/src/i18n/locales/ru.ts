@@ -675,6 +675,7 @@ export const ru = {
       jumpstats: "Jumpstats",
       servers: "Серверы",
       maps: "Карты",
+      countries: "Страны",
     },
     jumpstats: {
       filters: "Фильтры",
@@ -785,6 +786,20 @@ export const ru = {
         likes: "Лайки",
         uniqueLikers: "Уникальные лайкнувшие",
       },
+    },
+    countries: {
+      title: "Рейтинг стран",
+      subtitle:
+        "Сила и глубина игроков по странам. Для рейтинга нужно 10 игроков.",
+      country: "Страна",
+      rankedPlayers: "Игроки в рейтинге",
+      activePlayers: "Активные игроки",
+      activePlayersTooltip: "Игроки, игравшие за последние 30 дней.",
+      topPlayers: "Лучшие игроки",
+      medianRating: "Медианный рейтинг",
+      top10AverageRating: "Средний рейтинг топ-10",
+      empty: "Записи рейтинга стран не найдены.",
+      loadFailedTitle: "Не удалось загрузить рейтинг стран",
     },
     mapColumns: {
       playtime: "Время в игре",

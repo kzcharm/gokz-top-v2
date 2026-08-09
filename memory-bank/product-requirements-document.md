@@ -45,6 +45,7 @@ Build the long-term platform for the GOKZ ecosystem:
 - Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and eligibility-based membership semantics.
 - Public maps leaderboard is now available inside the `/leaderboards` page `Maps` tab, backed by `/v1/leaderboards/maps`, with scope switching, full validated-map reads, and client-side sorting/filtering for record-derived map metrics plus review summary fields.
 - Public community leaderboard entries expose the player's largest cached verified platform follower audience across Bilibili, YouTube, and Twitch, including the platform URL for the displayed icon link and server-side sorting by that follower count.
+- Public country leaderboard is available at `/leaderboards/countries`, backed by `/v1/leaderboards/countries`; it ranks countries with at least 10 eligible players by top-10 average rating and shows the country median rating, ranked and 30-day active-player counts, and the top three players.
 - Global and filtered leaderboards (scope, geography, and period when applicable).
 - Rank lookup support for profile and map contexts.
 - Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched maps leaderboard rows selected from `Record.updated_at`, then touched Steam-backed player profiles, then attempting KZ-only friends sync for those same players.

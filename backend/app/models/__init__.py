@@ -20,6 +20,11 @@ from .community_leaderboard import (
     CommunityLeaderboardSortBy,
     CommunityLeaderboardsPublic,
 )
+from .country_leaderboard import (
+    CountryLeaderboardEntryPublic,
+    CountryLeaderboardListQuery,
+    CountryLeaderboardsPublic,
+)
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .jumpstat import (
     Jumpstat,
@@ -441,6 +446,9 @@ __all__ = [
     "CommunityLeaderboardListQuery",
     "CommunityLeaderboardSortBy",
     "CommunityLeaderboardsPublic",
+    "CountryLeaderboardEntryPublic",
+    "CountryLeaderboardListQuery",
+    "CountryLeaderboardsPublic",
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
     "Jumpstat",

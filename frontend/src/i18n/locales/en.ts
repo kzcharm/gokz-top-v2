@@ -666,6 +666,7 @@ export const en = {
       jumpstats: "Jumpstats",
       servers: "Servers",
       maps: "Maps",
+      countries: "Countries",
     },
     jumpstats: {
       filters: "Filters",
@@ -776,6 +777,20 @@ export const en = {
         likes: "Likes",
         uniqueLikers: "Unique Likers",
       },
+    },
+    countries: {
+      title: "Country Rankings",
+      subtitle:
+        "Competitive depth by player country. Rankings require 10 players.",
+      country: "Country",
+      rankedPlayers: "Ranked Players",
+      activePlayers: "Active Players",
+      activePlayersTooltip: "Players who played within the last 30 days.",
+      topPlayers: "Top Players",
+      medianRating: "Median Rating",
+      top10AverageRating: "Top-10 Avg. Rating",
+      empty: "No country ranking entries found.",
+      loadFailedTitle: "Unable to load country rankings",
     },
     mapColumns: {
       playtime: "Playtime",

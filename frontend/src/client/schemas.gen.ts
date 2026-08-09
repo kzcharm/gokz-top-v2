@@ -1441,6 +1441,94 @@ export const CommunityLeaderboardsPublicSchema = {
     title: 'CommunityLeaderboardsPublic'
 } as const;
 
+export const CountryLeaderboardEntryPublicSchema = {
+    properties: {
+        rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rank'
+        },
+        country: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Country'
+        },
+        ranked_players: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Ranked Players'
+        },
+        active_players: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Active Players'
+        },
+        top_players: {
+            items: {
+                '$ref': '#/components/schemas/PlayerRefPublic'
+            },
+            type: 'array',
+            title: 'Top Players'
+        },
+        median_rating: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Median Rating'
+        },
+        top10_average_rating: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Top10 Average Rating'
+        }
+    },
+    type: 'object',
+    required: ['rank', 'country', 'ranked_players', 'active_players', 'top_players', 'median_rating', 'top10_average_rating'],
+    title: 'CountryLeaderboardEntryPublic'
+} as const;
+
+export const CountryLeaderboardsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/CountryLeaderboardEntryPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'CountryLeaderboardsPublic'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
