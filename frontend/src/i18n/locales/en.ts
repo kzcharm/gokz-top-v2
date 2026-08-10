@@ -779,14 +779,14 @@ export const en = {
       },
     },
     countries: {
-      title: "Country Rankings",
-      subtitle:
-        "Competitive depth by player country. Rankings require 10 players.",
-      country: "Country",
+      title: "Country/Region Rankings",
+      country: "Country/Region",
+      countryTooltip: "The country or region assigned to ranked players.",
       rankedPlayers: "Ranked Players",
       activePlayers: "Active Players",
       activePlayersTooltip: "Players who played within the last 30 days.",
       topPlayers: "Top Players",
+      viewTopPlayers: "View top 10 players",
       top10PercentileRating: "Top-10% Rating",
       top10PercentileRatingTooltip:
         "The minimum rating among the top 10% of ranked players in this country.",

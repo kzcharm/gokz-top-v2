@@ -5,19 +5,26 @@ import {
   type OnChangeFn,
   type SortingState,
 } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, Info } from "lucide-react"
+import { ArrowDown, ArrowUp, Info, LoaderCircle, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   type CountryLeaderboardEntryPublic,
   LeaderboardsService,
+  type ModeScope,
 } from "@/client"
 import { CountryFlag, getCountryName } from "@/components/Common/CountryFlag"
 import { DataTable } from "@/components/Common/DataTable"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
   TooltipContent,
@@ -120,6 +127,81 @@ function sortCountryRows(
   }))
 }
 
+function CountryTopPlayersMenu({
+  country,
+  scope,
+  t,
+}: {
+  country: string
+  scope: ModeScope
+  t: ReturnType<typeof useTranslation>["t"]
+}) {
+  const [open, setOpen] = useState(false)
+  const query = useQuery({
+    queryKey: ["leaderboards", "country-players", scope, country],
+    queryFn: () =>
+      LeaderboardsService.readPlayerLeaderboard({
+        country,
+        scope,
+        offset: 3,
+        limit: 7,
+        sortBy: "rating",
+        sortOrder: "desc",
+      }),
+    enabled: open,
+    staleTime: 30_000,
+  })
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("leaderboards.countries.viewTopPlayers")}
+        >
+          <Plus aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="max-h-[min(28rem,calc(100vh-2rem))] min-w-[15rem] overflow-y-auto p-2"
+      >
+        {query.isLoading ? (
+          <div className="flex justify-center px-3 py-4 text-muted-foreground">
+            <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+          </div>
+        ) : query.data?.data.length ? (
+          <div className="space-y-1">
+            {query.data.data.map((entry) => (
+              <div
+                key={entry.player.steamid64}
+                className="flex min-w-0 items-center gap-2 px-1 py-1"
+              >
+                <span className="w-5 shrink-0 text-right text-xs font-semibold tabular-nums text-muted-foreground">
+                  {entry.rank}
+                </span>
+                <PlayerDisplay
+                  player={{
+                    steamid64: entry.player.steamid64,
+                    displayName: entry.player.display_name,
+                    name: entry.player.display_name,
+                  }}
+                  scope={scope}
+                  showCountryFlag={false}
+                  className="min-w-0"
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function CountriesLeaderboardTab() {
   const { t, i18n } = useTranslation()
   const { scope } = useScope()
@@ -159,7 +241,22 @@ export function CountriesLeaderboardTab() {
       {
         accessorKey: "country",
         size: 140,
-        header: () => t("leaderboards.countries.country"),
+        header: () => (
+          <Tooltip delayDuration={250}>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center gap-1">
+                {t("leaderboards.countries.country")}
+                <Info
+                  className="size-3.5 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={6}>
+              {t("leaderboards.countries.countryTooltip")}
+            </TooltipContent>
+          </Tooltip>
+        ),
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <CountryFlag countryCode={row.original.country} />
@@ -190,21 +287,30 @@ export function CountriesLeaderboardTab() {
         size: 560,
         header: () => t("leaderboards.countries.topPlayers"),
         cell: ({ row }) => (
-          <div className="grid min-w-0 grid-cols-3 gap-3">
-            {row.original.top_players.map((player) => (
-              <div key={player.steamid64} className="min-w-0">
-                <PlayerDisplay
-                  player={{
-                    steamid64: player.steamid64,
-                    displayName: player.display_name,
-                    name: player.display_name,
-                  }}
-                  scope={scope}
-                  showCountryFlag={false}
-                  className="min-w-0"
-                />
-              </div>
-            ))}
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid min-w-0 flex-1 grid-cols-3 gap-3">
+              {row.original.top_players.map((player) => (
+                <div key={player.steamid64} className="min-w-0">
+                  <PlayerDisplay
+                    player={{
+                      steamid64: player.steamid64,
+                      displayName: player.display_name,
+                      name: player.display_name,
+                    }}
+                    scope={scope}
+                    showCountryFlag={false}
+                    className="min-w-0"
+                  />
+                </div>
+              ))}
+            </div>
+            {row.original.country ? (
+              <CountryTopPlayersMenu
+                country={row.original.country}
+                scope={scope}
+                t={t}
+              />
+            ) : null}
           </div>
         ),
       },

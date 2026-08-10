@@ -788,14 +788,14 @@ export const ru = {
       },
     },
     countries: {
-      title: "Рейтинг стран",
-      subtitle:
-        "Сила и глубина игроков по странам. Для рейтинга нужно 10 игроков.",
-      country: "Страна",
+      title: "Рейтинг стран и регионов",
+      country: "Страна/регион",
+      countryTooltip: "Страна или регион, указанные для игроков в рейтинге.",
       rankedPlayers: "Игроки в рейтинге",
       activePlayers: "Активные игроки",
       activePlayersTooltip: "Игроки, игравшие за последние 30 дней.",
       topPlayers: "Лучшие игроки",
+      viewTopPlayers: "Показать 10 лучших игроков",
       top10PercentileRating: "Рейтинг топ-10%",
       top10PercentileRatingTooltip:
         "Минимальный рейтинг среди лучших 10% игроков этой страны.",
