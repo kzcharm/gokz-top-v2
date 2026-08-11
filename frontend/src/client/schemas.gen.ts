@@ -3411,6 +3411,56 @@ export const MediaPostPublicSchema = {
     title: 'MediaPostPublic'
 } as const;
 
+export const MediaPostViewCountPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        view_count: {
+            type: 'integer',
+            title: 'View Count'
+        }
+    },
+    type: 'object',
+    required: ['id', 'view_count'],
+    title: 'MediaPostViewCountPublic'
+} as const;
+
+export const MediaPostViewCountRefreshRequestSchema = {
+    properties: {
+        post_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            maxItems: 24,
+            minItems: 1,
+            title: 'Post Ids'
+        }
+    },
+    type: 'object',
+    required: ['post_ids'],
+    title: 'MediaPostViewCountRefreshRequest'
+} as const;
+
+export const MediaPostViewCountsRefreshPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/MediaPostViewCountPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        }
+    },
+    type: 'object',
+    required: ['data'],
+    title: 'MediaPostViewCountsRefreshPublic'
+} as const;
+
 export const MediaPostsPublicSchema = {
     properties: {
         data: {

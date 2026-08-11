@@ -90,3 +90,16 @@ class MediaPostsQuery(SQLModel):
     steamid64: str | None = None
     from_: datetime | None = Field(default=None, alias="from")
     to: datetime | None = None
+
+
+class MediaPostViewCountRefreshRequest(SQLModel):
+    post_ids: list[uuid.UUID] = Field(min_length=1, max_length=24)
+
+
+class MediaPostViewCountPublic(SQLModel):
+    id: uuid.UUID
+    view_count: int
+
+
+class MediaPostViewCountsRefreshPublic(SQLModel):
+    data: list[MediaPostViewCountPublic]

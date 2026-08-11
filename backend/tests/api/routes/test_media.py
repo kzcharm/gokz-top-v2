@@ -1,0 +1,155 @@
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from httpx import AsyncClient
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.crud import media_post
+from app.models import MediaPost, Player, PlayerSocialLink, PlayerSocialPlatform
+from app.models.utils import get_datetime_utc
+from tests.utils.utils import random_steamid64
+
+pytestmark = pytest.mark.asyncio
+
+
+async def test_refresh_media_post_view_counts_updates_only_stale_youtube_posts(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Media Player")
+    db.add(player)
+    await db.commit()
+    youtube_link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@media-player",
+        verified=True,
+    )
+    bilibili_link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="12345",
+        verified=True,
+    )
+    db.add(youtube_link)
+    db.add(bilibili_link)
+    await db.commit()
+
+    now = get_datetime_utc()
+    stale_youtube = MediaPost(
+        player_social_link_id=youtube_link.id,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        external_video_id="stale-video",
+        title="Stale video",
+        url="https://youtube.example/stale-video",
+        published_at=now,
+        view_count=10,
+        last_checked_at=now - timedelta(hours=2),
+    )
+    fresh_youtube = MediaPost(
+        player_social_link_id=youtube_link.id,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        external_video_id="fresh-video",
+        title="Fresh video",
+        url="https://youtube.example/fresh-video",
+        published_at=now,
+        view_count=20,
+        last_checked_at=now,
+    )
+    bilibili_post = MediaPost(
+        player_social_link_id=bilibili_link.id,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        external_video_id="bilibili-video",
+        title="Bilibili video",
+        url="https://bilibili.example/bilibili-video",
+        published_at=now,
+        view_count=30,
+        last_checked_at=now - timedelta(hours=2),
+    )
+    db.add(stale_youtube)
+    db.add(fresh_youtube)
+    db.add(bilibili_post)
+    await db.commit()
+
+    requested_ids: list[str] = []
+
+    async def fetch_view_counts(video_ids: list[str]) -> dict[str, int]:
+        requested_ids.extend(video_ids)
+        return {"stale-video": 99}
+
+    monkeypatch.setattr(media_post, "fetch_youtube_video_view_counts", fetch_view_counts)
+
+    response = await client.post(
+        "/v1/media/posts/view-counts",
+        json={
+            "post_ids": [
+                str(stale_youtube.id),
+                str(stale_youtube.id),
+                str(fresh_youtube.id),
+                str(bilibili_post.id),
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [{"id": str(stale_youtube.id), "view_count": 99}]
+    }
+    assert requested_ids == ["stale-video"]
+    await db.refresh(stale_youtube)
+    await db.refresh(fresh_youtube)
+    assert stale_youtube.view_count == 99
+    assert stale_youtube.last_checked_at > now - timedelta(minutes=1)
+    assert fresh_youtube.view_count == 20
+
+
+async def test_refresh_media_post_view_counts_preserves_cached_values_on_failure(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Media Player")
+    db.add(player)
+    await db.commit()
+    link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@media-player",
+        verified=True,
+    )
+    db.add(link)
+    await db.commit()
+    checked_at = datetime.now(UTC) - timedelta(hours=2)
+    post = MediaPost(
+        player_social_link_id=link.id,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        external_video_id="video",
+        title="Video",
+        url="https://youtube.example/video",
+        published_at=datetime.now(UTC),
+        view_count=10,
+        last_checked_at=checked_at,
+    )
+    db.add(post)
+    await db.commit()
+
+    async def fail_refresh(_: list[str]) -> dict[str, int]:
+        raise RuntimeError("YouTube unavailable")
+
+    monkeypatch.setattr(media_post, "fetch_youtube_video_view_counts", fail_refresh)
+
+    response = await client.post(
+        "/v1/media/posts/view-counts", json={"post_ids": [str(post.id)]}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"data": []}
+    await db.refresh(post)
+    assert post.view_count == 10
+    assert post.last_checked_at == checked_at
+    assert post.last_error == "YouTube unavailable"

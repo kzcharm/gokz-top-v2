@@ -1,20 +1,27 @@
 from __future__ import annotations
 
 import base64
+import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.config import settings
 from app.models import (
     MediaPost,
     MediaPostPlayerPublic,
     MediaPostPublic,
     MediaPostsPublic,
+    MediaPostViewCountPublic,
+    MediaPostViewCountsRefreshPublic,
     Player,
     PlayerSocialPlatform,
 )
+from app.services.youtube_media import fetch_youtube_video_view_counts
+
+logger = logging.getLogger(__name__)
 
 
 def encode_media_cursor(post: MediaPost) -> str:
@@ -105,4 +112,60 @@ async def prune_media_posts(*, session: AsyncSession, before: datetime) -> int:
     return int(result.rowcount or 0)
 
 
-__all__ = ["encode_media_cursor", "prune_media_posts", "read_media_posts"]
+async def refresh_media_post_view_counts(
+    *, session: AsyncSession, post_ids: list[uuid.UUID]
+) -> MediaPostViewCountsRefreshPublic:
+    unique_post_ids = list(dict.fromkeys(post_ids))
+    if not unique_post_ids:
+        return MediaPostViewCountsRefreshPublic(data=[])
+
+    now = datetime.now(UTC)
+    stale_before = now - timedelta(
+        seconds=settings.MEDIA_VIEW_COUNT_REFRESH_TTL_SECONDS
+    )
+    posts = list(
+        (
+            await session.exec(
+                select(MediaPost).where(
+                    col(MediaPost.id).in_(unique_post_ids),
+                    col(MediaPost.platform) == PlayerSocialPlatform.YOUTUBE,
+                    col(MediaPost.last_checked_at) < stale_before,
+                )
+            )
+        ).all()
+    )
+    if not posts:
+        return MediaPostViewCountsRefreshPublic(data=[])
+
+    try:
+        view_counts = await fetch_youtube_video_view_counts(
+            [post.external_video_id for post in posts]
+        )
+    except Exception as exc:
+        logger.warning("Media view-count refresh failed", exc_info=True)
+        error = str(exc)[:500]
+        for post in posts:
+            post.last_error = error
+        await session.commit()
+        return MediaPostViewCountsRefreshPublic(data=[])
+
+    refreshed: list[MediaPostViewCountPublic] = []
+    for post in posts:
+        view_count = view_counts.get(post.external_video_id)
+        if view_count is None:
+            continue
+        post.view_count = view_count
+        post.last_checked_at = now
+        post.last_error = None
+        refreshed.append(MediaPostViewCountPublic(id=post.id, view_count=view_count))
+    if refreshed:
+        await session.commit()
+    return MediaPostViewCountsRefreshPublic(data=refreshed)
+
+
+__all__ = [
+    "encode_media_cursor",
+    "prune_media_posts",
+    "read_media_posts",
+    "refresh_media_post_view_counts",
+]

@@ -1,5 +1,6 @@
-import { useInfiniteQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle, Play, RefreshCw, Video } from "lucide-react"
+import { useEffect, useRef } from "react"
 
 import { type MediaPostPublic, MediaService } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
@@ -127,6 +128,8 @@ function MediaCardSkeleton() {
 }
 
 export function MediaPage() {
+  const queryClient = useQueryClient()
+  const submittedRefreshPostIds = useRef(new Set<string>())
   const postsQuery = useInfiniteQuery({
     queryKey: ["media-posts"],
     queryFn: ({ pageParam }) =>
@@ -135,6 +138,43 @@ export function MediaPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
   })
   const posts = postsQuery.data?.pages.flatMap((page) => page.data) ?? []
+
+  useEffect(() => {
+    const postIds = (postsQuery.data?.pages ?? [])
+      .flatMap((page) => page.data)
+      .map((post) => post.id)
+      .filter((postId) => !submittedRefreshPostIds.current.has(postId))
+    if (!postIds.length) return
+
+    for (const postId of postIds) {
+      submittedRefreshPostIds.current.add(postId)
+    }
+
+    void MediaService.refreshMediaPostViewCounts({
+      requestBody: { post_ids: postIds },
+    }).then((response) => {
+      if (!response.data.length) return
+      const viewCounts = new Map(
+        response.data.map(({ id, view_count }) => [id, view_count]),
+      )
+      queryClient.setQueryData(
+        ["media-posts"],
+        (current: typeof postsQuery.data) => {
+          if (!current) return current
+          return {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              data: page.data.map((post) => ({
+                ...post,
+                view_count: viewCounts.get(post.id) ?? post.view_count,
+              })),
+            })),
+          }
+        },
+      )
+    })
+  }, [postsQuery.data, queryClient])
 
   return (
     <section className="space-y-6">

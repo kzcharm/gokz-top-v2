@@ -710,6 +710,19 @@ export type MediaPostsPublic = {
     count: number;
 };
 
+export type MediaPostViewCountPublic = {
+    id: string;
+    view_count: number;
+};
+
+export type MediaPostViewCountRefreshRequest = {
+    post_ids: Array<(string)>;
+};
+
+export type MediaPostViewCountsRefreshPublic = {
+    data: Array<MediaPostViewCountPublic>;
+};
+
 export type Message = {
     message: string;
 };
@@ -2361,6 +2374,12 @@ export type MediaReadMediaPostsData = {
 };
 
 export type MediaReadMediaPostsResponse = (MediaPostsPublic);
+
+export type MediaRefreshMediaPostViewCountsData = {
+    requestBody: MediaPostViewCountRefreshRequest;
+};
+
+export type MediaRefreshMediaPostViewCountsResponse = (MediaPostViewCountsRefreshPublic);
 
 export type MiscLookupRequestIpResponse = (IPLookupResponse);
 

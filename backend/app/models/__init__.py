@@ -111,6 +111,9 @@ from .media_post import (
     MediaPostPublic,
     MediaPostsPublic,
     MediaPostsQuery,
+    MediaPostViewCountPublic,
+    MediaPostViewCountRefreshRequest,
+    MediaPostViewCountsRefreshPublic,
 )
 from .misc import IPLookupRequest, IPLookupResponse
 from .mode import (
@@ -486,6 +489,9 @@ __all__ = [
     "MediaPost",
     "MediaPostPlayerPublic",
     "MediaPostPublic",
+    "MediaPostViewCountPublic",
+    "MediaPostViewCountRefreshRequest",
+    "MediaPostViewCountsRefreshPublic",
     "MediaPostsPublic",
     "MediaPostsQuery",
     "KZMode",

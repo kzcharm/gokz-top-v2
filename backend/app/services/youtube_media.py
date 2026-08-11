@@ -222,6 +222,40 @@ async def fetch_youtube_posts(
     return playlist_items
 
 
+async def fetch_youtube_video_view_counts(video_ids: list[str]) -> dict[str, int]:
+    if not video_ids:
+        return {}
+    if not settings.YOUTUBE_API_KEY:
+        raise RuntimeError("YouTube media sync credentials are not configured")
+
+    view_counts: dict[str, int] = {}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for start in range(0, len(video_ids), 50):
+            response = await client.get(
+                YOUTUBE_VIDEOS_URL,
+                params={
+                    "part": "statistics",
+                    "key": settings.YOUTUBE_API_KEY,
+                    "id": ",".join(video_ids[start : start + 50]),
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+            videos = payload.get("items")
+            if not isinstance(videos, list):
+                continue
+            for video in videos:
+                if not isinstance(video, dict):
+                    continue
+                video_id = video.get("id")
+                statistics = video.get("statistics")
+                if isinstance(video_id, str) and isinstance(statistics, dict):
+                    view_counts[video_id] = _parse_view_count(
+                        statistics.get("viewCount")
+                    )
+    return view_counts
+
+
 async def fetch_youtube_channel_id(account_identifier: str) -> str:
     if not settings.YOUTUBE_API_KEY:
         raise RuntimeError("YouTube media sync credentials are not configured")

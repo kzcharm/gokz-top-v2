@@ -75,7 +75,11 @@ from .map_stat import (
     rebuild_map_stats_for_keys,
     rebuild_map_wr_gap_distribution_stat,
 )
-from .media_post import prune_media_posts, read_media_posts
+from .media_post import (
+    prune_media_posts,
+    read_media_posts,
+    refresh_media_post_view_counts,
+)
 from .mode import (
     get_mode_by_id,
     get_mode_by_name,
@@ -573,6 +577,7 @@ __all__ = [
     "upsert_live_stream_state",
     "prune_media_posts",
     "read_media_posts",
+    "refresh_media_post_view_counts",
     "rebuild_record_pb_points_bucket",
     "rebuild_record_pb_points_for_course",
     "rebuild_player_daily_activity_stat",
