@@ -359,6 +359,39 @@ async def test_search_players_exact_identifier_beats_higher_rated_fuzzy_match(
 
 
 @pytest.mark.asyncio
+async def test_search_players_steamid64_does_not_fuzzily_match_similar_ids(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = 76561199838571198
+    matching_player = await _create_player(
+        db=db,
+        steamid64=steamid64,
+        name=str(steamid64),
+    )
+    similar_player = await _create_player(
+        db=db,
+        steamid64=steamid64 + 1,
+        name=str(steamid64 + 1),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/search",
+        params={"q": str(steamid64)},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert [player["steamid64"] for player in payload["data"]] == [
+        str(matching_player.steamid64)
+    ]
+    assert str(similar_player.steamid64) not in {
+        player["steamid64"] for player in payload["data"]
+    }
+
+
+@pytest.mark.asyncio
 async def test_search_players_uses_rating_to_break_same_relevance_tier(
     client: AsyncClient,
     db: AsyncSession,

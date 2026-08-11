@@ -65,6 +65,7 @@ class PlayerSearchInput:
     search_text: str
     search_text_lower: str
     exact_steamid64: int | None = None
+    is_direct_steam_identifier: bool = False
 
 
 def _build_individual_steamid64(*, account_id: int, universe: int) -> int | None:
@@ -452,6 +453,7 @@ async def _build_player_search_input(
 ) -> PlayerSearchInput:
     search_text = query.strip()
     exact_steamid64: int | None = None
+    is_direct_steam_identifier = False
 
     steam_profile = _parse_steam_profile_url(search_text)
     if steam_profile is not None:
@@ -459,6 +461,7 @@ async def _build_player_search_input(
         if profile_type == "steamid64":
             exact_steamid64 = int(profile_value)
             search_text = profile_value
+            is_direct_steam_identifier = True
         else:
             exact_steamid64 = await _resolve_steam_vanity_url_to_steamid64(profile_value)
             search_text = profile_value
@@ -466,6 +469,7 @@ async def _build_player_search_input(
         direct_steamid64 = _parse_direct_steam_identifier_to_steamid64(search_text)
         if direct_steamid64 is not None:
             exact_steamid64 = direct_steamid64
+            is_direct_steam_identifier = True
 
     normalized_custom_id = normalize_custom_id(search_text)
     if normalized_custom_id is not None:
@@ -481,6 +485,7 @@ async def _build_player_search_input(
         search_text=search_text,
         search_text_lower=search_text.lower(),
         exact_steamid64=exact_steamid64,
+        is_direct_steam_identifier=is_direct_steam_identifier,
     )
 
 
@@ -642,6 +647,15 @@ async def search_players(
         else_=func.coalesce(col(LeaderboardPlayer.rating), 0),
     )
 
+    search_match = exact_identifier_match
+    if not search_input.is_direct_steam_identifier:
+        search_match = or_(
+            exact_identifier_match,
+            prefix_match,
+            full_text_match,
+            trigram_match,
+        )
+
     base_statement = (
         select(Player)
         .outerjoin(
@@ -649,14 +663,7 @@ async def search_players(
             (col(LeaderboardPlayer.steamid64) == col(Player.steamid64))
             & (col(LeaderboardPlayer.scope) == ovr_scope),
         )
-        .where(
-            or_(
-                exact_identifier_match,
-                prefix_match,
-                full_text_match,
-                trigram_match,
-            )
-        )
+        .where(search_match)
     )
     count_statement = select(func.count()).select_from(base_statement.subquery())
     count = (await session.exec(count_statement)).one()
