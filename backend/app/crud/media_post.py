@@ -19,7 +19,6 @@ from app.models import (
     Player,
     PlayerSocialPlatform,
 )
-from app.services.youtube_media import fetch_youtube_video_view_counts
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +114,8 @@ async def prune_media_posts(*, session: AsyncSession, before: datetime) -> int:
 async def refresh_media_post_view_counts(
     *, session: AsyncSession, post_ids: list[uuid.UUID]
 ) -> MediaPostViewCountsRefreshPublic:
+    from app.services.youtube_media import fetch_youtube_video_view_counts
+
     unique_post_ids = list(dict.fromkeys(post_ids))
     if not unique_post_ids:
         return MediaPostViewCountsRefreshPublic(data=[])
