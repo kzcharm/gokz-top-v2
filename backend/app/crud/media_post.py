@@ -23,6 +23,14 @@ from app.models import (
 logger = logging.getLogger(__name__)
 
 
+async def fetch_youtube_video_view_counts(
+    video_ids: list[str],
+) -> dict[str, int]:
+    from app.services.youtube_media import fetch_youtube_video_view_counts as fetch
+
+    return await fetch(video_ids)
+
+
 def encode_media_cursor(post: MediaPost) -> str:
     raw = f"{post.published_at.isoformat()}|{post.id}"
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
@@ -114,8 +122,6 @@ async def prune_media_posts(*, session: AsyncSession, before: datetime) -> int:
 async def refresh_media_post_view_counts(
     *, session: AsyncSession, post_ids: list[uuid.UUID]
 ) -> MediaPostViewCountsRefreshPublic:
-    from app.services.youtube_media import fetch_youtube_video_view_counts
-
     unique_post_ids = list(dict.fromkeys(post_ids))
     if not unique_post_ids:
         return MediaPostViewCountsRefreshPublic(data=[])
