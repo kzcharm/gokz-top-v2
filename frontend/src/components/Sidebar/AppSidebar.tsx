@@ -11,6 +11,7 @@ import {
   UserCircle2,
   User as UserIcon,
   Users,
+  Video,
 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -86,6 +87,7 @@ export function AppSidebar() {
       path: "/live",
       showNotificationDot: showLiveDot,
     },
+    { type: "link", icon: Video, title: t("nav.media"), path: "/media" },
     {
       type: "link",
       icon: Trophy,

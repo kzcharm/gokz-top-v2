@@ -20,6 +20,7 @@ from app.api.v1 import (
     me_qq_binding,
     me_settings,
     me_webhooks,
+    media,
     misc,
     modes,
     player_follows,
@@ -59,6 +60,7 @@ api_router.include_router(graphql.router)
 api_router.include_router(jumpstats.router)
 api_router.include_router(leaderboards.router)
 api_router.include_router(live.router)
+api_router.include_router(media.router)
 api_router.include_router(maps.router)
 api_router.include_router(misc.router)
 api_router.include_router(modes.router)

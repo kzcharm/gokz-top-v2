@@ -58,6 +58,10 @@ from app.services.server_collector import (
     stop_collector,
 )
 from app.services.server_events import listen_for_server_updates, stop_listener
+from app.services.youtube_media import (
+    run_media_sync_runner_in_app,
+    stop_media_sync_runner,
+)
 
 configure_app_logging(settings.LOG_LEVEL)
 
@@ -75,7 +79,9 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     listener_task = asyncio.create_task(listen_for_server_updates())
-    recent_record_listener_task = asyncio.create_task(listen_for_recent_record_updates())
+    recent_record_listener_task = asyncio.create_task(
+        listen_for_recent_record_updates()
+    )
     player_steam_profile_listener_task = asyncio.create_task(
         listen_for_player_steam_profile_updates()
     )
@@ -84,6 +90,7 @@ async def lifespan(_: FastAPI):
     daily_rank_pipeline_task: asyncio.Task[None] | None = None
     player_session_timeout_task: asyncio.Task[None] | None = None
     live_stream_task: asyncio.Task[None] | None = None
+    media_sync_task: asyncio.Task[None] | None = None
     jump_replay_cleanup_task: asyncio.Task[None] | None = None
     map_file_distribution_task: asyncio.Task[None] | None = None
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
@@ -100,6 +107,8 @@ async def lifespan(_: FastAPI):
         )
     if settings.RUN_LIVE_STREAM_RUNNER_IN_APP:
         live_stream_task = asyncio.create_task(run_live_stream_runner_in_app())
+    if settings.RUN_MEDIA_SYNC_RUNNER_IN_APP:
+        media_sync_task = asyncio.create_task(run_media_sync_runner_in_app())
     if settings.RUN_JUMP_REPLAY_CLEANUP_RUNNER_IN_APP:
         jump_replay_cleanup_task = asyncio.create_task(
             run_jump_replay_cleanup_runner_in_app()
@@ -119,6 +128,7 @@ async def lifespan(_: FastAPI):
         await stop_daily_rank_pipeline_runner(daily_rank_pipeline_task)
         await stop_player_session_timeout_runner(player_session_timeout_task)
         await stop_live_stream_runner(live_stream_task)
+        await stop_media_sync_runner(media_sync_task)
         await stop_jump_replay_cleanup_runner(jump_replay_cleanup_task)
         await stop_map_file_distribution_runner(map_file_distribution_task)
 

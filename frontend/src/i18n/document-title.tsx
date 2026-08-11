@@ -9,6 +9,7 @@ function getRouteTitleKey(pathname: string) {
   if (pathname === "/servers") return "titles.servers"
   if (pathname.startsWith("/maps")) return "titles.maps"
   if (pathname.startsWith("/live")) return "titles.live"
+  if (pathname.startsWith("/media")) return "titles.media"
   if (pathname.startsWith("/bans")) return "titles.bans"
   if (pathname.startsWith("/leaderboards")) return "titles.leaderboards"
   if (pathname.startsWith("/settings")) return "titles.settings"

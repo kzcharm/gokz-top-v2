@@ -105,6 +105,13 @@ from .map_stat import (
     MapWrGapDistributionBinPublic,
     MapWrGapDistributionContentPublic,
 )
+from .media_post import (
+    MediaPost,
+    MediaPostPlayerPublic,
+    MediaPostPublic,
+    MediaPostsPublic,
+    MediaPostsQuery,
+)
 from .misc import IPLookupRequest, IPLookupResponse
 from .mode import (
     CANONICAL_MODE_SEEDS,
@@ -476,6 +483,11 @@ __all__ = [
     "LiveStreamPlayerPublic",
     "LiveStreamsPublic",
     "LiveStreamState",
+    "MediaPost",
+    "MediaPostPlayerPublic",
+    "MediaPostPublic",
+    "MediaPostsPublic",
+    "MediaPostsQuery",
     "KZMode",
     "LeaderboardPlayer",
     "LeaderboardPlayerCount",

@@ -20,6 +20,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutUpdatesRouteImport } from './routes/_layout/updates'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutNotificationsRouteImport } from './routes/_layout/notifications'
+import { Route as LayoutMediaRouteImport } from './routes/_layout/media'
 import { Route as LayoutLiveRouteImport } from './routes/_layout/live'
 import { Route as LayoutLeaderboardsRouteImport } from './routes/_layout/leaderboards'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
@@ -117,6 +118,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
 const LayoutNotificationsRoute = LayoutNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutMediaRoute = LayoutMediaRouteImport.update({
+  id: '/media',
+  path: '/media',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutLiveRoute = LayoutLiveRouteImport.update({
@@ -372,6 +378,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
+  '/media': typeof LayoutMediaRoute
   '/notifications': typeof LayoutNotificationsRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
   '/updates': typeof LayoutUpdatesRoute
@@ -427,6 +434,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
+  '/media': typeof LayoutMediaRoute
   '/notifications': typeof LayoutNotificationsRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
   '/updates': typeof LayoutUpdatesRoute
@@ -484,6 +492,7 @@ export interface FileRoutesById {
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
   '/_layout/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/_layout/live': typeof LayoutLiveRoute
+  '/_layout/media': typeof LayoutMediaRoute
   '/_layout/notifications': typeof LayoutNotificationsRoute
   '/_layout/settings': typeof LayoutSettingsRouteWithChildren
   '/_layout/updates': typeof LayoutUpdatesRoute
@@ -543,6 +552,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/leaderboards'
     | '/live'
+    | '/media'
     | '/notifications'
     | '/settings'
     | '/updates'
@@ -598,6 +608,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/leaderboards'
     | '/live'
+    | '/media'
     | '/notifications'
     | '/settings'
     | '/updates'
@@ -654,6 +665,7 @@ export interface FileRouteTypes {
     | '/_layout/dashboard'
     | '/_layout/leaderboards'
     | '/_layout/live'
+    | '/_layout/media'
     | '/_layout/notifications'
     | '/_layout/settings'
     | '/_layout/updates'
@@ -787,6 +799,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof LayoutNotificationsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/media': {
+      id: '/_layout/media'
+      path: '/media'
+      fullPath: '/media'
+      preLoaderRoute: typeof LayoutMediaRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/live': {
@@ -1235,6 +1254,7 @@ interface LayoutRouteChildren {
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
   LayoutLeaderboardsRoute: typeof LayoutLeaderboardsRouteWithChildren
   LayoutLiveRoute: typeof LayoutLiveRoute
+  LayoutMediaRoute: typeof LayoutMediaRoute
   LayoutNotificationsRoute: typeof LayoutNotificationsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRouteWithChildren
   LayoutUpdatesRoute: typeof LayoutUpdatesRoute
@@ -1248,6 +1268,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
   LayoutLeaderboardsRoute: LayoutLeaderboardsRouteWithChildren,
   LayoutLiveRoute: LayoutLiveRoute,
+  LayoutMediaRoute: LayoutMediaRoute,
   LayoutNotificationsRoute: LayoutNotificationsRoute,
   LayoutSettingsRoute: LayoutSettingsRouteWithChildren,
   LayoutUpdatesRoute: LayoutUpdatesRoute,

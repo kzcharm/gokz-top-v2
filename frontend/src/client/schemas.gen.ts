@@ -3318,6 +3318,129 @@ export const MapWrPublicSchema = {
     title: 'MapWrPublic'
 } as const;
 
+export const MediaPostPlayerPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        display_name: {
+            type: 'string',
+            title: 'Display Name'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'display_name'],
+    title: 'MediaPostPlayerPublic'
+} as const;
+
+export const MediaPostPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        player: {
+            '$ref': '#/components/schemas/MediaPostPlayerPublic'
+        },
+        platform: {
+            '$ref': '#/components/schemas/PlayerSocialPlatform'
+        },
+        external_video_id: {
+            type: 'string',
+            title: 'External Video Id'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        url: {
+            type: 'string',
+            title: 'Url'
+        },
+        thumbnail_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Thumbnail Url'
+        },
+        published_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Published At'
+        },
+        view_count: {
+            type: 'integer',
+            title: 'View Count'
+        },
+        duration_seconds: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Duration Seconds'
+        },
+        available: {
+            type: 'boolean',
+            title: 'Available'
+        }
+    },
+    type: 'object',
+    required: ['id', 'player', 'platform', 'external_video_id', 'title', 'url', 'published_at', 'view_count', 'available'],
+    title: 'MediaPostPublic'
+} as const;
+
+export const MediaPostsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/MediaPostPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        next_cursor: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Next Cursor'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'MediaPostsPublic'
+} as const;
+
 export const MessageSchema = {
     properties: {
         message: {

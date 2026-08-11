@@ -21,6 +21,7 @@ function Layout() {
         pathname.startsWith("/admin/player-sessions") ||
         pathname.startsWith("/bans") ||
         pathname.startsWith("/live") ||
+        pathname.startsWith("/media") ||
         pathname.startsWith("/updates")
           ? "max-w-[1600px]"
           : undefined

@@ -684,6 +684,32 @@ export type MapWrPublic = {
     updated_at: string;
 };
 
+export type MediaPostPlayerPublic = {
+    steamid64: string;
+    display_name: string;
+};
+
+export type MediaPostPublic = {
+    id: string;
+    player: MediaPostPlayerPublic;
+    platform: PlayerSocialPlatform;
+    external_video_id: string;
+    title: string;
+    description?: (string | null);
+    url: string;
+    thumbnail_url?: (string | null);
+    published_at: string;
+    view_count: number;
+    duration_seconds?: (number | null);
+    available: boolean;
+};
+
+export type MediaPostsPublic = {
+    data: Array<MediaPostPublic>;
+    next_cursor?: (string | null);
+    count: number;
+};
+
 export type Message = {
     message: string;
 };
@@ -2325,6 +2351,16 @@ export type MeMarkCurrentPlayerNotificationReadData = {
 export type MeMarkCurrentPlayerNotificationReadResponse = (PlayerNotificationPublic);
 
 export type MeMarkAllCurrentPlayerNotificationsReadResponse = (Message);
+
+export type MediaReadMediaPostsData = {
+    _from?: (string | null);
+    cursor?: (string | null);
+    limit?: number;
+    steamid64?: (string | null);
+    to?: (string | null);
+};
+
+export type MediaReadMediaPostsResponse = (MediaPostsPublic);
 
 export type MiscLookupRequestIpResponse = (IPLookupResponse);
 
