@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import logging
+import re
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 import psycopg
@@ -34,6 +37,11 @@ MEDIA_RETENTION_DAYS = 90
 YOUTUBE_CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels"
 YOUTUBE_PLAYLIST_ITEMS_URL = "https://www.googleapis.com/youtube/v3/playlistItems"
 YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
+YOUTUBE_WEBSUB_HUB_URL = "https://pubsubhubbub.appspot.com/subscribe"
+YOUTUBE_WEBSUB_TOPIC_URL = "https://www.youtube.com/xml/feeds/videos.xml"
+YOUTUBE_WEBSUB_LEASE_SECONDS = 10 * 24 * 60 * 60
+YOUTUBE_WEBSUB_RENEWAL_SECONDS = 7 * 24 * 60 * 60
+YOUTUBE_WEBSUB_FAILURE_RETRY_SECONDS = 5 * 60
 
 
 def _youtube_channel_params(account_identifier: str) -> dict[str, str]:
@@ -42,6 +50,47 @@ def _youtube_channel_params(account_identifier: str) -> dict[str, str]:
     if account_identifier.startswith("@"):
         return {"forHandle": account_identifier}
     raise ValueError("Unsupported YouTube channel identifier")
+
+
+def youtube_websub_callback_url() -> str:
+    return (
+        f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}"
+        f"{settings.API_V1_STR}/webhooks/youtube"
+    )
+
+
+def youtube_websub_is_configured() -> bool:
+    return bool(settings.YOUTUBE_WEBSUB_ENABLED and settings.YOUTUBE_WEBSUB_SECRET)
+
+
+def is_youtube_websub_topic(topic: str) -> bool:
+    parsed = urlparse(topic)
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "www.youtube.com"
+        or parsed.path != "/xml/feeds/videos.xml"
+    ):
+        return False
+    try:
+        channel_ids = parse_qs(parsed.query, strict_parsing=True).get("channel_id", [])
+    except ValueError:
+        return False
+    return len(channel_ids) == 1 and bool(
+        re.fullmatch(r"UC[A-Za-z0-9_-]{20,}", channel_ids[0])
+    )
+
+
+def verify_youtube_websub_signature(*, body: bytes, signature: str | None) -> bool:
+    secret = settings.YOUTUBE_WEBSUB_SECRET
+    if not youtube_websub_is_configured() or not secret or signature is None:
+        return False
+    algorithm, separator, received_digest = signature.partition("=")
+    if separator != "=" or algorithm not in {"sha1", "sha256"} or not received_digest:
+        return False
+    expected_digest = hmac.new(
+        secret.encode(), body, getattr(hashlib, algorithm)
+    ).hexdigest()
+    return hmac.compare_digest(received_digest, expected_digest)
 
 
 def _parse_published(value: object) -> datetime | None:
@@ -86,7 +135,7 @@ async def fetch_youtube_posts(
         channel_response = await client.get(
             YOUTUBE_CHANNELS_URL,
             params={
-                "part": "contentDetails",
+                "part": "id,contentDetails",
                 "key": settings.YOUTUBE_API_KEY,
                 **_youtube_channel_params(account_identifier),
             },
@@ -173,6 +222,90 @@ async def fetch_youtube_posts(
     return playlist_items
 
 
+async def fetch_youtube_channel_id(account_identifier: str) -> str:
+    if not settings.YOUTUBE_API_KEY:
+        raise RuntimeError("YouTube media sync credentials are not configured")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(
+            YOUTUBE_CHANNELS_URL,
+            params={
+                "part": "id",
+                "key": settings.YOUTUBE_API_KEY,
+                **_youtube_channel_params(account_identifier),
+            },
+        )
+        response.raise_for_status()
+    payload = response.json()
+    items = payload.get("items")
+    if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+        raise ValueError("YouTube channel was not found")
+    channel_id = items[0].get("id")
+    if not isinstance(channel_id, str) or not channel_id:
+        raise ValueError("YouTube channel API returned an invalid payload")
+    return channel_id
+
+
+async def refresh_youtube_websub_subscriptions(
+    *, links: list[PlayerSocialLink] | None = None
+) -> bool:
+    if not youtube_websub_is_configured():
+        return True
+
+    if links is None:
+        async with async_session_maker() as session:
+            links = list(
+                (
+                    await session.exec(
+                        select(PlayerSocialLink).where(
+                            col(PlayerSocialLink.platform)
+                            == PlayerSocialPlatform.YOUTUBE,
+                            col(PlayerSocialLink.verified).is_(True),
+                        )
+                    )
+                ).all()
+            )
+
+    success = True
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for link in links:
+            try:
+                channel_id = await fetch_youtube_channel_id(link.account_identifier)
+                response = await client.post(
+                    YOUTUBE_WEBSUB_HUB_URL,
+                    data={
+                        "hub.mode": "subscribe",
+                        "hub.topic": f"{YOUTUBE_WEBSUB_TOPIC_URL}?channel_id={channel_id}",
+                        "hub.callback": youtube_websub_callback_url(),
+                        "hub.verify": "async",
+                        "hub.secret": settings.YOUTUBE_WEBSUB_SECRET,
+                        "hub.lease_seconds": str(YOUTUBE_WEBSUB_LEASE_SECONDS),
+                    },
+                )
+                response.raise_for_status()
+            except Exception:
+                success = False
+                logger.exception(
+                    "Failed to refresh YouTube WebSub subscription",
+                    extra={"social_link_id": str(link.id)},
+                )
+    return success
+
+
+def schedule_youtube_media_sync() -> None:
+    task = asyncio.create_task(sync_youtube_media_once())
+
+    def log_failure(completed_task: asyncio.Task[int]) -> None:
+        try:
+            completed_task.result()
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logger.exception("YouTube media webhook sync failed")
+
+    task.add_done_callback(log_failure)
+
+
 async def cache_youtube_thumbnail(*, video_id: str, raw_url: str | None) -> str | None:
     if raw_url is None:
         return None
@@ -187,11 +320,14 @@ async def cache_youtube_thumbnail(*, video_id: str, raw_url: str | None) -> str 
         ]
         if not content_type.startswith("image/"):
             raise ValueError("YouTube thumbnail was not an image")
-        return await r2_storage.put_object(
-            key=f"media/thumbnails/youtube/{video_id}.jpg",
-            body=response.content,
-            content_type=content_type,
-            cache_control="public, max-age=31536000, immutable",
+        return cast(
+            str,
+            await r2_storage.put_object(
+                key=f"media/thumbnails/youtube/{video_id}.jpg",
+                body=response.content,
+                content_type=content_type,
+                cache_control="public, max-age=31536000, immutable",
+            ),
         )
     except Exception:
         logger.exception(
@@ -306,6 +442,7 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
 
 
 async def run_media_sync_runner_in_app() -> None:
+    next_websub_refresh_at: datetime | None = None
     while True:
         try:
             database_uri = str(settings.SQLALCHEMY_DATABASE_URI).replace(
@@ -325,6 +462,21 @@ async def run_media_sync_runner_in_app() -> None:
                 try:
                     while True:
                         await sync_youtube_media_once()
+                        now = get_datetime_utc()
+                        if (
+                            next_websub_refresh_at is None
+                            or now >= next_websub_refresh_at
+                        ):
+                            websub_refresh_succeeded = (
+                                await refresh_youtube_websub_subscriptions()
+                            )
+                            next_websub_refresh_at = now + timedelta(
+                                seconds=(
+                                    YOUTUBE_WEBSUB_RENEWAL_SECONDS
+                                    if websub_refresh_succeeded
+                                    else YOUTUBE_WEBSUB_FAILURE_RETRY_SECONDS
+                                )
+                            )
                         await asyncio.sleep(settings.MEDIA_SYNC_POLL_SECONDS)
                 finally:
                     with suppress(Exception):

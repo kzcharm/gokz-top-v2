@@ -162,7 +162,7 @@
 - Twitch Helix API is consumed for verified Twitch live-stream status and cached Twitch follower counts using app credentials.
 - Cloudflare R2 can be consumed through its S3-compatible API for app-managed public object storage.
 - SteamCMD is used by the production map file distributor to download Workshop map BSPs for app id `730`.
-- YouTube Data API can be consumed with `YOUTUBE_API_KEY` to refresh cached YouTube subscriber counts for verified social links, and Google OAuth credentials (`YOUTUBE_CLIENT_ID`/`YOUTUBE_CLIENT_SECRET`) power self-serve YouTube social-link verification.
+- YouTube Data API can be consumed with `YOUTUBE_API_KEY` to refresh cached YouTube subscriber counts for verified social links, and Google OAuth credentials (`YOUTUBE_CLIENT_ID`/`YOUTUBE_CLIENT_SECRET`) power self-serve YouTube social-link verification. Production media sync also subscribes verified YouTube channels through WebSub; signed upload notifications schedule an immediate idempotent sync while the 15-minute polling runner remains the recovery path.
 - GlobalAPI ban sync upserts by nullable external `ban.id`, uses large backfill pages for catch-up, then incremental `created_since` overlap polling with a steady-state page size of `10`, and ignores local manual bans because they do not carry an external id.
 
 ## Implementation Constraints

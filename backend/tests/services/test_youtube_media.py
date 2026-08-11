@@ -81,7 +81,7 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
         (
             youtube_media.YOUTUBE_CHANNELS_URL,
             {
-                "part": "contentDetails",
+                "part": "id,contentDetails",
                 "key": "youtube-key",
                 "forHandle": "@kzcis",
             },
@@ -104,6 +104,68 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
             },
         ),
     ]
+
+
+@pytest.mark.asyncio
+async def test_refresh_youtube_websub_subscriptions_resolves_channels_and_signs_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests: list[tuple[str, dict[str, str]]] = []
+    link = PlayerSocialLink(
+        player_steamid64=random_steamid64(),
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@kzcis",
+        verified=True,
+    )
+
+    class _Client:
+        async def __aenter__(self) -> _Client:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        async def post(self, url: str, *, data: dict[str, str]) -> _Response:
+            requests.append((url, data))
+            return _Response({})
+
+    async def _fetch_channel_id(account_identifier: str) -> str:
+        assert account_identifier == "@kzcis"
+        return "UC12345678901234567890AB"
+
+    monkeypatch.setattr(settings, "BACKEND_PUBLIC_URL", "https://api.example.com")
+    monkeypatch.setattr(settings, "YOUTUBE_WEBSUB_ENABLED", True)
+    monkeypatch.setattr(settings, "YOUTUBE_WEBSUB_SECRET", "websub-secret")
+    monkeypatch.setattr(youtube_media, "fetch_youtube_channel_id", _fetch_channel_id)
+    monkeypatch.setattr(youtube_media.httpx, "AsyncClient", lambda **_: _Client())
+
+    assert await youtube_media.refresh_youtube_websub_subscriptions(links=[link])
+    assert requests == [
+        (
+            youtube_media.YOUTUBE_WEBSUB_HUB_URL,
+            {
+                "hub.mode": "subscribe",
+                "hub.topic": (
+                    "https://www.youtube.com/xml/feeds/videos.xml?"
+                    "channel_id=UC12345678901234567890AB"
+                ),
+                "hub.callback": "https://api.example.com/v1/webhooks/youtube",
+                "hub.verify": "async",
+                "hub.secret": "websub-secret",
+                "hub.lease_seconds": str(youtube_media.YOUTUBE_WEBSUB_LEASE_SECONDS),
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_refresh_youtube_websub_subscriptions_is_disabled_without_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "YOUTUBE_WEBSUB_ENABLED", False)
+    monkeypatch.setattr(settings, "YOUTUBE_WEBSUB_SECRET", None)
+
+    assert await youtube_media.refresh_youtube_websub_subscriptions(links=[])
 
 
 @pytest.mark.asyncio

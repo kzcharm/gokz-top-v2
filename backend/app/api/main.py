@@ -39,6 +39,7 @@ from app.api.v1 import (
     servers,
     users,
     utils,
+    youtube_webhooks,
 )
 from app.core.config import settings
 
@@ -61,6 +62,7 @@ api_router.include_router(jumpstats.router)
 api_router.include_router(leaderboards.router)
 api_router.include_router(live.router)
 api_router.include_router(media.router)
+api_router.include_router(youtube_webhooks.router)
 api_router.include_router(maps.router)
 api_router.include_router(misc.router)
 api_router.include_router(modes.router)
