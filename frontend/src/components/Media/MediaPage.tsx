@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle, Play, RefreshCw, Video } from "lucide-react"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { type MediaPostPublic, MediaService } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
@@ -8,9 +8,58 @@ import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
+import { markMediaVisited } from "@/lib/media-notifications"
 import { cn } from "@/lib/utils"
+
+const filterablePlatforms = ["youtube", "bilibili"] as const
+type FilterablePlatform = (typeof filterablePlatforms)[number]
+type MediaSort = "latest" | "views" | "length"
+
+const platformFilterLabels: Record<FilterablePlatform, string> = {
+  youtube: "YouTube",
+  bilibili: "Bilibili",
+}
+
+const platformFilterClasses: Record<FilterablePlatform, string> = {
+  youtube:
+    "border-red-600 bg-red-600 text-white hover:border-red-700 hover:bg-red-700 focus-visible:ring-red-600/30",
+  bilibili:
+    "border-pink-500 bg-pink-500 text-white hover:border-pink-600 hover:bg-pink-600 focus-visible:ring-pink-500/30",
+}
+
+const mediaSortLabels: Record<MediaSort, string> = {
+  latest: "Latest",
+  views: "Most views",
+  length: "Video length",
+}
+
+function compareByLatest(left: MediaPostPublic, right: MediaPostPublic) {
+  return right.published_at.localeCompare(left.published_at)
+}
+
+function sortPosts(posts: MediaPostPublic[], sort: MediaSort) {
+  if (sort === "latest") return posts
+
+  return [...posts].sort((left, right) => {
+    if (sort === "views") {
+      return right.view_count - left.view_count || compareByLatest(left, right)
+    }
+
+    return (
+      (right.duration_seconds ?? -1) - (left.duration_seconds ?? -1) ||
+      compareByLatest(left, right)
+    )
+  })
+}
 
 function formatDuration(value: number | null | undefined) {
   if (value === null || value === undefined) return null
@@ -130,6 +179,9 @@ function MediaCardSkeleton() {
 export function MediaPage() {
   const queryClient = useQueryClient()
   const submittedRefreshPostIds = useRef(new Set<string>())
+  const [selectedPlatform, setSelectedPlatform] =
+    useState<FilterablePlatform | null>(null)
+  const [sort, setSort] = useState<MediaSort>("latest")
   const postsQuery = useInfiniteQuery({
     queryKey: ["media-posts"],
     queryFn: ({ pageParam }) =>
@@ -138,6 +190,14 @@ export function MediaPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
   })
   const posts = postsQuery.data?.pages.flatMap((page) => page.data) ?? []
+  const filteredPosts = selectedPlatform
+    ? posts.filter((post) => post.platform === selectedPlatform)
+    : posts
+  const visiblePosts = sortPosts(filteredPosts, sort)
+
+  useEffect(() => {
+    markMediaVisited()
+  }, [])
 
   useEffect(() => {
     const postIds = (postsQuery.data?.pages ?? [])
@@ -178,9 +238,52 @@ export function MediaPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Video className="size-5 text-muted-foreground" />
-        <h1 className="text-3xl font-semibold">Media</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Video className="size-5 text-muted-foreground" />
+          <h1 className="text-3xl font-semibold">Media</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          <div className="flex items-center gap-3" aria-label="Media platform filters">
+            {filterablePlatforms.map((platform) => {
+              const isSelected = selectedPlatform === platform
+
+              return (
+                <Button
+                  key={platform}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className={isSelected ? platformFilterClasses[platform] : undefined}
+                  onClick={() =>
+                    setSelectedPlatform((current) =>
+                      current === platform ? null : platform,
+                    )
+                  }
+                  aria-pressed={isSelected}
+                >
+                  <SocialPlatformIcon platform={platform} className="size-4" />
+                  {platformFilterLabels[platform]}
+                </Button>
+              )
+            })}
+          </div>
+          <Select
+            value={sort}
+            onValueChange={(value) => setSort(value as MediaSort)}
+          >
+            <SelectTrigger size="sm" aria-label="Sort media">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {(Object.keys(mediaSortLabels) as MediaSort[]).map((option) => (
+                <SelectItem key={option} value={option}>
+                  {mediaSortLabels[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       {postsQuery.isError ? (
         <Alert variant="destructive">
@@ -204,10 +307,10 @@ export function MediaPage() {
             <MediaCardSkeleton key={index} />
           ))}
         </div>
-      ) : posts.length ? (
+      ) : visiblePosts.length ? (
         <>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {posts.map((post) => (
+            {visiblePosts.map((post) => (
               <MediaCard key={post.id} post={post} />
             ))}
           </div>
@@ -229,7 +332,7 @@ export function MediaPage() {
       ) : (
         <div className="border border-dashed px-6 py-16 text-center text-muted-foreground">
           <Video className="mx-auto mb-3 size-8" />
-          <p>No recent videos from verified players yet.</p>
+          <p>No recent videos from the selected platforms yet.</p>
         </div>
       )}
     </section>

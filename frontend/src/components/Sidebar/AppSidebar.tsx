@@ -13,10 +13,10 @@ import {
   Users,
   Video,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AdminServersService, LiveService } from "@/client"
+import { AdminServersService, LiveService, MediaService } from "@/client"
 import { Logo } from "@/components/Common/Logo"
 import {
   Sidebar,
@@ -25,12 +25,16 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import useAuth from "@/hooks/useAuth"
+import {
+  getMediaLastVisitedAt,
+  markMediaVisited,
+  MEDIA_LAST_VISITED_EVENT,
+} from "@/lib/media-notifications"
 import { hasRole, isSuperuser } from "@/lib/user-roles"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const AXE_KZ_MINOR_SEEN_STORAGE_KEY = "gokz-axe-kz-minor-seen"
-
 function hasSeenAxeKzMinor() {
   try {
     return localStorage.getItem(AXE_KZ_MINOR_SEEN_STORAGE_KEY) === "1"
@@ -43,6 +47,8 @@ export function AppSidebar() {
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [hasClickedLive, setHasClickedLive] = useState(false)
+  const [mediaLastVisitedAt, setMediaLastVisitedAt] =
+    useState(getMediaLastVisitedAt)
   const [hasClickedMinor, setHasClickedMinor] = useState(hasSeenAxeKzMinor)
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
   const currentUserIsSuperuser = isSuperuser(currentUser)
@@ -62,6 +68,22 @@ export function AppSidebar() {
     liveStreamsQuery.data !== undefined &&
     liveStreamsQuery.data.count >= 1 &&
     !hasClickedLive
+  const mediaPostsQuery = useQuery({
+    queryKey: ["media-posts", "sidebar"],
+    queryFn: () => MediaService.readMediaPosts({ limit: 1 }),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+  useEffect(() => {
+    const handleMediaVisited = () => setMediaLastVisitedAt(getMediaLastVisitedAt())
+    window.addEventListener(MEDIA_LAST_VISITED_EVENT, handleMediaVisited)
+    return () =>
+      window.removeEventListener(MEDIA_LAST_VISITED_EVENT, handleMediaVisited)
+  }, [])
+  const showMediaDot =
+    mediaPostsQuery.data?.data[0] !== undefined &&
+    (mediaLastVisitedAt === null ||
+      Date.parse(mediaPostsQuery.data.data[0].published_at) > mediaLastVisitedAt)
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: t("nav.servers"), path: "/servers" },
@@ -87,7 +109,13 @@ export function AppSidebar() {
       path: "/live",
       showNotificationDot: showLiveDot,
     },
-    { type: "link", icon: Video, title: t("nav.media"), path: "/media" },
+    {
+      type: "link",
+      icon: Video,
+      title: t("nav.media"),
+      path: "/media",
+      showNotificationDot: showMediaDot,
+    },
     {
       type: "link",
       icon: Trophy,
@@ -164,6 +192,9 @@ export function AppSidebar() {
           onLinkNavigate={(path) => {
             if (path === "/live") {
               setHasClickedLive(true)
+            }
+            if (path === "/media") {
+              setMediaLastVisitedAt(markMediaVisited())
             }
             if (path === "https://axekz.com/tournament/axekz-minor") {
               try {

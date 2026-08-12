@@ -2,6 +2,170 @@ import { expect, test } from "@playwright/test"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
+test("Media notification dot only returns for videos published after a visit", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.removeItem("gokz-media-last-visited-at")
+  })
+  await page.route(/\/v1\/live\/streams(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+  let mediaRequestCount = 0
+  await page.route(/\/v1\/media\/posts\?/, async (route) => {
+    mediaRequestCount += 1
+    const publishedAt =
+      mediaRequestCount >= 3 ? "2099-01-01T00:00:00Z" : "2020-01-01T00:00:00Z"
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            id: "018f01a0-0000-7000-8000-000000000004",
+            player: {
+              steamid64: "76561198000000004",
+              display_name: "Media Player",
+            },
+            platform: "youtube",
+            external_video_id: "media-video",
+            title: "Media video",
+            url: "https://www.youtube.com/watch?v=media-video",
+            published_at: publishedAt,
+            view_count: 1,
+            available: true,
+          },
+        ],
+        next_cursor: null,
+        count: 1,
+      }),
+    })
+  })
+  await page.route(/\/v1\/media\/posts\/view-counts$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    })
+  })
+
+  await page.goto("/servers")
+
+  const mediaLink = page.getByRole("link", { name: "Media" })
+  await expect(
+    mediaLink.locator('span[aria-hidden="true"].bg-red-500'),
+  ).toBeVisible()
+
+  await mediaLink.click()
+  await expect(page).toHaveURL(/\/media$/)
+
+  await page.getByRole("link", { name: "Servers" }).click()
+  await expect(
+    page
+      .getByRole("link", { name: "Media" })
+      .locator('span[aria-hidden="true"].bg-red-500'),
+  ).toHaveCount(0)
+
+  await page.reload()
+  await expect(
+    page
+      .getByRole("link", { name: "Media" })
+      .locator('span[aria-hidden="true"].bg-red-500'),
+  ).toBeVisible()
+})
+
+test("Media page filters videos by one platform and toggles the selection", async ({
+  page,
+}) => {
+  await page.route(/\/v1\/media\/posts\?/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            id: "018f01a0-0000-7000-8000-000000000002",
+            player: {
+              steamid64: "76561198000000002",
+              display_name: "YouTube Player",
+            },
+            platform: "youtube",
+            external_video_id: "youtube-video",
+            title: "YouTube KZ run",
+            url: "https://www.youtube.com/watch?v=youtube-video",
+            published_at: "2026-08-11T10:00:00Z",
+            view_count: 10,
+            duration_seconds: 60,
+            available: true,
+          },
+          {
+            id: "018f01a0-0000-7000-8000-000000000003",
+            player: {
+              steamid64: "76561198000000003",
+              display_name: "Bilibili Player",
+            },
+            platform: "bilibili",
+            external_video_id: "bilibili-video",
+            title: "Bilibili KZ run",
+            url: "https://www.bilibili.com/video/bilibili-video",
+            published_at: "2026-08-11T10:00:00Z",
+            view_count: 20,
+            duration_seconds: 120,
+            available: true,
+          },
+        ],
+        next_cursor: null,
+        count: 2,
+      }),
+    })
+  })
+  await page.route(/\/v1\/media\/posts\/view-counts$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    })
+  })
+
+  await page.goto("/media")
+
+  await expect(page.getByText("YouTube KZ run")).toBeVisible()
+  await expect(page.getByText("Bilibili KZ run")).toBeVisible()
+
+  await page.getByRole("button", { name: "YouTube" }).click()
+  await expect(page.getByText("YouTube KZ run")).toBeVisible()
+  await expect(page.getByText("Bilibili KZ run")).not.toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "YouTube" }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("button", { name: "YouTube" })).toHaveClass(
+    /bg-red-600/,
+  )
+
+  await page.getByRole("button", { name: "Bilibili" }).click()
+  await expect(page.getByText("YouTube KZ run")).not.toBeVisible()
+  await expect(page.getByText("Bilibili KZ run")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Bilibili" })).toHaveClass(
+    /bg-pink-500/,
+  )
+
+  await page.getByRole("button", { name: "Bilibili" }).click()
+  await expect(page.getByText("YouTube KZ run")).toBeVisible()
+  await expect(page.getByText("Bilibili KZ run")).toBeVisible()
+
+  await page.getByRole("combobox", { name: "Sort media" }).click()
+  await page.getByRole("option", { name: "Most views" }).click()
+  await expect(page.locator("article").first()).toContainText("Bilibili KZ run")
+
+  await page.getByRole("combobox", { name: "Sort media" }).click()
+  await page.getByRole("option", { name: "Video length" }).click()
+  await expect(page.locator("article").first()).toContainText("Bilibili KZ run")
+})
+
 test("Media page updates a visible video's view count after its deferred refresh", async ({
   page,
 }) => {
