@@ -24,6 +24,21 @@ class _Response:
         return self.payload
 
 
+def test_is_allowed_bilibili_thumbnail_url_rejects_untrusted_hosts() -> None:
+    assert bilibili_media.is_allowed_bilibili_thumbnail_url(
+        "https://i0.hdslb.com/bfs/archive/thumbnail.jpg"
+    )
+    assert bilibili_media.is_allowed_bilibili_thumbnail_url(
+        "http://i1.hdslb.com/bfs/archive/thumbnail.jpg"
+    )
+    assert not bilibili_media.is_allowed_bilibili_thumbnail_url(
+        "https://hdslb.com.attacker.example/thumbnail.jpg"
+    )
+    assert not bilibili_media.is_allowed_bilibili_thumbnail_url(
+        "https://example.com/thumbnail.jpg"
+    )
+
+
 def test_sign_wbi_params_sanitizes_values_and_adds_stable_signature() -> None:
     params = bilibili_media._sign_wbi_params(
         {"keyword": "KZ!('*)", "mid": 123},
@@ -38,6 +53,13 @@ def test_sign_wbi_params_sanitizes_values_and_adds_stable_signature() -> None:
         "wts": "1700000000",
         "w_rid": "6ac974dfd14ea016abac2a82f22fa0e6",
     }
+
+
+def test_parse_view_count_normalizes_bilibili_upload_values() -> None:
+    assert bilibili_media._parse_view_count(42) == 42
+    assert bilibili_media._parse_view_count("17") == 17
+    assert bilibili_media._parse_view_count(-1) == 0
+    assert bilibili_media._parse_view_count("invalid") == 0
 
 
 @pytest.mark.asyncio
@@ -204,6 +226,7 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
                 "description": "A precise run",
                 "pic": "https://example.com/thumb.jpg",
                 "length": "1:42",
+                "play": 42,
             }
         ]
 
@@ -222,3 +245,4 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
     assert post.external_video_id == "BV1media"
     assert post.url == "https://www.bilibili.com/video/BV1media"
     assert post.duration_seconds == 102
+    assert post.view_count == 42

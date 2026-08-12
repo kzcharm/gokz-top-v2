@@ -5,6 +5,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
+from urllib.parse import urlencode
 
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -22,6 +23,21 @@ from app.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_media_thumbnail_url(post: MediaPost) -> str | None:
+    if post.thumbnail_url is None:
+        return None
+    if post.platform == PlayerSocialPlatform.BILIBILI:
+        from app.services.bilibili_media import is_allowed_bilibili_thumbnail_url
+
+        if not is_allowed_bilibili_thumbnail_url(post.thumbnail_url):
+            return post.thumbnail_url
+        return (
+            f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{settings.API_V1_STR}"
+            f"/media/thumbnail?{urlencode({'url': post.thumbnail_url})}"
+        )
+    return post.thumbnail_url
 
 
 async def fetch_youtube_video_view_counts(
@@ -107,7 +123,7 @@ async def read_media_posts(
             title=post.title,
             description=post.description,
             url=post.url,
-            thumbnail_url=post.thumbnail_url,
+            thumbnail_url=resolve_media_thumbnail_url(post),
             published_at=post.published_at,
             view_count=post.view_count,
             duration_seconds=post.duration_seconds,

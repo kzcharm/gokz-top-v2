@@ -5,7 +5,7 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlparse, urlsplit
 
 import httpx
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -29,6 +29,7 @@ BILIBILI_WBI_KEYS_URL = "https://api.bilibili.com/x/web-interface/nav"
 BILIBILI_UPLOADS_URL = "https://api.bilibili.com/x/space/wbi/arc/search"
 BILIBILI_VIDEO_VIEW_URL = "https://api.bilibili.com/x/web-interface/view"
 BILIBILI_WBI_CACHE_TTL = timedelta(minutes=10)
+BILIBILI_THUMBNAIL_HOST_SUFFIXES = ("hdslb.com",)
 _BILIBILI_BROWSER_HEADERS = {
     "Accept": "application/json,text/plain,*/*",
     "Accept-Language": "en-US,en;q=0.9",
@@ -132,11 +133,55 @@ def _parse_published(value: object) -> datetime | None:
     return None
 
 
+def _parse_view_count(value: object) -> int:
+    if isinstance(value, int | float):
+        return max(0, int(value))
+    if isinstance(value, str):
+        try:
+            return max(0, int(value))
+        except ValueError:
+            return 0
+    return 0
+
+
 def _bilibili_headers() -> dict[str, str]:
     headers = dict(_BILIBILI_BROWSER_HEADERS)
     if settings.BILIBILI_COOKIE:
         headers["Cookie"] = settings.BILIBILI_COOKIE
     return headers
+
+
+def is_allowed_bilibili_thumbnail_url(url: str) -> bool:
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    host = parsed.hostname
+    if host is None:
+        return False
+    return any(
+        host == suffix or host.endswith(f".{suffix}")
+        for suffix in BILIBILI_THUMBNAIL_HOST_SUFFIXES
+    )
+
+
+async def fetch_bilibili_thumbnail(url: str) -> tuple[bytes, str]:
+    if not is_allowed_bilibili_thumbnail_url(url):
+        raise ValueError("Bilibili thumbnail URL host is not allowed")
+
+    async with httpx.AsyncClient(
+        timeout=15.0,
+        follow_redirects=True,
+        headers=_bilibili_headers(),
+    ) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+
+    if not is_allowed_bilibili_thumbnail_url(str(response.url)):
+        raise ValueError("Bilibili thumbnail redirected to an untrusted host")
+    media_type = response.headers.get("content-type", "image/jpeg").split(";", 1)[0]
+    if not media_type.startswith("image/"):
+        raise ValueError("Bilibili thumbnail was not an image")
+    return response.content, media_type
 
 
 def _extract_wbi_key(value: object) -> str:
@@ -310,22 +355,17 @@ async def cache_bilibili_thumbnail(*, bvid: str, raw_url: object) -> str | None:
     if not isinstance(raw_url, str) or not raw_url:
         return None
     source_url = f"https:{raw_url}" if raw_url.startswith("//") else raw_url
-    if not r2_storage.is_configured() or not source_url.startswith("https://"):
+    if not r2_storage.is_configured() or not is_allowed_bilibili_thumbnail_url(
+        source_url
+    ):
         return source_url
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.get(source_url, follow_redirects=True)
-            response.raise_for_status()
-        content_type = response.headers.get("content-type", "image/jpeg").split(";", 1)[
-            0
-        ]
-        if not content_type.startswith("image/"):
-            raise ValueError("Bilibili thumbnail was not an image")
+        content, content_type = await fetch_bilibili_thumbnail(source_url)
         return cast(
             str,
             await r2_storage.put_object(
                 key=f"media/thumbnails/bilibili/{bvid}.jpg",
-                body=response.content,
+                body=content,
                 content_type=content_type,
                 cache_control="public, max-age=31536000, immutable",
             ),
@@ -383,6 +423,7 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                         "url": f"https://www.bilibili.com/video/{bvid}",
                         "thumbnail_url": thumbnail_url,
                         "published_at": published_at,
+                        "view_count": _parse_view_count(item.get("play")),
                         "discovered_at": now,
                         "duration_seconds": _parse_duration(item.get("length")),
                         "available": True,
@@ -404,6 +445,7 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                                     "url",
                                     "thumbnail_url",
                                     "published_at",
+                                    "view_count",
                                     "duration_seconds",
                                     "available",
                                     "last_checked_at",
