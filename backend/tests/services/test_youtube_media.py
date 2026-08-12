@@ -62,7 +62,15 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
                     }
                 )
             return _Response(
-                {"items": [{"id": "video-123", "statistics": {"viewCount": "42"}}]}
+                {
+                    "items": [
+                        {
+                            "id": "video-123",
+                            "statistics": {"viewCount": "42"},
+                            "contentDetails": {"duration": "PT1H2M3S"},
+                        }
+                    ]
+                }
             )
 
     monkeypatch.setattr(settings, "YOUTUBE_API_KEY", "youtube-key")
@@ -75,6 +83,7 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
             "id": "playlist-item",
             "snippet": {"resourceId": {"videoId": "video-123"}},
             "view_count": 42,
+            "duration_seconds": 3723,
         }
     ]
     assert calls == [
@@ -98,7 +107,7 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
         (
             youtube_media.YOUTUBE_VIDEOS_URL,
             {
-                "part": "statistics",
+                "part": "contentDetails,statistics",
                 "key": "youtube-key",
                 "id": "video-123",
             },
@@ -196,6 +205,7 @@ async def test_sync_youtube_media_creates_posts_for_verified_youtube_links(
                 },
                 "contentDetails": {"videoPublishedAt": "2026-08-10T12:00:00Z"},
                 "view_count": 42,
+                "duration_seconds": 3723,
             }
         ]
 
@@ -216,6 +226,7 @@ async def test_sync_youtube_media_creates_posts_for_verified_youtube_links(
     assert post.url == "https://www.youtube.com/watch?v=abc123"
     assert post.published_at == datetime(2026, 8, 10, 12, 0, tzinfo=UTC)
     assert post.view_count == 42
+    assert post.duration_seconds == 3723
 
 
 @pytest.mark.asyncio

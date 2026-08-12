@@ -113,6 +113,25 @@ def _parse_view_count(value: object) -> int:
         return 0
 
 
+def _parse_duration(value: object) -> int | None:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value if value >= 0 else None
+    if not isinstance(value, str):
+        return None
+    match = re.fullmatch(
+        r"P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?",
+        value,
+    )
+    if match is None or not any(match.groupdict().values()):
+        return None
+    return (
+        int(match.group("days") or 0) * 86_400
+        + int(match.group("hours") or 0) * 3_600
+        + int(match.group("minutes") or 0) * 60
+        + int(match.group("seconds") or 0)
+    )
+
+
 def _thumbnail_url(snippet: dict[str, Any]) -> str | None:
     thumbnails = snippet.get("thumbnails")
     if not isinstance(thumbnails, dict):
@@ -196,7 +215,7 @@ async def fetch_youtube_posts(
         videos_response = await client.get(
             YOUTUBE_VIDEOS_URL,
             params={
-                "part": "statistics",
+                "part": "contentDetails,statistics",
                 "key": settings.YOUTUBE_API_KEY,
                 "id": ",".join(video_ids),
             },
@@ -205,21 +224,35 @@ async def fetch_youtube_posts(
         videos_payload = videos_response.json()
 
     videos = videos_payload.get("items")
-    view_counts: dict[str, int] = {}
+    video_metadata: dict[str, tuple[int, int | None]] = {}
     if isinstance(videos, list):
         for video in videos:
             if not isinstance(video, dict):
                 continue
             video_id = video.get("id")
             statistics = video.get("statistics")
-            if isinstance(video_id, str) and isinstance(statistics, dict):
-                view_counts[video_id] = _parse_view_count(statistics.get("viewCount"))
+            content_details = video.get("contentDetails")
+            if isinstance(video_id, str):
+                video_metadata[video_id] = (
+                    _parse_view_count(
+                        statistics.get("viewCount")
+                        if isinstance(statistics, dict)
+                        else None
+                    ),
+                    _parse_duration(
+                        content_details.get("duration")
+                        if isinstance(content_details, dict)
+                        else None
+                    ),
+                )
     for item in playlist_items:
         snippet = item.get("snippet")
         resource = snippet.get("resourceId") if isinstance(snippet, dict) else None
         video_id = resource.get("videoId") if isinstance(resource, dict) else None
         if isinstance(video_id, str):
-            item["view_count"] = view_counts.get(video_id, 0)
+            view_count, duration_seconds = video_metadata.get(video_id, (0, None))
+            item["view_count"] = view_count
+            item["duration_seconds"] = duration_seconds
     return playlist_items
 
 
@@ -432,7 +465,7 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
                         "published_at": published_at,
                         "view_count": _parse_view_count(item.get("view_count")),
                         "discovered_at": now,
-                        "duration_seconds": None,
+                        "duration_seconds": _parse_duration(item.get("duration_seconds")),
                         "available": True,
                         "last_checked_at": now,
                         "last_error": None,

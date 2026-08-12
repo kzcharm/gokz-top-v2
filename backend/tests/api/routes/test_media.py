@@ -50,6 +50,41 @@ async def test_read_media_posts_proxies_bilibili_thumbnails(
     )
 
 
+async def test_read_media_posts_returns_youtube_duration(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Media Player")
+    db.add(player)
+    await db.commit()
+    link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@media-player",
+        verified=True,
+    )
+    db.add(link)
+    await db.commit()
+    db.add(
+        MediaPost(
+            player_social_link_id=link.id,
+            player_steamid64=player.steamid64,
+            platform=PlayerSocialPlatform.YOUTUBE,
+            external_video_id="youtube-duration",
+            title="YouTube duration",
+            url="https://www.youtube.com/watch?v=youtube-duration",
+            published_at=get_datetime_utc(),
+            duration_seconds=3723,
+        )
+    )
+    await db.commit()
+
+    response = await client.get("/v1/media/posts")
+
+    assert response.status_code == 200
+    assert response.json()["data"][0]["duration_seconds"] == 3723
+
+
 async def test_proxy_bilibili_thumbnail_returns_bytes(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
