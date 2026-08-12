@@ -98,6 +98,7 @@ Scope model:
 - Authenticated players have a notifications inbox at `/notifications`, surfaced by a navbar bell with an unread badge. The first notification set covers profile likes, profile comments, new followers, and future-only KZT/SKZ/VNL NUB/PRO WR-beaten events. Notifications remain unread until the player opens/clicks a notification or uses the mark-all-read action.
 - Authenticated players can submit in-app player reports from player context menus and record row context menus; record-originated reports include the record UUID as context, require a description, warn against joke/abusive reports, and notify all admins plus the configured root user.
 - `/live` lists player-centric verified stream cards sourced from verified Bilibili and Twitch links, with filters for live versus previously streamed players.
+- `/media` lists recent uploads from verified YouTube and Bilibili links. Bilibili ingestion must use signed creator-upload polling with an optional server-only dedicated-account session cookie so anti-bot responses do not prevent the public feed from updating.
 - Offline `/live` cards must show the most recently observed stream across a player's enabled platforms, so future multi-platform support can prefer the newest Twitch/YouTube/Bilibili activity rather than a fixed platform order.
 - When Cloudflare R2 is configured, `/live` stores the latest observed Bilibili and Twitch stream keyframe in R2 and uses that saved image for offline stream cards.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).

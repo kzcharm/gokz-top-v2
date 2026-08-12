@@ -26,6 +26,7 @@ from app.models import (
     get_datetime_utc,
 )
 from app.services import r2_storage
+from app.services.bilibili_media import sync_bilibili_media_once
 
 logger = logging.getLogger(__name__)
 MEDIA_SYNC_LOCK_ID = int.from_bytes(
@@ -496,6 +497,7 @@ async def run_media_sync_runner_in_app() -> None:
                 try:
                     while True:
                         await sync_youtube_media_once()
+                        await sync_bilibili_media_once()
                         now = get_datetime_utc()
                         if (
                             next_websub_refresh_at is None

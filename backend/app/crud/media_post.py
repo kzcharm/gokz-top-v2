@@ -4,6 +4,7 @@ import base64
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -27,6 +28,14 @@ async def fetch_youtube_video_view_counts(
     video_ids: list[str],
 ) -> dict[str, int]:
     from app.services.youtube_media import fetch_youtube_video_view_counts as fetch
+
+    return cast(dict[str, int], await fetch(video_ids))
+
+
+async def fetch_bilibili_video_view_counts(
+    video_ids: list[str],
+) -> dict[str, int]:
+    from app.services.bilibili_media import fetch_bilibili_video_view_counts as fetch
 
     return await fetch(video_ids)
 
@@ -56,7 +65,11 @@ async def read_media_posts(
     from_: datetime | None,
     to: datetime | None,
 ) -> MediaPostsPublic:
-    filters = [col(MediaPost.platform) == PlayerSocialPlatform.YOUTUBE]
+    filters: list[Any] = [
+        col(MediaPost.platform).in_(
+            [PlayerSocialPlatform.YOUTUBE, PlayerSocialPlatform.BILIBILI]
+        )
+    ]
     if steamid64 is not None:
         filters.append(col(MediaPost.player_steamid64) == int(steamid64))
     if from_ is not None:
@@ -135,7 +148,9 @@ async def refresh_media_post_view_counts(
             await session.exec(
                 select(MediaPost).where(
                     col(MediaPost.id).in_(unique_post_ids),
-                    col(MediaPost.platform) == PlayerSocialPlatform.YOUTUBE,
+                    col(MediaPost.platform).in_(
+                        [PlayerSocialPlatform.YOUTUBE, PlayerSocialPlatform.BILIBILI]
+                    ),
                     col(MediaPost.last_checked_at) < stale_before,
                 )
             )
@@ -144,28 +159,35 @@ async def refresh_media_post_view_counts(
     if not posts:
         return MediaPostViewCountsRefreshPublic(data=[])
 
-    try:
-        view_counts = await fetch_youtube_video_view_counts(
-            [post.external_video_id for post in posts]
-        )
-    except Exception as exc:
-        logger.warning("Media view-count refresh failed", exc_info=True)
-        error = str(exc)[:500]
-        for post in posts:
-            post.last_error = error
-        await session.commit()
-        return MediaPostViewCountsRefreshPublic(data=[])
-
     refreshed: list[MediaPostViewCountPublic] = []
-    for post in posts:
-        view_count = view_counts.get(post.external_video_id)
-        if view_count is None:
+    for platform, fetch_view_counts in (
+        (PlayerSocialPlatform.YOUTUBE, fetch_youtube_video_view_counts),
+        (PlayerSocialPlatform.BILIBILI, fetch_bilibili_video_view_counts),
+    ):
+        platform_posts = [post for post in posts if post.platform == platform]
+        if not platform_posts:
             continue
-        post.view_count = view_count
-        post.last_checked_at = now
-        post.last_error = None
-        refreshed.append(MediaPostViewCountPublic(id=post.id, view_count=view_count))
-    if refreshed:
+        try:
+            view_counts = await fetch_view_counts(
+                [post.external_video_id for post in platform_posts]
+            )
+        except Exception as exc:
+            logger.warning("Media view-count refresh failed", exc_info=True)
+            error = str(exc)[:500]
+            for post in platform_posts:
+                post.last_error = error
+            continue
+        for post in platform_posts:
+            view_count = view_counts.get(post.external_video_id)
+            if view_count is None:
+                continue
+            post.view_count = view_count
+            post.last_checked_at = now
+            post.last_error = None
+            refreshed.append(
+                MediaPostViewCountPublic(id=post.id, view_count=view_count)
+            )
+    if refreshed or posts:
         await session.commit()
     return MediaPostViewCountsRefreshPublic(data=refreshed)
 

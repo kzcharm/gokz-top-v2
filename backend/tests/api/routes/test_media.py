@@ -12,7 +12,7 @@ from tests.utils.utils import random_steamid64
 pytestmark = pytest.mark.asyncio
 
 
-async def test_refresh_media_post_view_counts_updates_only_stale_youtube_posts(
+async def test_refresh_media_post_view_counts_updates_stale_posts_by_platform(
     client: AsyncClient,
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -75,13 +75,23 @@ async def test_refresh_media_post_view_counts_updates_only_stale_youtube_posts(
     db.add(bilibili_post)
     await db.commit()
 
-    requested_ids: list[str] = []
+    requested_youtube_ids: list[str] = []
+    requested_bilibili_ids: list[str] = []
 
     async def fetch_view_counts(video_ids: list[str]) -> dict[str, int]:
-        requested_ids.extend(video_ids)
+        requested_youtube_ids.extend(video_ids)
         return {"stale-video": 99}
 
-    monkeypatch.setattr(media_post, "fetch_youtube_video_view_counts", fetch_view_counts)
+    async def fetch_bilibili_view_counts(video_ids: list[str]) -> dict[str, int]:
+        requested_bilibili_ids.extend(video_ids)
+        return {"bilibili-video": 199}
+
+    monkeypatch.setattr(
+        media_post, "fetch_youtube_video_view_counts", fetch_view_counts
+    )
+    monkeypatch.setattr(
+        media_post, "fetch_bilibili_video_view_counts", fetch_bilibili_view_counts
+    )
 
     response = await client.post(
         "/v1/media/posts/view-counts",
@@ -97,14 +107,20 @@ async def test_refresh_media_post_view_counts_updates_only_stale_youtube_posts(
 
     assert response.status_code == 200
     assert response.json() == {
-        "data": [{"id": str(stale_youtube.id), "view_count": 99}]
+        "data": [
+            {"id": str(stale_youtube.id), "view_count": 99},
+            {"id": str(bilibili_post.id), "view_count": 199},
+        ]
     }
-    assert requested_ids == ["stale-video"]
+    assert requested_youtube_ids == ["stale-video"]
+    assert requested_bilibili_ids == ["bilibili-video"]
     await db.refresh(stale_youtube)
     await db.refresh(fresh_youtube)
+    await db.refresh(bilibili_post)
     assert stale_youtube.view_count == 99
     assert stale_youtube.last_checked_at > now - timedelta(minutes=1)
     assert fresh_youtube.view_count == 20
+    assert bilibili_post.view_count == 199
 
 
 async def test_refresh_media_post_view_counts_preserves_cached_values_on_failure(

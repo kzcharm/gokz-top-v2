@@ -219,7 +219,7 @@ async def test_sync_youtube_media_creates_posts_for_verified_youtube_links(
 
 
 @pytest.mark.asyncio
-async def test_media_feed_only_returns_youtube_posts(db: AsyncSession) -> None:
+async def test_media_feed_returns_youtube_and_bilibili_posts(db: AsyncSession) -> None:
     player = Player(steamid64=random_steamid64(), name="Media Player")
     db.add(player)
     await db.commit()
@@ -272,4 +272,7 @@ async def test_media_feed_only_returns_youtube_posts(db: AsyncSession) -> None:
         to=None,
     )
 
-    assert [post.external_video_id for post in response.data] == ["youtube-video"]
+    assert [post.external_video_id for post in response.data] == [
+        "youtube-video",
+        "bilibili-video",
+    ]
