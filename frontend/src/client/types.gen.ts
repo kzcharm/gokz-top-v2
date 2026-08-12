@@ -2365,10 +2365,18 @@ export type MeMarkCurrentPlayerNotificationReadResponse = (PlayerNotificationPub
 
 export type MeMarkAllCurrentPlayerNotificationsReadResponse = (Message);
 
+export type MediaProxyBilibiliThumbnailData = {
+    url: string;
+};
+
+export type MediaProxyBilibiliThumbnailResponse = (unknown);
+
 export type MediaReadMediaPostsData = {
     _from?: (string | null);
     cursor?: (string | null);
     limit?: number;
+    platform?: ('youtube' | 'bilibili' | null);
+    sort?: 'latest' | 'views' | 'length';
     steamid64?: (string | null);
     to?: (string | null);
 };

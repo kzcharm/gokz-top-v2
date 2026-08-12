@@ -16,8 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
 import { markMediaVisited } from "@/lib/media-notifications"
+import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
 import { cn } from "@/lib/utils"
 
 const filterablePlatforms = ["youtube", "bilibili"] as const
@@ -40,25 +40,6 @@ const mediaSortLabels: Record<MediaSort, string> = {
   latest: "Latest",
   views: "Most views",
   length: "Video length",
-}
-
-function compareByLatest(left: MediaPostPublic, right: MediaPostPublic) {
-  return right.published_at.localeCompare(left.published_at)
-}
-
-function sortPosts(posts: MediaPostPublic[], sort: MediaSort) {
-  if (sort === "latest") return posts
-
-  return [...posts].sort((left, right) => {
-    if (sort === "views") {
-      return right.view_count - left.view_count || compareByLatest(left, right)
-    }
-
-    return (
-      (right.duration_seconds ?? -1) - (left.duration_seconds ?? -1) ||
-      compareByLatest(left, right)
-    )
-  })
 }
 
 function formatDuration(value: number | null | undefined) {
@@ -179,25 +160,47 @@ function MediaCardSkeleton() {
 export function MediaPage() {
   const queryClient = useQueryClient()
   const submittedRefreshPostIds = useRef(new Set<string>())
+  const loadMoreRef = useRef<HTMLDivElement>(null)
   const [selectedPlatform, setSelectedPlatform] =
     useState<FilterablePlatform | null>(null)
   const [sort, setSort] = useState<MediaSort>("latest")
   const postsQuery = useInfiniteQuery({
-    queryKey: ["media-posts"],
+    queryKey: ["media-posts", selectedPlatform, sort],
     queryFn: ({ pageParam }) =>
-      MediaService.readMediaPosts({ cursor: pageParam, limit: 24 }),
+      MediaService.readMediaPosts({
+        cursor: pageParam,
+        limit: 24,
+        platform: selectedPlatform,
+        sort,
+      }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.next_cursor ?? undefined,
   })
   const posts = postsQuery.data?.pages.flatMap((page) => page.data) ?? []
-  const filteredPosts = selectedPlatform
-    ? posts.filter((post) => post.platform === selectedPlatform)
-    : posts
-  const visiblePosts = sortPosts(filteredPosts, sort)
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = postsQuery
 
   useEffect(() => {
     markMediaVisited()
   }, [])
+
+  useEffect(() => {
+    const target = loadMoreRef.current
+    if (!target || !hasNextPage || isFetchingNextPage) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void fetchNextPage()
+        }
+      },
+      { rootMargin: "320px 0px" },
+    )
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
   useEffect(() => {
     const postIds = (postsQuery.data?.pages ?? [])
@@ -218,7 +221,7 @@ export function MediaPage() {
         response.data.map(({ id, view_count }) => [id, view_count]),
       )
       queryClient.setQueryData(
-        ["media-posts"],
+        ["media-posts", selectedPlatform, sort],
         (current: typeof postsQuery.data) => {
           if (!current) return current
           return {
@@ -234,7 +237,7 @@ export function MediaPage() {
         },
       )
     })
-  }, [postsQuery.data, queryClient])
+  }, [postsQuery.data, queryClient, selectedPlatform, sort])
 
   return (
     <section className="space-y-6">
@@ -244,7 +247,8 @@ export function MediaPage() {
           <h1 className="text-3xl font-semibold">Media</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
-          <div className="flex items-center gap-3" aria-label="Media platform filters">
+          <fieldset className="flex items-center gap-3">
+            <legend className="sr-only">Media platform filters</legend>
             {filterablePlatforms.map((platform) => {
               const isSelected = selectedPlatform === platform
 
@@ -254,7 +258,9 @@ export function MediaPage() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className={isSelected ? platformFilterClasses[platform] : undefined}
+                  className={
+                    isSelected ? platformFilterClasses[platform] : undefined
+                  }
                   onClick={() =>
                     setSelectedPlatform((current) =>
                       current === platform ? null : platform,
@@ -267,7 +273,7 @@ export function MediaPage() {
                 </Button>
               )
             })}
-          </div>
+          </fieldset>
           <Select
             value={sort}
             onValueChange={(value) => setSort(value as MediaSort)}
@@ -307,18 +313,18 @@ export function MediaPage() {
             <MediaCardSkeleton key={index} />
           ))}
         </div>
-      ) : visiblePosts.length ? (
+      ) : posts.length ? (
         <>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {visiblePosts.map((post) => (
+            {posts.map((post) => (
               <MediaCard key={post.id} post={post} />
             ))}
           </div>
           {postsQuery.hasNextPage ? (
-            <div className="flex justify-center">
+            <div ref={loadMoreRef} className="flex justify-center">
               <Button
                 variant="outline"
-                onClick={() => postsQuery.fetchNextPage()}
+                onClick={() => void postsQuery.fetchNextPage()}
                 disabled={postsQuery.isFetchingNextPage}
               >
                 {postsQuery.isFetchingNextPage ? (

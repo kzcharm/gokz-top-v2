@@ -52,6 +52,8 @@ async def read_media_posts(
         cursor=query.cursor,
         limit=query.limit,
         steamid64=query.steamid64,
+        platform=query.platform,
+        sort=query.sort,
         from_=query.from_,
         to=query.to,
     )

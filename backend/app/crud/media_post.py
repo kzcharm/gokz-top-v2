@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
 
-from sqlmodel import col, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
@@ -15,6 +16,7 @@ from app.models import (
     MediaPost,
     MediaPostPlayerPublic,
     MediaPostPublic,
+    MediaPostSort,
     MediaPostsPublic,
     MediaPostViewCountPublic,
     MediaPostViewCountsRefreshPublic,
@@ -56,20 +58,26 @@ async def fetch_bilibili_video_view_counts(
     return await fetch(video_ids)
 
 
-def encode_media_cursor(post: MediaPost) -> str:
-    raw = f"{post.published_at.isoformat()}|{post.id}"
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+def encode_media_cursor(post: MediaPost, *, sort: MediaPostSort) -> str:
+    values: list[str | int] = [str(post.id)]
+    if sort == "latest":
+        values.insert(0, post.published_at.isoformat())
+    elif sort == "views":
+        values.insert(0, post.view_count)
+    else:
+        values.insert(0, post.duration_seconds if post.duration_seconds is not None else -1)
+    return base64.urlsafe_b64encode(json.dumps(values).encode()).decode().rstrip("=")
 
 
-def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+def _decode_cursor(cursor: str, *, sort: MediaPostSort) -> tuple[datetime | int, uuid.UUID]:
     padded = cursor + "=" * (-len(cursor) % 4)
-    published, post_id = (
-        base64.urlsafe_b64decode(padded.encode()).decode().split("|", 1)
-    )
-    parsed = datetime.fromisoformat(published)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed, uuid.UUID(post_id)
+    value, post_id = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
+    if sort == "latest":
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed, uuid.UUID(post_id)
+    return int(value), uuid.UUID(post_id)
 
 
 async def read_media_posts(
@@ -78,6 +86,8 @@ async def read_media_posts(
     cursor: str | None,
     limit: int,
     steamid64: str | None,
+    platform: str | None,
+    sort: MediaPostSort,
     from_: datetime | None,
     to: datetime | None,
 ) -> MediaPostsPublic:
@@ -88,24 +98,50 @@ async def read_media_posts(
     ]
     if steamid64 is not None:
         filters.append(col(MediaPost.player_steamid64) == int(steamid64))
+    if platform is not None:
+        filters.append(col(MediaPost.platform) == PlayerSocialPlatform(platform))
     if from_ is not None:
         filters.append(col(MediaPost.published_at) >= from_)
     if to is not None:
         filters.append(col(MediaPost.published_at) <= to)
     if cursor:
-        published_at, post_id = _decode_cursor(cursor)
-        filters.append(
-            (col(MediaPost.published_at) < published_at)
-            | (
-                (col(MediaPost.published_at) == published_at)
-                & (col(MediaPost.id) < post_id)
+        cursor_value, post_id = _decode_cursor(cursor, sort=sort)
+        if sort == "latest":
+            filters.append(
+                (col(MediaPost.published_at) < cursor_value)
+                | (
+                    (col(MediaPost.published_at) == cursor_value)
+                    & (col(MediaPost.id) < post_id)
+                )
             )
-        )
+        elif sort == "views":
+            filters.append(
+                (col(MediaPost.view_count) < cursor_value)
+                | (
+                    (col(MediaPost.view_count) == cursor_value)
+                    & (col(MediaPost.id) < post_id)
+                )
+            )
+        else:
+            duration = func.coalesce(col(MediaPost.duration_seconds), -1)
+            filters.append(
+                (duration < cursor_value)
+                | ((duration == cursor_value) & (col(MediaPost.id) < post_id))
+            )
+    if sort == "latest":
+        order_by = [col(MediaPost.published_at).desc(), col(MediaPost.id).desc()]
+    elif sort == "views":
+        order_by = [col(MediaPost.view_count).desc(), col(MediaPost.id).desc()]
+    else:
+        order_by = [
+            func.coalesce(col(MediaPost.duration_seconds), -1).desc(),
+            col(MediaPost.id).desc(),
+        ]
     statement = (
         select(MediaPost, Player)
         .join(Player, col(Player.steamid64) == col(MediaPost.player_steamid64))
         .where(*filters)
-        .order_by(col(MediaPost.published_at).desc(), col(MediaPost.id).desc())
+        .order_by(*order_by)
         .limit(limit + 1)
     )
     rows = list((await session.exec(statement)).all())
@@ -133,7 +169,11 @@ async def read_media_posts(
     ]
     return MediaPostsPublic(
         data=data,
-        next_cursor=encode_media_cursor(rows[-1][0]) if has_more and rows else None,
+        next_cursor=(
+            encode_media_cursor(rows[-1][0], sort=sort)
+            if has_more and rows
+            else None
+        ),
         count=len(data),
     )
 

@@ -279,6 +279,8 @@ async def test_media_feed_returns_youtube_and_bilibili_posts(db: AsyncSession) -
         cursor=None,
         limit=24,
         steamid64=None,
+        platform=None,
+        sort="latest",
         from_=None,
         to=None,
     )

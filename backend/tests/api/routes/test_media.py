@@ -85,6 +85,81 @@ async def test_read_media_posts_returns_youtube_duration(
     assert response.json()["data"][0]["duration_seconds"] == 3723
 
 
+async def test_read_media_posts_filters_and_sorts_each_cursor_page(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Media Player")
+    db.add(player)
+    await db.commit()
+    youtube_link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@media-player",
+        verified=True,
+    )
+    bilibili_link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="12345",
+        verified=True,
+    )
+    db.add(youtube_link)
+    db.add(bilibili_link)
+    await db.commit()
+
+    now = get_datetime_utc()
+    for index, view_count in enumerate((1_400, 25_000, 10_000)):
+        db.add(
+            MediaPost(
+                player_social_link_id=youtube_link.id,
+                player_steamid64=player.steamid64,
+                platform=PlayerSocialPlatform.YOUTUBE,
+                external_video_id=f"youtube-{index}",
+                title=f"YouTube {index}",
+                url=f"https://youtube.example/{index}",
+                published_at=now - timedelta(seconds=index),
+                view_count=view_count,
+            )
+        )
+    db.add(
+        MediaPost(
+            player_social_link_id=bilibili_link.id,
+            player_steamid64=player.steamid64,
+            platform=PlayerSocialPlatform.BILIBILI,
+            external_video_id="bilibili-1",
+            title="Bilibili",
+            url="https://bilibili.example/1",
+            published_at=now,
+            view_count=50_000,
+        )
+    )
+    await db.commit()
+
+    first_page = await client.get(
+        "/v1/media/posts",
+        params={"platform": "youtube", "sort": "views", "limit": 2},
+    )
+
+    assert first_page.status_code == 200
+    assert [post["view_count"] for post in first_page.json()["data"]] == [25_000, 10_000]
+    cursor = first_page.json()["next_cursor"]
+    assert cursor is not None
+
+    second_page = await client.get(
+        "/v1/media/posts",
+        params={
+            "platform": "youtube",
+            "sort": "views",
+            "limit": 2,
+            "cursor": cursor,
+        },
+    )
+
+    assert second_page.status_code == 200
+    assert [post["view_count"] for post in second_page.json()["data"]] == [1_400]
+
+
 async def test_proxy_bilibili_thumbnail_returns_bytes(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,

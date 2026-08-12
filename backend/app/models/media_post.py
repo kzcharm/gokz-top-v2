@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, Text
 from sqlalchemy import Enum as SqlEnum
@@ -84,10 +85,15 @@ class MediaPostsPublic(SQLModel):
     count: int
 
 
+MediaPostSort = Literal["latest", "views", "length"]
+
+
 class MediaPostsQuery(SQLModel):
     cursor: str | None = None
     limit: int = Field(default=24, ge=1, le=100)
     steamid64: str | None = None
+    platform: Literal["youtube", "bilibili"] | None = None
+    sort: MediaPostSort = "latest"
     from_: datetime | None = Field(default=None, alias="from")
     to: datetime | None = None
 
