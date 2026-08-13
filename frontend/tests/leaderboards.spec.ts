@@ -137,6 +137,89 @@ async function stubRegions(page: Page) {
 test.describe("Leaderboards page", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
+  test("keeps profile history open after selecting it from a player menu", async ({
+    page,
+    request,
+  }) => {
+    const steamid64 = "76561198000000001"
+    const { accessToken } = await issueSessionToken({
+      request,
+      steamid64: "76561198000000042",
+      roles: ["superuser"],
+      name: "Root Admin",
+    })
+    await page.addInitScript((token) => {
+      localStorage.clear()
+      localStorage.setItem("access_token", token)
+    }, accessToken)
+    await stubRegions(page)
+    await stubPlayerGraphql(page, {
+      playersBySteamid64: {
+        [steamid64]: buildGraphqlPlayer({
+          steamid64,
+          displayName: "History Player",
+          country: "DE",
+        }),
+      },
+    })
+    await page.route("**/v1/users/me", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          steamid64: "76561198000000042",
+          roles: ["superuser"],
+          player: {
+            steamid64: "76561198000000042",
+            name: "Root Admin",
+          },
+        }),
+      })
+    })
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              player: buildPlayerRef(steamid64, "History Player"),
+              rating: 1000,
+              rating_easy: 500,
+              rating_hard: 500,
+              points: 2000,
+              wrs_nub: 1,
+              wrs_pro: 0,
+              records_900_plus: 2,
+              records_800_plus: 2,
+              unique_map_finishes: 20,
+            },
+          ],
+        }),
+      })
+    })
+    await page.route(
+      `**/v1/players/${steamid64}/profile-history`,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        })
+      },
+    )
+
+    await page.goto("/leaderboards/players")
+    await page
+      .locator(`a[href="/profile/${steamid64}"]`)
+      .click({ button: "right" })
+    await page.getByTestId("profile-history-menu-item").click()
+
+    await expect(page.getByTestId("profile-history-dialog")).toBeVisible()
+    await expect(page.getByTestId("profile-history-dialog")).toContainText(
+      "Profile History",
+    )
+  })
+
   test("renders leaderboard empty state", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.clear()

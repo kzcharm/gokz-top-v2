@@ -73,7 +73,7 @@ import {
 } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
-
+import { ProfileHistoryDialog } from "./ProfileHistoryDialog"
 import {
   ProfileSocialDialog,
   type ProfileSocialTab,
@@ -241,6 +241,7 @@ function ProfileIdentityCard({
   const authenticated = isLoggedIn()
   const { user } = useAuth()
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
+  const [profileHistoryOpen, setProfileHistoryOpen] = useState(false)
   const avatarUrl = getAvatarUrl(player)
   const highestPermission = getHighestPlayerPermission(player.roles)
   const showRoleRing = highestPermission !== null
@@ -531,6 +532,7 @@ function ProfileIdentityCard({
             ) : undefined
           }
           onAddBan={() => setAddBanDialogOpen(true)}
+          onOpenProfileHistory={() => setProfileHistoryOpen(true)}
           player={player}
           steamProfileUrl={steamProfileUrl}
           steamid64={player.steamid64}
@@ -546,6 +548,11 @@ function ProfileIdentityCard({
           alias: player.alias ?? null,
           country: player.country ?? null,
         }}
+      />
+      <ProfileHistoryDialog
+        identifier={player.steamid64}
+        onOpenChange={setProfileHistoryOpen}
+        open={profileHistoryOpen}
       />
     </DropdownMenu>
   )

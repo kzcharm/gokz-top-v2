@@ -74,6 +74,7 @@ async function stubSidebarServerAccess(page: Page) {
 async function installProfileRoutes({
   page,
   currentUser,
+  currentUserRoles = [],
   followers = [],
   following = [],
   likers = [],
@@ -87,6 +88,7 @@ async function installProfileRoutes({
 }: {
   page: Page
   currentUser?: ReturnType<typeof buildPlayer>
+  currentUserRoles?: string[]
   followers?: Array<ReturnType<typeof buildPlayer>>
   following?: Array<ReturnType<typeof buildPlayer>>
   likers?: Array<ReturnType<typeof buildPlayer>>
@@ -118,7 +120,7 @@ async function installProfileRoutes({
         id: "019e0000-0000-7000-8000-000000000001",
         steamid64: currentUser.steamid64,
         is_active: true,
-        roles: [],
+        roles: currentUserRoles,
       }),
     })
   })
@@ -297,6 +299,50 @@ test("Logged-out profile shows the shared player context menu without follow", a
   ).toBeVisible()
   await expect(page.getByRole("menuitem", { name: "Copy Name" })).toBeVisible()
   await expect(page.getByTestId("profile-follow-menu-item")).toHaveCount(0)
+})
+
+test("profile history remains open after selecting it from the identity menu", async ({
+  page,
+}) => {
+  const currentUser = buildPlayer({
+    steamid64: currentUserSteamid64,
+    name: "Root Admin",
+    alias: "Root Admin",
+  })
+  await page.addInitScript((token) => {
+    localStorage.setItem("access_token", token)
+  }, createAccessToken(currentUserSteamid64))
+  await stubSidebarServerAccess(page)
+  await installProfileRoutes({
+    page,
+    currentUser,
+    currentUserRoles: ["superuser"],
+    summary: {
+      follower_count: 12,
+      following_count: 4,
+      viewer_is_following: false,
+      viewer_is_self: false,
+    },
+  })
+  await page.route(
+    `/v1/players/${targetSteamid64}/profile-history`,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      })
+    },
+  )
+
+  await page.goto(`/profile/${targetSteamid64}`)
+  await page.getByTestId("profile-identity-surface").click({ button: "right" })
+  await page.getByTestId("profile-history-menu-item").click()
+
+  await expect(page.getByTestId("profile-history-dialog")).toBeVisible()
+  await expect(page.getByTestId("profile-history-dialog")).toContainText(
+    "Profile History",
+  )
 })
 
 test("Profile avatar shows the user ring for website users", async ({

@@ -156,6 +156,7 @@ type PlayerContextMenuItemsProps = {
   hasProfileLink: boolean
   loggedInChildren?: ReactNode
   onAddBan: () => void
+  onOpenProfileHistory?: () => void
   player?: {
     alias?: string | null
     country?: string | null
@@ -213,6 +214,7 @@ export function PlayerContextMenuItems({
   hasProfileLink,
   loggedInChildren,
   onAddBan,
+  onOpenProfileHistory,
   player,
   steamProfileUrl,
   steamid64,
@@ -234,7 +236,6 @@ export function PlayerContextMenuItems({
     adminItems.length > 0
   const hasLoggedInSection = loggedInItems.length > 0
   const [profileHistoryOpen, setProfileHistoryOpen] = useState(false)
-
   const handleGotoProfile = () => {
     if (!hasProfileLink) {
       return
@@ -300,6 +301,10 @@ export function PlayerContextMenuItems({
               onSelect={(event) => {
                 event.preventDefault()
                 closeMenu()
+                if (onOpenProfileHistory) {
+                  onOpenProfileHistory()
+                  return
+                }
                 setProfileHistoryOpen(true)
               }}
             >
@@ -323,11 +328,13 @@ export function PlayerContextMenuItems({
           ) : null}
         </>
       ) : null}
-      <ProfileHistoryDialog
-        identifier={steamid64}
-        onOpenChange={setProfileHistoryOpen}
-        open={profileHistoryOpen}
-      />
+      {!onOpenProfileHistory ? (
+        <ProfileHistoryDialog
+          identifier={steamid64}
+          onOpenChange={setProfileHistoryOpen}
+          open={profileHistoryOpen}
+        />
+      ) : null}
     </>
   )
 }
@@ -448,6 +455,7 @@ export function PlayerDisplay({
       : undefined)
   const [menuOpen, setMenuOpen] = useState(false)
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
+  const [profileHistoryOpen, setProfileHistoryOpen] = useState(false)
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const suppressProfileLinkClickRef = useRef(false)
@@ -849,6 +857,7 @@ export function PlayerDisplay({
           displayName={displayName}
           hasProfileLink={hasProfileLink}
           onAddBan={() => setAddBanDialogOpen(true)}
+          onOpenProfileHistory={() => setProfileHistoryOpen(true)}
           player={
             resolvedPlayer
               ? {
@@ -886,6 +895,11 @@ export function PlayerDisplay({
           }}
         />
       </Suspense>
+      <ProfileHistoryDialog
+        identifier={steamid64}
+        onOpenChange={setProfileHistoryOpen}
+        open={profileHistoryOpen}
+      />
     </DropdownMenu>
   )
 }
