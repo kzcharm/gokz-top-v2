@@ -85,7 +85,7 @@ export function GlobalStatusBadge({ server }: { server: ServerPublic }) {
               : "serverGlobalStatus.ineligibleAria",
           )}
           className={cn(
-            "absolute bottom-2 left-2 z-10 inline-flex items-center rounded-md p-1.5 text-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-white/80",
+            "absolute bottom-2 left-2 z-10 inline-flex items-center rounded-md p-1.5 text-white outline-none focus-visible:ring-2 focus-visible:ring-white/80",
             eligible ? "bg-emerald-500" : "bg-red-500",
           )}
         >
