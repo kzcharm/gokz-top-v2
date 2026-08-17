@@ -404,6 +404,17 @@ export const ru = {
       ratingContributionTooltip:
         "Сырой рейтинг, который эта запись добавляет к рейтингу игрока.",
     },
+    adminRecovery: {
+      title: "Восстановление администратора",
+      description:
+        "После разбана сначала пересчитайте оценочные очки PB, затем рейтинг игрока.",
+      recalculatePoints: "Пересчитать оценочные очки",
+      recalculateRating: "Пересчитать рейтинг",
+      pointsRecalculated: "Оценочные очки PB пересчитаны.",
+      pointsFailed: "Не удалось пересчитать оценочные очки PB.",
+      ratingRecalculated: "Рейтинг игрока пересчитан.",
+      ratingFailed: "Не удалось пересчитать рейтинг игрока.",
+    },
     skillRadar: {
       title: "Радар навыков",
       ariaLabel: "Радар навыков профиля",

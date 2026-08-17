@@ -394,6 +394,16 @@ export const zhCN = {
       ratingContributionInfo: "Rating 贡献说明",
       ratingContributionTooltip: "这条记录贡献给玩家 Rating 的原始分值。",
     },
+    adminRecovery: {
+      title: "管理员恢复",
+      description: "解封后，请先重新计算预估 PB 积分，再重建该玩家的 Rating。",
+      recalculatePoints: "重新计算预估积分",
+      recalculateRating: "重新计算 Rating",
+      pointsRecalculated: "已重新计算预估 PB 积分。",
+      pointsFailed: "重新计算预估 PB 积分失败。",
+      ratingRecalculated: "已重新计算玩家 Rating。",
+      ratingFailed: "重新计算玩家 Rating 失败。",
+    },
     skillRadar: {
       title: "技能雷达",
       ariaLabel: "个人主页技能雷达图",

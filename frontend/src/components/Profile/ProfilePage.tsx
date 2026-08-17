@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { TriangleAlertIcon } from "lucide-react"
+import { Calculator, RefreshCw, TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { MeService, PlayersService } from "@/client"
+import { LeaderboardsService, MeService, PlayersService } from "@/client"
+import {
+  useAdminMode,
+  useAdminModeSurface,
+} from "@/components/admin-mode-provider"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
@@ -12,10 +16,12 @@ import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
+import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 import { ProfileCommentsTab } from "./ProfileCommentsTab"
@@ -94,6 +100,9 @@ export function ProfilePage({
   const queryClient = useQueryClient()
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
+  const { enabled: adminModeEnabled } = useAdminMode()
+  const canUseAdminRecoveryActions = canModerateBansAndRecords(currentUser)
+  useAdminModeSurface(canUseAdminRecoveryActions)
   const recordedProfileViewsRef = useRef<Set<string>>(new Set())
   const autoSyncedFriendsRef = useRef<Set<string>>(new Set())
   const [isProOnly, setIsProOnly] = useState(false)
@@ -374,6 +383,66 @@ export function ProfilePage({
       })
     },
   })
+  const recalculateEstimatedPointsMutation = useMutation({
+    mutationFn: async () => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      return await PlayersService.recalculateEstimatedPbPoints({
+        identifier: playerSteamid64,
+      })
+    },
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["profile-records", playerSteamid64],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["profile-points-standing", canonicalIdentifier],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["profile-stats", canonicalIdentifier],
+        }),
+      ])
+      toast.success(t("profile.adminRecovery.pointsRecalculated"), {
+        description: result.message,
+      })
+    },
+    onError: (error) => {
+      toast.error(t("profile.adminRecovery.pointsFailed"), {
+        description: extractErrorMessage(error),
+      })
+    },
+  })
+  const recalculateRatingMutation = useMutation({
+    mutationFn: async () => {
+      if (!playerSteamid64) {
+        throw new Error("Missing player")
+      }
+      return await LeaderboardsService.upsertPlayerLeaderboards({
+        identifier: playerSteamid64,
+      })
+    },
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["profile-points-standing", canonicalIdentifier],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["profile-stats", canonicalIdentifier],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["player-leaderboard"] }),
+      ])
+      toast.success(t("profile.adminRecovery.ratingRecalculated"), {
+        description: result.message,
+      })
+    },
+    onError: (error) => {
+      toast.error(t("profile.adminRecovery.ratingFailed"), {
+        description: extractErrorMessage(error),
+      })
+    },
+  })
   const syncFriendsMutation = useMutation({
     mutationFn: async () => {
       if (!playerSteamid64) {
@@ -533,6 +602,8 @@ export function ProfilePage({
   const hasPermanentBan = activeBans.some((ban) => ban.expires_at == null)
   const showBanWarning = activeBanCount > 0
   const showUnbanCheckButton = isOwnProfile && showBanWarning
+  const showAdminRecoveryActions =
+    adminModeEnabled && canUseAdminRecoveryActions
   const profileTabsTrailingContent =
     activeTab === "records" ? (
       <Label
@@ -551,6 +622,46 @@ export function ProfilePage({
 
   return (
     <div className="space-y-8">
+      {showAdminRecoveryActions ? (
+        <section className="flex flex-col gap-3 rounded-2xl border border-dashed border-destructive/40 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">
+              {t("profile.adminRecovery.title")}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t("profile.adminRecovery.description")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <LoadingButton
+              type="button"
+              size="sm"
+              variant="outline"
+              loading={recalculateEstimatedPointsMutation.isPending}
+              disabled={recalculateRatingMutation.isPending}
+              onClick={() => {
+                void recalculateEstimatedPointsMutation.mutateAsync()
+              }}
+            >
+              <Calculator />
+              {t("profile.adminRecovery.recalculatePoints")}
+            </LoadingButton>
+            <LoadingButton
+              type="button"
+              size="sm"
+              variant="outline"
+              loading={recalculateRatingMutation.isPending}
+              disabled={recalculateEstimatedPointsMutation.isPending}
+              onClick={() => {
+                void recalculateRatingMutation.mutateAsync()
+              }}
+            >
+              <RefreshCw />
+              {t("profile.adminRecovery.recalculateRating")}
+            </LoadingButton>
+          </div>
+        </section>
+      ) : null}
       {showBanWarning ? (
         <Alert
           variant={hasPermanentBan ? "destructive" : "default"}

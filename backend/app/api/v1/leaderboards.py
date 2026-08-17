@@ -3,7 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import OptionalCurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import (
+    OptionalCurrentUser,
+    SessionDep,
+    get_current_active_admin,
+    get_current_active_superuser,
+)
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.models import (
@@ -176,7 +181,11 @@ async def upsert_map_leaderboards(
     return Message(message="Map leaderboard rows rebuilt successfully")
 
 
-@router.put("/players/{identifier:path}", response_model=Message)
+@router.put(
+    "/players/{identifier:path}",
+    response_model=Message,
+    dependencies=[Depends(get_current_active_admin)],
+)
 async def upsert_player_leaderboards(
     identifier: str,
     session: SessionDep,

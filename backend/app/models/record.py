@@ -483,12 +483,13 @@ class RecordPb(RecordPbBase, table=True):
             "record_uuid",
         ),
         Index(
-            "ix_record_pb_scope_course_type_time_record_uuid",
+            "ix_record_pb_bucket_points_lookup",
             "scope",
             "course_id",
             "type",
             "time",
             "record_uuid",
+            postgresql_include=["steamid64"],
         ),
         Index(
             "ix_record_pb_player_scope_type_course_record_uuid",

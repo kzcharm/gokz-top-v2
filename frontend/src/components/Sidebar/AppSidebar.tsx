@@ -27,8 +27,8 @@ import {
 import useAuth from "@/hooks/useAuth"
 import {
   getMediaLastVisitedAt,
-  markMediaVisited,
   MEDIA_LAST_VISITED_EVENT,
+  markMediaVisited,
 } from "@/lib/media-notifications"
 import { hasRole, isSuperuser } from "@/lib/user-roles"
 import { type Item, Main } from "./Main"
@@ -47,8 +47,9 @@ export function AppSidebar() {
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [hasClickedLive, setHasClickedLive] = useState(false)
-  const [mediaLastVisitedAt, setMediaLastVisitedAt] =
-    useState(getMediaLastVisitedAt)
+  const [mediaLastVisitedAt, setMediaLastVisitedAt] = useState(
+    getMediaLastVisitedAt,
+  )
   const [hasClickedMinor, setHasClickedMinor] = useState(hasSeenAxeKzMinor)
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
   const currentUserIsSuperuser = isSuperuser(currentUser)
@@ -75,7 +76,8 @@ export function AppSidebar() {
     refetchInterval: 60_000,
   })
   useEffect(() => {
-    const handleMediaVisited = () => setMediaLastVisitedAt(getMediaLastVisitedAt())
+    const handleMediaVisited = () =>
+      setMediaLastVisitedAt(getMediaLastVisitedAt())
     window.addEventListener(MEDIA_LAST_VISITED_EVENT, handleMediaVisited)
     return () =>
       window.removeEventListener(MEDIA_LAST_VISITED_EVENT, handleMediaVisited)
@@ -83,7 +85,8 @@ export function AppSidebar() {
   const showMediaDot =
     mediaPostsQuery.data?.data[0] !== undefined &&
     (mediaLastVisitedAt === null ||
-      Date.parse(mediaPostsQuery.data.data[0].published_at) > mediaLastVisitedAt)
+      Date.parse(mediaPostsQuery.data.data[0].published_at) >
+        mediaLastVisitedAt)
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: t("nav.servers"), path: "/servers" },

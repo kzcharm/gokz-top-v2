@@ -2478,6 +2478,12 @@ export type PlayersSearchPlayersData = {
 
 export type PlayersSearchPlayersResponse = (PlayersPublic);
 
+export type PlayersRecalculateEstimatedPbPointsData = {
+    identifier: string;
+};
+
+export type PlayersRecalculateEstimatedPbPointsResponse = (Message);
+
 export type PlayersCreatePlayerViewData = {
     identifier: string;
 };

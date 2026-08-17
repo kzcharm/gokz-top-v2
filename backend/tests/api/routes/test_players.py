@@ -62,6 +62,45 @@ async def _create_player(
     return player
 
 
+@pytest.mark.asyncio
+async def test_recalculate_estimated_pb_points_requires_admin(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = await _create_player(
+        db=db,
+        steamid64=random_steamid64(),
+        name="Estimated Points Target",
+    )
+
+    unauthorized_response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/recalculate-estimated-pb-points"
+    )
+    assert unauthorized_response.status_code == 401
+
+    admin_session_response = await client.post(
+        f"{settings.API_V1_STR}/private/auth/session",
+        json={
+            "steamid64": random_steamid64(),
+            "roles": ["admin"],
+            "is_active": True,
+            "name": "Admin User",
+        },
+    )
+    admin_headers = {
+        "Authorization": f"Bearer {admin_session_response.json()['access_token']}"
+    }
+
+    authorized_response = await client.post(
+        f"{settings.API_V1_STR}/players/{player.steamid64}/recalculate-estimated-pb-points",
+        headers=admin_headers,
+    )
+    assert authorized_response.status_code == 200
+    assert authorized_response.json() == {
+        "message": "Recalculated estimated PB points for 0 row(s)."
+    }
+
+
 async def _create_profile_field_change(
     *,
     db: AsyncSession,

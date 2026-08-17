@@ -7,6 +7,7 @@ from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.crud import record as record_crud
 from app.models import (
     Ban,
     BanType,
@@ -22,6 +23,7 @@ from app.models import (
     RecordType,
     ServerGlobalapi,
     legacy_mode_id_to_kz_mode,
+    seconds_to_time_ms,
 )
 from tests.utils.utils import random_steamid64
 
@@ -715,6 +717,215 @@ async def test_rebuild_record_pb_points_bucket_excludes_actively_banned_rows(
     assert refreshed_rows[0].points == 1
     assert refreshed_rows[1].steamid64 == visible_player
     assert refreshed_rows[1].points == 1000
+
+
+async def test_recalculate_estimated_record_pb_points_for_player_refreshes_only_target(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recovered_player = random_steamid64()
+    other_player = random_steamid64()
+    await _create_player(db, steamid64=recovered_player, name="Recovered Runner")
+    await _create_player(db, steamid64=other_player, name="Other Runner")
+    await _create_map(db, id=981027, name="kz_recovered_points", difficulty=5)
+    await _create_server(db, id=981127, name="Recovered Points Server")
+
+    await _create_record(
+        db,
+        id=981328,
+        steamid64=recovered_player,
+        map_id=981027,
+        server_id=981127,
+        mode_id=200,
+        stage=0,
+        time="21.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=981329,
+        steamid64=other_player,
+        map_id=981027,
+        server_id=981127,
+        mode_id=200,
+        stage=0,
+        time="14.000",
+        teleports=0,
+    )
+
+    recovered_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.steamid64 == recovered_player,
+                RecordPb.scope == ModeScope.OVR,
+                RecordPb.type == RecordType.NUB,
+            )
+        )
+    ).one()
+    other_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.steamid64 == other_player,
+                RecordPb.scope == ModeScope.OVR,
+                RecordPb.type == RecordType.NUB,
+            )
+        )
+    ).one()
+    recovered_pb.points = 1
+    recovered_course_id = recovered_pb.course_id
+    other_course_id = other_pb.course_id
+    other_points_before = other_pb.points
+    db.add(recovered_pb)
+    await db.commit()
+
+    expected_recovered_points = await record_crud._estimate_record_pb_points(
+        session=db,
+        course_id=recovered_pb.course_id,
+        scope_id=recovered_pb.scope_id,
+        steamid64=recovered_player,
+        record_type=recovered_pb.type,
+        record_uuid=recovered_pb.record_uuid,
+        time_ms=seconds_to_time_ms(recovered_pb.time),
+    )
+
+    original_exec = db.exec
+    original_execute = db.execute
+    estimate_query_count = 0
+
+    async def count_estimate_queries(*args: object, **kwargs: object):
+        nonlocal estimate_query_count
+        estimate_query_count += 1
+        return await original_exec(*args, **kwargs)
+
+    async def count_estimate_selects(*args: object, **kwargs: object):
+        nonlocal estimate_query_count
+        if args and str(args[0]).lstrip().startswith(("SELECT", "WITH")):
+            estimate_query_count += 1
+        return await original_execute(*args, **kwargs)
+
+    monkeypatch.setattr(db, "exec", count_estimate_queries)
+    monkeypatch.setattr(db, "execute", count_estimate_selects)
+    updated_rows = await crud.recalculate_estimated_record_pb_points_for_player(
+        session=db,
+        steamid64=recovered_player,
+    )
+    await db.commit()
+
+    assert estimate_query_count == 4
+
+    db.expire_all()
+    refreshed_recovered_pb = await db.get(
+        RecordPb,
+        (
+            ModeScope.OVR,
+            recovered_course_id,
+            recovered_player,
+            RecordType.NUB,
+        ),
+    )
+    refreshed_other_pb = await db.get(
+        RecordPb,
+        (
+            ModeScope.OVR,
+            other_course_id,
+            other_player,
+            RecordType.NUB,
+        ),
+    )
+    assert updated_rows >= 1
+    assert refreshed_recovered_pb is not None
+    assert refreshed_recovered_pb.points == expected_recovered_points
+    assert refreshed_other_pb is not None
+    assert refreshed_other_pb.points == other_points_before
+
+
+async def test_recalculate_estimated_record_pb_points_for_player_repairs_new_wr_bucket(
+    db: AsyncSession,
+) -> None:
+    recovered_player = random_steamid64()
+    former_wr_player = random_steamid64()
+    await _create_player(db, steamid64=recovered_player, name="Recovered WR")
+    await _create_player(db, steamid64=former_wr_player, name="Former WR")
+    await _create_map(db, id=981028, name="kz_recovered_wr", difficulty=5)
+    await _create_server(db, id=981128, name="Recovered WR Server")
+
+    await _create_record(
+        db,
+        id=981330,
+        steamid64=recovered_player,
+        map_id=981028,
+        server_id=981128,
+        mode_id=200,
+        stage=0,
+        time="11.000",
+        teleports=0,
+    )
+    await _create_record(
+        db,
+        id=981331,
+        steamid64=former_wr_player,
+        map_id=981028,
+        server_id=981128,
+        mode_id=200,
+        stage=0,
+        time="14.000",
+        teleports=0,
+    )
+
+    recovered_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.steamid64 == recovered_player,
+                RecordPb.scope == ModeScope.OVR,
+                RecordPb.type == RecordType.NUB,
+            )
+        )
+    ).one()
+    former_wr_pb = (
+        await db.exec(
+            select(RecordPb).where(
+                RecordPb.steamid64 == former_wr_player,
+                RecordPb.scope == ModeScope.OVR,
+                RecordPb.type == RecordType.NUB,
+            )
+        )
+    ).one()
+    recovered_pb.points = 1
+    former_wr_pb.points = 1000
+    db.add(recovered_pb)
+    db.add(former_wr_pb)
+    await db.commit()
+
+    updated_rows = await crud.recalculate_estimated_record_pb_points_for_player(
+        session=db,
+        steamid64=recovered_player,
+    )
+    await db.commit()
+
+    db.expire_all()
+    refreshed_recovered_pb = await db.get(
+        RecordPb,
+        (
+            ModeScope.OVR,
+            recovered_pb.course_id,
+            recovered_player,
+            RecordType.NUB,
+        ),
+    )
+    refreshed_former_wr_pb = await db.get(
+        RecordPb,
+        (
+            ModeScope.OVR,
+            former_wr_pb.course_id,
+            former_wr_player,
+            RecordType.NUB,
+        ),
+    )
+    assert updated_rows >= 2
+    assert refreshed_recovered_pb is not None
+    assert refreshed_recovered_pb.points == 1000
+    assert refreshed_former_wr_pb is not None
+    assert refreshed_former_wr_pb.points < 1000
 
 
 async def test_rebuild_record_pb_points_for_course_updates_all_selected_buckets(

@@ -10,6 +10,7 @@ from app.api.deps import (
     CurrentUser,
     OptionalCurrentUser,
     SessionDep,
+    get_current_active_admin,
     get_current_active_superuser,
     get_current_user,
     user_has_role,
@@ -66,6 +67,7 @@ from app.services.player_steam_profile import (
 
 router = APIRouter(prefix="/players", tags=["players"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+CurrentAdmin = Annotated[User, Depends(get_current_active_admin)]
 
 
 @router.get("", response_model=PlayersPublic)
@@ -123,6 +125,29 @@ async def read_players_batch(*, session: SessionDep, body: PlayersBatchRead) -> 
         for player in players
     ]
     return PlayersBatchPublic(data=data, count=len(data))
+
+
+@router.post(
+    "/{identifier:path}/recalculate-estimated-pb-points",
+    response_model=Message,
+)
+async def recalculate_estimated_pb_points(
+    *,
+    session: SessionDep,
+    identifier: str,
+    _current_user: CurrentAdmin,
+) -> Message:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    updated_count = await crud.recalculate_estimated_record_pb_points_for_player(
+        session=session,
+        steamid64=player.steamid64,
+    )
+    await session.commit()
+    return Message(
+        message=(
+            f"Recalculated estimated PB points for {updated_count} row(s)."
+        )
+    )
 
 
 @router.post("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)

@@ -403,6 +403,17 @@ export const en = {
       ratingContributionTooltip:
         "Raw rating this record contributes to the player's rating.",
     },
+    adminRecovery: {
+      title: "Admin recovery",
+      description:
+        "After an unban, recalculate estimated PB points first, then rebuild the player's rating.",
+      recalculatePoints: "Recalculate estimated points",
+      recalculateRating: "Recalculate rating",
+      pointsRecalculated: "Estimated PB points recalculated.",
+      pointsFailed: "Failed to recalculate estimated PB points.",
+      ratingRecalculated: "Player rating recalculated.",
+      ratingFailed: "Failed to recalculate player rating.",
+    },
     skillRadar: {
       title: "Skills",
       ariaLabel: "Profile skill radar",

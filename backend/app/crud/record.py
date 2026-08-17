@@ -76,6 +76,7 @@ from app.models import (
 from app.services.course_points import (
     CoursePbEntry,
     calculate_bucket_points,
+    calculate_course_pb_points,
     calculate_estimated_pb_points,
 )
 from app.services.run_replay_storage import has_run_replay
@@ -610,6 +611,203 @@ async def _estimate_record_pb_points(
         tier=tier,
         is_pro_only=record_type.is_pro,
     )
+
+
+async def recalculate_estimated_record_pb_points_for_player(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+) -> int:
+    """Refresh one player's PB points without recomputing the whole bucket.
+
+    This intentionally uses the incremental estimate applied when a PB is first
+    created. It is useful after an unban, when the player's preserved PB rows
+    still carry the banned fallback point value.
+    """
+    rows = (
+        await session.exec(
+            select(RecordPb)
+            .where(col(RecordPb.steamid64) == steamid64)
+            .order_by(
+                col(RecordPb.scope).asc(),
+                col(RecordPb.course_id).asc(),
+                col(RecordPb.type).asc(),
+            )
+        )
+    ).all()
+    if not rows:
+        return 0
+
+    wr_bucket_keys: set[tuple[ModeScope, int, RecordType]] = set()
+    rebuilt_wr_rows = 0
+
+    if await _steamid64_has_active_ban(session=session, steamid64=steamid64):
+        estimated_points_by_row_key = {
+            (row.scope, row.course_id, row.type): _stored_points_for_banned_record()
+            for row in rows
+        }
+    else:
+        scopes = {row.scope for row in rows}
+        course_ids = sorted({row.course_id for row in rows})
+        tier_rows = (
+            await session.exec(
+                select(
+                    MapCourseTier.course_id,
+                    MapCourseTier.mode,
+                    MapCourseTier.tier,
+                ).where(col(MapCourseTier.course_id).in_(course_ids))
+            )
+        ).all()
+        tier_values_by_key: dict[tuple[int, ModeScope], list[int]] = defaultdict(list)
+        for course_id, mode, tier in tier_rows:
+            for scope in scopes:
+                if mode in mode_scope_modes(scope) and tier > 0:
+                    tier_values_by_key[(course_id, scope)].append(tier)
+        tiers_by_course_and_scope = {
+            (course_id, scope): min(tier_values_by_key[(course_id, scope)], default=0)
+            for course_id in course_ids
+            for scope in scopes
+        }
+
+        # Keep the player's buckets in a small materialized relation, then join
+        # every unbanned PB row to it once. This is deliberately set-based: a
+        # prolific player can have thousands of PB buckets, for which one table
+        # scan is much cheaper than thousands of separate bucket scans.
+        target_record_pbs = (
+            select(
+                col(RecordPb.record_uuid).label("record_uuid"),
+                col(RecordPb.course_id).label("course_id"),
+                col(RecordPb.scope).label("scope"),
+                col(RecordPb.type).label("record_type"),
+                col(RecordPb.time).label("time"),
+            )
+            .where(col(RecordPb.steamid64) == steamid64)
+            .cte("target_record_pbs")
+            .prefix_with("MATERIALIZED", dialect="postgresql")
+        )
+        earlier_entry = case(
+            (
+                or_(
+                    col(RecordPb.time) < target_record_pbs.c.time,
+                    and_(
+                        col(RecordPb.time) == target_record_pbs.c.time,
+                        col(RecordPb.record_uuid) < target_record_pbs.c.record_uuid,
+                    ),
+                ),
+                1,
+            ),
+            else_=0,
+        )
+        bucket_stats = (
+            select(
+                target_record_pbs.c.record_uuid,
+                target_record_pbs.c.scope,
+                target_record_pbs.c.course_id,
+                target_record_pbs.c.record_type,
+                func.count(RecordPb.record_uuid).label("total"),
+                (func.coalesce(func.sum(earlier_entry), 0) + 1).label("rank"),
+                func.min(RecordPb.time).label("wr_time"),
+            )
+            .select_from(
+                target_record_pbs.join(
+                    RecordPb,
+                    and_(
+                        col(RecordPb.course_id) == target_record_pbs.c.course_id,
+                        col(RecordPb.scope) == target_record_pbs.c.scope,
+                        col(RecordPb.type) == target_record_pbs.c.record_type,
+                        _not_active_ban_exists_split_clause(
+                            steamid64_column=col(RecordPb.steamid64)
+                        ),
+                    ),
+                )
+            )
+            .group_by(
+                target_record_pbs.c.record_uuid,
+                target_record_pbs.c.scope,
+                target_record_pbs.c.course_id,
+                target_record_pbs.c.record_type,
+                target_record_pbs.c.time,
+            )
+        )
+        # The planner underestimates the number of rows in popular buckets and
+        # otherwise picks thousands of random index scans. Restrict this one
+        # transaction to hash/merge joins so `record_pb` is scanned once.
+        await session.execute(text("SET LOCAL enable_nestloop = off"))
+        bucket_stats = (await session.exec(bucket_stats)).all()
+        bucket_stats_by_row_key = {
+            (scope, course_id, record_type, record_uuid): (rank, total, wr_time)
+            for record_uuid, scope, course_id, record_type, total, rank, wr_time in bucket_stats
+        }
+
+        estimated_points_by_row_key = {}
+        for row in rows:
+            bucket_stats = bucket_stats_by_row_key.get(
+                (row.scope, row.course_id, row.type, row.record_uuid)
+            )
+            if bucket_stats is None:
+                raise RuntimeError(
+                    f"Missing estimated-points bucket stats for PB {row.record_uuid}"
+                )
+            rank, total, wr_time = bucket_stats
+            estimated_points_by_row_key[(row.scope, row.course_id, row.type)] = (
+                calculate_course_pb_points(
+                    rank=int(rank),
+                    total=int(total),
+                    time_ms=seconds_to_time_ms(row.time),
+                    wr_time_ms=seconds_to_time_ms(Decimal(wr_time)),
+                    tier=tiers_by_course_and_scope[(row.course_id, row.scope)],
+                    is_pro_only=row.type.is_pro,
+                )
+            )
+
+        # A recovered PB can be the new active WR while the old WR row still
+        # owns the partial unique 1000-point index. Rebuild only those buckets
+        # so the stale WR is demoted before the recovered row is promoted.
+        wr_bucket_keys = {
+            (row.scope, row.course_id, row.type)
+            for row in rows
+            if (
+                estimated_points_by_row_key[(row.scope, row.course_id, row.type)]
+                == 1000
+                and row.points != 1000
+            )
+        }
+        for scope, course_id, record_type in wr_bucket_keys:
+            rebuilt_wr_rows += await rebuild_record_pb_points_bucket(
+                session=session,
+                course_id=course_id,
+                scope_id=mode_scope_to_id(scope),
+                record_type=record_type,
+            )
+
+    updated_at = get_datetime_utc()
+    raw_updates: list[tuple[dict[str, object], int, int]] = []
+    for row in rows:
+        if (row.scope, row.course_id, row.type) in wr_bucket_keys:
+            continue
+        estimated_points = estimated_points_by_row_key[(row.scope, row.course_id, row.type)]
+        if row.points == estimated_points:
+            continue
+        raw_updates.append(
+            (
+                _record_pb_points_update_params(
+                    scope=row.scope,
+                    course_id=row.course_id,
+                    steamid64=row.steamid64,
+                    record_type=row.type,
+                    points=estimated_points,
+                    updated_at=updated_at,
+                ),
+                row.points,
+                estimated_points,
+            )
+        )
+
+    updates = _ordered_point_updates(raw_updates)
+    if updates:
+        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, updates)
+        _expunge_loaded_record_pbs(session=session)
+    return rebuilt_wr_rows + len(updates)
 
 
 async def _sync_record_pb_bucket(
