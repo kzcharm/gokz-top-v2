@@ -218,20 +218,24 @@ def _record_pb_points_update_params(
     }
 
 
-def _ordered_point_updates(
+async def _execute_point_updates(
+    *,
+    session: AsyncSession,
     updates: Sequence[tuple[dict[str, object], int, int]],
-) -> list[dict[str, object]]:
-    return [
-        params
-        for params, _current_points, _next_points in sorted(
-            updates,
-            key=lambda item: (
-                item[1] == 1000 and item[2] != 1000,
-                item[1] != 1000 and item[2] == 1000,
-            ),
-            reverse=True,
-        )
+) -> None:
+    """Apply WR demotions before promotions protected by the partial index."""
+    demotions = [
+        params for params, current, next_points in updates
+        if current == 1000 and next_points != 1000
     ]
+    remaining = [
+        params for params, current, next_points in updates
+        if not (current == 1000 and next_points != 1000)
+    ]
+    if demotions:
+        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, demotions)
+    if remaining:
+        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, remaining)
 
 
 def _stored_points_for_banned_record() -> int:
@@ -803,11 +807,10 @@ async def recalculate_estimated_record_pb_points_for_player(
             )
         )
 
-    updates = _ordered_point_updates(raw_updates)
-    if updates:
-        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, updates)
+    if raw_updates:
+        await _execute_point_updates(session=session, updates=raw_updates)
         _expunge_loaded_record_pbs(session=session)
-    return rebuilt_wr_rows + len(updates)
+    return rebuilt_wr_rows + len(raw_updates)
 
 
 async def _sync_record_pb_bucket(
@@ -1010,8 +1013,7 @@ async def rebuild_record_pb_points_bucket(
         tier=resolved_tier,
         is_pro_only=record_type.is_pro,
     )
-    updates = _ordered_point_updates(
-        [
+    updates = [
             (
                 _record_pb_points_update_params(
                     scope=row_scope_id,
@@ -1047,9 +1049,8 @@ async def rebuild_record_pb_points_bucket(
                 else points_by_uuid[record_uuid]
             )
         ]
-    )
     if updates:
-        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, updates)
+        await _execute_point_updates(session=session, updates=updates)
         _expunge_loaded_record_pbs(session=session)
     return len(updates)
 
@@ -1167,11 +1168,10 @@ async def rebuild_record_pb_points_for_course(
             if current_points != points_by_uuid[record_uuid]
         )
 
-    updates = _ordered_point_updates(raw_updates)
-    if updates:
-        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, updates)
+    if raw_updates:
+        await _execute_point_updates(session=session, updates=raw_updates)
         _expunge_loaded_record_pbs(session=session)
-    return len(updates)
+    return len(raw_updates)
 
 
 async def recompute_record_pbs_for_keys(

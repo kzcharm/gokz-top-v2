@@ -1468,13 +1468,13 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
                 FROM pg_indexes
                 WHERE schemaname = 'public'
                   AND tablename = 'record_pb'
-                  AND indexname = 'ix_record_pb_scope_course_type_time_record_uuid'
+                  AND indexname = 'ix_record_pb_bucket_points_lookup'
                 """
             )
         )
     ).one()
     assert (
-        "INDEX ix_record_pb_scope_course_type_time_record_uuid"
+        "INDEX ix_record_pb_bucket_points_lookup"
         in record_pb_time_order_index[0]
     )
     assert "(scope, course_id, type, \"time\", record_uuid)" in (
