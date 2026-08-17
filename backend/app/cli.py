@@ -119,6 +119,9 @@ def _render_record_transfer_summary(
             ("Leaderboard rows created", str(result.leaderboard_created)),
             ("Leaderboard rows updated", str(result.leaderboard_updated)),
             ("Player stats deleted", str(result.player_stats_deleted)),
+            ("Rating rows selected", str(result.rating_rows_selected)),
+            ("Rating rows created", str(result.rating_rows_created)),
+            ("Rating rows updated", str(result.rating_rows_updated)),
             ("Audit path", str(result.audit_path)),
             ("Summary path", str(result.summary_path)),
             ("Audit sha256", result.checksum),
@@ -153,6 +156,20 @@ def transfer_records(
             help="JSONL audit output path. Defaults to .temp/record-transfers/.",
         ),
     ] = None,
+    after: Annotated[
+        str | None,
+        typer.Option(
+            "--after",
+            help="Inclusive UTC date/datetime lower bound (ISO 8601).",
+        ),
+    ] = None,
+    before: Annotated[
+        str | None,
+        typer.Option(
+            "--before",
+            help="Inclusive UTC date/datetime upper bound (ISO 8601).",
+        ),
+    ] = None,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -166,6 +183,8 @@ def transfer_records(
             source_steamid64=source_steamid64,
             target_steamid64=target_steamid64,
             audit_path=audit_path,
+            after=after,
+            before=before,
             dry_run=dry_run,
         )
     )

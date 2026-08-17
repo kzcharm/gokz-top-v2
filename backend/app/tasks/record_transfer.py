@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ from app.models import (
     mode_scope_modes,
     mode_scope_to_id,
 )
+from app.tasks.build import rating as rating_task
 
 DEFAULT_SOURCE_STEAMID64 = 76561198764013745
 DEFAULT_TARGET_STEAMID64 = 76561199019610922
@@ -53,6 +55,9 @@ class RecordTransferResult:
     leaderboard_updated: int
     player_stats_deleted: int
     checksum: str
+    rating_rows_selected: int
+    rating_rows_created: int
+    rating_rows_updated: int
 
 
 def default_audit_path() -> Path:
@@ -62,6 +67,21 @@ def default_audit_path() -> Path:
 
 def _json_default(value: object) -> str:
     return str(value)
+
+
+def parse_datetime_boundary(value: str | None, *, is_end: bool = False) -> datetime | None:
+    """Parse an ISO date or datetime as an inclusive UTC boundary."""
+    if value is None:
+        return None
+    try:
+        parsed = datetime.combine(
+            date.fromisoformat(value), time.max if is_end else time.min
+        )
+    except ValueError:
+        parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _record_audit_payload(
@@ -137,13 +157,22 @@ def _write_audit_files(
     return summary_path, checksum.hexdigest()
 
 
-async def _count_records(*, session: AsyncSession, steamid64: int) -> int:
+async def _count_records(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    after: datetime | None = None,
+    before: datetime | None = None,
+) -> int:
+    conditions = [col(Record.steamid64) == steamid64]
+    if after is not None:
+        conditions.append(col(Record.created_at) >= after)
+    if before is not None:
+        conditions.append(col(Record.created_at) <= before)
     return int(
         (
             await session.exec(
-                select(func.count()).select_from(Record).where(
-                    col(Record.steamid64) == steamid64
-                )
+                select(func.count()).select_from(Record).where(*conditions)
             )
         ).one()
     )
@@ -165,12 +194,19 @@ async def _load_source_records(
     *,
     session: AsyncSession,
     source_steamid64: int,
+    after: datetime | None = None,
+    before: datetime | None = None,
 ) -> list[Record]:
+    conditions = [col(Record.steamid64) == source_steamid64]
+    if after is not None:
+        conditions.append(col(Record.created_at) >= after)
+    if before is not None:
+        conditions.append(col(Record.created_at) <= before)
     return list(
         (
             await session.exec(
                 select(Record)
-                .where(col(Record.steamid64) == source_steamid64)
+                .where(*conditions)
                 .order_by(
                     col(Record.created_at).asc(),
                     col(Record.id).asc().nullslast(),
@@ -272,8 +308,14 @@ async def transfer_records(
     source_steamid64: int = DEFAULT_SOURCE_STEAMID64,
     target_steamid64: int = DEFAULT_TARGET_STEAMID64,
     audit_path: Path | None = None,
+    after: str | None = None,
+    before: str | None = None,
     dry_run: bool,
 ) -> RecordTransferResult:
+    after_dt = parse_datetime_boundary(after)
+    before_dt = parse_datetime_boundary(before, is_end=True)
+    if after_dt is not None and before_dt is not None and after_dt > before_dt:
+        raise ValueError("after must be earlier than or equal to before")
     resolved_audit_path = audit_path or default_audit_path()
     if dry_run:
         resolved_audit_path = resolved_audit_path.with_name(
@@ -299,9 +341,9 @@ async def transfer_records(
         records = await _load_source_records(
             session=session,
             source_steamid64=source_steamid64,
+            after=after_dt,
+            before=before_dt,
         )
-        if source_records_before != len(records):
-            raise RuntimeError("Source record count changed during preflight")
         if not records:
             raise RuntimeError(f"No source records found for {source_steamid64}")
 
@@ -356,6 +398,9 @@ async def transfer_records(
                 leaderboard_updated=0,
                 player_stats_deleted=0,
                 checksum=checksum,
+                rating_rows_selected=0,
+                rating_rows_created=0,
+                rating_rows_updated=0,
             )
 
         await session.execute(
@@ -370,28 +415,19 @@ async def transfer_records(
         )
         updated_result = await session.exec(
             update(Record)
-            .where(col(Record.steamid64) == source_steamid64)
+            .where(
+                col(Record.uuid).in_([record.uuid for record in records])
+            )
             .values(steamid64=target_steamid64)
         )
         transferred_records = int(updated_result.rowcount or 0)
-        if transferred_records != source_records_before:
+        if transferred_records != len(records):
             raise RuntimeError(
                 "Transfer row count mismatch: "
-                f"updated={transferred_records} expected={source_records_before}"
+                f"updated={transferred_records} expected={len(records)}"
             )
 
-        await session.exec(
-            delete(RecordPb).where(col(RecordPb.steamid64) == source_steamid64)
-        )
-        target_pb_keys = {
-            (scope_id, course_id, steamid64, record_type)
-            for scope_id, course_id, steamid64, record_type in pb_keys
-            if steamid64 == target_steamid64
-        }
-        await recompute_record_pbs_for_keys(
-            session=session,
-            keys=target_pb_keys,
-        )
+        await recompute_record_pbs_for_keys(session=session, keys=pb_keys)
 
         leaderboard_keys = [
             (mode_scope_to_id(scope), steamid64)
@@ -426,9 +462,10 @@ async def transfer_records(
             session=session,
             steamid64=source_steamid64,
         )
-        if source_records_after != 0:
+        if source_records_after != source_records_before - transferred_records:
             raise RuntimeError(
-                f"Source still has records after transfer: {source_records_after}"
+                "Source record count mismatch after transfer: "
+                f"after={source_records_after} expected={source_records_before - transferred_records}"
             )
         minimum_target_records_after = target_records_before + transferred_records
         if target_records_after < minimum_target_records_after:
@@ -436,12 +473,15 @@ async def transfer_records(
                 "Target record count mismatch after transfer: "
                 f"after={target_records_after} minimum={minimum_target_records_after}"
             )
-        if source_record_pb_after != 0:
-            raise RuntimeError(
-                f"Source still has record_pb rows after transfer: {source_record_pb_after}"
-            )
-
         await session.commit()
+
+    rating_result = await rating_task.rebuild_ratings(
+        scope_ids=[mode_scope_to_id(scope) for scope in ModeScope],
+        scopes=None,
+        steamid64s=[source_steamid64, target_steamid64],
+        limit=None,
+        full=False,
+    )
 
     return RecordTransferResult(
         source_steamid64=source_steamid64,
@@ -466,4 +506,7 @@ async def transfer_records(
         leaderboard_updated=leaderboard_updated,
         player_stats_deleted=player_stats_deleted,
         checksum=checksum,
+        rating_rows_selected=rating_result.leaderboard.selected,
+        rating_rows_created=rating_result.leaderboard.created,
+        rating_rows_updated=rating_result.leaderboard.updated,
     )
