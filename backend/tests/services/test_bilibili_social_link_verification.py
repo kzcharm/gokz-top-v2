@@ -6,6 +6,35 @@ import pytest
 from app.services import bilibili_social_link_verification as verification
 
 
+def test_is_uuid_profile_text_only_matches_uuid_values() -> None:
+    assert verification.is_uuid_profile_text(" 123e4567-e89b-12d3-a456-426614174000 ")
+    assert not verification.is_uuid_profile_text("real player bio")
+
+
+def test_get_bilibili_pending_metadata_rejects_expired_values() -> None:
+    metadata = {
+        "bilibili_verification": {
+            "account_identifier": "123456",
+            "expires_at": "2020-01-01T00:00:00+00:00",
+            "last_non_uuid_profile_text": "real bio",
+            "verification_code": "GOKZTOP",
+        }
+    }
+
+    assert (
+        verification.get_bilibili_pending_metadata(
+            metadata_json=metadata,
+            account_identifier="123456",
+            now=datetime.now(UTC),
+        )
+        is None
+    )
+    assert verification.get_bilibili_last_profile_text(
+        metadata_json=metadata,
+        account_identifier="123456",
+    ) == "real bio"
+
+
 def test_create_bilibili_pending_confirmation_token_round_trips() -> None:
     token, verification_code, expires_at = (
         verification.create_bilibili_pending_confirmation_token(

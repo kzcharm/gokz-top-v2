@@ -214,6 +214,7 @@ from .player_social_link import (
     to_player_social_link_public,
     to_player_social_link_publics,
     update_player_social_link,
+    update_player_social_link_metadata,
 )
 from .player_stats import (
     get_or_rebuild_player_daily_activity_stat,
@@ -570,6 +571,7 @@ __all__ = [
     "update_player",
     "update_player_settings",
     "update_player_social_link",
+    "update_player_social_link_metadata",
     "update_player_webhook",
     "update_record_validity",
     "bulk_soft_delete_course_records",

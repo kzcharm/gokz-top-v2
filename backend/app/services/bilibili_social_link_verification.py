@@ -5,6 +5,7 @@ import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
+from typing import Any
 
 import httpx
 import jwt
@@ -76,9 +77,11 @@ def create_bilibili_pending_confirmation_token(
     steamid64: int,
     link_id: str,
     current_account_identifier: str,
+    verification_code: str | None = None,
+    expires_at: datetime | None = None,
 ) -> tuple[str, str, datetime]:
-    expires_at = datetime.now(UTC) + BILIBILI_PENDING_CONFIRM_TTL
-    verification_code = _build_bilibili_verification_code()
+    expires_at = expires_at or (datetime.now(UTC) + BILIBILI_PENDING_CONFIRM_TTL)
+    verification_code = verification_code or _build_bilibili_verification_code()
     payload = BilibiliVerificationPendingPayload(
         purpose="bilibili_social_link_verify_pending",
         steamid64=steamid64,
@@ -94,6 +97,52 @@ def create_bilibili_pending_confirmation_token(
         algorithm=security.ALGORITHM,
     )
     return token, verification_code, expires_at
+
+
+def is_uuid_profile_text(profile_text: str) -> bool:
+    try:
+        uuid.UUID(profile_text.strip())
+    except (ValueError, AttributeError):
+        return False
+    return True
+
+
+def get_bilibili_pending_metadata(
+    *, metadata_json: dict[str, Any] | None, account_identifier: str, now: datetime
+) -> tuple[str, datetime, str | None] | None:
+    if not metadata_json:
+        return None
+    pending = metadata_json.get("bilibili_verification")
+    if not isinstance(pending, dict):
+        return None
+    if pending.get("account_identifier") != account_identifier:
+        return None
+    code = pending.get("verification_code")
+    expires_at_value = pending.get("expires_at")
+    if not isinstance(code, str) or not isinstance(expires_at_value, str):
+        return None
+    try:
+        expires_at = datetime.fromisoformat(expires_at_value)
+    except ValueError:
+        return None
+    if expires_at.tzinfo is None or expires_at <= now:
+        return None
+    profile_text = pending.get("last_non_uuid_profile_text")
+    return code, expires_at, profile_text if isinstance(profile_text, str) else None
+
+
+def get_bilibili_last_profile_text(
+    *, metadata_json: dict[str, Any] | None, account_identifier: str
+) -> str | None:
+    if not metadata_json:
+        return None
+    pending = metadata_json.get("bilibili_verification")
+    if not isinstance(pending, dict):
+        return None
+    if pending.get("account_identifier") != account_identifier:
+        return None
+    profile_text = pending.get("last_non_uuid_profile_text")
+    return profile_text if isinstance(profile_text, str) else None
 
 
 def decode_bilibili_pending_confirmation_token(

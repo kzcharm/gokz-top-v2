@@ -340,8 +340,16 @@ async def test_player_bilibili_social_link_verify_start_returns_code_and_token(
         url="https://space.bilibili.com/123456",
     )
 
+    profile_texts = iter(
+        [
+            "current profile text",
+            "123e4567-e89b-12d3-a456-426614174000",
+            "123e4567-e89b-12d3-a456-426614174000",
+        ]
+    )
+
     async def _fake_fetch_profile_text(**_: object) -> str:
-        return "current profile text"
+        return next(profile_texts)
 
     monkeypatch.setattr(
         player_social_links_routes,
@@ -360,6 +368,24 @@ async def test_player_bilibili_social_link_verify_start_returns_code_and_token(
     assert str(uuid.UUID(payload["verification_code"])) == payload["verification_code"]
     assert payload["pending_token"]
     assert payload["current_profile_text"] == "current profile text"
+
+    reused = await client.post(
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-requests",
+        headers=headers,
+    )
+    assert reused.status_code == 200
+    reused_payload = reused.json()
+    assert reused_payload["verification_code"] == payload["verification_code"]
+    assert reused_payload["current_profile_text"] == "current profile text"
+
+    regenerated = await client.post(
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-requests?force_new=true",
+        headers=headers,
+    )
+    assert regenerated.status_code == 200
+    regenerated_payload = regenerated.json()
+    assert regenerated_payload["verification_code"] != payload["verification_code"]
+    assert regenerated_payload["current_profile_text"] == "current profile text"
 
 
 async def test_player_bilibili_social_link_verify_start_rejects_invalid_cases(
@@ -605,6 +631,25 @@ async def test_player_bilibili_social_link_confirm_verifies_matching_profile(
         _fake_verify,
     )
 
+    db_link = await crud.get_player_social_link(
+        session=db,
+        id=uuid.UUID(link["id"]),
+    )
+    assert db_link is not None
+    await crud.update_player_social_link_metadata(
+        session=db,
+        link=db_link,
+        metadata_json={
+            "bilibili_verification": {
+                "account_identifier": "123456",
+                "expires_at": "2099-01-01T00:00:00+00:00",
+                "last_non_uuid_profile_text": "my original bio",
+                "verification_code": verification_code,
+            },
+            "future_metadata": {"keep": True},
+        },
+    )
+
     response = await client.post(
         f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-verification-confirmations",
         headers=headers,
@@ -616,6 +661,25 @@ async def test_player_bilibili_social_link_confirm_verifies_matching_profile(
     assert payload["data"][0]["verified"] is True
     assert payload["data"][0]["account_identifier"] == "123456"
     assert str(uuid.UUID(verification_code)) == verification_code
+
+    profile_text_response = await client.get(
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link['id']}/bilibili-profile-text",
+        headers=headers,
+    )
+    assert profile_text_response.status_code == 200
+    assert profile_text_response.json() == {"profile_text": "my original bio"}
+    refreshed_link = await crud.get_player_social_link(
+        session=db,
+        id=uuid.UUID(link["id"]),
+    )
+    assert refreshed_link is not None
+    assert refreshed_link.metadata_json == {
+        "bilibili_verification": {
+            "account_identifier": "123456",
+            "last_non_uuid_profile_text": "my original bio",
+        },
+        "future_metadata": {"keep": True},
+    }
 
 
 async def test_player_bilibili_social_link_confirm_rejects_invalid_token_and_conflict(

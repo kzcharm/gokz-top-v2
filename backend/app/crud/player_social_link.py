@@ -97,6 +97,11 @@ async def update_player_social_link(
 ) -> PlayerSocialLink:
     if url is not None:
         platform, account_identifier = parse_social_link_or_raise(url)
+        if (
+            link.platform != platform
+            or link.account_identifier != account_identifier
+        ):
+            link.metadata_json = None
         link.platform = platform
         link.account_identifier = account_identifier
     if verified is not None:
@@ -112,6 +117,20 @@ async def update_player_social_link(
             "Social link already exists for this player or verified account"
         ) from exc
 
+    await session.refresh(link)
+    return link
+
+
+async def update_player_social_link_metadata(
+    *,
+    session: AsyncSession,
+    link: PlayerSocialLink,
+    metadata_json: dict[str, Any] | None,
+) -> PlayerSocialLink:
+    link.metadata_json = metadata_json
+    link.updated_at = datetime.now(UTC)
+    session.add(link)
+    await session.commit()
     await session.refresh(link)
     return link
 

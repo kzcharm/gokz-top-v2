@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, text
 from sqlalchemy import Enum as SqlEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
@@ -53,6 +54,10 @@ class PlayerSocialLink(SQLModel, table=True):
     )
     account_identifier: str = Field(max_length=128, nullable=False)
     verified: bool = Field(default=False, nullable=False)
+    metadata_json: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -81,6 +86,10 @@ class PlayerSocialLinkBilibiliVerificationStart(SQLModel):
     profile_url: str = Field(min_length=1, max_length=500)
     current_profile_text: str = Field(max_length=2000)
     expires_at: datetime
+
+
+class PlayerSocialLinkBilibiliProfileText(SQLModel):
+    profile_text: str = Field(max_length=2000)
 
 
 class AdminPlayerSocialLinkCreate(PlayerSocialLinkCreate):

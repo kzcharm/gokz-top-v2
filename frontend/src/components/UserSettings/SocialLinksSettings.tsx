@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Copy,
   ExternalLink,
+  Info,
   Pencil,
   Plus,
   RefreshCw,
@@ -300,10 +301,12 @@ async function confirmYoutubeVerification(
 async function startBilibiliVerification(
   identifier: string,
   linkId: string,
+  forceNew = false,
 ): Promise<BilibiliVerificationStartResponse> {
   void identifier
+  const query = forceNew ? "?force_new=true" : ""
   const response = await fetch(
-    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/bilibili-verification-requests`,
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/bilibili-verification-requests${query}`,
     {
       method: "POST",
       headers: {
@@ -348,11 +351,32 @@ async function confirmBilibiliVerification(
   >
 }
 
+async function readBilibiliProfileText(
+  identifier: string,
+  linkId: string,
+): Promise<{ profile_text: string }> {
+  void identifier
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/player-social-links/me/social-links/${linkId}/bilibili-profile-text`,
+    {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+      credentials: OpenAPI.CREDENTIALS,
+    },
+  )
+
+  if (!response.ok) {
+    await throwResponseError(response)
+  }
+
+  return (await response.json()) as { profile_text: string }
+}
+
 function SocialLinkRow({
   link,
   onEdit,
   onDelete,
   onVerify,
+  onShowProfileText,
   deleting,
   verifying,
 }: {
@@ -360,6 +384,7 @@ function SocialLinkRow({
   onEdit: (link: PlayerSocialLinkPublic) => void
   onDelete: (link: PlayerSocialLinkPublic) => void
   onVerify: (link: PlayerSocialLinkPublic) => void
+  onShowProfileText: (link: PlayerSocialLinkPublic) => void
   deleting: boolean
   verifying: boolean
 }) {
@@ -396,6 +421,18 @@ function SocialLinkRow({
         )}
       </a>
       <div className="flex shrink-0 items-center gap-1">
+        {link.verified && link.platform === "bilibili" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Show saved Bilibili profile text"
+            title="Show saved Bilibili profile text"
+            onClick={() => onShowProfileText(link)}
+          >
+            <Info className="size-4" />
+          </Button>
+        ) : null}
         {!link.verified ? (
           isVerifyAvailable ? (
             <Button
@@ -464,6 +501,10 @@ export default function SocialLinksSettings() {
     useState<YoutubeMismatchState | null>(null)
   const [bilibiliVerificationState, setBilibiliVerificationState] =
     useState<BilibiliVerificationState | null>(null)
+  const [bilibiliProfileTextState, setBilibiliProfileTextState] = useState<{
+    accountIdentifier: string
+    profileText: string
+  } | null>(null)
   const [_copiedCode, copyCode] = useCopyToClipboard()
   const [_copiedProfileText, copyProfileText] = useCopyToClipboard()
   const identifier = String(currentUser?.steamid64 ?? "")
@@ -897,11 +938,17 @@ export default function SocialLinksSettings() {
     mutationFn: async ({
       linkId,
       accountIdentifier,
+      forceNew = false,
     }: {
       linkId: string
       accountIdentifier: string
+      forceNew?: boolean
     }) => {
-      const result = await startBilibiliVerification(identifier, linkId)
+      const result = await startBilibiliVerification(
+        identifier,
+        linkId,
+        forceNew,
+      )
       return {
         accountIdentifier,
         currentProfileText: result.current_profile_text,
@@ -915,13 +962,7 @@ export default function SocialLinksSettings() {
     },
     onSuccess: (result) => {
       setDialogState(null)
-      setBilibiliVerificationState((current) => ({
-        ...result,
-        currentProfileText:
-          current?.linkId === result.linkId
-            ? current.currentProfileText
-            : result.currentProfileText,
-      }))
+      setBilibiliVerificationState(result)
     },
     onError: (error) => {
       showErrorToast(extractErrorMessage(error))
@@ -1052,6 +1093,20 @@ export default function SocialLinksSettings() {
     onSettled: refreshLinks,
   })
 
+  const bilibiliProfileTextMutation = useMutation({
+    mutationFn: (link: PlayerSocialLinkPublic) =>
+      readBilibiliProfileText(identifier, link.id),
+    onSuccess: (result, link) => {
+      setBilibiliProfileTextState({
+        accountIdentifier: link.account_identifier,
+        profileText: result.profile_text,
+      })
+    },
+    onError: (error) => {
+      showErrorToast(extractErrorMessage(error))
+    },
+  })
+
   if (!currentUser) {
     return null
   }
@@ -1176,6 +1231,9 @@ export default function SocialLinksSettings() {
                     })
                   }
                 }}
+                onShowProfileText={(selectedLink) =>
+                  bilibiliProfileTextMutation.mutate(selectedLink)
+                }
               />
             ))
           ) : (
@@ -1350,6 +1408,59 @@ export default function SocialLinksSettings() {
       </Dialog>
 
       <Dialog
+        open={bilibiliProfileTextState !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBilibiliProfileTextState(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Saved Bilibili profile text</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Profile {bilibiliProfileTextState?.accountIdentifier}
+          </p>
+          <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <pre className="min-w-0 flex-1 whitespace-pre-wrap break-words font-sans text-sm">
+                {bilibiliProfileTextState?.profileText ||
+                  "No saved profile text detected."}
+              </pre>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Copy saved Bilibili profile text"
+                title="Copy saved Bilibili profile text"
+                disabled={!bilibiliProfileTextState?.profileText}
+                onClick={async () => {
+                  const text = bilibiliProfileTextState?.profileText || ""
+                  const success = await copyProfileText(text)
+                  if (success) {
+                    showSuccessToast("Profile text copied")
+                  } else {
+                    showErrorToast("Failed to copy profile text")
+                  }
+                }}
+              >
+                <Copy className="size-4" />
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setBilibiliProfileTextState(null)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={activeBilibiliVerification !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -1487,6 +1598,7 @@ export default function SocialLinksSettings() {
                   linkId: activeBilibiliVerification!.linkId,
                   accountIdentifier:
                     activeBilibiliVerification!.accountIdentifier,
+                  forceNew: true,
                 })
               }}
             >

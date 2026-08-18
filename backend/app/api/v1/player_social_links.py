@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -20,6 +21,7 @@ from app.api.v1.player_api_helpers import (
 )
 from app.core.config import settings
 from app.models import (
+    PlayerSocialLinkBilibiliProfileText,
     PlayerSocialLinkBilibiliVerificationStart,
     PlayerSocialLinkCreate,
     PlayerSocialLinksPublic,
@@ -34,6 +36,9 @@ from app.services.bilibili_social_link_verification import (
     create_bilibili_pending_confirmation_token,
     decode_bilibili_pending_confirmation_token,
     fetch_bilibili_profile_text,
+    get_bilibili_last_profile_text,
+    get_bilibili_pending_metadata,
+    is_uuid_profile_text,
     verify_bilibili_profile_contains_code,
 )
 from app.services.twitch_social_link_verification import (
@@ -799,6 +804,7 @@ async def start_player_bilibili_social_link_verification(
     link_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
+    force_new: bool = False,
 ) -> PlayerSocialLinkBilibiliVerificationStart:
     link = await crud.get_player_social_link(session=session, id=link_id)
     if link is None:
@@ -809,13 +815,19 @@ async def start_player_bilibili_social_link_verification(
     )
     ensure_link_is_bilibili_and_unverified(link=link)
 
-    pending_token, verification_code, expires_at = (
-        create_bilibili_pending_confirmation_token(
-            steamid64=link.player_steamid64,
-            link_id=str(link.id),
-            current_account_identifier=link.account_identifier,
-        )
+    now = datetime.now(UTC)
+    stored = get_bilibili_pending_metadata(
+        metadata_json=link.metadata_json,
+        account_identifier=link.account_identifier,
+        now=now,
     )
+    previous_profile_text = get_bilibili_last_profile_text(
+        metadata_json=link.metadata_json,
+        account_identifier=link.account_identifier,
+    )
+    existing = None if force_new else stored
+    existing_code = existing[0] if existing else None
+    existing_expiry = existing[1] if existing else None
     try:
         current_profile_text = await fetch_bilibili_profile_text(
             account_identifier=link.account_identifier
@@ -823,13 +835,37 @@ async def start_player_bilibili_social_link_verification(
     except BilibiliProfileFetchError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
+    pending_token, verification_code, expires_at = (
+        create_bilibili_pending_confirmation_token(
+            steamid64=link.player_steamid64,
+            link_id=str(link.id),
+            current_account_identifier=link.account_identifier,
+            verification_code=existing_code,
+            expires_at=existing_expiry,
+        )
+    )
+    if not is_uuid_profile_text(current_profile_text):
+        previous_profile_text = current_profile_text
+    metadata_json = dict(link.metadata_json or {})
+    metadata_json["bilibili_verification"] = {
+        "account_identifier": link.account_identifier,
+        "expires_at": expires_at.isoformat(),
+        "last_non_uuid_profile_text": previous_profile_text,
+        "verification_code": verification_code,
+    }
+    await crud.update_player_social_link_metadata(
+        session=session,
+        link=link,
+        metadata_json=metadata_json,
+    )
+
     return PlayerSocialLinkBilibiliVerificationStart(
         pending_token=pending_token,
         verification_code=verification_code,
         profile_url=build_bilibili_profile_url(
             account_identifier=link.account_identifier
         ),
-        current_profile_text=current_profile_text,
+        current_profile_text=previous_profile_text or "",
         expires_at=expires_at,
     )
 
@@ -884,11 +920,28 @@ async def confirm_player_bilibili_social_link_verification(
     except BilibiliProfileFetchError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
+    saved_profile_text = get_bilibili_last_profile_text(
+        metadata_json=link.metadata_json,
+        account_identifier=link.account_identifier,
+    )
+    metadata_json = dict(link.metadata_json or {})
+    if saved_profile_text is not None:
+        metadata_json["bilibili_verification"] = {
+            "account_identifier": link.account_identifier,
+            "last_non_uuid_profile_text": saved_profile_text,
+        }
+    else:
+        metadata_json.pop("bilibili_verification", None)
     try:
         await crud.update_player_social_link(
             session=session,
             link=link,
             verified=True,
+        )
+        await crud.update_player_social_link_metadata(
+            session=session,
+            link=link,
+            metadata_json=metadata_json or None,
         )
     except crud.PlayerSocialLinkConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -901,3 +954,31 @@ async def confirm_player_bilibili_social_link_verification(
         data=crud.to_player_social_link_publics(links=links),
         count=len(links),
     )
+
+
+@router.get(
+    "/me/social-links/{link_id}/bilibili-profile-text",
+    response_model=PlayerSocialLinkBilibiliProfileText,
+)
+async def read_player_bilibili_profile_text(
+    link_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerSocialLinkBilibiliProfileText:
+    link = await crud.get_player_social_link(session=session, id=link_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Social link not found")
+    ensure_current_user_owns_social_link(
+        current_user=current_user,
+        target_steamid64=link.player_steamid64,
+    )
+    if link.platform != PlayerSocialPlatform.BILIBILI or not link.verified:
+        raise HTTPException(
+            status_code=404,
+            detail="Saved Bilibili profile text not found",
+        )
+    profile_text = get_bilibili_last_profile_text(
+        metadata_json=link.metadata_json,
+        account_identifier=link.account_identifier,
+    )
+    return PlayerSocialLinkBilibiliProfileText(profile_text=profile_text or "")
