@@ -233,7 +233,7 @@ async def _execute_point_updates(
         # Clear the partial unique-index key for every affected row before
         # applying final values; executemany ordering is not guaranteed by the
         # database driver.
-        neutralized = [params | {"next_points": 0} for params in changed]
+        neutralized = [params | {"next_points": 1} for params in changed]
         await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, neutralized)
         await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, changed)
 
