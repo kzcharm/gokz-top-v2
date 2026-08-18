@@ -224,18 +224,18 @@ async def _execute_point_updates(
     updates: Sequence[tuple[dict[str, object], int, int]],
 ) -> None:
     """Apply WR demotions before promotions protected by the partial index."""
-    demotions = [
-        params for params, current, next_points in updates
-        if current == 1000 and next_points != 1000
+    changed = [
+        params
+        for params, current, next_points in updates
+        if current != next_points
     ]
-    remaining = [
-        params for params, current, next_points in updates
-        if not (current == 1000 and next_points != 1000)
-    ]
-    if demotions:
-        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, demotions)
-    if remaining:
-        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, remaining)
+    if changed:
+        # Clear the partial unique-index key for every affected row before
+        # applying final values; executemany ordering is not guaranteed by the
+        # database driver.
+        neutralized = [params | {"next_points": 0} for params in changed]
+        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, neutralized)
+        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, changed)
 
 
 def _stored_points_for_banned_record() -> int:
