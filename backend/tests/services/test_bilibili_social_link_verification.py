@@ -1,8 +1,10 @@
 import uuid
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 
+from app.core.config import settings
 from app.services import bilibili_social_link_verification as verification
 
 
@@ -114,6 +116,8 @@ async def test_verify_bilibili_profile_contains_code_accepts_matching_descriptio
         def raise_for_status(self) -> None:
             return None
 
+    client_kwargs: dict[str, object] = {}
+
     class _Client:
         async def __aenter__(self) -> _Client:
             return self
@@ -125,12 +129,85 @@ async def test_verify_bilibili_profile_contains_code_accepts_matching_descriptio
             assert url == "https://space.bilibili.com/123456"
             return _Response()
 
-    monkeypatch.setattr(verification.httpx, "AsyncClient", lambda **_: _Client())
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: (client_kwargs.update(kwargs) or _Client()),
+    )
+    monkeypatch.setattr(settings, "BILIBILI_COOKIE", "SESSDATA=test-cookie")
 
     await verification.verify_bilibili_profile_contains_code(
         account_identifier="123456",
         verification_code="GOKZTOP-BILI-ABC123-DEF456",
     )
+    assert client_kwargs["headers"]["Cookie"] == "SESSDATA=test-cookie"  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_fetch_bilibili_profile_omits_cookie_when_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        text = "<html><meta name='description' content='profile'></html>"
+
+        def raise_for_status(self) -> None:
+            return None
+
+    client_kwargs: dict[str, object] = {}
+
+    class _Client:
+        async def __aenter__(self) -> _Client:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        async def get(self, _url: str) -> _Response:
+            return _Response()
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: (client_kwargs.update(kwargs) or _Client()),
+    )
+    monkeypatch.setattr(settings, "BILIBILI_COOKIE", None)
+
+    await verification.fetch_bilibili_profile_text(account_identifier="123456")
+
+    assert "Cookie" not in client_kwargs["headers"]  # type: ignore[operator]
+
+
+@pytest.mark.asyncio
+async def test_fetch_bilibili_profile_maps_http_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        text = ""
+
+        def raise_for_status(self) -> None:
+            raise httpx.HTTPStatusError(
+                "Bilibili rejected the request",
+                request=httpx.Request("GET", "https://space.bilibili.com/123456"),
+                response=httpx.Response(412),
+            )
+
+    class _Client:
+        async def __aenter__(self) -> _Client:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        async def get(self, _url: str) -> _Response:
+            return _Response()
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: _Client())
+
+    with pytest.raises(
+        verification.BilibiliProfileFetchError,
+        match="Failed to fetch the Bilibili profile page",
+    ):
+        await verification.fetch_bilibili_profile_text(account_identifier="123456")
 
 
 @pytest.mark.asyncio
@@ -164,7 +241,7 @@ async def test_verify_bilibili_profile_contains_code_rejects_missing_code(
         async def get(self, _url: str) -> _Response:
             return _Response()
 
-    monkeypatch.setattr(verification.httpx, "AsyncClient", lambda **_: _Client())
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: _Client())
 
     with pytest.raises(verification.BilibiliProfileVerificationCodeMissingError):
         await verification.verify_bilibili_profile_contains_code(

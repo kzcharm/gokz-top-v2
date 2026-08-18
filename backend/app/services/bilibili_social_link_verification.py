@@ -34,6 +34,13 @@ _BILIBILI_BROWSER_HEADERS = {
 }
 
 
+def _bilibili_headers() -> dict[str, str]:
+    headers = dict(_BILIBILI_BROWSER_HEADERS)
+    if settings.BILIBILI_COOKIE:
+        headers["Cookie"] = settings.BILIBILI_COOKIE
+    return headers
+
+
 class BilibiliVerificationPendingPayload(BaseModel):
     purpose: str
     steamid64: int
@@ -213,7 +220,7 @@ async def _fetch_bilibili_profile_html(*, account_identifier: str) -> str:
     try:
         async with httpx.AsyncClient(
             follow_redirects=True,
-            headers=_BILIBILI_BROWSER_HEADERS,
+            headers=_bilibili_headers(),
             timeout=10.0,
         ) as client:
             response = await client.get(profile_url)
