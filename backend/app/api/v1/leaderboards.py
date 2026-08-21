@@ -6,7 +6,6 @@ from app import crud
 from app.api.deps import (
     OptionalCurrentUser,
     SessionDep,
-    get_current_active_admin,
     get_current_active_superuser,
 )
 from app.core.regions import is_valid_region_code
@@ -184,7 +183,6 @@ async def upsert_map_leaderboards(
 @router.put(
     "/players/{identifier:path}",
     response_model=Message,
-    dependencies=[Depends(get_current_active_admin)],
 )
 async def upsert_player_leaderboards(
     identifier: str,

@@ -32,7 +32,7 @@ from app.models.leaderboard_player import (
 )
 from tests.utils.server import create_server_group as create_test_server_group
 from tests.utils.user import authentication_token_from_steamid
-from tests.utils.utils import get_superuser_token_headers, random_steamid64
+from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
 
@@ -1000,7 +1000,7 @@ async def test_read_regions_returns_region_metadata(client: AsyncClient) -> None
     )
 
 
-async def test_upsert_player_leaderboards_requires_admin_and_rebuilds_player(
+async def test_upsert_player_leaderboards_rebuilds_player_without_authentication(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -1013,14 +1013,8 @@ async def test_upsert_player_leaderboards_requires_admin_and_rebuilds_player(
     assert before_response.status_code == 200
     assert before_response.json() == {"data": [], "count": 0}
 
-    unauthorized_response = await client.put(
-        f"{settings.API_V1_STR}/leaderboards/players/alpha"
-    )
-    assert unauthorized_response.status_code == 401
-
     rebuild_response = await client.put(
-        f"{settings.API_V1_STR}/leaderboards/players/alpha",
-        headers=await get_superuser_token_headers(client),
+        f"{settings.API_V1_STR}/leaderboards/players/alpha"
     )
 
     assert rebuild_response.status_code == 200
