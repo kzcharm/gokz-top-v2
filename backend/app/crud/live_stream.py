@@ -247,13 +247,7 @@ def _to_live_stream_card_public(
     preview_url_resolver: Callable[[str], str],
     roles_by_steamid64: dict[int, list[UserRole]],
 ) -> LiveStreamCardPublic:
-    raw_preview_image_url = candidate.state.last_preview_image_url
     raw_keyframe_image_url = candidate.state.last_keyframe_image_url
-    preview_image_url = (
-        raw_preview_image_url
-        if candidate.is_live
-        else raw_keyframe_image_url or raw_preview_image_url
-    )
     return LiveStreamCardPublic(
         player=LiveStreamPlayerPublic(
             steamid64=str(candidate.player.steamid64),
@@ -276,15 +270,11 @@ def _to_live_stream_card_public(
         ),
         last_viewer_count=candidate.state.last_viewer_count,
         preview_image_url=(
-            preview_url_resolver(preview_image_url)
-            if preview_image_url
-            else None
-        ),
-        hover_preview_image_url=(
             preview_url_resolver(raw_keyframe_image_url)
-            if candidate.is_live and raw_keyframe_image_url
+            if raw_keyframe_image_url
             else None
         ),
+        hover_preview_image_url=None,
         stream_title=candidate.state.last_stream_title,
         started_at=(
             candidate.state.last_live_started_at if candidate.is_live else None

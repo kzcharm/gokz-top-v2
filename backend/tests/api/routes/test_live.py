@@ -122,6 +122,7 @@ async def test_read_live_streams_filters_online_and_offline(
         stream_url="https://live.bilibili.com/84",
         preview_url="https://i0.hdslb.com/bfs/live/offline-cover.jpg",
         hover_preview_url="https://cdn.example.com/live/keyframes/bilibili/offline.jpg",
+        viewer_count=839,
     )
 
     all_response = await client.get("/v1/live/streams")
@@ -138,12 +139,9 @@ async def test_read_live_streams_filters_online_and_offline(
     )
     assert (
         online_payload["data"][0]["preview_image_url"]
-        == "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive%2Flive-cover.jpg"
-    )
-    assert (
-        online_payload["data"][0]["hover_preview_image_url"]
         == "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive-key-frame%2Flive-frame.jpg"
     )
+    assert online_payload["data"][0]["hover_preview_image_url"] is None
     assert online_payload["data"][0]["last_viewer_count"] == 145612
 
     offline_response = await client.get(
@@ -157,6 +155,7 @@ async def test_read_live_streams_filters_online_and_offline(
         offline_player.steamid64
     )
     assert offline_payload["data"][0]["is_live"] is False
+    assert offline_payload["data"][0]["last_viewer_count"] == 839
     assert (
         offline_payload["data"][0]["preview_image_url"]
         == "https://cdn.example.com/live/keyframes/bilibili/offline.jpg"
@@ -224,6 +223,9 @@ async def test_read_live_streams_serializes_twitch_cards_and_recency(
         preview_url=(
             "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg"
         ),
+        hover_preview_url=(
+            "https://cdn.example.com/live/keyframes/twitch/twitch-player.jpg"
+        ),
         viewer_count=9123,
     )
     await _create_state(
@@ -257,7 +259,7 @@ async def test_read_live_streams_serializes_twitch_cards_and_recency(
     assert live_payload["data"][0]["selected_platform"] == "twitch"
     assert (
         live_payload["data"][0]["preview_image_url"]
-        == "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg"
+        == "https://cdn.example.com/live/keyframes/twitch/twitch-player.jpg"
     )
     assert live_payload["data"][0]["hover_preview_image_url"] is None
 

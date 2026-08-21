@@ -567,7 +567,7 @@ async def _refresh_live_streams_with_session(session: AsyncSession) -> int:
                     hover_preview_image_url=keyframe_image_url,
                     channel_display_name=status.channel_display_name,
                     viewer_count=status.viewer_count,
-                    update_viewer_count=True,
+                    update_viewer_count=status.is_live,
                     started_at=status.started_at,
                     commit=False,
                 )

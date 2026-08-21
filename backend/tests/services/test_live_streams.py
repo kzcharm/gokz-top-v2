@@ -857,7 +857,7 @@ async def test_refresh_live_streams_clears_stale_bilibili_popularity_count(
     assert state.last_viewer_count is None
 
 
-async def test_refresh_live_streams_clears_stale_bilibili_popularity_when_offline(
+async def test_refresh_live_streams_preserves_bilibili_viewer_count_when_offline(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -899,7 +899,7 @@ async def test_refresh_live_streams_clears_stale_bilibili_popularity_when_offlin
     state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
     assert state is not None
     assert state.is_live is False
-    assert state.last_viewer_count is None
+    assert state.last_viewer_count == 839
 
 
 async def test_refresh_live_streams_isolates_twitch_failures_from_bilibili(
