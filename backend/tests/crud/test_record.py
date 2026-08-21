@@ -891,8 +891,12 @@ async def test_recalculate_estimated_record_pb_points_for_player_repairs_new_wr_
         )
     ).one()
     recovered_pb.points = 1
-    former_wr_pb.points = 1000
     db.add(recovered_pb)
+    await db.commit()
+
+    # Move the partial unique 1000-point marker in separate flushes, matching
+    # the stale-WR state that the recalculation code must repair.
+    former_wr_pb.points = 1000
     db.add(former_wr_pb)
     await db.commit()
 
