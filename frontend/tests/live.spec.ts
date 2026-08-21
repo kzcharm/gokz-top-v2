@@ -21,7 +21,7 @@ const livePayload = {
       stream_url: "https://www.twitch.tv/twitch-player",
       last_viewer_count: 9123,
       preview_image_url:
-        "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg",
+        "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-keyframe.jpg",
       hover_preview_image_url: null,
       stream_title: "Twitch Session",
       started_at: "2026-05-07T09:00:00Z",
@@ -43,9 +43,8 @@ const livePayload = {
       stream_url: "https://live.bilibili.com/42",
       last_viewer_count: 145612,
       preview_image_url:
-        "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive%2Flive-cover.jpg",
-      hover_preview_image_url:
         "/v1/live/preview-image?url=https%3A%2F%2Fi0.hdslb.com%2Fbfs%2Flive-key-frame%2Flive-frame.jpg",
+      hover_preview_image_url: null,
       stream_title: "Live Session",
       started_at: "2026-05-07T10:00:00Z",
       last_streamed_at: "2026-05-07T10:30:00Z",
@@ -88,10 +87,6 @@ test("Live page shows stream cards", async ({ page }) => {
     page.getByText("Verified Bilibili stream link"),
   ).not.toBeVisible()
   await expect(page.getByText("Live now")).not.toBeVisible()
-  await expect(page.getByAltText("Live Alias stream preview")).toHaveAttribute(
-    "src",
-    /http:\/\/(?:localhost|backend):8000\/v1\/live\/preview-image\?/,
-  )
   await expect(
     page.getByAltText("Live Alias live keyframe preview"),
   ).toHaveAttribute(
@@ -99,10 +94,10 @@ test("Live page shows stream cards", async ({ page }) => {
     /http:\/\/(?:localhost|backend):8000\/v1\/live\/preview-image\?url=.*live-key-frame/,
   )
   await expect(
-    page.getByAltText("Twitch Player stream preview"),
+    page.getByAltText("Twitch Player live keyframe preview"),
   ).toHaveAttribute(
     "src",
-    "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-640x360.jpg",
+    "https://static-cdn.jtvnw.net/previews-ttv/live_user_twitch-player-keyframe.jpg",
   )
 })
 
@@ -120,7 +115,5 @@ test("Live page shows the empty state when no streams are tracked", async ({
   await page.goto("/live")
 
   await expect(page.getByText("Nothing to show")).toBeVisible()
-  await expect(
-    page.getByText("No verified stream history is available yet."),
-  ).toBeVisible()
+  await expect(page.getByText("No streams are live right now.")).toBeVisible()
 })

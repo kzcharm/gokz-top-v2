@@ -66,10 +66,7 @@ function formatViewerCount(viewerCount: number) {
 function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
   const { formatDateTime } = useDateTimeFormat()
   const platformLabel = getSocialPlatformLabel(stream.selected_platform)
-  const previewImageUrl = resolvePreviewImageUrl(stream.preview_image_url)
-  const hoverPreviewImageUrl = resolvePreviewImageUrl(
-    stream.hover_preview_image_url,
-  )
+  const keyframeImageUrl = resolvePreviewImageUrl(stream.preview_image_url)
   const timingLabel = stream.is_live
     ? stream.started_at
       ? `Started ${formatDateTime(stream.started_at, {
@@ -98,22 +95,11 @@ function LiveCard({ stream }: { stream: LiveStreamCardPublic }) {
         className="group block"
       >
         <div className="relative aspect-video overflow-hidden bg-[linear-gradient(140deg,#0f172a_0%,#172554_45%,#1d4ed8_100%)]">
-          {previewImageUrl ? (
+          {keyframeImageUrl ? (
             <img
-              src={previewImageUrl}
-              alt={`${stream.player.alias || stream.player.name} stream preview`}
-              className={cn(
-                "h-full w-full object-cover transition-all duration-300 group-hover:scale-[1.03]",
-                hoverPreviewImageUrl ? "group-hover:opacity-0" : "",
-              )}
-              loading="lazy"
-            />
-          ) : null}
-          {hoverPreviewImageUrl ? (
-            <img
-              src={hoverPreviewImageUrl}
+              src={keyframeImageUrl}
               alt={`${stream.player.alias || stream.player.name} live keyframe preview`}
-              className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-300 group-hover:scale-[1.03] group-hover:opacity-100"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
               loading="lazy"
             />
           ) : null}
