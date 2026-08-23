@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useBlocker } from "@tanstack/react-router"
 import type { ColumnDef } from "@tanstack/react-table"
-import { ChevronDown, ChevronRight, ExternalLink, Save } from "lucide-react"
+import { ExternalLink, Plus, Save, X } from "lucide-react"
 import {
   Fragment,
   useCallback,
@@ -24,6 +24,8 @@ import {
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   TierSelector,
@@ -32,6 +34,13 @@ import {
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
@@ -48,6 +57,10 @@ import { Switch } from "@/components/ui/switch"
 import { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
+import {
+  fetchPlayersForDisplay,
+  type GraphqlPlayer,
+} from "@/lib/player-graphql"
 import { getPageTitle } from "@/lib/site"
 import { canAccessAdminMaps } from "@/lib/user-roles"
 import { handleError } from "@/utils"
@@ -156,7 +169,7 @@ function AdminMaps() {
   const [validatedFilter, setValidatedFilter] = useState<
     "all" | "validated" | "unvalidated"
   >("all")
-  const [expandedMapId, setExpandedMapId] = useState<string | null>(null)
+  const [editingMapId, setEditingMapId] = useState<number | null>(null)
   const [mapValidationDrafts, setMapValidationDrafts] =
     useState<MapValidationDrafts>({})
   const [mapAuthorDrafts, setMapAuthorDrafts] = useState<MapAuthorDrafts>({})
@@ -378,26 +391,10 @@ function AdminMaps() {
         header: "ID",
         size: 96,
         cell: ({ row }) => {
-          const rowId = String(row.original.id)
-          const isExpanded = expandedMapId === rowId
-
           return (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`${isExpanded ? "Hide" : "Show"} course tiers for ${row.original.name}`}
-                className="shrink-0"
-                data-row-click-ignore="true"
-                onClick={() => setExpandedMapId(isExpanded ? null : rowId)}
-              >
-                {isExpanded ? <ChevronDown /> : <ChevronRight />}
-              </Button>
-              <span className="font-mono text-muted-foreground">
-                {row.original.id}
-              </span>
-            </div>
+            <span className="font-mono text-muted-foreground">
+              {row.original.id}
+            </span>
           )
         },
       },
@@ -491,21 +488,12 @@ function AdminMaps() {
         },
       },
     ],
-    [
-      expandedMapId,
-      mapValidationDrafts,
-      saveMutation.isPending,
-      setMapValidationDraft,
-    ],
+    [mapValidationDrafts, saveMutation.isPending, setMapValidationDraft],
   )
 
   const tableData = data?.data ?? []
   const totalCount = data?.count ?? 0
-
-  const toggleExpandedMap = useCallback((mapId: number) => {
-    const rowId = String(mapId)
-    setExpandedMapId((current) => (current === rowId ? null : rowId))
-  }, [])
+  const editingMap = tableData.find((map) => map.id === editingMapId) ?? null
 
   return (
     <div className="flex flex-col gap-6">
@@ -520,7 +508,7 @@ function AdminMaps() {
             onChange={(event) => {
               setSearchInput(event.target.value)
               setPageIndex(0)
-              setExpandedMapId(null)
+              setEditingMapId(null)
             }}
           />
           <Select
@@ -528,7 +516,7 @@ function AdminMaps() {
             onValueChange={(value) => {
               setValidatedFilter(value as "all" | "validated" | "unvalidated")
               setPageIndex(0)
-              setExpandedMapId(null)
+              setEditingMapId(null)
             }}
           >
             <SelectTrigger
@@ -565,13 +553,12 @@ function AdminMaps() {
           showFooter={false}
           emptyText="No maps found."
           getRowProps={(row) => ({
-            "aria-expanded": expandedMapId === String(row.id),
             className: "cursor-pointer",
             onClick: (event) => {
               if (shouldIgnoreRowToggle(event.target)) {
                 return
               }
-              toggleExpandedMap(row.id)
+              setEditingMapId(row.id)
             },
             onKeyDown: (event) => {
               if (event.target !== event.currentTarget) {
@@ -581,22 +568,11 @@ function AdminMaps() {
                 return
               }
               event.preventDefault()
-              toggleExpandedMap(row.id)
+              setEditingMapId(row.id)
             },
             tabIndex: 0,
           })}
           getRowId={(row) => String(row.id)}
-          expandedRowId={expandedMapId}
-          renderExpandedContent={(map) => (
-            <MapDetailsPanel
-              map={map}
-              authorDraft={mapAuthorDrafts[map.id]}
-              courseTierDrafts={courseTierDrafts}
-              onAuthorDraftChange={setMapAuthorDraft}
-              onCourseTierDraftChange={setCourseTierDraft}
-              disabled={saveMutation.isPending}
-            />
-          )}
           isLoading={isLoading}
           serverPagination={{
             pageIndex,
@@ -604,12 +580,12 @@ function AdminMaps() {
             totalCount,
             onPageChange: (nextPageIndex) => {
               setPageIndex(nextPageIndex)
-              setExpandedMapId(null)
+              setEditingMapId(null)
             },
             onPageSizeChange: (nextPageSize) => {
               setPageSize(nextPageSize)
               setPageIndex(0)
-              setExpandedMapId(null)
+              setEditingMapId(null)
             },
           }}
         />
@@ -621,17 +597,44 @@ function AdminMaps() {
           pageSize={pageSize}
           onPageIndexChange={(nextPageIndex) => {
             setPageIndex(nextPageIndex)
-            setExpandedMapId(null)
+            setEditingMapId(null)
           }}
           onPageSizeChange={(nextPageSize) => {
             setPageSize(nextPageSize)
             setPageIndex(0)
-            setExpandedMapId(null)
+            setEditingMapId(null)
           }}
           hasExactCount={!isLoading}
           isTotalCountLoading={isLoading}
         />
       </AdminTableCard>
+      <Dialog
+        open={editingMap !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingMapId(null)
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+          {editingMap ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit {editingMap.name}</DialogTitle>
+                <DialogDescription>
+                  Update authors and course tiers, then save your changes.
+                </DialogDescription>
+              </DialogHeader>
+              <MapDetailsPanel
+                map={editingMap}
+                authorDraft={mapAuthorDrafts[editingMap.id]}
+                courseTierDrafts={courseTierDrafts}
+                onAuthorDraftChange={setMapAuthorDraft}
+                onCourseTierDraftChange={setCourseTierDraft}
+                disabled={saveMutation.isPending}
+              />
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -720,25 +723,129 @@ function MapAuthorEditor({
   const authorsText = authorDraft?.authorsText ?? formatAuthorText(map.authors)
   const noSteamidNamesText =
     authorDraft?.noSteamidNamesText ?? formatAuthorText(map.no_steamid_names)
+  const steamidAuthors = parseAuthorText(authorsText)
+  const [isAddingAuthor, setIsAddingAuthor] = useState(false)
+  const [selectedAuthor, setSelectedAuthor] = useState<GraphqlPlayer | null>(
+    null,
+  )
+  const { data: players = [], isLoading: isLoadingPlayers } = useQuery({
+    queryKey: ["admin-map-authors", steamidAuthors],
+    queryFn: () => fetchPlayersForDisplay(steamidAuthors),
+    enabled: steamidAuthors.length > 0,
+    staleTime: 60_000,
+  })
+  const playersBySteamid = useMemo(
+    () => new Map(players.map((player) => [player?.steamid64, player])),
+    [players],
+  )
+
+  const updateSteamidAuthors = (nextAuthors: string[]) => {
+    onAuthorDraftChange(map, "authorsText", nextAuthors.join("\n"))
+  }
+
+  const addAuthor = () => {
+    if (!selectedAuthor || steamidAuthors.includes(selectedAuthor.steamid64)) {
+      return
+    }
+    updateSteamidAuthors([...steamidAuthors, selectedAuthor.steamid64])
+    setSelectedAuthor(null)
+    setIsAddingAuthor(false)
+  }
 
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-semibold">Authors</h2>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium">SteamID64 Authors</span>
-          <textarea
-            className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            value={authorsText}
-            disabled={disabled}
-            data-row-click-ignore="true"
-            onChange={(event) =>
-              onAuthorDraftChange(map, "authorsText", event.target.value)
-            }
-          />
-        </label>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium">SteamID64 Authors</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              data-row-click-ignore="true"
+              onClick={() => {
+                setSelectedAuthor(null)
+                setIsAddingAuthor((current) => !current)
+              }}
+            >
+              <Plus data-icon="inline-start" />
+              Add author
+            </Button>
+          </div>
+          <div className="flex flex-col divide-y rounded-md border border-border/70 bg-background">
+            {steamidAuthors.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">
+                No SteamID64 authors added.
+              </p>
+            ) : (
+              steamidAuthors.map((steamid64) => {
+                const player = playersBySteamid.get(steamid64)
+                return (
+                  <div
+                    key={steamid64}
+                    className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
+                  >
+                    <PlayerDisplay
+                      player={player ?? { steamid64 }}
+                      fallbackSteamid64={steamid64}
+                      className="min-w-0"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Remove author ${steamid64}`}
+                      disabled={disabled}
+                      data-row-click-ignore="true"
+                      onClick={() =>
+                        updateSteamidAuthors(
+                          steamidAuthors.filter((value) => value !== steamid64),
+                        )
+                      }
+                    >
+                      <X />
+                    </Button>
+                  </div>
+                )
+              })
+            )}
+          </div>
+          {isLoadingPlayers && steamidAuthors.length > 0 ? (
+            <span className="text-xs text-muted-foreground">
+              Loading player details...
+            </span>
+          ) : null}
+          {isAddingAuthor ? (
+            <div className="flex items-end gap-2" data-row-click-ignore="true">
+              <div className="min-w-0 flex-1">
+                <PlayerSearchSelect
+                  ariaLabel="Search author"
+                  placeholder="Search player to add..."
+                  selectedPlayer={selectedAuthor}
+                  onClearPlayer={() => setSelectedAuthor(null)}
+                  onSelectPlayer={setSelectedAuthor}
+                  searchQueryKey={`admin-map-author-${map.id}`}
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                disabled={
+                  !selectedAuthor ||
+                  disabled ||
+                  steamidAuthors.includes(selectedAuthor.steamid64)
+                }
+                onClick={addAuthor}
+              >
+                Add
+              </Button>
+            </div>
+          ) : null}
+        </div>
         <label className="flex flex-col gap-2">
           <span className="text-sm font-medium">Name-Only Authors</span>
           <textarea
