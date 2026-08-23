@@ -34,15 +34,6 @@ import { hasRole, isSuperuser } from "@/lib/user-roles"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
 
-const AXE_KZ_MINOR_SEEN_STORAGE_KEY = "gokz-axe-kz-minor-seen"
-function hasSeenAxeKzMinor() {
-  try {
-    return localStorage.getItem(AXE_KZ_MINOR_SEEN_STORAGE_KEY) === "1"
-  } catch {
-    return false
-  }
-}
-
 export function AppSidebar() {
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
@@ -50,7 +41,6 @@ export function AppSidebar() {
   const [mediaLastVisitedAt, setMediaLastVisitedAt] = useState(
     getMediaLastVisitedAt,
   )
-  const [hasClickedMinor, setHasClickedMinor] = useState(hasSeenAxeKzMinor)
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
   const currentUserIsSuperuser = isSuperuser(currentUser)
   const serverAdminAccessQuery = useQuery({
@@ -118,14 +108,6 @@ export function AppSidebar() {
       title: t("nav.media"),
       path: "/media",
       showNotificationDot: showMediaDot,
-    },
-    {
-      type: "link",
-      icon: Trophy,
-      title: "AXE KZ Minor",
-      path: "https://axekz.com/tournament/axekz-minor",
-      external: true,
-      showNotificationDot: !hasClickedMinor,
     },
     { type: "link", icon: ShieldAlert, title: t("nav.bans"), path: "/bans" },
   ]
@@ -198,14 +180,6 @@ export function AppSidebar() {
             }
             if (path === "/media") {
               setMediaLastVisitedAt(markMediaVisited())
-            }
-            if (path === "https://axekz.com/tournament/axekz-minor") {
-              try {
-                localStorage.setItem(AXE_KZ_MINOR_SEEN_STORAGE_KEY, "1")
-              } catch {
-                // Keep the dot dismissed for this visit when storage is unavailable.
-              }
-              setHasClickedMinor(true)
             }
           }}
         />
