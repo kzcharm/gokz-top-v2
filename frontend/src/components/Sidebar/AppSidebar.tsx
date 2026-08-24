@@ -116,7 +116,6 @@ export function AppSidebar() {
   const adminChildren = currentUserIsSuperuser
     ? [
         { title: t("nav.users"), path: "/admin/users", icon: Users },
-        { title: t("nav.settings"), path: "/admin/settings", icon: Settings },
         { title: t("nav.players"), path: "/admin/players", icon: UserIcon },
         { title: "Tournaments", path: "/admin/tournaments", icon: Trophy },
         {
@@ -135,6 +134,7 @@ export function AppSidebar() {
           path: "/admin/servers/globalapi-server",
           icon: Server,
         },
+        { title: t("nav.settings"), path: "/admin/settings", icon: Settings },
       ]
     : [
         ...(hasRole(currentUser, "map_admin")
