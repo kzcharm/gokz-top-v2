@@ -27,6 +27,7 @@ function getRouteTitleKey(pathname: string) {
   if (pathname.startsWith("/admin/maps")) return "titles.adminMaps"
   if (pathname.startsWith("/admin/players")) return "titles.adminPlayers"
   if (pathname.startsWith("/admin/users")) return "titles.adminUsers"
+  if (pathname.startsWith("/admin/settings")) return "titles.adminSettings"
   if (pathname.startsWith("/admin/servers")) return "titles.adminServers"
   if (pathname.startsWith("/admin/player-sessions")) {
     return "titles.adminPlayerSessions"

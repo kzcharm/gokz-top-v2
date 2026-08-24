@@ -288,6 +288,11 @@ from .player_webhook import (
     normalize_discord_webhook_url,
 )
 from .qq_binding import QQBindingCodePublic, QQBindingTokenPayload
+from .qq_binding_secret import (
+    QQBindingSecret,
+    QQBindingSecretPublic,
+    QQBindingSecretStatusPublic,
+)
 from .record import (
     AdminCourseTierPublic,
     AdminCourseTierUpdate,
@@ -623,6 +628,9 @@ __all__ = [
     "PlayerSettingsPublic",
     "PlayerSettingsUpdate",
     "QQBindingCodePublic",
+    "QQBindingSecret",
+    "QQBindingSecretPublic",
+    "QQBindingSecretStatusPublic",
     "QQBindingTokenPayload",
     "PlayerSession",
     "PlayerSessionBanEnforcementBanPublic",

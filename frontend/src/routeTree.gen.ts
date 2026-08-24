@@ -49,6 +49,7 @@ import { Route as LayoutDashboardReviewsRouteImport } from './routes/_layout/das
 import { Route as LayoutDashboardRecordsRouteImport } from './routes/_layout/dashboard.records'
 import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.users'
 import { Route as LayoutAdminTournamentsRouteImport } from './routes/_layout/admin.tournaments'
+import { Route as LayoutAdminSettingsRouteImport } from './routes/_layout/admin.settings'
 import { Route as LayoutAdminServersRouteImport } from './routes/_layout/admin.servers'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
 import { Route as LayoutAdminPlayerSocialLinksRouteImport } from './routes/_layout/admin.player-social-links'
@@ -274,6 +275,11 @@ const LayoutAdminTournamentsRoute = LayoutAdminTournamentsRouteImport.update({
   path: '/tournaments',
   getParentRoute: () => LayoutAdminRoute,
 } as any)
+const LayoutAdminSettingsRoute = LayoutAdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => LayoutAdminRoute,
+} as any)
 const LayoutAdminServersRoute = LayoutAdminServersRouteImport.update({
   id: '/servers',
   path: '/servers',
@@ -390,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/servers': typeof LayoutAdminServersRouteWithChildren
+  '/admin/settings': typeof LayoutAdminSettingsRoute
   '/admin/tournaments': typeof LayoutAdminTournamentsRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
@@ -447,6 +454,7 @@ export interface FileRoutesByTo {
   '/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
   '/admin/servers': typeof LayoutAdminServersRouteWithChildren
+  '/admin/settings': typeof LayoutAdminSettingsRoute
   '/admin/tournaments': typeof LayoutAdminTournamentsRoute
   '/admin/users': typeof LayoutAdminUsersRoute
   '/dashboard/records': typeof LayoutDashboardRecordsRoute
@@ -505,6 +513,7 @@ export interface FileRoutesById {
   '/_layout/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
   '/_layout/admin/servers': typeof LayoutAdminServersRouteWithChildren
+  '/_layout/admin/settings': typeof LayoutAdminSettingsRoute
   '/_layout/admin/tournaments': typeof LayoutAdminTournamentsRoute
   '/_layout/admin/users': typeof LayoutAdminUsersRoute
   '/_layout/dashboard/records': typeof LayoutDashboardRecordsRoute
@@ -564,6 +573,7 @@ export interface FileRouteTypes {
     | '/admin/player-social-links'
     | '/admin/players'
     | '/admin/servers'
+    | '/admin/settings'
     | '/admin/tournaments'
     | '/admin/users'
     | '/dashboard/records'
@@ -621,6 +631,7 @@ export interface FileRouteTypes {
     | '/admin/player-social-links'
     | '/admin/players'
     | '/admin/servers'
+    | '/admin/settings'
     | '/admin/tournaments'
     | '/admin/users'
     | '/dashboard/records'
@@ -678,6 +689,7 @@ export interface FileRouteTypes {
     | '/_layout/admin/player-social-links'
     | '/_layout/admin/players'
     | '/_layout/admin/servers'
+    | '/_layout/admin/settings'
     | '/_layout/admin/tournaments'
     | '/_layout/admin/users'
     | '/_layout/dashboard/records'
@@ -1004,6 +1016,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminTournamentsRouteImport
       parentRoute: typeof LayoutAdminRoute
     }
+    '/_layout/admin/settings': {
+      id: '/_layout/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof LayoutAdminSettingsRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
     '/_layout/admin/servers': {
       id: '/_layout/admin/servers'
       path: '/servers'
@@ -1141,6 +1160,7 @@ interface LayoutAdminRouteChildren {
   LayoutAdminPlayerSocialLinksRoute: typeof LayoutAdminPlayerSocialLinksRoute
   LayoutAdminPlayersRoute: typeof LayoutAdminPlayersRoute
   LayoutAdminServersRoute: typeof LayoutAdminServersRouteWithChildren
+  LayoutAdminSettingsRoute: typeof LayoutAdminSettingsRoute
   LayoutAdminTournamentsRoute: typeof LayoutAdminTournamentsRoute
   LayoutAdminUsersRoute: typeof LayoutAdminUsersRoute
 }
@@ -1151,6 +1171,7 @@ const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminPlayerSocialLinksRoute: LayoutAdminPlayerSocialLinksRoute,
   LayoutAdminPlayersRoute: LayoutAdminPlayersRoute,
   LayoutAdminServersRoute: LayoutAdminServersRouteWithChildren,
+  LayoutAdminSettingsRoute: LayoutAdminSettingsRoute,
   LayoutAdminTournamentsRoute: LayoutAdminTournamentsRoute,
   LayoutAdminUsersRoute: LayoutAdminUsersRoute,
 }

@@ -1,9 +1,15 @@
+import base64
 import hashlib
 import hmac
+import secrets
 from datetime import UTC, datetime, timedelta
 
+from cryptography.fernet import Fernet, InvalidToken
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app import crud
 from app.core.config import settings
-from app.models import QQBindingCodePublic, QQBindingTokenPayload
+from app.models import QQBindingCodePublic, QQBindingSecretPublic, QQBindingTokenPayload
 
 QQ_BIND_TOKEN_PREFIX = "KZTOP"
 QQ_BIND_TOKEN_EXPIRE_SECONDS = 600
@@ -17,18 +23,35 @@ _QQ_BIND_TOKEN_RAW_LENGTH = (
 _BASE62_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 
-def ensure_qq_bind_token_configured() -> None:
-    if not settings.QQ_BIND_TOKEN_SECRET:
+def generate_qq_binding_secret() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def encrypt_qq_binding_secret(secret: str) -> str:
+    return _get_fernet().encrypt(secret.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_qq_binding_secret(encrypted_secret: str) -> str:
+    try:
+        return _get_fernet().decrypt(encrypted_secret.encode("utf-8")).decode("utf-8")
+    except (InvalidToken, UnicodeDecodeError) as exc:
+        raise ValueError("QQ binding secret cannot be decrypted") from exc
+
+
+async def get_active_qq_binding_secret(*, session: AsyncSession) -> str:
+    stored_secret = await crud.get_qq_binding_secret(session=session)
+    if stored_secret is None:
         raise ValueError("QQ binding code generation is not configured")
+    return decrypt_qq_binding_secret(stored_secret.encrypted_secret)
 
 
-def create_qq_binding_code(
+async def create_qq_binding_code(
     *,
+    session: AsyncSession,
     steamid64: int | str,
     now: datetime | None = None,
 ) -> QQBindingCodePublic:
-    ensure_qq_bind_token_configured()
-
+    secret = await get_active_qq_binding_secret(session=session)
     issued_at = (now or datetime.now(UTC)).astimezone(UTC)
     expires_at = issued_at + timedelta(seconds=QQ_BIND_TOKEN_EXPIRE_SECONDS)
     payload = QQBindingTokenPayload(
@@ -36,17 +59,18 @@ def create_qq_binding_code(
         exp=int(expires_at.timestamp()),
     )
     payload_bytes = _pack_payload(payload)
-    signature_bytes = _sign_payload(payload_bytes)
+    signature_bytes = _sign_payload(payload_bytes, secret=secret)
     code = f"{QQ_BIND_TOKEN_PREFIX}{_base62_encode(payload_bytes + signature_bytes)}"
     return QQBindingCodePublic(code=code, expires_at=expires_at)
 
 
-def verify_qq_binding_code(
+async def verify_qq_binding_code(
     *,
+    session: AsyncSession,
     code: str,
     now: datetime | None = None,
 ) -> QQBindingTokenPayload:
-    ensure_qq_bind_token_configured()
+    secret = await get_active_qq_binding_secret(session=session)
     if not code.startswith(QQ_BIND_TOKEN_PREFIX):
         raise ValueError("Invalid QQ binding code prefix")
 
@@ -58,23 +82,27 @@ def verify_qq_binding_code(
     )
     payload_bytes = raw_bytes[:_QQ_BIND_TOKEN_PAYLOAD_LENGTH]
     provided_signature_bytes = raw_bytes[_QQ_BIND_TOKEN_PAYLOAD_LENGTH:]
-    expected_signature_bytes = _sign_payload(payload_bytes)
+    expected_signature_bytes = _sign_payload(payload_bytes, secret=secret)
     if not hmac.compare_digest(provided_signature_bytes, expected_signature_bytes):
         raise ValueError("Invalid QQ binding code signature")
 
     payload = _unpack_payload(payload_bytes)
-
     current_time = (now or datetime.now(UTC)).astimezone(UTC)
     if payload.exp < int(current_time.timestamp()):
         raise ValueError("QQ binding code has expired")
-
     return payload
 
 
-def _sign_payload(payload_bytes: bytes) -> bytes:
-    secret = settings.QQ_BIND_TOKEN_SECRET
-    if not secret:
-        raise ValueError("QQ binding code generation is not configured")
+def reveal_qq_binding_secret(*, encrypted_secret: str) -> QQBindingSecretPublic:
+    return QQBindingSecretPublic(secret=decrypt_qq_binding_secret(encrypted_secret))
+
+
+def _get_fernet() -> Fernet:
+    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode()).digest())
+    return Fernet(key)
+
+
+def _sign_payload(payload_bytes: bytes, *, secret: str) -> bytes:
     return hmac.new(
         secret.encode("utf-8"),
         payload_bytes,

@@ -7,6 +7,7 @@ from app.api.v1 import (
     admin_player_social_links,
     admin_server_discovery,
     admin_servers,
+    admin_settings,
     admin_tournaments,
     bans,
     graphql,
@@ -79,6 +80,7 @@ api_router.include_router(admin_maps.router)
 api_router.include_router(admin_modes.router)
 api_router.include_router(admin_player_sessions.router)
 api_router.include_router(admin_player_social_links.router)
+api_router.include_router(admin_settings.router)
 api_router.include_router(admin_tournaments.router)
 api_router.include_router(admin_server_discovery.router)
 api_router.include_router(admin_servers.router)

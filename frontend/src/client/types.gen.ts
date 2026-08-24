@@ -1200,6 +1200,10 @@ export type PlayerSettingsUpdate = {
     use_wr_based_pro_completion?: (boolean | null);
 };
 
+export type PlayerSocialLinkBilibiliProfileText = {
+    profile_text: string;
+};
+
 export type PlayerSocialLinkBilibiliVerificationStart = {
     pending_token: string;
     verification_code: string;
@@ -1288,6 +1292,16 @@ export type PlayerWebhookUpdate = {
 export type QQBindingCodePublic = {
     code: string;
     expires_at: string;
+};
+
+export type QQBindingSecretPublic = {
+    secret: string;
+};
+
+export type QQBindingSecretStatusPublic = {
+    configured: boolean;
+    created_at?: (string | null);
+    updated_at?: (string | null);
 };
 
 export type RecentRecordMapPublic = {
@@ -1945,6 +1959,16 @@ export type AdminServersRotateAdminServerGroupApiKeyData = {
 };
 
 export type AdminServersRotateAdminServerGroupApiKeyResponse = (ServerGroupApiKeyPublic);
+
+export type AdminSettingsReadAdminQqBindingSecretStatusResponse = (QQBindingSecretStatusPublic);
+
+export type AdminSettingsRevokeAdminQqBindingSecretResponse = (void);
+
+export type AdminSettingsGenerateAdminQqBindingSecretResponse = (QQBindingSecretPublic);
+
+export type AdminSettingsRevealAdminQqBindingSecretResponse = (QQBindingSecretPublic);
+
+export type AdminSettingsRotateAdminQqBindingSecretResponse = (QQBindingSecretPublic);
 
 export type AdminTournamentsReadAdminTournamentsData = {
     limit?: number;
@@ -2694,6 +2718,7 @@ export type PlayerSocialLinksConfirmPlayerYoutubeSocialLinkVerificationData = {
 export type PlayerSocialLinksConfirmPlayerYoutubeSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
 
 export type PlayerSocialLinksStartPlayerBilibiliSocialLinkVerificationData = {
+    forceNew?: boolean;
     linkId: string;
 };
 
@@ -2705,6 +2730,12 @@ export type PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationData = {
 };
 
 export type PlayerSocialLinksConfirmPlayerBilibiliSocialLinkVerificationResponse = (PlayerSocialLinksPublic);
+
+export type PlayerSocialLinksReadPlayerBilibiliProfileTextData = {
+    linkId: string;
+};
+
+export type PlayerSocialLinksReadPlayerBilibiliProfileTextResponse = (PlayerSocialLinkBilibiliProfileText);
 
 export type PlayerSocialLinksCompletePlayerTwitchSocialLinkVerificationData = {
     code?: (string | null);

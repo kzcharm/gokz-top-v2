@@ -67,6 +67,9 @@ test.describe("Map admin access", () => {
 
     await page.goto("/admin/tournaments")
     await expect(page).not.toHaveURL(/\/admin\/tournaments$/)
+
+    await page.goto("/admin/settings")
+    await expect(page).not.toHaveURL(/\/admin\/settings$/)
   })
 })
 
@@ -111,6 +114,100 @@ test("Superusers can open tournament management", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Assign Achievement" }),
   ).toBeEnabled()
+})
+
+test("Superusers can manage the QQ binding secret", async ({ page }) => {
+  const secrets = ["first-qq-binding-secret", "rotated-qq-binding-secret"]
+  let configured = false
+  let currentSecret = ""
+  let secretIndex = 0
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__copiedText", {
+      configurable: true,
+      writable: true,
+      value: "",
+    })
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          ;(window as typeof window & { __copiedText: string }).__copiedText =
+            text
+        },
+      },
+    })
+  })
+  await page.route(
+    /\/v1\/admin\/settings\/qq-binding-secret(?:\/.*)?$/,
+    async (route) => {
+      const url = new URL(route.request().url())
+      const method = route.request().method()
+      if (method === "GET" && url.pathname.endsWith("/reveal")) {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ secret: currentSecret }),
+        })
+        return
+      }
+      if (method === "GET") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            configured,
+            created_at: configured ? "2026-08-24T12:00:00Z" : null,
+            updated_at: configured ? "2026-08-24T12:00:00Z" : null,
+          }),
+        })
+        return
+      }
+      if (method === "DELETE") {
+        configured = false
+        currentSecret = ""
+        await route.fulfill({ status: 204 })
+        return
+      }
+      currentSecret = secrets[secretIndex] ?? secrets[1]
+      secretIndex += 1
+      configured = true
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ secret: currentSecret }),
+      })
+    },
+  )
+  await logInUser(page, randomSteamid64(), { roles: ["superuser"] })
+  await page.goto("/admin/settings")
+
+  await expect(page.getByText("Not configured")).toBeVisible()
+  await page.getByRole("button", { name: "Generate secret" }).click()
+  await expect(page.getByTestId("admin-qq-binding-secret")).toHaveValue(
+    secrets[0],
+  )
+  await page.getByTestId("admin-qq-binding-secret-copy-button").click()
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as typeof window & { __copiedText: string }).__copiedText,
+      ),
+    )
+    .toBe(secrets[0])
+
+  await page.getByRole("button", { name: "Rotate secret" }).click()
+  await expect(page.getByRole("dialog")).toContainText(
+    "Rotate QQ binding secret?",
+  )
+  await page.getByRole("button", { name: "Rotate secret" }).last().click()
+  await expect(page.getByTestId("admin-qq-binding-secret")).toHaveValue(
+    secrets[1],
+  )
+
+  await page.getByRole("button", { name: "Revoke secret" }).click()
+  await expect(page.getByRole("dialog")).toContainText(
+    "Revoke QQ binding secret?",
+  )
+  await page.getByRole("button", { name: "Revoke secret" }).last().click()
+  await expect(page.getByText("Not configured")).toBeVisible()
 })
 
 test.describe("Server owner access", () => {
@@ -181,9 +278,14 @@ test("Superuser sidebar groups admin users and players under admin", async ({
     name: "Maps",
     exact: true,
   })
+  const settingsLink = adminSubmenu.getByRole("link", {
+    name: "Settings",
+    exact: true,
+  })
 
   await expect(adminButton).toBeVisible()
   await expect(mapsLink).toHaveCount(0)
+  await expect(settingsLink).toHaveCount(0)
 
   await adminButton.click()
 
@@ -208,6 +310,7 @@ test("Superuser sidebar groups admin users and players under admin", async ({
   await page.goto("/admin/maps")
   await expect(page).toHaveURL(/\/admin\/maps$/)
   await expect(adminButton).toHaveAttribute("data-active", "true")
+  await expect(settingsLink).toBeVisible()
 })
 
 test("Superuser can access users, players, player sessions, and maps admin pages", async ({

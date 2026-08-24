@@ -241,6 +241,13 @@ from .player_webhook import (
     to_player_webhook_publics,
     update_player_webhook,
 )
+from .qq_binding_secret import (
+    QQBindingSecretAlreadyConfiguredError,
+    create_qq_binding_secret,
+    delete_qq_binding_secret,
+    get_qq_binding_secret,
+    rotate_qq_binding_secret,
+)
 from .record import (
     RECENT_RECORD_NOTIFY_CHANNEL,
     bulk_soft_delete_course_records,
@@ -362,6 +369,7 @@ __all__ = [
     "PlayerSocialLinkConflictError",
     "PlayerWebhookConflictError",
     "PlayerSettingsConflictError",
+    "QQBindingSecretAlreadyConfiguredError",
     "active_ban_exists_clause",
     "get_jumpstat_by_id",
     "build_player_profile_field_status",
@@ -388,6 +396,7 @@ __all__ = [
     "create_profile_like_notification",
     "create_player_social_link",
     "create_player_webhook",
+    "create_qq_binding_secret",
     "create_wr_beaten_notification",
     "connect_player_session",
     "create_user",
@@ -397,6 +406,7 @@ __all__ = [
     "delete_player_pinned_record",
     "delete_player_social_link",
     "delete_player_webhook",
+    "delete_qq_binding_secret",
     "disconnect_player_session",
     "ensure_map_courses_for_valid_records",
     "create_manual_ban",
@@ -430,6 +440,7 @@ __all__ = [
     "get_player_session_by_id",
     "get_player_social_link",
     "get_player_webhook",
+    "get_qq_binding_secret",
     "count_player_likes",
     "count_unread_player_notifications",
     "create_map_review_comment_deleted_notification",
@@ -625,6 +636,7 @@ __all__ = [
     "record_offline_mark",
     "record_plugin_heartbeat",
     "rotate_server_group_api_key",
+    "rotate_qq_binding_secret",
     "get_top_records_v0",
     "is_player_following",
     "upsert_discovered_server",

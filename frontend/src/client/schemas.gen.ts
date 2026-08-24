@@ -6010,6 +6010,19 @@ export const PlayerSettingsUpdateSchema = {
     title: 'PlayerSettingsUpdate'
 } as const;
 
+export const PlayerSocialLinkBilibiliProfileTextSchema = {
+    properties: {
+        profile_text: {
+            type: 'string',
+            maxLength: 2000,
+            title: 'Profile Text'
+        }
+    },
+    type: 'object',
+    required: ['profile_text'],
+    title: 'PlayerSocialLinkBilibiliProfileText'
+} as const;
+
 export const PlayerSocialLinkBilibiliVerificationStartSchema = {
     properties: {
         pending_token: {
@@ -6448,6 +6461,55 @@ export const QQBindingCodePublicSchema = {
     type: 'object',
     required: ['code', 'expires_at'],
     title: 'QQBindingCodePublic'
+} as const;
+
+export const QQBindingSecretPublicSchema = {
+    properties: {
+        secret: {
+            type: 'string',
+            minLength: 1,
+            title: 'Secret'
+        }
+    },
+    type: 'object',
+    required: ['secret'],
+    title: 'QQBindingSecretPublic'
+} as const;
+
+export const QQBindingSecretStatusPublicSchema = {
+    properties: {
+        configured: {
+            type: 'boolean',
+            title: 'Configured'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        updated_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['configured'],
+    title: 'QQBindingSecretStatusPublic'
 } as const;
 
 export const RecentRecordMapPublicSchema = {

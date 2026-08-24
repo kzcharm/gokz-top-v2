@@ -188,6 +188,48 @@ export const en = {
     adminServers: "Admin Servers",
     adminPlayerSessions: "Admin Player Sessions",
     adminPlayerSocialLinks: "Admin Social Links",
+    adminSettings: "Admin Settings",
+  },
+  adminSettings: {
+    title: "Application Settings",
+    qqBinding: {
+      title: "QQ Binding Secret",
+      description:
+        "Copy this secret into the QQ bot that verifies player binding codes. The website does not store QQ bindings.",
+      secretLabel: "QQ binding secret",
+      secretMasked: "QQ binding secret is hidden",
+      status: {
+        configured: "Configured",
+        unconfigured: "Not configured",
+      },
+      createdAt: "Created",
+      updatedAt: "Last rotated",
+      actions: {
+        generate: "Generate secret",
+        reveal: "Reveal secret",
+        rotate: "Rotate secret",
+        revoke: "Revoke secret",
+      },
+      confirm: {
+        rotate: {
+          title: "Rotate QQ binding secret?",
+          description:
+            "This immediately invalidates every binding code issued with the current secret. Update the QQ bot with the new secret.",
+          confirm: "Rotate secret",
+        },
+        revoke: {
+          title: "Revoke QQ binding secret?",
+          description:
+            "This disables QQ binding-code generation immediately and invalidates every outstanding binding code.",
+          confirm: "Revoke secret",
+        },
+      },
+      toasts: {
+        generated: "QQ binding secret generated.",
+        rotated: "QQ binding secret rotated.",
+        revoked: "QQ binding secret revoked.",
+      },
+    },
   },
   errors: {
     notFoundTitle: "Oops!",

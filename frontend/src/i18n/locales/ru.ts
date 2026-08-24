@@ -189,6 +189,48 @@ export const ru = {
     adminServers: "Админ серверов",
     adminPlayerSessions: "Админ сессий игроков",
     adminPlayerSocialLinks: "Админ соцсетей",
+    adminSettings: "Настройки администратора",
+  },
+  adminSettings: {
+    title: "Настройки приложения",
+    qqBinding: {
+      title: "Секрет привязки QQ",
+      description:
+        "Скопируйте этот секрет в QQ-бота, который проверяет коды привязки игроков. Сайт не хранит привязки QQ.",
+      secretLabel: "Секрет привязки QQ",
+      secretMasked: "Секрет привязки QQ скрыт",
+      status: {
+        configured: "Настроено",
+        unconfigured: "Не настроено",
+      },
+      createdAt: "Создан",
+      updatedAt: "Последняя ротация",
+      actions: {
+        generate: "Создать секрет",
+        reveal: "Показать секрет",
+        rotate: "Сменить секрет",
+        revoke: "Отозвать секрет",
+      },
+      confirm: {
+        rotate: {
+          title: "Сменить секрет привязки QQ?",
+          description:
+            "Это сразу сделает недействительными все коды привязки, выданные текущим секретом. Обновите секрет в QQ-боте.",
+          confirm: "Сменить секрет",
+        },
+        revoke: {
+          title: "Отозвать секрет привязки QQ?",
+          description:
+            "Это сразу отключит создание кодов привязки QQ и сделает недействительными все активные коды.",
+          confirm: "Отозвать секрет",
+        },
+      },
+      toasts: {
+        generated: "Секрет привязки QQ создан.",
+        rotated: "Секрет привязки QQ сменён.",
+        revoked: "Секрет привязки QQ отозван.",
+      },
+    },
   },
   errors: {
     notFoundTitle: "Упс!",

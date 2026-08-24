@@ -187,6 +187,48 @@ export const zhCN = {
     adminServers: "服务器管理",
     adminPlayerSessions: "玩家会话管理",
     adminPlayerSocialLinks: "社交链接管理",
+    adminSettings: "管理设置",
+  },
+  adminSettings: {
+    title: "应用设置",
+    qqBinding: {
+      title: "QQ 绑定密钥",
+      description:
+        "将此密钥复制到用于验证玩家绑定码的 QQ 机器人。网站不会保存 QQ 绑定关系。",
+      secretLabel: "QQ 绑定密钥",
+      secretMasked: "QQ 绑定密钥已隐藏",
+      status: {
+        configured: "已配置",
+        unconfigured: "未配置",
+      },
+      createdAt: "创建时间",
+      updatedAt: "上次轮换",
+      actions: {
+        generate: "生成密钥",
+        reveal: "显示密钥",
+        rotate: "轮换密钥",
+        revoke: "撤销密钥",
+      },
+      confirm: {
+        rotate: {
+          title: "要轮换 QQ 绑定密钥吗？",
+          description:
+            "这会立即使使用当前密钥签发的所有绑定码失效。请在 QQ 机器人中更新新密钥。",
+          confirm: "轮换密钥",
+        },
+        revoke: {
+          title: "要撤销 QQ 绑定密钥吗？",
+          description:
+            "这会立即禁用 QQ 绑定码生成，并使所有未过期的绑定码失效。",
+          confirm: "撤销密钥",
+        },
+      },
+      toasts: {
+        generated: "QQ 绑定密钥已生成。",
+        rotated: "QQ 绑定密钥已轮换。",
+        revoked: "QQ 绑定密钥已撤销。",
+      },
+    },
   },
   errors: {
     notFoundTitle: "哎呀！",
