@@ -119,7 +119,7 @@ test.describe("Profile and theme", () => {
     await expect(page.getByText("VNL", { exact: true })).toBeVisible()
   })
 
-  test("Profile can generate, copy, and replace a QQ binding code", async ({
+  test("Player can generate, copy, and replace a QQ binding code", async ({
     page,
   }) => {
     const steamid64 = randomSteamid64()
@@ -167,10 +167,10 @@ test.describe("Profile and theme", () => {
       })
     })
 
-    await page.goto("/settings/profile")
+    await page.goto("/settings/binding-code")
 
     await page.getByRole("button", { name: "Generate QQ Binding Code" }).click()
-    await expect(page.getByTestId("settings-qq-binding-code")).toHaveValue(
+    await expect(page.getByTestId("settings-qq-binding-code")).toHaveText(
       responses[0].code,
     )
     await page.getByTestId("settings-qq-binding-copy-button").click()
@@ -184,7 +184,7 @@ test.describe("Profile and theme", () => {
       .toBe(responses[0].code)
 
     await page.getByRole("button", { name: "Generate QQ Binding Code" }).click()
-    await expect(page.getByTestId("settings-qq-binding-code")).toHaveValue(
+    await expect(page.getByTestId("settings-qq-binding-code")).toHaveText(
       responses[1].code,
     )
     await expect(

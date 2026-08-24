@@ -7,7 +7,6 @@ import { MeService } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Tooltip,
@@ -95,28 +94,36 @@ export default function QqBindingCodeSettings() {
             >
               {t("settings.profile.qqBinding.actions.generate")}
             </LoadingButton>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={bindingCode === null}
-              onClick={() => void handleCopy()}
-              data-testid="settings-qq-binding-copy-button"
-            >
-              <Copy className="size-4" />
-              {t("common.copy")}
-            </Button>
           </div>
           {bindingCode ? (
-            <div className="space-y-3">
-              <div>
-                <Input
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {t("settings.profile.qqBinding.codeLabel")}
+              </p>
+              <div className="flex w-fit max-w-full items-center gap-1 rounded-md bg-muted py-1 pl-3 pr-1">
+                <output
                   id="settings-qq-binding-code"
-                  value={bindingCode.code}
-                  readOnly
                   aria-label={t("settings.profile.qqBinding.codeLabel")}
-                  className="font-mono text-xs tracking-wide"
+                  className="overflow-x-auto py-1 font-mono text-sm whitespace-nowrap"
                   data-testid="settings-qq-binding-code"
-                />
+                >
+                  {bindingCode.code}
+                </output>
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => void handleCopy()}
+                      aria-label={t("common.copy")}
+                      data-testid="settings-qq-binding-copy-button"
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("common.copy")}</TooltipContent>
+                </Tooltip>
               </div>
               <div className="text-sm text-muted-foreground">
                 <span>{t("settings.profile.qqBinding.expiresAt")} </span>
