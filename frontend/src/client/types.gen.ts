@@ -135,6 +135,7 @@ export type AdminPlayerSocialLinkPublic = {
     platform: PlayerSocialPlatform;
     account_identifier: string;
     verified: boolean;
+    show_on_site: boolean;
     url: string;
     created_at: string;
     updated_at: string;
@@ -1222,6 +1223,7 @@ export type PlayerSocialLinkPublic = {
     platform: PlayerSocialPlatform;
     account_identifier: string;
     verified: boolean;
+    show_on_site: boolean;
     url: string;
     created_at: string;
     updated_at: string;
@@ -1233,7 +1235,8 @@ export type PlayerSocialLinksPublic = {
 };
 
 export type PlayerSocialLinkUpdate = {
-    url: string;
+    url?: (string | null);
+    show_on_site?: (boolean | null);
 };
 
 export type PlayerSocialLinkVerifyConfirm = {
@@ -2296,6 +2299,7 @@ export type MapsReadMapReviewsResponse = (MapReviewsPublic);
 
 export type MapsPutMapReviewData = {
     requestBody: MapReviewUpsert;
+    xQqBotKey?: (string | null);
     xServerGroupKey?: (string | null);
 };
 

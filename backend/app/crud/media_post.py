@@ -21,6 +21,7 @@ from app.models import (
     MediaPostViewCountPublic,
     MediaPostViewCountsRefreshPublic,
     Player,
+    PlayerSocialLink,
     PlayerSocialPlatform,
 )
 
@@ -140,7 +141,12 @@ async def read_media_posts(
     statement = (
         select(MediaPost, Player)
         .join(Player, col(Player.steamid64) == col(MediaPost.player_steamid64))
+        .join(
+            PlayerSocialLink,
+            col(PlayerSocialLink.id) == col(MediaPost.player_social_link_id),
+        )
         .where(*filters)
+        .where(col(PlayerSocialLink.show_on_site).is_(True))
         .order_by(*order_by)
         .limit(limit + 1)
     )

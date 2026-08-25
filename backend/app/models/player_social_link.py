@@ -54,6 +54,7 @@ class PlayerSocialLink(SQLModel, table=True):
     )
     account_identifier: str = Field(max_length=128, nullable=False)
     verified: bool = Field(default=False, nullable=False)
+    show_on_site: bool = Field(default=True, nullable=False)
     metadata_json: dict[str, Any] | None = Field(
         default=None,
         sa_column=Column(JSONB, nullable=True),
@@ -73,7 +74,8 @@ class PlayerSocialLinkCreate(SQLModel):
 
 
 class PlayerSocialLinkUpdate(SQLModel):
-    url: str = Field(min_length=1, max_length=500)
+    url: str | None = Field(default=None, min_length=1, max_length=500)
+    show_on_site: bool | None = None
 
 
 class PlayerSocialLinkVerifyConfirm(SQLModel):
@@ -108,6 +110,7 @@ class PlayerSocialLinkPublic(SQLModel):
     platform: PlayerSocialPlatform
     account_identifier: str
     verified: bool
+    show_on_site: bool
     url: str
     created_at: datetime
     updated_at: datetime

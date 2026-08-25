@@ -61,6 +61,7 @@ async def list_verified_live_stream_links(
         select(PlayerSocialLink)
         .where(
             col(PlayerSocialLink.verified).is_(True),
+            col(PlayerSocialLink.show_on_site).is_(True),
             col(PlayerSocialLink.platform).in_(list(platforms)),
         )
         .order_by(
@@ -151,6 +152,7 @@ async def read_live_stream_cards(
         )
         .where(
             col(PlayerSocialLink.verified).is_(True),
+            col(PlayerSocialLink.show_on_site).is_(True),
             col(PlayerSocialLink.platform).in_(list(platforms)),
         )
         .order_by(

@@ -180,6 +180,35 @@ async def test_read_live_streams_excludes_unobserved_links(
     assert response.json() == {"data": [], "count": 0}
 
 
+async def test_read_live_streams_excludes_hidden_links(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    now = get_datetime_utc()
+    player = await _create_player(db, steamid64=random_steamid64(), name="Hidden")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        account_identifier="888888",
+    )
+    link.show_on_site = False
+    db.add(link)
+    await db.commit()
+    await _create_state(
+        db,
+        link_id=link.id,
+        is_live=True,
+        last_checked_at=now,
+        last_live_seen_at=now,
+        stream_url="https://live.bilibili.com/88",
+    )
+
+    response = await client.get("/v1/live/streams")
+
+    assert response.status_code == 200
+    assert response.json() == {"data": [], "count": 0}
+
+
 async def test_read_live_streams_serializes_twitch_cards_and_recency(
     client: AsyncClient,
     db: AsyncSession,

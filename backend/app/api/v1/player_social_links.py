@@ -140,6 +140,7 @@ async def update_player_social_link(
             session=session,
             link=link,
             url=body.url,
+            show_on_site=body.show_on_site,
         )
     except crud.PlayerSocialLinkConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

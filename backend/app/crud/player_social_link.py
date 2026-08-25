@@ -94,6 +94,7 @@ async def update_player_social_link(
     link: PlayerSocialLink,
     url: str | None = None,
     verified: bool | None = None,
+    show_on_site: bool | None = None,
 ) -> PlayerSocialLink:
     if url is not None:
         platform, account_identifier = parse_social_link_or_raise(url)
@@ -106,6 +107,8 @@ async def update_player_social_link(
         link.account_identifier = account_identifier
     if verified is not None:
         link.verified = verified
+    if show_on_site is not None:
+        link.show_on_site = show_on_site
 
     link.updated_at = datetime.now(UTC)
     session.add(link)
@@ -201,6 +204,7 @@ def to_player_social_link_public(
         platform=link.platform,
         account_identifier=link.account_identifier,
         verified=link.verified,
+        show_on_site=link.show_on_site,
         url=build_player_social_link_url(
             platform=link.platform,
             account_identifier=link.account_identifier,

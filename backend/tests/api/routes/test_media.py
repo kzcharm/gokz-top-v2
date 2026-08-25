@@ -85,6 +85,41 @@ async def test_read_media_posts_returns_youtube_duration(
     assert response.json()["data"][0]["duration_seconds"] == 3723
 
 
+async def test_read_media_posts_excludes_hidden_social_links(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Hidden Media Player")
+    db.add(player)
+    await db.commit()
+    link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@hidden-media-player",
+        verified=True,
+        show_on_site=False,
+    )
+    db.add(link)
+    await db.commit()
+    db.add(
+        MediaPost(
+            player_social_link_id=link.id,
+            player_steamid64=player.steamid64,
+            platform=PlayerSocialPlatform.YOUTUBE,
+            external_video_id="hidden-video",
+            title="Hidden video",
+            url="https://www.youtube.com/watch?v=hidden-video",
+            published_at=get_datetime_utc(),
+        )
+    )
+    await db.commit()
+
+    response = await client.get("/v1/media/posts")
+
+    assert response.status_code == 200
+    assert response.json() == {"data": [], "next_cursor": None, "count": 0}
+
+
 async def test_read_media_posts_filters_and_sorts_each_cursor_page(
     client: AsyncClient,
     db: AsyncSession,

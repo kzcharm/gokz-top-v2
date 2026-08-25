@@ -611,6 +611,10 @@ export const AdminPlayerSocialLinkPublicSchema = {
             type: 'boolean',
             title: 'Verified'
         },
+        show_on_site: {
+            type: 'boolean',
+            title: 'Show On Site'
+        },
         url: {
             type: 'string',
             title: 'Url'
@@ -637,7 +641,7 @@ export const AdminPlayerSocialLinkPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'player_steamid64', 'platform', 'account_identifier', 'verified', 'url', 'created_at', 'updated_at'],
+    required: ['id', 'player_steamid64', 'platform', 'account_identifier', 'verified', 'show_on_site', 'url', 'created_at', 'updated_at'],
     title: 'AdminPlayerSocialLinkPublic'
 } as const;
 
@@ -6095,6 +6099,10 @@ export const PlayerSocialLinkPublicSchema = {
             type: 'boolean',
             title: 'Verified'
         },
+        show_on_site: {
+            type: 'boolean',
+            title: 'Show On Site'
+        },
         url: {
             type: 'string',
             title: 'Url'
@@ -6111,21 +6119,38 @@ export const PlayerSocialLinkPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'player_steamid64', 'platform', 'account_identifier', 'verified', 'url', 'created_at', 'updated_at'],
+    required: ['id', 'player_steamid64', 'platform', 'account_identifier', 'verified', 'show_on_site', 'url', 'created_at', 'updated_at'],
     title: 'PlayerSocialLinkPublic'
 } as const;
 
 export const PlayerSocialLinkUpdateSchema = {
     properties: {
         url: {
-            type: 'string',
-            maxLength: 500,
-            minLength: 1,
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 500,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Url'
+        },
+        show_on_site: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Show On Site'
         }
     },
     type: 'object',
-    required: ['url'],
     title: 'PlayerSocialLinkUpdate'
 } as const;
 

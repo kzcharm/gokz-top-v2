@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
+import { Switch } from "@/components/ui/switch"
 import {
   Tooltip,
   TooltipContent,
@@ -377,6 +378,7 @@ function SocialLinkRow({
   onDelete,
   onVerify,
   onShowProfileText,
+  onToggleVisibility,
   deleting,
   verifying,
 }: {
@@ -387,6 +389,10 @@ function SocialLinkRow({
   onShowProfileText: (link: PlayerSocialLinkPublic) => void
   deleting: boolean
   verifying: boolean
+  onToggleVisibility: (
+    link: PlayerSocialLinkPublic,
+    showOnSite: boolean,
+  ) => void
 }) {
   const platformLabel = getSocialPlatformLabel(link.platform)
   const isVerifyAvailable =
@@ -432,6 +438,24 @@ function SocialLinkRow({
           >
             <Info className="size-4" />
           </Button>
+        ) : null}
+        {link.verified ? (
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Switch
+                  checked={link.show_on_site}
+                  onCheckedChange={(showOnSite) =>
+                    onToggleVisibility(link, showOnSite)
+                  }
+                  aria-label="Show streams/videos on GOKZ.TOP"
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={6}>
+              Show this link's streams and videos on GOKZ.TOP
+            </TooltipContent>
+          </Tooltip>
         ) : null}
         {!link.verified ? (
           isVerifyAvailable ? (
@@ -893,6 +917,29 @@ export default function SocialLinksSettings() {
     onSettled: refreshLinks,
   })
 
+  const visibilityMutation = useMutation({
+    mutationFn: ({
+      linkId,
+      showOnSite,
+    }: {
+      linkId: string
+      showOnSite: boolean
+    }) =>
+      PlayerSocialLinksService.updatePlayerSocialLink({
+        linkId,
+        requestBody: { show_on_site: showOnSite },
+      }),
+    onSuccess: (_data, variables) => {
+      showSuccessToast(
+        variables.showOnSite
+          ? "Social link shown on GOKZ.TOP"
+          : "Social link hidden from streams/videos",
+      )
+    },
+    onError: handleError.bind(showErrorToast),
+    onSettled: refreshLinks,
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (linkId: string) =>
       PlayerSocialLinksService.deletePlayerSocialLink({
@@ -1233,6 +1280,12 @@ export default function SocialLinksSettings() {
                 }}
                 onShowProfileText={(selectedLink) =>
                   bilibiliProfileTextMutation.mutate(selectedLink)
+                }
+                onToggleVisibility={(selectedLink, showOnSite) =>
+                  visibilityMutation.mutate({
+                    linkId: selectedLink.id,
+                    showOnSite,
+                  })
                 }
               />
             ))

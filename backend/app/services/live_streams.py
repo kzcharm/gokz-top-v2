@@ -757,6 +757,8 @@ async def _notify_stream_started_if_needed(
     previous_live_started_at: datetime | None,
     current_state: LiveStreamState,
 ) -> None:
+    if not link.show_on_site:
+        return
     if not _is_newly_live_transition(
         previous_is_live=previous_is_live,
         previous_live_started_at=previous_live_started_at,

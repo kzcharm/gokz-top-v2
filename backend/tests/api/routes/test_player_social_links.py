@@ -217,6 +217,14 @@ async def test_player_social_links_owner_can_update_and_delete(
     assert update_response.json()["data"][0]["platform"] == "github"
     assert update_response.json()["data"][0]["verified"] is False
 
+    visibility_response = await client.patch(
+        f"{settings.API_V1_STR}/player-social-links/me/social-links/{link_id}",
+        headers=headers,
+        json={"show_on_site": False},
+    )
+    assert visibility_response.status_code == 200
+    assert visibility_response.json()["data"][0]["show_on_site"] is False
+
     delete_response = await client.delete(
         f"{settings.API_V1_STR}/player-social-links/me/social-links/{link_id}",
         headers=headers,
