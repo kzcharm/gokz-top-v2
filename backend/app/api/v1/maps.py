@@ -41,6 +41,7 @@ from app.services.map_file_distribution import (
     MapFileDistributionError,
     sync_map_files,
 )
+from app.services.qq_binding import verify_qq_bot_api_key
 from app.services.steam_workshop import fetch_workshop_preview_url
 
 router = APIRouter(prefix="/maps", tags=["maps"])
@@ -292,8 +293,13 @@ def _resolve_review_target_steamid64(
     current_user_steamid64: int | None,
     payload_steamid64: int | None,
     server_group_id: uuid.UUID | None,
+    qq_bot_authenticated: bool,
 ) -> int:
     if server_group_id is not None:
+        if payload_steamid64 is None:
+            raise HTTPException(status_code=422, detail="steamid64 is required")
+        return payload_steamid64
+    if qq_bot_authenticated:
         if payload_steamid64 is None:
             raise HTTPException(status_code=422, detail="steamid64 is required")
         return payload_steamid64
@@ -310,16 +316,23 @@ async def put_map_review(
     x_server_group_key: Annotated[
         str | None, Header(alias="X-Server-Group-Key")
     ] = None,
+    x_qq_bot_key: Annotated[str | None, Header(alias="X-QQ-Bot-Key")] = None,
 ) -> MapReviewPublic:
-    if current_user is None and not x_server_group_key:
+    if current_user is None and not x_server_group_key and not x_qq_bot_key:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    if current_user is not None and x_server_group_key:
+    if current_user is not None and (x_server_group_key or x_qq_bot_key):
         raise HTTPException(
             status_code=400,
-            detail="Use either user auth or a server group API key",
+            detail="Use either user auth or a machine API key",
+        )
+    if x_server_group_key and x_qq_bot_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Use only one machine API key",
         )
 
     server_group_id: uuid.UUID | None = None
+    qq_bot_authenticated = False
     if x_server_group_key:
         group = await crud.get_server_group_by_api_key(
             session=session,
@@ -331,11 +344,16 @@ async def put_map_review(
             raise HTTPException(status_code=403, detail="Server group is invalidated")
         mark_server_group_api_key_used(session=session, group=group)
         server_group_id = group.id
+    elif x_qq_bot_key:
+        if not await verify_qq_bot_api_key(session=session, api_key=x_qq_bot_key):
+            raise HTTPException(status_code=401, detail="Invalid QQ bot API key")
+        qq_bot_authenticated = True
 
     steamid64 = _resolve_review_target_steamid64(
         current_user_steamid64=current_user.steamid64 if current_user else None,
         payload_steamid64=payload.steamid64,
         server_group_id=server_group_id,
+        qq_bot_authenticated=qq_bot_authenticated,
     )
     map_obj = await crud.get_map_by_id(session=session, id=payload.map_id)
     if map_obj is None:

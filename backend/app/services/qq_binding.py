@@ -45,6 +45,15 @@ async def get_active_qq_binding_secret(*, session: AsyncSession) -> str:
     return decrypt_qq_binding_secret(stored_secret.encrypted_secret)
 
 
+async def verify_qq_bot_api_key(*, session: AsyncSession, api_key: str) -> bool:
+    """Return whether an API key matches the currently active QQ bot secret."""
+    try:
+        secret = await get_active_qq_binding_secret(session=session)
+    except ValueError:
+        return False
+    return hmac.compare_digest(api_key, secret)
+
+
 async def create_qq_binding_code(
     *,
     session: AsyncSession,

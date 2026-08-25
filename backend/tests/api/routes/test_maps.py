@@ -31,6 +31,7 @@ from app.models import (
 from app.models.utils import get_datetime_utc
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
 from app.services.language_detection import detect_language_code
+from app.services.qq_binding import encrypt_qq_binding_secret
 from tests.utils.server import create_server_group
 from tests.utils.utils import random_steamid64
 
@@ -1491,6 +1492,52 @@ async def test_put_map_review_with_server_group_key_can_upsert_for_any_player(
     assert payload["steamid64"] == str(player_steamid64)
     assert payload["server_group_id"] == str(group.id)
     assert payload["content"]["comment"]["language"] == "de"
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_with_qq_bot_key_can_upsert_for_bound_player(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930212)
+    player_steamid64 = random_steamid64()
+    await crud.get_or_create_user_from_steam(session=db, steamid64=player_steamid64)
+    await _create_ovr_pb(db, steamid64=player_steamid64, map_id=map_obj.id)
+    await crud.create_qq_binding_secret(
+        session=db,
+        encrypted_secret=encrypt_qq_binding_secret("qq-bot-secret"),
+    )
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers={"X-QQ-Bot-Key": "qq-bot-secret"},
+        json={
+            "steamid64": str(player_steamid64),
+            "map_id": map_obj.id,
+            "content": {"overall": 5},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["steamid64"] == str(player_steamid64)
+    assert payload["server_group_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_put_map_review_rejects_invalid_qq_bot_key(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930213)
+    response = await client.put(
+        f"{settings.API_V1_STR}/maps/reviews",
+        headers={"X-QQ-Bot-Key": "wrong-key"},
+        json={"steamid64": str(random_steamid64()), "map_id": map_obj.id, "content": {"overall": 5}},
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid QQ bot API key"}
 
 
 @pytest.mark.asyncio
