@@ -22,7 +22,13 @@ import {
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { type MapPublic, MapsService, type MapWrPublic } from "@/client"
+import {
+  type MapLeaderboardEntryPublic,
+  type MapPublic,
+  LeaderboardsService,
+  MapsService,
+  type MapWrPublic,
+} from "@/client"
 import {
   TierSelector,
   type TierSelectorValue,
@@ -67,8 +73,19 @@ const MAP_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.updated", value: "updated" },
   { labelKey: "maps.sortOptions.wr", value: "wr" },
   { labelKey: "maps.sortOptions.review", value: "review" },
+  { labelKey: "maps.sortOptions.metrics", value: "metrics" },
   { labelKey: "maps.sortOptions.bonus", value: "bonus" },
   { labelKey: "maps.sortOptions.skill", value: "skill" },
+] as const
+
+const METRIC_SORT_OPTIONS = [
+  { labelKey: "maps.sortOptions.playtime", value: "playtime" },
+  { labelKey: "maps.sortOptions.avgPlaytime", value: "avgPlaytime" },
+  { labelKey: "maps.sortOptions.nub", value: "nub" },
+  { labelKey: "maps.sortOptions.pro", value: "pro" },
+  { labelKey: "maps.sortOptions.proRatio", value: "proRatio" },
+  { labelKey: "maps.sortOptions.finishes", value: "finishes" },
+  { labelKey: "maps.sortOptions.firstMed", value: "firstMed" },
 ] as const
 
 const REVIEW_SORT_OPTIONS = [
@@ -80,8 +97,12 @@ const REVIEW_SORT_OPTIONS = [
 ] as const
 
 type MapsSortOption = (typeof MAP_SORT_OPTIONS)[number]["value"]
+type MetricSortField = (typeof METRIC_SORT_OPTIONS)[number]["value"]
 type ReviewSortField = (typeof REVIEW_SORT_OPTIONS)[number]["value"]
-type MapsSortField = Exclude<MapsSortOption, "review"> | ReviewSortField
+type MapsSortField =
+  | Exclude<MapsSortOption, "review">
+  | ReviewSortField
+  | MetricSortField
 type MapsSortDirection = "asc" | "desc"
 type SortableSkillKey = Exclude<MapSkillKey, "unknown">
 
@@ -154,7 +175,8 @@ function isMapsSortField(value: unknown): value is MapsSortField {
   return (
     typeof value === "string" &&
     (MAP_SORT_OPTIONS.some((option) => option.value === value) ||
-      REVIEW_SORT_OPTIONS.some((option) => option.value === value))
+      REVIEW_SORT_OPTIONS.some((option) => option.value === value) ||
+      METRIC_SORT_OPTIONS.some((option) => option.value === value))
   )
 }
 
@@ -298,11 +320,13 @@ function SortableMapOption({
   active,
   direction,
   label,
+  tooltip,
   onClick,
 }: {
   active: boolean
   direction?: MapsSortDirection
   label: string
+  tooltip?: string
   onClick: () => void
 }) {
   return (
@@ -316,7 +340,7 @@ function SortableMapOption({
       aria-pressed={active}
       onClick={onClick}
     >
-      <span>{label}</span>
+      <span title={tooltip}>{label}</span>
       {active ? (
         direction === "asc" ? (
           <ArrowUp className="ml-2 size-4" />
@@ -357,6 +381,7 @@ function sortMaps(
   scope: AppScope,
   selectedSkill: SortableSkillKey,
   wrTimeByMapId: ReadonlyMap<number, number>,
+  leaderboardByMapId: ReadonlyMap<number, MapLeaderboardEntryPublic>,
 ) {
   return [...maps].sort((left, right) => {
     const leftTier = getMapTierForScope(left, scope)
@@ -369,6 +394,27 @@ function sortMaps(
     switch (sortField) {
       case "tier":
         comparison = compareNullableNumbers(leftTier, rightTier, "asc")
+        break
+      case "playtime":
+        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.total_playtime, leaderboardByMapId.get(right.id)?.total_playtime, sortDirection)
+        break
+      case "avgPlaytime":
+        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.average_playtime_per_player, leaderboardByMapId.get(right.id)?.average_playtime_per_player, sortDirection)
+        break
+      case "nub":
+        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.unique_nub_finishes, leaderboardByMapId.get(right.id)?.unique_nub_finishes, sortDirection)
+        break
+      case "pro":
+        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.unique_pro_finishes, leaderboardByMapId.get(right.id)?.unique_pro_finishes, sortDirection)
+        break
+      case "proRatio":
+        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.pro_nub_ratio, leaderboardByMapId.get(right.id)?.pro_nub_ratio, sortDirection)
+        break
+      case "finishes":
+        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.total_finishes, leaderboardByMapId.get(right.id)?.total_finishes, sortDirection)
+        break
+      case "firstMed":
+        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.median_first_completion_time, leaderboardByMapId.get(right.id)?.median_first_completion_time, sortDirection)
         break
       case "updated":
         comparison = Date.parse(left.updated_on) - Date.parse(right.updated_on)
@@ -477,6 +523,13 @@ function sortMaps(
       sortField === "wr" ||
       sortField === "reviewCount" ||
       sortField === "commentsCount"
+      || sortField === "playtime"
+      || sortField === "avgPlaytime"
+      || sortField === "nub"
+      || sortField === "pro"
+      || sortField === "proRatio"
+      || sortField === "finishes"
+      || sortField === "firstMed"
     ) {
       return comparison
     }
@@ -786,6 +839,13 @@ export function MapsCatalog() {
     refetchOnWindowFocus: false,
     retry: 1,
   })
+  const mapLeaderboardQuery = useQuery({
+    queryKey: ["leaderboards", "maps", "catalog", scope],
+    queryFn: () => LeaderboardsService.readMapLeaderboard({ scope }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
 
   const searchableMaps = useMemo(
     () =>
@@ -813,6 +873,14 @@ export function MapsCatalog() {
     }
     return nextMap
   }, [wrByMapId])
+
+  const leaderboardByMapId = useMemo(() => {
+    const next = new Map<number, MapLeaderboardEntryPublic>()
+    for (const entry of mapLeaderboardQuery.data?.data ?? []) {
+      next.set(entry.map.id, entry)
+    }
+    return next
+  }, [mapLeaderboardQuery.data])
 
   const filteredMaps = useMemo(() => {
     const normalizedQuery = deferredSearch.trim().toLowerCase()
@@ -1052,6 +1120,7 @@ export function MapsCatalog() {
         scope,
         selectedSkill,
         wrTimeByMapId,
+        leaderboardByMapId,
       ),
     [
       filteredMaps,
@@ -1060,6 +1129,7 @@ export function MapsCatalog() {
       sortDirection,
       sortField,
       wrTimeByMapId,
+      leaderboardByMapId,
     ],
   )
 
@@ -1156,6 +1226,18 @@ export function MapsCatalog() {
         return
       }
 
+      if (nextSortField === "metrics") {
+        if (METRIC_SORT_OPTIONS.some((option) => option.value === sortField)) {
+          setSortDirection((currentDirection) =>
+            currentDirection === "asc" ? "desc" : "asc",
+          )
+          return
+        }
+        setSortField("playtime")
+        setSortDirection("desc")
+        return
+      }
+
       if (nextSortField === sortField) {
         setSortDirection((currentDirection) =>
           currentDirection === "asc" ? "desc" : "asc",
@@ -1173,6 +1255,20 @@ export function MapsCatalog() {
       setPage(1)
       setSelectedSkill(nextSkill)
       setSortField("skill")
+      setSortDirection("desc")
+    })
+  }
+
+  function handleMetricSortSelection(nextMetric: MetricSortField) {
+    startTransition(() => {
+      setPage(1)
+      if (sortField === nextMetric) {
+        setSortDirection((currentDirection) =>
+          currentDirection === "asc" ? "desc" : "asc",
+        )
+        return
+      }
+      setSortField(nextMetric)
       setSortDirection("desc")
     })
   }
@@ -1483,6 +1579,34 @@ export function MapsCatalog() {
             </fieldset>
           ) : null}
 
+          {METRIC_SORT_OPTIONS.some((option) => option.value === sortField) ? (
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="sr-only">{t("maps.sortOptions.metrics")}</legend>
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+                {METRIC_SORT_OPTIONS.map((option) => (
+                  <SortableMapOption
+                    key={option.value}
+                    active={sortField === option.value}
+                    direction={
+                      sortField === option.value ? sortDirection : undefined
+                    }
+                    label={t(option.labelKey)}
+                    tooltip={
+                      option.value === "nub"
+                        ? t("maps.sortOptions.nubTooltip")
+                        : option.value === "pro"
+                          ? t("maps.sortOptions.proTooltip")
+                          : undefined
+                    }
+                    onClick={() => {
+                      handleMetricSortSelection(option.value)
+                    }}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
           {sortField === "skill" ? (
             <fieldset className="min-w-0 border-0 p-0">
               <legend className="sr-only">{t("maps.sortMapsBySkill")}</legend>
@@ -1535,6 +1659,8 @@ export function MapsCatalog() {
               map={map}
               wrRecord={wrByMapId.get(map.id) ?? null}
               wrLoading={wrsQuery.isLoading}
+              leaderboardEntry={leaderboardByMapId.get(map.id) ?? null}
+              leaderboardSortField={sortField}
             />
           ))}
         </section>
