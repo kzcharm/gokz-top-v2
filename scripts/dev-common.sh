@@ -2,15 +2,25 @@
 
 confirm_action() {
   local prompt="$1"
+  local default_answer="${2:-no}"
   local response=""
+  local prompt_suffix="[y/N]"
+
+  if [[ "$default_answer" == "yes" ]]; then
+    prompt_suffix="[Y/n]"
+  fi
 
   while true; do
-    read -r -p "$prompt [y/N] " response
+    read -r -p "$prompt $prompt_suffix " response
     case "$response" in
       [yY]|[yY][eE][sS])
         return 0
         ;;
-      ""|[nN]|[nN][oO])
+      "")
+        [[ "$default_answer" == "yes" ]] && return 0
+        return 1
+        ;;
+      [nN]|[nN][oO])
         return 1
         ;;
       *)
@@ -55,7 +65,7 @@ kill_port_processes_with_confirmation() {
     fi
   done
 
-  if ! confirm_action "Kill the process(es) listening on $address_label?"; then
+  if ! confirm_action "Kill the process(es) listening on $address_label?" yes; then
     echo "Aborting because $address_label is already in use."
     exit 1
   fi
@@ -100,7 +110,7 @@ kill_port_processes_with_confirmation() {
     fi
   done
 
-  if ! confirm_action "Force kill the remaining process(es) on $address_label?"; then
+  if ! confirm_action "Force kill the remaining process(es) on $address_label?" yes; then
     echo "Aborting because $address_label is still in use."
     exit 1
   fi
