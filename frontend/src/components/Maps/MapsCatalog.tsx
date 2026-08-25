@@ -115,6 +115,61 @@ const EMPTY_MAP_FILTERS: MapFilterValues = {
   commentsMax: "",
 }
 
+const MAPS_CATALOG_STORAGE_KEY = "gokz.maps.catalog.state"
+
+type PersistedMapsCatalogState = {
+  searchInput: string
+  sortField: MapsSortField
+  sortDirection: MapsSortDirection
+  selectedSkill: SortableSkillKey
+  selectedReviewSort: ReviewSortField
+  selectedTier: TierSelectorValue
+  minimumTier: TierSelectorValue
+  maximumTier: TierSelectorValue
+  withBonusOnly: boolean
+  mapFilters: MapFilterValues
+  page: number
+}
+
+function readPersistedMapsCatalogState(): Partial<PersistedMapsCatalogState> {
+  if (typeof window === "undefined") {
+    return {}
+  }
+
+  try {
+    const stored = window.sessionStorage.getItem(MAPS_CATALOG_STORAGE_KEY)
+    if (!stored) {
+      return {}
+    }
+    const parsed: unknown = JSON.parse(stored)
+    return parsed && typeof parsed === "object"
+      ? (parsed as Partial<PersistedMapsCatalogState>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function isMapsSortField(value: unknown): value is MapsSortField {
+  return (
+    typeof value === "string" &&
+    (MAP_SORT_OPTIONS.some((option) => option.value === value) ||
+      REVIEW_SORT_OPTIONS.some((option) => option.value === value))
+  )
+}
+
+function isTierSelectorValue(value: unknown): value is TierSelectorValue {
+  return (
+    value === "all" ||
+    value === "none" ||
+    (typeof value === "string" && /^\d+$/.test(value))
+  )
+}
+
+function isSortableSkillKey(value: unknown): value is SortableSkillKey {
+  return MAP_SORTABLE_SKILLS.some((skill) => skill.key === value)
+}
+
 function parseWrTime(value: string) {
   const trimmed = value.trim()
   if (!trimmed) {
@@ -235,7 +290,7 @@ function RangeInputs({
   )
 }
 
-function isReviewSortField(value: MapsSortField): value is ReviewSortField {
+function isReviewSortField(value: unknown): value is ReviewSortField {
   return REVIEW_SORT_OPTIONS.some((option) => option.value === value)
 }
 
@@ -618,21 +673,94 @@ function MapsDownloadDialog() {
 export function MapsCatalog() {
   const { t } = useTranslation()
   const { scope } = useScope()
-  const [searchInput, setSearchInput] = useState("")
+  const [persistedState] = useState(readPersistedMapsCatalogState)
+  const [searchInput, setSearchInput] = useState(
+    typeof persistedState.searchInput === "string"
+      ? persistedState.searchInput
+      : "",
+  )
   const deferredSearch = useDeferredValue(searchInput)
-  const [sortField, setSortField] = useState<MapsSortField>("name")
-  const [sortDirection, setSortDirection] = useState<MapsSortDirection>("asc")
-  const [selectedSkill, setSelectedSkill] = useState<SortableSkillKey>("ladder")
-  const [selectedReviewSort, setSelectedReviewSort] =
-    useState<ReviewSortField>("overall")
-  const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
-  const [minimumTier, setMinimumTier] = useState<TierSelectorValue>("all")
-  const [maximumTier, setMaximumTier] = useState<TierSelectorValue>("all")
-  const [withBonusOnly, setWithBonusOnly] = useState(false)
+  const [sortField, setSortField] = useState<MapsSortField>(
+    isMapsSortField(persistedState.sortField)
+      ? persistedState.sortField
+      : "name",
+  )
+  const [sortDirection, setSortDirection] = useState<MapsSortDirection>(
+    persistedState.sortDirection === "desc" ? "desc" : "asc",
+  )
+  const [selectedSkill, setSelectedSkill] = useState<SortableSkillKey>(
+    isSortableSkillKey(persistedState.selectedSkill)
+      ? persistedState.selectedSkill
+      : "ladder",
+  )
+  const [selectedReviewSort, setSelectedReviewSort] = useState<ReviewSortField>(
+    isReviewSortField(persistedState.selectedReviewSort)
+      ? persistedState.selectedReviewSort
+      : "overall",
+  )
+  const [selectedTier, setSelectedTier] = useState<TierSelectorValue>(
+    isTierSelectorValue(persistedState.selectedTier)
+      ? persistedState.selectedTier
+      : "all",
+  )
+  const [minimumTier, setMinimumTier] = useState<TierSelectorValue>(
+    isTierSelectorValue(persistedState.minimumTier)
+      ? persistedState.minimumTier
+      : "all",
+  )
+  const [maximumTier, setMaximumTier] = useState<TierSelectorValue>(
+    isTierSelectorValue(persistedState.maximumTier)
+      ? persistedState.maximumTier
+      : "all",
+  )
+  const [withBonusOnly, setWithBonusOnly] = useState(
+    persistedState.withBonusOnly === true,
+  )
   const [showFilters, setShowFilters] = useState(false)
-  const [mapFilters, setMapFilters] =
-    useState<MapFilterValues>(EMPTY_MAP_FILTERS)
-  const [page, setPage] = useState(1)
+  const [mapFilters, setMapFilters] = useState<MapFilterValues>(() => ({
+    ...EMPTY_MAP_FILTERS,
+    ...(persistedState.mapFilters ?? {}),
+  }))
+  const [page, setPage] = useState(
+    typeof persistedState.page === "number" && persistedState.page >= 1
+      ? Math.trunc(persistedState.page)
+      : 1,
+  )
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        MAPS_CATALOG_STORAGE_KEY,
+        JSON.stringify({
+          searchInput,
+          sortField,
+          sortDirection,
+          selectedSkill,
+          selectedReviewSort,
+          selectedTier,
+          minimumTier,
+          maximumTier,
+          withBonusOnly,
+          mapFilters,
+          page,
+        } satisfies PersistedMapsCatalogState),
+      )
+    } catch {
+      // Session storage can be unavailable in private browsing or restricted contexts.
+    }
+  }, [
+    mapFilters,
+    maximumTier,
+    minimumTier,
+    page,
+    searchInput,
+    selectedReviewSort,
+    selectedSkill,
+    selectedTier,
+    sortDirection,
+    sortField,
+    withBonusOnly,
+  ])
 
   const mapsQuery = useQuery({
     queryKey: ["maps", "catalog", scope],
