@@ -208,6 +208,9 @@ function PbRecordTableRow({
           <TierBadge tier={record.map_tier} hideWhenUnknown />
         </TableCell>
       ) : null}
+      {visibleColumns.has("stage") ? (
+        <TableCell className="font-medium">{record.stage}</TableCell>
+      ) : null}
       {visibleColumns.has("tps") ? (
         <TableCell>
           <TeleportsBadge teleports={record.teleports} />
@@ -421,6 +424,17 @@ export function PbRecordsTable({
                   <SortableHeader
                     column="tier"
                     label={t("labels.tier")}
+                    sort={sort}
+                    onSortChange={onSortChange}
+                    className={tableHeadClassName}
+                  />
+                </TableHead>
+              ) : null}
+              {visibleColumns.has("stage") ? (
+                <TableHead className={`min-w-14 ${tableHeadClassName}`}>
+                  <SortableHeader
+                    column="stage"
+                    label="Stage"
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}

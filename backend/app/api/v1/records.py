@@ -153,6 +153,7 @@ async def read_pb_records(
     map_id: Annotated[int | None, Query()] = None,
     map_name: Annotated[str | None, Query()] = None,
     stage: Annotated[int, Query(ge=0)] = 0,
+    is_bonus: bool = False,
     identifier: Annotated[str | None, Query()] = None,
     country: Annotated[str | None, Query(max_length=2)] = None,
     region: Annotated[str | None, Query(max_length=3)] = None,
@@ -180,6 +181,7 @@ async def read_pb_records(
         map_id=map_id,
         map_name=map_name,
         stage=stage,
+        is_bonus=is_bonus,
         steamid64=(
             await _resolve_player_identifier_to_steamid64_or_404(
                 session=session,

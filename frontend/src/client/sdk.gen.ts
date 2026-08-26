@@ -3278,6 +3278,7 @@ export class RecordsService {
      * @param data.mapId
      * @param data.mapName
      * @param data.stage
+     * @param data.isBonus
      * @param data.identifier
      * @param data.country
      * @param data.region
@@ -3299,6 +3300,7 @@ export class RecordsService {
                 map_id: data.mapId,
                 map_name: data.mapName,
                 stage: data.stage,
+                is_bonus: data.isBonus,
                 identifier: data.identifier,
                 country: data.country,
                 region: data.region,

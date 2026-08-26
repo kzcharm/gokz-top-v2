@@ -26,6 +26,7 @@ export type PbRecordsColumn =
   | "map"
   | "mode"
   | "tier"
+  | "stage"
   | "tps"
   | "time"
   | "points"
@@ -57,6 +58,8 @@ function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
       return record.mode
     case "tier":
       return record.map_tier
+    case "stage":
+      return record.stage
     case "tps":
       return record.teleports
     case "time":
@@ -99,13 +102,17 @@ export function getProfilePbRecordsQueryOptions({
   identifier,
   scope,
   isProOnly,
+  isBonus,
+  stage,
 }: {
   identifier: string | null
   scope: AppScope
   isProOnly: boolean
+  isBonus: boolean
+  stage: number | null
 }) {
   return queryOptions({
-    queryKey: ["profile-records", identifier, scope, isProOnly],
+    queryKey: ["profile-records", identifier, scope, isProOnly, isBonus, stage],
     queryFn: async () => {
       if (!identifier) {
         return []
@@ -114,7 +121,8 @@ export function getProfilePbRecordsQueryOptions({
       const params = new URLSearchParams({
         identifier,
         scope,
-        stage: "0",
+        stage: String(stage ?? 0),
+        is_bonus: String(isBonus),
         type: isProOnly ? "PRO" : "NUB",
         exclude_cheaters: "false",
         limit: String(PB_RECORDS_QUERY_LIMIT),

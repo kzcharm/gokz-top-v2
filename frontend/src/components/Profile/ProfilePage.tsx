@@ -106,6 +106,7 @@ export function ProfilePage({
   const recordedProfileViewsRef = useRef<Set<string>>(new Set())
   const autoSyncedFriendsRef = useRef<Set<string>>(new Set())
   const [isProOnly, setIsProOnly] = useState(false)
+  const [isBonus, setIsBonus] = useState(false)
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],
     queryFn: () => fetchProfilePlayer(identifier),
@@ -146,6 +147,8 @@ export function ProfilePage({
       identifier: playerSteamid64,
       scope,
       isProOnly: false,
+      isBonus: false,
+      stage: 0,
     }),
     enabled: playerSteamid64 !== null,
   })
@@ -154,6 +157,8 @@ export function ProfilePage({
       identifier: playerSteamid64,
       scope,
       isProOnly: true,
+      isBonus: false,
+      stage: 0,
     }),
     enabled: playerSteamid64 !== null,
   })
@@ -606,18 +611,31 @@ export function ProfilePage({
     adminModeEnabled && canUseAdminRecoveryActions
   const profileTabsTrailingContent =
     activeTab === "records" ? (
-      <Label
-        htmlFor="profile-records-pro-only"
-        className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
-      >
-        <Switch
-          id="profile-records-pro-only"
-          checked={isProOnly}
-          onCheckedChange={setIsProOnly}
-          className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
-        />
-        <span>{isProOnly ? "PRO" : "NUB"}</span>
-      </Label>
+      <div className="flex items-center gap-2">
+        <Label
+          htmlFor="profile-records-pro-only"
+          className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
+        >
+          <Switch
+            id="profile-records-pro-only"
+            checked={isProOnly}
+            onCheckedChange={setIsProOnly}
+            className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
+          />
+          <span>{isProOnly ? "PRO" : "NUB"}</span>
+        </Label>
+        <Label
+          htmlFor="profile-records-bonus"
+          className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
+        >
+          <Switch
+            id="profile-records-bonus"
+            checked={isBonus}
+            onCheckedChange={setIsBonus}
+          />
+          <span>Bonus</span>
+        </Label>
+      </div>
     ) : null
 
   return (
@@ -823,6 +841,7 @@ export function ProfilePage({
             <ProfileRecordsTab
               steamid64={player.steamid64}
               isProOnly={isProOnly}
+              isBonus={isBonus}
               canManagePinnedRecords={isOwnProfile}
               pinnedRecordKeys={pinnedRecordKeys}
               pinnedRecordsMutating={

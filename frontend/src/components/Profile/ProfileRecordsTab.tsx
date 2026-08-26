@@ -248,6 +248,7 @@ function PointsRangeFilter({
 export function ProfileRecordsTab({
   steamid64,
   isProOnly,
+  isBonus,
   canManagePinnedRecords,
   pinnedRecordKeys,
   pinnedRecordsMutating,
@@ -256,6 +257,7 @@ export function ProfileRecordsTab({
 }: {
   steamid64: string
   isProOnly: boolean
+  isBonus: boolean
   canManagePinnedRecords: boolean
   pinnedRecordKeys: Set<string>
   pinnedRecordsMutating: boolean
@@ -269,6 +271,7 @@ export function ProfileRecordsTab({
   const [mapSearch, setMapSearch] = useState("")
   const [selectedMode, setSelectedMode] = useState<ModeSelectorValue>("all")
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
+  const [selectedStage, setSelectedStage] = useState<number | null>(null)
   const [minPoints, setMinPoints] = useState("")
   const [maxPoints, setMaxPoints] = useState("")
   const [serverSearch, setServerSearch] = useState("")
@@ -291,6 +294,8 @@ export function ProfileRecordsTab({
       identifier: steamid64,
       scope,
       isProOnly,
+      isBonus,
+      stage: selectedStage,
     }),
   })
 
@@ -327,7 +332,10 @@ export function ProfileRecordsTab({
         return false
       }
 
-      if (selectedTier !== "all") {
+      if (isBonus && selectedStage !== null && record.stage !== selectedStage) {
+        return false
+      }
+      if (!isBonus && selectedTier !== "all") {
         const normalizedTier = normalizeTierValue(record.map_tier)
         if (normalizedTier !== Number(selectedTier)) {
           return false
@@ -358,6 +366,8 @@ export function ProfileRecordsTab({
     recordsQuery.data,
     selectedMode,
     selectedTier,
+    selectedStage,
+    isBonus,
     sort,
   ])
 
@@ -413,24 +423,32 @@ export function ProfileRecordsTab({
     })
   }
 
-  const filterEmptyMessage = isProOnly
-    ? "No stage 0 pro records found for this player with the current filters."
-    : "No stage 0 records found for this player with the current filters."
+  const filterEmptyMessage = isBonus
+    ? "No bonus records found for this player with the current filters."
+    : isProOnly
+      ? "No stage 0 pro records found for this player with the current filters."
+      : "No stage 0 records found for this player with the current filters."
 
   const hasActiveClientFilters =
     deferredMapSearch.trim().length > 0 ||
     deferredServerSearch.trim().length > 0 ||
     selectedMode !== "all" ||
-    selectedTier !== "all" ||
+    (!isBonus && selectedTier !== "all") ||
+    (isBonus && selectedStage !== null) ||
     minPoints.trim().length > 0 ||
     maxPoints.trim().length > 0
 
   const emptyMessage = hasActiveClientFilters
     ? filterEmptyMessage
-    : isProOnly
-      ? "No stage 0 pro records found for this player in the selected scope."
-      : "No stage 0 records found for this player in the selected scope."
+    : isBonus
+      ? "No bonus records found for this player in the selected scope."
+      : isProOnly
+        ? "No stage 0 pro records found for this player in the selected scope."
+        : "No stage 0 records found for this player in the selected scope."
   const recordType = isProOnly ? "PRO" : "NUB"
+  const stageOptions = [
+    ...new Set((recordsQuery.data ?? []).map((record) => record.stage)),
+  ].sort((a, b) => a - b)
   const getRowContextMenu = (record: RecordPublic) => {
     if (!canManagePinnedRecords) {
       return null
@@ -486,11 +504,11 @@ export function ProfileRecordsTab({
             columns={[
               "map",
               "mode",
-              "tier",
+              ...(isBonus ? ["stage" as const] : ["tier" as const]),
               "tps",
               "time",
               "points",
-              "rating",
+              ...(!isBonus ? ["rating" as const] : []),
               "server",
               "datetime",
             ]}
@@ -514,7 +532,7 @@ export function ProfileRecordsTab({
                   ariaLabel="Filter by mode"
                 />
               ),
-              tier: (
+              tier: !isBonus ? (
                 <TierSelector
                   value={selectedTier}
                   onValueChange={setSelectedTier}
@@ -522,7 +540,28 @@ export function ProfileRecordsTab({
                   triggerClassName="h-8 border-border/70 bg-background/80 text-xs"
                   ariaLabel="Filter by tier"
                 />
-              ),
+              ) : undefined,
+              stage: isBonus ? (
+                <select
+                  aria-label="Filter by stage"
+                  value={selectedStage ?? "all"}
+                  onChange={(event) =>
+                    setSelectedStage(
+                      event.target.value === "all"
+                        ? null
+                        : Number(event.target.value),
+                    )
+                  }
+                  className="h-8 rounded-md border border-border/70 bg-background/80 px-2 text-xs"
+                >
+                  <option value="all">Stage</option>
+                  {stageOptions.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage}
+                    </option>
+                  ))}
+                </select>
+              ) : undefined,
               points: (
                 <PointsRangeFilter
                   minPoints={minPoints}

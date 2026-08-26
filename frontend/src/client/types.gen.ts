@@ -2801,6 +2801,7 @@ export type RecordsReadPbRecordsData = {
     country?: (string | null);
     excludeCheaters?: boolean;
     identifier?: (string | null);
+    isBonus?: boolean;
     limit?: number;
     mapId?: (number | null);
     mapName?: (string | null);

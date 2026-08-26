@@ -2717,6 +2717,7 @@ async def get_pb_record_publics(
     map_id: int | None,
     map_name: str | None,
     stage: int,
+    is_bonus: bool = False,
     steamid64: int | None,
     scope: ModeScope,
     record_type: RecordType,
@@ -2878,10 +2879,12 @@ async def get_pb_record_publics(
                 anchor_pb.scope == scope,
                 anchor_pb.steamid64 == steamid64,
                 anchor_pb.type == record_type,
-                course.stage == stage,
+                course.stage > 0 if is_bonus else course.stage == stage,
             )
             .order_by(*_player_anchor_order_by(course))
         )
+        if is_bonus and stage > 0:
+            statement = statement.where(course.stage == stage)
     else:
         return []
 
