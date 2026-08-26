@@ -179,7 +179,7 @@ export const ru = {
     settings: "Настройки",
     dashboard: "Панель",
     profile: "Профиль",
-    profileRecords: "Рекорды профиля",
+    profileRuns: "Забеги профиля",
     profileStats: "Статистика профиля",
     profileUnfinished: "Незавершённые карты",
     profileComments: "Комментарии профиля",
@@ -398,7 +398,7 @@ export const ru = {
   profile: {
     tabs: {
       home: "Главная",
-      records: "Рекорды",
+      runs: "Забеги",
       unfinished: "Незавершённые",
       stats: "Статистика",
       jumpstats: "Jumpstats",

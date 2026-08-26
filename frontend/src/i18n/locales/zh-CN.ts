@@ -177,7 +177,7 @@ export const zhCN = {
     settings: "设置",
     dashboard: "概览",
     profile: "个人资料",
-    profileRecords: "个人记录",
+    profileRuns: "个人跑图",
     profileStats: "个人统计",
     profileUnfinished: "未完成地图",
     profileComments: "个人评论",
@@ -389,7 +389,7 @@ export const zhCN = {
   profile: {
     tabs: {
       home: "主页",
-      records: "记录",
+      runs: "跑图",
       unfinished: "未完成",
       stats: "数据",
       jumpstats: "Jumpstats",

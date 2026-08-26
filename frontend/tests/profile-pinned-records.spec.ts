@@ -283,7 +283,7 @@ test("Own profile can pin and unpin records from the records tab and home card",
 }) => {
   await installPinnedRecordRoutes(page)
 
-  await page.goto(`/profile/${steamid64}/records`)
+  await page.goto(`/profile/${steamid64}/runs`)
 
   await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
     button: "right",
@@ -308,7 +308,7 @@ test("Own profile can pin and unpin records from the records tab and home card",
     page.getByText("No pinned records found for this scope."),
   ).toBeVisible()
 
-  await page.goto(`/profile/${steamid64}/records`)
+  await page.goto(`/profile/${steamid64}/runs`)
   await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
     button: "right",
   })

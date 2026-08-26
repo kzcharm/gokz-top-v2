@@ -180,7 +180,7 @@ export function ProfilePage({
   })
   const activeTabRoute =
     activeTab === "records"
-      ? "/profile/$identifier/records"
+      ? "/profile/$identifier/runs"
       : activeTab === "unfinished"
         ? "/profile/$identifier/unfinished"
         : activeTab === "stats"

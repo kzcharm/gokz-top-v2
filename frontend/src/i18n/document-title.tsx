@@ -14,8 +14,8 @@ function getRouteTitleKey(pathname: string) {
   if (pathname.startsWith("/leaderboards")) return "titles.leaderboards"
   if (pathname.startsWith("/settings")) return "titles.settings"
   if (pathname.startsWith("/dashboard")) return "titles.dashboard"
-  if (pathname.startsWith("/profile") && pathname.endsWith("/records")) {
-    return "titles.profileRecords"
+  if (pathname.startsWith("/profile") && pathname.endsWith("/runs")) {
+    return "titles.profileRuns"
   }
   if (pathname.startsWith("/profile") && pathname.endsWith("/stats")) {
     return "titles.profileStats"

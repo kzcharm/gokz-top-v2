@@ -264,13 +264,13 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
     })
   })
 
-  await page.goto(`/profile/${steamid64}/records`)
+  await page.goto(`/profile/${steamid64}/runs`)
 
   await expect(page.getByRole("link", { name: /Seed Alias/ })).toBeVisible()
   await expect(
     page.getByRole("img", { name: "Profile skill radar" }),
   ).toBeVisible()
-  await expect(page.getByRole("tab", { name: "Records" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "Runs" })).toHaveAttribute(
     "data-state",
     "active",
   )
@@ -423,7 +423,7 @@ test("Profile records page shows grouped server links and filters by group name"
     })
   })
 
-  await page.goto(`/profile/${steamid64}/records`)
+  await page.goto(`/profile/${steamid64}/runs`)
 
   await expect(
     page.getByRole("link", { name: "Seed Server Group" }),
@@ -467,7 +467,7 @@ test("Profile records map tiles include workshop preview fallback URLs", async (
     })
   })
 
-  await page.goto(`/profile/${steamid64}/records`)
+  await page.goto(`/profile/${steamid64}/runs`)
 
   const alphaMapTile = page
     .getByRole("link", { name: "kz_seed_alpha" })
@@ -518,7 +518,7 @@ test("Profile records map context menu items do not open run history", async ({
     })
   })
 
-  await page.goto(`/profile/${steamid64}/records`)
+  await page.goto(`/profile/${steamid64}/runs`)
 
   await page.getByRole("link", { name: "kz_seed_alpha" }).click({
     button: "right",
@@ -554,11 +554,21 @@ test("Profile records page shows an error state when PB loading fails", async ({
     })
   })
 
-  await page.goto(`/profile/${steamid64}/records`)
+  await page.goto(`/profile/${steamid64}/runs`)
 
   await expect(
     page.getByText(
       "Failed to load profile records. Reload the page and try again.",
     ),
   ).toBeVisible()
+})
+
+test("Legacy profile records URL redirects to the runs URL", async ({
+  page,
+}) => {
+  await page.goto(`/profile/${steamid64}/records?scope=KZT`)
+
+  await expect(page).toHaveURL(
+    new RegExp(`/profile/${steamid64}/runs\\?scope=KZT$`),
+  )
 })

@@ -11,7 +11,7 @@ const tabDefinitions: Array<{
   labelKey: string
   to:
     | "/profile/$identifier"
-    | "/profile/$identifier/records"
+    | "/profile/$identifier/runs"
     | "/profile/$identifier/unfinished"
     | "/profile/$identifier/stats"
     | "/profile/$identifier/jumpstats"
@@ -21,8 +21,8 @@ const tabDefinitions: Array<{
   { key: "home", labelKey: "profile.tabs.home", to: "/profile/$identifier" },
   {
     key: "records",
-    labelKey: "profile.tabs.records",
-    to: "/profile/$identifier/records",
+    labelKey: "profile.tabs.runs",
+    to: "/profile/$identifier/runs",
   },
   {
     key: "unfinished",

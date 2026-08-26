@@ -178,7 +178,7 @@ export const en = {
     settings: "Settings",
     dashboard: "Dashboard",
     profile: "Profile",
-    profileRecords: "Profile Records",
+    profileRuns: "Profile Runs",
     profileStats: "Profile Stats",
     profileUnfinished: "Profile Unfinished",
     profileComments: "Profile Comments",
@@ -397,7 +397,7 @@ export const en = {
   profile: {
     tabs: {
       home: "Home",
-      records: "Records",
+      runs: "Runs",
       unfinished: "Unfinished",
       stats: "Stats",
       jumpstats: "Jumpstats",

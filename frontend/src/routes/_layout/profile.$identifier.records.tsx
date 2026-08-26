@@ -1,20 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router"
-
-import { ProfilePage } from "@/components/Profile/ProfilePage"
-import { getPageTitle } from "@/lib/site"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_layout/profile/$identifier/records")({
-  component: ProfileRecordsRoute,
-  head: () => ({
-    meta: [
-      {
-        title: getPageTitle("Profile Records"),
-      },
-    ],
-  }),
+  beforeLoad: ({ params, location }) => {
+    throw redirect({
+      to: "/profile/$identifier/runs",
+      params: { identifier: params.identifier },
+      search: location.search,
+    })
+  },
+  component: ProfileRecordsRedirect,
 })
 
-function ProfileRecordsRoute() {
-  const { identifier } = Route.useParams()
-  return <ProfilePage identifier={identifier} activeTab="records" />
+function ProfileRecordsRedirect() {
+  return null
 }
