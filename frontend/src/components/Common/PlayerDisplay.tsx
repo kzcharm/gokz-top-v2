@@ -5,6 +5,7 @@ import {
   Copy,
   ExternalLink,
   Flag,
+  GitCompareArrows,
   History,
   IdCard,
   ShieldAlert,
@@ -227,6 +228,14 @@ export function PlayerContextMenuItems({
     canModerateBansAndRecords(user) && steamid64Pattern.test(steamid64)
   const canViewProfileHistory =
     isSuperuser(user) && steamid64Pattern.test(steamid64)
+  const authenticated = isLoggedIn()
+  const viewerSteamid64 = authenticated
+    ? getSteamid64FromAccessToken(localStorage.getItem("access_token"))
+    : null
+  const canCompare =
+    viewerSteamid64 !== null &&
+    viewerSteamid64 !== steamid64 &&
+    steamid64Pattern.test(steamid64)
   const adminItems = Children.toArray(adminChildren)
   const loggedInItems = Children.toArray(loggedInChildren)
   const hasAdminSection =
@@ -267,6 +276,16 @@ export function PlayerContextMenuItems({
     void copyToClipboard(displayName)
   }
 
+  const handleCompare = () => {
+    if (!canCompare || viewerSteamid64 === null) {
+      return
+    }
+    void navigate({
+      to: "/compare",
+      search: { player1: viewerSteamid64, player2: steamid64 },
+    })
+  }
+
   return (
     <>
       <DropdownMenuItem onSelect={handleGotoProfile}>
@@ -285,6 +304,12 @@ export function PlayerContextMenuItems({
         <IdCard />
         Copy Name
       </DropdownMenuItem>
+      {canCompare ? (
+        <DropdownMenuItem onSelect={handleCompare}>
+          <GitCompareArrows />
+          Compare
+        </DropdownMenuItem>
+      ) : null}
       {hasLoggedInSection ? (
         <>
           <DropdownMenuSeparator />

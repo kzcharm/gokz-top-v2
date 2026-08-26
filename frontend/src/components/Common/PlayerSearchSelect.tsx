@@ -22,6 +22,8 @@ import {
 type PlayerSearchSelectProps = {
   ariaLabel: string
   clearButtonLabel?: string
+  clearOnSelect?: boolean
+  clearSearchLabel?: string
   disabled?: boolean
   id?: string
   label?: ReactNode
@@ -29,6 +31,7 @@ type PlayerSearchSelectProps = {
   required?: boolean
   resultLimit?: number
   searchQueryKey?: string
+  showSelectedPlayerDisplay?: boolean
   selectedPlayer: PlayerDisplayPlayer | null
   onClearPlayer: () => void
   onSelectPlayer: (player: GraphqlPlayer) => void
@@ -37,6 +40,8 @@ type PlayerSearchSelectProps = {
 export function PlayerSearchSelect({
   ariaLabel,
   clearButtonLabel = "Clear selected player",
+  clearOnSelect = false,
+  clearSearchLabel = "Clear player search",
   disabled = false,
   id,
   label,
@@ -44,6 +49,7 @@ export function PlayerSearchSelect({
   required = false,
   resultLimit = 8,
   searchQueryKey = "default",
+  showSelectedPlayerDisplay = true,
   selectedPlayer,
   onClearPlayer,
   onSelectPlayer,
@@ -55,8 +61,14 @@ export function PlayerSearchSelect({
   const playerSearchQuery = deferredSearchInput.trim()
 
   useEffect(() => {
-    setSearchInput(selectedPlayer ? getPlayerDisplayName(selectedPlayer) : "")
-  }, [selectedPlayer])
+    setSearchInput(
+      clearOnSelect
+        ? ""
+        : selectedPlayer
+          ? getPlayerDisplayName(selectedPlayer)
+          : "",
+    )
+  }, [clearOnSelect, selectedPlayer])
 
   useEffect(() => {
     return () => {
@@ -82,10 +94,12 @@ export function PlayerSearchSelect({
 
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults =
-    isSearchFocused && selectedPlayer === null && playerSearchQuery.length > 0
+    isSearchFocused &&
+    (clearOnSelect || selectedPlayer === null) &&
+    playerSearchQuery.length > 0
 
   const handleSelectPlayer = (player: GraphqlPlayer) => {
-    setSearchInput(getPlayerDisplayName(player))
+    setSearchInput(clearOnSelect ? "" : getPlayerDisplayName(player))
     setIsSearchFocused(false)
     onSelectPlayer(player)
   }
@@ -103,9 +117,9 @@ export function PlayerSearchSelect({
         </label>
       ) : null}
       <div className="relative">
-        {selectedPlayer ? null : (
+        {!selectedPlayer || clearOnSelect ? (
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        )}
+        ) : null}
         <Input
           id={id}
           aria-label={ariaLabel}
@@ -117,7 +131,7 @@ export function PlayerSearchSelect({
             }
             setSearchInput(event.target.value)
             setIsSearchFocused(true)
-            if (selectedPlayer !== null) {
+            if (selectedPlayer !== null && !clearOnSelect) {
               onClearPlayer()
             }
           }}
@@ -144,10 +158,12 @@ export function PlayerSearchSelect({
           placeholder={placeholder}
           className={cn(
             "pr-10",
-            selectedPlayer ? "caret-transparent text-transparent" : "pl-9",
+            selectedPlayer && showSelectedPlayerDisplay
+              ? "caret-transparent text-transparent"
+              : "pl-9",
           )}
         />
-        {selectedPlayer ? (
+        {selectedPlayer && showSelectedPlayerDisplay ? (
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-y-0 left-3 right-10 flex items-center overflow-hidden"
@@ -160,18 +176,21 @@ export function PlayerSearchSelect({
             />
           </div>
         ) : null}
-        {selectedPlayer && !disabled ? (
+        {(clearOnSelect ? searchInput.length > 0 : selectedPlayer !== null) &&
+        !disabled ? (
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             className="absolute top-1/2 right-1 -translate-y-1/2"
             onClick={() => {
-              onClearPlayer()
+              if (!clearOnSelect) {
+                onClearPlayer()
+              }
               setSearchInput("")
               setIsSearchFocused(false)
             }}
-            aria-label={clearButtonLabel}
+            aria-label={clearOnSelect ? clearSearchLabel : clearButtonLabel}
           >
             <X className="size-4" />
           </Button>

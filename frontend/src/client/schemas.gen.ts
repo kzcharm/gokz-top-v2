@@ -3767,6 +3767,137 @@ export const PlayerCommentsPublicSchema = {
     title: 'PlayerCommentsPublic'
 } as const;
 
+export const PlayerCompareRunPublicSchema = {
+    properties: {
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        map_name: {
+            type: 'string',
+            title: 'Map Name'
+        },
+        map_tier: {
+            type: 'integer',
+            maximum: 8,
+            minimum: 0,
+            title: 'Map Tier'
+        },
+        player1: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/RecordPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        player2: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/RecordPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        time_delta: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Time Delta'
+        },
+        points_delta: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Points Delta'
+        }
+    },
+    type: 'object',
+    required: ['map_id', 'map_name', 'map_tier'],
+    title: 'PlayerCompareRunPublic'
+} as const;
+
+export const PlayerCompareTierPublicSchema = {
+    properties: {
+        tier: {
+            type: 'integer',
+            maximum: 8,
+            minimum: 1,
+            title: 'Tier'
+        },
+        total_maps: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Total Maps'
+        },
+        player1_finished: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Player1 Finished'
+        },
+        player2_finished: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Player2 Finished'
+        }
+    },
+    type: 'object',
+    required: ['tier', 'total_maps', 'player1_finished', 'player2_finished'],
+    title: 'PlayerCompareTierPublic'
+} as const;
+
+export const PlayerComparisonPublicSchema = {
+    properties: {
+        scope: {
+            '$ref': '#/components/schemas/ModeScope'
+        },
+        player1: {
+            '$ref': '#/components/schemas/PlayerLeaderboardRankPublic'
+        },
+        player2: {
+            '$ref': '#/components/schemas/PlayerLeaderboardRankPublic'
+        },
+        progression: {
+            items: {
+                '$ref': '#/components/schemas/PlayerCompareTierPublic'
+            },
+            type: 'array',
+            title: 'Progression'
+        },
+        nub_runs: {
+            items: {
+                '$ref': '#/components/schemas/PlayerCompareRunPublic'
+            },
+            type: 'array',
+            title: 'Nub Runs'
+        },
+        pro_runs: {
+            items: {
+                '$ref': '#/components/schemas/PlayerCompareRunPublic'
+            },
+            type: 'array',
+            title: 'Pro Runs'
+        }
+    },
+    type: 'object',
+    required: ['scope', 'player1', 'player2', 'progression', 'nub_runs', 'pro_runs'],
+    title: 'PlayerComparisonPublic'
+} as const;
+
 export const PlayerDailyActivityDayPublicSchema = {
     properties: {
         date: {

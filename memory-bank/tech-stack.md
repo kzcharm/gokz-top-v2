@@ -57,6 +57,7 @@
   - `/v1` record-shaped responses now expose `is_replay_available`, derived from run replay storage existence by `(map_name, record.uuid)` without changing `/v0` compatibility payloads
 - Ranking read models:
   - `leaderboard_player` stores per-scope player aggregates for rating, tier-split rating, total points, WR counts, high-point record counts, and unique validated main-map finishes
+  - `GET /v1/players/compare` combines two public player leaderboard summaries with validated, stage-0 `record_pb` runs, scoped course tiers, per-tier main-map completion totals, and NUB/PRO time and points deltas; it is a read-only derived view rather than persisted comparison data
   - Player leaderboard rebuilds also refresh `record_pb.raw_rating_contribution`, assigning each eligible course's decay-weighted raw rating term to the deterministic best PB row and zeroing non-contributing rows
   - `leaderboard_player` rows only exist for players with at least 10 unique validated main-map finishes in scope and no active mirrored ban; rebuilds delete rows that fall below the threshold or become actively banned
   - `GET /v1/leaderboards/players` reads from `leaderboard_player` with order-specific composite indexes for the supported sort modes and a cached per-scope count read model for shared no-geo totals
@@ -140,6 +141,7 @@
 - Generated API client:
   - @hey-api/openapi-ts
   - frontend review authoring flows read both latest-review and website-review variants from the generated `/v1/maps/reviews` contract
+  - `/compare` is a URL-backed React route with two player search selectors, a scoped progression radar, and NUB/PRO main-stage comparison tables; authenticated player context menus can open it prefilled with the viewer and selected player
 
 ## Frontend Tooling and Tests
 - Bun workspace scripts at repository root

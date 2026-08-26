@@ -16,6 +16,7 @@ function Layout() {
       contentClassName={
         pathname.startsWith("/dashboard") ||
         pathname.startsWith("/profile") ||
+        pathname.startsWith("/compare") ||
         pathname.startsWith("/leaderboards") ||
         pathname.startsWith("/admin/servers") ||
         pathname.startsWith("/admin/player-sessions") ||

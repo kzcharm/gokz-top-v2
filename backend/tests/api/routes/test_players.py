@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -14,7 +15,11 @@ from app.crud import player as player_crud
 from app.models import (
     Ban,
     BanType,
+    KZMode,
     LeaderboardPlayer,
+    Map,
+    MapCourse,
+    MapCourseTier,
     ModeScope,
     Player,
     PlayerAction,
@@ -24,6 +29,9 @@ from app.models import (
     PlayerProfileHistory,
     PlayerStatCache,
     PlayerStatType,
+    Record,
+    RecordPb,
+    RecordType,
     ServerGlobalapi,
     User,
 )
@@ -60,6 +68,156 @@ async def _create_player(
     await db.commit()
     await db.refresh(player)
     return player
+
+
+@pytest.mark.asyncio
+async def test_read_player_comparison_returns_scoped_main_stage_pbs(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    player1_id = random_steamid64()
+    player2_id = random_steamid64()
+    await _create_player(
+        db=db, steamid64=player1_id, name="Compare One"
+    )
+    await _create_player(
+        db=db, steamid64=player2_id, name="Compare Two"
+    )
+    map_id = 9_800_001
+    server_id = 9_800_001
+    db.add(
+        Map(
+            id=map_id,
+            name="kz_compare_test",
+            filesize=1,
+            validated=True,
+            approved_by_steamid64=player1_id,
+        )
+    )
+    db.add(
+        ServerGlobalapi(
+            id=server_id,
+            port=27015,
+            ip="203.0.113.20",
+            name="Compare Server",
+            owner_steamid64=player1_id,
+            approval_status=1,
+            approved_by_steamid64=player1_id,
+        )
+    )
+    course = MapCourse(map_id=map_id, stage=0)
+    db.add(course)
+    await db.flush()
+    assert course.id is not None
+    db.add(
+        MapCourseTier(course_id=course.id, mode=KZMode.KZT, tier=3)
+    )
+    player1_nub = Record(
+        steamid64=player1_id,
+        server_id=server_id,
+        mode=KZMode.KZT,
+        map_id=map_id,
+        stage=0,
+        time=Decimal("50.000"),
+        teleports=1,
+        updated_by=player1_id,
+    )
+    player2_nub = Record(
+        steamid64=player2_id,
+        server_id=server_id,
+        mode=KZMode.KZT,
+        map_id=map_id,
+        stage=0,
+        time=Decimal("45.000"),
+        teleports=1,
+        updated_by=player2_id,
+    )
+    player1_pro = Record(
+        steamid64=player1_id,
+        server_id=server_id,
+        mode=KZMode.KZT,
+        map_id=map_id,
+        stage=0,
+        time=Decimal("48.000"),
+        teleports=0,
+        updated_by=player1_id,
+    )
+    db.add_all([player1_nub, player2_nub, player1_pro])
+    await db.flush()
+    db.add_all(
+        [
+            RecordPb(
+                scope=ModeScope.OVR,
+                course_id=course.id,
+                steamid64=player1_id,
+                type=RecordType.NUB,
+                record_uuid=player1_nub.uuid,
+                time=player1_nub.time,
+                points=900,
+            ),
+            RecordPb(
+                scope=ModeScope.OVR,
+                course_id=course.id,
+                steamid64=player2_id,
+                type=RecordType.NUB,
+                record_uuid=player2_nub.uuid,
+                time=player2_nub.time,
+                points=950,
+            ),
+            RecordPb(
+                scope=ModeScope.OVR,
+                course_id=course.id,
+                steamid64=player1_id,
+                type=RecordType.PRO,
+                record_uuid=player1_pro.uuid,
+                time=player1_pro.time,
+                points=800,
+            ),
+            LeaderboardPlayer(
+                scope=ModeScope.OVR,
+                steamid64=player1_id,
+                rating=10_000,
+                rating_easy=2_000,
+                rating_hard=3_000,
+                points=1_200,
+                wrs_nub=1,
+                records_900_plus=1,
+            ),
+            LeaderboardPlayer(
+                scope=ModeScope.OVR,
+                steamid64=player2_id,
+                rating=11_000,
+                points=1_400,
+                wrs_nub=2,
+                records_900_plus=1,
+            ),
+        ]
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/players/compare",
+        params={"player1": str(player1_id), "player2": str(player2_id)},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player1"]["points"] == 1_200
+    assert payload["player2"]["global_rank"] == 1
+    assert payload["nub_runs"][0]["time_delta"] == 5
+    assert payload["nub_runs"][0]["points_delta"] == -50
+    assert payload["pro_runs"][0]["player2"] is None
+    assert payload["progression"][2] == {
+        "tier": 3,
+        "total_maps": 1,
+        "player1_finished": 1,
+        "player2_finished": 1,
+    }
+
+    duplicate_response = await client.get(
+        f"{settings.API_V1_STR}/players/compare",
+        params={"player1": str(player1_id), "player2": str(player1_id)},
+    )
+    assert duplicate_response.status_code == 422
 
 
 @pytest.mark.asyncio

@@ -24,6 +24,7 @@ import { Route as LayoutMediaRouteImport } from './routes/_layout/media'
 import { Route as LayoutLiveRouteImport } from './routes/_layout/live'
 import { Route as LayoutLeaderboardsRouteImport } from './routes/_layout/leaderboards'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
+import { Route as LayoutCompareRouteImport } from './routes/_layout/compare'
 import { Route as LayoutBansRouteImport } from './routes/_layout/bans'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as ServersGroupCustomIdRouteImport } from './routes/servers.group.$customId'
@@ -140,6 +141,11 @@ const LayoutLeaderboardsRoute = LayoutLeaderboardsRouteImport.update({
 const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutCompareRoute = LayoutCompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutBansRoute = LayoutBansRouteImport.update({
@@ -388,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/bans': typeof LayoutBansRoute
+  '/compare': typeof LayoutCompareRoute
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
@@ -446,6 +453,7 @@ export interface FileRoutesByTo {
   '/servers': typeof ServersRouteWithChildren
   '/admin': typeof LayoutAdminRouteWithChildren
   '/bans': typeof LayoutBansRoute
+  '/compare': typeof LayoutCompareRoute
   '/dashboard': typeof LayoutDashboardRouteWithChildren
   '/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/live': typeof LayoutLiveRoute
@@ -506,6 +514,7 @@ export interface FileRoutesById {
   '/servers': typeof ServersRouteWithChildren
   '/_layout/admin': typeof LayoutAdminRouteWithChildren
   '/_layout/bans': typeof LayoutBansRoute
+  '/_layout/compare': typeof LayoutCompareRoute
   '/_layout/dashboard': typeof LayoutDashboardRouteWithChildren
   '/_layout/leaderboards': typeof LayoutLeaderboardsRouteWithChildren
   '/_layout/live': typeof LayoutLiveRoute
@@ -568,6 +577,7 @@ export interface FileRouteTypes {
     | '/servers'
     | '/admin'
     | '/bans'
+    | '/compare'
     | '/dashboard'
     | '/leaderboards'
     | '/live'
@@ -626,6 +636,7 @@ export interface FileRouteTypes {
     | '/servers'
     | '/admin'
     | '/bans'
+    | '/compare'
     | '/dashboard'
     | '/leaderboards'
     | '/live'
@@ -685,6 +696,7 @@ export interface FileRouteTypes {
     | '/servers'
     | '/_layout/admin'
     | '/_layout/bans'
+    | '/_layout/compare'
     | '/_layout/dashboard'
     | '/_layout/leaderboards'
     | '/_layout/live'
@@ -852,6 +864,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof LayoutDashboardRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/compare': {
+      id: '/_layout/compare'
+      path: '/compare'
+      fullPath: '/compare'
+      preLoaderRoute: typeof LayoutCompareRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/bans': {
@@ -1294,6 +1313,7 @@ const LayoutProfileIdentifierRouteWithChildren =
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutBansRoute: typeof LayoutBansRoute
+  LayoutCompareRoute: typeof LayoutCompareRoute
   LayoutDashboardRoute: typeof LayoutDashboardRouteWithChildren
   LayoutLeaderboardsRoute: typeof LayoutLeaderboardsRouteWithChildren
   LayoutLiveRoute: typeof LayoutLiveRoute
@@ -1308,6 +1328,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
   LayoutBansRoute: LayoutBansRoute,
+  LayoutCompareRoute: LayoutCompareRoute,
   LayoutDashboardRoute: LayoutDashboardRouteWithChildren,
   LayoutLeaderboardsRoute: LayoutLeaderboardsRouteWithChildren,
   LayoutLiveRoute: LayoutLiveRoute,

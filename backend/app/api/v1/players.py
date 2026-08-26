@@ -32,6 +32,7 @@ from app.models import (
     PlayerCommentListQuery,
     PlayerCommentPublic,
     PlayerCommentsPublic,
+    PlayerComparisonPublic,
     PlayerDailyActivityPublic,
     PlayerDetailPublic,
     PlayerFollowListQuery,
@@ -102,6 +103,26 @@ async def search_players(
     return PlayersPublic(
         data=await crud.to_player_publics(session=session, players=players),
         count=count,
+    )
+
+
+@router.get("/compare", response_model=PlayerComparisonPublic)
+async def read_player_comparison(
+    *,
+    session: SessionDep,
+    player1: Annotated[str, Query(min_length=1)],
+    player2: Annotated[str, Query(min_length=1)],
+    scope: ModeScope = ModeScope.OVR,
+) -> PlayerComparisonPublic:
+    first_player = await get_player_or_404(session=session, identifier=player1)
+    second_player = await get_player_or_404(session=session, identifier=player2)
+    if first_player.steamid64 == second_player.steamid64:
+        raise HTTPException(status_code=422, detail="Players must be different")
+    return await crud.read_player_comparison(
+        session=session,
+        player1=first_player,
+        player2=second_player,
+        scope=scope,
     )
 
 

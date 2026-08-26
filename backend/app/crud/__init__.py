@@ -125,6 +125,7 @@ from .player_comment import (
     read_player_comments,
     to_player_comment_public,
 )
+from .player_comparison import read_player_comparison
 from .player_follow import (
     create_player_follow,
     delete_player_follow,
@@ -504,6 +505,7 @@ __all__ = [
     "search_players",
     "read_player_leaderboard",
     "read_player_leaderboard_rank",
+    "read_player_comparison",
     "read_player_comments",
     "read_player_notifications",
     "read_records",

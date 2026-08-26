@@ -779,6 +779,32 @@ export type PlayerCommentsPublic = {
     count: number;
 };
 
+export type PlayerCompareRunPublic = {
+    map_id: number;
+    map_name: string;
+    map_tier: number;
+    player1?: (RecordPublic | null);
+    player2?: (RecordPublic | null);
+    time_delta?: (number | null);
+    points_delta?: (number | null);
+};
+
+export type PlayerCompareTierPublic = {
+    tier: number;
+    total_maps: number;
+    player1_finished: number;
+    player2_finished: number;
+};
+
+export type PlayerComparisonPublic = {
+    scope: ModeScope;
+    player1: PlayerLeaderboardRankPublic;
+    player2: PlayerLeaderboardRankPublic;
+    progression: Array<PlayerCompareTierPublic>;
+    nub_runs: Array<PlayerCompareRunPublic>;
+    pro_runs: Array<PlayerCompareRunPublic>;
+};
+
 export type PlayerDailyActivityDayPublic = {
     date: string;
     count: number;
@@ -2505,6 +2531,14 @@ export type PlayersSearchPlayersData = {
 };
 
 export type PlayersSearchPlayersResponse = (PlayersPublic);
+
+export type PlayersReadPlayerComparisonData = {
+    player1: string;
+    player2: string;
+    scope?: ModeScope;
+};
+
+export type PlayersReadPlayerComparisonResponse = (PlayerComparisonPublic);
 
 export type PlayersRecalculateEstimatedPbPointsData = {
     identifier: string;

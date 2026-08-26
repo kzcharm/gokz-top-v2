@@ -42,6 +42,7 @@ Build the long-term platform for the GOKZ ecosystem:
 
 ### 5.1 Competitive Data and Rankings
 - Player ratings, points, and rankings with scope-aware calculations.
+- `/compare` accepts two player identifiers and exposes a shareable scope-aware comparison of rating, points, global rank, tiered validated-main-map completion, and NUB/PRO main-stage PBs. The route supports replacing either player through search, swapping the sides, and filtering each PB table to maps finished by both players. Authenticated player context menus prefill the viewer against the selected player.
 - Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and eligibility-based membership semantics.
 - Public maps leaderboard is now available inside the `/leaderboards` page `Maps` tab, backed by `/v1/leaderboards/maps`, with scope switching, full validated-map reads, and client-side sorting/filtering for record-derived map metrics plus review summary fields.
 - Public community leaderboard entries expose the player's largest cached verified platform follower audience across Bilibili, YouTube, and Twitch, including the platform URL for the displayed icon link and server-side sorting by that follower count.

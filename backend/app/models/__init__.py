@@ -168,6 +168,11 @@ from .player_comment import (
     PlayerCommentsPublic,
     normalize_player_comment_text,
 )
+from .player_comparison import (
+    PlayerCompareRunPublic,
+    PlayerCompareTierPublic,
+    PlayerComparisonPublic,
+)
 from .player_follow import (
     PlayerFollow,
     PlayerFollowListQuery,
@@ -654,6 +659,9 @@ __all__ = [
     "PlayerSocialLinkUpdate",
     "PlayerSocialPlatform",
     "PlayerPublic",
+    "PlayerCompareRunPublic",
+    "PlayerCompareTierPublic",
+    "PlayerComparisonPublic",
     "PlayerSteamProfileUpdatedEvent",
     "PlayerRefPublic",
     "PlayerSearchQuery",
