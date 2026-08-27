@@ -968,6 +968,12 @@ export const ru = {
     next: "Вперёд",
     searchPlaceholder: "Поиск карт...",
     searchAria: "Искать карты по названию",
+    validated: "Проверенные",
+    invalid: "Недействительные",
+    validatedStatusAria:
+      "Показаны проверенные карты. Нажмите, чтобы показать недействительные карты.",
+    invalidStatusAria:
+      "Показаны недействительные карты. Нажмите, чтобы показать проверенные карты.",
     showFilters: "Фильтры",
     hideFilters: "Скрыть фильтры",
     filterTitle: "Фильтры",

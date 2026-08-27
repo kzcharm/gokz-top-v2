@@ -9,6 +9,7 @@ import {
   Copy,
   Download,
   Filter,
+  Globe,
   Search,
   SearchX,
 } from "lucide-react"
@@ -23,9 +24,9 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import {
+  LeaderboardsService,
   type MapLeaderboardEntryPublic,
   type MapPublic,
-  LeaderboardsService,
   MapsService,
   type MapWrPublic,
 } from "@/client"
@@ -105,6 +106,7 @@ type MapsSortField =
   | MetricSortField
 type MapsSortDirection = "asc" | "desc"
 type SortableSkillKey = Exclude<MapSkillKey, "unknown">
+type MapValidationStatus = "validated" | "invalid"
 
 type MapFilterValues = {
   wrMin: string
@@ -148,6 +150,7 @@ type PersistedMapsCatalogState = {
   minimumTier: TierSelectorValue
   maximumTier: TierSelectorValue
   withBonusOnly: boolean
+  validationStatus: MapValidationStatus
   mapFilters: MapFilterValues
   page: number
 }
@@ -190,6 +193,10 @@ function isTierSelectorValue(value: unknown): value is TierSelectorValue {
 
 function isSortableSkillKey(value: unknown): value is SortableSkillKey {
   return MAP_SORTABLE_SKILLS.some((skill) => skill.key === value)
+}
+
+function isMapValidationStatus(value: unknown): value is MapValidationStatus {
+  return value === "validated" || value === "invalid"
 }
 
 function parseWrTime(value: string) {
@@ -396,25 +403,53 @@ function sortMaps(
         comparison = compareNullableNumbers(leftTier, rightTier, "asc")
         break
       case "playtime":
-        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.total_playtime, leaderboardByMapId.get(right.id)?.total_playtime, sortDirection)
+        comparison = compareNullableNumbers(
+          leaderboardByMapId.get(left.id)?.total_playtime,
+          leaderboardByMapId.get(right.id)?.total_playtime,
+          sortDirection,
+        )
         break
       case "avgPlaytime":
-        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.average_playtime_per_player, leaderboardByMapId.get(right.id)?.average_playtime_per_player, sortDirection)
+        comparison = compareNullableNumbers(
+          leaderboardByMapId.get(left.id)?.average_playtime_per_player,
+          leaderboardByMapId.get(right.id)?.average_playtime_per_player,
+          sortDirection,
+        )
         break
       case "nub":
-        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.unique_nub_finishes, leaderboardByMapId.get(right.id)?.unique_nub_finishes, sortDirection)
+        comparison = compareNullableNumbers(
+          leaderboardByMapId.get(left.id)?.unique_nub_finishes,
+          leaderboardByMapId.get(right.id)?.unique_nub_finishes,
+          sortDirection,
+        )
         break
       case "pro":
-        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.unique_pro_finishes, leaderboardByMapId.get(right.id)?.unique_pro_finishes, sortDirection)
+        comparison = compareNullableNumbers(
+          leaderboardByMapId.get(left.id)?.unique_pro_finishes,
+          leaderboardByMapId.get(right.id)?.unique_pro_finishes,
+          sortDirection,
+        )
         break
       case "proRatio":
-        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.pro_nub_ratio, leaderboardByMapId.get(right.id)?.pro_nub_ratio, sortDirection)
+        comparison = compareNullableNumbers(
+          leaderboardByMapId.get(left.id)?.pro_nub_ratio,
+          leaderboardByMapId.get(right.id)?.pro_nub_ratio,
+          sortDirection,
+        )
         break
       case "finishes":
-        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.total_finishes, leaderboardByMapId.get(right.id)?.total_finishes, sortDirection)
+        comparison = compareNullableNumbers(
+          leaderboardByMapId.get(left.id)?.total_finishes,
+          leaderboardByMapId.get(right.id)?.total_finishes,
+          sortDirection,
+        )
         break
       case "firstMed":
-        comparison = compareNullableNumbers(leaderboardByMapId.get(left.id)?.median_first_completion_time, leaderboardByMapId.get(right.id)?.median_first_completion_time, sortDirection)
+        comparison = compareNullableNumbers(
+          leaderboardByMapId.get(left.id)?.median_first_completion_time,
+          leaderboardByMapId.get(right.id)?.median_first_completion_time,
+          sortDirection,
+        )
         break
       case "updated":
         comparison = Date.parse(left.updated_on) - Date.parse(right.updated_on)
@@ -522,14 +557,14 @@ function sortMaps(
       sortField === "visuals" ||
       sortField === "wr" ||
       sortField === "reviewCount" ||
-      sortField === "commentsCount"
-      || sortField === "playtime"
-      || sortField === "avgPlaytime"
-      || sortField === "nub"
-      || sortField === "pro"
-      || sortField === "proRatio"
-      || sortField === "finishes"
-      || sortField === "firstMed"
+      sortField === "commentsCount" ||
+      sortField === "playtime" ||
+      sortField === "avgPlaytime" ||
+      sortField === "nub" ||
+      sortField === "pro" ||
+      sortField === "proRatio" ||
+      sortField === "finishes" ||
+      sortField === "firstMed"
     ) {
       return comparison
     }
@@ -723,6 +758,51 @@ function MapsDownloadDialog() {
   )
 }
 
+function MapValidationButton({
+  status,
+  onToggle,
+}: {
+  status: MapValidationStatus
+  onToggle: () => void
+}) {
+  const { t } = useTranslation()
+  const isValidated = status === "validated"
+
+  return (
+    <button
+      type="button"
+      className={cn(
+        "relative inline-flex size-8 items-center justify-center overflow-hidden rounded-md text-white shadow-xs transition-[background-color,box-shadow,transform] duration-300 ease-out outline-none hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        isValidated ? "bg-emerald-500" : "bg-red-500",
+      )}
+      aria-label={t(
+        isValidated ? "maps.validatedStatusAria" : "maps.invalidStatusAria",
+      )}
+      aria-pressed={!isValidated}
+      onClick={onToggle}
+      title={t(
+        isValidated ? "maps.validatedStatusAria" : "maps.invalidStatusAria",
+      )}
+    >
+      <span
+        key={status}
+        aria-hidden="true"
+        className={cn(
+          "absolute inset-0 rounded-md opacity-35 motion-safe:animate-ping",
+          isValidated ? "bg-emerald-300" : "bg-red-300",
+        )}
+      />
+      <Globe
+        className={cn(
+          "relative size-4 transform-gpu transition-transform duration-300 ease-out",
+          isValidated ? "rotate-0 scale-100" : "rotate-180 scale-90",
+        )}
+        aria-hidden="true"
+      />
+    </button>
+  )
+}
+
 export function MapsCatalog() {
   const { t } = useTranslation()
   const { scope } = useScope()
@@ -769,6 +849,11 @@ export function MapsCatalog() {
   const [withBonusOnly, setWithBonusOnly] = useState(
     persistedState.withBonusOnly === true,
   )
+  const [validationStatus, setValidationStatus] = useState<MapValidationStatus>(
+    isMapValidationStatus(persistedState.validationStatus)
+      ? persistedState.validationStatus
+      : "validated",
+  )
   const [showFilters, setShowFilters] = useState(false)
   const [mapFilters, setMapFilters] = useState<MapFilterValues>(() => ({
     ...EMPTY_MAP_FILTERS,
@@ -794,6 +879,7 @@ export function MapsCatalog() {
           minimumTier,
           maximumTier,
           withBonusOnly,
+          validationStatus,
           mapFilters,
           page,
         } satisfies PersistedMapsCatalogState),
@@ -812,22 +898,77 @@ export function MapsCatalog() {
     selectedTier,
     sortDirection,
     sortField,
+    validationStatus,
     withBonusOnly,
   ])
 
+  const requestedValidatedMaps = validationStatus === "validated"
+  const normalizedDeferredSearch = deferredSearch.trim().toLowerCase()
   const mapsQuery = useQuery({
-    queryKey: ["maps", "catalog", scope],
+    queryKey: ["maps", "catalog", scope, validationStatus],
     queryFn: () =>
       MapsService.readMaps({
         offset: 0,
         limit: 10000,
-        isValidated: true,
+        isValidated: requestedValidatedMaps,
         scope,
       }),
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: 1,
   })
+  const validNameMatchCount = useMemo(() => {
+    if (!requestedValidatedMaps || normalizedDeferredSearch === "") {
+      return mapsQuery.data?.length ?? 0
+    }
+
+    return (mapsQuery.data ?? []).filter((map) =>
+      map.name.toLowerCase().includes(normalizedDeferredSearch),
+    ).length
+  }, [mapsQuery.data, normalizedDeferredSearch, requestedValidatedMaps])
+  const shouldCheckInvalidSearchMatches =
+    requestedValidatedMaps &&
+    normalizedDeferredSearch !== "" &&
+    !mapsQuery.isLoading &&
+    validNameMatchCount === 0
+  const invalidSearchMapsQuery = useQuery({
+    queryKey: ["maps", "catalog", scope, "invalid-search-fallback"],
+    queryFn: () =>
+      MapsService.readMaps({
+        offset: 0,
+        limit: 10000,
+        isValidated: false,
+        scope,
+      }),
+    enabled: shouldCheckInvalidSearchMatches,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
+  const invalidSearchNameMatchCount = useMemo(() => {
+    if (!shouldCheckInvalidSearchMatches) {
+      return 0
+    }
+
+    return (invalidSearchMapsQuery.data ?? []).filter((map) =>
+      map.name.toLowerCase().includes(normalizedDeferredSearch),
+    ).length
+  }, [
+    invalidSearchMapsQuery.data,
+    normalizedDeferredSearch,
+    shouldCheckInvalidSearchMatches,
+  ])
+  const showingInvalidSearchFallback =
+    shouldCheckInvalidSearchMatches && invalidSearchNameMatchCount > 0
+  const activeValidationStatus: MapValidationStatus =
+    showingInvalidSearchFallback ? "invalid" : validationStatus
+  const activeMaps = useMemo(
+    () =>
+      showingInvalidSearchFallback
+        ? (invalidSearchMapsQuery.data ?? [])
+        : (mapsQuery.data ?? []),
+    [invalidSearchMapsQuery.data, mapsQuery.data, showingInvalidSearchFallback],
+  )
   const wrsQuery = useQuery({
     queryKey: ["maps", "catalog", "wrs", scope, "NUB"],
     queryFn: () =>
@@ -849,11 +990,11 @@ export function MapsCatalog() {
 
   const searchableMaps = useMemo(
     () =>
-      (mapsQuery.data ?? []).map((map) => ({
+      activeMaps.map((map) => ({
         map,
         normalizedName: map.name.toLowerCase(),
       })),
-    [mapsQuery.data],
+    [activeMaps],
   )
 
   const wrByMapId = useMemo(() => {
@@ -883,7 +1024,7 @@ export function MapsCatalog() {
   }, [mapLeaderboardQuery.data])
 
   const filteredMaps = useMemo(() => {
-    const normalizedQuery = deferredSearch.trim().toLowerCase()
+    const normalizedQuery = normalizedDeferredSearch
     const wrMin = parseWrTime(mapFilters.wrMin)
     const wrMax = parseWrTime(mapFilters.wrMax)
     const createdMin = parseDateBound(mapFilters.createdMin)
@@ -1023,10 +1164,10 @@ export function MapsCatalog() {
       return map
     })
   }, [
-    deferredSearch,
     mapFilters,
     maximumTier,
     minimumTier,
+    normalizedDeferredSearch,
     scope,
     searchableMaps,
     selectedTier,
@@ -1133,7 +1274,7 @@ export function MapsCatalog() {
     ],
   )
 
-  const totalMaps = mapsQuery.data?.length ?? 0
+  const totalMaps = activeMaps.length
   const totalPages = Math.max(1, Math.ceil(sortedMaps.length / PAGE_SIZE))
 
   useEffect(() => {
@@ -1327,6 +1468,17 @@ export function MapsCatalog() {
                 }}
                 triggerClassName="w-auto"
                 ariaLabel={t("maps.filterTier")}
+              />
+              <MapValidationButton
+                status={activeValidationStatus}
+                onToggle={() => {
+                  startTransition(() => {
+                    setValidationStatus((currentValue) =>
+                      currentValue === "validated" ? "invalid" : "validated",
+                    )
+                    setPage(1)
+                  })
+                }}
               />
               <Button
                 type="button"
@@ -1581,7 +1733,9 @@ export function MapsCatalog() {
 
           {METRIC_SORT_OPTIONS.some((option) => option.value === sortField) ? (
             <fieldset className="min-w-0 border-0 p-0">
-              <legend className="sr-only">{t("maps.sortOptions.metrics")}</legend>
+              <legend className="sr-only">
+                {t("maps.sortOptions.metrics")}
+              </legend>
               <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
                 {METRIC_SORT_OPTIONS.map((option) => (
                   <SortableMapOption
