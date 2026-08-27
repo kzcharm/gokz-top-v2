@@ -8,6 +8,7 @@ import type { PlayerDailyActivityPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { TROPHY_ASSETS } from "@/components/Common/trophy-assets"
 import { PointsBadge } from "@/components/Records/PointsBadge"
+import { StageBadge } from "@/components/Records/StageBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
 import { useTheme } from "@/components/theme-provider"
@@ -879,17 +880,25 @@ function PinnedRecordsCard({
             {pinnedRecords.map(({ mapId, record, rank, totalCount, type }) => {
               const content = (
                 <div className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35">
-                  <p className="truncate text-sm font-semibold">
-                    {record.map_name}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {record.mode} ·{" "}
-                    {rank === null
-                      ? t("profile.pinned.rankUnavailable")
-                      : totalCount === null
-                        ? `#${formatNumber(rank)}`
-                        : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
-                  </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="min-w-0 truncate text-sm font-semibold">
+                      {record.map_name}
+                    </p>
+                    <StageBadge
+                      stage={record.stage}
+                      className="shrink-0 px-1.5 py-0 text-[0.625rem]"
+                    />
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>{record.mode}</span>
+                    <span>
+                      {rank === null
+                        ? t("profile.pinned.rankUnavailable")
+                        : totalCount === null
+                          ? `#${formatNumber(rank)}`
+                          : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
+                    </span>
+                  </div>
                   <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
                     {formatRecordTime(record.time)}
                   </p>
