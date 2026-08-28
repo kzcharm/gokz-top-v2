@@ -261,8 +261,8 @@ export function ProfileRecordsTab({
   canManagePinnedRecords: boolean
   pinnedRecordKeys: Set<string>
   pinnedRecordsMutating: boolean
-  onPinRecord: (mapId: number, type: "NUB" | "PRO") => void
-  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
+  onPinRecord: (mapId: number, stage: number, type: "NUB" | "PRO") => void
+  onUnpinRecord: (mapId: number, stage: number, type: "NUB" | "PRO") => void
 }) {
   const { enabled: adminModeEnabled } = useAdminMode()
   const { user } = useAuth()
@@ -457,6 +457,7 @@ export function ProfileRecordsTab({
     const isPinned = pinnedRecordKeys.has(
       getProfilePinnedRecordKey({
         mapId: record.map_id,
+        stage: record.stage,
         type: recordType,
       }),
     )
@@ -466,10 +467,10 @@ export function ProfileRecordsTab({
         disabled={pinnedRecordsMutating}
         onSelect={() => {
           if (isPinned) {
-            onUnpinRecord(record.map_id, recordType)
+            onUnpinRecord(record.map_id, record.stage, recordType)
             return
           }
-          onPinRecord(record.map_id, recordType)
+          onPinRecord(record.map_id, record.stage, recordType)
         }}
       >
         {isPinned ? <PinOff /> : <Pin />}

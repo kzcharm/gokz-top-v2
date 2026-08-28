@@ -31,7 +31,7 @@ export class AdminMapsService {
             }
         });
     }
-
+    
     /**
      * Update Admin Map
      * @param data The data for the request.
@@ -54,7 +54,7 @@ export class AdminMapsService {
             }
         });
     }
-
+    
     /**
      * Read Admin Map Course Tiers
      * @param data The data for the request.
@@ -1907,6 +1907,7 @@ export class MeService {
      * @param data.mapId
      * @param data.scope
      * @param data.type
+     * @param data.stage
      * @returns PlayerPinnedRecordsPublic Successful Response
      * @throws ApiError
      */
@@ -1918,6 +1919,9 @@ export class MeService {
                 map_id: data.mapId,
                 scope: data.scope,
                 type: data.type
+            },
+            query: {
+                stage: data.stage
             },
             errors: {
                 422: 'Validation Error'
@@ -2392,7 +2396,7 @@ export class PlayersService {
             }
         });
     }
-
+    
     /**
      * Recalculate Estimated Pb Points
      * @param data The data for the request.

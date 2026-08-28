@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, Integer
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
@@ -13,16 +13,15 @@ class PlayerPinnedRecord(SQLModel, table=True):
     __tablename__ = "player_pinned_record"
     __table_args__ = (
         Index(
-            "ix_player_pinned_record_player_scope_created_at",
+            "ix_player_pinned_record_player_created_at",
             "player_steamid64",
-            "scope",
             "created_at",
         ),
         Index(
-            "ux_player_pinned_record_player_map_scope_type",
+            "ux_player_pinned_record_player_map_stage_type",
             "player_steamid64",
             "map_id",
-            "scope",
+            "stage",
             "type",
             unique=True,
         ),
@@ -42,11 +41,10 @@ class PlayerPinnedRecord(SQLModel, table=True):
             nullable=False,
         )
     )
-    scope: ModeScope = Field(
-        sa_column=Column(
-            SqlEnum(ModeScope, name="mode_scope"),
-            nullable=False,
-        )
+    stage: int = Field(
+        default=0,
+        ge=0,
+        sa_column=Column(Integer, nullable=False, server_default="0"),
     )
     type: RecordType = Field(
         sa_column=Column(
@@ -66,6 +64,7 @@ class PlayerPinnedRecord(SQLModel, table=True):
 
 class PlayerPinnedRecordUpsert(SQLModel):
     map_id: int
+    stage: int = Field(default=0, ge=0)
     scope: ModeScope
     type: RecordType
 
@@ -74,7 +73,7 @@ class PlayerPinnedRecordPublic(SQLModel):
     id: uuid.UUID
     player_steamid64: str
     map_id: int
-    scope: ModeScope
+    stage: int
     type: RecordType
     created_at: datetime
     updated_at: datetime

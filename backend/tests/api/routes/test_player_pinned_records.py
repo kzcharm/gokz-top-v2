@@ -77,6 +77,7 @@ async def _create_record(
     map_id: int,
     server_id: int,
     mode_id: int = 200,
+    stage: int = 0,
     teleports: int = 1,
     time: str = "20.000",
     created_on: datetime | None = None,
@@ -93,7 +94,7 @@ async def _create_record(
         server_id=server_id,
         mode_id=mode_id,
         map_id=map_id,
-        stage=0,
+        stage=stage,
         time_seconds=Decimal(time),
         teleports=teleports,
         points=0,
@@ -156,7 +157,6 @@ async def test_player_pinned_records_owner_can_create_read_and_delete(
     assert create_payload["count"] == 1
     assert create_payload["data"][0]["player_steamid64"] == str(steamid64)
     assert create_payload["data"][0]["map_id"] == 981000
-    assert create_payload["data"][0]["scope"] == "OVR"
     assert create_payload["data"][0]["type"] == "NUB"
     assert create_payload["data"][0]["record"]["map_id"] == 981000
     assert create_payload["data"][0]["record"]["is_replay_available"] is False
@@ -172,6 +172,49 @@ async def test_player_pinned_records_owner_can_create_read_and_delete(
         f"{settings.API_V1_STR}/me/pinned-records/981000/OVR/NUB",
         headers=headers,
     )
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"data": [], "count": 0}
+
+
+async def test_player_pinned_records_owner_can_pin_bonus_without_main_finish(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    map_id = 981001
+    await _create_player(db, steamid64=steamid64, name="Bonus Runner")
+    await _create_server(db, id=982001, name="Pinned Bonus Server")
+    await _create_map(db, id=map_id, name="kz_pinned_bonus")
+    await _create_record(
+        db,
+        id=983001,
+        steamid64=steamid64,
+        map_id=map_id,
+        server_id=982001,
+        stage=1,
+    )
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=steamid64,
+        db=db,
+    )
+
+    create_response = await client.post(
+        f"{settings.API_V1_STR}/me/pinned-records",
+        headers=headers,
+        json={"map_id": map_id, "stage": 1, "scope": "OVR", "type": "NUB"},
+    )
+
+    assert create_response.status_code == 200
+    assert create_response.json()["data"][0]["stage"] == 1
+    assert create_response.json()["data"][0]["record"]["stage"] == 1
+
+    delete_response = await client.delete(
+        f"{settings.API_V1_STR}/me/pinned-records/{map_id}/OVR/NUB",
+        headers=headers,
+        params={"stage": 1},
+    )
+
     assert delete_response.status_code == 200
     assert delete_response.json() == {"data": [], "count": 0}
 
@@ -265,7 +308,7 @@ async def test_player_pinned_records_forbid_mutating_another_player(
     assert response.json()["detail"] == "Pinned record target not found"
 
 
-async def test_player_pinned_records_seventh_pin_evicts_oldest_in_scope(
+async def test_player_pinned_records_seventh_pin_evicts_oldest_globally(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -278,13 +321,28 @@ async def test_player_pinned_records_seventh_pin_evicts_oldest_in_scope(
         db=db,
     )
 
-    for map_id in map_ids:
+    for index, map_id in enumerate(map_ids):
         response = await client.post(
             f"{settings.API_V1_STR}/me/pinned-records",
             headers=headers,
-            json={"map_id": map_id, "scope": "OVR", "type": "NUB"},
+            json={
+                "map_id": map_id,
+                "scope": "KZT" if index == len(map_ids) - 1 else "OVR",
+                "type": "NUB",
+            },
         )
         assert response.status_code == 200
+
+    global_count = int(
+        (
+            await db.exec(
+                select(func.count())
+                .select_from(PlayerPinnedRecord)
+                .where(PlayerPinnedRecord.player_steamid64 == steamid64)
+            )
+        ).one()
+    )
+    assert global_count == 6
 
     read_response = await client.get(
         f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
@@ -296,7 +354,7 @@ async def test_player_pinned_records_seventh_pin_evicts_oldest_in_scope(
     assert [entry["map_id"] for entry in payload["data"]] == list(reversed(map_ids[1:]))
 
 
-async def test_player_pinned_records_read_filters_to_requested_scope(
+async def test_player_pinned_records_are_shared_across_scopes(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
@@ -317,7 +375,8 @@ async def test_player_pinned_records_read_filters_to_requested_scope(
 
     read_response = await client.get(
         f"{settings.API_V1_STR}/players/{steamid64}/pinned-records",
-        params={"scope": "SKZ"},
+        params={"scope": "KZT"},
     )
     assert read_response.status_code == 200
-    assert read_response.json() == {"data": [], "count": 0}
+    assert read_response.json()["count"] == 1
+    assert read_response.json()["data"][0]["map_id"] == 981200

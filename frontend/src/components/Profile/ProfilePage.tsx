@@ -288,7 +288,11 @@ export function ProfilePage({
   const pinnedRecordKeys = useMemo(() => {
     return new Set(
       pinnedRecordCandidates.map((entry) =>
-        getProfilePinnedRecordKey({ mapId: entry.mapId, type: entry.type }),
+        getProfilePinnedRecordKey({
+          mapId: entry.mapId,
+          stage: entry.stage,
+          type: entry.type,
+        }),
       ),
     )
   }, [pinnedRecordCandidates])
@@ -300,9 +304,11 @@ export function ProfilePage({
   const pinRecordMutation = useMutation({
     mutationFn: async ({
       mapId,
+      stage,
       type,
     }: {
       mapId: number
+      stage: number
       type: "NUB" | "PRO"
     }) => {
       if (!playerSteamid64) {
@@ -311,6 +317,7 @@ export function ProfilePage({
       await pinProfileRecord({
         identifier: playerSteamid64,
         mapId,
+        stage,
         scope,
         type,
       })
@@ -326,9 +333,11 @@ export function ProfilePage({
   const unpinRecordMutation = useMutation({
     mutationFn: async ({
       mapId,
+      stage,
       type,
     }: {
       mapId: number
+      stage: number
       type: "NUB" | "PRO"
     }) => {
       if (!playerSteamid64) {
@@ -337,6 +346,7 @@ export function ProfilePage({
       await unpinProfileRecord({
         identifier: playerSteamid64,
         mapId,
+        stage,
         scope,
         type,
       })
@@ -828,8 +838,8 @@ export function ProfilePage({
                 recordDistributionLoading={
                   nubRecordsQuery.isLoading || proRecordsQuery.isLoading
                 }
-                onUnpinRecord={(mapId, type) => {
-                  unpinRecordMutation.mutate({ mapId, type })
+                onUnpinRecord={(mapId, stage, type) => {
+                  unpinRecordMutation.mutate({ mapId, stage, type })
                 }}
               />
               <ProfileCommentsTab
@@ -847,11 +857,11 @@ export function ProfilePage({
               pinnedRecordsMutating={
                 pinRecordMutation.isPending || unpinRecordMutation.isPending
               }
-              onPinRecord={(mapId, type) => {
-                pinRecordMutation.mutate({ mapId, type })
+              onPinRecord={(mapId, stage, type) => {
+                pinRecordMutation.mutate({ mapId, stage, type })
               }}
-              onUnpinRecord={(mapId, type) => {
-                unpinRecordMutation.mutate({ mapId, type })
+              onUnpinRecord={(mapId, stage, type) => {
+                unpinRecordMutation.mutate({ mapId, stage, type })
               }}
             />
           ) : activeTab === "unfinished" ? (

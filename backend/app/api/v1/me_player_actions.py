@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 from math import ceil
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep
@@ -128,7 +129,7 @@ async def create_current_player_pinned_record(
     records = await crud.get_pb_records(
         session,
         map_id=body.map_id,
-        stage=0,
+        stage=body.stage,
         steamid64=player.steamid64,
         scope=body.scope,
         record_type=body.type,
@@ -140,7 +141,7 @@ async def create_current_player_pinned_record(
         session=session,
         player_steamid64=player.steamid64,
         map_id=body.map_id,
-        scope=body.scope,
+        stage=body.stage,
         record_type=body.type,
     )
     pinned_records = await crud.resolve_player_pinned_records_public(
@@ -161,6 +162,7 @@ async def delete_current_player_pinned_record(
     map_id: int,
     scope: ModeScope,
     type: RecordType = Path(),
+    stage: Annotated[int, Query(ge=0)] = 0,
 ) -> PlayerPinnedRecordsPublic:
     player = await get_player_or_404(
         session=session,
@@ -175,7 +177,7 @@ async def delete_current_player_pinned_record(
         session=session,
         player_steamid64=player.steamid64,
         map_id=map_id,
-        scope=scope,
+        stage=stage,
         record_type=type,
     )
     if not deleted:

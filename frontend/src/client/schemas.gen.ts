@@ -5203,8 +5203,9 @@ export const PlayerPinnedRecordPublicSchema = {
             type: 'integer',
             title: 'Map Id'
         },
-        scope: {
-            '$ref': '#/components/schemas/ModeScope'
+        stage: {
+            type: 'integer',
+            title: 'Stage'
         },
         type: {
             '$ref': '#/components/schemas/RecordType'
@@ -5224,7 +5225,7 @@ export const PlayerPinnedRecordPublicSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'player_steamid64', 'map_id', 'scope', 'type', 'created_at', 'updated_at', 'record'],
+    required: ['id', 'player_steamid64', 'map_id', 'stage', 'type', 'created_at', 'updated_at', 'record'],
     title: 'PlayerPinnedRecordPublic'
 } as const;
 
@@ -5233,6 +5234,12 @@ export const PlayerPinnedRecordUpsertSchema = {
         map_id: {
             type: 'integer',
             title: 'Map Id'
+        },
+        stage: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Stage',
+            default: 0
         },
         scope: {
             '$ref': '#/components/schemas/ModeScope'

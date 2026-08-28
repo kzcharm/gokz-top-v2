@@ -125,7 +125,7 @@ async def test_resolve_player_pinned_records_uses_current_pb(
         session=db,
         player_steamid64=steamid64,
         map_id=984100,
-        scope=ModeScope.OVR,
+        stage=0,
         record_type=RecordType.NUB,
     )
 
@@ -175,7 +175,7 @@ async def test_resolve_player_pinned_records_keeps_players_pb_not_map_wr(
         session=db,
         player_steamid64=steamid64,
         map_id=984105,
-        scope=ModeScope.OVR,
+        stage=0,
         record_type=RecordType.NUB,
     )
 
@@ -209,7 +209,7 @@ async def test_resolve_player_pinned_records_omits_targets_without_pb(
         session=db,
         player_steamid64=steamid64,
         map_id=984110,
-        scope=ModeScope.OVR,
+        stage=0,
         record_type=RecordType.NUB,
     )
 

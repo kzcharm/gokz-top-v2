@@ -10,7 +10,7 @@ from app.models import (
     RecordType,
 )
 
-MAX_PLAYER_PINNED_RECORDS_PER_SCOPE = 6
+MAX_PLAYER_PINNED_RECORDS = 6
 
 
 async def get_player_pinned_record(
@@ -18,7 +18,7 @@ async def get_player_pinned_record(
     session: AsyncSession,
     player_steamid64: int,
     map_id: int,
-    scope: ModeScope,
+    stage: int,
     record_type: RecordType,
 ) -> PlayerPinnedRecord | None:
     statement = (
@@ -26,7 +26,7 @@ async def get_player_pinned_record(
         .where(
             col(PlayerPinnedRecord.player_steamid64) == player_steamid64,
             col(PlayerPinnedRecord.map_id) == map_id,
-            col(PlayerPinnedRecord.scope) == scope,
+            col(PlayerPinnedRecord.stage) == stage,
             col(PlayerPinnedRecord.type) == record_type,
         )
         .limit(1)
@@ -38,13 +38,11 @@ async def list_player_pinned_records(
     *,
     session: AsyncSession,
     player_steamid64: int,
-    scope: ModeScope,
 ) -> list[PlayerPinnedRecord]:
     statement = (
         select(PlayerPinnedRecord)
         .where(
             col(PlayerPinnedRecord.player_steamid64) == player_steamid64,
-            col(PlayerPinnedRecord.scope) == scope,
         )
         .order_by(
             col(PlayerPinnedRecord.created_at).desc(),
@@ -59,14 +57,14 @@ async def create_player_pinned_record(
     session: AsyncSession,
     player_steamid64: int,
     map_id: int,
-    scope: ModeScope,
+    stage: int,
     record_type: RecordType,
 ) -> PlayerPinnedRecord:
     existing = await get_player_pinned_record(
         session=session,
         player_steamid64=player_steamid64,
         map_id=map_id,
-        scope=scope,
+        stage=stage,
         record_type=record_type,
     )
     if existing is not None:
@@ -74,15 +72,13 @@ async def create_player_pinned_record(
 
     count_statement = select(func.count()).select_from(PlayerPinnedRecord).where(
         col(PlayerPinnedRecord.player_steamid64) == player_steamid64,
-        col(PlayerPinnedRecord.scope) == scope,
     )
     count = int((await session.exec(count_statement)).one())
-    if count >= MAX_PLAYER_PINNED_RECORDS_PER_SCOPE:
+    if count >= MAX_PLAYER_PINNED_RECORDS:
         oldest_statement = (
             select(PlayerPinnedRecord)
             .where(
                 col(PlayerPinnedRecord.player_steamid64) == player_steamid64,
-                col(PlayerPinnedRecord.scope) == scope,
             )
             .order_by(
                 col(PlayerPinnedRecord.created_at).asc(),
@@ -98,7 +94,7 @@ async def create_player_pinned_record(
     pinned_record = PlayerPinnedRecord(
         player_steamid64=player_steamid64,
         map_id=map_id,
-        scope=scope,
+        stage=stage,
         type=record_type,
     )
     session.add(pinned_record)
@@ -110,7 +106,7 @@ async def create_player_pinned_record(
             session=session,
             player_steamid64=player_steamid64,
             map_id=map_id,
-            scope=scope,
+            stage=stage,
             record_type=record_type,
         )
         if existing is None:
@@ -126,14 +122,14 @@ async def delete_player_pinned_record(
     session: AsyncSession,
     player_steamid64: int,
     map_id: int,
-    scope: ModeScope,
+    stage: int,
     record_type: RecordType,
 ) -> bool:
     existing = await get_player_pinned_record(
         session=session,
         player_steamid64=player_steamid64,
         map_id=map_id,
-        scope=scope,
+        stage=stage,
         record_type=record_type,
     )
     if existing is None:
@@ -153,7 +149,6 @@ async def resolve_player_pinned_records_public(
     pinned_records = await list_player_pinned_records(
         session=session,
         player_steamid64=player_steamid64,
-        scope=scope,
     )
 
     resolved_records: list[PlayerPinnedRecordPublic] = []
@@ -162,9 +157,9 @@ async def resolve_player_pinned_records_public(
             session,
             map_id=pinned_record.map_id,
             map_name=None,
-            stage=0,
+            stage=pinned_record.stage,
             steamid64=player_steamid64,
-            scope=pinned_record.scope,
+            scope=scope,
             record_type=pinned_record.type,
             country=None,
             region=None,
@@ -180,7 +175,7 @@ async def resolve_player_pinned_records_public(
                 id=pinned_record.id,
                 player_steamid64=str(pinned_record.player_steamid64),
                 map_id=pinned_record.map_id,
-                scope=pinned_record.scope,
+                stage=pinned_record.stage,
                 type=pinned_record.type,
                 created_at=pinned_record.created_at,
                 updated_at=pinned_record.updated_at,

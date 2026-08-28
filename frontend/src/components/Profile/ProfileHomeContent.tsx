@@ -852,7 +852,7 @@ function PinnedRecordsCard({
   pinnedRecords: ProfilePinnedRecord[]
   loading: boolean
   mutating: boolean
-  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
+  onUnpinRecord: (mapId: number, stage: number, type: "NUB" | "PRO") => void
 }) {
   const { t } = useTranslation()
   return (
@@ -877,58 +877,60 @@ function PinnedRecordsCard({
           </div>
         ) : pinnedRecords.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-            {pinnedRecords.map(({ mapId, record, rank, totalCount, type }) => {
-              const content = (
-                <div className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <p className="min-w-0 truncate text-sm font-semibold">
-                      {record.map_name}
-                    </p>
-                    <StageBadge
-                      stage={record.stage}
-                      className="shrink-0 px-1.5 py-0 text-[0.625rem]"
-                    />
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{record.mode}</span>
-                    <span>
-                      {rank === null
-                        ? t("profile.pinned.rankUnavailable")
-                        : totalCount === null
-                          ? `#${formatNumber(rank)}`
-                          : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
-                    </span>
-                  </div>
-                  <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
-                    {formatRecordTime(record.time)}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <PointsBadge points={record.points} />
-                    <span className="text-xs text-muted-foreground">
-                      <FormattedDateTime
-                        value={record.created_on}
-                        display="absolute"
-                        fallback="-"
+            {pinnedRecords.map(
+              ({ mapId, record, rank, totalCount, stage, type }) => {
+                const content = (
+                  <div className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="min-w-0 truncate text-sm font-semibold">
+                        {record.map_name}
+                      </p>
+                      <StageBadge
+                        stage={record.stage}
+                        className="shrink-0 px-1.5 py-0 text-[0.625rem]"
                       />
-                    </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{record.mode}</span>
+                      <span>
+                        {rank === null
+                          ? t("profile.pinned.rankUnavailable")
+                          : totalCount === null
+                            ? `#${formatNumber(rank)}`
+                            : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
+                      </span>
+                    </div>
+                    <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
+                      {formatRecordTime(record.time)}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <PointsBadge points={record.points} />
+                      <span className="text-xs text-muted-foreground">
+                        <FormattedDateTime
+                          value={record.created_on}
+                          display="absolute"
+                          fallback="-"
+                        />
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )
+                )
 
-              if (!canManagePinnedRecords) {
-                return <div key={record.uuid}>{content}</div>
-              }
+                if (!canManagePinnedRecords) {
+                  return <div key={record.uuid}>{content}</div>
+                }
 
-              return (
-                <ManagedPinnedRecordCard
-                  key={record.uuid}
-                  disabled={mutating}
-                  onUnpin={() => onUnpinRecord(mapId, type)}
-                >
-                  {content}
-                </ManagedPinnedRecordCard>
-              )
-            })}
+                return (
+                  <ManagedPinnedRecordCard
+                    key={record.uuid}
+                    disabled={mutating}
+                    onUnpin={() => onUnpinRecord(mapId, stage, type)}
+                  >
+                    {content}
+                  </ManagedPinnedRecordCard>
+                )
+              },
+            )}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -1036,7 +1038,7 @@ export function ProfileHomeContent({
   proRecordDistribution: ProfileRecordDistributionBin[]
   recordDistributionError: boolean
   recordDistributionLoading: boolean
-  onUnpinRecord: (mapId: number, type: "NUB" | "PRO") => void
+  onUnpinRecord: (mapId: number, stage: number, type: "NUB" | "PRO") => void
   canManagePinnedRecords: boolean
 }) {
   const { t } = useTranslation()

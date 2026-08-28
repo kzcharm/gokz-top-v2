@@ -594,7 +594,7 @@ export type ProfilePinnedRecord = {
   id: string
   playerSteamid64: string
   mapId: number
-  scope: AppScope
+  stage: number
   type: "NUB" | "PRO"
   record: RecordPublic
   rank: number | null
@@ -605,7 +605,7 @@ export type ProfilePinnedRecordEntry = {
   id: string
   playerSteamid64: string
   mapId: number
-  scope: AppScope
+  stage: number
   type: "NUB" | "PRO"
   record: RecordPublic
 }
@@ -816,12 +816,14 @@ export function buildProfileTotalPoints({
 
 export function getProfilePinnedRecordKey({
   mapId,
+  stage,
   type,
 }: {
   mapId: number
+  stage: number
   type: "NUB" | "PRO"
 }) {
-  return `${mapId}:${type}`
+  return `${mapId}:${stage}:${type}`
 }
 
 export function getProfilePinnedRecordsQueryOptions({
@@ -854,7 +856,7 @@ export function getProfilePinnedRecordsQueryOptions({
           id: string
           player_steamid64: string
           map_id: number
-          scope: AppScope
+          stage: number
           type: "NUB" | "PRO"
           record: RecordPublic
         }>
@@ -864,7 +866,7 @@ export function getProfilePinnedRecordsQueryOptions({
         id: entry.id,
         playerSteamid64: entry.player_steamid64,
         mapId: entry.map_id,
-        scope: entry.scope,
+        stage: entry.stage,
         type: entry.type,
         record: entry.record,
       }))
@@ -898,11 +900,13 @@ async function fetchPinnedRecordMutation(
 export async function pinProfileRecord({
   identifier,
   mapId,
+  stage,
   scope,
   type,
 }: {
   identifier: string
   mapId: number
+  stage: number
   scope: AppScope
   type: "NUB" | "PRO"
 }) {
@@ -911,6 +915,7 @@ export async function pinProfileRecord({
     method: "POST",
     body: JSON.stringify({
       map_id: mapId,
+      stage,
       scope,
       type,
     }),
@@ -920,17 +925,19 @@ export async function pinProfileRecord({
 export async function unpinProfileRecord({
   identifier,
   mapId,
+  stage,
   scope,
   type,
 }: {
   identifier: string
   mapId: number
+  stage: number
   scope: AppScope
   type: "NUB" | "PRO"
 }) {
   void identifier
   await fetchPinnedRecordMutation(
-    `${OpenAPI.BASE}/v1/me/pinned-records/${mapId}/${scope}/${type}`,
+    `${OpenAPI.BASE}/v1/me/pinned-records/${mapId}/${scope}/${type}?stage=${stage}`,
     {
       method: "DELETE",
     },

@@ -1031,7 +1031,7 @@ export type PlayerPinnedRecordPublic = {
     id: string;
     player_steamid64: string;
     map_id: number;
-    scope: ModeScope;
+    stage: number;
     type: RecordType;
     created_at: string;
     updated_at: string;
@@ -1045,6 +1045,7 @@ export type PlayerPinnedRecordsPublic = {
 
 export type PlayerPinnedRecordUpsert = {
     map_id: number;
+    stage?: number;
     scope: ModeScope;
     type: RecordType;
 };
@@ -2396,6 +2397,7 @@ export type MeCreateCurrentPlayerPinnedRecordResponse = (PlayerPinnedRecordsPubl
 export type MeDeleteCurrentPlayerPinnedRecordData = {
     mapId: number;
     scope: ModeScope;
+    stage?: number;
     type: RecordType;
 };
 
