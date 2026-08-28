@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { FaDiscord } from "react-icons/fa"
+import { FaDiscord, FaQq } from "react-icons/fa"
 
 import { AdminModeToggle } from "@/components/Common/AdminModeToggle"
 import { Appearance } from "@/components/Common/Appearance"
@@ -33,7 +33,8 @@ export function AppShell({
   mainClassName,
   contentClassName,
 }: AppShellProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const showQqGroup = i18n.resolvedLanguage === "zh-CN"
 
   return (
     <SidebarProvider>
@@ -62,6 +63,28 @@ export function AppShell({
               </TooltipTrigger>
               <TooltipContent>{t("nav.joinDiscordHelp")}</TooltipContent>
             </Tooltip>
+            {showQqGroup ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    aria-label={t("footer.joinQqGroup")}
+                  >
+                    <a
+                      href={COMMUNITY_LINKS.qq}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <FaQq className="size-5" />
+                    </a>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("footer.joinQqGroup")}</TooltipContent>
+              </Tooltip>
+            ) : null}
             <AdminModeToggle />
             <Appearance />
             <LanguageSelector />
