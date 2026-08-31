@@ -81,6 +81,17 @@ async def get_live_stream_state(
     return await session.get(LiveStreamState, social_link_id)
 
 
+async def list_live_stream_keyframe_storage_references(
+    *,
+    session: AsyncSession,
+) -> list[tuple[str | None, str | None]]:
+    statement = select(
+        LiveStreamState.last_keyframe_r2_key,
+        LiveStreamState.last_keyframe_image_url,
+    )
+    return list((await session.exec(statement)).all())
+
+
 async def upsert_live_stream_state(
     *,
     session: AsyncSession,
@@ -91,6 +102,9 @@ async def upsert_live_stream_state(
     stream_title: str | None = None,
     preview_image_url: str | None = None,
     hover_preview_image_url: str | None = None,
+    keyframe_r2_key: str | None = None,
+    keyframe_image_sha256: str | None = None,
+    update_keyframe: bool = False,
     channel_display_name: str | None = None,
     viewer_count: int | None = None,
     update_viewer_count: bool = False,
@@ -117,8 +131,10 @@ async def upsert_live_stream_state(
             state.last_stream_title = stream_title
         if preview_image_url is not None:
             state.last_preview_image_url = preview_image_url
-        if hover_preview_image_url is not None:
+        if update_keyframe:
             state.last_keyframe_image_url = hover_preview_image_url
+            state.last_keyframe_r2_key = keyframe_r2_key
+            state.last_keyframe_image_sha256 = keyframe_image_sha256
         if channel_display_name is not None:
             state.last_channel_display_name = channel_display_name
 

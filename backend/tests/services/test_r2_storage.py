@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -43,6 +44,139 @@ def test_r2_storage_build_public_url_quotes_key(
     )
 
 
+def test_r2_storage_public_url_to_key_decodes_managed_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_r2_settings(monkeypatch)
+
+    assert (
+        r2_storage.public_url_to_key(
+            "https://cdn.example.com/assets/live/keyframes/twitch/frame%201.jpg"
+        )
+        == "live/keyframes/twitch/frame 1.jpg"
+    )
+    assert (
+        r2_storage.public_url_to_key(
+            "https://other.example.com/assets/live/keyframes/frame.jpg"
+        )
+        is None
+    )
+    assert (
+        r2_storage.public_url_to_key(
+            "https://cdn.example.com/other/live/keyframes/frame.jpg"
+        )
+        is None
+    )
+    assert (
+        r2_storage.public_url_to_key(
+            "https://cdn.example.com/assets/live/keyframes/../secret.jpg"
+        )
+        is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_r2_storage_list_objects_paginates_and_signs_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_r2_settings(monkeypatch)
+    requests: list[tuple[str, dict[str, str]]] = []
+    pages = [
+        b"""<?xml version="1.0" encoding="UTF-8"?>
+        <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+          <IsTruncated>true</IsTruncated>
+          <NextContinuationToken>next/+ token</NextContinuationToken>
+          <Contents><Key>live/keyframes/a.jpg</Key><LastModified>2026-08-30T10:00:00Z</LastModified></Contents>
+        </ListBucketResult>""",
+        b"""<?xml version="1.0" encoding="UTF-8"?>
+        <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+          <IsTruncated>false</IsTruncated>
+          <Contents><Key>live/keyframes/b.jpg</Key><LastModified>2026-08-30T11:00:00+00:00</LastModified></Contents>
+        </ListBucketResult>""",
+    ]
+
+    class _FakeAsyncClient:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def __aenter__(self) -> _FakeAsyncClient:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def get(
+            self,
+            url: str,
+            *,
+            headers: dict[str, str],
+        ) -> httpx.Response:
+            requests.append((url, headers))
+            return httpx.Response(
+                status_code=200,
+                content=pages[len(requests) - 1],
+                request=httpx.Request("GET", url),
+            )
+
+    monkeypatch.setattr(r2_storage.httpx, "AsyncClient", _FakeAsyncClient)
+
+    objects = await r2_storage.list_objects(prefix="/live/keyframes/")
+
+    assert objects == [
+        r2_storage.R2Object(
+            "live/keyframes/a.jpg",
+            datetime(2026, 8, 30, 10, tzinfo=UTC),
+        ),
+        r2_storage.R2Object(
+            "live/keyframes/b.jpg",
+            datetime(2026, 8, 30, 11, tzinfo=UTC),
+        ),
+    ]
+    assert requests[0][0].endswith("?list-type=2&prefix=live%2Fkeyframes%2F")
+    assert requests[1][0].endswith(
+        "?continuation-token=next%2F%2B%20token&list-type=2&prefix=live%2Fkeyframes%2F"
+    )
+    for _url, headers in requests:
+        assert headers["host"] == "account.r2.cloudflarestorage.com"
+        assert headers["authorization"].startswith(
+            "AWS4-HMAC-SHA256 Credential=access-key/"
+        )
+
+
+@pytest.mark.asyncio
+async def test_r2_storage_list_objects_rejects_truncated_page_without_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_r2_settings(monkeypatch)
+
+    class _FakeAsyncClient:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def __aenter__(self) -> _FakeAsyncClient:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def get(
+            self,
+            url: str,
+            *,
+            headers: dict[str, str],
+        ) -> httpx.Response:
+            return httpx.Response(
+                status_code=200,
+                content=b"<ListBucketResult><IsTruncated>true</IsTruncated></ListBucketResult>",
+                request=httpx.Request("GET", url, headers=headers),
+            )
+
+    monkeypatch.setattr(r2_storage.httpx, "AsyncClient", _FakeAsyncClient)
+
+    with pytest.raises(RuntimeError, match="without a continuation token"):
+        await r2_storage.list_objects(prefix="live/keyframes/")
+
+
 @pytest.mark.asyncio
 async def test_r2_storage_put_object_signs_and_uploads(
     monkeypatch: pytest.MonkeyPatch,
@@ -84,7 +218,9 @@ async def test_r2_storage_put_object_signs_and_uploads(
         cache_control="public, max-age=31536000, immutable",
     )
 
-    assert public_url == "https://cdn.example.com/assets/live/keyframes/twitch/link-id.jpg"
+    assert (
+        public_url == "https://cdn.example.com/assets/live/keyframes/twitch/link-id.jpg"
+    )
     assert (
         captured_request["url"]
         == "https://account.r2.cloudflarestorage.com/bucket/live/keyframes/twitch/link-id.jpg"
@@ -226,7 +362,9 @@ async def test_r2_storage_put_file_uses_multipart_for_large_files(
             *,
             headers: dict[str, str],
         ) -> httpx.Response:
-            captured_requests.append({"method": "DELETE", "url": url, "headers": headers})
+            captured_requests.append(
+                {"method": "DELETE", "url": url, "headers": headers}
+            )
             return httpx.Response(status_code=204, request=httpx.Request("DELETE", url))
 
     monkeypatch.setattr(r2_storage.httpx, "AsyncClient", _FakeAsyncClient)
@@ -264,4 +402,4 @@ async def test_r2_storage_put_file_uses_multipart_for_large_files(
     complete_body = captured_requests[3]["content"]
     assert isinstance(complete_body, bytes)
     assert b"<PartNumber>1</PartNumber>" in complete_body
-    assert b"<ETag>\"etag-2\"</ETag>" in complete_body
+    assert b'<ETag>"etag-2"</ETag>' in complete_body

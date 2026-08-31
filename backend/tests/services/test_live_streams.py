@@ -1,3 +1,5 @@
+import hashlib
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -12,7 +14,7 @@ from app.models import (
     PlayerSocialPlatform,
     PlayerWebhook,
 )
-from app.services import live_streams
+from app.services import live_streams, r2_storage
 from app.services.live_streams import (
     BilibiliLiveStatus,
     TwitchAppAccessToken,
@@ -85,8 +87,7 @@ async def test_check_bilibili_live_status_prefers_keyframe_preview(
     assert statuses[123456].viewer_count == 37
     assert statuses[654321].viewer_count == 12
     assert (
-        statuses[123456].preview_image_url
-        == "https://i0.hdslb.com/bfs/live/cover.jpg"
+        statuses[123456].preview_image_url == "https://i0.hdslb.com/bfs/live/cover.jpg"
     )
     assert (
         statuses[123456].hover_preview_image_url
@@ -254,9 +255,7 @@ async def test_check_twitch_live_status_maps_live_payload(
         _fake_fetch_streams_payload,
     )
 
-    statuses = await live_streams.check_twitch_live_status(
-        ["streamer", "offline-user"]
-    )
+    statuses = await live_streams.check_twitch_live_status(["streamer", "offline-user"])
 
     assert statuses["streamer"] == TwitchLiveStatus(
         is_live=True,
@@ -317,6 +316,9 @@ async def _create_live_stream_state(
     last_live_started_at: datetime | None = None,
     last_stream_url: str | None = None,
     last_preview_image_url: str | None = None,
+    last_keyframe_image_url: str | None = None,
+    last_keyframe_r2_key: str | None = None,
+    last_keyframe_image_sha256: str | None = None,
     viewer_count: int | None = None,
 ) -> LiveStreamState:
     state = LiveStreamState(
@@ -327,6 +329,9 @@ async def _create_live_stream_state(
         last_live_started_at=last_live_started_at,
         last_stream_url=last_stream_url,
         last_preview_image_url=last_preview_image_url,
+        last_keyframe_image_url=last_keyframe_image_url,
+        last_keyframe_r2_key=last_keyframe_r2_key,
+        last_keyframe_image_sha256=last_keyframe_image_sha256,
         last_viewer_count=viewer_count,
         updated_at=last_checked_at,
     )
@@ -587,20 +592,20 @@ async def test_refresh_live_streams_uploads_keyframes_to_r2(
         "https://i0.hdslb.com/bfs/live-key-frame/test.jpg",
         "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg",
     ]
-    assert uploaded_objects == [
-        (
-            f"live/keyframes/bilibili/{bilibili_link.id}.jpg",
-            b"bytes:https://i0.hdslb.com/bfs/live-key-frame/test.jpg",
-            "image/jpeg",
-            "public, max-age=31536000, immutable",
-        ),
-        (
-            f"live/keyframes/twitch/{twitch_link.id}.jpg",
-            b"bytes:https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg",
-            "image/jpeg",
-            "public, max-age=31536000, immutable",
-        ),
-    ]
+    assert len(uploaded_objects) == 2
+    for uploaded, platform, link in zip(
+        uploaded_objects,
+        ("bilibili", "twitch"),
+        (bilibili_link, twitch_link),
+        strict=True,
+    ):
+        key, _body, content_type, cache_control = uploaded
+        prefix = f"live/keyframes/{platform}/{link.id}/"
+        assert key.startswith(prefix)
+        object_id = uuid.UUID(key.removeprefix(prefix).removesuffix(".jpg"))
+        assert object_id.version == 7
+        assert content_type == "image/jpeg"
+        assert cache_control == "public, max-age=31536000, immutable"
 
     bilibili_state = await crud.get_live_stream_state(
         session=db,
@@ -612,13 +617,24 @@ async def test_refresh_live_streams_uploads_keyframes_to_r2(
     )
     assert bilibili_state is not None
     assert twitch_state is not None
+    bilibili_key, bilibili_body, _, _ = uploaded_objects[0]
+    twitch_key, twitch_body, _, _ = uploaded_objects[1]
     assert (
         bilibili_state.last_keyframe_image_url
-        == f"https://cdn.example.com/live/keyframes/bilibili/{bilibili_link.id}.jpg"
+        == f"https://cdn.example.com/{bilibili_key}"
+    )
+    assert bilibili_state.last_keyframe_r2_key == bilibili_key
+    assert (
+        bilibili_state.last_keyframe_image_sha256
+        == hashlib.sha256(bilibili_body).hexdigest()
     )
     assert (
-        twitch_state.last_keyframe_image_url
-        == f"https://cdn.example.com/live/keyframes/twitch/{twitch_link.id}.jpg"
+        twitch_state.last_keyframe_image_url == f"https://cdn.example.com/{twitch_key}"
+    )
+    assert twitch_state.last_keyframe_r2_key == twitch_key
+    assert (
+        twitch_state.last_keyframe_image_sha256
+        == hashlib.sha256(twitch_body).hexdigest()
     )
 
 
@@ -652,7 +668,11 @@ async def test_refresh_live_streams_falls_back_when_r2_keyframe_upload_fails(
     async def _fake_fetch_keyframe(_url: str) -> tuple[bytes, str]:
         return b"image-bytes", "image/jpeg"
 
+    upload_attempts = 0
+
     async def _failing_put_object(**_kwargs: object) -> str:
+        nonlocal upload_attempts
+        upload_attempts += 1
         raise live_streams.httpx.ConnectError("r2 unavailable")
 
     monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
@@ -676,6 +696,321 @@ async def test_refresh_live_streams_falls_back_when_r2_keyframe_upload_fails(
     state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
     assert state is not None
     assert state.last_keyframe_image_url == upstream_preview_url
+    assert state.last_keyframe_r2_key is None
+    assert state.last_keyframe_image_sha256 is None
+
+    await live_streams.refresh_live_streams_once(session=db)
+    assert upload_attempts == 2
+
+
+async def test_refresh_live_streams_reuses_identical_r2_keyframe(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    image_bytes = b"unchanged-image"
+    old_key = (
+        f"live/keyframes/twitch/{link.id}/0198f000-0000-7000-8000-000000000001.jpg"
+    )
+    old_url = f"https://cdn.example.com/{old_key}"
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=True,
+        last_checked_at=datetime(2026, 8, 31, tzinfo=UTC),
+        last_live_seen_at=datetime(2026, 8, 31, tzinfo=UTC),
+        last_keyframe_image_url=old_url,
+        last_keyframe_r2_key=old_key,
+        last_keyframe_image_sha256=hashlib.sha256(image_bytes).hexdigest(),
+    )
+
+    async def _check(_identifiers: list[str]) -> dict[str, TwitchLiveStatus]:
+        return {
+            "streamer": TwitchLiveStatus(
+                is_live=True,
+                preview_image_url="https://upstream.example/frame.jpg",
+            )
+        }
+
+    async def _fetch(_url: str) -> tuple[bytes, str]:
+        return image_bytes, "image/jpeg"
+
+    async def _unexpected_put(**_kwargs: object) -> str:
+        pytest.fail("identical keyframe must not be uploaded")
+
+    deleted: list[str] = []
+
+    async def _delete(*, key: str) -> None:
+        deleted.append(key)
+
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "secret")
+    monkeypatch.setattr(live_streams, "check_twitch_live_status", _check)
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(live_streams, "_fetch_stream_keyframe_image", _fetch)
+    monkeypatch.setattr(live_streams.r2_storage, "put_object", _unexpected_put)
+    monkeypatch.setattr(live_streams.r2_storage, "delete_object", _delete)
+
+    assert await live_streams.refresh_live_streams_once(session=db) == 1
+    state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
+    assert state is not None
+    assert state.last_keyframe_image_url == old_url
+    assert state.last_keyframe_r2_key == old_key
+    assert deleted == []
+
+
+async def test_refresh_live_streams_rotates_legacy_key_after_commit(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    legacy_key = f"live/keyframes/twitch/{link.id}.jpg"
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=True,
+        last_checked_at=datetime(2026, 8, 30, tzinfo=UTC),
+        last_live_seen_at=datetime(2026, 8, 30, tzinfo=UTC),
+        last_keyframe_image_url=f"https://cdn.example.com/{legacy_key}",
+        last_keyframe_r2_key=None,
+        last_keyframe_image_sha256=hashlib.sha256(b"old").hexdigest(),
+    )
+
+    async def _check(_identifiers: list[str]) -> dict[str, TwitchLiveStatus]:
+        return {
+            "streamer": TwitchLiveStatus(
+                is_live=True,
+                preview_image_url="https://upstream.example/frame.jpg",
+            )
+        }
+
+    async def _fetch(_url: str) -> tuple[bytes, str]:
+        return b"new", "image/jpeg"
+
+    uploaded_key = ""
+
+    async def _put(*, key: str, **_kwargs: object) -> str:
+        nonlocal uploaded_key
+        uploaded_key = key
+        return f"https://cdn.example.com/{key}"
+
+    deleted: list[str] = []
+
+    async def _delete(*, key: str) -> None:
+        state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
+        assert state is not None
+        assert state.last_keyframe_r2_key == uploaded_key
+        deleted.append(key)
+
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "secret")
+    monkeypatch.setattr(live_streams, "check_twitch_live_status", _check)
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        live_streams.r2_storage,
+        "public_url_to_key",
+        lambda url: url.removeprefix("https://cdn.example.com/"),
+    )
+    monkeypatch.setattr(live_streams, "_fetch_stream_keyframe_image", _fetch)
+    monkeypatch.setattr(live_streams.r2_storage, "put_object", _put)
+    monkeypatch.setattr(live_streams.r2_storage, "delete_object", _delete)
+
+    assert await live_streams.refresh_live_streams_once(session=db) == 1
+    prefix = f"live/keyframes/twitch/{link.id}/"
+    assert uploaded_key.startswith(prefix)
+    assert (
+        uuid.UUID(uploaded_key.removeprefix(prefix).removesuffix(".jpg")).version == 7
+    )
+    assert deleted == [legacy_key]
+
+
+async def test_refresh_live_streams_ignores_superseded_key_delete_failure(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    old_key = f"live/keyframes/twitch/{link.id}/old.jpg"
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=True,
+        last_checked_at=datetime(2026, 8, 30, tzinfo=UTC),
+        last_live_seen_at=datetime(2026, 8, 30, tzinfo=UTC),
+        last_keyframe_r2_key=old_key,
+        last_keyframe_image_sha256=hashlib.sha256(b"old").hexdigest(),
+    )
+
+    async def _check(_identifiers: list[str]) -> dict[str, TwitchLiveStatus]:
+        return {
+            "streamer": TwitchLiveStatus(
+                True, preview_image_url="https://upstream.example/frame.jpg"
+            )
+        }
+
+    async def _fetch(_url: str) -> tuple[bytes, str]:
+        return b"new", "image/jpeg"
+
+    async def _put(*, key: str, **_kwargs: object) -> str:
+        return f"https://cdn.example.com/{key}"
+
+    async def _fail_delete(*, key: str) -> None:
+        assert key == old_key
+        raise httpx.ConnectError("delete failed")
+
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "secret")
+    monkeypatch.setattr(live_streams, "check_twitch_live_status", _check)
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(live_streams, "_fetch_stream_keyframe_image", _fetch)
+    monkeypatch.setattr(live_streams.r2_storage, "put_object", _put)
+    monkeypatch.setattr(live_streams.r2_storage, "delete_object", _fail_delete)
+
+    assert await live_streams.refresh_live_streams_once(session=db) == 1
+    state = await crud.get_live_stream_state(session=db, social_link_id=link.id)
+    assert state is not None
+    assert state.last_keyframe_r2_key != old_key
+    assert state.last_keyframe_image_sha256 == hashlib.sha256(b"new").hexdigest()
+
+
+async def test_refresh_live_streams_does_not_delete_old_key_on_commit_failure(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    old_key = f"live/keyframes/twitch/{link.id}/old.jpg"
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=True,
+        last_checked_at=datetime(2026, 8, 30, tzinfo=UTC),
+        last_live_seen_at=datetime(2026, 8, 30, tzinfo=UTC),
+        last_keyframe_r2_key=old_key,
+        last_keyframe_image_sha256=hashlib.sha256(b"old").hexdigest(),
+    )
+
+    async def _check(_identifiers: list[str]) -> dict[str, TwitchLiveStatus]:
+        return {
+            "streamer": TwitchLiveStatus(
+                True, preview_image_url="https://upstream.example/frame.jpg"
+            )
+        }
+
+    async def _fetch(_url: str) -> tuple[bytes, str]:
+        return b"new", "image/jpeg"
+
+    async def _put(*, key: str, **_kwargs: object) -> str:
+        return f"https://cdn.example.com/{key}"
+
+    deleted: list[str] = []
+
+    async def _delete(*, key: str) -> None:
+        deleted.append(key)
+
+    async def _fail_commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
+    monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "secret")
+    monkeypatch.setattr(live_streams, "check_twitch_live_status", _check)
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(live_streams, "_fetch_stream_keyframe_image", _fetch)
+    monkeypatch.setattr(live_streams.r2_storage, "put_object", _put)
+    monkeypatch.setattr(live_streams.r2_storage, "delete_object", _delete)
+    monkeypatch.setattr(db, "commit", _fail_commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        await live_streams.refresh_live_streams_once(session=db)
+    assert deleted == []
+
+
+async def test_cleanup_orphaned_live_stream_keyframes_respects_references_and_grace(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = await _create_player(db, steamid64=random_steamid64(), name="Streamer")
+    link = await _create_social_link(
+        db,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.TWITCH,
+        account_identifier="streamer",
+        verified=True,
+    )
+    referenced_key = f"live/keyframes/twitch/{link.id}/referenced.jpg"
+    await _create_live_stream_state(
+        db,
+        social_link_id=link.id,
+        is_live=False,
+        last_checked_at=datetime(2026, 8, 29, tzinfo=UTC),
+        last_live_seen_at=datetime(2026, 8, 29, tzinfo=UTC),
+        last_keyframe_image_url=f"https://cdn.example.com/{referenced_key}",
+        last_keyframe_r2_key=None,
+    )
+    now = datetime(2026, 8, 31, 12, tzinfo=UTC)
+    young_key = "live/keyframes/twitch/young/frame.jpg"
+    old_key = "live/keyframes/twitch/old/frame.jpg"
+    failing_key = "live/keyframes/twitch/failing/frame.jpg"
+
+    async def _list_objects(*, prefix: str) -> list[r2_storage.R2Object]:
+        assert prefix == "live/keyframes/"
+        return [
+            r2_storage.R2Object(referenced_key, now - timedelta(days=3)),
+            r2_storage.R2Object(young_key, now - timedelta(hours=23)),
+            r2_storage.R2Object(old_key, now - timedelta(hours=25)),
+            r2_storage.R2Object(failing_key, now - timedelta(days=2)),
+            r2_storage.R2Object("maps/unmanaged.jpg", now - timedelta(days=2)),
+        ]
+
+    deleted: list[str] = []
+
+    async def _delete(*, key: str) -> None:
+        if key == failing_key:
+            raise httpx.ConnectError("delete failed")
+        deleted.append(key)
+
+    monkeypatch.setattr(live_streams.r2_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        live_streams.r2_storage,
+        "public_url_to_key",
+        lambda url: url.removeprefix("https://cdn.example.com/"),
+    )
+    monkeypatch.setattr(live_streams.r2_storage, "list_objects", _list_objects)
+    monkeypatch.setattr(live_streams.r2_storage, "delete_object", _delete)
+
+    result = await live_streams.cleanup_orphaned_live_stream_keyframes_once(
+        session=db,
+        now=now,
+    )
+
+    assert result == live_streams.LiveStreamKeyframeCleanupResult(5, 1, 1)
+    assert deleted == [old_key]
 
 
 async def test_refresh_live_streams_persists_twitch_metadata(
@@ -1058,11 +1393,17 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
         assert webhook_url.startswith("https://discord.com/api/webhooks/")
         sent_payloads.append(payload)
 
-    monkeypatch.setattr(live_streams, "check_bilibili_live_status", _fake_check_bilibili_live_status)
+    monkeypatch.setattr(
+        live_streams, "check_bilibili_live_status", _fake_check_bilibili_live_status
+    )
     monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
     monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "client-secret")
-    monkeypatch.setattr(live_streams, "check_twitch_live_status", _fake_check_twitch_live_status)
-    monkeypatch.setattr(live_streams, "send_discord_webhook", _fake_send_discord_webhook)
+    monkeypatch.setattr(
+        live_streams, "check_twitch_live_status", _fake_check_twitch_live_status
+    )
+    monkeypatch.setattr(
+        live_streams, "send_discord_webhook", _fake_send_discord_webhook
+    )
 
     processed = await live_streams.refresh_live_streams_once(session=db)
 
@@ -1075,8 +1416,14 @@ async def test_refresh_live_streams_sends_webhook_on_new_live_transition(
     assert sent_payloads[0]["username"] == "GOKZ.TOP"
     embed = sent_payloads[0]["embeds"][0]
     assert embed["title"] == "Stream started: Webhook Alias on Twitch"
-    assert embed["author"]["icon_url"] == f"https://avatars.steamstatic.com/{'a' * 40}_full.jpg"
-    assert embed["author"]["url"] == f"{live_streams.settings.FRONTEND_HOST}/profile/{player.steamid64}"
+    assert (
+        embed["author"]["icon_url"]
+        == f"https://avatars.steamstatic.com/{'a' * 40}_full.jpg"
+    )
+    assert (
+        embed["author"]["url"]
+        == f"{live_streams.settings.FRONTEND_HOST}/profile/{player.steamid64}"
+    )
     assert embed["image"]["url"] == (
         "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-640x360.jpg"
     )
@@ -1245,8 +1592,12 @@ async def test_refresh_live_streams_does_not_resend_webhook_while_already_live(
 
     monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_ID", "client-id")
     monkeypatch.setattr(live_streams.settings, "TWITCH_CLIENT_SECRET", "client-secret")
-    monkeypatch.setattr(live_streams, "check_twitch_live_status", _fake_check_twitch_live_status)
-    monkeypatch.setattr(live_streams, "send_discord_webhook", _fake_send_discord_webhook)
+    monkeypatch.setattr(
+        live_streams, "check_twitch_live_status", _fake_check_twitch_live_status
+    )
+    monkeypatch.setattr(
+        live_streams, "send_discord_webhook", _fake_send_discord_webhook
+    )
 
     processed = await live_streams.refresh_live_streams_once(session=db)
 
@@ -1476,11 +1827,17 @@ async def test_refresh_live_streams_continues_webhook_fanout_and_skips_disabled_
     ) -> None:
         del payload
         attempted_urls.append(webhook_url)
-        if webhook_url.endswith("1111111111111111111111111111111111111111111111111111111111111111"):
+        if webhook_url.endswith(
+            "1111111111111111111111111111111111111111111111111111111111111111"
+        ):
             raise live_streams.httpx.ConnectError("network down")
 
-    monkeypatch.setattr(live_streams, "check_bilibili_live_status", _fake_check_bilibili_live_status)
-    monkeypatch.setattr(live_streams, "send_discord_webhook", _fake_send_discord_webhook)
+    monkeypatch.setattr(
+        live_streams, "check_bilibili_live_status", _fake_check_bilibili_live_status
+    )
+    monkeypatch.setattr(
+        live_streams, "send_discord_webhook", _fake_send_discord_webhook
+    )
 
     processed = await live_streams.refresh_live_streams_once(session=db)
 

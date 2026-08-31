@@ -7,7 +7,7 @@ from collections.abc import AsyncIterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 from xml.etree import ElementTree
 
 import httpx
@@ -26,6 +26,12 @@ class R2StorageConfig:
     secret_access_key: str
     bucket_name: str
     public_base_url: str
+
+
+@dataclass(frozen=True, slots=True)
+class R2Object:
+    key: str
+    last_modified: datetime
 
 
 def get_r2_storage_config() -> R2StorageConfig | None:
@@ -61,6 +67,28 @@ def build_public_url(key: str, *, config: R2StorageConfig | None = None) -> str:
         f"{storage_config.public_base_url.rstrip('/')}/"
         f"{quote(key.lstrip('/'), safe='/')}"
     )
+
+
+def public_url_to_key(
+    url: str,
+    *,
+    config: R2StorageConfig | None = None,
+) -> str | None:
+    storage_config = config or get_r2_storage_config()
+    if storage_config is None:
+        return None
+
+    public_base = urlsplit(storage_config.public_base_url.rstrip("/") + "/")
+    parsed = urlsplit(url)
+    if parsed.scheme != public_base.scheme or parsed.netloc != public_base.netloc:
+        return None
+    base_path = public_base.path.rstrip("/") + "/"
+    if not parsed.path.startswith(base_path):
+        return None
+    key = unquote(parsed.path.removeprefix(base_path).lstrip("/"))
+    if not key or any(segment in {".", ".."} for segment in key.split("/")):
+        return None
+    return key
 
 
 async def put_object(
@@ -179,6 +207,52 @@ async def delete_object(*, key: str) -> None:
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.delete(url, headers=request_headers)
         response.raise_for_status()
+
+
+async def list_objects(*, prefix: str) -> list[R2Object]:
+    storage_config = get_r2_storage_config()
+    if storage_config is None:
+        raise RuntimeError("Cloudflare R2 storage is not configured")
+
+    normalized_prefix = prefix.lstrip("/")
+    host = f"{storage_config.account_id}.r2.cloudflarestorage.com"
+    canonical_uri = f"/{storage_config.bucket_name}"
+    continuation_token: str | None = None
+    objects: list[R2Object] = []
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        while True:
+            query_params = {"list-type": "2", "prefix": normalized_prefix}
+            if continuation_token is not None:
+                query_params["continuation-token"] = continuation_token
+            query_string = _canonical_query_string(query_params)
+            request_headers = _build_signed_headers(
+                config=storage_config,
+                method="GET",
+                canonical_uri=canonical_uri,
+                headers={"host": host},
+                payload_hash=hashlib.sha256(b"").hexdigest(),
+                canonical_query_string=query_string,
+            )
+            response = await client.get(
+                _build_url(
+                    host=host,
+                    canonical_uri=canonical_uri,
+                    query_string=query_string,
+                ),
+                headers=request_headers,
+            )
+            response.raise_for_status()
+            page_objects, is_truncated, continuation_token = (
+                _parse_list_objects_response(response.content)
+            )
+            objects.extend(page_objects)
+            if not is_truncated:
+                return objects
+            if continuation_token is None:
+                raise RuntimeError(
+                    "R2 returned a truncated object listing without a continuation token"
+                )
 
 
 def hash_file_sha256(path: Path) -> str:
@@ -374,7 +448,9 @@ async def _upload_multipart_part(
     response.raise_for_status()
     etag = response.headers.get("etag")
     if not etag:
-        raise RuntimeError(f"R2 did not return an ETag for multipart part {part_number}")
+        raise RuntimeError(
+            f"R2 did not return an ETag for multipart part {part_number}"
+        )
     return etag
 
 
@@ -477,6 +553,45 @@ def _find_xml_text(body: bytes, tag_suffix: str) -> str | None:
     for element in root.iter():
         if element.tag.endswith(tag_suffix):
             return element.text
+    return None
+
+
+def _parse_list_objects_response(
+    body: bytes,
+) -> tuple[list[R2Object], bool, str | None]:
+    root = ElementTree.fromstring(body)
+    objects: list[R2Object] = []
+    for contents in root.iter():
+        if not contents.tag.endswith("Contents"):
+            continue
+        key = _find_child_xml_text(contents, "Key")
+        last_modified_raw = _find_child_xml_text(contents, "LastModified")
+        if key is None or last_modified_raw is None:
+            continue
+        try:
+            last_modified = datetime.fromisoformat(
+                last_modified_raw.replace("Z", "+00:00")
+            )
+        except ValueError:
+            continue
+        if last_modified.tzinfo is None:
+            last_modified = last_modified.replace(tzinfo=UTC)
+        objects.append(
+            R2Object(
+                key=key,
+                last_modified=last_modified.astimezone(UTC),
+            )
+        )
+
+    is_truncated = (_find_child_xml_text(root, "IsTruncated") or "").lower() == "true"
+    continuation_token = _find_child_xml_text(root, "NextContinuationToken")
+    return objects, is_truncated, continuation_token
+
+
+def _find_child_xml_text(element: ElementTree.Element, tag_suffix: str) -> str | None:
+    for child in element:
+        if child.tag.endswith(tag_suffix):
+            return child.text
     return None
 
 

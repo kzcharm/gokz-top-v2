@@ -35,6 +35,7 @@ from .leaderboard_player import (
 )
 from .live_stream import (
     get_live_stream_state,
+    list_live_stream_keyframe_storage_references,
     list_verified_live_stream_links,
     read_live_stream_cards,
     upsert_live_stream_state,
@@ -461,6 +462,7 @@ __all__ = [
     "get_world_record_counts_v0",
     "get_user_by_steamid64",
     "get_live_stream_state",
+    "list_live_stream_keyframe_storage_references",
     "get_max_record_globalapi_id",
     "read_maps",
     "read_admin_maps",
