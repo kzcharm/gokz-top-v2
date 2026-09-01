@@ -1860,6 +1860,7 @@ async def test_rebuild_map_review_summary_counts_latest_reviews_only(
     assert summary is not None
     assert summary.reviews_count == 2
     assert summary.overall_avg == pytest.approx(4.5)
+    assert summary.overall_adjusted == pytest.approx(4.5)
     assert summary.gameplay_avg is None
     assert summary.visuals_avg is None
     assert summary.gameplay_count == 0
@@ -1869,6 +1870,45 @@ async def test_rebuild_map_review_summary_counts_latest_reviews_only(
     cached = await db.get(MapReviewSummaryCache, map_obj.id)
     assert cached is not None
     assert cached.reviews_count == 2
+
+
+@pytest.mark.asyncio
+async def test_map_review_adjusted_rating_uses_platform_wide_average(
+    db: AsyncSession,
+) -> None:
+    map_one = await _create_map(db, id=930221)
+    map_two = await _create_map(db, id=930222)
+    db.add(
+        MapReviewSummaryCache(
+            map_id=map_one.id,
+            overall_avg=5.0,
+            reviews_count=1,
+            gameplay_count=0,
+            visuals_count=0,
+            comments_count=0,
+        )
+    )
+    db.add(
+        MapReviewSummaryCache(
+            map_id=map_two.id,
+            overall_avg=4.0,
+            reviews_count=12,
+            gameplay_count=0,
+            visuals_count=0,
+            comments_count=0,
+        )
+    )
+    await db.commit()
+
+    summaries = await crud.load_map_review_summaries(
+        session=db,
+        map_ids=[map_one.id],
+    )
+
+    global_average = 53 / 13
+    assert summaries[map_one.id].overall_adjusted == pytest.approx(
+        (5 + 6 * global_average) / 7
+    )
 
 
 @pytest.mark.asyncio
@@ -2179,6 +2219,7 @@ async def test_read_map_v1_includes_review_summary(
     assert by_id_response.status_code == 200
     assert by_id_response.json()["review_summary"] == {
         "overall_avg": pytest.approx(4.5),
+        "overall_adjusted": pytest.approx(4.5),
         "gameplay_avg": None,
         "visuals_avg": None,
         "reviews_count": 2,

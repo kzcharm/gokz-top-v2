@@ -29,6 +29,8 @@ from app.models import (
 )
 from app.services.language_detection import detect_language_code
 
+MAP_REVIEW_PRIOR_STRENGTH = 6
+
 
 def _is_missing_map_review_summary_cache_error(exc: ProgrammingError) -> bool:
     original = exc.orig
@@ -188,9 +190,16 @@ async def has_finished_map_for_review(
 
 def _to_map_review_summary_public(
     cache_row: MapReviewSummaryCache,
+    *,
+    global_overall_average: float,
 ) -> MapReviewSummaryPublic:
+    adjusted_overall = (
+        cache_row.reviews_count * cache_row.overall_avg
+        + MAP_REVIEW_PRIOR_STRENGTH * global_overall_average
+    ) / (cache_row.reviews_count + MAP_REVIEW_PRIOR_STRENGTH)
     return MapReviewSummaryPublic(
         overall_avg=cache_row.overall_avg,
+        overall_adjusted=adjusted_overall,
         gameplay_avg=cache_row.gameplay_avg,
         visuals_avg=cache_row.visuals_avg,
         reviews_count=cache_row.reviews_count,
@@ -209,14 +218,33 @@ async def load_map_review_summaries(
     if not map_ids:
         return {}
 
+    cache_table = MapReviewSummaryCache.__table__  # type: ignore[attr-defined]
     statement = select(MapReviewSummaryCache).where(col(MapReviewSummaryCache.map_id).in_(map_ids))
+    global_average_statement = select(
+        func.sum(cache_table.c.overall_avg * cache_table.c.reviews_count),
+        func.sum(cache_table.c.reviews_count),
+    )
     try:
         rows = list((await session.exec(statement)).all())
+        weighted_rating_total, reviews_count = (
+            await session.exec(global_average_statement)
+        ).one()
     except ProgrammingError as exc:
         if _is_missing_map_review_summary_cache_error(exc):
             return {}
         raise
-    return {row.map_id: _to_map_review_summary_public(row) for row in rows}
+
+    if not rows or not reviews_count:
+        return {}
+
+    global_overall_average = float(weighted_rating_total) / int(reviews_count)
+    return {
+        row.map_id: _to_map_review_summary_public(
+            row,
+            global_overall_average=global_overall_average,
+        )
+        for row in rows
+    }
 
 
 async def rebuild_map_review_summary(
@@ -312,9 +340,8 @@ async def rebuild_map_review_summary(
             return None
         raise
 
-    cache_row = await session.get(MapReviewSummaryCache, map_id)
-    assert cache_row is not None
-    return _to_map_review_summary_public(cache_row)
+    summaries = await load_map_review_summaries(session=session, map_ids=[map_id])
+    return summaries.get(map_id)
 
 
 async def upsert_map_review(

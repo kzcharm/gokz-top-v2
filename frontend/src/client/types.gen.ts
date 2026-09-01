@@ -605,6 +605,7 @@ export type MapReviewsPublic = {
 
 export type MapReviewSummaryPublic = {
     overall_avg: number;
+    overall_adjusted: number;
     gameplay_avg?: (number | null);
     visuals_avg?: (number | null);
     reviews_count: number;

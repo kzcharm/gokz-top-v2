@@ -30,6 +30,7 @@ class MapReviewSummaryCache(SQLModel, table=True):
 
 class MapReviewSummaryPublic(SQLModel):
     overall_avg: float
+    overall_adjusted: float
     gameplay_avg: float | None = None
     visuals_avg: float | None = None
     reviews_count: int

@@ -68,6 +68,7 @@ const POWERSHELL_DOWNLOAD_COMMAND =
   'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://gokz.top/install/maps.ps1 | iex"'
 
 const MAP_SORT_OPTIONS = [
+  { labelKey: "maps.sortOptions.bestRated", value: "bestRated" },
   { labelKey: "maps.sortOptions.name", value: "name" },
   { labelKey: "maps.sortOptions.tier", value: "tier" },
   { labelKey: "maps.sortOptions.created", value: "created" },
@@ -464,6 +465,13 @@ function sortMaps(
           sortDirection,
         )
         break
+      case "bestRated":
+        comparison = compareNullableNumbers(
+          leftReviewSummary?.overall_adjusted,
+          rightReviewSummary?.overall_adjusted,
+          sortDirection,
+        )
+        break
       case "gameplay":
         comparison = compareNullableNumbers(
           leftReviewSummary?.gameplay_avg,
@@ -514,7 +522,8 @@ function sortMaps(
 
     if (
       comparison === 0 &&
-      (sortField === "overall" ||
+      (sortField === "bestRated" ||
+        sortField === "overall" ||
         sortField === "gameplay" ||
         sortField === "visuals")
     ) {
@@ -527,7 +536,8 @@ function sortMaps(
 
     if (
       comparison === 0 &&
-      (sortField === "overall" ||
+      (sortField === "bestRated" ||
+        sortField === "overall" ||
         sortField === "gameplay" ||
         sortField === "visuals" ||
         sortField === "reviewCount")
@@ -552,6 +562,7 @@ function sortMaps(
     }
 
     if (
+      sortField === "bestRated" ||
       sortField === "overall" ||
       sortField === "gameplay" ||
       sortField === "visuals" ||
@@ -816,10 +827,13 @@ export function MapsCatalog() {
   const [sortField, setSortField] = useState<MapsSortField>(
     isMapsSortField(persistedState.sortField)
       ? persistedState.sortField
-      : "name",
+      : "bestRated",
   )
   const [sortDirection, setSortDirection] = useState<MapsSortDirection>(
-    persistedState.sortDirection === "desc" ? "desc" : "asc",
+    persistedState.sortDirection === "asc" ||
+      persistedState.sortDirection === "desc"
+      ? persistedState.sortDirection
+      : "desc",
   )
   const [selectedSkill, setSelectedSkill] = useState<SortableSkillKey>(
     isSortableSkillKey(persistedState.selectedSkill)
@@ -1354,6 +1368,19 @@ export function MapsCatalog() {
         return
       }
 
+      if (nextSortField === "bestRated") {
+        if (sortField === "bestRated") {
+          setSortDirection((currentDirection) =>
+            currentDirection === "asc" ? "desc" : "asc",
+          )
+          return
+        }
+
+        setSortField("bestRated")
+        setSortDirection("desc")
+        return
+      }
+
       if (nextSortField === "review") {
         if (isReviewSortField(sortField)) {
           setSortDirection((currentDirection) =>
@@ -1814,7 +1841,7 @@ export function MapsCatalog() {
               wrRecord={wrByMapId.get(map.id) ?? null}
               wrLoading={wrsQuery.isLoading}
               leaderboardEntry={leaderboardByMapId.get(map.id) ?? null}
-              leaderboardSortField={sortField}
+              sortField={sortField}
             />
           ))}
         </section>

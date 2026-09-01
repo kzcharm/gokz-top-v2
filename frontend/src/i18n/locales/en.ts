@@ -1021,6 +1021,7 @@ export const en = {
       review: "Review",
       bonus: "Bonus",
       skill: "Skill",
+      bestRated: "Best Rated",
       overall: "Overall",
       gameplay: "Gameplay",
       visuals: "Visuals",
@@ -1034,6 +1035,9 @@ export const en = {
       finishes: "Finishes",
       firstMed: "1st Med",
       metrics: "Metrics",
+      adjustedRating: "Rating:",
+      adjustedRatingTooltip:
+        "Combines rating and review count for better accuracy.",
       nubTooltip: "Unique players who finished the map in NUB.",
       proTooltip: "Unique players who finished the map in PRO.",
     },

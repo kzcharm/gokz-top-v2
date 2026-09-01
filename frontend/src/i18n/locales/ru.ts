@@ -1036,6 +1036,7 @@ export const ru = {
       review: "Отзыв",
       bonus: "Бонус",
       skill: "Навык",
+      bestRated: "Лучшие по рейтингу",
       overall: "Общее",
       gameplay: "Геймплей",
       visuals: "Визуал",
@@ -1049,6 +1050,9 @@ export const ru = {
       finishes: "Прохождения",
       firstMed: "Медиана 1-го",
       metrics: "Метрики",
+      adjustedRating: "Рейтинг:",
+      adjustedRatingTooltip:
+        "Сочетает рейтинг и число отзывов для большей точности.",
       nubTooltip: "Число уникальных игроков, завершивших карту в NUB.",
       proTooltip: "Число уникальных игроков, завершивших карту в PRO.",
     },

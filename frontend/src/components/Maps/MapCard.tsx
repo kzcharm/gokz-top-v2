@@ -2,7 +2,11 @@ import { Link } from "@tanstack/react-router"
 import { Star } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import type { MapLeaderboardEntryPublic, MapPublic, MapWrPublic } from "@/client"
+import type {
+  MapLeaderboardEntryPublic,
+  MapPublic,
+  MapWrPublic,
+} from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
   getMapImageUrls,
@@ -15,7 +19,11 @@ import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { cn } from "@/lib/utils"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
@@ -26,7 +34,7 @@ interface MapCardProps {
   wrRecord?: MapWrPublic | null
   wrLoading?: boolean
   leaderboardEntry?: MapLeaderboardEntryPublic | null
-  leaderboardSortField?: string
+  sortField?: string
 }
 
 function formatReviewAverage(value: number | null | undefined) {
@@ -112,7 +120,7 @@ export function MapCard({
   wrRecord = null,
   wrLoading = false,
   leaderboardEntry = null,
-  leaderboardSortField = "name",
+  sortField = "name",
 }: MapCardProps) {
   const { t } = useTranslation()
   const imageUrls = getMapImageUrls(map.name, map.workshop_id)
@@ -138,27 +146,37 @@ export function MapCard({
         .join(" · ")
     : null
   const leaderboardMetric = leaderboardEntry
-    ? ({
-        playtime: `${Math.round(leaderboardEntry.total_playtime / 3600)} h`,
-        avgPlaytime: formatAveragePlaytime(leaderboardEntry.average_playtime_per_player),
-        nub: leaderboardEntry.unique_nub_finishes.toLocaleString(),
-        pro: leaderboardEntry.unique_pro_finishes.toLocaleString(),
-        proRatio: `${(leaderboardEntry.pro_nub_ratio * 100).toFixed(1)}%`,
-        finishes: leaderboardEntry.total_finishes.toLocaleString(),
-        firstMed: formatRecordTime(
-          Math.round(leaderboardEntry.median_first_completion_time),
-        ).replace(/\.000$/, ""),
-      } as Record<string, string>)[leaderboardSortField]
+    ? (
+        {
+          playtime: `${Math.round(leaderboardEntry.total_playtime / 3600)} h`,
+          avgPlaytime: formatAveragePlaytime(
+            leaderboardEntry.average_playtime_per_player,
+          ),
+          nub: leaderboardEntry.unique_nub_finishes.toLocaleString(),
+          pro: leaderboardEntry.unique_pro_finishes.toLocaleString(),
+          proRatio: `${(leaderboardEntry.pro_nub_ratio * 100).toFixed(1)}%`,
+          finishes: leaderboardEntry.total_finishes.toLocaleString(),
+          firstMed: formatRecordTime(
+            Math.round(leaderboardEntry.median_first_completion_time),
+          ).replace(/\.000$/, ""),
+        } as Record<string, string>
+      )[sortField]
     : null
-  const leaderboardMetricLabel = ({
-    playtime: "Playtime",
-    avgPlaytime: "Avg",
-    nub: t("maps.sortOptions.nub"),
-    pro: t("maps.sortOptions.pro"),
-    proRatio: "PRO Ratio",
-    finishes: "Finishes",
-    firstMed: "1st Med",
-  } as Record<string, string>)[leaderboardSortField]
+  const leaderboardMetricLabel = (
+    {
+      playtime: "Playtime",
+      avgPlaytime: "Avg",
+      nub: t("maps.sortOptions.nub"),
+      pro: t("maps.sortOptions.pro"),
+      proRatio: "PRO Ratio",
+      finishes: "Finishes",
+      firstMed: "1st Med",
+    } as Record<string, string>
+  )[sortField]
+  const adjustedRating =
+    sortField === "bestRated" ? reviewSummary?.overall_adjusted : undefined
+  const cardMetric =
+    adjustedRating === undefined ? leaderboardMetric : adjustedRating.toFixed(2)
 
   return (
     <Card
@@ -223,17 +241,30 @@ export function MapCard({
             {t("maps.bonusCount", { count: bonusCount })}
           </Badge>
         ) : null}
-        {leaderboardMetric ? (
-          <Tooltip>
+        {cardMetric ? (
+          <Tooltip delayDuration={sortField === "bestRated" ? 500 : 0}>
             <TooltipTrigger asChild>
-              <span className="pointer-events-auto absolute bottom-2 left-2 z-10 rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm">
-                {leaderboardMetricLabel}: {leaderboardMetric}
+              <span className="pointer-events-auto absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm">
+                {adjustedRating === undefined ? (
+                  <>
+                    {leaderboardMetricLabel}: {cardMetric}
+                  </>
+                ) : (
+                  <>
+                    {t("maps.sortOptions.adjustedRating")} {cardMetric}
+                    <Star className="size-3 fill-current" aria-hidden="true" />
+                  </>
+                )}
               </span>
             </TooltipTrigger>
-            {leaderboardSortField === "nub" || leaderboardSortField === "pro" ? (
+            {sortField === "bestRated" ? (
+              <TooltipContent className="max-w-[calc(100vw-1rem)] sm:max-w-sm">
+                {t("maps.sortOptions.adjustedRatingTooltip")}
+              </TooltipContent>
+            ) : sortField === "nub" || sortField === "pro" ? (
               <TooltipContent>
                 {t(
-                  leaderboardSortField === "nub"
+                  sortField === "nub"
                     ? "maps.sortOptions.nubTooltip"
                     : "maps.sortOptions.proTooltip",
                 )}

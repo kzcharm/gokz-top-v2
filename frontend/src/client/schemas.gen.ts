@@ -2952,6 +2952,10 @@ export const MapReviewSummaryPublicSchema = {
             type: 'number',
             title: 'Overall Avg'
         },
+        overall_adjusted: {
+            type: 'number',
+            title: 'Overall Adjusted'
+        },
         gameplay_avg: {
             anyOf: [
                 {
@@ -2997,7 +3001,7 @@ export const MapReviewSummaryPublicSchema = {
         }
     },
     type: 'object',
-    required: ['overall_avg', 'reviews_count', 'gameplay_count', 'visuals_count', 'comments_count', 'updated_at'],
+    required: ['overall_avg', 'overall_adjusted', 'reviews_count', 'gameplay_count', 'visuals_count', 'comments_count', 'updated_at'],
     title: 'MapReviewSummaryPublic'
 } as const;
 

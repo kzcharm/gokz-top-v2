@@ -343,7 +343,8 @@ test("Maps catalog filters maps with collapsible range controls", async ({
       ...seededMaps[0],
       created_on: "2026-03-01T08:00:00Z",
       review_summary: {
-        overall_avg: 4.2,
+        overall_avg: 5,
+        overall_adjusted: 3.1,
         gameplay_avg: 4.2,
         visuals_avg: 4.2,
         reviews_count: 10,
@@ -358,6 +359,7 @@ test("Maps catalog filters maps with collapsible range controls", async ({
       created_on: "2026-03-30T08:00:00Z",
       review_summary: {
         overall_avg: 2.5,
+        overall_adjusted: 2.7,
         gameplay_avg: 2.5,
         visuals_avg: 2.5,
         reviews_count: 2,
@@ -372,6 +374,7 @@ test("Maps catalog filters maps with collapsible range controls", async ({
       created_on: "2026-03-15T08:00:00Z",
       review_summary: {
         overall_avg: 4.8,
+        overall_adjusted: 4.4,
         gameplay_avg: 4.8,
         visuals_avg: 4.8,
         reviews_count: 20,
@@ -430,6 +433,39 @@ test("Maps catalog filters maps with collapsible range controls", async ({
   })
 
   await page.goto("/maps")
+
+  const firstMapCard = page.locator('[data-testid^="map-card-"]').first()
+  const bestRatedButton = page.getByRole("button", { name: "Best Rated" })
+  await expect(bestRatedButton).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    bestRatedButton.locator("xpath=preceding-sibling::button"),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Review", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false")
+  await expect(firstMapCard).toHaveAttribute(
+    "data-testid",
+    "map-card-kz_special_search",
+  )
+  await expect(firstMapCard).toContainText("Rating: 4.40")
+  await page.setViewportSize({ width: 418, height: 800 })
+  const tooltipHoverStartedAt = Date.now()
+  await firstMapCard.getByText("Rating: 4.40").hover()
+  const adjustedRatingTooltip = page.getByText(
+    /rating and review count for better accuracy/,
+  )
+  await expect(adjustedRatingTooltip).toBeVisible()
+  expect(Date.now() - tooltipHoverStartedAt).toBeGreaterThanOrEqual(450)
+  expect((await adjustedRatingTooltip.boundingBox())?.height).toBeLessThan(40)
+  await page.mouse.move(0, 0)
+  await page.setViewportSize({ width: 1280, height: 720 })
+
+  await page.getByRole("button", { name: "Review", exact: true }).click()
+  await expect(
+    page.getByRole("button", { name: "Overall", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(firstMapCard).toHaveAttribute("data-testid", "map-card-kz_alpha")
+  await expect(page.getByText(/^Rating: /)).toHaveCount(0)
 
   const filtersButton = page.getByRole("button", { name: "Filters" })
   await expect(
