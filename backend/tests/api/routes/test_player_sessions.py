@@ -288,6 +288,44 @@ async def test_connect_updates_unlocked_player_country_from_geoip(
     assert player.country == "US"
 
 
+async def test_connect_country_update_ignores_other_action_timestamps(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.crud.player_session.lookup_geoip_city",
+        lambda ip: GeoIPLocation(country_code="US", city_name="Chicago"),
+    )
+    _, api_key = await create_server_group(db)
+    steamid64 = random_steamid64()
+    other_steamid64 = random_steamid64()
+    player = Player(steamid64=steamid64, name="Runner", country="CA")
+    other_player = Player(steamid64=other_steamid64, name="Other")
+    db.add(player)
+    db.add(other_player)
+    db.add(
+        PlayerActionTimestamp(
+            player_steamid64=other_steamid64,
+            action=PlayerAction.FRIENDS_SYNC,
+            recorded_at=datetime(2026, 4, 28, 11, 0, tzinfo=UTC),
+        )
+    )
+    await db.commit()
+    connected_at = datetime(2026, 4, 28, 12, 0, tzinfo=UTC)
+
+    await _connect_session(
+        client=client,
+        api_key=api_key,
+        session_id=str(generate_uuid7(timestamp=connected_at)),
+        steamid64=steamid64,
+        connected_at=connected_at,
+    )
+
+    await db.refresh(player)
+    assert player.country == "US"
+
+
 async def test_connect_does_not_update_locked_player_country_from_geoip(
     client: AsyncClient,
     db: AsyncSession,

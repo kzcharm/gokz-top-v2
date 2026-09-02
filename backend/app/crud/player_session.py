@@ -517,7 +517,12 @@ async def _ensure_player_for_session(
             },
             where=~select(field_change_table.c.player_steamid64)
             .where(
-                field_change_table.c.player_steamid64 == player_table.c.steamid64,
+                # Compare against the bound target Steam ID explicitly.  Referring
+                # to ``player_table`` here makes PostgreSQL add a second player
+                # table to the EXISTS subquery, turning the check into an
+                # uncorrelated cross-join that blocks updates whenever *any*
+                # action-timestamp row exists.
+                field_change_table.c.player_steamid64 == steamid64,
                 field_change_table.c.action == PlayerAction.COUNTRY_MANUAL_OVERRIDE,
             )
             .exists(),
