@@ -182,12 +182,12 @@ export function PollsPage() {
                     </span>
                   ))}
                   {remainingOptions > 0 ? (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="self-end text-right text-sm text-muted-foreground">
                       {t("polls.moreOptions", { count: remainingOptions })}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-sm text-muted-foreground">
+                <span className="self-end text-right text-sm text-muted-foreground">
                   {poll.total_votes} {t("polls.votes")}
                 </span>
               </span>
