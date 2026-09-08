@@ -3,8 +3,17 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { OpenAPI } from "@/client"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -60,6 +69,7 @@ export function PollsPage() {
   const [status, setStatus] = useState("")
   const [sort, setSort] = useState("created")
   const [selections, setSelections] = useState<Record<string, string[]>>({})
+  const [openPollId, setOpenPollId] = useState<string | null>(null)
   const polls = useQuery({
     queryKey: ["polls", status, sort],
     queryFn: () =>
@@ -82,6 +92,16 @@ export function PollsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["polls"] }),
   })
 
+  const openPoll = polls.data?.data.find((poll) => poll.id === openPollId)
+  const selected = openPoll
+    ? (selections[openPoll.id] ?? openPoll.selected_option_ids)
+    : []
+  const maxSelections = openPoll
+    ? openPoll.max_selections === 0
+      ? openPoll.options.length
+      : openPoll.max_selections
+    : 0
+
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -89,7 +109,6 @@ export function PollsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">
             {t("titles.polls")}
           </h1>
-          <p className="mt-2 text-muted-foreground">{t("polls.description")}</p>
         </div>
         <div className="flex gap-2">
           <Select
@@ -105,7 +124,7 @@ export function PollsPage() {
                 {t("polls.filters.active")}
               </SelectItem>
               <SelectItem value="closed">
-                {t("polls.filters.archive")}
+                {t("polls.filters.closed")}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -123,104 +142,164 @@ export function PollsPage() {
           </Select>
         </div>
       </header>
-      <div className="divide-y divide-border/70">
+      <div className="grid gap-4 md:grid-cols-2">
         {polls.data?.data.map((poll) => {
-          const selected = selections[poll.id] ?? poll.selected_option_ids
-          const max =
-            poll.max_selections === 0
-              ? poll.options.length
-              : poll.max_selections
+          const previewOptions = poll.options.slice(0, 3)
+          const remainingOptions = poll.options.length - previewOptions.length
+
           return (
-            <section key={poll.id} className="py-6 first:pt-0">
-              <div className="flex flex-wrap justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-medium">{poll.title}</h2>
-                  {poll.description ? (
-                    <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                      {poll.description}
-                    </p>
+            <button
+              key={poll.id}
+              type="button"
+              className="bg-card text-card-foreground flex flex-col gap-6 overflow-hidden rounded-xl border py-0 text-left shadow-sm transition-colors hover:border-primary/60 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              onClick={() => setOpenPollId(poll.id)}
+            >
+              <span className="flex flex-col gap-3 p-5 sm:p-6">
+                <span className="flex items-start justify-between gap-3">
+                  <span className="text-xl font-medium leading-tight">
+                    {poll.title}
+                  </span>
+                  {poll.status === "closed" ? (
+                    <Badge variant="outline" className="shrink-0">
+                      {t("polls.closed")}
+                    </Badge>
                   ) : null}
-                </div>
+                </span>
+                {poll.description ? (
+                  <span className="line-clamp-2 text-sm text-muted-foreground">
+                    {poll.description}
+                  </span>
+                ) : null}
+              </span>
+              <span className="flex flex-col gap-3 px-5 pb-5 sm:px-6 sm:pb-6">
+                <span className="grid gap-2">
+                  {previewOptions.map((option) => (
+                    <span
+                      key={option.id}
+                      className="rounded-md border border-border/70 px-3 py-2 text-sm"
+                    >
+                      {option.label}
+                    </span>
+                  ))}
+                  {remainingOptions > 0 ? (
+                    <span className="text-sm text-muted-foreground">
+                      {t("polls.moreOptions", { count: remainingOptions })}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="text-sm text-muted-foreground">
                   {poll.total_votes} {t("polls.votes")}
                 </span>
-              </div>
-              <div className="mt-4 grid gap-3">
-                {poll.options.map((option) => {
-                  const checked = selected.includes(option.id)
-                  return (
-                    <label
-                      key={option.id}
-                      htmlFor={`poll-${poll.id}-${option.id}`}
-                      className="flex cursor-pointer gap-3 rounded-lg border border-border/70 p-3 hover:bg-muted/40"
-                    >
-                      <Checkbox
-                        id={`poll-${poll.id}-${option.id}`}
-                        checked={checked}
-                        disabled={
-                          !user ||
-                          poll.status === "closed" ||
-                          (!poll.allow_vote_change && poll.has_voted) ||
-                          (!checked && selected.length >= max)
-                        }
-                        onCheckedChange={(value) =>
-                          setSelections((current) => ({
-                            ...current,
-                            [poll.id]: value
-                              ? [...selected, option.id]
-                              : selected.filter((id) => id !== option.id),
-                          }))
-                        }
-                      />
-                      <span>
-                        <span className="font-medium">{option.label}</span>
-                        {option.description ? (
-                          <span className="block text-sm text-muted-foreground">
-                            {option.description}
-                          </span>
-                        ) : null}
-                        {poll.can_view_results &&
-                        option.votes !== null &&
-                        option.votes !== undefined ? (
-                          <span className="mt-1 block text-xs text-muted-foreground">
-                            {option.votes} · {option.percentage?.toFixed(1)}%
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                  )
-                })}
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <Button
-                  disabled={
-                    !user ||
-                    poll.status === "closed" ||
-                    selected.length === 0 ||
-                    (poll.has_voted && !poll.allow_vote_change) ||
-                    vote.isPending
-                  }
-                  onClick={() =>
-                    vote.mutate({ pollId: poll.id, optionIds: selected })
-                  }
-                >
-                  {poll.has_voted ? t("polls.changeVote") : t("polls.vote")}
-                </Button>
-                {!user && poll.status === "active" ? (
-                  <span className="text-sm text-muted-foreground">
-                    {t("polls.signInToVote")}
-                  </span>
-                ) : null}
-                {poll.status === "closed" ? (
-                  <span className="text-sm text-muted-foreground">
-                    {t("polls.closed")}
-                  </span>
-                ) : null}
-              </div>
-            </section>
+              </span>
+            </button>
           )
         })}
       </div>
+
+      <Dialog
+        open={Boolean(openPoll)}
+        onOpenChange={(open) => {
+          if (!open) setOpenPollId(null)
+        }}
+      >
+        {openPoll ? (
+          <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <div className="flex items-start gap-3 pr-6">
+                <DialogTitle>{openPoll.title}</DialogTitle>
+                {openPoll.status === "closed" ? (
+                  <Badge variant="outline" className="shrink-0">
+                    {t("polls.closed")}
+                  </Badge>
+                ) : null}
+              </div>
+              {openPoll.description ? (
+                <DialogDescription>{openPoll.description}</DialogDescription>
+              ) : null}
+            </DialogHeader>
+            <div className="grid gap-3">
+              {openPoll.options.map((option) => {
+                const checked = selected.includes(option.id)
+                const disabled =
+                  !user ||
+                  openPoll.status === "closed" ||
+                  (!openPoll.allow_vote_change && openPoll.has_voted) ||
+                  (!checked && selected.length >= maxSelections)
+
+                return (
+                  <label
+                    key={option.id}
+                    htmlFor={`poll-${openPoll.id}-${option.id}`}
+                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40 focus-within:border-primary ${
+                      checked
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border/70"
+                    } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+                  >
+                    <Checkbox
+                      id={`poll-${openPoll.id}-${option.id}`}
+                      checked={checked}
+                      disabled={disabled}
+                      onCheckedChange={(value) =>
+                        setSelections((current) => {
+                          const currentSelected =
+                            current[openPoll.id] ?? openPoll.selected_option_ids
+                          return {
+                            ...current,
+                            [openPoll.id]: value
+                              ? [...currentSelected, option.id]
+                              : currentSelected.filter(
+                                  (id) => id !== option.id,
+                                ),
+                          }
+                        })
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">{option.label}</span>
+                      {option.description ? (
+                        <span className="block text-sm text-muted-foreground">
+                          {option.description}
+                        </span>
+                      ) : null}
+                      {openPoll.can_view_results &&
+                      option.votes !== null &&
+                      option.votes !== undefined ? (
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {option.votes} · {option.percentage?.toFixed(1)}%
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+            <DialogFooter className="items-center sm:justify-between">
+              <div className="text-sm text-muted-foreground">
+                {openPoll.status === "closed"
+                  ? t("polls.closed")
+                  : !user
+                    ? t("polls.signInToVote")
+                    : null}
+              </div>
+              <Button
+                disabled={
+                  !user ||
+                  openPoll.status === "closed" ||
+                  selected.length === 0 ||
+                  (openPoll.has_voted && !openPoll.allow_vote_change) ||
+                  vote.isPending
+                }
+                onClick={() =>
+                  vote.mutate({ pollId: openPoll.id, optionIds: selected })
+                }
+              >
+                {openPoll.has_voted ? t("polls.changeVote") : t("polls.vote")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        ) : null}
+      </Dialog>
     </div>
   )
 }

@@ -123,6 +123,20 @@ export const ru = {
     joinDiscord: "Присоединяйтесь к нам в Discord",
     joinQqGroup: "Вступайте в нашу группу QQ",
   },
+  polls: {
+    votes: "голосов",
+    vote: "Проголосовать",
+    changeVote: "Изменить голос",
+    signInToVote: "Войдите, чтобы проголосовать",
+    closed: "Закрыт",
+    moreOptions: "+{{count}} вариантов",
+    filters: { all: "Все опросы", active: "Активные", closed: "Закрытые" },
+    sort: {
+      created: "Новые",
+      activity: "Последняя активность",
+      votes: "Больше голосов",
+    },
+  },
   updates: {
     title: "Обновления",
     description: "Последние релиз-ноты из публичного репозитория GOKZ.TOP.",

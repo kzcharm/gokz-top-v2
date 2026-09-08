@@ -123,14 +123,13 @@ export const en = {
     joinQqGroup: "Join our QQ group",
   },
   polls: {
-    description:
-      "Vote on community questions and see the results when you participate or when voting closes.",
     votes: "votes",
     vote: "Vote",
     changeVote: "Change vote",
     signInToVote: "Sign in to vote",
     closed: "Closed",
-    filters: { all: "All polls", active: "Active", archive: "Archive" },
+    moreOptions: "+{{count}} more options",
+    filters: { all: "All polls", active: "Active", closed: "Closed" },
     sort: { created: "Newest", activity: "Last activity", votes: "Most votes" },
   },
   updates: {

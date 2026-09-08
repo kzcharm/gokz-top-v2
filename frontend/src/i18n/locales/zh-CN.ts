@@ -122,6 +122,16 @@ export const zhCN = {
     joinDiscord: "加入我们的 Discord",
     joinQqGroup: "加入我们的 QQ 群",
   },
+  polls: {
+    votes: "票",
+    vote: "投票",
+    changeVote: "更改投票",
+    signInToVote: "登录后投票",
+    closed: "已关闭",
+    moreOptions: "+{{count}} 个选项",
+    filters: { all: "全部投票", active: "进行中", closed: "已关闭" },
+    sort: { created: "最新创建", activity: "最近活动", votes: "票数最多" },
+  },
   updates: {
     title: "更新",
     description: "来自 GOKZ.TOP 公开仓库的近期发布说明。",
