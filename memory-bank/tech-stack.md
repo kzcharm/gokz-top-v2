@@ -21,6 +21,7 @@
   - `/v1/admin/servers` for RBAC-protected server and server-group management
   - `/v1/admin/player-social-links` for superuser management of player social links and verification state
   - `/v1/maps/reviews` supports website-authored review upserts, server-group writes, and QQ-bot writes authenticated by the active QQ binding secret; authenticated comment-only deletion remains available across a player's review rows for a map
+  - `/v1/polls` provides public poll browsing and authenticated voting, while `/v1/admin/polls` is restricted to root admins for poll lifecycle management and voter audits
 - Data strategy:
   - PostgreSQL as primary persistent store
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)

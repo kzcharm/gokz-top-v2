@@ -99,6 +99,7 @@ export const ru = {
     live: "Live",
     media: "Видео",
     bans: "Баны",
+    polls: "Опросы",
     joinDiscord: "Присоединиться к Discord",
     joinDiscordHelp: "Возникли проблемы? Присоединяйтесь к нашему Discord.",
     notifications: "Уведомления",
@@ -189,6 +190,8 @@ export const ru = {
     adminServers: "Админ серверов",
     adminPlayerSessions: "Админ сессий игроков",
     adminPlayerSocialLinks: "Админ соцсетей",
+    polls: "Опросы",
+    adminPolls: "Админ опросов",
     adminSettings: "Настройки администратора",
   },
   adminSettings: {

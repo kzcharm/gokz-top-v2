@@ -292,6 +292,23 @@ from .player_webhook import (
     PlayerWebhookUpdate,
     normalize_discord_webhook_url,
 )
+from .poll import (
+    AdminPollPublic,
+    AdminPollsPublic,
+    Poll,
+    PollCreate,
+    PollListQuery,
+    PollOption,
+    PollOptionInput,
+    PollOptionPublic,
+    PollPublic,
+    PollsPublic,
+    PollStatus,
+    PollUpdate,
+    PollVote,
+    PollVoteCreate,
+    PollVoterPublic,
+)
 from .qq_binding import QQBindingCodePublic, QQBindingTokenPayload
 from .qq_binding_secret import (
     QQBindingSecret,
@@ -834,4 +851,19 @@ __all__ = [
     "normalize_user_roles",
     "seconds_to_time_ms",
     "time_ms_to_seconds",
+    "AdminPollPublic",
+    "AdminPollsPublic",
+    "Poll",
+    "PollCreate",
+    "PollListQuery",
+    "PollOption",
+    "PollOptionInput",
+    "PollOptionPublic",
+    "PollPublic",
+    "PollsPublic",
+    "PollStatus",
+    "PollUpdate",
+    "PollVote",
+    "PollVoteCreate",
+    "PollVoterPublic",
 ]

@@ -331,6 +331,7 @@ prepare_backend_dev() {
   fi
 
   kill_port_processes_with_confirmation "8000" "127.0.0.1:8000"
+  check_backend_migrations
 }
 
 run_backend_devserver() {
@@ -338,6 +339,21 @@ run_backend_devserver() {
   cd "$ROOT_DIR/backend"
   export LOG_LEVEL="$log_level_override"
   exec uv run fastapi dev app/main.py
+}
+
+check_backend_migrations() {
+  if (cd "$ROOT_DIR/backend" && uv run alembic current --check-heads >/dev/null 2>&1); then
+    echo "Database migrations are up to date."
+    return 0
+  fi
+
+  echo "New database migrations are available."
+  if ! confirm_action "Upgrade the local database to the latest migration?" yes; then
+    echo "Skipping database migration upgrade."
+    return 0
+  fi
+
+  (cd "$ROOT_DIR/backend" && uv run alembic upgrade head)
 }
 
 prepare_frontend_dev() {

@@ -50,6 +50,8 @@ To start both local dev servers together from the repository root, run:
 
 Use `./dev d` to enable backend debug logging. The existing `./devbackend` and `./devfrontend` entry points still work if you only want one side.
 
+When `./dev` or `./devbackend` starts, it checks whether the local database is behind the Alembic migrations in the working tree. If migrations are pending, it asks whether to upgrade to the latest revision; pressing Enter accepts the default (yes). Answer `n` to continue without upgrading.
+
 For example, you can stop that `frontend` service in the Docker Compose, in another terminal, run:
 
 ```bash

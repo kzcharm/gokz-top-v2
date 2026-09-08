@@ -154,6 +154,13 @@ Scope model:
 - Authenticated players can manage their own social links from settings; Twitch and YouTube links support self-serve OAuth verification, Bilibili links support self-serve profile-code verification, and superusers can still view, add, edit, delete, and verify player social links from admin.
 - Authenticated players can manage Discord webhooks from `/settings`; enabled webhooks currently receive all supported stream-start events for the player's verified Twitch and Bilibili links, and each webhook shows its last-used time based on successful test sends or real deliveries.
 
+### 5.8 Community Polls
+- Public `/polls` browsing supports active/archive filtering and sorting by creation time, last activity, or total voters.
+- Polls contain a title, optional description, ordered options with optional descriptions, optional end time, and configurable selection limits (`0` means unlimited).
+- Signed-in users can vote once per poll and may change their selections when enabled by the poll author; votes cannot be withdrawn.
+- Total voter counts are public. Open-poll option results are visible only to voters; closed-poll results are visible to everyone.
+- Root admins are the only users who can create, edit, close, reopen, or delete polls and inspect voter audits. Options lock after the first vote.
+
 ## 6) Compatibility Strategy (Mirror + Extend)
 
 ### 6.1 Mirror Rules

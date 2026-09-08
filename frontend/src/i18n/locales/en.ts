@@ -98,6 +98,7 @@ export const en = {
     live: "Live",
     media: "Media",
     bans: "Bans",
+    polls: "Polls",
     joinDiscord: "Join Discord",
     joinDiscordHelp: "Having problems? Join our Discord.",
     notifications: "Notifications",
@@ -120,6 +121,17 @@ export const en = {
   footer: {
     joinDiscord: "Join us on Discord",
     joinQqGroup: "Join our QQ group",
+  },
+  polls: {
+    description:
+      "Vote on community questions and see the results when you participate or when voting closes.",
+    votes: "votes",
+    vote: "Vote",
+    changeVote: "Change vote",
+    signInToVote: "Sign in to vote",
+    closed: "Closed",
+    filters: { all: "All polls", active: "Active", archive: "Archive" },
+    sort: { created: "Newest", activity: "Last activity", votes: "Most votes" },
   },
   updates: {
     title: "Updates",
@@ -188,6 +200,8 @@ export const en = {
     adminServers: "Admin Servers",
     adminPlayerSessions: "Admin Player Sessions",
     adminPlayerSocialLinks: "Admin Social Links",
+    polls: "Polls",
+    adminPolls: "Admin Polls",
     adminSettings: "Admin Settings",
   },
   adminSettings: {

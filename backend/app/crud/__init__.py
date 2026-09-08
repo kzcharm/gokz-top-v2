@@ -243,6 +243,16 @@ from .player_webhook import (
     to_player_webhook_publics,
     update_player_webhook,
 )
+from .poll import (
+    cast_vote,
+    create_poll,
+    delete_poll,
+    get_poll,
+    get_vote,
+    read_polls,
+    to_poll_public,
+    update_poll,
+)
 from .qq_binding_secret import (
     QQBindingSecretAlreadyConfiguredError,
     create_qq_binding_secret,
@@ -664,4 +674,12 @@ __all__ = [
     "to_tournament_public",
     "update_tournament",
     "update_tournament_achievement",
+    "cast_vote",
+    "create_poll",
+    "delete_poll",
+    "get_poll",
+    "get_vote",
+    "read_polls",
+    "to_poll_public",
+    "update_poll",
 ]

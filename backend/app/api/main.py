@@ -5,6 +5,7 @@ from app.api.v1 import (
     admin_modes,
     admin_player_sessions,
     admin_player_social_links,
+    admin_polls,
     admin_server_discovery,
     admin_servers,
     admin_settings,
@@ -30,6 +31,7 @@ from app.api.v1 import (
     player_social_links,
     player_ws,
     players,
+    polls,
     private,
     record_ws,
     records,
@@ -56,6 +58,7 @@ api_router.include_router(me_player_actions.router)
 api_router.include_router(me_notifications.router)
 api_router.include_router(player_follows.router)
 api_router.include_router(player_reports.router)
+api_router.include_router(polls.router)
 api_router.include_router(player_social_links.router)
 api_router.include_router(player_social_links.verification_router)
 api_router.include_router(graphql.router)
@@ -82,6 +85,7 @@ api_router.include_router(admin_player_sessions.router)
 api_router.include_router(admin_player_social_links.router)
 api_router.include_router(admin_settings.router)
 api_router.include_router(admin_tournaments.router)
+api_router.include_router(admin_polls.router)
 api_router.include_router(admin_server_discovery.router)
 api_router.include_router(admin_servers.router)
 api_router.include_router(utils.router)

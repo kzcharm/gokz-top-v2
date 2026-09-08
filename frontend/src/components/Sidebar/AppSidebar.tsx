@@ -13,6 +13,7 @@ import {
   User as UserIcon,
   Users,
   Video,
+  Vote,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -111,6 +112,7 @@ export function AppSidebar() {
       showNotificationDot: showMediaDot,
     },
     { type: "link", icon: ShieldAlert, title: t("nav.bans"), path: "/bans" },
+    { type: "link", icon: Vote, title: t("nav.polls"), path: "/polls" },
   ]
 
   const adminChildren = currentUserIsSuperuser
@@ -118,6 +120,7 @@ export function AppSidebar() {
         { title: t("nav.users"), path: "/admin/users", icon: Users },
         { title: t("nav.players"), path: "/admin/players", icon: UserIcon },
         { title: "Tournaments", path: "/admin/tournaments", icon: Trophy },
+        { title: t("nav.polls"), path: "/admin/polls", icon: Vote },
         {
           title: t("nav.socialLinks"),
           path: "/admin/player-social-links",

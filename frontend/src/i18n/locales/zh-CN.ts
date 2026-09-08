@@ -98,6 +98,7 @@ export const zhCN = {
     live: "直播",
     media: "视频",
     bans: "封禁",
+    polls: "投票",
     joinDiscord: "加入 Discord",
     joinDiscordHelp: "遇到问题？加入我们的 Discord。",
     notifications: "通知",
@@ -187,6 +188,8 @@ export const zhCN = {
     adminServers: "服务器管理",
     adminPlayerSessions: "玩家会话管理",
     adminPlayerSocialLinks: "社交链接管理",
+    polls: "投票",
+    adminPolls: "投票管理",
     adminSettings: "管理设置",
   },
   adminSettings: {

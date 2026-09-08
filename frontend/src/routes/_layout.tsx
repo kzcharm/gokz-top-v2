@@ -23,7 +23,8 @@ function Layout() {
         pathname.startsWith("/bans") ||
         pathname.startsWith("/live") ||
         pathname.startsWith("/media") ||
-        pathname.startsWith("/updates")
+        pathname.startsWith("/updates") ||
+        pathname.startsWith("/polls")
           ? "max-w-[1600px]"
           : undefined
       }

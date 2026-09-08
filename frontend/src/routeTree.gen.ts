@@ -19,6 +19,7 @@ import { Route as MapsMapNameRouteImport } from './routes/maps.$mapName'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as LayoutUpdatesRouteImport } from './routes/_layout/updates'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutPollsRouteImport } from './routes/_layout/polls'
 import { Route as LayoutNotificationsRouteImport } from './routes/_layout/notifications'
 import { Route as LayoutMediaRouteImport } from './routes/_layout/media'
 import { Route as LayoutLiveRouteImport } from './routes/_layout/live'
@@ -52,6 +53,7 @@ import { Route as LayoutAdminUsersRouteImport } from './routes/_layout/admin.use
 import { Route as LayoutAdminTournamentsRouteImport } from './routes/_layout/admin.tournaments'
 import { Route as LayoutAdminSettingsRouteImport } from './routes/_layout/admin.settings'
 import { Route as LayoutAdminServersRouteImport } from './routes/_layout/admin.servers'
+import { Route as LayoutAdminPollsRouteImport } from './routes/_layout/admin.polls'
 import { Route as LayoutAdminPlayersRouteImport } from './routes/_layout/admin.players'
 import { Route as LayoutAdminPlayerSocialLinksRouteImport } from './routes/_layout/admin.player-social-links'
 import { Route as LayoutAdminPlayerSessionsRouteImport } from './routes/_layout/admin.player-sessions'
@@ -116,6 +118,11 @@ const LayoutUpdatesRoute = LayoutUpdatesRouteImport.update({
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutPollsRoute = LayoutPollsRouteImport.update({
+  id: '/polls',
+  path: '/polls',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutNotificationsRoute = LayoutNotificationsRouteImport.update({
@@ -292,6 +299,11 @@ const LayoutAdminServersRoute = LayoutAdminServersRouteImport.update({
   path: '/servers',
   getParentRoute: () => LayoutAdminRoute,
 } as any)
+const LayoutAdminPollsRoute = LayoutAdminPollsRouteImport.update({
+  id: '/polls',
+  path: '/polls',
+  getParentRoute: () => LayoutAdminRoute,
+} as any)
 const LayoutAdminPlayersRoute = LayoutAdminPlayersRouteImport.update({
   id: '/players',
   path: '/players',
@@ -400,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof LayoutLiveRoute
   '/media': typeof LayoutMediaRoute
   '/notifications': typeof LayoutNotificationsRoute
+  '/polls': typeof LayoutPollsRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
   '/updates': typeof LayoutUpdatesRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -409,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
+  '/admin/polls': typeof LayoutAdminPollsRoute
   '/admin/servers': typeof LayoutAdminServersRouteWithChildren
   '/admin/settings': typeof LayoutAdminSettingsRoute
   '/admin/tournaments': typeof LayoutAdminTournamentsRoute
@@ -459,6 +473,7 @@ export interface FileRoutesByTo {
   '/live': typeof LayoutLiveRoute
   '/media': typeof LayoutMediaRoute
   '/notifications': typeof LayoutNotificationsRoute
+  '/polls': typeof LayoutPollsRoute
   '/settings': typeof LayoutSettingsRouteWithChildren
   '/updates': typeof LayoutUpdatesRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -469,6 +484,7 @@ export interface FileRoutesByTo {
   '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/admin/players': typeof LayoutAdminPlayersRoute
+  '/admin/polls': typeof LayoutAdminPollsRoute
   '/admin/servers': typeof LayoutAdminServersRouteWithChildren
   '/admin/settings': typeof LayoutAdminSettingsRoute
   '/admin/tournaments': typeof LayoutAdminTournamentsRoute
@@ -520,6 +536,7 @@ export interface FileRoutesById {
   '/_layout/live': typeof LayoutLiveRoute
   '/_layout/media': typeof LayoutMediaRoute
   '/_layout/notifications': typeof LayoutNotificationsRoute
+  '/_layout/polls': typeof LayoutPollsRoute
   '/_layout/settings': typeof LayoutSettingsRouteWithChildren
   '/_layout/updates': typeof LayoutUpdatesRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -530,6 +547,7 @@ export interface FileRoutesById {
   '/_layout/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/_layout/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
   '/_layout/admin/players': typeof LayoutAdminPlayersRoute
+  '/_layout/admin/polls': typeof LayoutAdminPollsRoute
   '/_layout/admin/servers': typeof LayoutAdminServersRouteWithChildren
   '/_layout/admin/settings': typeof LayoutAdminSettingsRoute
   '/_layout/admin/tournaments': typeof LayoutAdminTournamentsRoute
@@ -583,6 +601,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/media'
     | '/notifications'
+    | '/polls'
     | '/settings'
     | '/updates'
     | '/auth/callback'
@@ -592,6 +611,7 @@ export interface FileRouteTypes {
     | '/admin/player-sessions'
     | '/admin/player-social-links'
     | '/admin/players'
+    | '/admin/polls'
     | '/admin/servers'
     | '/admin/settings'
     | '/admin/tournaments'
@@ -642,6 +662,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/media'
     | '/notifications'
+    | '/polls'
     | '/settings'
     | '/updates'
     | '/auth/callback'
@@ -652,6 +673,7 @@ export interface FileRouteTypes {
     | '/admin/player-sessions'
     | '/admin/player-social-links'
     | '/admin/players'
+    | '/admin/polls'
     | '/admin/servers'
     | '/admin/settings'
     | '/admin/tournaments'
@@ -702,6 +724,7 @@ export interface FileRouteTypes {
     | '/_layout/live'
     | '/_layout/media'
     | '/_layout/notifications'
+    | '/_layout/polls'
     | '/_layout/settings'
     | '/_layout/updates'
     | '/auth/callback'
@@ -712,6 +735,7 @@ export interface FileRouteTypes {
     | '/_layout/admin/player-sessions'
     | '/_layout/admin/player-social-links'
     | '/_layout/admin/players'
+    | '/_layout/admin/polls'
     | '/_layout/admin/servers'
     | '/_layout/admin/settings'
     | '/_layout/admin/tournaments'
@@ -829,6 +853,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof LayoutSettingsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/polls': {
+      id: '/_layout/polls'
+      path: '/polls'
+      fullPath: '/polls'
+      preLoaderRoute: typeof LayoutPollsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/notifications': {
@@ -1062,6 +1093,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminServersRouteImport
       parentRoute: typeof LayoutAdminRoute
     }
+    '/_layout/admin/polls': {
+      id: '/_layout/admin/polls'
+      path: '/polls'
+      fullPath: '/admin/polls'
+      preLoaderRoute: typeof LayoutAdminPollsRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
     '/_layout/admin/players': {
       id: '/_layout/admin/players'
       path: '/players'
@@ -1198,6 +1236,7 @@ interface LayoutAdminRouteChildren {
   LayoutAdminPlayerSessionsRoute: typeof LayoutAdminPlayerSessionsRoute
   LayoutAdminPlayerSocialLinksRoute: typeof LayoutAdminPlayerSocialLinksRoute
   LayoutAdminPlayersRoute: typeof LayoutAdminPlayersRoute
+  LayoutAdminPollsRoute: typeof LayoutAdminPollsRoute
   LayoutAdminServersRoute: typeof LayoutAdminServersRouteWithChildren
   LayoutAdminSettingsRoute: typeof LayoutAdminSettingsRoute
   LayoutAdminTournamentsRoute: typeof LayoutAdminTournamentsRoute
@@ -1209,6 +1248,7 @@ const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminPlayerSessionsRoute: LayoutAdminPlayerSessionsRoute,
   LayoutAdminPlayerSocialLinksRoute: LayoutAdminPlayerSocialLinksRoute,
   LayoutAdminPlayersRoute: LayoutAdminPlayersRoute,
+  LayoutAdminPollsRoute: LayoutAdminPollsRoute,
   LayoutAdminServersRoute: LayoutAdminServersRouteWithChildren,
   LayoutAdminSettingsRoute: LayoutAdminSettingsRoute,
   LayoutAdminTournamentsRoute: LayoutAdminTournamentsRoute,
@@ -1319,6 +1359,7 @@ interface LayoutRouteChildren {
   LayoutLiveRoute: typeof LayoutLiveRoute
   LayoutMediaRoute: typeof LayoutMediaRoute
   LayoutNotificationsRoute: typeof LayoutNotificationsRoute
+  LayoutPollsRoute: typeof LayoutPollsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRouteWithChildren
   LayoutUpdatesRoute: typeof LayoutUpdatesRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -1334,6 +1375,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutLiveRoute: LayoutLiveRoute,
   LayoutMediaRoute: LayoutMediaRoute,
   LayoutNotificationsRoute: LayoutNotificationsRoute,
+  LayoutPollsRoute: LayoutPollsRoute,
   LayoutSettingsRoute: LayoutSettingsRouteWithChildren,
   LayoutUpdatesRoute: LayoutUpdatesRoute,
   LayoutIndexRoute: LayoutIndexRoute,
