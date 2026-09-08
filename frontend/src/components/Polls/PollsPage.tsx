@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Pencil, Plus } from "lucide-react"
-import { type ChangeEvent, useState } from "react"
+import { type ChangeEvent, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { OpenAPI } from "@/client"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+  AvatarImage,
+} from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,8 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
+import { markPollsVisited } from "@/lib/poll-notifications"
 import { isSuperuser } from "@/lib/user-roles"
+import { getInitials } from "@/utils"
 
 type Option = {
   id: string
@@ -46,9 +60,84 @@ type Poll = {
   selected_option_ids: string[]
   options: Option[]
   created_by_steamid64?: string | null
+  voters?: Voter[]
+}
+
+type Voter = {
+  steamid64: string
+  name?: string | null
+  alias?: string | null
+  avatar_hash?: string | null
+  option_ids: string[]
 }
 
 type DraftOption = { label: string; description: string }
+
+function VoterAvatars({ voters }: { voters: Voter[] }) {
+  const [expanded, setExpanded] = useState(false)
+  if (voters.length === 0) return null
+  const visible = expanded ? voters : voters.slice(0, 10)
+  const remaining = voters.length - 10
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <AvatarGroup>
+        {visible.map((voter) => {
+          const displayName =
+            voter.alias?.trim() || voter.name?.trim() || voter.steamid64
+          const avatarUrl = voter.avatar_hash
+            ? `https://avatars.steamstatic.com/${voter.avatar_hash}_medium.jpg`
+            : undefined
+          return (
+            <Tooltip key={voter.steamid64}>
+              <TooltipTrigger asChild>
+                <a
+                  href={`/profile/${encodeURIComponent(voter.steamid64)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={displayName}
+                >
+                  <Avatar className="size-7 border-2 border-background transition-transform hover:scale-110">
+                    <AvatarImage src={avatarUrl} alt={displayName} />
+                    <AvatarFallback className="text-[10px]">
+                      {getInitials(displayName)}
+                    </AvatarFallback>
+                  </Avatar>
+                </a>
+              </TooltipTrigger>
+              <TooltipContent>{displayName}</TooltipContent>
+            </Tooltip>
+          )
+        })}
+        {!expanded && remaining > 0 ? (
+          <AvatarGroupCount asChild>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                setExpanded(true)
+              }}
+              aria-label={`Show all ${voters.length} voters`}
+            >
+              +{remaining}
+            </button>
+          </AvatarGroupCount>
+        ) : null}
+      </AvatarGroup>
+      {expanded && remaining > 0 ? (
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:text-foreground"
+          onClick={(event) => {
+            event.stopPropagation()
+            setExpanded(false)
+          }}
+        >
+          Show less
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("access_token")
@@ -80,6 +169,10 @@ export function PollsPage() {
     type: "delete" | "close" | "reopen"
     poll: Poll
   } | null>(null)
+  const [pendingVote, setPendingVote] = useState<{
+    pollId: string
+    optionIds: string[]
+  } | null>(null)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [endsAt, setEndsAt] = useState("")
@@ -90,6 +183,9 @@ export function PollsPage() {
     { label: "", description: "" },
   ])
   const admin = Boolean(user && isSuperuser(user))
+  useEffect(() => {
+    markPollsVisited()
+  }, [])
   const polls = useQuery({
     queryKey: ["polls", status, sort],
     queryFn: () =>
@@ -189,6 +285,14 @@ export function PollsPage() {
       ? openPoll.options.length
       : openPoll.max_selections
     : 0
+  const submitVote = () => {
+    if (!openPoll) return
+    if (!openPoll.allow_vote_change && !openPoll.has_voted) {
+      setPendingVote({ pollId: openPoll.id, optionIds: selected })
+      return
+    }
+    vote.mutate({ pollId: openPoll.id, optionIds: selected })
+  }
 
   return (
     <div className="space-y-8">
@@ -389,60 +493,67 @@ export function PollsPage() {
                   (!openPoll.allow_vote_change && openPoll.has_voted) ||
                   (!checked && selected.length >= maxSelections)
 
+                const optionVoters = (openPoll.voters ?? []).filter((voter) =>
+                  voter.option_ids.includes(option.id),
+                )
                 return (
-                  <button
-                    type="button"
-                    key={option.id}
-                    aria-pressed={checked}
-                    disabled={disabled}
-                    className={`relative flex w-full cursor-pointer gap-3 overflow-hidden rounded-lg border p-3 text-left transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
-                      checked
-                        ? "border-primary bg-primary/10 ring-1 ring-primary/20"
-                        : "border-border/70 bg-secondary hover:bg-muted/50"
-                    } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
-                    onClick={() =>
-                      setSelections((current) => {
-                        const currentSelected =
-                          current[openPoll.id] ?? openPoll.selected_option_ids
-                        return {
-                          ...current,
-                          [openPoll.id]: checked
-                            ? currentSelected.filter((id) => id !== option.id)
-                            : [...currentSelected, option.id],
-                        }
-                      })
-                    }
-                  >
-                    {openPoll.can_view_results &&
-                    option.votes !== null &&
-                    option.votes !== undefined ? (
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-y-0 left-0 bg-primary/20 transition-[width]"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    ) : null}
-                    <span className="relative z-10 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-muted-foreground">
-                      {optionIndex + 1}.
-                    </span>
-                    <span className="relative z-10 flex min-w-0 flex-1 items-start justify-between gap-4">
-                      <span className="min-w-0">
-                        <span className="font-medium">{option.label}</span>
-                        {option.description ? (
-                          <span className="block text-sm text-muted-foreground">
-                            {option.description}
-                          </span>
-                        ) : null}
-                      </span>
+                  <div key={option.id}>
+                    <button
+                      type="button"
+                      aria-pressed={checked}
+                      disabled={disabled}
+                      className={`relative flex w-full cursor-pointer gap-3 overflow-hidden rounded-lg border p-3 text-left transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+                        checked
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/20"
+                          : "border-border/70 bg-secondary hover:bg-muted/50"
+                      } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+                      onClick={() =>
+                        setSelections((current) => {
+                          const currentSelected =
+                            current[openPoll.id] ?? openPoll.selected_option_ids
+                          return {
+                            ...current,
+                            [openPoll.id]: checked
+                              ? currentSelected.filter((id) => id !== option.id)
+                              : [...currentSelected, option.id],
+                          }
+                        })
+                      }
+                    >
                       {openPoll.can_view_results &&
                       option.votes !== null &&
                       option.votes !== undefined ? (
-                        <span className="shrink-0 whitespace-nowrap text-right text-sm text-muted-foreground">
-                          {option.votes} · {option.percentage?.toFixed(1)}%
-                        </span>
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-y-0 left-0 bg-primary/20 transition-[width]"
+                          style={{ width: `${percentage}%` }}
+                        />
                       ) : null}
-                    </span>
-                  </button>
+                      <span className="relative z-10 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-muted-foreground">
+                        {optionIndex + 1}.
+                      </span>
+                      <span className="relative z-10 flex min-w-0 flex-1 items-start justify-between gap-4">
+                        <span className="min-w-0">
+                          <span className="font-medium">{option.label}</span>
+                          {option.description ? (
+                            <span className="block text-sm text-muted-foreground">
+                              {option.description}
+                            </span>
+                          ) : null}
+                        </span>
+                        {openPoll.can_view_results &&
+                        option.votes !== null &&
+                        option.votes !== undefined ? (
+                          <span className="shrink-0 whitespace-nowrap text-right text-sm text-muted-foreground">
+                            {option.votes} · {option.percentage?.toFixed(1)}%
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                    {openPoll.can_view_results ? (
+                      <VoterAvatars voters={optionVoters} />
+                    ) : null}
+                  </div>
                 )
               })}
             </div>
@@ -462,9 +573,7 @@ export function PollsPage() {
                   (openPoll.has_voted && !openPoll.allow_vote_change) ||
                   vote.isPending
                 }
-                onClick={() =>
-                  vote.mutate({ pollId: openPoll.id, optionIds: selected })
-                }
+                onClick={submitVote}
               >
                 {openPoll.has_voted ? t("polls.changeVote") : t("polls.vote")}
               </Button>
@@ -635,6 +744,35 @@ export function PollsPage() {
               }}
             >
               Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={pendingVote !== null}
+        onOpenChange={(open) => !open && setPendingVote(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm your vote</DialogTitle>
+            <DialogDescription>
+              This poll does not allow voters to change their selection. Once
+              submitted, your vote cannot be changed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingVote(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={vote.isPending}
+              onClick={() => {
+                if (!pendingVote) return
+                vote.mutate(pendingVote)
+                setPendingVote(null)
+              }}
+            >
+              Submit vote
             </Button>
           </DialogFooter>
         </DialogContent>

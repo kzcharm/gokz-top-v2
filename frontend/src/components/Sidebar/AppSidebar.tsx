@@ -18,7 +18,12 @@ import {
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AdminServersService, LiveService, MediaService } from "@/client"
+import {
+  AdminServersService,
+  LiveService,
+  MediaService,
+  OpenAPI,
+} from "@/client"
 import { Logo } from "@/components/Common/Logo"
 import {
   Sidebar,
@@ -32,6 +37,11 @@ import {
   MEDIA_LAST_VISITED_EVENT,
   markMediaVisited,
 } from "@/lib/media-notifications"
+import {
+  getPollsLastVisitedAt,
+  markPollsVisited,
+  POLLS_LAST_VISITED_EVENT,
+} from "@/lib/poll-notifications"
 import { hasRole, isSuperuser } from "@/lib/user-roles"
 import { type Item, Main } from "./Main"
 import { User } from "./User"
@@ -42,6 +52,9 @@ export function AppSidebar() {
   const [hasClickedLive, setHasClickedLive] = useState(false)
   const [mediaLastVisitedAt, setMediaLastVisitedAt] = useState(
     getMediaLastVisitedAt,
+  )
+  const [pollsLastVisitedAt, setPollsLastVisitedAt] = useState(
+    getPollsLastVisitedAt,
   )
   const profileSteamid64 = currentUser?.steamid64 ?? "76561198417871586"
   const currentUserIsSuperuser = isSuperuser(currentUser)
@@ -79,6 +92,32 @@ export function AppSidebar() {
     (mediaLastVisitedAt === null ||
       Date.parse(mediaPostsQuery.data.data[0].published_at) >
         mediaLastVisitedAt)
+  const pollsQuery = useQuery({
+    queryKey: ["polls", "sidebar"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/polls?limit=1&sort=created`,
+      )
+      if (!response.ok) throw new Error("Failed to load latest poll")
+      return (await response.json()) as {
+        data?: Array<{ created_at: string }>
+      }
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+  useEffect(() => {
+    const handlePollsVisited = () =>
+      setPollsLastVisitedAt(getPollsLastVisitedAt())
+    window.addEventListener(POLLS_LAST_VISITED_EVENT, handlePollsVisited)
+    return () =>
+      window.removeEventListener(POLLS_LAST_VISITED_EVENT, handlePollsVisited)
+  }, [])
+  const latestPollCreatedAt = pollsQuery.data?.data?.[0]?.created_at
+  const showPollsDot =
+    latestPollCreatedAt !== undefined &&
+    (pollsLastVisitedAt === null ||
+      Date.parse(latestPollCreatedAt) > pollsLastVisitedAt)
 
   const publicItems: Item[] = [
     { type: "link", icon: Server, title: t("nav.servers"), path: "/servers" },
@@ -112,7 +151,13 @@ export function AppSidebar() {
       showNotificationDot: showMediaDot,
     },
     { type: "link", icon: ShieldAlert, title: t("nav.bans"), path: "/bans" },
-    { type: "link", icon: Vote, title: t("nav.polls"), path: "/polls" },
+    {
+      type: "link",
+      icon: Vote,
+      title: t("nav.polls"),
+      path: "/polls",
+      showNotificationDot: showPollsDot,
+    },
   ]
 
   const adminChildren = currentUserIsSuperuser
@@ -184,6 +229,9 @@ export function AppSidebar() {
             }
             if (path === "/media") {
               setMediaLastVisitedAt(markMediaVisited())
+            }
+            if (path === "/polls") {
+              setPollsLastVisitedAt(markPollsVisited())
             }
           }}
         />

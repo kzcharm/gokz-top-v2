@@ -7,6 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
     AdminPollPublic,
+    Player,
     Poll,
     PollCreate,
     PollListQuery,
@@ -255,6 +256,17 @@ async def to_poll_public(
             if parsed in counts:
                 counts[parsed] += 1
     total = len(votes)
+    voter_players = {}
+    if can_results and votes:
+        voter_ids = {vote.user_steamid64 for vote in votes}
+        voter_players = {
+            player.steamid64: player
+            for player in (
+                await session.exec(
+                    select(Player).where(col(Player.steamid64).in_(voter_ids))
+                )
+            ).all()
+        }
     public_options = [
         PollOptionPublic(
             id=option.id,
@@ -297,14 +309,22 @@ async def to_poll_public(
         "can_view_results": can_results,
         "options": public_options,
     }
-    if admin:
-        voters = [
-            PollVoterPublic(
-                steamid64=str(vote.user_steamid64),
-                option_ids=[uuid.UUID(value) for value in vote.option_ids],
-                voted_at=vote.updated_at,
+    if can_results:
+        voters = []
+        for vote in votes:
+            player = voter_players.get(vote.user_steamid64)
+            voters.append(
+                PollVoterPublic(
+                    steamid64=str(vote.user_steamid64),
+                    name=player.name if player else None,
+                    alias=player.alias if player else None,
+                    avatar_hash=player.avatar_hash if player else None,
+                    option_ids=[uuid.UUID(value) for value in vote.option_ids],
+                    voted_at=vote.updated_at,
+                )
             )
-            for vote in votes
-        ]
+    else:
+        voters = []
+    if admin:
         return AdminPollPublic(**base, voters=voters)
-    return PollPublic(**base)
+    return PollPublic(**base, voters=voters)

@@ -211,6 +211,15 @@ class PollOptionPublic(SQLModel):
     percentage: float | None = None
 
 
+class PollVoterPublic(SQLModel):
+    steamid64: str
+    name: str | None = None
+    alias: str | None = None
+    avatar_hash: str | None = None
+    option_ids: list[uuid.UUID]
+    voted_at: datetime
+
+
 class PollPublic(SQLModel):
     id: uuid.UUID
     created_by_steamid64: str | None
@@ -229,17 +238,12 @@ class PollPublic(SQLModel):
     selected_option_ids: list[uuid.UUID]
     can_view_results: bool
     options: list[PollOptionPublic]
+    voters: list[PollVoterPublic] = Field(default_factory=list)
 
 
 class PollsPublic(SQLModel):
     data: list[PollPublic]
     count: int
-
-
-class PollVoterPublic(SQLModel):
-    steamid64: str
-    option_ids: list[uuid.UUID]
-    voted_at: datetime
 
 
 class AdminPollPublic(PollPublic):
