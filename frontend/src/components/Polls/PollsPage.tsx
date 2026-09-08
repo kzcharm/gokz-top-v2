@@ -151,7 +151,7 @@ export function PollsPage() {
             <button
               key={poll.id}
               type="button"
-              className="bg-card text-card-foreground flex flex-col gap-6 overflow-hidden rounded-xl border py-0 text-left shadow-sm transition-colors hover:border-primary/60 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              className="bg-card text-card-foreground flex flex-col gap-0 overflow-hidden rounded-xl border py-0 text-left shadow-sm transition-colors hover:border-primary/60 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               onClick={() => setOpenPollId(poll.id)}
             >
               <span className="flex flex-col gap-3 p-5 sm:p-6">
@@ -165,11 +165,6 @@ export function PollsPage() {
                     </Badge>
                   ) : null}
                 </span>
-                {poll.description ? (
-                  <span className="line-clamp-2 text-sm text-muted-foreground">
-                    {poll.description}
-                  </span>
-                ) : null}
               </span>
               <span className="flex flex-col gap-3 px-5 pb-5 sm:px-6 sm:pb-6">
                 <span className="grid gap-2">
