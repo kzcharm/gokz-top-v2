@@ -602,11 +602,13 @@ export function PollsPage() {
                   : "Reopen poll?"}
             </DialogTitle>
             <DialogDescription>
-              {pendingAction?.type === "delete"
-                ? `This removes “${pendingAction.poll.title}” from public poll lists. Its votes are retained.`
-                : pendingAction?.type === "close"
-                  ? `Voting will stop for “${pendingAction.poll.title}”.`
-                  : `Voting will resume for “${pendingAction.poll.title}”.`}
+              {pendingAction
+                ? pendingAction.type === "delete"
+                  ? `This removes “${pendingAction.poll.title}” from public poll lists. Its votes are retained.`
+                  : pendingAction.type === "close"
+                    ? `Voting will stop for “${pendingAction.poll.title}”.`
+                    : `Voting will resume for “${pendingAction.poll.title}”.`
+                : null}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
