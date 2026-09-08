@@ -5,8 +5,19 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
-from app.api.deps import CurrentUser, OptionalCurrentUser, SessionDep
-from app.models import PollListQuery, PollPublic, PollsPublic, PollVoteCreate
+from app.api.deps import (
+    CurrentUser,
+    OptionalCurrentUser,
+    SessionDep,
+    user_has_any_role,
+)
+from app.models import (
+    PollListQuery,
+    PollPublic,
+    PollsPublic,
+    PollVoteCreate,
+    UserRole,
+)
 
 router = APIRouter(prefix="/polls", tags=["polls"])
 
@@ -19,10 +30,16 @@ async def read_polls(
     query: Annotated[PollListQuery, Query()],
 ) -> PollsPublic:
     polls, count = await crud.read_polls(session=session, query=query)
+    is_admin = current_user is not None and user_has_any_role(
+        current_user, UserRole.SUPERUSER, UserRole.ADMIN
+    )
     return PollsPublic(
         data=[
             await crud.to_poll_public(
-                session, poll, current_user.steamid64 if current_user else None
+                session,
+                poll,
+                current_user.steamid64 if current_user else None,
+                admin=is_admin,
             )
             for poll in polls
         ],
@@ -37,8 +54,14 @@ async def read_poll(
     poll = await crud.get_poll(session, poll_id)
     if poll is None:
         raise HTTPException(status_code=404, detail="Poll not found")
+    is_admin = current_user is not None and user_has_any_role(
+        current_user, UserRole.SUPERUSER, UserRole.ADMIN
+    )
     return await crud.to_poll_public(
-        session, poll, current_user.steamid64 if current_user else None
+        session,
+        poll,
+        current_user.steamid64 if current_user else None,
+        admin=is_admin,
     )
 
 
@@ -61,4 +84,9 @@ async def vote_poll(
         await crud.cast_vote(session, poll, current_user.steamid64, vote_in.option_ids)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return await crud.to_poll_public(session, poll, current_user.steamid64)
+    return await crud.to_poll_public(
+        session,
+        poll,
+        current_user.steamid64,
+        admin=user_has_any_role(current_user, UserRole.SUPERUSER, UserRole.ADMIN),
+    )
