@@ -130,6 +130,8 @@ export const ru = {
     signInToVote: "Войдите, чтобы проголосовать",
     closed: "Закрыт",
     moreOptions: "+{{count}} вариантов",
+    maxVotes: "Максимум вариантов: {{count}}",
+    maxVotesUnlimited: "Максимум вариантов: без ограничений",
     filters: { all: "Все опросы", active: "Активные", closed: "Закрытые" },
     sort: {
       created: "Новые",

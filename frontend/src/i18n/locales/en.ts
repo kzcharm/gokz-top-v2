@@ -129,6 +129,8 @@ export const en = {
     signInToVote: "Sign in to vote",
     closed: "Closed",
     moreOptions: "+{{count}} more options",
+    maxVotes: "Maximum choices: {{count}}",
+    maxVotesUnlimited: "Maximum choices: Unlimited",
     filters: { all: "All polls", active: "Active", closed: "Closed" },
     sort: { created: "Newest", activity: "Last activity", votes: "Most votes" },
   },

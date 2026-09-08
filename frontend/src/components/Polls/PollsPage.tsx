@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next"
 import { OpenAPI } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -144,7 +143,13 @@ export function PollsPage() {
       </header>
       <div className="grid gap-4 md:grid-cols-2">
         {polls.data?.data.map((poll) => {
-          const previewOptions = poll.options.slice(0, 3)
+          const previewOptions = (
+            poll.can_view_results
+              ? [...poll.options].sort(
+                  (a, b) => (b.votes ?? 0) - (a.votes ?? 0),
+                )
+              : poll.options
+          ).slice(0, 3)
           const remainingOptions = poll.options.length - previewOptions.length
 
           return (
@@ -171,9 +176,32 @@ export function PollsPage() {
                   {previewOptions.map((option) => (
                     <span
                       key={option.id}
-                      className="rounded-md border border-border/70 px-3 py-2 text-sm"
+                      className="relative flex items-center gap-3 overflow-hidden rounded-md border border-border/70 bg-background px-3 py-2 text-sm"
                     >
-                      {option.label}
+                      {poll.can_view_results &&
+                      option.votes !== null &&
+                      option.votes !== undefined ? (
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-y-0 left-0 bg-primary/20"
+                          style={{
+                            width: `${Math.max(
+                              0,
+                              Math.min(option.percentage ?? 0, 100),
+                            )}%`,
+                          }}
+                        />
+                      ) : null}
+                      <span className="relative z-10 min-w-0 flex-1 truncate">
+                        {option.label}
+                      </span>
+                      {poll.can_view_results &&
+                      option.votes !== null &&
+                      option.votes !== undefined ? (
+                        <span className="relative z-10 shrink-0 whitespace-nowrap text-right text-muted-foreground">
+                          {option.votes} · {option.percentage?.toFixed(1)}%
+                        </span>
+                      ) : null}
                     </span>
                   ))}
                   {remainingOptions > 0 ? (
@@ -198,7 +226,7 @@ export function PollsPage() {
         }}
       >
         {openPoll ? (
-          <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
+          <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto bg-background sm:max-w-2xl">
             <DialogHeader>
               <div className="flex items-start gap-3 pr-6">
                 <DialogTitle>{openPoll.title}</DialogTitle>
@@ -211,10 +239,19 @@ export function PollsPage() {
               {openPoll.description ? (
                 <DialogDescription>{openPoll.description}</DialogDescription>
               ) : null}
+              <p className="text-sm text-muted-foreground">
+                {openPoll.max_selections === 0
+                  ? t("polls.maxVotesUnlimited")
+                  : t("polls.maxVotes", { count: openPoll.max_selections })}
+              </p>
             </DialogHeader>
             <div className="grid gap-3">
-              {openPoll.options.map((option) => {
+              {openPoll.options.map((option, optionIndex) => {
                 const checked = selected.includes(option.id)
+                const percentage = Math.max(
+                  0,
+                  Math.min(option.percentage ?? 0, 100),
+                )
                 const disabled =
                   !user ||
                   openPoll.status === "closed" ||
@@ -222,50 +259,59 @@ export function PollsPage() {
                   (!checked && selected.length >= maxSelections)
 
                 return (
-                  <label
+                  <button
+                    type="button"
                     key={option.id}
-                    htmlFor={`poll-${openPoll.id}-${option.id}`}
-                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40 focus-within:border-primary ${
+                    aria-pressed={checked}
+                    disabled={disabled}
+                    className={`relative flex w-full cursor-pointer gap-3 overflow-hidden rounded-lg border p-3 text-left transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
                       checked
-                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                        : "border-border/70"
+                        ? "border-primary bg-primary/10 ring-1 ring-primary/20"
+                        : "border-border/70 bg-secondary hover:bg-muted/50"
                     } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+                    onClick={() =>
+                      setSelections((current) => {
+                        const currentSelected =
+                          current[openPoll.id] ?? openPoll.selected_option_ids
+                        return {
+                          ...current,
+                          [openPoll.id]: checked
+                            ? currentSelected.filter((id) => id !== option.id)
+                            : [...currentSelected, option.id],
+                        }
+                      })
+                    }
                   >
-                    <Checkbox
-                      id={`poll-${openPoll.id}-${option.id}`}
-                      checked={checked}
-                      disabled={disabled}
-                      onCheckedChange={(value) =>
-                        setSelections((current) => {
-                          const currentSelected =
-                            current[openPoll.id] ?? openPoll.selected_option_ids
-                          return {
-                            ...current,
-                            [openPoll.id]: value
-                              ? [...currentSelected, option.id]
-                              : currentSelected.filter(
-                                  (id) => id !== option.id,
-                                ),
-                          }
-                        })
-                      }
-                    />
-                    <span>
-                      <span className="font-medium">{option.label}</span>
-                      {option.description ? (
-                        <span className="block text-sm text-muted-foreground">
-                          {option.description}
-                        </span>
-                      ) : null}
+                    {openPoll.can_view_results &&
+                    option.votes !== null &&
+                    option.votes !== undefined ? (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 left-0 bg-primary/20 transition-[width]"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    ) : null}
+                    <span className="relative z-10 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-muted-foreground">
+                      {optionIndex + 1}.
+                    </span>
+                    <span className="relative z-10 flex min-w-0 flex-1 items-start justify-between gap-4">
+                      <span className="min-w-0">
+                        <span className="font-medium">{option.label}</span>
+                        {option.description ? (
+                          <span className="block text-sm text-muted-foreground">
+                            {option.description}
+                          </span>
+                        ) : null}
+                      </span>
                       {openPoll.can_view_results &&
                       option.votes !== null &&
                       option.votes !== undefined ? (
-                        <span className="mt-1 block text-xs text-muted-foreground">
+                        <span className="shrink-0 whitespace-nowrap text-right text-sm text-muted-foreground">
                           {option.votes} · {option.percentage?.toFixed(1)}%
                         </span>
                       ) : null}
                     </span>
-                  </label>
+                  </button>
                 )
               })}
             </div>

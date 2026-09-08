@@ -129,6 +129,8 @@ export const zhCN = {
     signInToVote: "登录后投票",
     closed: "已关闭",
     moreOptions: "+{{count}} 个选项",
+    maxVotes: "最多可选：{{count}} 项",
+    maxVotesUnlimited: "最多可选：不限",
     filters: { all: "全部投票", active: "进行中", closed: "已关闭" },
     sort: { created: "最新创建", activity: "最近活动", votes: "票数最多" },
   },
