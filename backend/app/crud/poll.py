@@ -26,7 +26,14 @@ def _now() -> datetime:
 
 
 async def get_poll(session: AsyncSession, poll_id: uuid.UUID) -> Poll | None:
-    return await session.get(Poll, poll_id)
+    return (
+        await session.exec(
+            select(Poll).where(
+                col(Poll.id) == poll_id,
+                col(Poll.deleted_at).is_(None),
+            )
+        )
+    ).first()
 
 
 async def _options(session: AsyncSession, poll_id: uuid.UUID) -> list[PollOption]:
@@ -55,10 +62,13 @@ def _is_closed(poll: Poll) -> bool:
     )
 
 
-async def create_poll(session: AsyncSession, poll_in: PollCreate) -> Poll:
+async def create_poll(
+    session: AsyncSession, poll_in: PollCreate, created_by_steamid64: int | None = None
+) -> Poll:
     now = get_datetime_utc()
     poll = Poll(
         **poll_in.model_dump(exclude={"options"}),
+        created_by_steamid64=created_by_steamid64,
         created_at=now,
         updated_at=now,
         last_activity_at=now,
@@ -124,14 +134,16 @@ async def update_poll(session: AsyncSession, poll: Poll, poll_in: PollUpdate) ->
 
 
 async def delete_poll(session: AsyncSession, poll: Poll) -> None:
-    await session.delete(poll)
+    poll.deleted_at = get_datetime_utc()
+    poll.updated_at = poll.deleted_at
+    session.add(poll)
     await session.commit()
 
 
 async def read_polls(
     session: AsyncSession, query: PollListQuery
 ) -> tuple[list[Poll], int]:
-    filters = []
+    filters = [col(Poll.deleted_at).is_(None)]
     if query.status is not None:
         if query.status == PollStatus.ACTIVE:
             filters.extend(
@@ -262,6 +274,11 @@ async def to_poll_public(
     ]
     base = {
         "id": poll.id,
+        "created_by_steamid64": (
+            str(poll.created_by_steamid64)
+            if poll.created_by_steamid64 is not None
+            else None
+        ),
         "title": poll.title,
         "description": poll.description,
         "status": poll.status,

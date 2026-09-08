@@ -132,6 +132,17 @@ class Poll(SQLModel, table=True):
     )
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
+    created_by_steamid64: int | None = Field(
+        default=None,
+        sa_column=Column(
+            BigInteger,
+            ForeignKey("user.steamid64", ondelete="SET NULL"),
+            nullable=True,
+        ),
+    )
+    deleted_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     title: str = Field(max_length=255)
     description: str | None = Field(default=None, max_length=5000)
     status: PollStatus = Field(
@@ -202,6 +213,7 @@ class PollOptionPublic(SQLModel):
 
 class PollPublic(SQLModel):
     id: uuid.UUID
+    created_by_steamid64: str | None
     title: str
     description: str | None
     status: PollStatus

@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { Pencil, Plus } from "lucide-react"
+import { type ChangeEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { OpenAPI } from "@/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -21,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
+import { isSuperuser } from "@/lib/user-roles"
 
 type Option = {
   id: string
@@ -42,7 +45,10 @@ type Poll = {
   can_view_results: boolean
   selected_option_ids: string[]
   options: Option[]
+  created_by_steamid64?: string | null
 }
+
+type DraftOption = { label: string; description: string }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("access_token")
@@ -69,6 +75,21 @@ export function PollsPage() {
   const [sort, setSort] = useState("created")
   const [selections, setSelections] = useState<Record<string, string[]>>({})
   const [openPollId, setOpenPollId] = useState<string | null>(null)
+  const [editor, setEditor] = useState<"create" | Poll | null>(null)
+  const [pendingAction, setPendingAction] = useState<{
+    type: "delete" | "close" | "reopen"
+    poll: Poll
+  } | null>(null)
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [endsAt, setEndsAt] = useState("")
+  const [maxSelectionsDraft, setMaxSelectionsDraft] = useState("1")
+  const [allowVoteChange, setAllowVoteChange] = useState(true)
+  const [options, setOptions] = useState<DraftOption[]>([
+    { label: "", description: "" },
+    { label: "", description: "" },
+  ])
+  const admin = Boolean(user && isSuperuser(user))
   const polls = useQuery({
     queryKey: ["polls", status, sort],
     queryFn: () =>
@@ -90,6 +111,74 @@ export function PollsPage() {
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["polls"] }),
   })
+  const save = useMutation({
+    mutationFn: () => {
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || null,
+        ends_at: endsAt ? new Date(endsAt).toISOString() : null,
+        max_selections: Number.parseInt(maxSelectionsDraft, 10) || 0,
+        allow_vote_change: allowVoteChange,
+        options: options
+          .filter((o) => o.label.trim())
+          .map((o) => ({
+            label: o.label.trim(),
+            description: o.description.trim() || null,
+          })),
+      }
+      return request<Poll>(
+        editor === "create"
+          ? "/v1/admin/polls"
+          : `/v1/admin/polls/${editor?.id}`,
+        {
+          method: editor === "create" ? "POST" : "PATCH",
+          body: JSON.stringify(payload),
+        },
+      )
+    },
+    onSuccess: () => {
+      setEditor(null)
+      queryClient.invalidateQueries({ queryKey: ["polls"] })
+    },
+  })
+  const lifecycle = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "active" | "closed" }) =>
+      request<Poll>(`/v1/admin/polls/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      setOpenPollId(null)
+      queryClient.invalidateQueries({ queryKey: ["polls"] })
+    },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) =>
+      request(`/v1/admin/polls/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setOpenPollId(null)
+      queryClient.invalidateQueries({ queryKey: ["polls"] })
+    },
+  })
+  const openEditor = (poll?: Poll) => {
+    setTitle(poll?.title ?? "")
+    setDescription(poll?.description ?? "")
+    setEndsAt(
+      poll?.ends_at ? new Date(poll.ends_at).toISOString().slice(0, 16) : "",
+    )
+    setMaxSelectionsDraft(String(poll?.max_selections ?? 1))
+    setAllowVoteChange(poll?.allow_vote_change ?? true)
+    setOptions(
+      poll?.options.map((o) => ({
+        label: o.label,
+        description: o.description ?? "",
+      })) ?? [
+        { label: "", description: "" },
+        { label: "", description: "" },
+      ],
+    )
+    setEditor(poll ?? "create")
+  }
 
   const openPoll = polls.data?.data.find((poll) => poll.id === openPollId)
   const selected = openPoll
@@ -110,6 +199,15 @@ export function PollsPage() {
           </h1>
         </div>
         <div className="flex gap-2">
+          {admin ? (
+            <Button
+              size="icon"
+              aria-label="Create poll"
+              onClick={() => openEditor()}
+            >
+              <Plus />
+            </Button>
+          ) : null}
           <Select
             value={status || "all"}
             onValueChange={(v) => setStatus(v === "all" ? "" : v)}
@@ -245,6 +343,39 @@ export function PollsPage() {
                   : t("polls.maxVotes", { count: openPoll.max_selections })}
               </p>
             </DialogHeader>
+            {admin ? (
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openEditor(openPoll)}
+                >
+                  <Pencil className="mr-2 size-4" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPendingAction({
+                      type: openPoll.status === "closed" ? "reopen" : "close",
+                      poll: openPoll,
+                    })
+                  }
+                >
+                  {openPoll.status === "closed" ? "Reopen" : "Close"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() =>
+                    setPendingAction({ type: "delete", poll: openPoll })
+                  }
+                >
+                  Delete
+                </Button>
+              </div>
+            ) : null}
             <div className="grid gap-3">
               {openPoll.options.map((option, optionIndex) => {
                 const checked = selected.includes(option.id)
@@ -340,6 +471,171 @@ export function PollsPage() {
             </DialogFooter>
           </DialogContent>
         ) : null}
+      </Dialog>
+      <Dialog
+        open={editor !== null}
+        onOpenChange={(open) => !open && setEditor(null)}
+      >
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editor === "create" ? "Create poll" : "Edit poll"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Poll title"
+              value={title}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setTitle(e.target.value)
+              }
+            />
+            <Input
+              placeholder="Description"
+              value={description}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setDescription(e.target.value)
+              }
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label htmlFor="poll-ends-at" className="space-y-1 text-sm">
+                <span className="text-muted-foreground">
+                  Voting ends (optional)
+                </span>
+                <Input
+                  id="poll-ends-at"
+                  type="datetime-local"
+                  value={endsAt}
+                  onChange={(e) => setEndsAt(e.target.value)}
+                />
+              </label>
+              <label
+                htmlFor="poll-max-selections"
+                className="space-y-1 text-sm"
+              >
+                <span className="text-muted-foreground">
+                  Maximum selections (0 = unlimited)
+                </span>
+                <Input
+                  id="poll-max-selections"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={maxSelectionsDraft}
+                  onChange={(e) => setMaxSelectionsDraft(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={allowVoteChange}
+                onCheckedChange={(checked) =>
+                  setAllowVoteChange(checked === true)
+                }
+              />
+              <span>Allow voters to change their selection</span>
+            </div>
+            <div className="space-y-2">
+              {options.map((option, index) => (
+                <div key={index} className="grid gap-2 sm:grid-cols-2">
+                  <Input
+                    placeholder={`Option ${index + 1}`}
+                    value={option.label}
+                    onChange={(e) =>
+                      setOptions((c) =>
+                        c.map((x, i) =>
+                          i === index ? { ...x, label: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
+                  <Input
+                    placeholder="Option description (optional)"
+                    value={option.description}
+                    onChange={(e) =>
+                      setOptions((c) =>
+                        c.map((x, i) =>
+                          i === index
+                            ? { ...x, description: e.target.value }
+                            : x,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setOptions((c) => [...c, { label: "", description: "" }])
+              }
+            >
+              Add option
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={
+                save.isPending ||
+                !title.trim() ||
+                options.filter((o) => o.label.trim()).length < 2
+              }
+              onClick={() => save.mutate()}
+            >
+              {editor === "create" ? "Create poll" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => !open && setPendingAction(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {pendingAction?.type === "delete"
+                ? "Delete poll?"
+                : pendingAction?.type === "close"
+                  ? "Close poll?"
+                  : "Reopen poll?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingAction?.type === "delete"
+                ? `This removes “${pendingAction.poll.title}” from public poll lists. Its votes are retained.`
+                : pendingAction?.type === "close"
+                  ? `Voting will stop for “${pendingAction.poll.title}”.`
+                  : `Voting will resume for “${pendingAction.poll.title}”.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingAction(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant={
+                pendingAction?.type === "delete" ? "destructive" : "default"
+              }
+              disabled={lifecycle.isPending || remove.isPending}
+              onClick={() => {
+                if (!pendingAction) return
+                if (pendingAction.type === "delete") {
+                  remove.mutate(pendingAction.poll.id)
+                } else {
+                  lifecycle.mutate({
+                    id: pendingAction.poll.id,
+                    status:
+                      pendingAction.type === "close" ? "closed" : "active",
+                  })
+                }
+                setPendingAction(null)
+              }}
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   )

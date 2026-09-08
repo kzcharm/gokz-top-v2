@@ -39,7 +39,7 @@ async def read_admin_polls(
 async def create_admin_poll(
     *, session: SessionDep, poll_in: PollCreate, _user: CurrentSuperuser
 ) -> AdminPollPublic:
-    poll = await crud.create_poll(session, poll_in)
+    poll = await crud.create_poll(session, poll_in, _user.steamid64)
     return await crud.to_poll_public(session, poll, _user.steamid64, admin=True)  # type: ignore[return-value]
 
 

@@ -1,9 +1,24 @@
 import { Link } from "@tanstack/react-router"
+import { Check, Copy } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 
-const ErrorComponent = () => {
+type ErrorComponentProps = {
+  error?: unknown
+}
+
+const ErrorComponent = ({ error }: ErrorComponentProps = {}) => {
   const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const errorDetails =
+    error instanceof Error
+      ? `${error.name}: ${error.message}${error.stack ? `\n\n${error.stack}` : ""}`
+      : typeof error === "string"
+        ? error
+        : error
+          ? JSON.stringify(error, null, 2)
+          : "No error details were provided."
 
   return (
     <div
@@ -24,6 +39,36 @@ const ErrorComponent = () => {
       <p className="text-lg text-muted-foreground mb-4 text-center z-10">
         {t("errors.errorMessage")}
       </p>
+      {import.meta.env.DEV ? (
+        <div className="mb-4 w-full max-w-3xl rounded-md border border-destructive/40 bg-destructive/5 p-4 text-left">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-medium text-destructive">
+              Development error details
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void navigator.clipboard.writeText(errorDetails).then(() => {
+                  setCopied(true)
+                  window.setTimeout(() => setCopied(false), 2000)
+                })
+              }}
+            >
+              {copied ? (
+                <Check className="mr-2 size-4" />
+              ) : (
+                <Copy className="mr-2 size-4" />
+              )}
+              {copied ? "Copied" : "Copy details"}
+            </Button>
+          </div>
+          <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
+            {errorDetails}
+          </pre>
+        </div>
+      ) : null}
       <Link to="/">
         <Button>{t("common.goHome")}</Button>
       </Link>
