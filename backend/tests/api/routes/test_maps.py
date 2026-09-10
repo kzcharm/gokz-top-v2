@@ -9,7 +9,6 @@ from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
-from app.api.v1 import maps as maps_route
 from app.core.config import settings
 from app.models import (
     Map,
@@ -26,9 +25,11 @@ from app.models import (
     RecordFilter,
     RecordType,
     ServerGlobalapi,
+    WorkshopPreviewUrlCache,
     legacy_mode_id_to_kz_mode,
 )
 from app.models.utils import get_datetime_utc
+from app.services import steam_workshop
 from app.services.globalapi_maps_sync import GlobalAPIMapsSyncError
 from app.services.language_detection import detect_language_code
 from app.services.qq_binding import encrypt_qq_binding_secret
@@ -63,14 +64,22 @@ async def _create_map(db: AsyncSession, *, id: int = 930200) -> Map:
 @pytest.mark.asyncio
 async def test_read_workshop_preview_image_redirects_to_steam_preview(
     client: AsyncClient,
+    db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    await db.exec(
+        delete(WorkshopPreviewUrlCache).where(
+            WorkshopPreviewUrlCache.workshop_id == 123456789
+        )
+    )
+    await db.commit()
+
     async def _fake_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
         assert workshop_id == "123456789"
         return "https://steamuserimages-a.akamaihd.net/preview.jpg"
 
     monkeypatch.setattr(
-        maps_route, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
+        steam_workshop, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
     )
 
     response = await client.get(
@@ -82,19 +91,109 @@ async def test_read_workshop_preview_image_redirects_to_steam_preview(
     assert response.headers["location"] == (
         "https://steamuserimages-a.akamaihd.net/preview.jpg"
     )
+    cache_row = await db.get(WorkshopPreviewUrlCache, 123456789)
+    assert cache_row is not None
+    assert cache_row.preview_url == "https://steamuserimages-a.akamaihd.net/preview.jpg"
+    assert cache_row.fetched_at is not None
+    assert cache_row.error_message is None
+
+
+@pytest.mark.asyncio
+async def test_read_workshop_preview_image_uses_fresh_cached_preview_url(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = get_datetime_utc()
+    db.add(
+        WorkshopPreviewUrlCache(
+            workshop_id=123456789,
+            preview_url="https://steamuserimages-a.akamaihd.net/cached.jpg",
+            fetched_at=now - timedelta(hours=23),
+            last_attempted_at=now - timedelta(hours=23),
+        )
+    )
+    await db.commit()
+
+    async def _unexpected_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
+        assert workshop_id == "123456789"
+        raise AssertionError("fresh cached workshop preview URL should be used")
+
+    monkeypatch.setattr(
+        steam_workshop,
+        "fetch_workshop_preview_url",
+        _unexpected_fetch_workshop_preview_url,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/workshop/123456789/preview-image",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"] == (
+        "https://steamuserimages-a.akamaihd.net/cached.jpg"
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_workshop_preview_image_refreshes_expired_cached_preview_url(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = get_datetime_utc()
+    cache_row = WorkshopPreviewUrlCache(
+        workshop_id=123456789,
+        preview_url="https://steamuserimages-a.akamaihd.net/old.jpg",
+        fetched_at=now - timedelta(hours=25),
+        last_attempted_at=now - timedelta(hours=25),
+    )
+    db.add(cache_row)
+    await db.commit()
+
+    async def _fake_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
+        assert workshop_id == "123456789"
+        return "https://steamuserimages-a.akamaihd.net/new.jpg"
+
+    monkeypatch.setattr(
+        steam_workshop, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/workshop/123456789/preview-image",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"] == (
+        "https://steamuserimages-a.akamaihd.net/new.jpg"
+    )
+    await db.refresh(cache_row)
+    assert cache_row.preview_url == "https://steamuserimages-a.akamaihd.net/new.jpg"
+    assert cache_row.fetched_at is not None
+    assert cache_row.fetched_at > now
 
 
 @pytest.mark.asyncio
 async def test_read_workshop_preview_image_returns_not_found_for_missing_preview(
     client: AsyncClient,
+    db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    await db.exec(
+        delete(WorkshopPreviewUrlCache).where(
+            WorkshopPreviewUrlCache.workshop_id == 123456789
+        )
+    )
+    await db.commit()
+
     async def _fake_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
         assert workshop_id == "123456789"
         return None
 
     monkeypatch.setattr(
-        maps_route, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
+        steam_workshop, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
     )
 
     response = await client.get(
@@ -102,6 +201,85 @@ async def test_read_workshop_preview_image_returns_not_found_for_missing_preview
     )
 
     assert response.status_code == 404
+    cache_row = await db.get(WorkshopPreviewUrlCache, 123456789)
+    assert cache_row is not None
+    assert cache_row.preview_url is None
+    assert cache_row.fetched_at is None
+    assert cache_row.error_message == "Workshop preview not found"
+
+
+@pytest.mark.asyncio
+async def test_read_workshop_preview_image_uses_fresh_cached_missing_preview(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = get_datetime_utc()
+    db.add(
+        WorkshopPreviewUrlCache(
+            workshop_id=123456789,
+            preview_url=None,
+            fetched_at=None,
+            last_attempted_at=now - timedelta(minutes=30),
+            error_message="Workshop preview not found",
+        )
+    )
+    await db.commit()
+
+    async def _unexpected_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
+        assert workshop_id == "123456789"
+        raise AssertionError("fresh cached workshop preview miss should be used")
+
+    monkeypatch.setattr(
+        steam_workshop,
+        "fetch_workshop_preview_url",
+        _unexpected_fetch_workshop_preview_url,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/workshop/123456789/preview-image"
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_read_workshop_preview_image_retries_expired_cached_missing_preview(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = get_datetime_utc()
+    cache_row = WorkshopPreviewUrlCache(
+        workshop_id=123456789,
+        preview_url=None,
+        fetched_at=None,
+        last_attempted_at=now - timedelta(hours=2),
+        error_message="Workshop preview not found",
+    )
+    db.add(cache_row)
+    await db.commit()
+
+    async def _fake_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
+        assert workshop_id == "123456789"
+        return "https://steamuserimages-a.akamaihd.net/recovered.jpg"
+
+    monkeypatch.setattr(
+        steam_workshop, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/workshop/123456789/preview-image",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"] == (
+        "https://steamuserimages-a.akamaihd.net/recovered.jpg"
+    )
+    await db.refresh(cache_row)
+    assert cache_row.preview_url == "https://steamuserimages-a.akamaihd.net/recovered.jpg"
+    assert cache_row.error_message is None
 
 
 @pytest.mark.asyncio

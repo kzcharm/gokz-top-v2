@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
 import httpx
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.models import WorkshopPreviewUrlCache
+from app.models.utils import get_datetime_utc
 
 STEAM_WORKSHOP_DETAILS_URL = (
     "https://api.steampowered.com/ISteamRemoteStorage/"
     "GetPublishedFileDetails/v1/"
 )
 STEAM_WORKSHOP_DETAILS_BATCH_SIZE = 100
+WORKSHOP_PREVIEW_URL_TTL = timedelta(hours=24)
+WORKSHOP_PREVIEW_MISS_TTL = timedelta(hours=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +99,64 @@ async def fetch_workshop_preview_url(
     finally:
         if should_close:
             await resolved_client.aclose()
+
+
+def _is_cached_preview_url_fresh(
+    cache_row: WorkshopPreviewUrlCache,
+) -> bool:
+    if cache_row.preview_url is None or cache_row.fetched_at is None:
+        return False
+    return cache_row.fetched_at >= get_datetime_utc() - WORKSHOP_PREVIEW_URL_TTL
+
+
+def _is_cached_preview_miss_fresh(
+    cache_row: WorkshopPreviewUrlCache,
+) -> bool:
+    if cache_row.preview_url is not None:
+        return False
+    return cache_row.last_attempted_at >= (
+        get_datetime_utc() - WORKSHOP_PREVIEW_MISS_TTL
+    )
+
+
+async def get_cached_workshop_preview_url(
+    *,
+    session: AsyncSession,
+    workshop_id: str,
+) -> str | None:
+    normalized_workshop_id = int(workshop_id)
+    cache_row = await session.get(WorkshopPreviewUrlCache, normalized_workshop_id)
+    if cache_row is not None:
+        if _is_cached_preview_url_fresh(cache_row):
+            return cache_row.preview_url
+        if _is_cached_preview_miss_fresh(cache_row):
+            return None
+
+    preview_url = await fetch_workshop_preview_url(workshop_id=workshop_id)
+    now = get_datetime_utc()
+    error_message = (
+        None if preview_url is not None else "Workshop preview not found"
+    )
+    insert_statement = postgresql_insert(WorkshopPreviewUrlCache).values(
+        workshop_id=normalized_workshop_id,
+        preview_url=preview_url,
+        fetched_at=now if preview_url is not None else None,
+        last_attempted_at=now,
+        error_message=error_message,
+    )
+    await session.exec(
+        insert_statement.on_conflict_do_update(
+            index_elements=[WorkshopPreviewUrlCache.workshop_id],
+            set_={
+                "preview_url": insert_statement.excluded.preview_url,
+                "fetched_at": insert_statement.excluded.fetched_at,
+                "last_attempted_at": insert_statement.excluded.last_attempted_at,
+                "error_message": insert_statement.excluded.error_message,
+            },
+        )
+    )
+    await session.commit()
+    return preview_url
 
 
 async def fetch_workshop_file_details(

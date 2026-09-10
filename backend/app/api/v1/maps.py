@@ -42,7 +42,7 @@ from app.services.map_file_distribution import (
     sync_map_files,
 )
 from app.services.qq_binding import verify_qq_bot_api_key
-from app.services.steam_workshop import fetch_workshop_preview_url
+from app.services.steam_workshop import get_cached_workshop_preview_url
 
 router = APIRouter(prefix="/maps", tags=["maps"])
 logger = logging.getLogger(__name__)
@@ -129,9 +129,12 @@ async def read_maps(
 
 @router.get("/workshop/{workshop_id}/preview-image", response_model=None)
 async def read_workshop_preview_image(
+    session: SessionDep,
     workshop_id: Annotated[str, Path(pattern=r"^\d+$")],
 ) -> RedirectResponse:
-    preview_url = await fetch_workshop_preview_url(workshop_id=workshop_id)
+    preview_url = await get_cached_workshop_preview_url(
+        session=session, workshop_id=workshop_id
+    )
     if preview_url is None:
         raise HTTPException(status_code=404, detail="Workshop preview not found")
     return RedirectResponse(url=preview_url)

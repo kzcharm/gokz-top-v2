@@ -464,6 +464,7 @@ from .video_platform_followers import (
     PlayerVideoPlatformFollowerCache,
     VideoPlatformFollowerPublic,
 )
+from .workshop_preview_url import WorkshopPreviewUrlCache
 
 __all__ = [
     "AdminServerAccessPublic",
@@ -837,6 +838,7 @@ __all__ = [
     "UserUpdate",
     "TeleportsType",
     "WorldRecordCountCompatPublicV0",
+    "WorkshopPreviewUrlCache",
     "generate_uuid7",
     "get_datetime_utc",
     "kz_mode_to_legacy_mode_id",
