@@ -1,6 +1,9 @@
 import { OpenAPI, type ServerPublic } from "@/client"
 import { getCountryName } from "@/components/Common/CountryFlag"
-import { getWorkshopPreviewImageUrl as getCommonWorkshopPreviewImageUrl } from "@/components/Common/MapDisplay"
+import {
+  getWorkshopPreviewImageUrl as getCommonWorkshopPreviewImageUrl,
+  getMapImageUrls,
+} from "@/components/Common/MapDisplay"
 import { getRegionName } from "@/components/Common/RegionFlag"
 
 import { normalizeTierValue } from "./tier"
@@ -351,26 +354,15 @@ export function getServerLocation(server: ServerPublic) {
   return [server.city, server.country].filter(Boolean).join(", ")
 }
 
-export function getServerMapImageUrl(mapName: string | null) {
-  const normalizedMapName = normalizeServerMapName(mapName)
-  if (!normalizedMapName) {
-    return null
-  }
-
-  return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${normalizedMapName}.webp`
-}
-
 export function getWorkshopPreviewImageUrl(workshopId: string | null) {
   return getCommonWorkshopPreviewImageUrl(workshopId)
 }
 
 export function getServerMapImageUrls(server: ServerPublic) {
-  const urls = [
-    getServerMapImageUrl(getServerMapName(server)),
-    getWorkshopPreviewImageUrl(server.live_status?.workshop_id ?? null),
-  ]
-
-  return urls.filter((url): url is string => Boolean(url))
+  return getMapImageUrls(
+    getServerMapName(server),
+    server.live_status?.workshop_id ?? null,
+  )
 }
 
 export function buildServersWebSocketUrl() {

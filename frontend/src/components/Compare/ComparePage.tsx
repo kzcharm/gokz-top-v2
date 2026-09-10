@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next"
 import type { PlayerCompareRunPublic, PlayerComparisonPublic } from "@/client"
 import { PlayersService } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
-import { getMapImageUrls, MapDisplay } from "@/components/Common/MapDisplay"
+import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import { formatRating } from "@/components/Profile/profile-utils"
 import { ModeBadge } from "@/components/Records/ModeBadge"
@@ -339,7 +339,6 @@ function CompareRunsTable({
                   {visibleRows.map((row) => {
                     const player1Record = row.player1 ?? null
                     const player2Record = row.player2 ?? null
-                    const primaryRecord = player1Record ?? player2Record
 
                     return (
                       <TableRow key={row.map_id}>
@@ -347,10 +346,6 @@ function CompareRunsTable({
                           <MapDisplay
                             mapName={row.map_name}
                             mapId={row.map_id}
-                            imageUrls={getMapImageUrls(
-                              row.map_name,
-                              primaryRecord?.workshop_id,
-                            )}
                           />
                         </TableCell>
                         <TableCell>

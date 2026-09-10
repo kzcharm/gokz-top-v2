@@ -2400,6 +2400,12 @@ export type MapsReadWorkshopPreviewImageData = {
 
 export type MapsReadWorkshopPreviewImageResponse = (unknown);
 
+export type MapsReadMapPreviewImageData = {
+    mapName: string;
+};
+
+export type MapsReadMapPreviewImageResponse = (unknown);
+
 export type MapsReadMapPbLeaderboardData = {
     country?: (string | null);
     friendsOnly?: boolean;

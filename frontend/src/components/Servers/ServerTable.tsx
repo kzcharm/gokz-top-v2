@@ -21,7 +21,6 @@ import {
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
-  getServerMapImageUrls,
   getServerMapName,
   isServerOnline,
   isServerStatusRefreshing,
@@ -198,7 +197,7 @@ export function ServerTable({
                           ? mapDownloadUrls?.get(mapName.toLowerCase())
                           : undefined
                       }
-                      imageUrls={getServerMapImageUrls(server)}
+                      workshopId={server.live_status?.workshop_id}
                       className="w-full"
                       containerClassName="w-full max-w-56"
                     />

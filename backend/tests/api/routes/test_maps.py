@@ -294,6 +294,59 @@ async def test_read_workshop_preview_image_rejects_invalid_workshop_id(
 
 
 @pytest.mark.asyncio
+async def test_read_map_preview_image_resolves_workshop_id_from_map_name(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    map_obj = await _create_map(db, id=930293)
+    await db.exec(
+        delete(WorkshopPreviewUrlCache).where(
+            WorkshopPreviewUrlCache.workshop_id == map_obj.workshop_id
+        )
+    )
+    await db.commit()
+
+    async def _fake_fetch_workshop_preview_url(*, workshop_id: str) -> str | None:
+        assert workshop_id == str(map_obj.workshop_id)
+        return "https://steamuserimages-a.akamaihd.net/map-name.jpg"
+
+    monkeypatch.setattr(
+        steam_workshop, "fetch_workshop_preview_url", _fake_fetch_workshop_preview_url
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/preview-image",
+        params={"map_name": map_obj.name},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"] == (
+        "https://steamuserimages-a.akamaihd.net/map-name.jpg"
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_map_preview_image_returns_not_found_without_workshop_id(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    map_obj = await _create_map(db, id=930294)
+    map_obj.workshop_id = None
+    db.add(map_obj)
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/preview-image",
+        params={"map_name": map_obj.name},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Map workshop preview not found"
+
+
+@pytest.mark.asyncio
 async def test_read_maps_includes_distribution_download_url(
     client: AsyncClient,
     db: AsyncSession,

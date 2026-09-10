@@ -140,6 +140,27 @@ async def read_workshop_preview_image(
     return RedirectResponse(url=preview_url)
 
 
+@router.get("/preview-image", response_model=None)
+async def read_map_preview_image(
+    session: SessionDep,
+    map_name: Annotated[str, Query(min_length=1, max_length=255)],
+) -> RedirectResponse:
+    normalized_map_name = map_name.strip()
+    if not normalized_map_name:
+        raise HTTPException(status_code=422, detail="map_name cannot be blank")
+
+    map_obj = await crud.get_map_by_name(session=session, map_name=normalized_map_name)
+    if map_obj is None or map_obj.workshop_id is None:
+        raise HTTPException(status_code=404, detail="Map workshop preview not found")
+
+    preview_url = await get_cached_workshop_preview_url(
+        session=session, workshop_id=str(map_obj.workshop_id)
+    )
+    if preview_url is None:
+        raise HTTPException(status_code=404, detail="Workshop preview not found")
+    return RedirectResponse(url=preview_url)
+
+
 @router.get("/{map_id:int}/leaderboard", response_model=MapPbLeaderboardPublic)
 async def read_map_pb_leaderboard(
     session: SessionDep,

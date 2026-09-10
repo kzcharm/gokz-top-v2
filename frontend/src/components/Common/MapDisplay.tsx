@@ -27,6 +27,7 @@ interface MapDisplayProps {
   downloadUrl?: string | null
   imageUrls?: string[]
   mapId?: number | null
+  workshopId?: number | string | null
 }
 
 interface MapNameContextMenuProps {
@@ -74,14 +75,27 @@ export function getWorkshopPreviewImageUrl(
   )
 }
 
+export function getMapPreviewImageUrl(mapName: string | null | undefined) {
+  const normalizedMapName = String(mapName ?? "").trim()
+  if (!normalizedMapName) {
+    return null
+  }
+
+  return buildApiUrl(
+    `/v1/maps/preview-image?map_name=${encodeURIComponent(normalizedMapName)}`,
+  )
+}
+
 export function getMapImageUrls(
   mapName: string | null | undefined,
   workshopId?: number | string | null,
 ) {
-  return [
-    getMapImageUrl(mapName),
-    getWorkshopPreviewImageUrl(workshopId),
-  ].filter((url): url is string => Boolean(url))
+  const workshopPreviewUrl =
+    getWorkshopPreviewImageUrl(workshopId) ?? getMapPreviewImageUrl(mapName)
+
+  return [getMapImageUrl(mapName), workshopPreviewUrl].filter(
+    (url): url is string => Boolean(url),
+  )
 }
 
 export function MapNameContextMenu({
@@ -273,6 +287,7 @@ export function MapDisplay({
   downloadUrl,
   imageUrls,
   mapId,
+  workshopId,
 }: MapDisplayProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [reviewTarget, setReviewTarget] = useState<{
@@ -289,7 +304,9 @@ export function MapDisplay({
   }
 
   const resolvedImageUrls =
-    imageUrls && imageUrls.length > 0 ? imageUrls : getMapImageUrls(mapName)
+    imageUrls && imageUrls.length > 0
+      ? imageUrls
+      : getMapImageUrls(mapName, workshopId)
   const mapParams = { mapName }
   const resolvedDownloadUrl = getMapDownloadUrlForMapName(mapName, downloadUrl)
 
