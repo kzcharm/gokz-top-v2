@@ -229,6 +229,7 @@ from .player_stats import (
     rebuild_player_most_played_maps_stat,
     rebuild_player_most_played_server_stat,
     rebuild_player_playtime_stat,
+    refresh_player_daily_activity_cache_dates,
 )
 from .player_webhook import (
     PlayerWebhookConflictError,
@@ -613,6 +614,7 @@ __all__ = [
     "rebuild_player_playtime_stat",
     "rebuild_player_most_played_server_stat",
     "rebuild_player_most_played_maps_stat",
+    "refresh_player_daily_activity_cache_dates",
     "rebuild_leaderboard_player",
     "rebuild_leaderboard_players",
     "rebuild_leaderboard_players_for_keys",

@@ -197,6 +197,115 @@ async def test_rebuild_player_daily_activity_stat_upserts_existing_cache_row(
 
 
 @pytest.mark.asyncio
+async def test_record_upsert_refreshes_cached_daily_activity_for_record_date(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Late Sync Runner")
+    await _create_map(db, id=981201, name="kz_late_sync")
+    await _create_server(db, id=982201, name="Late Sync Server")
+    await _create_record(
+        db,
+        id=983202,
+        steamid64=steamid64,
+        map_id=981201,
+        server_id=982201,
+        created_on=datetime(2026, 4, 1, 8, 0, tzinfo=UTC),
+        time_seconds="20.000",
+    )
+    await _create_record(
+        db,
+        id=983203,
+        steamid64=steamid64,
+        map_id=981201,
+        server_id=982201,
+        created_on=datetime(2026, 4, 3, 8, 0, tzinfo=UTC),
+        time_seconds="20.000",
+    )
+    await crud.rebuild_player_daily_activity_stat(
+        session=db,
+        steamid64=steamid64,
+        now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+    )
+
+    await _create_record(
+        db,
+        id=983204,
+        steamid64=steamid64,
+        map_id=981201,
+        server_id=982201,
+        created_on=datetime(2026, 4, 1, 23, 0, tzinfo=UTC),
+        time_seconds="20.000",
+    )
+
+    cache_row = await db.get(
+        PlayerStatCache,
+        (steamid64, PlayerStatType.DAILY_ACTIVITY),
+    )
+    assert cache_row is not None
+    assert cache_row.content == {
+        "days": [
+            {"date": "2026-04-01", "count": 2},
+            {"date": "2026-04-03", "count": 1},
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_record_upsert_refreshes_old_and_new_daily_activity_dates(
+    db: AsyncSession,
+) -> None:
+    steamid64 = random_steamid64()
+    record_id = 983205
+    await _create_player(db, steamid64=steamid64, name="Moved Sync Runner")
+    await _create_map(db, id=981202, name="kz_moved_sync")
+    await _create_server(db, id=982202, name="Moved Sync Server")
+    await _create_record(
+        db,
+        id=record_id,
+        steamid64=steamid64,
+        map_id=981202,
+        server_id=982202,
+        created_on=datetime(2026, 4, 1, 8, 0, tzinfo=UTC),
+        time_seconds="20.000",
+    )
+    await crud.rebuild_player_daily_activity_stat(
+        session=db,
+        steamid64=steamid64,
+        now=datetime(2026, 4, 4, 12, 0, tzinfo=UTC),
+    )
+
+    await crud.upsert_record(
+        session=db,
+        record_id=record_id,
+        record_uuid=None,
+        steamid64=steamid64,
+        server_id=982202,
+        mode_id=200,
+        map_id=981202,
+        stage=0,
+        time_seconds=Decimal("19.000"),
+        teleports=1,
+        points=0,
+        created_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        updated_on=datetime(2026, 4, 2, 8, 0, tzinfo=UTC),
+        updated_by=steamid64,
+        replay_id=None,
+        is_valid=True,
+    )
+    await db.commit()
+
+    cache_row = await db.get(
+        PlayerStatCache,
+        (steamid64, PlayerStatType.DAILY_ACTIVITY),
+    )
+    assert cache_row is not None
+    assert cache_row.content == {
+        "days": [{"date": "2026-04-02", "count": 1}]
+    }
+
+
+@pytest.mark.asyncio
 async def test_rebuild_player_playtime_stat_upserts_existing_cache_row(
     db: AsyncSession,
 ) -> None:

@@ -3,7 +3,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Literal
@@ -86,6 +86,7 @@ from .map import get_map_by_name
 from .map_leaderboard import rebuild_map_leaderboards_for_keys
 from .player import read_players_batch, steamid64_to_steam2, to_player_ref_public
 from .player_notification import create_wr_beaten_notification
+from .player_stats import refresh_player_daily_activity_cache_dates
 from .record_filter import load_scoped_course_tiers
 
 RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
@@ -1660,6 +1661,24 @@ async def _refresh_record_read_models_for_change(
         keys=sorted(map_leaderboard_keys),
     )
 
+    activity_cache_dates_by_player: dict[int, set[date]] = defaultdict(set)
+    for record in (before, after):
+        if record is None:
+            continue
+        created_at = (
+            record.created_at.astimezone(UTC)
+            if record.created_at.tzinfo
+            else record.created_at.replace(tzinfo=UTC)
+        )
+        activity_cache_dates_by_player[record.steamid64].add(created_at.date())
+
+    for steamid64, dates in activity_cache_dates_by_player.items():
+        await refresh_player_daily_activity_cache_dates(
+            session=session,
+            steamid64=steamid64,
+            dates=dates,
+        )
+
 
 def _parse_pg_stats_boolean_frequency(
     *,
@@ -2388,7 +2407,7 @@ async def upsert_record(
         )
         return record, True, False
 
-    before_record = Record.model_validate(existing_record.model_dump())
+    before_record = existing_record.model_copy(deep=True)
     existing_record.steamid64 = steamid64
     existing_record.server_id = server_id
     existing_record.mode = legacy_mode_id_to_kz_mode(mode_id)

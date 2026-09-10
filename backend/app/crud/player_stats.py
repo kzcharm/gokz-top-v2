@@ -354,6 +354,77 @@ async def _load_daily_activity_days(
     ]
 
 
+async def _load_daily_activity_counts_for_dates(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    dates: list[date],
+) -> dict[date, int]:
+    if not dates:
+        return {}
+
+    record_date = _record_utc_date_expression()
+    statement = (
+        select(record_date, func.count())
+        .where(
+            col(Record.steamid64) == steamid64,
+            record_date.in_(dates),
+        )
+        .group_by(record_date)
+    )
+    rows = (await session.exec(statement)).all()
+    return {row[0]: int(row[1]) for row in rows}
+
+
+async def refresh_player_daily_activity_cache_dates(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    dates: set[date],
+    now: datetime | None = None,
+) -> None:
+    requested_dates = sorted(dates)
+    if not requested_dates:
+        return
+
+    cache_row = await session.get(
+        PlayerStatCache,
+        (steamid64, PlayerStatType.DAILY_ACTIVITY),
+    )
+    if cache_row is None:
+        return
+
+    await session.flush()
+
+    cached_content = _normalize_daily_activity_content(cache_row.content)
+    days_by_date = {day.date: day for day in cached_content.days}
+    counts_by_date = await _load_daily_activity_counts_for_dates(
+        session=session,
+        steamid64=steamid64,
+        dates=requested_dates,
+    )
+
+    for requested_date in requested_dates:
+        count = counts_by_date.get(requested_date, 0)
+        if count > 0:
+            days_by_date[requested_date] = PlayerDailyActivityDayPublic(
+                date=requested_date,
+                count=count,
+            )
+        else:
+            days_by_date.pop(requested_date, None)
+
+    cache_row.content = _serialize_daily_activity_content(
+        PlayerDailyActivityContentPublic(
+            days=[days_by_date[key] for key in sorted(days_by_date)]
+        )
+    )
+    current_now = now or get_datetime_utc()
+    if cache_row.updated_at >= get_utc_midnight(now=current_now):
+        cache_row.updated_at = current_now
+    session.add(cache_row)
+
+
 async def _load_playtime_day_totals(
     *,
     session: AsyncSession,
