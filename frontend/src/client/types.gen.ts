@@ -152,6 +152,32 @@ export type AdminPlayerSocialLinkUpdate = {
     verified?: (boolean | null);
 };
 
+export type AdminPollPublic = {
+    id: string;
+    created_by_steamid64: (string | null);
+    title: string;
+    description: (string | null);
+    status: PollStatus;
+    ends_at: (string | null);
+    closed_at: (string | null);
+    max_selections: number;
+    allow_vote_change: boolean;
+    created_at: string;
+    updated_at: string;
+    last_activity_at: string;
+    total_votes: number;
+    has_voted: boolean;
+    selected_option_ids: Array<(string)>;
+    can_view_results: boolean;
+    options: Array<PollOptionPublic>;
+    voters: Array<PollVoterPublic>;
+};
+
+export type AdminPollsPublic = {
+    data: Array<AdminPollPublic>;
+    count: number;
+};
+
 export type AdminRecordFilterPublic = {
     id: number;
     map_id: number;
@@ -1320,6 +1346,80 @@ export type PlayerWebhookUpdate = {
     enabled?: (boolean | null);
 };
 
+export type PollCreate = {
+    title: string;
+    description?: (string | null);
+    ends_at?: (string | null);
+    max_selections?: number;
+    allow_vote_change?: boolean;
+    options: Array<PollOptionInput>;
+};
+
+export type PollOptionInput = {
+    label: string;
+    description?: (string | null);
+};
+
+export type PollOptionPublic = {
+    id: string;
+    label: string;
+    description: (string | null);
+    position: number;
+    votes?: (number | null);
+    percentage?: (number | null);
+};
+
+export type PollPublic = {
+    id: string;
+    created_by_steamid64: (string | null);
+    title: string;
+    description: (string | null);
+    status: PollStatus;
+    ends_at: (string | null);
+    closed_at: (string | null);
+    max_selections: number;
+    allow_vote_change: boolean;
+    created_at: string;
+    updated_at: string;
+    last_activity_at: string;
+    total_votes: number;
+    has_voted: boolean;
+    selected_option_ids: Array<(string)>;
+    can_view_results: boolean;
+    options: Array<PollOptionPublic>;
+    voters?: Array<PollVoterPublic>;
+};
+
+export type PollsPublic = {
+    data: Array<PollPublic>;
+    count: number;
+};
+
+export type PollStatus = 'active' | 'closed';
+
+export type PollUpdate = {
+    title?: (string | null);
+    description?: (string | null);
+    ends_at?: (string | null);
+    max_selections?: (number | null);
+    allow_vote_change?: (boolean | null);
+    status?: (PollStatus | null);
+    options?: (Array<PollOptionInput> | null);
+};
+
+export type PollVoteCreate = {
+    option_ids: Array<(string)>;
+};
+
+export type PollVoterPublic = {
+    steamid64: string;
+    name?: (string | null);
+    alias?: (string | null);
+    avatar_hash?: (string | null);
+    option_ids: Array<(string)>;
+    voted_at: string;
+};
+
 export type QQBindingCodePublic = {
     code: string;
     expires_at: string;
@@ -1815,6 +1915,8 @@ export type AdminMapsReadAdminMapsData = {
     limit?: number;
     offset?: number;
     q?: (string | null);
+    sortBy?: 'id' | 'name' | 'filesize' | 'created_at' | 'updated_at';
+    sortOrder?: 'asc' | 'desc';
     validated?: (boolean | null);
 };
 
@@ -1908,6 +2010,36 @@ export type AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkData = {
 };
 
 export type AdminPlayerSocialLinksDeleteAdminPlayerSocialLinkResponse = ({
+    [key: string]: (string);
+});
+
+export type AdminPollsReadAdminPollsData = {
+    limit?: number;
+    offset?: number;
+    sort?: 'created' | 'activity' | 'votes';
+    status?: (PollStatus | null);
+};
+
+export type AdminPollsReadAdminPollsResponse = (AdminPollsPublic);
+
+export type AdminPollsCreateAdminPollData = {
+    requestBody: PollCreate;
+};
+
+export type AdminPollsCreateAdminPollResponse = (AdminPollPublic);
+
+export type AdminPollsUpdateAdminPollData = {
+    pollId: string;
+    requestBody: PollUpdate;
+};
+
+export type AdminPollsUpdateAdminPollResponse = (AdminPollPublic);
+
+export type AdminPollsDeleteAdminPollData = {
+    pollId: string;
+};
+
+export type AdminPollsDeleteAdminPollResponse = ({
     [key: string]: (string);
 });
 
@@ -2795,6 +2927,28 @@ export type PlayerSocialLinksCompletePlayerYoutubeSocialLinkVerificationData = {
 };
 
 export type PlayerSocialLinksCompletePlayerYoutubeSocialLinkVerificationResponse = (unknown);
+
+export type PollsReadPollsData = {
+    limit?: number;
+    offset?: number;
+    sort?: 'created' | 'activity' | 'votes';
+    status?: (PollStatus | null);
+};
+
+export type PollsReadPollsResponse = (PollsPublic);
+
+export type PollsReadPollData = {
+    pollId: string;
+};
+
+export type PollsReadPollResponse = (PollPublic);
+
+export type PollsVotePollData = {
+    pollId: string;
+    requestBody: PollVoteCreate;
+};
+
+export type PollsVotePollResponse = (PollPublic);
 
 export type RecordsReadRecordsData = {
     createdSince?: (string | null);

@@ -24,6 +24,9 @@ async def _create_map(
     id: int,
     name: str,
     validated: bool = True,
+    filesize: int = 123456,
+    created_at: datetime | None = None,
+    updated_at: datetime | None = None,
 ) -> Map:
     await db.exec(delete(RecordFilter).where(RecordFilter.map_id == id))
     await db.exec(delete(Map).where(Map.id == id))
@@ -32,11 +35,11 @@ async def _create_map(
     map_obj = Map(
         id=id,
         name=name,
-        filesize=123456,
+        filesize=filesize,
         validated=validated,
         difficulty=5,
-        created_on=datetime(2021, 1, 1, tzinfo=UTC),
-        updated_on=datetime(2021, 1, 2, tzinfo=UTC),
+        created_on=created_at or datetime(2021, 1, 1, tzinfo=UTC),
+        updated_on=updated_at or datetime(2021, 1, 2, tzinfo=UTC),
         approved_by_steamid64=76561198003275951 if validated else 0,
         workshop_id=1986459033,
         authors=["76561198000000001"],
@@ -226,6 +229,71 @@ async def test_read_admin_maps_filters_searches_and_paginates(
     assert payload["data"][0]["authors"] == ["76561198000000001"]
     assert payload["data"][0]["no_steamid_names"] == ["Unknown Mapper"]
     assert payload["data"][0]["tiers"]["OVR"] == 0
+
+
+@pytest.mark.asyncio
+async def test_read_admin_maps_sorts_by_supported_fields(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    await _create_map(
+        db,
+        id=991101,
+        name="kz_sort_charlie",
+        filesize=300,
+        created_at=datetime(2021, 1, 3, tzinfo=UTC),
+        updated_at=datetime(2021, 1, 6, tzinfo=UTC),
+    )
+    await _create_map(
+        db,
+        id=991102,
+        name="kz_sort_alpha",
+        filesize=100,
+        created_at=datetime(2021, 1, 5, tzinfo=UTC),
+        updated_at=datetime(2021, 1, 4, tzinfo=UTC),
+    )
+    await _create_map(
+        db,
+        id=991103,
+        name="kz_sort_bravo",
+        filesize=200,
+        created_at=datetime(2021, 1, 4, tzinfo=UTC),
+        updated_at=datetime(2021, 1, 8, tzinfo=UTC),
+    )
+
+    default_response = await client.get(
+        f"{settings.API_V1_STR}/admin/maps",
+        headers=superuser_token_headers,
+        params={"q": "kz_sort_", "limit": 100},
+    )
+    assert default_response.status_code == 200
+    assert [row["id"] for row in default_response.json()["data"]] == [
+        991102,
+        991103,
+        991101,
+    ]
+
+    sort_cases = [
+        ("id", "asc", [991101, 991102, 991103]),
+        ("name", "asc", [991102, 991103, 991101]),
+        ("filesize", "desc", [991101, 991103, 991102]),
+        ("created_at", "asc", [991101, 991103, 991102]),
+        ("updated_at", "desc", [991103, 991101, 991102]),
+    ]
+    for sort_by, sort_order, expected_ids in sort_cases:
+        response = await client.get(
+            f"{settings.API_V1_STR}/admin/maps",
+            headers=superuser_token_headers,
+            params={
+                "q": "kz_sort_",
+                "limit": 100,
+                "sort_by": sort_by,
+                "sort_order": sort_order,
+            },
+        )
+        assert response.status_code == 200
+        assert [row["id"] for row in response.json()["data"]] == expected_ids
 
 
 @pytest.mark.asyncio

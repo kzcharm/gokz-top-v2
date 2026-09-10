@@ -599,8 +599,13 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
   const recordFilterId = 99102002
   let validated = false
   let tier: number | null = 3
+  let requestedSortBy: string | null = null
+  let requestedSortOrder: string | null = null
 
   await page.route(/\/v1\/admin\/maps(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    requestedSortBy = url.searchParams.get("sort_by")
+    requestedSortOrder = url.searchParams.get("sort_order")
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -652,6 +657,12 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
 
   await page.goto("/admin/maps")
   await expect(page.getByRole("heading", { name: "Maps" })).toBeVisible()
+  await expect
+    .poll(() => ({ sortBy: requestedSortBy, sortOrder: requestedSortOrder }))
+    .toEqual({
+      sortBy: "created_at",
+      sortOrder: "desc",
+    })
   await expect(page.getByText("kz_admin_filters")).toBeVisible()
 
   await page

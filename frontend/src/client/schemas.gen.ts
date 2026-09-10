@@ -695,6 +695,148 @@ export const AdminPlayerSocialLinksPublicSchema = {
     title: 'AdminPlayerSocialLinksPublic'
 } as const;
 
+export const AdminPollPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        created_by_steamid64: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created By Steamid64'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        status: {
+            '$ref': '#/components/schemas/PollStatus'
+        },
+        ends_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ends At'
+        },
+        closed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Closed At'
+        },
+        max_selections: {
+            type: 'integer',
+            title: 'Max Selections'
+        },
+        allow_vote_change: {
+            type: 'boolean',
+            title: 'Allow Vote Change'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        last_activity_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Last Activity At'
+        },
+        total_votes: {
+            type: 'integer',
+            title: 'Total Votes'
+        },
+        has_voted: {
+            type: 'boolean',
+            title: 'Has Voted'
+        },
+        selected_option_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Selected Option Ids'
+        },
+        can_view_results: {
+            type: 'boolean',
+            title: 'Can View Results'
+        },
+        options: {
+            items: {
+                '$ref': '#/components/schemas/PollOptionPublic'
+            },
+            type: 'array',
+            title: 'Options'
+        },
+        voters: {
+            items: {
+                '$ref': '#/components/schemas/PollVoterPublic'
+            },
+            type: 'array',
+            title: 'Voters'
+        }
+    },
+    type: 'object',
+    required: ['id', 'created_by_steamid64', 'title', 'description', 'status', 'ends_at', 'closed_at', 'max_selections', 'allow_vote_change', 'created_at', 'updated_at', 'last_activity_at', 'total_votes', 'has_voted', 'selected_option_ids', 'can_view_results', 'options', 'voters'],
+    title: 'AdminPollPublic'
+} as const;
+
+export const AdminPollsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/AdminPollPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'AdminPollsPublic'
+} as const;
+
 export const AdminRecordFilterPublicSchema = {
     properties: {
         id: {
@@ -6610,6 +6752,463 @@ export const PlayersPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'PlayersPublic'
+} as const;
+
+export const PollCreateSchema = {
+    properties: {
+        title: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Title'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 5000
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        ends_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ends At'
+        },
+        max_selections: {
+            type: 'integer',
+            maximum: 100,
+            minimum: 0,
+            title: 'Max Selections',
+            default: 1
+        },
+        allow_vote_change: {
+            type: 'boolean',
+            title: 'Allow Vote Change',
+            default: true
+        },
+        options: {
+            items: {
+                '$ref': '#/components/schemas/PollOptionInput'
+            },
+            type: 'array',
+            maxItems: 100,
+            minItems: 2,
+            title: 'Options'
+        }
+    },
+    type: 'object',
+    required: ['title', 'options'],
+    title: 'PollCreate'
+} as const;
+
+export const PollOptionInputSchema = {
+    properties: {
+        label: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Label'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 1000
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        }
+    },
+    type: 'object',
+    required: ['label'],
+    title: 'PollOptionInput'
+} as const;
+
+export const PollOptionPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        label: {
+            type: 'string',
+            title: 'Label'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        position: {
+            type: 'integer',
+            title: 'Position'
+        },
+        votes: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Votes'
+        },
+        percentage: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Percentage'
+        }
+    },
+    type: 'object',
+    required: ['id', 'label', 'description', 'position'],
+    title: 'PollOptionPublic'
+} as const;
+
+export const PollPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        created_by_steamid64: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created By Steamid64'
+        },
+        title: {
+            type: 'string',
+            title: 'Title'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        status: {
+            '$ref': '#/components/schemas/PollStatus'
+        },
+        ends_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ends At'
+        },
+        closed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Closed At'
+        },
+        max_selections: {
+            type: 'integer',
+            title: 'Max Selections'
+        },
+        allow_vote_change: {
+            type: 'boolean',
+            title: 'Allow Vote Change'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        },
+        last_activity_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Last Activity At'
+        },
+        total_votes: {
+            type: 'integer',
+            title: 'Total Votes'
+        },
+        has_voted: {
+            type: 'boolean',
+            title: 'Has Voted'
+        },
+        selected_option_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Selected Option Ids'
+        },
+        can_view_results: {
+            type: 'boolean',
+            title: 'Can View Results'
+        },
+        options: {
+            items: {
+                '$ref': '#/components/schemas/PollOptionPublic'
+            },
+            type: 'array',
+            title: 'Options'
+        },
+        voters: {
+            items: {
+                '$ref': '#/components/schemas/PollVoterPublic'
+            },
+            type: 'array',
+            title: 'Voters'
+        }
+    },
+    type: 'object',
+    required: ['id', 'created_by_steamid64', 'title', 'description', 'status', 'ends_at', 'closed_at', 'max_selections', 'allow_vote_change', 'created_at', 'updated_at', 'last_activity_at', 'total_votes', 'has_voted', 'selected_option_ids', 'can_view_results', 'options'],
+    title: 'PollPublic'
+} as const;
+
+export const PollStatusSchema = {
+    type: 'string',
+    enum: ['active', 'closed'],
+    title: 'PollStatus'
+} as const;
+
+export const PollUpdateSchema = {
+    properties: {
+        title: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Title'
+        },
+        description: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 5000
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Description'
+        },
+        ends_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ends At'
+        },
+        max_selections: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 100,
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Max Selections'
+        },
+        allow_vote_change: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Allow Vote Change'
+        },
+        status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/PollStatus'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        options: {
+            anyOf: [
+                {
+                    items: {
+                        '$ref': '#/components/schemas/PollOptionInput'
+                    },
+                    type: 'array',
+                    maxItems: 100,
+                    minItems: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Options'
+        }
+    },
+    type: 'object',
+    title: 'PollUpdate'
+} as const;
+
+export const PollVoteCreateSchema = {
+    properties: {
+        option_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            maxItems: 100,
+            minItems: 1,
+            title: 'Option Ids'
+        }
+    },
+    type: 'object',
+    required: ['option_ids'],
+    title: 'PollVoteCreate'
+} as const;
+
+export const PollVoterPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        alias: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Alias'
+        },
+        avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Avatar Hash'
+        },
+        option_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Option Ids'
+        },
+        voted_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Voted At'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'option_ids', 'voted_at'],
+    title: 'PollVoterPublic'
+} as const;
+
+export const PollsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PollPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PollsPublic'
 } as const;
 
 export const QQBindingCodePublicSchema = {

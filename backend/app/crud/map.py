@@ -149,6 +149,8 @@ async def read_admin_maps(
     limit: int = 20,
     q: str | None = None,
     validated: bool | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
 ) -> tuple[list[Map], int]:
     statement = select(Map)
     count_statement = select(func.count()).select_from(Map)
@@ -164,10 +166,20 @@ async def read_admin_maps(
         count_statement = count_statement.where(*filters)
 
     count = (await session.exec(count_statement)).one()
+    sort_columns = {
+        "id": col(Map.id),
+        "name": col(Map.name),
+        "filesize": col(Map.filesize),
+        "created_at": col(Map.created_at),
+        "updated_at": col(Map.updated_at),
+    }
+    sort_column = sort_columns.get(sort_by, col(Map.created_at))
+    primary_order = sort_column.asc() if sort_order == "asc" else sort_column.desc()
+    tie_breaker = col(Map.id).asc() if sort_order == "asc" else col(Map.id).desc()
     maps = list(
         (
             await session.exec(
-                statement.order_by(col(Map.name).asc(), col(Map.id).asc())
+                statement.order_by(primary_order, tie_breaker)
                 .offset(offset)
                 .limit(limit)
             )

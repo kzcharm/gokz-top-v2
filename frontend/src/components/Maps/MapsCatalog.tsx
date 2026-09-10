@@ -9,7 +9,6 @@ import {
   Copy,
   Download,
   Filter,
-  Globe,
   Search,
   SearchX,
 } from "lucide-react"
@@ -34,6 +33,7 @@ import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
+import { ValidationStatusIconButton } from "@/components/Common/ValidationStatusIconButton"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import { MapCard } from "@/components/Maps/MapCard"
 import {
@@ -780,37 +780,14 @@ function MapValidationButton({
   const isValidated = status === "validated"
 
   return (
-    <button
-      type="button"
-      className={cn(
-        "relative inline-flex size-8 items-center justify-center overflow-hidden rounded-md text-white shadow-xs transition-[background-color,box-shadow,transform] duration-300 ease-out outline-none hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        isValidated ? "bg-emerald-500" : "bg-red-500",
-      )}
-      aria-label={t(
+    <ValidationStatusIconButton
+      status={status}
+      label={t(
         isValidated ? "maps.validatedStatusAria" : "maps.invalidStatusAria",
       )}
-      aria-pressed={!isValidated}
+      pressed={!isValidated}
       onClick={onToggle}
-      title={t(
-        isValidated ? "maps.validatedStatusAria" : "maps.invalidStatusAria",
-      )}
-    >
-      <span
-        key={status}
-        aria-hidden="true"
-        className={cn(
-          "absolute inset-0 rounded-md opacity-35 motion-safe:animate-ping",
-          isValidated ? "bg-emerald-300" : "bg-red-300",
-        )}
-      />
-      <Globe
-        className={cn(
-          "relative size-4 transform-gpu transition-transform duration-300 ease-out",
-          isValidated ? "rotate-0 scale-100" : "rotate-180 scale-90",
-        )}
-        aria-hidden="true"
-      />
-    </button>
+    />
   )
 }
 

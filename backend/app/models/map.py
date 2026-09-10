@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import computed_field, field_validator
 from sqlalchemy import (
@@ -150,6 +151,10 @@ class AdminMapListQuery(SQLModel):
     validated: bool | None = None
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)
+    sort_by: Literal["id", "name", "filesize", "created_at", "updated_at"] = (
+        "created_at"
+    )
+    sort_order: Literal["asc", "desc"] = "desc"
 
 
 class AdminMapUpdate(SQLModel):

@@ -42,6 +42,8 @@ async def read_admin_maps(
         limit=query.limit,
         q=query.q,
         validated=query.validated,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order,
     )
     return AdminMapsPublic(
         data=await crud.to_admin_map_publics(session=session, maps=maps),

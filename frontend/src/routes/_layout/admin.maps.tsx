@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useBlocker } from "@tanstack/react-router"
-import type { ColumnDef } from "@tanstack/react-table"
-import { ExternalLink, Plus, Save, X } from "lucide-react"
+import {
+  type ColumnDef,
+  functionalUpdate,
+  type OnChangeFn,
+  type SortingState,
+} from "@tanstack/react-table"
+import { ArrowDown, ArrowUp, ExternalLink, Plus, Save, X } from "lucide-react"
 import {
   Fragment,
   useCallback,
@@ -31,6 +36,7 @@ import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
+import { ValidationStatusIconButton } from "@/components/Common/ValidationStatusIconButton"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -44,14 +50,6 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { isLoggedIn } from "@/hooks/useAuth"
@@ -87,6 +85,45 @@ type CourseTierDraft = {
 }
 
 type CourseTierDrafts = Record<string, CourseTierDraft>
+type AdminMapSortBy = "id" | "name" | "filesize" | "created_at" | "updated_at"
+
+function isAdminMapSortBy(value: string | undefined): value is AdminMapSortBy {
+  return (
+    value === "id" ||
+    value === "name" ||
+    value === "filesize" ||
+    value === "created_at" ||
+    value === "updated_at"
+  )
+}
+
+function SortableHeader({
+  title,
+  column,
+}: {
+  title: string
+  column: {
+    getIsSorted: () => false | "asc" | "desc"
+    toggleSorting: (desc?: boolean) => void
+  }
+}) {
+  const sorting = column.getIsSorted()
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className="-ml-3 h-8 px-3"
+      onClick={() => column.toggleSorting(sorting !== "desc")}
+    >
+      {title}
+      {sorting === "asc" ? (
+        <ArrowUp className="ml-2 size-4" />
+      ) : sorting === "desc" ? (
+        <ArrowDown className="ml-2 size-4" />
+      ) : null}
+    </Button>
+  )
+}
 
 function shouldIgnoreRowToggle(target: EventTarget | null) {
   if (!(target instanceof Element)) {
@@ -167,8 +204,11 @@ function AdminMaps() {
   })
   const [searchInput, setSearchInput] = useState("")
   const [validatedFilter, setValidatedFilter] = useState<
-    "all" | "validated" | "unvalidated"
-  >("all")
+    "validated" | "unvalidated"
+  >("validated")
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "created_at", desc: true },
+  ])
   const [editingMapId, setEditingMapId] = useState<number | null>(null)
   const [mapValidationDrafts, setMapValidationDrafts] =
     useState<MapValidationDrafts>({})
@@ -176,8 +216,10 @@ function AdminMaps() {
   const [courseTierDrafts, setCourseTierDrafts] = useState<CourseTierDrafts>({})
   const deferredSearchInput = useDeferredValue(searchInput)
   const normalizedSearch = deferredSearchInput.trim()
-  const validated =
-    validatedFilter === "all" ? undefined : validatedFilter === "validated"
+  const validated = validatedFilter === "validated"
+  const activeSort = sorting[0] ?? { id: "created_at", desc: true }
+  const sortBy = isAdminMapSortBy(activeSort.id) ? activeSort.id : "created_at"
+  const sortOrder = activeSort.desc ? "desc" : "asc"
 
   const mapsQueryKey = [
     "admin-maps",
@@ -185,6 +227,8 @@ function AdminMaps() {
     pageSize,
     normalizedSearch,
     validatedFilter,
+    sortBy,
+    sortOrder,
   ]
 
   const { data, isLoading } = useQuery({
@@ -194,9 +238,28 @@ function AdminMaps() {
         limit: pageSize,
         q: normalizedSearch || undefined,
         validated,
+        sortBy,
+        sortOrder,
       }),
     queryKey: mapsQueryKey,
   })
+
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = functionalUpdate(updater, sorting)
+    const nextSort =
+      next.length > 0 ? [next[0]] : [{ id: "created_at", desc: true }]
+    setSorting(nextSort)
+    setPageIndex(0)
+    setEditingMapId(null)
+  }
+
+  const updateValidatedFilter = (
+    nextValidatedFilter: "validated" | "unvalidated",
+  ) => {
+    setValidatedFilter(nextValidatedFilter)
+    setPageIndex(0)
+    setEditingMapId(null)
+  }
 
   const mapChanges = useMemo(
     () =>
@@ -388,7 +451,7 @@ function AdminMaps() {
     () => [
       {
         accessorKey: "id",
-        header: "ID",
+        header: ({ column }) => <SortableHeader title="ID" column={column} />,
         size: 96,
         cell: ({ row }) => {
           return (
@@ -400,7 +463,9 @@ function AdminMaps() {
       },
       {
         accessorKey: "name",
-        header: "Map",
+        header: ({ column }) => (
+          <SortableHeader title="Map Name" column={column} />
+        ),
         size: 300,
         cell: ({ row }) => (
           <MapDisplay
@@ -430,12 +495,15 @@ function AdminMaps() {
       {
         accessorKey: "tiers",
         header: "Tiers",
+        enableSorting: false,
         size: 320,
         cell: ({ row }) => <TierSummary map={row.original} />,
       },
       {
         accessorKey: "filesize",
-        header: "Filesize",
+        header: ({ column }) => (
+          <SortableHeader title="Filesize" column={column} />
+        ),
         size: 120,
         cell: ({ row }) => (
           <span className="text-muted-foreground">
@@ -444,8 +512,11 @@ function AdminMaps() {
         ),
       },
       {
+        id: "created_at",
         accessorKey: "created_on",
-        header: "Created",
+        header: ({ column }) => (
+          <SortableHeader title="Created" column={column} />
+        ),
         size: 120,
         cell: ({ row }) => (
           <FormattedDateTime
@@ -456,8 +527,11 @@ function AdminMaps() {
         ),
       },
       {
+        id: "updated_at",
         accessorKey: "updated_on",
-        header: "Updated",
+        header: ({ column }) => (
+          <SortableHeader title="Updated" column={column} />
+        ),
         size: 120,
         cell: ({ row }) => (
           <FormattedDateTime
@@ -470,6 +544,7 @@ function AdminMaps() {
       {
         accessorKey: "validated",
         header: "Validated",
+        enableSorting: false,
         size: 120,
         cell: ({ row }) => {
           const checked =
@@ -499,42 +574,44 @@ function AdminMaps() {
     <div className="flex flex-col gap-6">
       <AdminPageHeader title="Maps" />
       <AdminControlsCard>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <Input
-            aria-label="Search maps"
-            className="w-full sm:w-80"
-            placeholder="Search maps..."
-            value={searchInput}
-            onChange={(event) => {
-              setSearchInput(event.target.value)
-              setPageIndex(0)
-              setEditingMapId(null)
-            }}
-          />
-          <Select
-            value={validatedFilter}
-            onValueChange={(value) => {
-              setValidatedFilter(value as "all" | "validated" | "unvalidated")
-              setPageIndex(0)
-              setEditingMapId(null)
-            }}
-          >
-            <SelectTrigger
-              aria-label="Filter validation"
-              className="w-full sm:w-44"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="all">All maps</SelectItem>
-                <SelectItem value="validated">Validated</SelectItem>
-                <SelectItem value="unvalidated">Unvalidated</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <Input
+              aria-label="Search maps"
+              className="w-full sm:w-80"
+              placeholder="Search maps..."
+              value={searchInput}
+              onChange={(event) => {
+                setSearchInput(event.target.value)
+                setPageIndex(0)
+                setEditingMapId(null)
+              }}
+            />
+            <fieldset className="flex items-center">
+              <legend className="sr-only">Filter validation</legend>
+              <ValidationStatusIconButton
+                status={
+                  validatedFilter === "unvalidated" ? "invalid" : "validated"
+                }
+                label={
+                  validatedFilter === "unvalidated"
+                    ? "Show validated maps"
+                    : "Show unvalidated maps"
+                }
+                pressed={validatedFilter === "unvalidated"}
+                onClick={() =>
+                  updateValidatedFilter(
+                    validatedFilter === "unvalidated"
+                      ? "validated"
+                      : "unvalidated",
+                  )
+                }
+              />
+            </fieldset>
+          </div>
           <LoadingButton
             type="button"
+            className="sm:ml-auto"
             loading={saveMutation.isPending}
             disabled={!hasUnsavedChanges}
             onClick={() => saveMutation.mutate()}
@@ -574,6 +651,11 @@ function AdminMaps() {
           })}
           getRowId={(row) => String(row.id)}
           isLoading={isLoading}
+          sorting={{
+            state: sorting,
+            onSortingChange,
+            manualSorting: true,
+          }}
           serverPagination={{
             pageIndex,
             pageSize,
