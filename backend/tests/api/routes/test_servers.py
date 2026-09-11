@@ -1163,7 +1163,9 @@ async def test_put_server_status_updates_live_status_from_plugin(
             "map": "kz_plugin",
             "player_count": 9,
             "max_players": 24,
-            "players": [_plugin_player()],
+            "sv_ms": 0.428,
+            "var_ms": 0.016,
+            "players": [{**_plugin_player(), "ping_ms": 34}],
             "global_status": {
                 "api_key_valid": True,
                 "plugins_valid": True,
@@ -1180,7 +1182,10 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert payload["live_status"]["hostname"] == "Plugin Host"
     assert payload["live_status"]["map"] == "kz_plugin"
     assert payload["live_status"]["player_count"] == 9
+    assert payload["live_status"]["sv_ms"] == 0.428
+    assert payload["live_status"]["var_ms"] == 0.016
     assert payload["live_status"]["players"][0]["name"] == "Player One"
+    assert payload["live_status"]["players"][0]["ping_ms"] == 34
     assert payload["live_status"]["players"][0]["status"] == "in_progress"
     assert payload["live_status"]["players"][0]["teleports"] == 3
     assert payload["live_status"]["global_status"]["eligible"] is True
@@ -1222,7 +1227,44 @@ async def test_put_server_status_updates_live_status_from_plugin(
     )
 
     assert old_plugin_response.status_code == 200
-    assert old_plugin_response.json()["live_status"]["global_status"] is None
+    old_live_status = old_plugin_response.json()["live_status"]
+    assert old_live_status["global_status"] is None
+    assert old_live_status["sv_ms"] is None
+    assert old_live_status["var_ms"] is None
+
+
+async def test_put_server_status_rejects_negative_rich_telemetry(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    server = await create_server(db, group_id=group.id)
+    base_payload = {
+        "ip": server.ip,
+        "port": server.port,
+        "observed_at": datetime.now(UTC).isoformat(),
+        "hostname": "Plugin Host",
+        "map": "kz_plugin",
+        "player_count": 1,
+        "max_players": 16,
+        "players": [_plugin_player()],
+    }
+
+    invalid_payloads = [
+        {**base_payload, "sv_ms": -0.1},
+        {**base_payload, "var_ms": -0.1},
+        {
+            **base_payload,
+            "players": [{**_plugin_player(), "ping_ms": -1}],
+        },
+    ]
+    for payload in invalid_payloads:
+        response = await client.put(
+            f"{settings.API_V1_STR}/servers/status",
+            headers={"X-Server-Group-Key": api_key},
+            json=payload,
+        )
+        assert response.status_code == 422
 
 
 async def test_put_server_status_accepts_blank_player_mode(
@@ -1552,6 +1594,8 @@ async def test_offline_mark_preserves_identity_and_zeroes_player_state(
     assert matching["live_status"]["map"] == "kz_offline"
     assert matching["live_status"]["player_count"] == 0
     assert matching["live_status"]["players"] == []
+    assert matching["live_status"]["sv_ms"] is None
+    assert matching["live_status"]["var_ms"] is None
     assert matching["live_status"]["is_online"] is False
 
 
@@ -1651,6 +1695,7 @@ async def test_read_server_normalizes_legacy_player_status_rows(
             "teleports": None,
             "timer_time": None,
             "stage": None,
+            "ping_ms": None,
             "index": None,
         }
     ]

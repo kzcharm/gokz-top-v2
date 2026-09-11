@@ -8645,6 +8645,30 @@ export const ServerLiveStatusPublicSchema = {
             title: 'Max Players',
             default: 0
         },
+        sv_ms: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sv Ms'
+        },
+        var_ms: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Var Ms'
+        },
         players: {
             items: {
                 '$ref': '#/components/schemas/ServerPlayerPublic'
@@ -8877,6 +8901,18 @@ export const ServerPlayerPublicSchema = {
                 }
             ],
             title: 'Stage'
+        },
+        ping_ms: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ping Ms'
         },
         index: {
             anyOf: [
@@ -9155,6 +9191,18 @@ export const ServerStatusPlayerPutSchema = {
                 }
             ],
             title: 'Stage'
+        },
+        ping_ms: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ping Ms'
         }
     },
     additionalProperties: false,
@@ -9203,6 +9251,30 @@ export const ServerStatusPutSchema = {
             type: 'integer',
             minimum: 0,
             title: 'Max Players'
+        },
+        sv_ms: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sv Ms'
+        },
+        var_ms: {
+            anyOf: [
+                {
+                    type: 'number',
+                    minimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Var Ms'
         },
         players: {
             items: {

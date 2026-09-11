@@ -106,6 +106,22 @@ export function ServerDetailSheet({
             </DialogHeader>
 
             <div className="space-y-6">
+              {server.live_status?.sv_ms != null ||
+              server.live_status?.var_ms != null ? (
+                <div className="flex flex-wrap gap-2">
+                  {server.live_status.sv_ms != null ? (
+                    <Badge variant="outline" className="font-mono">
+                      SV {server.live_status.sv_ms.toFixed(3)} ms
+                    </Badge>
+                  ) : null}
+                  {server.live_status.var_ms != null ? (
+                    <Badge variant="outline" className="font-mono">
+                      VAR {server.live_status.var_ms.toFixed(3)} ms
+                    </Badge>
+                  ) : null}
+                </div>
+              ) : null}
+
               {mapName ? (
                 <div className="space-y-4">
                   <div className="flex justify-center">

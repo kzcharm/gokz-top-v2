@@ -167,6 +167,8 @@ def _build_server_live_status_public(
         workshop_id=parsed_workshop_id or (str(workshop_id) if workshop_id else None),
         player_count=status.player_count,
         max_players=status.max_players,
+        sv_ms=status.sv_ms,
+        var_ms=status.var_ms,
         players=_build_server_player_public_list(status.players),
         is_online=status.is_online,
         global_status=global_status,
@@ -1076,6 +1078,8 @@ async def record_plugin_heartbeat(
         max_players=payload.max_players,
         players=[player.model_dump(mode="json") for player in payload.players],
         is_online=True,
+        sv_ms=payload.sv_ms,
+        var_ms=payload.var_ms,
         global_status=(
             payload.global_status.model_dump(mode="json")
             if payload.global_status is not None
@@ -1164,6 +1168,8 @@ async def record_a2s_failure(
     if mark_offline:
         status.player_count = 0
         status.players = []
+        status.sv_ms = None
+        status.var_ms = None
         status.is_online = False
         status.updated_at = observed_at
         session.add(status)
@@ -1202,6 +1208,8 @@ async def record_offline_mark(
     _set_live_status_state(status, state)
     status.player_count = 0
     status.players = []
+    status.sv_ms = None
+    status.var_ms = None
     status.is_online = False
     status.updated_at = observed_at
     session.add(status)
@@ -1309,6 +1317,8 @@ async def _record_server_status(
     max_players: int,
     players: list[dict[str, Any]],
     is_online: bool,
+    sv_ms: float | None = None,
+    var_ms: float | None = None,
     global_status: dict[str, Any] | None = None,
 ) -> None:
     status = await _get_server_live_status(session=session, server=server)
@@ -1320,6 +1330,8 @@ async def _record_server_status(
             map=map_name,
             player_count=player_count,
             max_players=max_players,
+            sv_ms=sv_ms,
+            var_ms=var_ms,
             players=players,
             is_online=is_online,
             global_status=global_status,
@@ -1335,6 +1347,8 @@ async def _record_server_status(
         status.map = map_name
         status.player_count = player_count
         status.max_players = max_players
+        status.sv_ms = sv_ms
+        status.var_ms = var_ms
         status.players = players
         status.is_online = True
         # A heartbeat without global_status comes from an older plugin build;
@@ -1353,6 +1367,8 @@ async def _record_server_status(
             status.map = map_name
             status.player_count = player_count
             status.max_players = max_players
+            status.sv_ms = sv_ms
+            status.var_ms = var_ms
             status.players = players
             status.is_online = is_online
             state.last_successful_seen_at = observed_at

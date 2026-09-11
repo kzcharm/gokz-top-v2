@@ -233,6 +233,8 @@ class ServerLiveStatusBase(SQLModel):
     map: str | None = Field(default=None, max_length=255)
     player_count: int = Field(default=0, ge=0)
     max_players: int = Field(default=0, ge=0)
+    sv_ms: float | None = Field(default=None, ge=0)
+    var_ms: float | None = Field(default=None, ge=0)
     players: list[dict[str, Any]] = Field(
         default_factory=list,
         sa_column=Column(JSONB, nullable=False),
@@ -266,6 +268,7 @@ class ServerStatusPlayerPut(SQLModel):
     teleports: int = Field(ge=0)
     timer_time: float | None = Field(default=None, ge=0)
     stage: int | None = Field(default=None, ge=0)
+    ping_ms: int | None = Field(default=None, ge=0)
 
     @field_validator("tag", mode="after")
     @classmethod
@@ -298,6 +301,7 @@ class ServerPlayerPublic(SQLModel):
     teleports: int | None = Field(default=None, ge=0)
     timer_time: float | None = Field(default=None, ge=0)
     stage: int | None = Field(default=None, ge=0)
+    ping_ms: int | None = Field(default=None, ge=0)
     index: int | None = None
 
     @field_validator("status", mode="before")
@@ -420,6 +424,8 @@ class ServerLiveStatusPublic(SQLModel):
     workshop_id: str | None = None
     player_count: int = Field(default=0, ge=0)
     max_players: int = Field(default=0, ge=0)
+    sv_ms: float | None = Field(default=None, ge=0)
+    var_ms: float | None = Field(default=None, ge=0)
     players: list[ServerPlayerPublic] = Field(default_factory=list)
     is_online: bool = False
     global_status: ServerGlobalStatusPublic | None = None
@@ -584,6 +590,8 @@ class ServerStatusPut(SQLModel):
     map: str = Field(min_length=1, max_length=255)
     player_count: int = Field(ge=0)
     max_players: int = Field(ge=0)
+    sv_ms: float | None = Field(default=None, ge=0)
+    var_ms: float | None = Field(default=None, ge=0)
     players: list[ServerStatusPlayerPut] = Field(default_factory=list)
     global_status: ServerGlobalStatusPut | None = None
 

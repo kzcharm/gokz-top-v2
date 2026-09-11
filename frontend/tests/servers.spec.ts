@@ -114,6 +114,8 @@ const snapshotServers = {
         workshop_id: null,
         player_count: 7,
         max_players: 24,
+        sv_ms: 0.428,
+        var_ms: 0.016,
         players: [
           {
             name: "Runner One",
@@ -124,6 +126,17 @@ const snapshotServers = {
             teleports: 2,
             timer_time: 142.5,
             duration_seconds: 412.25,
+            ping_ms: 34,
+          },
+          {
+            name: "Runner Missing Ping",
+            steamid64: "76561198000000002",
+            mode: "vnl",
+            score: 500,
+            status: "finished",
+            teleports: 0,
+            timer_time: 180,
+            duration_seconds: 200,
           },
         ],
         is_online: true,
@@ -161,6 +174,8 @@ const updatedGammaServer = {
       workshop_id: null,
       player_count: 9,
       max_players: 24,
+      sv_ms: 0.615,
+      var_ms: 0.024,
       players: [
         {
           name: "Runner One",
@@ -170,6 +185,7 @@ const updatedGammaServer = {
           status: "finished",
           teleports: 2,
           timer_time: 155.4,
+          ping_ms: 41,
         },
       ],
       is_online: true,
@@ -396,6 +412,117 @@ function getCanvasSampleDifference(
     0,
   )
 }
+
+test("Server details show rich telemetry and update legacy snapshots", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const sockets: Array<{
+      readyState: number
+      onopen: ((event: Event) => void) | null
+      onmessage: ((event: { data: string }) => void) | null
+      onclose: ((event: Event) => void) | null
+      onerror: ((event: Event) => void) | null
+      dispatchMessage: (payload: unknown) => void
+      close: () => void
+    }> = []
+
+    class MockWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+
+      readyState = MockWebSocket.CONNECTING
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        sockets.push(this)
+        queueMicrotask(() => {
+          this.readyState = MockWebSocket.OPEN
+          this.onopen?.(new Event("open"))
+        })
+      }
+
+      close() {
+        this.readyState = MockWebSocket.CLOSED
+        this.onclose?.(new Event("close"))
+      }
+
+      send(_data?: unknown) {}
+
+      dispatchMessage(payload: unknown) {
+        this.onmessage?.({ data: JSON.stringify(payload) })
+      }
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+    Object.assign(window, {
+      __dispatchServerMessage: (payload: unknown) => {
+        for (const socket of sockets) {
+          socket.dispatchMessage(payload)
+        }
+      },
+    })
+  })
+
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: snapshotServers.servers.length,
+        data: snapshotServers.servers,
+      }),
+    })
+  })
+
+  await page.goto("/servers/10.0.0.3:27017")
+
+  await expect(page.getByRole("columnheader", { name: "Ping" })).toBeVisible()
+  await expect(page.getByRole("cell", { name: "34 ms" })).toBeVisible()
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "Runner Missing Ping" })
+      .getByText("-"),
+  ).toBeVisible()
+  await expect(page.getByText("SV 0.428 ms")).toBeVisible()
+  await expect(page.getByText("VAR 0.016 ms")).toBeVisible()
+
+  await page.evaluate((payload) => {
+    ;(window as any).__dispatchServerMessage(payload)
+  }, updatedGammaServer)
+
+  await expect(page.getByRole("cell", { name: "41 ms" })).toBeVisible()
+  await expect(page.getByText("SV 0.615 ms")).toBeVisible()
+  await expect(page.getByText("VAR 0.024 ms")).toBeVisible()
+
+  const legacyServer = {
+    ...updatedGammaServer.server,
+    live_status: {
+      ...updatedGammaServer.server.live_status,
+      sv_ms: undefined,
+      var_ms: undefined,
+      players: updatedGammaServer.server.live_status.players.map(
+        ({ ping_ms: _pingMs, ...player }) => player,
+      ),
+    },
+  }
+  await page.evaluate((server) => {
+    ;(window as any).__dispatchServerMessage({ type: "server.updated", server })
+  }, legacyServer)
+
+  await expect(page.getByRole("columnheader", { name: "Ping" })).toHaveCount(0)
+  await expect(page.getByText(/^SV /)).toHaveCount(0)
+  await expect(page.getByText(/^VAR /)).toHaveCount(0)
+})
 
 test("Public servers page supports live updates, filters, and route-bound details", async ({
   page,

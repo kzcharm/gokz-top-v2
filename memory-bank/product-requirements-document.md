@@ -119,6 +119,7 @@ Scope model:
 - Show a GlobalAPI status badge on each server map image when `gokz-global` reports valid API key, plugin, settings, and map checks plus at least one available KZT, SKZ, or VNL mode; expose the individual checks on hover and leave player validity explicitly unevaluated.
 - The primary SourceMod live-status publisher is `gokz-top-servers`, which reuses `gokz-top-core` server-group auth config and caches its resolved public IPv4 locally before pushing `/v1/servers/status`.
 - Plugin heartbeat player payloads must preserve richer run state than A2S can provide, including clan tag, movement mode, timer status, pause state, teleports, timer time, stage, and connection duration.
+- Plugin heartbeats may additionally report each player's average round-trip ping plus net-graph-style server `SV` and `VAR` values in milliseconds; these fields remain optional for compatibility with older plugin versions and are shown only from the current authoritative snapshot.
 - SourceMod plugins can submit player connection sessions via authenticated `/v1/player-sessions` connect, heartbeat, and disconnect events for playtime, activity, map-time, and shared-IP analytics.
 - Open player sessions are closed automatically after heartbeat timeout using the last known heartbeat as the disconnect timestamp.
 - Preserve last-known server identity fields when a server goes offline so players can still see which server is down.

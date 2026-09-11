@@ -1714,6 +1714,8 @@ export type ServerLiveStatusPublic = {
     workshop_id?: (string | null);
     player_count?: number;
     max_players?: number;
+    sv_ms?: (number | null);
+    var_ms?: (number | null);
     players?: Array<ServerPlayerPublic>;
     is_online?: boolean;
     global_status?: (ServerGlobalStatusPublic | null);
@@ -1742,6 +1744,7 @@ export type ServerPlayerPublic = {
     teleports?: (number | null);
     timer_time?: (number | null);
     stage?: (number | null);
+    ping_ms?: (number | null);
     index?: (number | null);
     [key: string]: unknown;
 };
@@ -1791,6 +1794,7 @@ export type ServerStatusPlayerPut = {
     teleports: number;
     timer_time?: (number | null);
     stage?: (number | null);
+    ping_ms?: (number | null);
 };
 
 export type ServerStatusPut = {
@@ -1801,6 +1805,8 @@ export type ServerStatusPut = {
     map: string;
     player_count: number;
     max_players: number;
+    sv_ms?: (number | null);
+    var_ms?: (number | null);
     players?: Array<ServerStatusPlayerPut>;
     global_status?: (ServerGlobalStatusPut | null);
 };

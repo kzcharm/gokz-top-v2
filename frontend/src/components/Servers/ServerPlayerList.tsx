@@ -30,6 +30,9 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
   const showTimerColumn = sortedPlayers.some(
     (player) => getPlayerNumberValue(player, "timer_time") !== null,
   )
+  const showPingColumn = sortedPlayers.some(
+    (player) => getPlayerNumberValue(player, "ping_ms") !== null,
+  )
   const showProgressColumn = sortedPlayers.some(
     (player) => getPlayerProgressPercent(player) !== null,
   )
@@ -41,6 +44,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
   )
   const visibleColumnCount =
     2 +
+    (showPingColumn ? 1 : 0) +
     (showTimerColumn ? 1 : 0) +
     (showProgressColumn ? 1 : 0) +
     (showStageColumn ? 1 : 0) +
@@ -57,6 +61,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
             <TableRow>
               <TableHead>Player</TableHead>
               <TableHead>Duration</TableHead>
+              {showPingColumn ? <TableHead>Ping</TableHead> : null}
               {showStageColumn ? <TableHead>Stage</TableHead> : null}
               {showTimerColumn ? <TableHead>Timer</TableHead> : null}
               {showProgressColumn ? <TableHead>Progress</TableHead> : null}
@@ -83,6 +88,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                   player,
                   "duration_seconds",
                 )
+                const pingMs = getPlayerNumberValue(player, "ping_ms")
                 const progress = getPlayerProgressPercent(player)
                 const stage = getPlayerNumberValue(player, "stage")
                 const isPaused = getPlayerBooleanValue(player, "is_paused")
@@ -112,6 +118,11 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                       />
                     </TableCell>
                     <TableCell>{formatTimerTime(durationSeconds)}</TableCell>
+                    {showPingColumn ? (
+                      <TableCell>
+                        {pingMs !== null ? `${Math.round(pingMs)} ms` : "-"}
+                      </TableCell>
+                    ) : null}
                     {showStageColumn ? (
                       <TableCell>
                         {stage !== null ? (

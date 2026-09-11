@@ -201,6 +201,52 @@ async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
     assert stale_server.id in due_server_ids
 
 
+async def test_stale_a2s_snapshot_clears_plugin_performance_metrics(
+    db: AsyncSession,
+) -> None:
+    server = await create_server(db)
+    plugin_observed_at = datetime.now(UTC) - timedelta(seconds=10)
+    server = await crud.record_plugin_heartbeat(
+        session=db,
+        server=server,
+        payload=ServerStatusPut(
+            ip=server.ip,
+            port=server.port,
+            observed_at=plugin_observed_at,
+            hostname="Plugin Host",
+            map="kz_plugin",
+            player_count=1,
+            max_players=16,
+            players=[{**_plugin_player(), "ping_ms": 28}],
+            sv_ms=0.42,
+            var_ms=0.018,
+        ),
+    )
+
+    refreshed = await crud.record_a2s_success(
+        session=db,
+        server=server,
+        observed_at=plugin_observed_at + timedelta(seconds=10),
+        hostname="A2S Host",
+        map_name="kz_a2s",
+        player_count=1,
+        max_players=16,
+        players=[
+            {
+                "index": 0,
+                "name": "A2S Player",
+                "score": 1,
+                "duration_seconds": 10.0,
+            }
+        ],
+    )
+
+    assert refreshed.live_status is not None
+    assert refreshed.live_status.sv_ms is None
+    assert refreshed.live_status.var_ms is None
+    assert refreshed.live_status.players[0].get("ping_ms") is None
+
+
 async def test_read_servers_due_for_a2s_poll_includes_invalid_servers(
     db: AsyncSession,
 ) -> None:
