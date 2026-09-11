@@ -246,7 +246,9 @@ const mapLeaderboardSeedRows = [
   }),
 ]
 
-test("Maps catalog shows map updater commands", async ({ page }) => {
+test("Maps catalog shows manual and automatic map updater commands", async ({
+  page,
+}) => {
   await stubRegions(page)
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
@@ -332,6 +334,107 @@ test("Maps catalog shows map updater commands", async ({ page }) => {
   expect(commandBlockMetrics.blocks[0].right).toBeLessThanOrEqual(
     commandBlockMetrics.copyButtons[0].left,
   )
+
+  await page.keyboard.press("Escape")
+  await page.getByRole("button", { name: "Auto Update", exact: true }).click()
+
+  const autoUpdateDialog = page.getByRole("dialog", {
+    name: "Automatically Update Maps",
+  })
+  await expect(autoUpdateDialog).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText(
+      "Keep validated maps current with an hourly cron job.",
+    ),
+  ).toBeVisible()
+  await expect(autoUpdateDialog.getByText("1", { exact: true })).toBeVisible()
+  await expect(autoUpdateDialog.getByText("2", { exact: true })).toBeVisible()
+  await expect(autoUpdateDialog.getByText("3", { exact: true })).toBeVisible()
+  await expect(autoUpdateDialog.getByText("Test the updater")).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText(
+      "Run the updater once from your csgo/ directory—not csgo/maps/—and confirm it completes successfully.",
+    ),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText("Open the server user's crontab"),
+  ).toBeVisible()
+  await expect(autoUpdateDialog.getByText("Add the hourly job")).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText("crontab -e", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText(
+      '0 * * * * /usr/bin/flock -n "$HOME/.gokz-map-update.lock" /bin/sh -c \'export GOKZ_MAPS_YES=1; /usr/bin/curl -fsSL https://gokz.top/install/maps.sh | /bin/sh\' >> "$HOME/map-update.log" 2>&1',
+      { exact: true },
+    ),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText("$HOME/serverfiles/csgo", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText(
+      "Downloads only validated maps that are missing or have changed.",
+    ),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText(
+      '0 * * * * /usr/bin/flock -n "$HOME/.gokz-map-update.lock" /bin/sh -c \'cd /path/to/serverfiles/csgo || exit 1; export GOKZ_MAPS_YES=1; /usr/bin/curl -fsSL https://gokz.top/install/maps.sh | /bin/sh\' >> "$HOME/map-update.log" 2>&1',
+      { exact: true },
+    ),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByRole("button", {
+      name: "Copy Hourly cron entry with a custom path",
+    }),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByText('tail -n 100 "$HOME/map-update.log"', {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    autoUpdateDialog.getByRole("button", {
+      name: "Copy Hourly cron entry",
+      exact: true,
+    }),
+  ).toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  const autoDialogMetrics = await autoUpdateDialog.evaluate((dialog) => {
+    const dialogRect = dialog.getBoundingClientRect()
+    const blocks = Array.from(dialog.querySelectorAll("pre"))
+    const copyButtons = Array.from(
+      dialog.querySelectorAll('button[aria-label^="Copy"]'),
+    )
+
+    return {
+      dialogBottom: dialogRect.bottom,
+      dialogClientHeight: dialog.clientHeight,
+      dialogOverflowX: window.getComputedStyle(dialog).overflowX,
+      dialogScrollHeight: dialog.scrollHeight,
+      viewportHeight: window.innerHeight,
+      blocks: blocks.map((block) => ({
+        clientWidth: block.clientWidth,
+        scrollWidth: block.scrollWidth,
+      })),
+      copyButtonCount: copyButtons.length,
+    }
+  })
+
+  expect(autoDialogMetrics.dialogOverflowX).toBe("hidden")
+  expect(autoDialogMetrics.dialogBottom).toBeLessThanOrEqual(
+    autoDialogMetrics.viewportHeight,
+  )
+  expect(autoDialogMetrics.dialogScrollHeight).toBeGreaterThan(
+    autoDialogMetrics.dialogClientHeight,
+  )
+  for (const blockIndex of [2, 3]) {
+    expect(autoDialogMetrics.blocks[blockIndex].scrollWidth).toBeGreaterThan(
+      autoDialogMetrics.blocks[blockIndex].clientWidth,
+    )
+  }
+  expect(autoDialogMetrics.copyButtonCount).toBe(5)
 })
 
 test("Maps catalog filters maps with collapsible range controls", async ({

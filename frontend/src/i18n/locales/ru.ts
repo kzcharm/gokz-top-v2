@@ -1037,6 +1037,40 @@ export const ru = {
       commandCopied: "Команда скопирована",
       runFrom: "Запустите эту команду из вашей папки csgo.",
     },
+    autoUpdateDialog: {
+      button: "Автообновление",
+      title: "Автоматическое обновление карт",
+      description:
+        "Поддерживайте проверенные карты в актуальном состоянии с помощью ежечасной задачи cron.",
+      step1Title: "Проверьте программу обновления",
+      step1Description:
+        "Один раз запустите обновление из папки csgo/, а не csgo/maps/, и убедитесь, что оно завершилось успешно.",
+      step2Title: "Откройте crontab пользователя сервера",
+      step2Description:
+        "Выполните команду от имени пользователя Linux, которому принадлежит игровой сервер.",
+      step3Title: "Добавьте ежечасную задачу",
+      step3Description:
+        "Вставьте команду с новой строки, затем сохраните и закройте редактор.",
+      manualCommandLabel: "Ручное обновление",
+      crontabCommandLabel: "Открыть crontab",
+      cronCommandLabel: "Ежечасная задача cron",
+      customCronCommandLabel: "Ежечасная задача cron с нестандартным путём",
+      logCommandLabel: "Последние журналы обновления",
+      copyCommand: "Скопировать: {{label}}",
+      commandCopied: "Команда скопирована",
+      behaviorTitle: "Как работает задача",
+      runsHourly:
+        "Проверяет карты в начале каждого часа, поэтому новая карта может появиться с задержкой до часа.",
+      serverOwner: "Работает с правами владельца игрового сервера.",
+      autoDetect: "Автоматически находит стандартный путь LinuxGSM",
+      downloadBehavior:
+        "Скачивает только отсутствующие или изменённые проверенные карты.",
+      lockBehavior:
+        "Блокировка предотвращает параллельные обновления, а вывод записывается в $HOME/map-update.log.",
+      customPathTitle: "Сервер установлен в нестандартном месте?",
+      customPathDescription:
+        "Скопируйте этот вариант и замените /path/to/serverfiles/csgo абсолютным путём к папке csgo/:",
+    },
     bonusCount_one: "{{count}} бонус",
     bonusCount_few: "{{count}} бонуса",
     bonusCount_many: "{{count}} бонусов",

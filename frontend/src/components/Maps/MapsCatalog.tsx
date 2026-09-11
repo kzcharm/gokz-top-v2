@@ -9,6 +9,7 @@ import {
   Copy,
   Download,
   Filter,
+  RefreshCw,
   Search,
   SearchX,
 } from "lucide-react"
@@ -66,6 +67,12 @@ const POSIX_DOWNLOAD_COMMAND =
   "curl -fsSL https://gokz.top/install/maps.sh | sh"
 const POWERSHELL_DOWNLOAD_COMMAND =
   'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://gokz.top/install/maps.ps1 | iex"'
+const OPEN_CRONTAB_COMMAND = "crontab -e"
+const HOURLY_MAP_UPDATE_CRON_COMMAND =
+  '0 * * * * /usr/bin/flock -n "$HOME/.gokz-map-update.lock" /bin/sh -c \'export GOKZ_MAPS_YES=1; /usr/bin/curl -fsSL https://gokz.top/install/maps.sh | /bin/sh\' >> "$HOME/map-update.log" 2>&1'
+const CUSTOM_PATH_HOURLY_MAP_UPDATE_CRON_COMMAND =
+  '0 * * * * /usr/bin/flock -n "$HOME/.gokz-map-update.lock" /bin/sh -c \'cd /path/to/serverfiles/csgo || exit 1; export GOKZ_MAPS_YES=1; /usr/bin/curl -fsSL https://gokz.top/install/maps.sh | /bin/sh\' >> "$HOME/map-update.log" 2>&1'
+const VIEW_MAP_UPDATE_LOG_COMMAND = 'tail -n 100 "$HOME/map-update.log"'
 
 const MAP_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.bestRated", value: "bestRated" },
@@ -684,11 +691,15 @@ function MapsCatalogPagination({
   )
 }
 
-function DownloadCommandBlock({
+function CopyableCommandBlock({
   command,
+  copiedMessage,
+  copyLabel,
   label,
 }: {
   command: string
+  copiedMessage: string
+  copyLabel: string
   label: string
 }) {
   const { t } = useTranslation()
@@ -697,7 +708,7 @@ function DownloadCommandBlock({
   const handleCopyCommand = async () => {
     const didCopy = await copyToClipboard(command)
     if (didCopy) {
-      toast.success(t("maps.downloadDialog.commandCopied"), {
+      toast.success(copiedMessage, {
         description: label,
       })
       return
@@ -707,10 +718,10 @@ function DownloadCommandBlock({
   }
 
   return (
-    <div className="min-w-0 space-y-2">
+    <div className="w-full min-w-0 space-y-2">
       <span className="text-sm font-medium text-foreground">{label}</span>
-      <div className="flex min-w-0 items-start gap-2 rounded-md border border-[#5d5d5d] bg-[#3b3b3b] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <pre className="block min-w-0 flex-1 overflow-x-auto pb-1 font-mono text-[13px] leading-6 whitespace-pre text-[#d4d4d4] [scrollbar-color:rgba(212,212,212,0.45)_transparent] [scrollbar-width:thin]">
+      <div className="flex w-full min-w-0 max-w-full items-start gap-2 overflow-hidden rounded-md border border-[#5d5d5d] bg-[#3b3b3b] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <pre className="block w-0 min-w-0 flex-1 overflow-x-auto pb-1 font-mono text-[13px] leading-6 whitespace-pre text-[#d4d4d4] [scrollbar-color:rgba(212,212,212,0.45)_transparent] [scrollbar-width:thin]">
           <code>{command}</code>
         </pre>
         <Button
@@ -718,8 +729,8 @@ function DownloadCommandBlock({
           variant="ghost"
           size="icon-sm"
           className="-mt-0.5 shrink-0 rounded-md text-[#cfcfcf] opacity-80 shadow-none hover:bg-white/8 hover:text-white hover:opacity-100 focus-visible:ring-white/20"
-          aria-label={t("maps.downloadDialog.copyCommand", { label })}
-          title={t("maps.downloadDialog.copyCommand", { label })}
+          aria-label={copyLabel}
+          title={copyLabel}
           onClick={() => {
             void handleCopyCommand()
           }}
@@ -751,18 +762,169 @@ function MapsDownloadDialog() {
         </DialogHeader>
 
         <div className="min-w-0 space-y-4">
-          <DownloadCommandBlock
+          <CopyableCommandBlock
             label={t("maps.downloadDialog.windowsLabel")}
             command={POWERSHELL_DOWNLOAD_COMMAND}
+            copyLabel={t("maps.downloadDialog.copyCommand", {
+              label: t("maps.downloadDialog.windowsLabel"),
+            })}
+            copiedMessage={t("maps.downloadDialog.commandCopied")}
           />
-          <DownloadCommandBlock
+          <CopyableCommandBlock
             label={t("maps.downloadDialog.linuxLabel")}
             command={POSIX_DOWNLOAD_COMMAND}
+            copyLabel={t("maps.downloadDialog.copyCommand", {
+              label: t("maps.downloadDialog.linuxLabel"),
+            })}
+            copiedMessage={t("maps.downloadDialog.commandCopied")}
           />
 
           <p className="text-sm text-muted-foreground">
             {t("maps.downloadDialog.runFrom")}
           </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function MapsAutoUpdateDialog() {
+  const { t } = useTranslation()
+  const commandProps = {
+    copiedMessage: t("maps.autoUpdateDialog.commandCopied"),
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" className="gap-2">
+          <RefreshCw className="size-4" aria-hidden="true" />
+          {t("maps.autoUpdateDialog.button")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[calc(100svh-2rem)] min-w-0 overflow-x-hidden overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t("maps.autoUpdateDialog.title")}</DialogTitle>
+          <DialogDescription>
+            {t("maps.autoUpdateDialog.description")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <ol className="min-w-0 space-y-5">
+          <li className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3">
+            <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+              1
+            </span>
+            <div className="min-w-0 space-y-3">
+              <div>
+                <h3 className="font-medium">
+                  {t("maps.autoUpdateDialog.step1Title")}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("maps.autoUpdateDialog.step1Description")}
+                </p>
+              </div>
+              <CopyableCommandBlock
+                label={t("maps.autoUpdateDialog.manualCommandLabel")}
+                command={POSIX_DOWNLOAD_COMMAND}
+                copyLabel={t("maps.autoUpdateDialog.copyCommand", {
+                  label: t("maps.autoUpdateDialog.manualCommandLabel"),
+                })}
+                {...commandProps}
+              />
+            </div>
+          </li>
+
+          <li className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3">
+            <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+              2
+            </span>
+            <div className="min-w-0 space-y-3">
+              <div>
+                <h3 className="font-medium">
+                  {t("maps.autoUpdateDialog.step2Title")}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("maps.autoUpdateDialog.step2Description")}
+                </p>
+              </div>
+              <CopyableCommandBlock
+                label={t("maps.autoUpdateDialog.crontabCommandLabel")}
+                command={OPEN_CRONTAB_COMMAND}
+                copyLabel={t("maps.autoUpdateDialog.copyCommand", {
+                  label: t("maps.autoUpdateDialog.crontabCommandLabel"),
+                })}
+                {...commandProps}
+              />
+            </div>
+          </li>
+
+          <li className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3">
+            <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+              3
+            </span>
+            <div className="min-w-0 space-y-3">
+              <div>
+                <h3 className="font-medium">
+                  {t("maps.autoUpdateDialog.step3Title")}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("maps.autoUpdateDialog.step3Description")}
+                </p>
+              </div>
+              <CopyableCommandBlock
+                label={t("maps.autoUpdateDialog.cronCommandLabel")}
+                command={HOURLY_MAP_UPDATE_CRON_COMMAND}
+                copyLabel={t("maps.autoUpdateDialog.copyCommand", {
+                  label: t("maps.autoUpdateDialog.cronCommandLabel"),
+                })}
+                {...commandProps}
+              />
+            </div>
+          </li>
+        </ol>
+
+        <div className="space-y-3 border-t border-border/70 pt-4">
+          <h3 className="text-sm font-semibold">
+            {t("maps.autoUpdateDialog.behaviorTitle")}
+          </h3>
+          <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground marker:text-primary">
+            <li>{t("maps.autoUpdateDialog.runsHourly")}</li>
+            <li>{t("maps.autoUpdateDialog.serverOwner")}</li>
+            <li>
+              {t("maps.autoUpdateDialog.autoDetect")}{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground">
+                $HOME/serverfiles/csgo
+              </code>
+            </li>
+            <li>{t("maps.autoUpdateDialog.downloadBehavior")}</li>
+            <li>{t("maps.autoUpdateDialog.lockBehavior")}</li>
+          </ul>
+
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">
+              {t("maps.autoUpdateDialog.customPathTitle")}
+            </p>
+            <p>{t("maps.autoUpdateDialog.customPathDescription")}</p>
+          </div>
+
+          <CopyableCommandBlock
+            label={t("maps.autoUpdateDialog.customCronCommandLabel")}
+            command={CUSTOM_PATH_HOURLY_MAP_UPDATE_CRON_COMMAND}
+            copyLabel={t("maps.autoUpdateDialog.copyCommand", {
+              label: t("maps.autoUpdateDialog.customCronCommandLabel"),
+            })}
+            {...commandProps}
+          />
+
+          <CopyableCommandBlock
+            label={t("maps.autoUpdateDialog.logCommandLabel")}
+            command={VIEW_MAP_UPDATE_LOG_COMMAND}
+            copyLabel={t("maps.autoUpdateDialog.copyCommand", {
+              label: t("maps.autoUpdateDialog.logCommandLabel"),
+            })}
+            {...commandProps}
+          />
         </div>
       </DialogContent>
     </Dialog>
@@ -1510,7 +1672,10 @@ export function MapsCatalog() {
               </Button>
             </div>
 
-            <MapsDownloadDialog />
+            <div className="flex flex-wrap items-center gap-2">
+              <MapsAutoUpdateDialog />
+              <MapsDownloadDialog />
+            </div>
           </div>
 
           {showFilters ? (

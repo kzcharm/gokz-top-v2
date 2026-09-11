@@ -1020,6 +1020,39 @@ export const en = {
       commandCopied: "Command copied",
       runFrom: "Run this command from your csgo directory.",
     },
+    autoUpdateDialog: {
+      button: "Auto Update",
+      title: "Automatically Update Maps",
+      description: "Keep validated maps current with an hourly cron job.",
+      step1Title: "Test the updater",
+      step1Description:
+        "Run the updater once from your csgo/ directory—not csgo/maps/—and confirm it completes successfully.",
+      step2Title: "Open the server user's crontab",
+      step2Description:
+        "Run this as the Linux user that owns and runs the game server.",
+      step3Title: "Add the hourly job",
+      step3Description:
+        "Paste this as a new line, then save and close the editor.",
+      manualCommandLabel: "Manual update",
+      crontabCommandLabel: "Open crontab",
+      cronCommandLabel: "Hourly cron entry",
+      customCronCommandLabel: "Hourly cron entry with a custom path",
+      logCommandLabel: "View recent update logs",
+      copyCommand: "Copy {{label}}",
+      commandCopied: "Command copied",
+      behaviorTitle: "What this job does",
+      runsHourly:
+        "Checks at the start of every hour, so a new map may take up to one hour to arrive.",
+      serverOwner: "Runs with the game-server owner's file permissions.",
+      autoDetect: "Automatically detects the standard LinuxGSM path",
+      downloadBehavior:
+        "Downloads only validated maps that are missing or have changed.",
+      lockBehavior:
+        "Uses a lock to prevent overlapping updates and logs output to $HOME/map-update.log.",
+      customPathTitle: "Using a nonstandard server path?",
+      customPathDescription:
+        "Copy this version and replace /path/to/serverfiles/csgo with the absolute path to your csgo/ directory:",
+    },
     bonusCount_one: "{{count}} Bonus",
     bonusCount_other: "{{count}} Bonuses",
     sortMaps: "Sort maps",
