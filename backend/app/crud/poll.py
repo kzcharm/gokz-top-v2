@@ -86,11 +86,10 @@ async def create_poll(
 
 
 async def update_poll(session: AsyncSession, poll: Poll, poll_in: PollUpdate) -> Poll:
+    existing_options = await _options(session, poll.id)
     changes = poll_in.model_dump(exclude_unset=True, exclude={"options"})
     option_count = (
-        len(poll_in.options)
-        if poll_in.options is not None
-        else len(await _options(session, poll.id))
+        len(poll_in.options) if poll_in.options is not None else len(existing_options)
     )
     effective_max_selections = (
         poll_in.max_selections
@@ -115,8 +114,7 @@ async def update_poll(session: AsyncSession, poll: Poll, poll_in: PollUpdate) ->
             .where(col(PollVote.poll_id) == poll.id)
         )
         if int(existing_votes.one()) == 0:
-            options = await _options(session, poll.id)
-            for option in options:
+            for option in existing_options:
                 await session.delete(option)
             for position, option_input in enumerate(poll_in.options):
                 session.add(
@@ -125,7 +123,22 @@ async def update_poll(session: AsyncSession, poll: Poll, poll_in: PollUpdate) ->
                     )
                 )
         else:
-            raise ValueError("Poll options cannot be edited after the first vote")
+            if len(poll_in.options) < len(existing_options):
+                raise ValueError("Poll options cannot be deleted after the first vote")
+            for option, option_input in zip(
+                existing_options, poll_in.options, strict=False
+            ):
+                option.label = option_input.label
+                option.description = option_input.description
+                session.add(option)
+            for position, option_input in enumerate(
+                poll_in.options[len(existing_options) :], start=len(existing_options)
+            ):
+                session.add(
+                    PollOption(
+                        poll_id=poll.id, position=position, **option_input.model_dump()
+                    )
+                )
     poll.updated_at = get_datetime_utc()
     poll.last_activity_at = poll.updated_at
     session.add(poll)

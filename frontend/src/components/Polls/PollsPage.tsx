@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Pencil, Plus } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { type ChangeEvent, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { OpenAPI } from "@/client"
@@ -35,9 +35,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import useAuth from "@/hooks/useAuth"
+import useCustomToast from "@/hooks/useCustomToast"
 import { markPollsVisited } from "@/lib/poll-notifications"
 import { isSuperuser } from "@/lib/user-roles"
-import { getInitials } from "@/utils"
+import { extractErrorMessage, getInitials } from "@/utils"
 
 type Option = {
   id: string
@@ -71,7 +72,11 @@ type Voter = {
   option_ids: string[]
 }
 
-type DraftOption = { label: string; description: string }
+type DraftOption = { key: string; label: string; description: string }
+
+function createDraftOption(label = "", description = ""): DraftOption {
+  return { key: crypto.randomUUID(), label, description }
+}
 
 function VoterAvatars({ voters }: { voters: Voter[] }) {
   const [expanded, setExpanded] = useState(false)
@@ -159,6 +164,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export function PollsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { showErrorToast, showSuccessToast } = useCustomToast()
   const queryClient = useQueryClient()
   const [status, setStatus] = useState("")
   const [sort, setSort] = useState("created")
@@ -178,9 +184,9 @@ export function PollsPage() {
   const [endsAt, setEndsAt] = useState("")
   const [maxSelectionsDraft, setMaxSelectionsDraft] = useState("1")
   const [allowVoteChange, setAllowVoteChange] = useState(true)
-  const [options, setOptions] = useState<DraftOption[]>([
-    { label: "", description: "" },
-    { label: "", description: "" },
+  const [options, setOptions] = useState<DraftOption[]>(() => [
+    createDraftOption(),
+    createDraftOption(),
   ])
   const admin = Boolean(user && isSuperuser(user))
   useEffect(() => {
@@ -209,19 +215,26 @@ export function PollsPage() {
   })
   const save = useMutation({
     mutationFn: () => {
-      const payload = {
+      const payload: {
+        title: string
+        description: string | null
+        ends_at: string | null
+        max_selections: number
+        allow_vote_change: boolean
+        options?: Array<{ label: string; description: string | null }>
+      } = {
         title: title.trim(),
         description: description.trim() || null,
         ends_at: endsAt ? new Date(endsAt).toISOString() : null,
         max_selections: Number.parseInt(maxSelectionsDraft, 10) || 0,
         allow_vote_change: allowVoteChange,
-        options: options
-          .filter((o) => o.label.trim())
-          .map((o) => ({
-            label: o.label.trim(),
-            description: o.description.trim() || null,
-          })),
       }
+      payload.options = options
+        .filter((o) => o.label.trim())
+        .map((o) => ({
+          label: o.label.trim(),
+          description: o.description.trim() || null,
+        }))
       return request<Poll>(
         editor === "create"
           ? "/v1/admin/polls"
@@ -235,7 +248,11 @@ export function PollsPage() {
     onSuccess: () => {
       setEditor(null)
       queryClient.invalidateQueries({ queryKey: ["polls"] })
+      showSuccessToast(
+        editor === "create" ? "Poll created." : "Poll changes saved.",
+      )
     },
+    onError: (error) => showErrorToast(extractErrorMessage(error)),
   })
   const lifecycle = useMutation({
     mutationFn: ({ id, status }: { id: string; status: "active" | "closed" }) =>
@@ -266,17 +283,25 @@ export function PollsPage() {
     setAllowVoteChange(poll?.allow_vote_change ?? true)
     setOptions(
       poll?.options.map((o) => ({
+        key: o.id,
         label: o.label,
         description: o.description ?? "",
       })) ?? [
-        { label: "", description: "" },
-        { label: "", description: "" },
+        createDraftOption(),
+        createDraftOption(),
       ],
     )
     setEditor(poll ?? "create")
   }
 
   const openPoll = polls.data?.data.find((poll) => poll.id === openPollId)
+  const editorHasVotes =
+    editor !== null && editor !== "create" && editor.total_votes > 0
+  const hasBlankExistingOption =
+    editorHasVotes &&
+    options
+      .slice(0, editor.options.length)
+      .some((option) => !option.label.trim())
   const selected = openPoll
     ? (selections[openPoll.id] ?? openPoll.selected_option_ids)
     : []
@@ -645,8 +670,17 @@ export function PollsPage() {
               <span>Allow voters to change their selection</span>
             </div>
             <div className="space-y-2">
+              {editorHasVotes ? (
+                <p className="text-sm text-muted-foreground">
+                  Existing options cannot be deleted after voting starts. You
+                  can edit them or add more options.
+                </p>
+              ) : null}
               {options.map((option, index) => (
-                <div key={index} className="grid gap-2 sm:grid-cols-2">
+                <div
+                  key={option.key}
+                  className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                >
                   <Input
                     placeholder={`Option ${index + 1}`}
                     value={option.label}
@@ -671,13 +705,30 @@ export function PollsPage() {
                       )
                     }
                   />
+                  {editor === "create" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-destructive"
+                      disabled={options.length <= 2}
+                      aria-label={`Delete option ${index + 1}`}
+                      onClick={() =>
+                        setOptions((current) =>
+                          current.filter((item) => item.key !== option.key),
+                        )
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  ) : null}
                 </div>
               ))}
             </div>
             <Button
               variant="outline"
               onClick={() =>
-                setOptions((c) => [...c, { label: "", description: "" }])
+                setOptions((current) => [...current, createDraftOption()])
               }
             >
               Add option
@@ -688,6 +739,7 @@ export function PollsPage() {
               disabled={
                 save.isPending ||
                 !title.trim() ||
+                hasBlankExistingOption ||
                 options.filter((o) => o.label.trim()).length < 2
               }
               onClick={() => save.mutate()}
