@@ -132,6 +132,10 @@ export const ru = {
     moreOptions: "+{{count}} вариантов",
     maxVotes: "Максимум вариантов: {{count}}",
     maxVotesUnlimited: "Максимум вариантов: без ограничений",
+    voteEnds: "Голосование завершится",
+    loading: "Загрузка опроса…",
+    unableToLoad: "Не удалось загрузить опрос",
+    unableToLoadDescription: "Возможно, этот опрос больше недоступен.",
     filters: { all: "Все опросы", active: "Активные", closed: "Закрытые" },
     sort: {
       created: "Новые",

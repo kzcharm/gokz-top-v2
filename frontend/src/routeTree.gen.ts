@@ -40,6 +40,7 @@ import { Route as LayoutSettingsNotificationsRouteImport } from './routes/_layou
 import { Route as LayoutSettingsBindingCodeRouteImport } from './routes/_layout/settings.binding-code'
 import { Route as LayoutSettingsAppearanceRouteImport } from './routes/_layout/settings.appearance'
 import { Route as LayoutProfileIdentifierRouteImport } from './routes/_layout/profile.$identifier'
+import { Route as LayoutPollsPollIdRouteImport } from './routes/_layout/polls_.$pollId'
 import { Route as LayoutLeaderboardsServersRouteImport } from './routes/_layout/leaderboards.servers'
 import { Route as LayoutLeaderboardsPowRouteImport } from './routes/_layout/leaderboards.pow'
 import { Route as LayoutLeaderboardsPlayersRouteImport } from './routes/_layout/leaderboards.players'
@@ -226,6 +227,11 @@ const LayoutSettingsAppearanceRoute =
 const LayoutProfileIdentifierRoute = LayoutProfileIdentifierRouteImport.update({
   id: '/profile/$identifier',
   path: '/profile/$identifier',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutPollsPollIdRoute = LayoutPollsPollIdRouteImport.update({
+  id: '/polls_/$pollId',
+  path: '/polls/$pollId',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutLeaderboardsServersRoute =
@@ -429,6 +435,7 @@ export interface FileRoutesByFullPath {
   '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
   '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
+  '/polls/$pollId': typeof LayoutPollsPollIdRoute
   '/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/settings/appearance': typeof LayoutSettingsAppearanceRoute
   '/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
@@ -490,6 +497,7 @@ export interface FileRoutesByTo {
   '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
   '/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
+  '/polls/$pollId': typeof LayoutPollsPollIdRoute
   '/settings/appearance': typeof LayoutSettingsAppearanceRoute
   '/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
   '/settings/notifications': typeof LayoutSettingsNotificationsRoute
@@ -552,6 +560,7 @@ export interface FileRoutesById {
   '/_layout/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
   '/_layout/leaderboards/pow': typeof LayoutLeaderboardsPowRoute
   '/_layout/leaderboards/servers': typeof LayoutLeaderboardsServersRoute
+  '/_layout/polls_/$pollId': typeof LayoutPollsPollIdRoute
   '/_layout/profile/$identifier': typeof LayoutProfileIdentifierRouteWithChildren
   '/_layout/settings/appearance': typeof LayoutSettingsAppearanceRoute
   '/_layout/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
@@ -615,6 +624,7 @@ export interface FileRouteTypes {
     | '/leaderboards/players'
     | '/leaderboards/pow'
     | '/leaderboards/servers'
+    | '/polls/$pollId'
     | '/profile/$identifier'
     | '/settings/appearance'
     | '/settings/binding-code'
@@ -676,6 +686,7 @@ export interface FileRouteTypes {
     | '/leaderboards/players'
     | '/leaderboards/pow'
     | '/leaderboards/servers'
+    | '/polls/$pollId'
     | '/settings/appearance'
     | '/settings/binding-code'
     | '/settings/notifications'
@@ -737,6 +748,7 @@ export interface FileRouteTypes {
     | '/_layout/leaderboards/players'
     | '/_layout/leaderboards/pow'
     | '/_layout/leaderboards/servers'
+    | '/_layout/polls_/$pollId'
     | '/_layout/profile/$identifier'
     | '/_layout/settings/appearance'
     | '/_layout/settings/binding-code'
@@ -988,6 +1000,13 @@ declare module '@tanstack/react-router' {
       path: '/profile/$identifier'
       fullPath: '/profile/$identifier'
       preLoaderRoute: typeof LayoutProfileIdentifierRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/polls_/$pollId': {
+      id: '/_layout/polls_/$pollId'
+      path: '/polls/$pollId'
+      fullPath: '/polls/$pollId'
+      preLoaderRoute: typeof LayoutPollsPollIdRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/leaderboards/servers': {
@@ -1342,6 +1361,7 @@ interface LayoutRouteChildren {
   LayoutSettingsRoute: typeof LayoutSettingsRouteWithChildren
   LayoutUpdatesRoute: typeof LayoutUpdatesRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutPollsPollIdRoute: typeof LayoutPollsPollIdRoute
   LayoutProfileIdentifierRoute: typeof LayoutProfileIdentifierRouteWithChildren
 }
 
@@ -1358,6 +1378,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutSettingsRoute: LayoutSettingsRouteWithChildren,
   LayoutUpdatesRoute: LayoutUpdatesRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutPollsPollIdRoute: LayoutPollsPollIdRoute,
   LayoutProfileIdentifierRoute: LayoutProfileIdentifierRouteWithChildren,
 }
 

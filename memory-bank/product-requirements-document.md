@@ -157,6 +157,7 @@ Scope model:
 
 ### 5.8 Community Polls
 - Public `/polls` browsing supports active/archive filtering and sorting by creation time, last activity, or total voters.
+- Each poll has a shareable `/polls/{poll-id}` route, and polls with a configured voting deadline show that end time in list and detail views.
 - Polls contain a title, optional description, ordered options with optional descriptions, optional end time, and configurable selection limits (`0` means unlimited).
 - Signed-in users can vote once per poll and may change their selections when enabled by the poll author; votes cannot be withdrawn.
 - Total voter counts are public. Open-poll option results are visible only to voters; closed-poll results are visible to everyone.

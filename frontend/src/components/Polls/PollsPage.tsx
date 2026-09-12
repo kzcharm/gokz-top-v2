@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { Clock, Pencil, Plus, Trash2 } from "lucide-react"
 import { type ChangeEvent, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { OpenAPI } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import {
   Avatar,
   AvatarFallback,
@@ -73,6 +75,9 @@ type Voter = {
 }
 
 type DraftOption = { key: string; label: string; description: string }
+
+const closedBadgeClassName =
+  "shrink-0 border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300"
 
 function createDraftOption(label = "", description = ""): DraftOption {
   return { key: crypto.randomUUID(), label, description }
@@ -161,15 +166,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export function PollsPage() {
+export function PollsPage({ pollId }: { pollId?: string }) {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const queryClient = useQueryClient()
   const [status, setStatus] = useState("")
   const [sort, setSort] = useState("created")
   const [selections, setSelections] = useState<Record<string, string[]>>({})
-  const [openPollId, setOpenPollId] = useState<string | null>(null)
   const [editor, setEditor] = useState<"create" | Poll | null>(null)
   const [pendingAction, setPendingAction] = useState<{
     type: "delete" | "close" | "reopen"
@@ -198,6 +203,11 @@ export function PollsPage() {
       request<{ data: Poll[]; count: number }>(
         `/v1/polls?limit=100&sort=${sort}${status ? `&status=${status}` : ""}`,
       ),
+  })
+  const pollDetail = useQuery({
+    queryKey: ["polls", "detail", pollId],
+    queryFn: () => request<Poll>(`/v1/polls/${pollId}`),
+    enabled: Boolean(pollId),
   })
   const vote = useMutation({
     mutationFn: ({
@@ -261,16 +271,16 @@ export function PollsPage() {
         body: JSON.stringify({ status }),
       }),
     onSuccess: () => {
-      setOpenPollId(null)
       queryClient.invalidateQueries({ queryKey: ["polls"] })
+      navigate({ to: "/polls" })
     },
   })
   const remove = useMutation({
     mutationFn: (id: string) =>
       request(`/v1/admin/polls/${id}`, { method: "DELETE" }),
     onSuccess: () => {
-      setOpenPollId(null)
       queryClient.invalidateQueries({ queryKey: ["polls"] })
+      navigate({ to: "/polls" })
     },
   })
   const openEditor = (poll?: Poll) => {
@@ -286,15 +296,12 @@ export function PollsPage() {
         key: o.id,
         label: o.label,
         description: o.description ?? "",
-      })) ?? [
-        createDraftOption(),
-        createDraftOption(),
-      ],
+      })) ?? [createDraftOption(), createDraftOption()],
     )
     setEditor(poll ?? "create")
   }
 
-  const openPoll = polls.data?.data.find((poll) => poll.id === openPollId)
+  const openPoll = pollDetail.data
   const editorHasVotes =
     editor !== null && editor !== "create" && editor.total_votes > 0
   const hasBlankExistingOption =
@@ -380,11 +387,11 @@ export function PollsPage() {
           const remainingOptions = poll.options.length - previewOptions.length
 
           return (
-            <button
+            <Link
               key={poll.id}
-              type="button"
+              to="/polls/$pollId"
+              params={{ pollId: poll.id }}
               className="bg-card text-card-foreground flex flex-col gap-0 overflow-hidden rounded-xl border py-0 text-left shadow-sm transition-colors hover:border-primary/60 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-              onClick={() => setOpenPollId(poll.id)}
             >
               <span className="flex flex-col gap-3 p-5 sm:p-6">
                 <span className="flex items-start justify-between gap-3">
@@ -392,7 +399,7 @@ export function PollsPage() {
                     {poll.title}
                   </span>
                   {poll.status === "closed" ? (
-                    <Badge variant="outline" className="shrink-0">
+                    <Badge variant="outline" className={closedBadgeClassName}>
                       {t("polls.closed")}
                     </Badge>
                   ) : null}
@@ -440,16 +447,28 @@ export function PollsPage() {
                 <span className="self-end text-right text-sm text-muted-foreground">
                   {poll.total_votes} {t("polls.votes")}
                 </span>
+                {poll.ends_at ? (
+                  <span className="flex items-center justify-end gap-1.5 text-right text-sm text-muted-foreground">
+                    <Clock className="size-3.5" aria-hidden="true" />
+                    <span>
+                      {t("polls.voteEnds")}{" "}
+                      <FormattedDateTime
+                        value={poll.ends_at}
+                        display="relative"
+                      />
+                    </span>
+                  </span>
+                ) : null}
               </span>
-            </button>
+            </Link>
           )
         })}
       </div>
 
       <Dialog
-        open={Boolean(openPoll)}
+        open={Boolean(pollId)}
         onOpenChange={(open) => {
-          if (!open) setOpenPollId(null)
+          if (!open) navigate({ to: "/polls" })
         }}
       >
         {openPoll ? (
@@ -458,7 +477,7 @@ export function PollsPage() {
               <div className="flex items-start gap-3 pr-6">
                 <DialogTitle>{openPoll.title}</DialogTitle>
                 {openPoll.status === "closed" ? (
-                  <Badge variant="outline" className="shrink-0">
+                  <Badge variant="outline" className={closedBadgeClassName}>
                     {t("polls.closed")}
                   </Badge>
                 ) : null}
@@ -471,6 +490,18 @@ export function PollsPage() {
                   ? t("polls.maxVotesUnlimited")
                   : t("polls.maxVotes", { count: openPoll.max_selections })}
               </p>
+              {openPoll.ends_at ? (
+                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Clock className="size-3.5" aria-hidden="true" />
+                  <span>
+                    {t("polls.voteEnds")}{" "}
+                    <FormattedDateTime
+                      value={openPoll.ends_at}
+                      display="relative"
+                    />
+                  </span>
+                </p>
+              ) : null}
             </DialogHeader>
             {admin ? (
               <div className="flex flex-wrap justify-end gap-2">
@@ -603,6 +634,21 @@ export function PollsPage() {
                 {openPoll.has_voted ? t("polls.changeVote") : t("polls.vote")}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        ) : pollId ? (
+          <DialogContent className="bg-background sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {pollDetail.isPending
+                  ? t("polls.loading")
+                  : t("polls.unableToLoad")}
+              </DialogTitle>
+              {pollDetail.isError ? (
+                <DialogDescription>
+                  {t("polls.unableToLoadDescription")}
+                </DialogDescription>
+              ) : null}
+            </DialogHeader>
           </DialogContent>
         ) : null}
       </Dialog>
