@@ -286,7 +286,7 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
     page.getByRole("columnheader", { name: "Points", exact: true }),
   ).toBeVisible()
   await expect(
-    page.getByRole("columnheader", { name: "Rating", exact: true }),
+    page.getByRole("columnheader", { name: /^Rating/ }),
   ).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Server" })).toBeVisible()
   await expect(
@@ -303,7 +303,7 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
     .first()
   await expect(alphaMapTile).toHaveAttribute(
     "style",
-    /workshop\/1986459033\/preview-image/,
+    /\/v1\/maps\/preview-image\?map_name=kz_seed_alpha/,
   )
   await expect(
     page.getByRole("link", { name: "Seed Server Group" }),
@@ -341,12 +341,12 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   await page.getByLabel("Filter by tier").click()
   await page.getByRole("option", { name: "Tier" }).click()
   await page.getByLabel("Filter by points range").click()
-  await page.getByLabel("Minimum points").fill("200")
-  await page.getByLabel("Maximum points").fill("400")
+  await page.getByRole("spinbutton", { name: "Minimum points" }).fill("200")
+  await page.getByRole("spinbutton", { name: "Maximum points" }).fill("400")
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
 
-  await page.getByRole("button", { name: "Reset" }).click()
+  await page.getByRole("button", { name: "Reset", exact: true }).click()
   await page.keyboard.press("Escape")
   await page.getByLabel("Search server").fill("seed server group")
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
@@ -399,6 +399,285 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   )
 })
 
+test("Profile records points filter accepts typed minimum and maximum values", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(ovrRecords),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByLabel("Filter by points range").click()
+
+  const minimumPointsInput = page.getByRole("spinbutton", {
+    name: "Minimum points",
+  })
+  const maximumPointsInput = page.getByRole("spinbutton", {
+    name: "Maximum points",
+  })
+
+  await expect(minimumPointsInput).toHaveAttribute("type", "number")
+  await expect(maximumPointsInput).toHaveAttribute("type", "number")
+
+  await minimumPointsInput.fill("300")
+  await maximumPointsInput.fill("400")
+
+  await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  await expect(page.getByText("kz_seed_beta")).toHaveCount(0)
+  await expect(page.getByText("kz_seed_gamma")).toHaveCount(0)
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+})
+
+test("Profile records TP and rating filters accept typed ranges", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(ovrRecords),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByLabel("Filter by TP range").click()
+
+  const minimumTpInput = page.getByRole("spinbutton", {
+    name: "Minimum TP",
+  })
+  const maximumTpInput = page.getByRole("spinbutton", {
+    name: "Maximum TP",
+  })
+
+  await expect(minimumTpInput).not.toHaveAttribute("max")
+  await expect(maximumTpInput).not.toHaveAttribute("max")
+  await maximumTpInput.fill("1000000")
+  await expect(maximumTpInput).toHaveValue("1000000")
+
+  await minimumTpInput.fill("2")
+  await maximumTpInput.fill("4")
+
+  await expect(page.getByText("kz_seed_beta")).toBeVisible()
+  await expect(page.getByText("kz_seed_alpha")).toHaveCount(0)
+  await expect(page.getByText("kz_seed_gamma")).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Reset", exact: true }).click()
+  await page.keyboard.press("Escape")
+  await page.getByLabel("Filter by rating range").click()
+  await page.getByRole("spinbutton", { name: "Minimum rating" }).fill("15")
+  await page.getByRole("spinbutton", { name: "Maximum rating" }).fill("20")
+
+  await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  await expect(page.getByText("kz_seed_beta")).toHaveCount(0)
+  await expect(page.getByText("kz_seed_gamma")).toHaveCount(0)
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+})
+
+test("Profile records date filter uses inclusive day precision", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(ovrRecords),
+    })
+  })
+
+  await page.addInitScript(() => {
+    if (!window.localStorage.getItem("gokz-datetime-format")) {
+      window.localStorage.setItem("gokz-datetime-format", "iso")
+    }
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByLabel("Filter by date range").click()
+
+  const fromDateInput = page.getByRole("textbox", {
+    name: "From date",
+    exact: true,
+  })
+  const toDateInput = page.getByRole("textbox", {
+    name: "To date",
+    exact: true,
+  })
+
+  await expect(fromDateInput).toHaveAttribute("type", "text")
+  await expect(toDateInput).toHaveAttribute("type", "text")
+  await expect(fromDateInput).toHaveAttribute("placeholder", "yyyy-mm-dd")
+  await expect(toDateInput).toHaveAttribute("placeholder", "yyyy-mm-dd")
+  await expect(page.getByLabel("Choose from date")).toHaveAttribute(
+    "type",
+    "date",
+  )
+
+  await fromDateInput.fill("20260330")
+  await toDateInput.fill("20260331")
+  await expect(fromDateInput).toHaveValue("2026-03-30")
+  await expect(toDateInput).toHaveValue("2026-03-31")
+  await toDateInput.press("Enter")
+
+  await expect(page.getByText("kz_seed_alpha")).toBeVisible()
+  await expect(page.getByText("kz_seed_beta")).toBeVisible()
+  await expect(page.getByText("kz_seed_gamma")).toHaveCount(0)
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(2)
+
+  await page.evaluate(() => {
+    window.localStorage.setItem("gokz-datetime-format", "us")
+  })
+  await page.reload()
+  await page.getByLabel("Filter by date range").click()
+  await expect(
+    page.getByRole("textbox", { name: "From date", exact: true }),
+  ).toHaveAttribute("placeholder", "mm/dd/yyyy")
+  await page
+    .getByRole("textbox", { name: "From date", exact: true })
+    .fill("03302026")
+  await expect(
+    page.getByRole("textbox", { name: "From date", exact: true }),
+  ).toHaveValue("03/30/2026")
+
+  await page.evaluate(() => {
+    window.localStorage.setItem("gokz-datetime-format", "euro")
+  })
+  await page.reload()
+  await page.getByLabel("Filter by date range").click()
+  await expect(
+    page.getByRole("textbox", { name: "From date", exact: true }),
+  ).toHaveAttribute("placeholder", "dd/mm/yyyy")
+  await page
+    .getByRole("textbox", { name: "From date", exact: true })
+    .fill("30032026")
+  await expect(
+    page.getByRole("textbox", { name: "From date", exact: true }),
+  ).toHaveValue("30/03/2026")
+})
+
+test("Profile records presets persist and restore filters and sort", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(ovrRecords),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByRole("switch", { name: "NUB" }).click()
+  await page.getByLabel("Search map name").fill("alpha")
+  await page.getByLabel("Filter by points range").click()
+  await page.getByRole("spinbutton", { name: "Minimum points" }).fill("300")
+  await page.getByRole("spinbutton", { name: "Maximum points" }).fill("400")
+  await page.keyboard.press("Escape")
+  await page.getByRole("button", { name: "Points", exact: true }).click()
+
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page.getByText("Save current view").click()
+  await expect(page.getByLabel("Preset name")).toHaveValue("Preset 1")
+  await page.getByRole("button", { name: "Save preset" }).click()
+
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page.getByText("Save current view").click()
+  await expect(page.getByLabel("Preset name")).toHaveValue("Preset 2")
+  await page.getByLabel("Preset name").fill("Focused PRO")
+  await page.getByRole("button", { name: "Save preset" }).click()
+
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.localStorage.getItem("gokz-profile-record-presets-v1"),
+      ),
+    )
+    .toContain("Focused PRO")
+
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page.getByText("Reset view").click()
+  await expect(page.getByRole("switch", { name: "NUB" })).not.toBeChecked()
+  await expect(page.getByLabel("Search map name")).toHaveValue("")
+
+  await page.reload()
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page.getByRole("button", { name: "Apply preset Focused PRO" }).click()
+
+  await expect(page.getByRole("switch", { name: "PRO" })).toBeChecked()
+  await expect(page.getByLabel("Search map name")).toHaveValue("alpha")
+  await page.getByLabel("Filter by points range").click()
+  await expect(
+    page.getByRole("spinbutton", { name: "Minimum points" }),
+  ).toHaveValue("300")
+  await expect(
+    page.getByRole("spinbutton", { name: "Maximum points" }),
+  ).toHaveValue("400")
+  await page.keyboard.press("Escape")
+  await expect(
+    page
+      .getByRole("columnheader", { name: /Points/ })
+      .locator(".lucide-arrow-down"),
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page.getByRole("button", { name: "Delete preset Focused PRO" }).click()
+  await page.getByRole("button", { name: "Delete preset Preset 1" }).click()
+  await expect(page.getByText("No saved presets yet.")).toBeVisible()
+})
+
 test("Profile records page shows grouped server links and filters by group name", async ({
   page,
 }) => {
@@ -437,7 +716,7 @@ test("Profile records page shows grouped server links and filters by group name"
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
 })
 
-test("Profile records map tiles include workshop preview fallback URLs", async ({
+test("Profile records map tiles include API preview fallback URLs", async ({
   page,
 }) => {
   await installProfileShellRoutes(page)
@@ -479,7 +758,7 @@ test("Profile records map tiles include workshop preview fallback URLs", async (
   )
   await expect(alphaMapTile).toHaveAttribute(
     "style",
-    /workshop\/1986459033\/preview-image/,
+    /\/v1\/maps\/preview-image\?map_name=kz_seed_alpha/,
   )
 })
 

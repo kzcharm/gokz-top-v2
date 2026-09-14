@@ -32,6 +32,11 @@ import {
 } from "./ProfileHomeContent"
 import { ProfileJumpstatsTab } from "./ProfileJumpstatsTab"
 import { ProfileMapsTab } from "./ProfileMapsTab"
+import {
+  DEFAULT_PROFILE_RECORDS_VIEW_STATE,
+  ProfileRecordsPresetMenu,
+  type ProfileRecordsPresetSettings,
+} from "./ProfileRecordsPresetMenu"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
 import { ProfileStatsContent } from "./ProfileStatsContent"
@@ -107,6 +112,9 @@ export function ProfilePage({
   const autoSyncedFriendsRef = useRef<Set<string>>(new Set())
   const [isProOnly, setIsProOnly] = useState(false)
   const [isBonus, setIsBonus] = useState(false)
+  const [recordsViewState, setRecordsViewState] = useState(
+    DEFAULT_PROFILE_RECORDS_VIEW_STATE,
+  )
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],
     queryFn: () => fetchProfilePlayer(identifier),
@@ -621,7 +629,7 @@ export function ProfilePage({
     adminModeEnabled && canUseAdminRecoveryActions
   const profileTabsTrailingContent =
     activeTab === "records" ? (
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Label
           htmlFor="profile-records-pro-only"
           className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
@@ -645,6 +653,18 @@ export function ProfilePage({
           />
           <span>Bonus</span>
         </Label>
+        <ProfileRecordsPresetMenu
+          currentSettings={{
+            isProOnly,
+            isBonus,
+            view: recordsViewState,
+          }}
+          onApply={(settings: ProfileRecordsPresetSettings) => {
+            setIsProOnly(settings.isProOnly)
+            setIsBonus(settings.isBonus)
+            setRecordsViewState(settings.view)
+          }}
+        />
       </div>
     ) : null
 
@@ -852,6 +872,8 @@ export function ProfilePage({
               steamid64={player.steamid64}
               isProOnly={isProOnly}
               isBonus={isBonus}
+              viewState={recordsViewState}
+              onViewStateChange={setRecordsViewState}
               canManagePinnedRecords={isOwnProfile}
               pinnedRecordKeys={pinnedRecordKeys}
               pinnedRecordsMutating={
