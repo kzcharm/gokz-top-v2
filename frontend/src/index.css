@@ -339,15 +339,24 @@
     background-color: transparent;
   }
 
-  table:not([data-slot="table"]) > tbody > tr {
+  :where([data-slot="table-body"], table:not([data-slot="table"]) > tbody)
+    > tr {
     outline: 2px solid transparent;
     outline-offset: -2px;
     transition: outline-color 50ms ease-out;
   }
 
-  table:not([data-slot="table"]) > tbody > tr:hover {
+  :where([data-slot="table-body"], table:not([data-slot="table"]) > tbody)
+    > tr:hover {
     outline: 2px solid var(--table-row-hover-outline);
     outline-offset: -2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where([data-slot="table-body"], table:not([data-slot="table"]) > tbody)
+      > tr {
+      transition: none;
+    }
   }
 }
 

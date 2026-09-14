@@ -319,6 +319,21 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   await expect(page.getByLabel("Filter by points range")).toBeVisible()
   await expect(page.getByLabel("Search server")).toBeVisible()
 
+  const headerRow = page
+    .getByRole("columnheader", { name: "Map" })
+    .locator("xpath=ancestor::tr")
+  const filterRow = page
+    .getByLabel("Search map name")
+    .locator("xpath=ancestor::tr")
+  const dataRow = page.locator('[data-testid^="pb-record-row-"]').first()
+
+  await headerRow.hover()
+  await expect(headerRow).toHaveCSS("outline-style", "none")
+  await filterRow.hover()
+  await expect(filterRow).toHaveCSS("outline-style", "none")
+  await dataRow.hover()
+  await expect(dataRow).toHaveCSS("outline-style", "solid")
+
   await page.getByLabel("Search map name").fill("gamma")
   await expect(page.getByText("kz_seed_gamma")).toBeVisible()
   await expect(page.getByText("kz_seed_alpha")).toHaveCount(0)

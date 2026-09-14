@@ -86,7 +86,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b -outline-offset-2 outline-2 outline-transparent transition-[outline-color] duration-50 ease-out motion-reduce:transition-none hover:outline-primary/60 focus-visible:outline-primary/75 data-[state=selected]:bg-muted [&:has([data-current-user='true'])]:bg-sky-500/10 [&:has([data-current-user='true'])]:hover:bg-sky-500/15",
+        "border-b focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary/75 data-[state=selected]:bg-muted [&:has([data-current-user='true'])]:bg-sky-500/10 [&:has([data-current-user='true'])]:hover:bg-sky-500/15",
         className
       )}
       {...props}
