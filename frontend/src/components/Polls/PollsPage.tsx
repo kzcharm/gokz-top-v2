@@ -76,8 +76,22 @@ type Voter = {
 
 type DraftOption = { key: string; label: string; description: string }
 
+const MAX_POLL_OPTIONS = 26
 const closedBadgeClassName =
   "shrink-0 border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300"
+
+function getDisplayedOptions(poll: Poll): Option[] {
+  return poll.can_view_results
+    ? [...poll.options].sort((a, b) => (b.votes ?? 0) - (a.votes ?? 0))
+    : poll.options
+}
+
+function getOptionLetter(poll: Poll, optionId: string): string {
+  const originalIndex = poll.options.findIndex(
+    (option) => option.id === optionId,
+  )
+  return String.fromCharCode("A".charCodeAt(0) + originalIndex)
+}
 
 function createDraftOption(label = "", description = ""): DraftOption {
   return { key: crypto.randomUUID(), label, description }
@@ -377,13 +391,7 @@ export function PollsPage({ pollId }: { pollId?: string }) {
       </header>
       <div className="grid gap-4 md:grid-cols-2">
         {polls.data?.data.map((poll) => {
-          const previewOptions = (
-            poll.can_view_results
-              ? [...poll.options].sort(
-                  (a, b) => (b.votes ?? 0) - (a.votes ?? 0),
-                )
-              : poll.options
-          ).slice(0, 3)
+          const previewOptions = getDisplayedOptions(poll).slice(0, 3)
           const remainingOptions = poll.options.length - previewOptions.length
 
           return (
@@ -426,6 +434,9 @@ export function PollsPage({ pollId }: { pollId?: string }) {
                           }}
                         />
                       ) : null}
+                      <span className="relative z-10 shrink-0 text-sm font-semibold text-muted-foreground">
+                        {getOptionLetter(poll, option.id)}.
+                      </span>
                       <span className="relative z-10 min-w-0 flex-1 truncate">
                         {option.label}
                       </span>
@@ -537,8 +548,9 @@ export function PollsPage({ pollId }: { pollId?: string }) {
               </div>
             ) : null}
             <div className="grid gap-3">
-              {openPoll.options.map((option, optionIndex) => {
+              {getDisplayedOptions(openPoll).map((option, optionIndex) => {
                 const checked = selected.includes(option.id)
+                const optionLetter = getOptionLetter(openPoll, option.id)
                 const percentage = Math.max(
                   0,
                   Math.min(option.percentage ?? 0, 100),
@@ -585,8 +597,13 @@ export function PollsPage({ pollId }: { pollId?: string }) {
                           style={{ width: `${percentage}%` }}
                         />
                       ) : null}
-                      <span className="relative z-10 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-muted-foreground">
-                        {optionIndex + 1}.
+                      {openPoll.can_view_results ? (
+                        <span className="relative z-10 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-muted-foreground">
+                          {optionIndex + 1}.
+                        </span>
+                      ) : null}
+                      <span className="relative z-10 shrink-0 pt-0.5 text-sm font-semibold text-muted-foreground">
+                        {optionLetter}.
                       </span>
                       <span className="relative z-10 flex min-w-0 flex-1 items-start justify-between gap-4">
                         <span className="min-w-0">
@@ -700,7 +717,7 @@ export function PollsPage({ pollId }: { pollId?: string }) {
                   id="poll-max-selections"
                   type="number"
                   min={0}
-                  max={100}
+                  max={MAX_POLL_OPTIONS}
                   value={maxSelectionsDraft}
                   onChange={(e) => setMaxSelectionsDraft(e.target.value)}
                 />
@@ -728,7 +745,7 @@ export function PollsPage({ pollId }: { pollId?: string }) {
                   className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
                 >
                   <Input
-                    placeholder={`Option ${index + 1}`}
+                    placeholder={`Option ${String.fromCharCode("A".charCodeAt(0) + index)}`}
                     value={option.label}
                     onChange={(e) =>
                       setOptions((c) =>
@@ -758,7 +775,7 @@ export function PollsPage({ pollId }: { pollId?: string }) {
                       size="icon"
                       className="text-muted-foreground hover:text-destructive"
                       disabled={options.length <= 2}
-                      aria-label={`Delete option ${index + 1}`}
+                      aria-label={`Delete option ${String.fromCharCode("A".charCodeAt(0) + index)}`}
                       onClick={() =>
                         setOptions((current) =>
                           current.filter((item) => item.key !== option.key),
@@ -773,11 +790,12 @@ export function PollsPage({ pollId }: { pollId?: string }) {
             </div>
             <Button
               variant="outline"
+              disabled={options.length >= MAX_POLL_OPTIONS}
               onClick={() =>
                 setOptions((current) => [...current, createDraftOption()])
               }
             >
-              Add option
+              Add option ({options.length}/{MAX_POLL_OPTIONS})
             </Button>
           </div>
           <DialogFooter>
@@ -786,6 +804,7 @@ export function PollsPage({ pollId }: { pollId?: string }) {
                 save.isPending ||
                 !title.trim() ||
                 hasBlankExistingOption ||
+                options.length > MAX_POLL_OPTIONS ||
                 options.filter((o) => o.label.trim()).length < 2
               }
               onClick={() => save.mutate()}

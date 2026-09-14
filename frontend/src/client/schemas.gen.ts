@@ -6848,7 +6848,7 @@ export const PollCreateSchema = {
         },
         max_selections: {
             type: 'integer',
-            maximum: 100,
+            maximum: 26,
             minimum: 0,
             title: 'Max Selections',
             default: 1
@@ -6863,7 +6863,7 @@ export const PollCreateSchema = {
                 '$ref': '#/components/schemas/PollOptionInput'
             },
             type: 'array',
-            maxItems: 100,
+            maxItems: 26,
             minItems: 2,
             title: 'Options'
         }
@@ -7125,7 +7125,7 @@ export const PollUpdateSchema = {
             anyOf: [
                 {
                     type: 'integer',
-                    maximum: 100,
+                    maximum: 26,
                     minimum: 0
                 },
                 {
@@ -7162,7 +7162,7 @@ export const PollUpdateSchema = {
                         '$ref': '#/components/schemas/PollOptionInput'
                     },
                     type: 'array',
-                    maxItems: 100,
+                    maxItems: 26,
                     minItems: 2
                 },
                 {
@@ -7184,7 +7184,7 @@ export const PollVoteCreateSchema = {
                 format: 'uuid'
             },
             type: 'array',
-            maxItems: 100,
+            maxItems: 26,
             minItems: 1,
             title: 'Option Ids'
         }

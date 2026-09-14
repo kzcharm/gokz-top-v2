@@ -10,6 +10,8 @@ from sqlmodel import Field, SQLModel
 
 from .utils import generate_uuid7, get_datetime_utc
 
+MAX_POLL_OPTIONS = 26
+
 
 class PollStatus(StrEnum):
     ACTIVE = "active"
@@ -42,9 +44,11 @@ class PollCreate(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=5000)
     ends_at: datetime | None = None
-    max_selections: int = Field(default=1, ge=0, le=100)
+    max_selections: int = Field(default=1, ge=0, le=MAX_POLL_OPTIONS)
     allow_vote_change: bool = True
-    options: list[PollOptionInput] = Field(min_length=2, max_length=100)
+    options: list[PollOptionInput] = Field(
+        min_length=2, max_length=MAX_POLL_OPTIONS
+    )
 
     @field_validator("ends_at", mode="after")
     @classmethod
@@ -77,11 +81,13 @@ class PollUpdate(SQLModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=5000)
     ends_at: datetime | None = None
-    max_selections: int | None = Field(default=None, ge=0, le=100)
+    max_selections: int | None = Field(
+        default=None, ge=0, le=MAX_POLL_OPTIONS
+    )
     allow_vote_change: bool | None = None
     status: PollStatus | None = None
     options: list[PollOptionInput] | None = Field(
-        default=None, min_length=2, max_length=100
+        default=None, min_length=2, max_length=MAX_POLL_OPTIONS
     )
 
     @field_validator("ends_at", mode="after")
@@ -110,7 +116,9 @@ class PollListQuery(SQLModel):
 
 
 class PollVoteCreate(SQLModel):
-    option_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+    option_ids: list[uuid.UUID] = Field(
+        min_length=1, max_length=MAX_POLL_OPTIONS
+    )
 
 
 class PollOption(SQLModel, table=True):

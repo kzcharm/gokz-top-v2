@@ -58,6 +58,22 @@ async def test_admin_can_view_active_poll_results_before_voting(
 
 
 @pytest.mark.asyncio
+async def test_poll_rejects_more_than_26_options(client: AsyncClient) -> None:
+    superuser_headers = await get_superuser_token_headers(client)
+
+    response = await client.post(
+        f"{settings.API_V1_STR}/admin/polls",
+        headers=superuser_headers,
+        json={
+            "title": "Too many options",
+            "options": [{"label": f"Option {index}"} for index in range(27)],
+        },
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_admin_can_edit_and_add_but_not_delete_options_after_votes(
     client: AsyncClient,
 ) -> None:
