@@ -171,7 +171,12 @@ function AdminServers() {
         {activeTab === "public" ? (
           <PublicServersTab access={access} groups={groups} />
         ) : null}
-        {activeTab === "groups" ? <ServerGroupsTab groups={groups} /> : null}
+        {activeTab === "groups" ? (
+          <ServerGroupsTab
+            groups={groups}
+            groupsLoading={groupsQuery.isLoading}
+          />
+        ) : null}
       </Tabs>
     </div>
   )
@@ -1048,17 +1053,34 @@ function ServerVisibilityBadge({ isPublic }: { isPublic: boolean }) {
 
 export function ServerGroupsTab({
   groups,
+  groupsLoading,
 }: {
   groups: AdminServerGroupPublic[]
+  groupsLoading: boolean
 }) {
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [, copyToClipboard] = useCopyToClipboard()
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "gokz-page-size-admin-server-groups",
+  })
   const [editingGroup, setEditingGroup] =
     useState<AdminServerGroupPublic | null>(null)
   const [regeneratingGroup, setRegeneratingGroup] =
     useState<AdminServerGroupPublic | null>(null)
   const [creating, setCreating] = useState(false)
+  const pageCount = Math.max(1, Math.ceil(groups.length / pageSize))
+  const paginatedGroups = useMemo(
+    () => groups.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
+    [groups, pageIndex, pageSize],
+  )
+
+  useEffect(() => {
+    setPageIndex((currentPageIndex) =>
+      Math.min(currentPageIndex, pageCount - 1),
+    )
+  }, [pageCount])
 
   const handleCopyApiKey = useCallback(
     async (apiKey: string) => {
@@ -1230,13 +1252,29 @@ export function ServerGroupsTab({
       <AdminTableCard>
         <DataTable
           columns={columns}
-          data={groups}
+          data={paginatedGroups}
+          isLoading={groupsLoading}
           stickyHeader
           stickyHeaderTopClassName="top-16"
           tableContainerClassName="md:overflow-visible"
           tableClassName="border-separate border-spacing-0"
           showFooter={false}
+          disablePagination
           emptyText="No server groups found."
+        />
+        <TablePaginationFooter
+          totalLabel="Groups"
+          totalCount={groups.length}
+          pageIndex={pageIndex}
+          pageCount={pageCount}
+          pageSize={pageSize}
+          onPageIndexChange={setPageIndex}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPageIndex(0)
+          }}
+          hasExactCount={!groupsLoading}
+          isTotalCountLoading={groupsLoading}
         />
       </AdminTableCard>
       <ServerGroupDialog open={creating} onOpenChange={setCreating} />

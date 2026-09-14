@@ -28,6 +28,14 @@ Use UUIDv7 for new UUID fields/defaults and, when touching existing UUID default
 
 Frontend code uses TypeScript and Biome. Keep component filenames in `PascalCase` such as `DeleteUser.tsx`, hooks prefixed with `use`, and follow the formatter for quotes and semicolons.
 
+### Frontend Table Pagination
+
+When adding pagination to a frontend table, reuse `frontend/src/components/Common/TablePaginationFooter.tsx`; do not create a route-specific pagination footer. This keeps the total count, persisted rows-per-page selection, exact-page input, keyboard navigation, and first/previous/next/last controls consistent across the app.
+
+- For server-side pagination, keep the page index and page size in the parent, pass them to the API query, render `DataTable` with `showFooter={false}` and its `serverPagination` contract, and render `TablePaginationFooter` below it with the same state.
+- For an already-fetched client-side collection, keep pagination state in the parent, slice the collection for the current page, render `DataTable` with `showFooter={false}` and `disablePagination`, and render `TablePaginationFooter` below it. Clamp the page index when the collection shrinks.
+- Use `usePersistedPageSize` with a route-specific storage key unless the workflow has a documented reason not to persist page size.
+
 ## Testing Guidelines
 Backend tests use `pytest` and live under `backend/tests/` as `test_*.py`. Frontend tests use Playwright and live under `frontend/tests/` as `*.spec.ts`. Keep backend coverage at or above 90%, and update or add tests whenever behavior changes.
 

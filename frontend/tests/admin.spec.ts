@@ -174,6 +174,69 @@ test("Superusers can manage public server visibility", async ({ page }) => {
   await expect.poll(() => requestedVisibility).toBe("false")
 })
 
+test("Superusers can paginate server groups", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "test-access-token")
+  })
+  await page.route("**/v1/users/me", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        steamid64: "76561198000000000",
+        roles: ["superuser"],
+        is_active: true,
+      }),
+    })
+  })
+
+  const groups = Array.from({ length: 21 }, (_, index) => ({
+    id: `01900000-0000-7000-8000-${String(index).padStart(12, "0")}`,
+    name: index === 20 ? "Node KZ Server" : `Group ${index + 1}`,
+    custom_id: index === 20 ? "clibing_of_japan" : `group_${index + 1}`,
+    website: null,
+    discord: null,
+    steam_group: null,
+    owner_steamid64: null,
+    status: "validated",
+    server_count: index === 20 ? 2 : 0,
+    last_api_key_used_at: null,
+    created_at: "2026-09-14T10:00:00Z",
+    updated_at: "2026-09-14T10:00:00Z",
+    api_key: `test-api-key-${index + 1}`,
+  }))
+
+  await page.route("**/v1/admin/servers/access", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        role: "root_admin",
+        can_approve_servers: true,
+        owned_group_count: 0,
+      }),
+    })
+  })
+  await page.route("**/v1/admin/servers/groups", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: groups, count: groups.length }),
+    })
+  })
+
+  await page.goto("/admin/servers/server-group")
+
+  await expect(page.getByText("Total 21 Groups")).toBeVisible()
+  await expect(page.getByText("Node KZ Server", { exact: true })).toBeHidden()
+
+  const pageInput = page.getByRole("spinbutton", {
+    name: "Current page, 2 total pages",
+  })
+  await pageInput.fill("2")
+  await pageInput.press("Enter")
+
+  await expect(page.getByText("Node KZ Server", { exact: true })).toBeVisible()
+  await expect(pageInput).toHaveValue("2")
+})
+
 test("Superusers can open tournament management", async ({ page }) => {
   await page.route(/\/v1\/admin\/tournaments(\?.*)?$/, async (route) => {
     await route.fulfill({
