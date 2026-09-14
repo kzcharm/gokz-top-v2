@@ -11,6 +11,7 @@ from .utils import get_datetime_utc
 
 class AppSettingKey(StrEnum):
     COMMUNITY_LINKS = "community_links"
+    GLOBALAPI_RECORDS_SYNC = "globalapi_records_sync"
     QQ_BINDING_SECRET = "qq_binding_secret"
 
 
@@ -21,6 +22,10 @@ class CommunityLinksLocation(StrEnum):
 
 class CommunityLinksSettingValue(SQLModel):
     location: CommunityLinksLocation = CommunityLinksLocation.NAVBAR
+
+
+class GlobalApiRecordsSyncSettingValue(SQLModel):
+    enabled: bool = True
 
 
 class QQBindingSecretSettingValue(SQLModel):
@@ -46,5 +51,10 @@ class AppSettingsPublic(SQLModel):
     community_links_location: CommunityLinksLocation
 
 
+class AdminAppSettingsPublic(AppSettingsPublic):
+    globalapi_records_sync_enabled: bool
+
+
 class AppSettingsUpdate(SQLModel):
-    community_links_location: CommunityLinksLocation
+    community_links_location: CommunityLinksLocation | None = None
+    globalapi_records_sync_enabled: bool | None = None

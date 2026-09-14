@@ -6,6 +6,7 @@ import pytest
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.models import (
     GlobalApiSyncResult,
     GlobalApiSyncState,
@@ -142,6 +143,43 @@ async def test_run_globalapi_sync_tasks_skips_fresh_tasks(
 
     await globalapi_sync.run_globalapi_sync_tasks(only_stale=True)
     assert calls == 1
+
+
+async def test_run_globalapi_sync_tasks_skips_disabled_tasks(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_session_maker(db=db, monkeypatch=monkeypatch)
+    calls = 0
+
+    async def _disabled(*, session: AsyncSession) -> bool:
+        del session
+        return False
+
+    async def _task(*, session: AsyncSession) -> GlobalApiSyncResult:
+        nonlocal calls
+        del session
+        calls += 1
+        return GlobalApiSyncResult(processed=1, created=1, updated=0, errors=0)
+
+    monkeypatch.setattr(
+        globalapi_sync,
+        "GLOBALAPI_SYNC_TASKS",
+        (
+            globalapi_sync.GlobalApiSyncTask(
+                "disabled",
+                0,
+                _task,
+                is_enabled=_disabled,
+            ),
+        ),
+    )
+
+    results = await globalapi_sync.run_globalapi_sync_tasks(only_stale=False)
+
+    assert results == {}
+    assert calls == 0
+    assert await db.get(GlobalApiSyncState, "disabled") is None
 
 
 async def test_run_globalapi_sync_tasks_prevents_overlap(
@@ -614,6 +652,19 @@ async def test_globalapi_sync_tasks_include_maps() -> None:
         maps_task.stale_after_seconds
         == globalapi_sync.settings.GLOBALAPI_MAPS_SYNC_STALE_AFTER_SECONDS
     )
+
+
+async def test_globalapi_records_task_uses_app_setting(db: AsyncSession) -> None:
+    records_task = next(
+        task
+        for task in globalapi_sync.GLOBALAPI_SYNC_TASKS
+        if task.task_name == "records"
+    )
+    assert records_task.is_enabled is not None
+
+    await crud.update_globalapi_records_sync_setting(session=db, enabled=False)
+
+    assert await records_task.is_enabled(session=db) is False
 
 
 async def test_run_globalapi_sync_tasks_runs_scheduled_maps_after_configured_hour(

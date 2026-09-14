@@ -8,6 +8,7 @@ from app.models import (
     AppSettingKey,
     CommunityLinksLocation,
     CommunityLinksSettingValue,
+    GlobalApiRecordsSyncSettingValue,
     QQBindingSecretSettingValue,
     QQBindingSecretStored,
 )
@@ -40,6 +41,37 @@ async def update_community_links_setting(
     if setting is None:
         setting = AppSetting(
             key=AppSettingKey.COMMUNITY_LINKS.value,
+            value=value.model_dump(mode="json"),
+        )
+    else:
+        setting.value = value.model_dump(mode="json")
+        setting.updated_at = datetime.now(UTC)
+    session.add(setting)
+    await session.commit()
+    return value
+
+
+async def get_globalapi_records_sync_setting(
+    *, session: AsyncSession
+) -> GlobalApiRecordsSyncSettingValue:
+    setting = await get_app_setting(
+        session=session, key=AppSettingKey.GLOBALAPI_RECORDS_SYNC
+    )
+    if setting is None:
+        return GlobalApiRecordsSyncSettingValue()
+    return GlobalApiRecordsSyncSettingValue.model_validate(setting.value)
+
+
+async def update_globalapi_records_sync_setting(
+    *, session: AsyncSession, enabled: bool
+) -> GlobalApiRecordsSyncSettingValue:
+    value = GlobalApiRecordsSyncSettingValue(enabled=enabled)
+    setting = await get_app_setting(
+        session=session, key=AppSettingKey.GLOBALAPI_RECORDS_SYNC
+    )
+    if setting is None:
+        setting = AppSetting(
+            key=AppSettingKey.GLOBALAPI_RECORDS_SYNC.value,
             value=value.model_dump(mode="json"),
         )
     else:

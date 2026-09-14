@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app import crud
 from app.api.deps import SessionDep, get_current_active_superuser
 from app.models import (
-    AppSettingsPublic,
+    AdminAppSettingsPublic,
     AppSettingsUpdate,
     QQBindingSecretPublic,
     QQBindingSecretStatusPublic,
@@ -21,18 +21,42 @@ router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
 
 
-@router.patch("/app", response_model=AppSettingsPublic)
+async def _read_admin_app_settings(*, session: SessionDep) -> AdminAppSettingsPublic:
+    community_links = await crud.get_community_links_setting(session=session)
+    records_sync = await crud.get_globalapi_records_sync_setting(session=session)
+    return AdminAppSettingsPublic(
+        community_links_location=community_links.location,
+        globalapi_records_sync_enabled=records_sync.enabled,
+    )
+
+
+@router.get("/app", response_model=AdminAppSettingsPublic)
+async def read_admin_app_settings(
+    *,
+    session: SessionDep,
+    _current_user: CurrentSuperuser,
+) -> AdminAppSettingsPublic:
+    return await _read_admin_app_settings(session=session)
+
+
+@router.patch("/app", response_model=AdminAppSettingsPublic)
 async def update_admin_app_settings(
     *,
     session: SessionDep,
     settings_in: AppSettingsUpdate,
     _current_user: CurrentSuperuser,
-) -> AppSettingsPublic:
-    community_links = await crud.update_community_links_setting(
-        session=session,
-        location=settings_in.community_links_location,
-    )
-    return AppSettingsPublic(community_links_location=community_links.location)
+) -> AdminAppSettingsPublic:
+    if settings_in.community_links_location is not None:
+        await crud.update_community_links_setting(
+            session=session,
+            location=settings_in.community_links_location,
+        )
+    if settings_in.globalapi_records_sync_enabled is not None:
+        await crud.update_globalapi_records_sync_setting(
+            session=session,
+            enabled=settings_in.globalapi_records_sync_enabled,
+        )
+    return await _read_admin_app_settings(session=session)
 
 
 def _secret_response(*, secret: QQBindingSecretPublic) -> Response:

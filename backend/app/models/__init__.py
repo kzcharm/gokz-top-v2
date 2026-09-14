@@ -1,12 +1,14 @@
 from sqlmodel import SQLModel
 
 from .app_setting import (
+    AdminAppSettingsPublic,
     AppSetting,
     AppSettingKey,
     AppSettingsPublic,
     AppSettingsUpdate,
     CommunityLinksLocation,
     CommunityLinksSettingValue,
+    GlobalApiRecordsSyncSettingValue,
     QQBindingSecretSettingValue,
 )
 from .auth import Message, Token, TokenPayload
@@ -663,12 +665,14 @@ __all__ = [
     "PlayerSettingsPublic",
     "PlayerSettingsUpdate",
     "QQBindingCodePublic",
+    "AdminAppSettingsPublic",
     "AppSetting",
     "AppSettingKey",
     "AppSettingsPublic",
     "AppSettingsUpdate",
     "CommunityLinksLocation",
     "CommunityLinksSettingValue",
+    "GlobalApiRecordsSyncSettingValue",
     "QQBindingSecretSettingValue",
     "QQBindingSecretPublic",
     "QQBindingSecretStored",

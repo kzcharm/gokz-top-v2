@@ -219,6 +219,15 @@ export const zhCN = {
         updated: "社区链接位置已更新。",
       },
     },
+    globalapiRecordsSync: {
+      title: "GlobalAPI 记录同步",
+      description:
+        "在此部署中从 GlobalAPI 导入记录。请在预发布环境中关闭此项以避免重复同步；重新启用后会在调度器下次检查时继续导入。",
+      enabled: "从 GlobalAPI 同步记录",
+      toasts: {
+        updated: "GlobalAPI 记录同步设置已更新。",
+      },
+    },
     qqBinding: {
       title: "QQ 绑定密钥",
       description:

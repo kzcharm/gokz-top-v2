@@ -1,9 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Copy, Eye, Link2, RotateCw, ShieldCheck, Trash2 } from "lucide-react"
+import {
+  Copy,
+  Eye,
+  Link2,
+  RefreshCw,
+  RotateCw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AdminSettingsService, type CommunityLinksLocation } from "@/client"
+import {
+  AdminSettingsService,
+  type AppSettingsPublic,
+  type CommunityLinksLocation,
+} from "@/client"
 import {
   AdminControlsCard,
   AdminPageHeader,
@@ -22,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { Switch } from "@/components/ui/switch"
-import { appSettingsQueryKey, useAppSettings } from "@/hooks/useAppSettings"
+import { appSettingsQueryKey } from "@/hooks/useAppSettings"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { extractErrorMessage } from "@/utils"
@@ -30,6 +42,7 @@ import { extractErrorMessage } from "@/utils"
 type ConfirmationAction = "rotate" | "revoke" | null
 
 const secretStatusQueryKey = ["admin-settings", "qq-binding-secret"] as const
+const adminAppSettingsQueryKey = ["admin-settings", "app"] as const
 
 export default function AdminSettings() {
   const { t } = useTranslation()
@@ -39,7 +52,10 @@ export default function AdminSettings() {
   const [secret, setSecret] = useState<string | null>(null)
   const [confirmationAction, setConfirmationAction] =
     useState<ConfirmationAction>(null)
-  const appSettingsQuery = useAppSettings()
+  const appSettingsQuery = useQuery({
+    queryKey: adminAppSettingsQueryKey,
+    queryFn: AdminSettingsService.readAdminAppSettings,
+  })
   const statusQuery = useQuery({
     queryKey: secretStatusQueryKey,
     queryFn: AdminSettingsService.readAdminQqBindingSecretStatus,
@@ -88,8 +104,22 @@ export default function AdminSettings() {
         requestBody: { community_links_location: location },
       }),
     onSuccess: (data) => {
-      queryClient.setQueryData(appSettingsQueryKey, data)
+      queryClient.setQueryData(adminAppSettingsQueryKey, data)
+      queryClient.setQueryData<AppSettingsPublic>(appSettingsQueryKey, {
+        community_links_location: data.community_links_location,
+      })
       showSuccessToast(t("adminSettings.communityLinks.toasts.updated"))
+    },
+    onError: (error) => showErrorToast(extractErrorMessage(error)),
+  })
+  const recordsSyncMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      AdminSettingsService.updateAdminAppSettings({
+        requestBody: { globalapi_records_sync_enabled: enabled },
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(adminAppSettingsQueryKey, data)
+      showSuccessToast(t("adminSettings.globalapiRecordsSync.toasts.updated"))
     },
     onError: (error) => showErrorToast(extractErrorMessage(error)),
   })
@@ -145,6 +175,32 @@ export default function AdminSettings() {
             }
             aria-label={t("adminSettings.communityLinks.showInNavbar")}
             data-testid="admin-community-links-location"
+          />
+        </div>
+      </AdminControlsCard>
+      <AdminControlsCard className="max-w-3xl">
+        <div className="flex items-start justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="size-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">
+                {t("adminSettings.globalapiRecordsSync.title")}
+              </h2>
+            </div>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              {t("adminSettings.globalapiRecordsSync.description")}
+            </p>
+          </div>
+          <Switch
+            checked={
+              appSettingsQuery.data?.globalapi_records_sync_enabled ?? true
+            }
+            disabled={
+              appSettingsQuery.isLoading || recordsSyncMutation.isPending
+            }
+            onCheckedChange={(checked) => recordsSyncMutation.mutate(checked)}
+            aria-label={t("adminSettings.globalapiRecordsSync.enabled")}
+            data-testid="admin-globalapi-records-sync-enabled"
           />
         </div>
       </AdminControlsCard>

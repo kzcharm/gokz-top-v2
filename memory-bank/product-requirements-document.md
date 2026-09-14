@@ -149,6 +149,7 @@ Scope model:
 - Role-based access for admin/operator capabilities.
 - Player preferences/settings persistence.
 - Root admins can move the Discord and Simplified-Chinese-only QQ community links together between the navbar and footer from `/admin/settings`; the current navbar placement is the default.
+- Root admins can enable or disable the deployment-local GlobalAPI record importer from `/admin/settings`; the setting defaults to enabled for backward compatibility, persists in the central app settings store, and does not affect other GlobalAPI synchronization tasks.
 - Application-wide settings are persisted as typed JSONB payloads in a central key/value store, while public reads expose only explicitly safe fields and never encrypted secret payloads.
 - Authenticated players can self-edit `alias` and `custom_id` from `/settings`, with independent 30-day cooldowns and no cooldown consumption for no-op submissions.
 - Authenticated players can manually set `country` from `/settings`; manual country changes disable later automatic GeoIP/Steam overwrites but do not block later manual country edits.

@@ -4,9 +4,11 @@ from .app_setting import (
     delete_qq_binding_secret,
     get_app_setting,
     get_community_links_setting,
+    get_globalapi_records_sync_setting,
     get_qq_binding_secret,
     rotate_qq_binding_secret,
     update_community_links_setting,
+    update_globalapi_records_sync_setting,
 )
 from .ban import (
     active_ban_exists_clause,
@@ -459,6 +461,7 @@ __all__ = [
     "get_qq_binding_secret",
     "get_app_setting",
     "get_community_links_setting",
+    "get_globalapi_records_sync_setting",
     "count_player_likes",
     "count_unread_player_notifications",
     "create_map_review_comment_deleted_notification",
@@ -601,6 +604,7 @@ __all__ = [
     "update_mode_metadata",
     "update_player",
     "update_player_settings",
+    "update_globalapi_records_sync_setting",
     "update_player_social_link",
     "update_player_social_link_metadata",
     "update_player_webhook",

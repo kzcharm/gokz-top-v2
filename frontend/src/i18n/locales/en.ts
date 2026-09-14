@@ -220,6 +220,15 @@ export const en = {
         updated: "Community link placement updated.",
       },
     },
+    globalapiRecordsSync: {
+      title: "GlobalAPI record sync",
+      description:
+        "Import records from GlobalAPI in this deployment. Disable this on staging to prevent duplicate sync work; enabling it resumes imports on the next scheduler check.",
+      enabled: "Sync records from GlobalAPI",
+      toasts: {
+        updated: "GlobalAPI record sync setting updated.",
+      },
+    },
     qqBinding: {
       title: "QQ Binding Secret",
       description:

@@ -374,11 +374,21 @@ test("Superusers can manage the QQ binding secret", async ({ page }) => {
   await expect(page.getByText("Not configured")).toBeVisible()
 })
 
-test("Superusers can move community links between navbar and footer", async ({
-  page,
-}) => {
+test("Superusers can manage application settings", async ({ page }) => {
   let location: "navbar" | "footer" = "navbar"
+  let recordsSyncEnabled = true
 
+  await page.route("**/v1/users/me", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        steamid64: randomSteamid64(),
+        roles: ["superuser"],
+        is_active: true,
+        player: null,
+      }),
+    })
+  })
   await page.route("**/v1/app-settings", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -386,30 +396,47 @@ test("Superusers can move community links between navbar and footer", async ({
     })
   })
   await page.route("**/v1/admin/settings/app", async (route) => {
-    const body = route.request().postDataJSON() as {
-      community_links_location: "navbar" | "footer"
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON() as {
+        community_links_location?: "navbar" | "footer"
+        globalapi_records_sync_enabled?: boolean
+      }
+      location = body.community_links_location ?? location
+      recordsSyncEnabled =
+        body.globalapi_records_sync_enabled ?? recordsSyncEnabled
     }
-    location = body.community_links_location
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({ community_links_location: location }),
+      body: JSON.stringify({
+        community_links_location: location,
+        globalapi_records_sync_enabled: recordsSyncEnabled,
+      }),
+    })
+  })
+  await page.route("**/v1/admin/settings/qq-binding-secret", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        configured: false,
+        created_at: null,
+        updated_at: null,
+      }),
     })
   })
 
-  const { accessToken } = await issueSessionToken({
-    request: page.request,
-    steamid64: randomSteamid64(),
-    roles: ["superuser"],
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "mock-superuser-token")
   })
-  await page.addInitScript((token) => {
-    localStorage.setItem("access_token", token)
-  }, accessToken)
   await page.goto("/admin/settings")
 
   const placementSwitch = page.getByRole("switch", {
     name: "Show community links in navbar",
   })
   await expect(placementSwitch).toBeChecked()
+  const recordsSyncSwitch = page.getByRole("switch", {
+    name: "Sync records from GlobalAPI",
+  })
+  await expect(recordsSyncSwitch).toBeChecked()
   await expect(
     page.locator("header").getByRole("link", { name: "Join Discord" }),
   ).toBeVisible()
@@ -426,6 +453,14 @@ test("Superusers can move community links between navbar and footer", async ({
   await expect(
     page.locator("footer").getByRole("link", { name: "Join us on Discord" }),
   ).toBeVisible()
+
+  await recordsSyncSwitch.click()
+  await expect.poll(() => recordsSyncEnabled).toBe(false)
+  await expect(recordsSyncSwitch).not.toBeChecked()
+
+  await recordsSyncSwitch.click()
+  await expect.poll(() => recordsSyncEnabled).toBe(true)
+  await expect(recordsSyncSwitch).toBeChecked()
 
   await page.evaluate(() => localStorage.setItem("gokz-language", "zh-CN"))
   await page.reload()

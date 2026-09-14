@@ -11,6 +11,7 @@ from datetime import timedelta
 import psycopg
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
 from app.models import GlobalApiSyncResult, GlobalApiSyncState, get_datetime_utc
@@ -31,6 +32,12 @@ class GlobalApiSyncTask:
     schedule_hour_utc: int | None = None
     startup_stale_after_seconds: int | None = None
     failure_retry_after_seconds: int = settings.GLOBALAPI_SYNC_FAILURE_RETRY_SECONDS
+    is_enabled: Callable[..., Awaitable[bool]] | None = None
+
+
+async def _globalapi_records_sync_is_enabled(*, session: AsyncSession) -> bool:
+    setting = await crud.get_globalapi_records_sync_setting(session=session)
+    return setting.enabled
 
 
 GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
@@ -62,6 +69,7 @@ GLOBALAPI_SYNC_TASKS: tuple[GlobalApiSyncTask, ...] = (
         task_name="records",
         stale_after_seconds=settings.GLOBALAPI_RECORDS_SYNC_STALE_AFTER_SECONDS,
         run=sync_records_from_globalapi,
+        is_enabled=_globalapi_records_sync_is_enabled,
     ),
 )
 
@@ -239,12 +247,18 @@ async def run_globalapi_sync_tasks(
                 return {}
 
             for task in GLOBALAPI_SYNC_TASKS:
-                if only_stale:
+                if task.is_enabled is not None or only_stale:
                     async with async_session_maker() as session:
-                        if not await _task_is_stale(
-                            session=session,
-                            task=task,
-                            startup=startup,
+                        if task.is_enabled is not None and not await task.is_enabled(
+                            session=session
+                        ):
+                            logger.info(
+                                "Skipping GlobalAPI sync task %s because it is disabled",
+                                task.task_name,
+                            )
+                            continue
+                        if only_stale and not await _task_is_stale(
+                            session=session, task=task, startup=startup
                         ):
                             continue
 

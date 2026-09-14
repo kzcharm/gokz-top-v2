@@ -10,6 +10,7 @@ from tests.utils.user import authentication_token_from_steamid
 
 QQ_SECRET_URL = f"{settings.API_V1_STR}/admin/settings/qq-binding-secret"
 APP_SETTINGS_URL = f"{settings.API_V1_STR}/app-settings"
+ADMIN_APP_SETTINGS_URL = f"{settings.API_V1_STR}/admin/settings/app"
 
 
 @pytest.mark.asyncio
@@ -22,16 +23,41 @@ async def test_app_settings_are_public_and_superuser_managed(
     assert public_response.status_code == 200
     assert public_response.json() == {"community_links_location": "navbar"}
     assert "qq" not in public_response.text.lower()
+    assert "globalapi" not in public_response.text.lower()
+
+    admin_response = await client.get(
+        ADMIN_APP_SETTINGS_URL,
+        headers=superuser_token_headers,
+    )
+    assert admin_response.status_code == 200
+    assert admin_response.json() == {
+        "community_links_location": "navbar",
+        "globalapi_records_sync_enabled": True,
+    }
 
     update_response = await client.patch(
-        f"{settings.API_V1_STR}/admin/settings/app",
+        ADMIN_APP_SETTINGS_URL,
         headers=superuser_token_headers,
         json={"community_links_location": "footer"},
     )
     assert update_response.status_code == 200
-    assert update_response.json() == {"community_links_location": "footer"}
+    assert update_response.json() == {
+        "community_links_location": "footer",
+        "globalapi_records_sync_enabled": True,
+    }
     assert (await client.get(APP_SETTINGS_URL)).json() == {
         "community_links_location": "footer"
+    }
+
+    sync_update_response = await client.patch(
+        ADMIN_APP_SETTINGS_URL,
+        headers=superuser_token_headers,
+        json={"globalapi_records_sync_enabled": False},
+    )
+    assert sync_update_response.status_code == 200
+    assert sync_update_response.json() == {
+        "community_links_location": "footer",
+        "globalapi_records_sync_enabled": False,
     }
 
     stored_setting = await crud.get_app_setting(
@@ -39,6 +65,21 @@ async def test_app_settings_are_public_and_superuser_managed(
     )
     assert stored_setting is not None
     assert stored_setting.value == {"location": "footer"}
+    stored_sync_setting = await crud.get_app_setting(
+        session=db, key=AppSettingKey.GLOBALAPI_RECORDS_SYNC
+    )
+    assert stored_sync_setting is not None
+    assert stored_sync_setting.value == {"enabled": False}
+
+    sync_enable_response = await client.patch(
+        ADMIN_APP_SETTINGS_URL,
+        headers=superuser_token_headers,
+        json={"globalapi_records_sync_enabled": True},
+    )
+    assert sync_enable_response.status_code == 200
+    assert sync_enable_response.json()["globalapi_records_sync_enabled"] is True
+    await db.refresh(stored_sync_setting)
+    assert stored_sync_setting.value == {"enabled": True}
 
 
 @pytest.mark.asyncio
@@ -49,11 +90,14 @@ async def test_app_settings_update_requires_superuser(
         client=client, steamid64=76561198000000011, db=db
     )
     response = await client.patch(
-        f"{settings.API_V1_STR}/admin/settings/app",
+        ADMIN_APP_SETTINGS_URL,
         headers=headers,
         json={"community_links_location": "footer"},
     )
     assert response.status_code == 403
+    assert (
+        await client.get(ADMIN_APP_SETTINGS_URL, headers=headers)
+    ).status_code == 403
 
 
 @pytest.mark.asyncio

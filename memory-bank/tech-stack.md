@@ -25,7 +25,7 @@
 - Data strategy:
   - PostgreSQL as primary persistent store
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
-  - Application-wide settings use typed accessors over the `app_setting` key/value table, with JSONB payloads per key. Public settings APIs expose only an explicit safe subset; the encrypted QQ binding secret and community-link placement share this store without exposing arbitrary rows.
+  - Application-wide settings use typed accessors over the `app_setting` key/value table, with JSONB payloads per key. Public settings APIs expose only an explicit safe subset; the encrypted QQ binding secret, community-link placement, and deployment-local GlobalAPI record-sync toggle share this store without exposing arbitrary rows.
   - Ban rows are stored locally in PostgreSQL with an internal UUIDv7 primary key (`ban.uuid`) plus a nullable external GlobalAPI id (`ban.id`), allowing append/update-only mirrored GlobalAPI bans and superuser-created local bans to coexist in the same table
   - Scope-aware leaderboard read models are materialized in PostgreSQL from `record_pb` data and refreshed by a single midnight-UTC rank pipeline plus repair/backfill CLIs
   - `record_pb.raw_rating_contribution` stores the per-PB-row raw rating contribution assigned during player leaderboard rebuilds, so record list APIs can show how each contributing PB feeds the player's raw rating

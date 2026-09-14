@@ -40,6 +40,43 @@ async def test_community_links_update_upserts_typed_jsonb_value(
 
 
 @pytest.mark.asyncio
+async def test_globalapi_records_sync_setting_defaults_to_enabled(
+    db: AsyncSession,
+) -> None:
+    setting = await crud.get_app_setting(
+        session=db, key=AppSettingKey.GLOBALAPI_RECORDS_SYNC
+    )
+    if setting is not None:
+        await db.delete(setting)
+        await db.commit()
+
+    value = await crud.get_globalapi_records_sync_setting(session=db)
+
+    assert value.enabled is True
+
+
+@pytest.mark.asyncio
+async def test_globalapi_records_sync_update_upserts_typed_jsonb_value(
+    db: AsyncSession,
+) -> None:
+    setting = await crud.get_app_setting(
+        session=db, key=AppSettingKey.GLOBALAPI_RECORDS_SYNC
+    )
+    if setting is not None:
+        await db.delete(setting)
+        await db.commit()
+
+    value = await crud.update_globalapi_records_sync_setting(session=db, enabled=False)
+
+    assert value.enabled is False
+    stored = await crud.get_app_setting(
+        session=db, key=AppSettingKey.GLOBALAPI_RECORDS_SYNC
+    )
+    assert stored is not None
+    assert stored.value == {"enabled": False}
+
+
+@pytest.mark.asyncio
 async def test_qq_secret_rotation_and_deletion_only_touch_secret_row(
     db: AsyncSession,
 ) -> None:
