@@ -127,6 +127,7 @@ function DataTableBodyRow<TData, TValue>({
   const rowElement = (
     <TableRow
       {...rowProps}
+      data-table-stripe={row.index % 2 === 0 ? "base" : "alternate"}
       className={rowClassName}
       onContextMenu={
         rowContextMenu
@@ -181,7 +182,10 @@ function DataTableBodyRow<TData, TValue>({
     <Fragment key={row.id}>
       {rowElement}
       {isExpanded ? (
-        <TableRow className="bg-muted/15 hover:bg-muted/15">
+        <TableRow
+          data-table-stripe={row.index % 2 === 0 ? "base" : "alternate"}
+          className="hover:bg-table-row-hover"
+        >
           <TableCell colSpan={columns.length} className="px-4 py-4">
             {renderExpandedContent(row.original)}
           </TableCell>
