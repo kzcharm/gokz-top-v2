@@ -96,8 +96,7 @@ export function ProfileJumpstatsTab({
   }, [jumpstatsQuery.data, pageCount, pageIndex])
 
   const rowInteractionProps = (row: ProfileJumpstatsTableRow) => ({
-    className:
-      "cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none",
+    className: "cursor-pointer",
     tabIndex: 0,
     onClick: (event: MouseEvent<HTMLTableRowElement>) => {
       const target = event.target as HTMLElement

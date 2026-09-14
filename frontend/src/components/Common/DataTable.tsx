@@ -184,7 +184,6 @@ function DataTableBodyRow<TData, TValue>({
       {isExpanded ? (
         <TableRow
           data-table-stripe={row.index % 2 === 0 ? "base" : "alternate"}
-          className="hover:bg-table-row-hover"
         >
           <TableCell colSpan={columns.length} className="px-4 py-4">
             {renderExpandedContent(row.original)}

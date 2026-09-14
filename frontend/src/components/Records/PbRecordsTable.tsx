@@ -120,10 +120,7 @@ function PbRecordTableRow({
   const row = (
     <TableRow
       data-testid={`pb-record-row-${record.uuid}`}
-      className={cn(
-        (menuContent || onRowClick) && "outline-none",
-        onRowClick && "cursor-pointer transition-colors hover:bg-muted/50",
-      )}
+      className={cn(onRowClick && "cursor-pointer")}
       onClick={
         onRowClick
           ? (event: MouseEvent<HTMLTableRowElement>) => {

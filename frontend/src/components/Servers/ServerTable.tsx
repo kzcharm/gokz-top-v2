@@ -148,7 +148,7 @@ export function ServerTable({
                   key={address}
                   data-testid={`server-row-${address}`}
                   className={cn(
-                    "cursor-pointer transition-[background-color,box-shadow] hover:bg-muted/50",
+                    "cursor-pointer",
                     !isServerOnline(server) && "opacity-60",
                     isSelected &&
                       "bg-muted/50 shadow-[inset_0_0_0_1px_var(--color-primary)] [animation:server-selected_650ms_ease-out]",

@@ -124,7 +124,6 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-table-row-hover: var(--table-row-hover);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -191,7 +190,11 @@
   --muted: oklch(0.9232 0.0026 48.7171);
   --muted-foreground: oklch(0.551 0.0234 264.3637);
   --table-row-alternate: color-mix(in oklab, var(--card) 50%, var(--muted));
-  --table-row-hover: color-mix(in oklab, var(--card) 25%, var(--accent));
+  --table-row-hover-outline: color-mix(
+    in oklab,
+    var(--primary) 60%,
+    transparent
+  );
   --accent: oklch(0.9024 0.0058 56.2714);
   --accent-foreground: oklch(0.3729 0.0306 259.7328);
   --destructive: oklch(0.6368 0.2078 25.3313);
@@ -337,11 +340,14 @@
   }
 
   table:not([data-slot="table"]) > tbody > tr {
-    transition: background-color 150ms ease;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+    transition: outline-color 50ms ease-out;
   }
 
   table:not([data-slot="table"]) > tbody > tr:hover {
-    background-color: var(--table-row-hover);
+    outline: 2px solid var(--table-row-hover-outline);
+    outline-offset: -2px;
   }
 }
 
