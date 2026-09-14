@@ -141,6 +141,39 @@ read_dotenv_value() {
   printf '%s' "$value"
 }
 
+is_linked_worktree() {
+  local git_dir=""
+  local git_common_dir=""
+
+  git_dir="$(git -C "$ROOT_DIR" rev-parse --path-format=absolute --git-dir 2>/dev/null || true)"
+  git_common_dir="$(git -C "$ROOT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+
+  [[ -n "$git_dir" && -n "$git_common_dir" && "$git_dir" != "$git_common_dir" ]]
+}
+
+configure_dev_environment() {
+  local default_backend_port="8000"
+  local default_frontend_port="5173"
+
+  if is_linked_worktree; then
+    default_backend_port="8001"
+    default_frontend_port="5174"
+  fi
+
+  export DEV_BACKEND_PORT="${DEV_BACKEND_PORT:-$default_backend_port}"
+  export DEV_FRONTEND_PORT="${DEV_FRONTEND_PORT:-$default_frontend_port}"
+  export BACKEND_PUBLIC_URL="http://localhost:$DEV_BACKEND_PORT"
+  export FRONTEND_HOST="http://localhost:$DEV_FRONTEND_PORT"
+  export VITE_API_URL="$BACKEND_PUBLIC_URL"
+
+  echo "Development URLs:"
+  echo "  Frontend: $FRONTEND_HOST"
+  echo "  Backend:  $BACKEND_PUBLIC_URL"
+  if is_linked_worktree; then
+    echo "  Database: shared local PostgreSQL on port 5432"
+  fi
+}
+
 ensure_docker_cli() {
   if command -v docker >/dev/null 2>&1; then
     return 0
@@ -330,7 +363,7 @@ prepare_backend_dev() {
     exit 1
   fi
 
-  kill_port_processes_with_confirmation "8000" "127.0.0.1:8000"
+  kill_port_processes_with_confirmation "$DEV_BACKEND_PORT" "127.0.0.1:$DEV_BACKEND_PORT"
   check_backend_migrations
 }
 
@@ -338,7 +371,7 @@ run_backend_devserver() {
   local log_level_override="$1"
   cd "$ROOT_DIR/backend"
   export LOG_LEVEL="$log_level_override"
-  exec uv run fastapi dev app/main.py
+  exec uv run fastapi dev --port "$DEV_BACKEND_PORT" app/main.py
 }
 
 check_backend_migrations() {
@@ -384,10 +417,10 @@ EOF
 }
 
 run_frontend_devserver() {
-  cd "$ROOT_DIR"
+  cd "$ROOT_DIR/frontend"
   if command -v bun >/dev/null 2>&1; then
-    exec bun run dev
+    exec bun run dev -- --port "$DEV_FRONTEND_PORT"
   fi
 
-  exec npm run dev --workspace frontend
+  exec npm run dev -- --port "$DEV_FRONTEND_PORT"
 }

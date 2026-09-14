@@ -48,6 +48,32 @@ To start both local dev servers together from the repository root, run:
 ./dev
 ```
 
+In the primary checkout, `./dev` uses frontend port `5173` and backend port
+`8000`. In a linked Git worktree, it automatically uses frontend port `5174`
+and backend port `8001`, allowing both checkouts to run at the same time while
+sharing the PostgreSQL service published on port `5432`.
+
+The linked worktree needs access to the same root `.env` configuration. An
+ignored symlink is convenient:
+
+```bash
+ln -s /path/to/primary-checkout/.env .env
+```
+
+Additional worktrees can select another port pair explicitly:
+
+```bash
+DEV_FRONTEND_PORT=5175 DEV_BACKEND_PORT=8002 ./dev
+```
+
+The launcher exports matching `FRONTEND_HOST`, `BACKEND_PUBLIC_URL`, and
+`VITE_API_URL` values automatically, so login redirects, CORS, and frontend API
+requests use the selected ports.
+
+Because linked worktrees share the database, accepting an Alembic upgrade from
+one worktree changes the schema seen by every running worktree. Use an isolated
+database instead when branches have incompatible migrations.
+
 Use `./dev d` to enable backend debug logging. The existing `./devbackend` and `./devfrontend` entry points still work if you only want one side.
 
 When `./dev` or `./devbackend` starts, it checks whether the local database is behind the Alembic migrations in the working tree. If migrations are pending, it asks whether to upgrade to the latest revision; pressing Enter accepts the default (yes). Answer `n` to continue without upgrading.
