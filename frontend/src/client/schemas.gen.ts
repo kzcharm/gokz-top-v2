@@ -8955,6 +8955,10 @@ export const ServerPublicSchema = {
             '$ref': '#/components/schemas/ServerStatus',
             default: 'enabled'
         },
+        is_public: {
+            type: 'boolean',
+            title: 'Is Public'
+        },
         country: {
             anyOf: [
                 {
@@ -9093,7 +9097,7 @@ export const ServerPublicSchema = {
         }
     },
     type: 'object',
-    required: ['ip', 'port', 'id', 'source', 'created_at', 'updated_at'],
+    required: ['ip', 'port', 'is_public', 'id', 'source', 'created_at', 'updated_at'],
     title: 'ServerPublic'
 } as const;
 
@@ -9348,6 +9352,17 @@ export const ServerUpdateSchema = {
                     type: 'null'
                 }
             ]
+        },
+        is_public: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Is Public'
         },
         country: {
             anyOf: [

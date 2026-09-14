@@ -467,6 +467,7 @@ async def test_create_server_requires_successful_a2s_query(
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "enabled"
+    assert payload["is_public"] is True
     assert payload["source"]["type"] == "manual"
     assert payload["source"]["steamid64"].isdigit()
     assert payload["live_status"]["hostname"].startswith("Queried ")
@@ -593,6 +594,36 @@ async def test_read_servers_returns_group_custom_id(
         "name": group.name,
         "custom_id": "axe",
     }
+
+
+async def test_public_server_reads_hide_non_public_servers(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    public_server = await create_server(db)
+    hidden_server = await create_server(db, is_public=False)
+
+    list_response = await client.get(
+        f"{settings.API_V1_STR}/servers",
+        params={"limit": 200},
+    )
+
+    assert list_response.status_code == 200
+    payload = list_response.json()
+    returned_ids = {item["id"] for item in payload["data"]}
+    assert str(public_server.id) in returned_ids
+    assert str(hidden_server.id) not in returned_ids
+    assert all(item["is_public"] is True for item in payload["data"])
+
+    detail_response = await client.get(
+        f"{settings.API_V1_STR}/servers/{hidden_server.id}"
+    )
+    history_response = await client.get(
+        f"{settings.API_V1_STR}/servers/{hidden_server.id}/history"
+    )
+
+    assert detail_response.status_code == 404
+    assert history_response.status_code == 404
 
 
 async def test_read_servers_returns_persisted_coordinates(
@@ -1233,6 +1264,35 @@ async def test_put_server_status_updates_live_status_from_plugin(
     assert old_live_status["var_ms"] is None
 
 
+async def test_put_server_status_keeps_hidden_server_operational(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group, api_key = await create_server_group(db)
+    server = await create_server(db, group_id=group.id, is_public=False)
+
+    response = await client.put(
+        f"{settings.API_V1_STR}/servers/status",
+        headers={"X-Server-Group-Key": api_key},
+        json={
+            "ip": server.ip,
+            "port": server.port,
+            "observed_at": datetime.now(UTC).isoformat(),
+            "hostname": "Hidden Plugin Host",
+            "map": "kz_hidden",
+            "player_count": 3,
+            "max_players": 24,
+            "players": [_plugin_player()],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["is_public"] is False
+    assert payload["status"] == "enabled"
+    assert payload["live_status"]["hostname"] == "Hidden Plugin Host"
+
+
 async def test_put_server_status_rejects_negative_rich_telemetry(
     client: AsyncClient,
     db: AsyncSession,
@@ -1624,11 +1684,12 @@ async def test_read_servers_normalizes_prefixed_live_map_for_display_and_tier(
     client: AsyncClient,
     db: AsyncSession,
 ) -> None:
-    await _create_map(db, id=930211, name="kz_dakow", difficulty=5)
+    map_name = "kz_prefixed_visibility_test"
+    await _create_map(db, id=930211, name=map_name, difficulty=5)
     await create_server(
         db,
         hostname="Workshop Host",
-        map_name="workshop/123456789/kz_dakow",
+        map_name=f"workshop/123456789/{map_name}",
     )
 
     response = await client.get(
@@ -1639,7 +1700,7 @@ async def test_read_servers_normalizes_prefixed_live_map_for_display_and_tier(
     assert response.status_code == 200
     payload = response.json()
     matching = next(
-        item for item in payload["data"] if item["live_status"]["map"] == "kz_dakow"
+        item for item in payload["data"] if item["live_status"]["map"] == map_name
     )
     assert matching["live_status"]["workshop_id"] == "123456789"
     assert matching["map_tier"] == 5

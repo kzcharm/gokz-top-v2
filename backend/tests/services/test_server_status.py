@@ -251,12 +251,14 @@ async def test_read_servers_due_for_a2s_poll_includes_invalid_servers(
     db: AsyncSession,
 ) -> None:
     invalid_server = await create_server(db)
+    hidden_server = await create_server(db, is_public=False)
     disabled_server = await create_server(db)
     now = datetime.now(UTC)
 
     invalid_server.status = ServerStatus.INVALID
     disabled_server.status = ServerStatus.DISABLED
     assert invalid_server.live_status is not None
+    assert hidden_server.live_status is not None
     assert disabled_server.live_status is not None
     invalid_server.live_status.state = {
         **invalid_server.live_status.state,
@@ -266,10 +268,16 @@ async def test_read_servers_due_for_a2s_poll_includes_invalid_servers(
         **disabled_server.live_status.state,
         "last_a2s_seen_at": (now - timedelta(seconds=10)).isoformat(),
     }
+    hidden_server.live_status.state = {
+        **hidden_server.live_status.state,
+        "last_a2s_seen_at": (now - timedelta(seconds=10)).isoformat(),
+    }
     db.add(invalid_server)
     db.add(disabled_server)
+    db.add(hidden_server)
     db.add(invalid_server.live_status)
     db.add(disabled_server.live_status)
+    db.add(hidden_server.live_status)
     await db.commit()
 
     due_servers = await crud.read_servers_due_for_a2s_poll(
@@ -281,6 +289,7 @@ async def test_read_servers_due_for_a2s_poll_includes_invalid_servers(
 
     due_server_ids = {server.id for server in due_servers}
     assert invalid_server.id in due_server_ids
+    assert hidden_server.id in due_server_ids
     assert disabled_server.id not in due_server_ids
 
 
@@ -709,7 +718,7 @@ async def test_run_server_a2s_refresh_cycle_marks_server_offline_after_three_fai
 async def test_record_a2s_success_invalidates_after_extended_invalid_map_window(
     db: AsyncSession,
 ) -> None:
-    server = await create_server(db, map_name="kz_valid")
+    server = await create_server(db, map_name="kz_valid", is_public=False)
     assert server.live_status is not None
 
     last_valid_seen_at = datetime.now(UTC) - timedelta(hours=2)
@@ -736,6 +745,7 @@ async def test_record_a2s_success_invalidates_after_extended_invalid_map_window(
     refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
     assert refreshed is not None
     assert refreshed.status == ServerStatus.INVALID
+    assert refreshed.is_public is False
     assert refreshed.live_status is not None
     assert refreshed.live_status.is_online is True
     assert refreshed.live_status.state["invalid_count"] == 11

@@ -603,11 +603,13 @@ export function PublicServersTab({
   const [search, setSearch] = useState("")
   const [groupFilter, setGroupFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [visibilityFilter, setVisibilityFilter] = useState("all")
   const [regionFilter, setRegionFilter] = useState("all")
   const [editingServerId, setEditingServerId] = useState<string | null>(null)
   const [draftGroupId, setDraftGroupId] = useState<string>(NO_GROUP)
   const [draftStatus, setDraftStatus] =
     useState<NonNullable<ServerPublic["status"]>>("enabled")
+  const [draftIsPublic, setDraftIsPublic] = useState(true)
   const canClearGroup = access?.role !== "server_owner"
 
   const query = useQuery({
@@ -618,6 +620,7 @@ export function PublicServersTab({
       search,
       groupFilter,
       statusFilter,
+      visibilityFilter,
       regionFilter,
     ],
     queryFn: () =>
@@ -634,6 +637,10 @@ export function PublicServersTab({
           statusFilter === "all"
             ? undefined
             : (statusFilter as ServerPublic["status"]),
+        isPublic:
+          visibilityFilter === "all"
+            ? undefined
+            : visibilityFilter === "public",
         region: regionFilter === "all" ? undefined : regionFilter,
       }),
   })
@@ -643,16 +650,19 @@ export function PublicServersTab({
       serverId,
       groupId,
       status,
+      isPublic,
     }: {
       serverId: string
       groupId?: string | null
       status?: ServerPublic["status"]
+      isPublic?: boolean
     }) =>
       AdminServersService.updateAdminPublicServer({
         serverId,
         requestBody: {
           ...(groupId !== undefined ? { group_id: groupId } : {}),
           ...(status !== undefined ? { status } : {}),
+          ...(isPublic !== undefined ? { is_public: isPublic } : {}),
         },
       }),
     onSuccess: () => {
@@ -747,6 +757,27 @@ export function PublicServersTab({
           ),
       },
       {
+        accessorKey: "is_public",
+        header: "Visibility",
+        cell: ({ row }) =>
+          editingServerId === row.original.id ? (
+            <Select
+              value={draftIsPublic ? "public" : "hidden"}
+              onValueChange={(value) => setDraftIsPublic(value === "public")}
+            >
+              <SelectTrigger className="w-32" aria-label="Server visibility">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="hidden">Hidden</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <ServerVisibilityBadge isPublic={row.original.is_public} />
+          ),
+      },
+      {
         accessorKey: "country",
         header: "Location",
         cell: ({ row }) => (
@@ -777,6 +808,7 @@ export function PublicServersTab({
                       serverId: row.original.id,
                       groupId: draftGroupId === NO_GROUP ? null : draftGroupId,
                       status: draftStatus,
+                      isPublic: draftIsPublic,
                     },
                     { onSuccess: () => setEditingServerId(null) },
                   )
@@ -805,6 +837,7 @@ export function PublicServersTab({
                   setEditingServerId(row.original.id)
                   setDraftGroupId(row.original.group_id ?? NO_GROUP)
                   setDraftStatus(row.original.status ?? "enabled")
+                  setDraftIsPublic(row.original.is_public)
                 }}
               >
                 <Pencil />
@@ -828,6 +861,7 @@ export function PublicServersTab({
       canClearGroup,
       deleteMutation,
       draftGroupId,
+      draftIsPublic,
       draftStatus,
       editingServerId,
       groups,
@@ -875,7 +909,10 @@ export function PublicServersTab({
               setPageIndex(0)
             }}
           >
-            <SelectTrigger className="w-full sm:w-40">
+            <SelectTrigger
+              className="w-full sm:w-40"
+              aria-label="Filter servers by status"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -889,6 +926,25 @@ export function PublicServersTab({
               <SelectItem value="disabled">
                 <ServerStatusBadge status="disabled" />
               </SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={visibilityFilter}
+            onValueChange={(value) => {
+              setVisibilityFilter(value)
+              setPageIndex(0)
+            }}
+          >
+            <SelectTrigger
+              className="w-full sm:w-40"
+              aria-label="Filter servers by visibility"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All visibility</SelectItem>
+              <SelectItem value="public">Public</SelectItem>
+              <SelectItem value="hidden">Hidden</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -976,6 +1032,18 @@ function ServerStatusBadge({ status }: { status?: ServerPublic["status"] }) {
   } as const
 
   return <Badge className={classNames[value]}>{labels[value]}</Badge>
+}
+
+function ServerVisibilityBadge({ isPublic }: { isPublic: boolean }) {
+  return isPublic ? (
+    <Badge className="border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+      Public
+    </Badge>
+  ) : (
+    <Badge className="border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+      Hidden
+    </Badge>
+  )
 }
 
 export function ServerGroupsTab({

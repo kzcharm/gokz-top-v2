@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-06-08
+- Last Updated: 2026-09-14
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -109,6 +109,7 @@ Scope model:
 
 ### 5.5 Servers and Live Status
 - Public server registry and ownership-aware management.
+- Server visibility is controlled independently from operational status. Hidden servers continue normal heartbeat and health collection but must not appear in public lists, detail/history reads, server-group counts, or live WebSocket updates.
 - Admin server management provides Root Admin access to all GlobalAPI/public servers and Server Owner access to owned servers, with approval control reserved for Root Admins.
 - Root Admins can investigate possible alternate accounts from player-session IP evidence using bounded exact-IP, `/24`, or `/16 + city` traversal; the workflow returns explainable links and skipped busy buckets, not scores or automated enforcement.
 - Live status ingestion and display.

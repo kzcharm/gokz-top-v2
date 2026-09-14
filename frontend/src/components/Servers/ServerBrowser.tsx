@@ -272,6 +272,10 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         return event.servers
       }
 
+      if (event.type === "server.removed") {
+        return currentServers.filter((server) => server.id !== event.server_id)
+      }
+
       const nextServers = [...currentServers]
       const existingIndex = nextServers.findIndex(
         (server) => server.id === event.server.id,

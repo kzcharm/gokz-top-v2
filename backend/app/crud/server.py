@@ -285,6 +285,7 @@ def to_server_public(*, server: Server) -> ServerPublic:
         ip=server.ip,
         port=server.port,
         status=server.status,
+        is_public=server.is_public,
         country=server.country,
         city=server.city,
         region=get_region_code_for_country(server.country),
@@ -447,7 +448,10 @@ async def read_server_groups(
     groups_statement = select(ServerGroup).order_by(col(ServerGroup.name).asc())
     groups = list((await session.exec(groups_statement)).all())
 
-    servers_statement = select(Server).where(col(Server.group_id).is_not(None))
+    servers_statement = select(Server).where(
+        col(Server.group_id).is_not(None),
+        col(Server.is_public).is_(True),
+    )
     servers = list((await session.exec(servers_statement)).all())
     counts: dict[uuid.UUID, int] = {}
     for server in servers:
@@ -664,8 +668,11 @@ async def read_servers(
     session: AsyncSession,
     query: ServerListQuery,
     owned_group_ids: set[uuid.UUID] | frozenset[uuid.UUID] | None = None,
+    is_public: bool | None = None,
 ) -> tuple[list[Server], int]:
     statement = select(Server)
+    if is_public is not None:
+        statement = statement.where(col(Server.is_public).is_(is_public))
     if query.q:
         search = f"%{query.q.strip()}%"
         statement = statement.outerjoin(
@@ -968,6 +975,7 @@ async def update_server(
     await _refresh_server_location(server=server, force=ip_changed)
     server.updated_at = get_datetime_utc()
     session.add(server)
+    await notify_server_status_updated(session=session, server_id=server.id)
     try:
         await session.commit()
     except IntegrityError as exc:

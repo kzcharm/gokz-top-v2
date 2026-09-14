@@ -244,7 +244,11 @@ async def read_servers(
     session: SessionDep,
     query: Annotated[ServerListQuery, Query()],
 ) -> Any:
-    servers, count = await crud.read_servers(session=session, query=query)
+    servers, count = await crud.read_servers(
+        session=session,
+        query=query,
+        is_public=True,
+    )
     return ServersPublic(
         data=[crud.to_server_public(server=server) for server in servers],
         count=count,
@@ -259,7 +263,7 @@ async def read_server_history(
     query: Annotated[ServerHistoryQuery, Query()],
 ) -> Any:
     server = await crud.get_server_by_id(session=session, server_id=server_id)
-    if server is None:
+    if server is None or not server.is_public:
         raise HTTPException(status_code=404, detail="Server not found")
 
     history = await crud.read_server_history(
@@ -313,7 +317,7 @@ async def read_player_server_activity_summary(
 @router.get("/{server_id}", response_model=ServerPublic)
 async def read_server(*, session: SessionDep, server_id: uuid.UUID) -> Any:
     server = await crud.get_server_by_id(session=session, server_id=server_id)
-    if server is None:
+    if server is None or not server.is_public:
         raise HTTPException(status_code=404, detail="Server not found")
     return crud.to_server_public(server=server)
 

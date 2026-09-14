@@ -8,6 +8,7 @@ from app.api.deps import AdminServerPrincipal, AdminServerPrincipalDep, SessionD
 from app.models import (
     AdminServerAccessPublic,
     AdminServerGroupsPublic,
+    AdminServerListQuery,
     AdminServerRole,
     Message,
     ServerGlobalapiAdminPublic,
@@ -20,7 +21,6 @@ from app.models import (
     ServerGroupPublic,
     ServerGroupStatus,
     ServerGroupUpdate,
-    ServerListQuery,
     ServerPublic,
     ServersPublic,
     ServerUpdate,
@@ -170,7 +170,7 @@ async def read_admin_public_servers(
     *,
     session: SessionDep,
     principal: AdminServerPrincipalDep,
-    query: Annotated[ServerListQuery, Query()],
+    query: Annotated[AdminServerListQuery, Query()],
 ) -> ServersPublic:
     owned_group_ids = (
         None
@@ -181,6 +181,7 @@ async def read_admin_public_servers(
         session=session,
         query=query,
         owned_group_ids=owned_group_ids,
+        is_public=query.is_public,
     )
     return ServersPublic(
         data=[crud.to_server_public(server=server) for server in servers],

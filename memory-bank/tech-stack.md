@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-07-29
+- Last Updated: 2026-09-14
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -66,6 +66,7 @@
   - `GET /v1/leaderboards/countries` aggregates eligible unbanned `leaderboard_player` rows by player country and scope, exposing ranked-player and 30-day active-player counts, top-three players, median rating, and top-10 average rating; only countries with at least 10 ranked players receive a competitive rank
   - Active mirrored bans are enforced as query-time exclusions for selected leaderboard and record reads via `EXISTS`/`NOT EXISTS` predicates instead of direct joins
 - Live server status subsystem:
+  - `server.is_public` controls public visibility independently from operational `status`; hidden servers continue heartbeat ingestion, discovery, and A2S health collection but are excluded from public lists, detail/history reads, group counts, and WebSocket payloads
   - Public reads come from cached `/v1/servers` and `/v1/servers/{id}` responses only; browsers never trigger upstream A2S or Steam server-list queries
   - Server country/city/latitude/longitude are persisted on `server` rows and resolved only on writes when missing or when the IP changes, preferring online IP location providers before falling back to the local GeoIP database
   - SourceMod server heartbeats are sent by `gokz-top-servers`, which reuses `gokz-top-core` auth config and resolves the target server by cached public IPv4 plus `hostport`

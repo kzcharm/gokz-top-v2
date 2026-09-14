@@ -1755,6 +1755,7 @@ export type ServerPublic = {
     ip: string;
     port: number;
     status?: ServerStatus;
+    is_public: boolean;
     country?: (string | null);
     city?: (string | null);
     latitude?: (number | null);
@@ -1816,6 +1817,7 @@ export type ServerUpdate = {
     ip?: (string | null);
     port?: (number | null);
     status?: (ServerStatus | null);
+    is_public?: (boolean | null);
     country?: (string | null);
     city?: (string | null);
     latitude?: (number | null);
@@ -2077,6 +2079,7 @@ export type AdminServersReadAdminPublicServersData = {
     city?: (string | null);
     country?: (string | null);
     groupId?: (string | null);
+    isPublic?: (boolean | null);
     limit?: number;
     offset?: number;
     online?: (boolean | null);

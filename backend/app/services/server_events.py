@@ -9,7 +9,13 @@ from fastapi import WebSocket
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
-from app.models import Server, ServerListQuery, ServerSnapshotEvent, ServerUpdateEvent
+from app.models import (
+    Server,
+    ServerListQuery,
+    ServerRemovedEvent,
+    ServerSnapshotEvent,
+    ServerUpdateEvent,
+)
 
 
 class ServerEventHub:
@@ -53,6 +59,7 @@ async def build_server_snapshot_event() -> ServerSnapshotEvent:
         servers, _ = await crud.read_servers(
             session=session,
             query=ServerListQuery(offset=0, limit=1000),
+            is_public=True,
         )
     return ServerSnapshotEvent(
         type="server.snapshot",
@@ -60,7 +67,9 @@ async def build_server_snapshot_event() -> ServerSnapshotEvent:
     )
 
 
-async def build_server_update_event(server_id: str) -> ServerUpdateEvent | None:
+async def build_server_update_event(
+    server_id: str,
+) -> ServerUpdateEvent | ServerRemovedEvent | None:
     try:
         parsed_server_id = uuid.UUID(server_id)
     except ValueError:
@@ -73,6 +82,8 @@ async def build_server_update_event(server_id: str) -> ServerUpdateEvent | None:
         )
         if server is None:
             return None
+        if not server.is_public:
+            return ServerRemovedEvent(type="server.removed", server_id=server.id)
     return ServerUpdateEvent(
         type="server.updated",
         server=crud.to_server_public(server=server),
@@ -80,6 +91,8 @@ async def build_server_update_event(server_id: str) -> ServerUpdateEvent | None:
 
 
 async def broadcast_server_update(server: Server) -> None:
+    if not server.is_public:
+        return
     event = ServerUpdateEvent(
         type="server.updated",
         server=crud.to_server_public(server=server),

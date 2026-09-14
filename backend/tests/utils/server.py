@@ -59,6 +59,7 @@ async def create_server(
     ip: str | None = None,
     port: int | None = None,
     status: ServerStatus = ServerStatus.ENABLED,
+    is_public: bool = True,
     country: str | None = "DE",
     city: str | None = "Berlin",
     latitude: float | None = None,
@@ -68,7 +69,7 @@ async def create_server(
     player_count: int = 5,
     max_players: int = 16,
 ) -> Server:
-    return await crud.create_server(
+    server = await crud.create_server(
         session=db,
         server_in=ServerCreate(
             group_id=group_id,
@@ -87,3 +88,9 @@ async def create_server(
         queried_max_players=max_players,
         queried_players=[],
     )
+    if server.is_public != is_public:
+        server.is_public = is_public
+        db.add(server)
+        await db.commit()
+        server = await crud.get_server_by_id(session=db, server_id=server.id) or server
+    return server

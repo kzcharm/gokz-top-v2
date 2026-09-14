@@ -17,6 +17,7 @@ async def test_read_server_groups_public_returns_counts(
 ) -> None:
     group, _ = await create_server_group(db, name="Public Group")
     await create_server(db, group_id=group.id)
+    await create_server(db, group_id=group.id, is_public=False)
 
     response = await client.get(f"{settings.API_V1_STR}/server-groups")
 

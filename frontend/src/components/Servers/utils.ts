@@ -36,6 +36,10 @@ export type ServerRealtimeEvent =
       type: "server.updated"
       server: ServerPublic
     }
+  | {
+      type: "server.removed"
+      server_id: string
+    }
 
 export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
   q: "",

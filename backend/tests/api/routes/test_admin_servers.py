@@ -265,7 +265,11 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
     default_response = await client.get(
         f"{settings.API_V1_STR}/admin/servers/globalapi",
         headers=superuser_token_headers,
-        params={"limit": 100, "approval_status": 1},
+        params={
+            "limit": 100,
+            "approval_status": 1,
+            "owner_steamid64": owner_steamid64,
+        },
     )
     assert default_response.status_code == 200
     default_payload = default_response.json()
@@ -277,6 +281,7 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         headers=superuser_token_headers,
         params={
             "limit": 100,
+            "owner_steamid64": owner_steamid64,
             "sort_by": "server",
             "sort_order": "asc",
         },
@@ -293,6 +298,7 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         headers=superuser_token_headers,
         params={
             "limit": 100,
+            "owner_steamid64": owner_steamid64,
             "sort_by": "updated_at",
             "sort_order": "desc",
         },
@@ -309,6 +315,7 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         headers=superuser_token_headers,
         params={
             "limit": 100,
+            "owner_steamid64": owner_steamid64,
             "sort_by": "created_at",
             "sort_order": "desc",
         },
@@ -325,6 +332,7 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         headers=superuser_token_headers,
         params={
             "limit": 100,
+            "owner_steamid64": owner_steamid64,
             "sort_by": "id",
             "sort_order": "desc",
         },
@@ -458,6 +466,7 @@ async def test_admin_public_servers_owner_uses_group_only_ownership(
 async def test_admin_public_server_owner_update_and_delete_access(
     client: AsyncClient,
     db: AsyncSession,
+    superuser_token_headers: dict[str, str],
 ) -> None:
     owner_steamid64 = random_steamid64()
     headers = await authentication_token_from_steamid(
@@ -479,17 +488,35 @@ async def test_admin_public_server_owner_update_and_delete_access(
     update_response = await client.patch(
         f"{settings.API_V1_STR}/admin/servers/public/{owned_server.id}",
         headers=headers,
-        json={"city": "Cologne", "country": "DE"},
+        json={"city": "Cologne", "country": "DE", "is_public": False},
     )
     assert update_response.status_code == 200
     assert update_response.json()["city"] == "Cologne"
+    assert update_response.json()["is_public"] is False
+
+    hidden_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/public",
+        headers=headers,
+        params={"limit": 100, "is_public": False},
+    )
+    assert hidden_response.status_code == 200
+    assert hidden_response.json()["count"] == 1
+    assert hidden_response.json()["data"][0]["id"] == str(owned_server.id)
 
     forbidden_update_response = await client.patch(
-        f"{settings.API_V1_STR}/admin/servers/public/{owned_server.id}",
+        f"{settings.API_V1_STR}/admin/servers/public/{other_server.id}",
         headers=headers,
-        json={"group_id": str(other_group.id)},
+        json={"is_public": False},
     )
     assert forbidden_update_response.status_code == 403
+
+    root_update_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/servers/public/{other_server.id}",
+        headers=superuser_token_headers,
+        json={"is_public": False},
+    )
+    assert root_update_response.status_code == 200
+    assert root_update_response.json()["is_public"] is False
 
     forbidden_delete_response = await client.delete(
         f"{settings.API_V1_STR}/admin/servers/public/{other_server.id}",

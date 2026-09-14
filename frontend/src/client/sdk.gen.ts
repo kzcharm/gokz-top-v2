@@ -499,6 +499,7 @@ export class AdminServersService {
      * @param data.region
      * @param data.city
      * @param data.sourceType
+     * @param data.isPublic
      * @returns ServersPublic Successful Response
      * @throws ApiError
      */
@@ -517,7 +518,8 @@ export class AdminServersService {
                 country: data.country,
                 region: data.region,
                 city: data.city,
-                source_type: data.sourceType
+                source_type: data.sourceType,
+                is_public: data.isPublic
             },
             errors: {
                 422: 'Validation Error'

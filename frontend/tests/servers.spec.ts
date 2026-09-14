@@ -15,6 +15,7 @@ const seedServers = {
       port: 27015,
       region: "NA",
       status: "enabled",
+      is_public: true,
       configured_hostname: "Alpha Seed",
       country: "US",
       city: "Chicago",
@@ -62,6 +63,7 @@ const snapshotServers = {
       port: 27016,
       region: "EU",
       status: "enabled",
+      is_public: true,
       configured_hostname: "Bravo Offline",
       country: "DE",
       city: "Berlin",
@@ -96,6 +98,7 @@ const snapshotServers = {
       port: 27017,
       region: "EU",
       status: "enabled",
+      is_public: true,
       configured_hostname: "Gamma Live",
       country: "DE",
       city: "Frankfurt",
@@ -159,6 +162,7 @@ const updatedGammaServer = {
     port: 27017,
     region: "EU",
     status: "enabled",
+    is_public: true,
     configured_hostname: "Gamma Live Updated",
     country: "DE",
     city: "Frankfurt",
@@ -205,6 +209,7 @@ const addedServer = {
   port: 27018,
   region: "EU",
   status: "enabled",
+  is_public: true,
   configured_hostname: "Delta Added",
   country: "FR",
   city: "Paris",
@@ -242,6 +247,7 @@ const mapServers = {
       longitude: 13.405,
       region: "EU",
       status: "enabled",
+      is_public: true,
       configured_hostname: "Shared Alpha A",
       country: "DE",
       city: "Berlin",
@@ -275,6 +281,7 @@ const mapServers = {
       longitude: 13.405,
       region: "EU",
       status: "enabled",
+      is_public: true,
       configured_hostname: "Shared Alpha B",
       country: "DE",
       city: "Berlin",
@@ -308,6 +315,7 @@ const mapServers = {
       longitude: -87.6298,
       region: "NA",
       status: "enabled",
+      is_public: true,
       configured_hostname: "Hidden Offline",
       country: "US",
       city: "Chicago",
@@ -341,6 +349,7 @@ const mapServers = {
       longitude: null,
       region: "EU",
       status: "enabled",
+      is_public: true,
       configured_hostname: "Unmapped Online",
       country: "FR",
       city: "Paris",
@@ -772,6 +781,72 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByText("Gamma Live Updated").first()).toBeVisible()
   await expect(page.getByText("9/24").first()).toBeVisible()
   await expect(page.getByTitle("Refreshing server status")).toHaveCount(0)
+})
+
+test("Public servers page removes a hidden server from live updates", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const sockets: Array<{
+      onopen: ((event: Event) => void) | null
+      onmessage: ((event: { data: string }) => void) | null
+      onclose: ((event: Event) => void) | null
+      onerror: ((event: Event) => void) | null
+      close: () => void
+      send: (_data?: unknown) => void
+    }> = []
+
+    class MockWebSocket {
+      static OPEN = 1
+      readyState = MockWebSocket.OPEN
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        sockets.push(this)
+        queueMicrotask(() => this.onopen?.(new Event("open")))
+      }
+
+      send(_data?: unknown) {}
+      close() {}
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+    Object.assign(window, {
+      __dispatchServerRemoved: (serverId: string) => {
+        for (const socket of sockets) {
+          socket.onmessage?.({
+            data: JSON.stringify({
+              type: "server.removed",
+              server_id: serverId,
+            }),
+          })
+        }
+      },
+    })
+  })
+  await page.route(/\/v1\/servers(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(seedServers),
+    })
+  })
+
+  await page.goto("/servers")
+  const serverCard = page.getByTestId("server-card-10.0.0.1:27015")
+  await expect(serverCard).toBeVisible()
+
+  await page.evaluate((serverId) => {
+    ;(window as any).__dispatchServerRemoved(serverId)
+  }, seedServers.data[0].id)
+
+  await expect(serverCard).toHaveCount(0)
 })
 
 test("Public servers map aggregates loaded servers by city", async ({

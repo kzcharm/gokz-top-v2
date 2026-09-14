@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
-from sqlalchemy import BigInteger, DateTime, Index, PrimaryKeyConstraint
+from sqlalchemy import BigInteger, Boolean, DateTime, Index, PrimaryKeyConstraint
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Column, Field, Relationship, SQLModel
@@ -148,6 +148,7 @@ class ServerBase(SQLModel):
     ip: str = Field(min_length=1, max_length=64)
     port: int = Field(ge=1, le=65535)
     status: ServerStatus = ServerStatus.ENABLED
+    is_public: bool = True
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
     latitude: float | None = Field(default=None, ge=-90, le=90)
@@ -170,6 +171,7 @@ class ServerUpdate(SQLModel):
     ip: str | None = Field(default=None, min_length=1, max_length=64)
     port: int | None = Field(default=None, ge=1, le=65535)
     status: ServerStatus | None = None
+    is_public: bool | None = None
     country: str | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
     latitude: float | None = Field(default=None, ge=-90, le=90)
@@ -200,6 +202,10 @@ class Server(ServerBase, table=True):
             ),
             nullable=False,
         ),
+    )
+    is_public: bool = Field(
+        default=True,
+        sa_column=Column(Boolean, nullable=False, server_default="true"),
     )
     source: dict[str, Any] = Field(
         default_factory=lambda: {"type": ServerSource.MANUAL.value},
@@ -437,6 +443,7 @@ class ServerLiveStatusPublic(SQLModel):
 
 class ServerPublic(ServerBase):
     id: uuid.UUID
+    is_public: bool
     group_id: uuid.UUID | None = None
     region: str | None = None
     source: dict[str, Any]
@@ -552,6 +559,10 @@ class ServerListQuery(SQLModel):
     source_type: ServerSource | None = None
 
 
+class AdminServerListQuery(ServerListQuery):
+    is_public: bool | None = None
+
+
 class ServerHistoryQuery(SQLModel):
     from_at: datetime | None = None
     to_at: datetime | None = None
@@ -614,6 +625,11 @@ class ServerUpdateEvent(BaseModel):
     server: ServerPublic
 
 
+class ServerRemovedEvent(SQLModel):
+    type: str
+    server_id: uuid.UUID
+
+
 class ServerSnapshotEvent(SQLModel):
     type: str
     servers: list[ServerPublic]
@@ -622,6 +638,7 @@ class ServerSnapshotEvent(SQLModel):
 __all__ = [
     "AdminServerGroupPublic",
     "AdminServerGroupsPublic",
+    "AdminServerListQuery",
     "AdminServerAccessPublic",
     "AdminServerRole",
     "Server",
@@ -650,6 +667,7 @@ __all__ = [
     "ServerPlayerPublic",
     "ServerPlayerRunStatus",
     "ServerPublic",
+    "ServerRemovedEvent",
     "ServerSnapshotEvent",
     "ServersPublic",
     "ServerStatus",

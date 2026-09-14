@@ -73,6 +73,107 @@ test.describe("Map admin access", () => {
   })
 })
 
+test("Superusers can manage public server visibility", async ({ page }) => {
+  const serverId = "01966858-7280-7000-8000-000000000020"
+  let isPublic = true
+  let requestedVisibility: string | null = null
+
+  await page.route("**/v1/admin/servers/access", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        role: "root_admin",
+        can_approve_servers: true,
+        owned_group_count: 0,
+      }),
+    })
+  })
+  await page.route("**/v1/admin/servers/groups", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+  await page.route(
+    /\/v1\/admin\/servers\/public(?:\/[^/?]+)?(?:\?.*)?$/,
+    async (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() === "PATCH") {
+        const body = route.request().postDataJSON() as { is_public: boolean }
+        isPublic = body.is_public
+      } else {
+        requestedVisibility = url.searchParams.get("is_public")
+      }
+
+      const server = {
+        id: serverId,
+        group_id: null,
+        ip: "203.0.113.20",
+        port: 27015,
+        status: "enabled",
+        is_public: isPublic,
+        country: "DE",
+        city: "Berlin",
+        region: "EU",
+        source: { type: "manual" },
+        last_discovered_at: null,
+        map_tier: 3,
+        created_at: "2026-09-14T10:00:00Z",
+        updated_at: "2026-09-14T10:00:00Z",
+        group: null,
+        live_status: {
+          hostname: "Visibility Test Server",
+          map: "kz_testmap",
+          player_count: 0,
+          max_players: 24,
+          players: [],
+          is_online: true,
+          state: {},
+          updated_at: "2026-09-14T10:00:00Z",
+        },
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(
+          route.request().method() === "PATCH"
+            ? server
+            : { data: [server], count: 1 },
+        ),
+      })
+    },
+  )
+
+  const { accessToken } = await issueSessionToken({
+    request: page.request,
+    steamid64: randomSteamid64(),
+    roles: ["superuser"],
+    name: "Server Admin",
+  })
+  await page.addInitScript((token) => {
+    localStorage.setItem("access_token", token)
+  }, accessToken)
+  await page.goto("/admin/servers/public-server")
+
+  await expect(
+    page.getByRole("columnheader", { name: "Visibility" }),
+  ).toBeVisible()
+  await expect(page.getByText("Public", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Edit public server" }).click()
+  await page.getByRole("combobox", { name: "Server visibility" }).click()
+  await page.getByRole("option", { name: "Hidden" }).click()
+  await page.getByRole("button", { name: "Save public server" }).click()
+
+  await expect.poll(() => isPublic).toBe(false)
+  await expect(page.getByText("Hidden", { exact: true })).toBeVisible()
+
+  await page
+    .getByRole("combobox", { name: "Filter servers by visibility" })
+    .click()
+  await page.getByRole("option", { name: "Hidden" }).click()
+  await expect.poll(() => requestedVisibility).toBe("false")
+})
+
 test("Superusers can open tournament management", async ({ page }) => {
   await page.route(/\/v1\/admin\/tournaments(\?.*)?$/, async (route) => {
     await route.fulfill({
