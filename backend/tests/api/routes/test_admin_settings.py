@@ -4,10 +4,56 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
+from app.models import AppSettingKey
 from app.services.qq_binding import create_qq_binding_code, verify_qq_binding_code
 from tests.utils.user import authentication_token_from_steamid
 
 QQ_SECRET_URL = f"{settings.API_V1_STR}/admin/settings/qq-binding-secret"
+APP_SETTINGS_URL = f"{settings.API_V1_STR}/app-settings"
+
+
+@pytest.mark.asyncio
+async def test_app_settings_are_public_and_superuser_managed(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    public_response = await client.get(APP_SETTINGS_URL)
+    assert public_response.status_code == 200
+    assert public_response.json() == {"community_links_location": "navbar"}
+    assert "qq" not in public_response.text.lower()
+
+    update_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/settings/app",
+        headers=superuser_token_headers,
+        json={"community_links_location": "footer"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json() == {"community_links_location": "footer"}
+    assert (await client.get(APP_SETTINGS_URL)).json() == {
+        "community_links_location": "footer"
+    }
+
+    stored_setting = await crud.get_app_setting(
+        session=db, key=AppSettingKey.COMMUNITY_LINKS
+    )
+    assert stored_setting is not None
+    assert stored_setting.value == {"location": "footer"}
+
+
+@pytest.mark.asyncio
+async def test_app_settings_update_requires_superuser(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    headers = await authentication_token_from_steamid(
+        client=client, steamid64=76561198000000011, db=db
+    )
+    response = await client.patch(
+        f"{settings.API_V1_STR}/admin/settings/app",
+        headers=headers,
+        json={"community_links_location": "footer"},
+    )
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -55,7 +101,9 @@ async def test_superuser_manages_qq_binding_secret_lifecycle(
     with pytest.raises(ValueError, match="signature"):
         await verify_qq_binding_code(session=db, code=code)
 
-    revoke_response = await client.delete(QQ_SECRET_URL, headers=superuser_token_headers)
+    revoke_response = await client.delete(
+        QQ_SECRET_URL, headers=superuser_token_headers
+    )
     assert revoke_response.status_code == 204
     assert (await client.get(QQ_SECRET_URL, headers=superuser_token_headers)).json()[
         "configured"
@@ -81,4 +129,6 @@ async def test_qq_binding_secret_admin_api_requires_superuser(
         client=client, steamid64=76561198000000010, db=db
     )
     assert (await client.get(QQ_SECRET_URL, headers=headers)).status_code == 403
-    assert (await client.post(f"{QQ_SECRET_URL}/generate", headers=headers)).status_code == 403
+    assert (
+        await client.post(f"{QQ_SECRET_URL}/generate", headers=headers)
+    ).status_code == 403

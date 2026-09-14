@@ -1,24 +1,12 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Text
-from sqlmodel import Column, Field, SQLModel
-
-from .utils import get_datetime_utc
+from sqlmodel import Field, SQLModel
 
 
-class QQBindingSecret(SQLModel, table=True):
-    __tablename__ = "qq_binding_secret"
-
-    id: int = Field(default=1, primary_key=True)
-    encrypted_secret: str = Field(sa_column=Column(Text, nullable=False))
-    created_at: datetime = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
-    )
-    updated_at: datetime = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
-    )
+class QQBindingSecretStored(SQLModel):
+    encrypted_secret: str = Field(min_length=1)
+    created_at: datetime
+    updated_at: datetime
 
 
 class QQBindingSecretStatusPublic(SQLModel):

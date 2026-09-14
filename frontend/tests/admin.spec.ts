@@ -374,6 +374,66 @@ test("Superusers can manage the QQ binding secret", async ({ page }) => {
   await expect(page.getByText("Not configured")).toBeVisible()
 })
 
+test("Superusers can move community links between navbar and footer", async ({
+  page,
+}) => {
+  let location: "navbar" | "footer" = "navbar"
+
+  await page.route("**/v1/app-settings", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ community_links_location: location }),
+    })
+  })
+  await page.route("**/v1/admin/settings/app", async (route) => {
+    const body = route.request().postDataJSON() as {
+      community_links_location: "navbar" | "footer"
+    }
+    location = body.community_links_location
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ community_links_location: location }),
+    })
+  })
+
+  const { accessToken } = await issueSessionToken({
+    request: page.request,
+    steamid64: randomSteamid64(),
+    roles: ["superuser"],
+  })
+  await page.addInitScript((token) => {
+    localStorage.setItem("access_token", token)
+  }, accessToken)
+  await page.goto("/admin/settings")
+
+  const placementSwitch = page.getByRole("switch", {
+    name: "Show community links in navbar",
+  })
+  await expect(placementSwitch).toBeChecked()
+  await expect(
+    page.locator("header").getByRole("link", { name: "Join Discord" }),
+  ).toBeVisible()
+  await expect(
+    page.locator("footer").getByRole("link", { name: "Join us on Discord" }),
+  ).toHaveCount(0)
+
+  await placementSwitch.click()
+  await expect.poll(() => location).toBe("footer")
+  await expect(placementSwitch).not.toBeChecked()
+  await expect(
+    page.locator("header").getByRole("link", { name: "Join Discord" }),
+  ).toHaveCount(0)
+  await expect(
+    page.locator("footer").getByRole("link", { name: "Join us on Discord" }),
+  ).toBeVisible()
+
+  await page.evaluate(() => localStorage.setItem("gokz-language", "zh-CN"))
+  await page.reload()
+  await expect(
+    page.locator("footer").getByRole("link", { name: "加入我们的 QQ 群" }),
+  ).toBeVisible()
+})
+
 test.describe("Server owner access", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 

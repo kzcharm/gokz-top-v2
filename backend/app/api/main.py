@@ -10,6 +10,7 @@ from app.api.v1 import (
     admin_servers,
     admin_settings,
     admin_tournaments,
+    app_settings,
     bans,
     graphql,
     jumpstats,
@@ -47,6 +48,7 @@ from app.api.v1 import (
 from app.core.config import settings
 
 api_router = APIRouter()
+api_router.include_router(app_settings.router)
 api_router.include_router(login.router)
 api_router.include_router(users.router)
 api_router.include_router(bans.router)

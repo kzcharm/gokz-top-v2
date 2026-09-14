@@ -1109,6 +1109,28 @@ export const AdminTournamentAchievementsPublicSchema = {
     title: 'AdminTournamentAchievementsPublic'
 } as const;
 
+export const AppSettingsPublicSchema = {
+    properties: {
+        community_links_location: {
+            '$ref': '#/components/schemas/CommunityLinksLocation'
+        }
+    },
+    type: 'object',
+    required: ['community_links_location'],
+    title: 'AppSettingsPublic'
+} as const;
+
+export const AppSettingsUpdateSchema = {
+    properties: {
+        community_links_location: {
+            '$ref': '#/components/schemas/CommunityLinksLocation'
+        }
+    },
+    type: 'object',
+    required: ['community_links_location'],
+    title: 'AppSettingsUpdate'
+} as const;
+
 export const BanCreateSchema = {
     properties: {
         steamid64: {
@@ -1585,6 +1607,12 @@ export const CommunityLeaderboardsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'CommunityLeaderboardsPublic'
+} as const;
+
+export const CommunityLinksLocationSchema = {
+    type: 'string',
+    enum: ['navbar', 'footer'],
+    title: 'CommunityLinksLocation'
 } as const;
 
 export const CountryLeaderboardEntryPublicSchema = {

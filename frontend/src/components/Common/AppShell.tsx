@@ -1,25 +1,18 @@
 import type { ReactNode } from "react"
-import { useTranslation } from "react-i18next"
-import { FaDiscord, FaQq } from "react-icons/fa"
 
 import { AdminModeToggle } from "@/components/Common/AdminModeToggle"
 import { Appearance } from "@/components/Common/Appearance"
+import { CommunityLinks } from "@/components/Common/CommunityLinks"
 import { Footer } from "@/components/Common/Footer"
 import { LanguageSelector } from "@/components/Common/LanguageSelector"
 import { ScopeSelector } from "@/components/Common/ScopeSelector"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
-import { Button } from "@/components/ui/button"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { COMMUNITY_LINKS } from "@/lib/community-links"
+import { useAppSettings } from "@/hooks/useAppSettings"
 import { cn } from "@/lib/utils"
 
 interface AppShellProps {
@@ -33,8 +26,9 @@ export function AppShell({
   mainClassName,
   contentClassName,
 }: AppShellProps) {
-  const { t, i18n } = useTranslation()
-  const showQqGroup = i18n.resolvedLanguage === "zh-CN"
+  const appSettingsQuery = useAppSettings()
+  const communityLinksLocation =
+    appSettingsQuery.data?.community_links_location ?? "navbar"
 
   return (
     <SidebarProvider>
@@ -43,47 +37,8 @@ export function AppShell({
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border/80 bg-background/78 px-4 backdrop-blur-xl supports-[backdrop-filter]:bg-background/58">
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           <div className="ml-auto flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground"
-                  aria-label={t("nav.joinDiscord")}
-                >
-                  <a
-                    href={COMMUNITY_LINKS.discord}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <FaDiscord className="size-5" />
-                  </a>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t("nav.joinDiscordHelp")}</TooltipContent>
-            </Tooltip>
-            {showQqGroup ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground"
-                    aria-label={t("footer.joinQqGroup")}
-                  >
-                    <a
-                      href={COMMUNITY_LINKS.qq}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <FaQq className="size-5" />
-                    </a>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t("footer.joinQqGroup")}</TooltipContent>
-              </Tooltip>
+            {communityLinksLocation === "navbar" ? (
+              <CommunityLinks location="navbar" />
             ) : null}
             <AdminModeToggle />
             <Appearance />
@@ -98,7 +53,7 @@ export function AppShell({
             {children}
           </div>
         </main>
-        <Footer />
+        <Footer communityLinksLocation={communityLinksLocation} />
       </SidebarInset>
     </SidebarProvider>
   )

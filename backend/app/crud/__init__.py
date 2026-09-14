@@ -1,3 +1,13 @@
+from .app_setting import (
+    QQBindingSecretAlreadyConfiguredError,
+    create_qq_binding_secret,
+    delete_qq_binding_secret,
+    get_app_setting,
+    get_community_links_setting,
+    get_qq_binding_secret,
+    rotate_qq_binding_secret,
+    update_community_links_setting,
+)
 from .ban import (
     active_ban_exists_clause,
     create_manual_ban,
@@ -254,13 +264,6 @@ from .poll import (
     to_poll_public,
     update_poll,
 )
-from .qq_binding_secret import (
-    QQBindingSecretAlreadyConfiguredError,
-    create_qq_binding_secret,
-    delete_qq_binding_secret,
-    get_qq_binding_secret,
-    rotate_qq_binding_secret,
-)
 from .record import (
     RECENT_RECORD_NOTIFY_CHANNEL,
     bulk_soft_delete_course_records,
@@ -454,6 +457,8 @@ __all__ = [
     "get_player_social_link",
     "get_player_webhook",
     "get_qq_binding_secret",
+    "get_app_setting",
+    "get_community_links_setting",
     "count_player_likes",
     "count_unread_player_notifications",
     "create_map_review_comment_deleted_notification",
@@ -653,6 +658,7 @@ __all__ = [
     "record_plugin_heartbeat",
     "rotate_server_group_api_key",
     "rotate_qq_binding_secret",
+    "update_community_links_setting",
     "get_top_records_v0",
     "is_player_following",
     "upsert_discovered_server",

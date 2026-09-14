@@ -210,6 +210,15 @@ export const zhCN = {
   },
   adminSettings: {
     title: "应用设置",
+    communityLinks: {
+      title: "社区链接",
+      description:
+        "在导航栏显示 Discord 链接和中文版 QQ 群链接。关闭后，这些链接将移至页脚。",
+      showInNavbar: "在导航栏显示社区链接",
+      toasts: {
+        updated: "社区链接位置已更新。",
+      },
+    },
     qqBinding: {
       title: "QQ 绑定密钥",
       description:

@@ -237,6 +237,14 @@ export type AdminTournamentAchievementsPublic = {
     count: number;
 };
 
+export type AppSettingsPublic = {
+    community_links_location: CommunityLinksLocation;
+};
+
+export type AppSettingsUpdate = {
+    community_links_location: CommunityLinksLocation;
+};
+
 export type BanCreate = {
     steamid64: string;
     ban_type: BanType;
@@ -317,6 +325,8 @@ export type CommunityLeaderboardsPublic = {
     data: Array<CommunityLeaderboardEntryPublic>;
     count: number;
 };
+
+export type CommunityLinksLocation = 'navbar' | 'footer';
 
 export type CountryLeaderboardEntryPublic = {
     rank: (number | null);
@@ -2132,6 +2142,12 @@ export type AdminServersRotateAdminServerGroupApiKeyData = {
 
 export type AdminServersRotateAdminServerGroupApiKeyResponse = (ServerGroupApiKeyPublic);
 
+export type AdminSettingsUpdateAdminAppSettingsData = {
+    requestBody: AppSettingsUpdate;
+};
+
+export type AdminSettingsUpdateAdminAppSettingsResponse = (AppSettingsPublic);
+
 export type AdminSettingsReadAdminQqBindingSecretStatusResponse = (QQBindingSecretStatusPublic);
 
 export type AdminSettingsRevokeAdminQqBindingSecretResponse = (void);
@@ -2197,6 +2213,8 @@ export type AdminTournamentsDeleteAdminTournamentAchievementData = {
 export type AdminTournamentsDeleteAdminTournamentAchievementResponse = ({
     [key: string]: (string);
 });
+
+export type AppSettingsReadAppSettingsResponse = (AppSettingsPublic);
 
 export type BansReadBansData = {
     banTypes?: (string | null);

@@ -1,5 +1,14 @@
 from sqlmodel import SQLModel
 
+from .app_setting import (
+    AppSetting,
+    AppSettingKey,
+    AppSettingsPublic,
+    AppSettingsUpdate,
+    CommunityLinksLocation,
+    CommunityLinksSettingValue,
+    QQBindingSecretSettingValue,
+)
 from .auth import Message, Token, TokenPayload
 from .ban import (
     Ban,
@@ -311,9 +320,9 @@ from .poll import (
 )
 from .qq_binding import QQBindingCodePublic, QQBindingTokenPayload
 from .qq_binding_secret import (
-    QQBindingSecret,
     QQBindingSecretPublic,
     QQBindingSecretStatusPublic,
+    QQBindingSecretStored,
 )
 from .record import (
     AdminCourseTierPublic,
@@ -654,8 +663,15 @@ __all__ = [
     "PlayerSettingsPublic",
     "PlayerSettingsUpdate",
     "QQBindingCodePublic",
-    "QQBindingSecret",
+    "AppSetting",
+    "AppSettingKey",
+    "AppSettingsPublic",
+    "AppSettingsUpdate",
+    "CommunityLinksLocation",
+    "CommunityLinksSettingValue",
+    "QQBindingSecretSettingValue",
     "QQBindingSecretPublic",
+    "QQBindingSecretStored",
     "QQBindingSecretStatusPublic",
     "QQBindingTokenPayload",
     "PlayerSession",

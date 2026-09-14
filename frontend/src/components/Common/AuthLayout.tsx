@@ -1,5 +1,6 @@
 import { Appearance } from "@/components/Common/Appearance"
 import { Logo } from "@/components/Common/Logo"
+import { useAppSettings } from "@/hooks/useAppSettings"
 import { Footer } from "./Footer"
 
 interface AuthLayoutProps {
@@ -7,6 +8,10 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children }: AuthLayoutProps) {
+  const appSettingsQuery = useAppSettings()
+  const communityLinksLocation =
+    appSettingsQuery.data?.community_links_location ?? "navbar"
+
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="bg-muted dark:bg-zinc-900 relative hidden lg:flex lg:items-center lg:justify-center">
@@ -19,7 +24,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs">{children}</div>
         </div>
-        <Footer />
+        <Footer communityLinksLocation={communityLinksLocation} />
       </div>
     </div>
   )

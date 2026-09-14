@@ -211,6 +211,15 @@ export const en = {
   },
   adminSettings: {
     title: "Application Settings",
+    communityLinks: {
+      title: "Community links",
+      description:
+        "Show the Discord link and the Chinese-language QQ group link in the navbar. Turn this off to move them to the footer.",
+      showInNavbar: "Show community links in navbar",
+      toasts: {
+        updated: "Community link placement updated.",
+      },
+    },
     qqBinding: {
       title: "QQ Binding Secret",
       description:

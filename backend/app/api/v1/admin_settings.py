@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app import crud
 from app.api.deps import SessionDep, get_current_active_superuser
-from app.models import QQBindingSecretPublic, QQBindingSecretStatusPublic, User
+from app.models import (
+    AppSettingsPublic,
+    AppSettingsUpdate,
+    QQBindingSecretPublic,
+    QQBindingSecretStatusPublic,
+    User,
+)
 from app.services.qq_binding import (
     encrypt_qq_binding_secret,
     generate_qq_binding_secret,
@@ -13,6 +19,20 @@ from app.services.qq_binding import (
 
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
+
+
+@router.patch("/app", response_model=AppSettingsPublic)
+async def update_admin_app_settings(
+    *,
+    session: SessionDep,
+    settings_in: AppSettingsUpdate,
+    _current_user: CurrentSuperuser,
+) -> AppSettingsPublic:
+    community_links = await crud.update_community_links_setting(
+        session=session,
+        location=settings_in.community_links_location,
+    )
+    return AppSettingsPublic(community_links_location=community_links.location)
 
 
 def _secret_response(*, secret: QQBindingSecretPublic) -> Response:
@@ -66,7 +86,9 @@ async def reveal_admin_qq_binding_secret(
 ) -> Response:
     secret = await crud.get_qq_binding_secret(session=session)
     if secret is None:
-        raise HTTPException(status_code=404, detail="QQ binding secret is not configured")
+        raise HTTPException(
+            status_code=404, detail="QQ binding secret is not configured"
+        )
     return _secret_response(
         secret=reveal_qq_binding_secret(encrypted_secret=secret.encrypted_secret)
     )
@@ -80,11 +102,12 @@ async def rotate_admin_qq_binding_secret(
 ) -> Response:
     secret = await crud.get_qq_binding_secret(session=session)
     if secret is None:
-        raise HTTPException(status_code=404, detail="QQ binding secret is not configured")
+        raise HTTPException(
+            status_code=404, detail="QQ binding secret is not configured"
+        )
     raw_secret = generate_qq_binding_secret()
     secret = await crud.rotate_qq_binding_secret(
         session=session,
-        secret=secret,
         encrypted_secret=encrypt_qq_binding_secret(raw_secret),
     )
     return _secret_response(
@@ -100,6 +123,8 @@ async def revoke_admin_qq_binding_secret(
 ) -> Response:
     secret = await crud.get_qq_binding_secret(session=session)
     if secret is None:
-        raise HTTPException(status_code=404, detail="QQ binding secret is not configured")
-    await crud.delete_qq_binding_secret(session=session, secret=secret)
+        raise HTTPException(
+            status_code=404, detail="QQ binding secret is not configured"
+        )
+    await crud.delete_qq_binding_secret(session=session)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
