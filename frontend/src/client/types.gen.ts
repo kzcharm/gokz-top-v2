@@ -1632,6 +1632,7 @@ export type ServerGlobalapiAdminServersPublic = {
 export type ServerGlobalapiAdminUpdate = {
     group_id?: (string | null);
     name?: (string | null);
+    owner_steamid64?: (string | null);
     approval_status?: (number | null);
 };
 

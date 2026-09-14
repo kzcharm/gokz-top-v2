@@ -8266,6 +8266,18 @@ export const ServerGlobalapiAdminUpdateSchema = {
             ],
             title: 'Name'
         },
+        owner_steamid64: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^\\d{17}$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Owner Steamid64'
+        },
         approval_status: {
             anyOf: [
                 {

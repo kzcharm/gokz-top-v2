@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
+from pydantic import StringConstraints
 from sqlalchemy import BigInteger, DateTime, Index
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -85,6 +86,10 @@ class ServerGlobalapiAdminPublic(SQLModel):
 class ServerGlobalapiAdminUpdate(SQLModel):
     group_id: uuid.UUID | None = None
     name: str | None = Field(default=None, max_length=255)
+    owner_steamid64: Annotated[
+        str,
+        StringConstraints(pattern=r"^\d{17}$"),
+    ] | None = None
     approval_status: int | None = Field(default=None, ge=0, le=1)
 
 
@@ -96,6 +101,7 @@ class ServerGlobalapiAdminServersPublic(SQLModel):
 class ServerGlobalapiListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=10000)
+    q: str | None = Field(default=None, max_length=255)
     id: list[int] | None = None
     group_id: uuid.UUID | None = None
     port: int | None = Field(default=None, ge=1, le=65535)

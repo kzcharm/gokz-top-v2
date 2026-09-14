@@ -96,7 +96,7 @@ async def read_admin_globalapi_servers(
         offset=offset,
         limit=limit,
         group_id=group_id,
-        name=q,
+        q=q,
         owner_steamid64=owner_steamid64 if effective_owner is None else effective_owner,
         approval_status=approval_status,
         sort_by=sort_by,
@@ -137,6 +137,20 @@ async def update_admin_globalapi_server(
         raise HTTPException(status_code=403, detail="GlobalAPI server is not owned by user")
 
     update_data = server_in.model_dump(exclude_unset=True)
+    if "owner_steamid64" in update_data:
+        if principal.role != AdminServerRole.ROOT_ADMIN:
+            raise HTTPException(status_code=403, detail="Cannot change server owner")
+        owner_steamid64 = update_data["owner_steamid64"]
+        owner_id = int(owner_steamid64) if owner_steamid64 is not None else None
+        if owner_id is not None:
+            owner = await crud.get_player_by_steamid64(
+                session=session,
+                steamid64=owner_id,
+            )
+            if owner is None:
+                raise HTTPException(status_code=404, detail="Player not found")
+        server.owner_steamid64 = owner_id
+
     if "group_id" in update_data:
         group_id = update_data["group_id"]
         _ensure_group_access(principal=principal, group_id=group_id)

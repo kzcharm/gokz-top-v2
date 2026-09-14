@@ -1,3 +1,4 @@
+from sqlalchemy import or_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -20,6 +21,13 @@ async def read_server_globalapi(
 ) -> tuple[list[ServerGlobalapi], int]:
     statement = select(ServerGlobalapi)
 
+    if query.q is not None and (search_term := query.q.strip()):
+        name_match = col(ServerGlobalapi.name).ilike(f"%{search_term}%")
+        statement = statement.where(
+            or_(col(ServerGlobalapi.id) == int(search_term), name_match)
+            if search_term.isdigit()
+            else name_match
+        )
     if query.id:
         statement = statement.where(col(ServerGlobalapi.id).in_(query.id))
     if query.group_id is not None:

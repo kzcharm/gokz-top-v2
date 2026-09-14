@@ -38,13 +38,16 @@ import {
 } from "@/client"
 import {
   AdminControlsCard,
-  AdminPageHeader,
   AdminTableCard,
 } from "@/components/Admin/AdminPageLayout"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import {
+  PlayerDisplay,
+  type PlayerDisplayPlayer,
+} from "@/components/Common/PlayerDisplay"
+import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import { RegionFlag } from "@/components/Common/RegionFlag"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Badge } from "@/components/ui/badge"
@@ -65,7 +68,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
@@ -81,11 +83,6 @@ type GlobalApiSortBy = "id" | "server" | "updated_at" | "created_at"
 
 const ADMIN_SERVER_TAB_OPTIONS = [
   {
-    value: "globalapi",
-    label: "GlobalAPI Server",
-    to: "/admin/servers/globalapi-server",
-  },
-  {
     value: "public",
     label: "Public Server",
     to: "/admin/servers/public-server",
@@ -94,6 +91,11 @@ const ADMIN_SERVER_TAB_OPTIONS = [
     value: "groups",
     label: "Server Group",
     to: "/admin/servers/server-group",
+  },
+  {
+    value: "globalapi",
+    label: "GlobalAPI Server",
+    to: "/admin/servers/globalapi-server",
   },
 ] as const
 
@@ -146,47 +148,35 @@ function AdminServers() {
       ?.value ?? "globalapi"
 
   return (
-    <div className="flex flex-col gap-6">
-      <AdminPageHeader
-        title="Servers"
-        aside={access ? <RoleBadge access={access} /> : null}
-      />
+    <Tabs
+      value={activeTab}
+      className="flex w-full max-w-full min-w-0 flex-col gap-6"
+    >
+      <TabsList className="h-auto w-full flex-wrap justify-start border border-border bg-background/60 sm:w-fit">
+        {ADMIN_SERVER_TAB_OPTIONS.map((tab) => (
+          <TabsTrigger key={tab.value} value={tab.value} asChild>
+            <Link to={tab.to}>{tab.label}</Link>
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-      <Tabs value={activeTab} className="gap-5">
-        <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
-          {ADMIN_SERVER_TAB_OPTIONS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} asChild>
-              <Link to={tab.to}>{tab.label}</Link>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {activeTab === "globalapi" ? (
-          <GlobalApiServersTab
-            access={access}
-            groups={groups}
-            groupsLoading={groupsQuery.isLoading}
-          />
-        ) : null}
-        {activeTab === "public" ? (
-          <PublicServersTab access={access} groups={groups} />
-        ) : null}
-        {activeTab === "groups" ? (
-          <ServerGroupsTab
-            groups={groups}
-            groupsLoading={groupsQuery.isLoading}
-          />
-        ) : null}
-      </Tabs>
-    </div>
-  )
-}
-
-function RoleBadge({ access }: { access: AdminServerAccessPublic }) {
-  return (
-    <Badge variant={access.role === "root_admin" ? "default" : "secondary"}>
-      {access.role === "root_admin" ? "Root Admin" : "Server Owner"}
-    </Badge>
+      {activeTab === "globalapi" ? (
+        <GlobalApiServersTab
+          access={access}
+          groups={groups}
+          groupsLoading={groupsQuery.isLoading}
+        />
+      ) : null}
+      {activeTab === "public" ? (
+        <PublicServersTab access={access} groups={groups} />
+      ) : null}
+      {activeTab === "groups" ? (
+        <ServerGroupsTab
+          groups={groups}
+          groupsLoading={groupsQuery.isLoading}
+        />
+      ) : null}
+    </Tabs>
   )
 }
 
@@ -213,6 +203,11 @@ export function GlobalApiServersTab({
     { id: "id", desc: true },
   ])
   const canApprove = access?.can_approve_servers ?? false
+  const canEditOwner = access?.role === "root_admin"
+  const groupNamesById = useMemo(
+    () => new Map(groups.map((group) => [group.id, group.name])),
+    [groups],
+  )
   const activeSort = sorting[0] ?? { id: "id", desc: true }
   const sortBy: GlobalApiSortBy =
     activeSort.id === "id" ||
@@ -257,11 +252,13 @@ export function GlobalApiServersTab({
       serverId,
       groupId,
       name,
+      ownerSteamid64,
       approvalStatus,
     }: {
       serverId: number
       groupId?: string | null
       name?: string | null
+      ownerSteamid64?: string | null
       approvalStatus?: number
     }) =>
       AdminServersService.updateAdminGlobalapiServer({
@@ -269,6 +266,9 @@ export function GlobalApiServersTab({
         requestBody: {
           ...(groupId !== undefined ? { group_id: groupId } : {}),
           ...(name !== undefined ? { name } : {}),
+          ...(ownerSteamid64 !== undefined
+            ? { owner_steamid64: ownerSteamid64 }
+            : {}),
           ...(approvalStatus !== undefined
             ? { approval_status: approvalStatus }
             : {}),
@@ -323,28 +323,11 @@ export function GlobalApiServersTab({
         accessorKey: "group_id",
         header: "Group",
         cell: ({ row }) => (
-          <Select
-            value={row.original.group_id ?? NO_GROUP}
-            disabled={groupsLoading || updateMutation.isPending}
-            onValueChange={(value) =>
-              updateMutation.mutate({
-                serverId: row.original.id,
-                groupId: value === NO_GROUP ? null : value,
-              })
-            }
-          >
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="No group" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_GROUP}>No group</SelectItem>
-              {groups.map((group) => (
-                <SelectItem key={group.id} value={group.id}>
-                  {group.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <span className="text-sm">
+            {row.original.group_id
+              ? (groupNamesById.get(row.original.group_id) ?? "Unknown Group")
+              : "--"}
+          </span>
         ),
       },
       {
@@ -367,28 +350,10 @@ export function GlobalApiServersTab({
       },
       {
         accessorKey: "approval_status",
-        header: "Approved",
-        cell: ({ row }) =>
-          canApprove ? (
-            <Switch
-              checked={row.original.approval_status === 1}
-              disabled={updateMutation.isPending}
-              onCheckedChange={(checked) =>
-                updateMutation.mutate({
-                  serverId: row.original.id,
-                  approvalStatus: checked ? 1 : 0,
-                })
-              }
-            />
-          ) : (
-            <Badge
-              variant={
-                row.original.approval_status === 1 ? "default" : "secondary"
-              }
-            >
-              {row.original.approval_status === 1 ? "Approved" : "Pending"}
-            </Badge>
-          ),
+        header: "Approval",
+        cell: ({ row }) => (
+          <ApprovalStatusBadge status={row.original.approval_status} />
+        ),
       },
       {
         id: "actions",
@@ -408,7 +373,7 @@ export function GlobalApiServersTab({
         ),
       },
     ],
-    [canApprove, groups, groupsLoading, updateMutation],
+    [groupNamesById],
   )
 
   return (
@@ -489,6 +454,10 @@ export function GlobalApiServersTab({
       </AdminTableCard>
       <GlobalApiServerDialog
         server={editingServer}
+        groups={groups}
+        groupsLoading={groupsLoading}
+        canEditOwner={canEditOwner}
+        canEditApproval={canApprove}
         open={editingServer !== null}
         loading={updateMutation.isPending}
         onOpenChange={(open) => {
@@ -496,11 +465,10 @@ export function GlobalApiServersTab({
             setEditingServer(null)
           }
         }}
-        onSubmit={(serverId, name) => {
-          updateMutation.mutate(
-            { serverId, name },
-            { onSuccess: () => setEditingServer(null) },
-          )
+        onSubmit={(input) => {
+          updateMutation.mutate(input, {
+            onSuccess: () => setEditingServer(null),
+          })
         }}
       />
     </div>
@@ -509,24 +477,46 @@ export function GlobalApiServersTab({
 
 function GlobalApiServerDialog({
   server,
+  groups,
+  groupsLoading,
+  canEditOwner,
+  canEditApproval,
   open,
   loading,
   onOpenChange,
   onSubmit,
 }: {
   server: ServerGlobalapiAdminPublic | null
+  groups: AdminServerGroupPublic[]
+  groupsLoading: boolean
+  canEditOwner: boolean
+  canEditApproval: boolean
   open: boolean
   loading: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (serverId: number, name: string | null) => void
+  onSubmit: (input: {
+    serverId: number
+    name: string | null
+    ownerSteamid64?: string | null
+    groupId: string | null
+    approvalStatus?: number
+  }) => void
 }) {
   const [name, setName] = useState("")
+  const [owner, setOwner] = useState<PlayerDisplayPlayer | null>(null)
+  const [groupId, setGroupId] = useState(NO_GROUP)
+  const [approvalStatus, setApprovalStatus] = useState("0")
 
   useEffect(() => {
     if (!open) {
       return
     }
     setName(server?.name ?? "")
+    setOwner(
+      server?.owner_steamid64 ? { steamid64: server.owner_steamid64 } : null,
+    )
+    setGroupId(server?.group_id ?? NO_GROUP)
+    setApprovalStatus(String(server?.approval_status ?? 0))
   }, [open, server])
 
   const trimmedName = name.trim()
@@ -535,10 +525,69 @@ function GlobalApiServerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit GlobalAPI Server</DialogTitle>
+          <DialogTitle>
+            Edit GlobalAPI Server{server ? ` #${server.id}` : ""}
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
+        <div className="grid gap-4 py-2">
           <LabeledInput label="Name" value={name} onChange={setName} />
+          <PlayerSearchSelect
+            id="globalapi-server-owner"
+            ariaLabel="Owner"
+            label="Owner"
+            placeholder="Search player ..."
+            disabled={!canEditOwner || loading}
+            searchQueryKey="globalapi-server-owner"
+            selectedPlayer={owner}
+            onSelectPlayer={setOwner}
+            onClearPlayer={() => setOwner(null)}
+          />
+          <div className="grid gap-2">
+            <label
+              className="text-sm font-medium"
+              htmlFor="globalapi-server-group"
+            >
+              Group
+            </label>
+            <Select
+              value={groupId}
+              onValueChange={setGroupId}
+              disabled={groupsLoading || loading}
+            >
+              <SelectTrigger id="globalapi-server-group">
+                <SelectValue placeholder="Select a server group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_GROUP}>--</SelectItem>
+                {groups.map((group) => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <label
+              className="text-sm font-medium"
+              htmlFor="globalapi-server-approval"
+            >
+              Approval Status
+            </label>
+            <Select
+              value={approvalStatus}
+              onValueChange={setApprovalStatus}
+              disabled={!canEditApproval || loading}
+            >
+              <SelectTrigger id="globalapi-server-approval">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Pending</SelectItem>
+                <SelectItem value="1">Approved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button
@@ -555,7 +604,17 @@ function GlobalApiServerDialog({
             disabled={!server}
             onClick={() => {
               if (server) {
-                onSubmit(server.id, trimmedName || null)
+                onSubmit({
+                  serverId: server.id,
+                  name: trimmedName || null,
+                  ...(canEditOwner
+                    ? { ownerSteamid64: owner?.steamid64 ?? null }
+                    : {}),
+                  groupId: groupId === NO_GROUP ? null : groupId,
+                  ...(canEditApproval
+                    ? { approvalStatus: Number(approvalStatus) }
+                    : {}),
+                })
               }
             }}
           >
@@ -565,6 +624,18 @@ function GlobalApiServerDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ApprovalStatusBadge({ status }: { status: number }) {
+  return status === 1 ? (
+    <Badge className="border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
+      Approved
+    </Badge>
+  ) : (
+    <Badge className="border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+      Pending
+    </Badge>
   )
 }
 

@@ -198,6 +198,62 @@ async def test_admin_globalapi_root_can_toggle_approval(
     assert refreshed.approved_by_steamid64 == settings.SUPER_USER_STEAMID64
 
 
+async def test_admin_globalapi_root_can_change_owner(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    original_owner_steamid64 = random_steamid64()
+    new_owner_steamid64 = 76561199000000028
+    server = await _create_globalapi_server(
+        db,
+        id=970028,
+        owner_steamid64=original_owner_steamid64,
+    )
+    db.add(Player(steamid64=new_owner_steamid64, name="New Owner"))
+    await db.commit()
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/admin/servers/globalapi/{server.id}",
+        headers=superuser_token_headers,
+        json={"owner_steamid64": str(new_owner_steamid64)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["owner_steamid64"] == str(new_owner_steamid64)
+    refreshed = await db.get(ServerGlobalapi, server.id)
+    assert refreshed is not None
+    assert refreshed.owner_steamid64 == new_owner_steamid64
+
+
+async def test_admin_globalapi_server_owner_cannot_change_owner(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    owner_steamid64 = random_steamid64()
+    new_owner_steamid64 = 76561199000000029
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=owner_steamid64,
+        db=db,
+    )
+    server = await _create_globalapi_server(
+        db,
+        id=970029,
+        owner_steamid64=owner_steamid64,
+    )
+    db.add(Player(steamid64=new_owner_steamid64, name="New Owner"))
+    await db.commit()
+
+    response = await client.patch(
+        f"{settings.API_V1_STR}/admin/servers/globalapi/{server.id}",
+        headers=headers,
+        json={"owner_steamid64": str(new_owner_steamid64)},
+    )
+
+    assert response.status_code == 403
+
+
 async def test_admin_globalapi_owner_can_update_server_name(
     client: AsyncClient,
     db: AsyncSession,
@@ -275,6 +331,27 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
     default_payload = default_response.json()
     assert [server["id"] for server in default_payload["data"]] == [970022, 970021]
     assert default_payload["data"][0]["created_at"]
+
+    id_search_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={"q": "970022", "limit": 100},
+    )
+    assert id_search_response.status_code == 200
+    assert [server["id"] for server in id_search_response.json()["data"]] == [970022]
+
+    name_search_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={"q": "Alpha", "limit": 100},
+    )
+    assert name_search_response.status_code == 200
+    name_search_payload = name_search_response.json()
+    assert 970022 in [server["id"] for server in name_search_payload["data"]]
+    assert all(
+        "alpha" in (server["name"] or "").lower()
+        for server in name_search_payload["data"]
+    )
 
     server_sort_response = await client.get(
         f"{settings.API_V1_STR}/admin/servers/globalapi",
