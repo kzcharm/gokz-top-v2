@@ -4,7 +4,7 @@ import math
 import uuid
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ValidationError
 from sqlalchemy import func, or_, text
@@ -465,28 +465,60 @@ async def read_server_groups_for_admin(
     *,
     session: AsyncSession,
     owner_steamid64: int | None = None,
-) -> tuple[list[ServerGroup], dict[uuid.UUID, int]]:
+    offset: int = 0,
+    limit: int = 50,
+    sort_by: Literal[
+        "name", "last_api_key_used_at", "created_at", "updated_at"
+    ] = "name",
+    sort_order: Literal["asc", "desc"] = "asc",
+) -> tuple[list[ServerGroup], dict[uuid.UUID, int], int]:
     groups_statement = select(ServerGroup)
+    count_statement = select(func.count()).select_from(ServerGroup)
     if owner_steamid64 is not None:
         groups_statement = groups_statement.where(
             col(ServerGroup.owner_steamid64) == owner_steamid64
         )
-    groups_statement = groups_statement.order_by(col(ServerGroup.name).asc())
+        count_statement = count_statement.where(
+            col(ServerGroup.owner_steamid64) == owner_steamid64
+        )
+
+    sort_columns = {
+        "name": col(ServerGroup.name),
+        "last_api_key_used_at": col(ServerGroup.last_api_key_used_at),
+        "created_at": col(ServerGroup.created_at),
+        "updated_at": col(ServerGroup.updated_at),
+    }
+    sort_column = sort_columns[sort_by]
+    sort_expression = (
+        sort_column.desc().nulls_last()
+        if sort_order == "desc"
+        else sort_column.asc().nulls_last()
+    )
+    groups_statement = (
+        groups_statement.order_by(sort_expression, col(ServerGroup.id).asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    count = (await session.exec(count_statement)).one()
     groups = list((await session.exec(groups_statement)).all())
     group_ids = {group.id for group in groups}
     if not group_ids:
-        return groups, {}
+        return groups, {}, count
 
     servers_statement = (
         select(Server.group_id, func.count())
         .where(col(Server.group_id).in_(group_ids))
         .group_by(col(Server.group_id))
     )
-    return groups, {
-        group_id: count
-        for group_id, count in (await session.exec(servers_statement)).all()
-        if group_id is not None
-    }
+    return (
+        groups,
+        {
+            group_id: server_count
+            for group_id, server_count in (await session.exec(servers_statement)).all()
+            if group_id is not None
+        },
+        count,
+    )
 
 
 async def get_server_group_dependency_counts(

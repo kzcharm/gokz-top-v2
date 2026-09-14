@@ -1045,6 +1045,96 @@ export const AdminServerGroupPublicSchema = {
     title: 'AdminServerGroupPublic'
 } as const;
 
+export const AdminServerGroupUpdateSchema = {
+    properties: {
+        name: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        custom_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 25
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Custom Id'
+        },
+        website: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Website'
+        },
+        discord: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Discord'
+        },
+        steam_group: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 255
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Steam Group'
+        },
+        status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGroupStatus'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        owner_steamid64: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^\\d{17}$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Owner Steamid64'
+        }
+    },
+    type: 'object',
+    title: 'AdminServerGroupUpdate'
+} as const;
+
 export const AdminServerGroupsPublicSchema = {
     properties: {
         data: {

@@ -613,6 +613,7 @@ async def test_admin_public_server_owner_update_and_delete_access(
 async def test_admin_server_groups_owner_scope_and_metadata_update(
     client: AsyncClient,
     db: AsyncSession,
+    superuser_token_headers: dict[str, str],
 ) -> None:
     owner_steamid64 = random_steamid64()
     headers = await authentication_token_from_steamid(
@@ -680,6 +681,87 @@ async def test_admin_server_groups_owner_scope_and_metadata_update(
         json={"name": "Should Not Update"},
     )
     assert forbidden_group_response.status_code == 403
+
+    forbidden_owner_update = await client.patch(
+        f"{settings.API_V1_STR}/admin/servers/groups/{owned_group.id}",
+        headers=headers,
+        json={"owner_steamid64": None},
+    )
+    assert forbidden_owner_update.status_code == 403
+
+    new_owner_steamid64 = 76561198000099999
+    db.add(Player(steamid64=new_owner_steamid64, name="New Group Owner"))
+    await db.commit()
+    owner_update_response = await client.patch(
+        f"{settings.API_V1_STR}/admin/servers/groups/{other_group.id}",
+        headers=superuser_token_headers,
+        json={"owner_steamid64": str(new_owner_steamid64)},
+    )
+    assert owner_update_response.status_code == 200
+    assert owner_update_response.json()["owner_steamid64"] == str(
+        new_owner_steamid64
+    )
+    await db.refresh(other_group)
+    assert other_group.owner_steamid64 == new_owner_steamid64
+
+
+async def test_admin_server_groups_support_backend_sorting_and_pagination(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    alpha, _ = await create_server_group(db, name="Alpha")
+    beta, _ = await create_server_group(db, name="Beta")
+    gamma, _ = await create_server_group(db, name="Gamma")
+
+    alpha.last_api_key_used_at = None
+    alpha.created_at = datetime(2026, 9, 3, tzinfo=UTC)
+    alpha.updated_at = datetime(2026, 9, 1, tzinfo=UTC)
+    beta.last_api_key_used_at = datetime(2026, 9, 3, tzinfo=UTC)
+    beta.created_at = datetime(2026, 9, 1, tzinfo=UTC)
+    beta.updated_at = datetime(2026, 9, 2, tzinfo=UTC)
+    gamma.last_api_key_used_at = datetime(2026, 9, 1, tzinfo=UTC)
+    gamma.created_at = datetime(2026, 9, 2, tzinfo=UTC)
+    gamma.updated_at = datetime(2026, 9, 3, tzinfo=UTC)
+    db.add_all([alpha, beta, gamma])
+    await db.commit()
+
+    expected_orders = {
+        ("name", "asc"): ["Alpha", "Beta", "Gamma"],
+        ("name", "desc"): ["Gamma", "Beta", "Alpha"],
+        ("last_api_key_used_at", "asc"): ["Gamma", "Beta", "Alpha"],
+        ("last_api_key_used_at", "desc"): ["Beta", "Gamma", "Alpha"],
+        ("created_at", "asc"): ["Beta", "Gamma", "Alpha"],
+        ("created_at", "desc"): ["Alpha", "Gamma", "Beta"],
+        ("updated_at", "asc"): ["Alpha", "Beta", "Gamma"],
+        ("updated_at", "desc"): ["Gamma", "Beta", "Alpha"],
+    }
+    for (sort_by, sort_order), expected_names in expected_orders.items():
+        response = await client.get(
+            f"{settings.API_V1_STR}/admin/servers/groups",
+            headers=superuser_token_headers,
+            params={"sort_by": sort_by, "sort_order": sort_order},
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["count"] == 3
+        assert [group["name"] for group in payload["data"]] == expected_names
+
+    paginated_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/groups",
+        headers=superuser_token_headers,
+        params={
+            "offset": 1,
+            "limit": 1,
+            "sort_by": "name",
+            "sort_order": "asc",
+        },
+    )
+    assert paginated_response.status_code == 200
+    assert paginated_response.json()["count"] == 3
+    assert [group["name"] for group in paginated_response.json()["data"]] == [
+        "Beta"
+    ]
 
 
 async def test_admin_server_group_custom_id_validation_and_delete_conflict(

@@ -80,6 +80,11 @@ import { extractErrorMessage } from "@/utils"
 const NO_GROUP = "__none"
 const GOKZ_TOP_PLUGINS_URL = "https://github.com/kzcharm/gokz-top-plugins"
 type GlobalApiSortBy = "id" | "server" | "updated_at" | "created_at"
+type ServerGroupSortBy =
+  | "name"
+  | "last_api_key_used_at"
+  | "created_at"
+  | "updated_at"
 
 const ADMIN_SERVER_TAB_OPTIONS = [
   {
@@ -132,20 +137,21 @@ function AdminServers() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const activeTab =
+    ADMIN_SERVER_TAB_OPTIONS.find((tab) => pathname.startsWith(tab.to))
+      ?.value ?? "globalapi"
   const accessQuery = useQuery({
     queryKey: ["admin-servers-access"],
     queryFn: () => AdminServersService.readAdminServerAccess(),
   })
   const groupsQuery = useQuery({
-    queryKey: ["admin-server-groups"],
-    queryFn: () => AdminServersService.readAdminServerGroups(),
+    queryKey: ["admin-server-groups", "options"],
+    queryFn: () => AdminServersService.readAdminServerGroups({ limit: 1000 }),
+    enabled: activeTab !== "groups",
   })
 
   const access = accessQuery.data
   const groups = groupsQuery.data?.data ?? []
-  const activeTab =
-    ADMIN_SERVER_TAB_OPTIONS.find((tab) => pathname.startsWith(tab.to))
-      ?.value ?? "globalapi"
 
   return (
     <Tabs
@@ -171,10 +177,7 @@ function AdminServers() {
         <PublicServersTab access={access} groups={groups} />
       ) : null}
       {activeTab === "groups" ? (
-        <ServerGroupsTab
-          groups={groups}
-          groupsLoading={groupsQuery.isLoading}
-        />
+        <ServerGroupsTab canEditOwner={access?.role === "root_admin"} />
       ) : null}
     </Tabs>
   )
@@ -1122,13 +1125,7 @@ function ServerVisibilityBadge({ isPublic }: { isPublic: boolean }) {
   )
 }
 
-export function ServerGroupsTab({
-  groups,
-  groupsLoading,
-}: {
-  groups: AdminServerGroupPublic[]
-  groupsLoading: boolean
-}) {
+export function ServerGroupsTab({ canEditOwner }: { canEditOwner: boolean }) {
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [, copyToClipboard] = useCopyToClipboard()
@@ -1136,16 +1133,49 @@ export function ServerGroupsTab({
   const [pageSize, setPageSize] = usePersistedPageSize({
     storageKey: "gokz-page-size-admin-server-groups",
   })
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "name", desc: false },
+  ])
   const [editingGroup, setEditingGroup] =
     useState<AdminServerGroupPublic | null>(null)
   const [regeneratingGroup, setRegeneratingGroup] =
     useState<AdminServerGroupPublic | null>(null)
   const [creating, setCreating] = useState(false)
-  const pageCount = Math.max(1, Math.ceil(groups.length / pageSize))
-  const paginatedGroups = useMemo(
-    () => groups.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
-    [groups, pageIndex, pageSize],
-  )
+  const activeSort = sorting[0] ?? { id: "name", desc: false }
+  const sortBy: ServerGroupSortBy =
+    activeSort.id === "name" ||
+    activeSort.id === "last_api_key_used_at" ||
+    activeSort.id === "created_at" ||
+    activeSort.id === "updated_at"
+      ? activeSort.id
+      : "name"
+  const sortOrder = activeSort.desc ? "desc" : "asc"
+
+  const query = useQuery({
+    queryKey: [
+      "admin-server-groups",
+      "table",
+      pageIndex,
+      pageSize,
+      sortBy,
+      sortOrder,
+    ],
+    queryFn: () =>
+      AdminServersService.readAdminServerGroups({
+        offset: pageIndex * pageSize,
+        limit: pageSize,
+        sortBy,
+        sortOrder,
+      }),
+    placeholderData: (previousData) => previousData,
+  })
+  const pageCount = Math.max(1, Math.ceil((query.data?.count ?? 0) / pageSize))
+
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = functionalUpdate(updater, sorting)
+    setSorting(next.length > 0 ? [next[0]] : [{ id: "name", desc: false }])
+    setPageIndex(0)
+  }
 
   useEffect(() => {
     setPageIndex((currentPageIndex) =>
@@ -1190,7 +1220,9 @@ export function ServerGroupsTab({
     () => [
       {
         accessorKey: "name",
-        header: "Group",
+        header: ({ column }) => (
+          <SortableHeader column={column} label="Group" />
+        ),
         cell: ({ row }) => (
           <div className="font-medium">{row.original.name}</div>
         ),
@@ -1240,7 +1272,9 @@ export function ServerGroupsTab({
       },
       {
         accessorKey: "last_api_key_used_at",
-        header: "Last API Key Used",
+        header: ({ column }) => (
+          <SortableHeader column={column} label="Last API Key Used" />
+        ),
         cell: ({ row }) =>
           row.original.last_api_key_used_at ? (
             <FormattedDateTime value={row.original.last_api_key_used_at} />
@@ -1250,14 +1284,18 @@ export function ServerGroupsTab({
       },
       {
         accessorKey: "created_at",
-        header: "Created",
+        header: ({ column }) => (
+          <SortableHeader column={column} label="Created" />
+        ),
         cell: ({ row }) => (
           <FormattedDateTime value={row.original.created_at} />
         ),
       },
       {
         accessorKey: "updated_at",
-        header: "Updated",
+        header: ({ column }) => (
+          <SortableHeader column={column} label="Updated" />
+        ),
         cell: ({ row }) => (
           <FormattedDateTime value={row.original.updated_at} />
         ),
@@ -1323,8 +1361,8 @@ export function ServerGroupsTab({
       <AdminTableCard>
         <DataTable
           columns={columns}
-          data={paginatedGroups}
-          isLoading={groupsLoading}
+          data={query.data?.data ?? []}
+          isLoading={query.isLoading}
           stickyHeader
           stickyHeaderTopClassName="top-16"
           tableContainerClassName="md:overflow-visible"
@@ -1332,10 +1370,15 @@ export function ServerGroupsTab({
           showFooter={false}
           disablePagination
           emptyText="No server groups found."
+          sorting={{
+            state: sorting,
+            onSortingChange,
+            manualSorting: true,
+          }}
         />
         <TablePaginationFooter
           totalLabel="Groups"
-          totalCount={groups.length}
+          totalCount={query.data?.count ?? 0}
           pageIndex={pageIndex}
           pageCount={pageCount}
           pageSize={pageSize}
@@ -1344,13 +1387,18 @@ export function ServerGroupsTab({
             setPageSize(size)
             setPageIndex(0)
           }}
-          hasExactCount={!groupsLoading}
-          isTotalCountLoading={groupsLoading}
+          hasExactCount={!query.isLoading}
+          isTotalCountLoading={query.isLoading}
         />
       </AdminTableCard>
-      <ServerGroupDialog open={creating} onOpenChange={setCreating} />
+      <ServerGroupDialog
+        canEditOwner={canEditOwner}
+        open={creating}
+        onOpenChange={setCreating}
+      />
       <ServerGroupDialog
         group={editingGroup}
+        canEditOwner={canEditOwner}
         open={editingGroup !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -1404,10 +1452,12 @@ export function ServerGroupsTab({
 
 function ServerGroupDialog({
   group,
+  canEditOwner,
   open,
   onOpenChange,
 }: {
   group?: AdminServerGroupPublic | null
+  canEditOwner: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -1418,6 +1468,9 @@ function ServerGroupDialog({
   const [website, setWebsite] = useState(group?.website ?? "")
   const [discord, setDiscord] = useState(group?.discord ?? "")
   const [steamGroup, setSteamGroup] = useState(group?.steam_group ?? "")
+  const [owner, setOwner] = useState<PlayerDisplayPlayer | null>(
+    group?.owner_steamid64 ? { steamid64: group.owner_steamid64 } : null,
+  )
 
   useEffect(() => {
     if (!open) {
@@ -1428,6 +1481,9 @@ function ServerGroupDialog({
     setWebsite(group?.website ?? "")
     setDiscord(group?.discord ?? "")
     setSteamGroup(group?.steam_group ?? "")
+    setOwner(
+      group?.owner_steamid64 ? { steamid64: group.owner_steamid64 } : null,
+    )
   }, [group, open])
 
   const mutation = useMutation({
@@ -1439,6 +1495,9 @@ function ServerGroupDialog({
         website: website.trim() || null,
         discord: discord.trim() || null,
         steam_group: steamGroup.trim() || null,
+        ...(group && canEditOwner
+          ? { owner_steamid64: owner?.steamid64 ?? null }
+          : {}),
       }
       if (group) {
         return await AdminServersService.updateAdminServerGroup({
@@ -1483,6 +1542,19 @@ function ServerGroupDialog({
             value={steamGroup}
             onChange={setSteamGroup}
           />
+          {group ? (
+            <PlayerSearchSelect
+              id="server-group-owner"
+              ariaLabel="Owner"
+              label="Owner"
+              placeholder="Search player ..."
+              disabled={!canEditOwner || mutation.isPending}
+              searchQueryKey={`server-group-owner-${group.id}`}
+              selectedPlayer={owner}
+              onSelectPlayer={setOwner}
+              onClearPlayer={() => setOwner(null)}
+            />
+          ) : null}
         </div>
         <DialogFooter>
           <Button

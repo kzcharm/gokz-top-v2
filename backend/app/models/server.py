@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 from sqlalchemy import BigInteger, Boolean, DateTime, Index, PrimaryKeyConstraint
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import JSONB
@@ -98,6 +98,13 @@ class ServerGroupUpdate(SQLModel):
             return None
         normalized = value.strip()
         return normalized or None
+
+
+class AdminServerGroupUpdate(ServerGroupUpdate):
+    owner_steamid64: Annotated[
+        str,
+        StringConstraints(pattern=r"^\d{17}$"),
+    ] | None = None
 
 
 class ServerGroup(ServerGroupBase, table=True):
@@ -637,6 +644,7 @@ class ServerSnapshotEvent(SQLModel):
 
 __all__ = [
     "AdminServerGroupPublic",
+    "AdminServerGroupUpdate",
     "AdminServerGroupsPublic",
     "AdminServerListQuery",
     "AdminServerAccessPublic",

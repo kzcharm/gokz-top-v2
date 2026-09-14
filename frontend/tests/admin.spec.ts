@@ -215,10 +215,16 @@ test("Superusers can paginate server groups", async ({ page }) => {
       }),
     })
   })
-  await page.route("**/v1/admin/servers/groups", async (route) => {
+  await page.route(/\/v1\/admin\/servers\/groups(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    const offset = Number(url.searchParams.get("offset") ?? 0)
+    const limit = Number(url.searchParams.get("limit") ?? 50)
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({ data: groups, count: groups.length }),
+      body: JSON.stringify({
+        data: groups.slice(offset, offset + limit),
+        count: groups.length,
+      }),
     })
   })
 
@@ -235,6 +241,198 @@ test("Superusers can paginate server groups", async ({ page }) => {
 
   await expect(page.getByText("Node KZ Server", { exact: true })).toBeVisible()
   await expect(pageInput).toHaveValue("2")
+})
+
+test("Superusers can sort server groups in both directions", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "test-access-token")
+  })
+  await page.route("**/v1/users/me", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        steamid64: "76561198000000000",
+        roles: ["superuser"],
+        is_active: true,
+      }),
+    })
+  })
+  await page.route("**/v1/admin/servers/access", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        role: "root_admin",
+        can_approve_servers: true,
+        owned_group_count: 0,
+      }),
+    })
+  })
+
+  const group = (
+    id: string,
+    name: string,
+    lastApiKeyUsedAt: string | null,
+    createdAt: string,
+    updatedAt: string,
+  ) => ({
+    id,
+    name,
+    custom_id: name.toLowerCase(),
+    website: null,
+    discord: null,
+    steam_group: null,
+    owner_steamid64: null,
+    status: "validated",
+    server_count: 0,
+    last_api_key_used_at: lastApiKeyUsedAt,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    api_key: `test-api-key-${name}`,
+  })
+  const groups = [
+    group(
+      "01900000-0000-7000-8000-000000000001",
+      "Alpha",
+      null,
+      "2026-09-03T10:00:00Z",
+      "2026-09-01T10:00:00Z",
+    ),
+    group(
+      "01900000-0000-7000-8000-000000000002",
+      "Beta",
+      "2026-09-03T10:00:00Z",
+      "2026-09-01T10:00:00Z",
+      "2026-09-02T10:00:00Z",
+    ),
+    group(
+      "01900000-0000-7000-8000-000000000003",
+      "Gamma",
+      "2026-09-01T10:00:00Z",
+      "2026-09-02T10:00:00Z",
+      "2026-09-03T10:00:00Z",
+    ),
+  ]
+  let updatedOwnerSteamid64: string | null | undefined
+
+  await page.route("**/v1/graphql", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          searchPlayers: {
+            count: 1,
+            data: [
+              {
+                steamid64: "76561198000099999",
+                displayName: "Picked Owner",
+                name: "Picked Owner",
+                alias: null,
+                customId: null,
+                avatarHash: null,
+                country: "DE",
+                primaryScope: "OVR",
+                rating: 1000,
+                roles: null,
+                lastPlayedAt: null,
+              },
+            ],
+          },
+        },
+      }),
+    })
+  })
+  await page.route(/\/v1\/admin\/servers\/groups\/[^/?]+$/, async (route) => {
+    const requestBody = route.request().postDataJSON() as {
+      owner_steamid64?: string | null
+    }
+    updatedOwnerSteamid64 = requestBody.owner_steamid64
+    const targetGroup = groups.find((group) =>
+      route.request().url().endsWith(group.id),
+    )
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...targetGroup,
+        owner_steamid64: updatedOwnerSteamid64,
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/admin\/servers\/groups(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    const offset = Number(url.searchParams.get("offset") ?? 0)
+    const limit = Number(url.searchParams.get("limit") ?? 50)
+    const sortBy = url.searchParams.get("sort_by") ?? "name"
+    const sortOrder = url.searchParams.get("sort_order") ?? "asc"
+    const sortedGroups = [...groups].sort((left, right) => {
+      const leftValue = left[sortBy as keyof typeof left]
+      const rightValue = right[sortBy as keyof typeof right]
+      if (leftValue == null) {
+        return rightValue == null ? 0 : 1
+      }
+      if (rightValue == null) {
+        return -1
+      }
+      const comparison = String(leftValue).localeCompare(String(rightValue))
+      return sortOrder === "desc" ? -comparison : comparison
+    })
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: sortedGroups.slice(offset, offset + limit),
+        count: groups.length,
+      }),
+    })
+  })
+  await page.goto("/admin/servers/server-group")
+
+  const groupNames = page.locator("tbody tr td:first-child > div")
+  const expectOrder = async (names: string[]) => {
+    await expect(groupNames).toHaveText(names)
+  }
+
+  const groupHeader = page.getByRole("button", { name: "Group", exact: true })
+  await expectOrder(["Alpha", "Beta", "Gamma"])
+  await groupHeader.click()
+  await expectOrder(["Gamma", "Beta", "Alpha"])
+  await groupHeader.click()
+  await expectOrder(["Alpha", "Beta", "Gamma"])
+
+  const lastUsedHeader = page.getByRole("button", {
+    name: "Last API Key Used",
+    exact: true,
+  })
+  await lastUsedHeader.click()
+  await expectOrder(["Gamma", "Beta", "Alpha"])
+  await lastUsedHeader.click()
+  await expectOrder(["Beta", "Gamma", "Alpha"])
+
+  const createdHeader = page.getByRole("button", {
+    name: "Created",
+    exact: true,
+  })
+  await createdHeader.click()
+  await expectOrder(["Beta", "Gamma", "Alpha"])
+  await createdHeader.click()
+  await expectOrder(["Alpha", "Gamma", "Beta"])
+
+  const updatedHeader = page.getByRole("button", {
+    name: "Updated",
+    exact: true,
+  })
+  await updatedHeader.click()
+  await expectOrder(["Alpha", "Beta", "Gamma"])
+  await updatedHeader.click()
+  await expectOrder(["Gamma", "Beta", "Alpha"])
+
+  const gammaRow = page.locator("tbody tr").filter({ hasText: "Gamma" })
+  await gammaRow.getByRole("button", { name: "Edit server group" }).click()
+  await page.getByRole("textbox", { name: "Owner" }).fill("Picked")
+  await page.getByRole("button", { name: /Picked Owner/ }).click()
+  await page.getByRole("button", { name: "Save" }).click()
+  await expect.poll(() => updatedOwnerSteamid64).toBe("76561198000099999")
 })
 
 test("Superusers can open tournament management", async ({ page }) => {

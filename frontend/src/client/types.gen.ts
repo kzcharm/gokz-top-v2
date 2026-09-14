@@ -226,6 +226,16 @@ export type AdminServerGroupsPublic = {
     count: number;
 };
 
+export type AdminServerGroupUpdate = {
+    name?: (string | null);
+    custom_id?: (string | null);
+    website?: (string | null);
+    discord?: (string | null);
+    steam_group?: (string | null);
+    status?: (ServerGroupStatus | null);
+    owner_steamid64?: (string | null);
+};
+
 export type AdminServerRole = 'root_admin' | 'server_owner';
 
 export type AdminTournamentAchievementPublic = {
@@ -2122,6 +2132,13 @@ export type AdminServersDeleteAdminPublicServerData = {
 
 export type AdminServersDeleteAdminPublicServerResponse = (Message);
 
+export type AdminServersReadAdminServerGroupsData = {
+    limit?: number;
+    offset?: number;
+    sortBy?: 'name' | 'last_api_key_used_at' | 'created_at' | 'updated_at';
+    sortOrder?: 'asc' | 'desc';
+};
+
 export type AdminServersReadAdminServerGroupsResponse = (AdminServerGroupsPublic);
 
 export type AdminServersCreateAdminServerGroupData = {
@@ -2132,7 +2149,7 @@ export type AdminServersCreateAdminServerGroupResponse = (ServerGroupApiKeyPubli
 
 export type AdminServersUpdateAdminServerGroupData = {
     groupId: string;
-    requestBody: ServerGroupUpdate;
+    requestBody: AdminServerGroupUpdate;
 };
 
 export type AdminServersUpdateAdminServerGroupResponse = (ServerGroupPublic);

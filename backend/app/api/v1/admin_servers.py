@@ -8,6 +8,7 @@ from app.api.deps import AdminServerPrincipal, AdminServerPrincipalDep, SessionD
 from app.models import (
     AdminServerAccessPublic,
     AdminServerGroupsPublic,
+    AdminServerGroupUpdate,
     AdminServerListQuery,
     AdminServerRole,
     Message,
@@ -269,13 +270,24 @@ async def read_admin_server_groups(
     *,
     session: SessionDep,
     principal: AdminServerPrincipalDep,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 50,
+    sort_by: Annotated[
+        Literal["name", "last_api_key_used_at", "created_at", "updated_at"],
+        Query(),
+    ] = "name",
+    sort_order: Annotated[Literal["asc", "desc"], Query()] = "asc",
 ) -> AdminServerGroupsPublic:
     owner_steamid64 = (
         None if principal.role == AdminServerRole.ROOT_ADMIN else principal.user.steamid64
     )
-    groups, counts = await crud.read_server_groups_for_admin(
+    groups, counts, count = await crud.read_server_groups_for_admin(
         session=session,
         owner_steamid64=owner_steamid64,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     return AdminServerGroupsPublic(
         data=[
@@ -285,7 +297,7 @@ async def read_admin_server_groups(
             )
             for group in groups
         ],
-        count=len(groups),
+        count=count,
     )
 
 
@@ -326,21 +338,35 @@ async def update_admin_server_group(
     session: SessionDep,
     principal: AdminServerPrincipalDep,
     group_id: uuid.UUID,
-    group_in: ServerGroupUpdate,
+    group_in: AdminServerGroupUpdate,
 ) -> ServerGroupPublic:
     _ensure_group_access(principal=principal, group_id=group_id)
     update_data = group_in.model_dump(exclude_unset=True)
     update_data.pop("status", None)
-    group_in = ServerGroupUpdate.model_validate(update_data)
+    owner_was_set = "owner_steamid64" in update_data
+    owner_steamid64 = update_data.pop("owner_steamid64", None)
+    group_update = ServerGroupUpdate.model_validate(update_data)
 
     group = await crud.get_server_group_by_id(session=session, group_id=group_id)
     if group is None:
         raise HTTPException(status_code=404, detail="Server group not found")
+    if owner_was_set:
+        if principal.role != AdminServerRole.ROOT_ADMIN:
+            raise HTTPException(status_code=403, detail="Cannot change server group owner")
+        owner_id = int(owner_steamid64) if owner_steamid64 is not None else None
+        if owner_id is not None:
+            owner = await crud.get_player_by_steamid64(
+                session=session,
+                steamid64=owner_id,
+            )
+            if owner is None:
+                raise HTTPException(status_code=404, detail="Player not found")
+        group.owner_steamid64 = owner_id
     try:
         group = await crud.update_server_group(
             session=session,
             group=group,
-            group_in=group_in,
+            group_in=group_update,
         )
     except ValueError as exc:
         raise HTTPException(
