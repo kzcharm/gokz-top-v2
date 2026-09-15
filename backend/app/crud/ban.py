@@ -31,6 +31,18 @@ _INT32_MAX = 2_147_483_647
 _INT64_MAX = 9_223_372_036_854_775_807
 
 
+async def _refresh_recent_wr_events_for_player(
+    *, session: AsyncSession, steamid64: int
+) -> None:
+    from app.crud.recent_wr import rebuild_recent_wr_events_for_players
+
+    await rebuild_recent_wr_events_for_players(
+        session=session,
+        steamid64s=[steamid64],
+        notify=True,
+    )
+
+
 def _parse_ban_type_values(
     *,
     ban_types: str | None,
@@ -420,6 +432,11 @@ async def create_manual_ban(
         synced_at=now,
     )
     session.add(ban)
+    await session.flush()
+    await _refresh_recent_wr_events_for_player(
+        session=session,
+        steamid64=steamid64,
+    )
     await session.commit()
     await session.refresh(ban)
     return ban
@@ -430,7 +447,13 @@ async def delete_ban(
     session: AsyncSession,
     ban: Ban,
 ) -> None:
+    steamid64 = ban.steamid64
     await session.delete(ban)
+    await session.flush()
+    await _refresh_recent_wr_events_for_player(
+        session=session,
+        steamid64=steamid64,
+    )
     await session.commit()
 
 
@@ -447,6 +470,11 @@ async def update_ban(
     ban.updated_by_steamid64 = updated_by_steamid64
     ban.updated_at = get_datetime_utc()
     session.add(ban)
+    await session.flush()
+    await _refresh_recent_wr_events_for_player(
+        session=session,
+        steamid64=ban.steamid64,
+    )
     await session.commit()
     await session.refresh(ban)
     return ban

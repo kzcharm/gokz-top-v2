@@ -158,7 +158,9 @@ async def _upsert_players_for_bans(
     if not players_by_steamid64:
         return
 
-    insert_statement = pg_insert(player_table).values(list(players_by_steamid64.values()))
+    insert_statement = pg_insert(player_table).values(
+        list(players_by_steamid64.values())
+    )
     await session.exec(
         insert_statement.on_conflict_do_update(
             index_elements=[player_table.c.steamid64],
@@ -168,9 +170,8 @@ async def _upsert_players_for_bans(
                         or_(
                             player_table.c.name.is_(None),
                             player_table.c.name == "",
-                            player_table.c.name == cast(
-                                player_table.c.steamid64, String
-                            ),
+                            player_table.c.name
+                            == cast(player_table.c.steamid64, String),
                         ),
                         insert_statement.excluded.name,
                     ),
@@ -182,7 +183,8 @@ async def _upsert_players_for_bans(
                         insert_statement.excluded.created_at,
                     ),
                     (
-                        player_table.c.created_at > insert_statement.excluded.created_at,
+                        player_table.c.created_at
+                        > insert_statement.excluded.created_at,
                         insert_statement.excluded.created_at,
                     ),
                     else_=player_table.c.created_at,
@@ -193,9 +195,8 @@ async def _upsert_players_for_bans(
                             player_table.c.updated_at.is_(None),
                             player_table.c.name.is_(None),
                             player_table.c.name == "",
-                            player_table.c.name == cast(
-                                player_table.c.steamid64, String
-                            ),
+                            player_table.c.name
+                            == cast(player_table.c.steamid64, String),
                         ),
                         insert_statement.excluded.updated_at,
                     ),
@@ -216,7 +217,9 @@ async def fetch_bans_from_globalapi(
     updated_since: datetime | None = None,
 ) -> list[dict[str, Any]]:
     close_client = client is None
-    resolved_client = client or httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS)
+    resolved_client = client or httpx.AsyncClient(
+        timeout=settings.GLOBALAPI_TIMEOUT_SECONDS
+    )
     params: dict[str, Any] = {"offset": offset, "limit": limit}
     if steamid64 is not None:
         params["steamid64"] = steamid64
@@ -291,7 +294,9 @@ async def _upsert_ban_payloads(
         (await session.exec(select(table.c.id).where(table.c.id.in_(ban_ids)))).all()
     )
     created = sum(1 for ban_id in ban_ids if ban_id not in existing_ids)
-    updated = sum(1 for ban_id in ban_ids if ban_id in existing_ids) if update_existing else 0
+    updated = (
+        sum(1 for ban_id in ban_ids if ban_id in existing_ids) if update_existing else 0
+    )
 
     await _upsert_players_for_bans(
         session=session,
@@ -302,9 +307,7 @@ async def _upsert_ban_payloads(
     rows_to_write = (
         list(rows_by_id.values())
         if update_existing
-        else [
-            row for ban_id, row in rows_by_id.items() if ban_id not in existing_ids
-        ]
+        else [row for ban_id, row in rows_by_id.items() if ban_id not in existing_ids]
     )
     if rows_to_write:
         insert_statement = pg_insert(table).values(rows_to_write)
@@ -394,9 +397,7 @@ async def sync_bans_from_globalapi(
         created_since = min(
             sync_state.last_successful_at,
             incremental_anchor,
-        ) - timedelta(
-            seconds=settings.GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS
-        )
+        ) - timedelta(seconds=settings.GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS)
         limit = settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT
 
     processed = 0
@@ -453,9 +454,16 @@ async def sync_bans_from_globalapi(
             offset += limit
 
     if touched_steamid64s:
+        from app.crud.recent_wr import rebuild_recent_wr_events_for_players
+
         await crud.rebuild_leaderboard_players(
             session=session,
             steamid64s=sorted(touched_steamid64s),
+        )
+        await rebuild_recent_wr_events_for_players(
+            session=session,
+            steamid64s=sorted(touched_steamid64s),
+            notify=True,
         )
         await session.commit()
         session.expire_all()
@@ -523,9 +531,16 @@ async def sync_player_bans_from_globalapi(
         external_only=True,
     )
     if before_active_ban_ids != after_active_ban_ids:
+        from app.crud.recent_wr import rebuild_recent_wr_events_for_players
+
         await crud.rebuild_leaderboard_players(
             session=session,
             steamid64s=[steamid64],
+        )
+        await rebuild_recent_wr_events_for_players(
+            session=session,
+            steamid64s=[steamid64],
+            notify=True,
         )
         await session.commit()
         session.expire_all()

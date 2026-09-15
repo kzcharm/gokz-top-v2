@@ -7637,6 +7637,99 @@ export const RecentRecordsPublicSchema = {
     title: 'RecentRecordsPublic'
 } as const;
 
+export const RecentWrAchievementPublicSchema = {
+    properties: {
+        type: {
+            '$ref': '#/components/schemas/RecordType'
+        },
+        previous_record_uuid: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Previous Record Uuid'
+        },
+        previous_player_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Previous Player Name'
+        },
+        previous_time: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Previous Time'
+        },
+        improvement_seconds: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Improvement Seconds'
+        }
+    },
+    type: 'object',
+    required: ['type'],
+    title: 'RecentWrAchievementPublic'
+} as const;
+
+export const RecentWrPublicSchema = {
+    properties: {
+        record: {
+            '$ref': '#/components/schemas/RecentRecordPublic'
+        },
+        achievements: {
+            items: {
+                '$ref': '#/components/schemas/RecentWrAchievementPublic'
+            },
+            type: 'array',
+            title: 'Achievements'
+        }
+    },
+    type: 'object',
+    required: ['record', 'achievements'],
+    title: 'RecentWrPublic'
+} as const;
+
+export const RecentWrsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/RecentWrPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'RecentWrsPublic'
+} as const;
+
 export const RecordBulkDeleteCourseSchema = {
     properties: {
         steamid64: {

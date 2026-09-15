@@ -332,6 +332,14 @@ from .qq_binding_secret import (
     QQBindingSecretStatusPublic,
     QQBindingSecretStored,
 )
+from .recent_wr import (
+    RecentWrAchievementPublic,
+    RecentWrEventCache,
+    RecentWrListQuery,
+    RecentWrPublic,
+    RecentWrSnapshotEvent,
+    RecentWrsPublic,
+)
 from .record import (
     AdminCourseTierPublic,
     AdminCourseTierUpdate,
@@ -781,6 +789,12 @@ __all__ = [
     "RecentRecordServerPublic",
     "RecentRecordSnapshotEvent",
     "RecentRecordUpsertEvent",
+    "RecentWrAchievementPublic",
+    "RecentWrEventCache",
+    "RecentWrListQuery",
+    "RecentWrPublic",
+    "RecentWrsPublic",
+    "RecentWrSnapshotEvent",
     "RecordListQuery",
     "RecordPatch",
     "RecordPb",

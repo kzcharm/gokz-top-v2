@@ -15,6 +15,7 @@
   - `/v1/graphql` for selectively hydrated player data and batched map-preview URL reads
   - `/v1/ws/players` for live completion events when an on-demand Steam player-profile refresh changes visible identity data
   - `/v1/ws/records/recent` for scope-aware live record events, with an optional `steamid64` subscription filter used by a player's own runs page
+  - `/v1/records/wrs/recent` and `/v1/ws/records/wrs/recent` for the paginated, filterable historical main-course WR event feed and live page-one snapshots
   - Profile run WR columns join `/v1/records/pb` results with the matching scoped `/v1/maps/wrs` response in the frontend; the WR response includes the winning run's teleport count for PRO/TP color treatment, and the PB endpoint does not perform per-record WR enrichment
   - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying of Bilibili preview assets
   - `/v1/me/notifications` for authenticated player notification inbox reads, unread counts, and read-state mutations
@@ -34,6 +35,7 @@
   - The maps leaderboard is materialized in `cache.map_leaderboard`, keyed by `(map_id, scope)`, derived from raw valid stage-0 `record` rows, and joined with scoped map tiers plus map review summaries at read time
   - `map_course_tier`, keyed by `(course_id, mode)`, is now the v1 source of truth for course and map tier reads; `record_filter` is limited to availability metadata, and tier-bearing responses normalize to integers `0..8` with `0` meaning unavailable, impossible, or unknown
   - Main-map world-record reads are materialized in `cache.map_wrs`, derived from main-course `record_pb` rows, keyed by `(map_id, scope, type)`, and refreshed from record mutation flows
+  - Recent main-map WRs are materialized from current 1000-point `record_pb` winners in `cache.recent_wr_events`, keyed by `(record_uuid, scope, type)`, and bounded to the newest 100 distinct WR records per scope by default while preserving combined NUB/PRO achievements. The schema-only Alembic migration leaves this cache empty; `python -m app.backfill_recent_wr_events` populates it with resumable, advisory-locked course batches and records completion in `scheduled_task_state` before the public feed becomes available.
   - Player profile stats are cached in `cache.player_stats`, keyed by `(steamid64, type)`, and now include UTC daily activity, total playtime, grouped most-played-server breakdowns, and top-10 most-played-map breakdowns by record count and record time aggregated from raw `record` rows and refreshed lazily on read after midnight-UTC expiry; most-played-server rebuilds auto-update `player.favorite_server_id` or `player.favorite_server_group_id` unless a manual favorite override action exists
   - Live CS server status uses PostgreSQL as the only shared cache/source of truth for browser reads
   - Player connection sessions are stored in `player_session` from SourceMod plugin events, keyed by plugin-generated UUIDv7 session IDs with PostgreSQL-generated duration seconds

@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_layout/dashboard")({
   beforeLoad: ({ location }) => {
     if (location.pathname === "/dashboard") {
       throw redirect({
-        to: "/dashboard/records",
+        to: "/dashboard/wrs",
       })
     }
   },
@@ -35,11 +35,16 @@ function DashboardLayout() {
   })
   const tabValue = pathname.startsWith("/dashboard/reviews")
     ? "reviews"
-    : "records"
+    : pathname.startsWith("/dashboard/records")
+      ? "records"
+      : "wrs"
 
   return (
     <Tabs value={tabValue} className="flex flex-col gap-6">
       <TabsList className="w-fit border border-border bg-background/60">
+        <TabsTrigger value="wrs" asChild>
+          <Link to="/dashboard/wrs">{t("dashboard.wrs.tab")}</Link>
+        </TabsTrigger>
         <TabsTrigger value="records" asChild>
           <Link to="/dashboard/records">{t("dashboard.records")}</Link>
         </TabsTrigger>

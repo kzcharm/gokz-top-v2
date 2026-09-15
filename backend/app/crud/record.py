@@ -211,7 +211,9 @@ def _record_pb_points_update_params(
     updated_at: datetime,
 ) -> dict[str, object]:
     return {
-        "pk_scope": scope if isinstance(scope, ModeScope) else mode_scope_from_id(scope),
+        "pk_scope": scope
+        if isinstance(scope, ModeScope)
+        else mode_scope_from_id(scope),
         "pk_course_id": course_id,
         "pk_steamid64": steamid64,
         "pk_type": record_type,
@@ -227,9 +229,7 @@ async def _execute_point_updates(
 ) -> None:
     """Apply WR demotions before promotions protected by the partial index."""
     changed = [
-        params
-        for params, current, next_points in updates
-        if current != next_points
+        params for params, current, next_points in updates if current != next_points
     ]
     if changed:
         # Clear the partial unique-index key for every affected row before
@@ -421,9 +421,7 @@ async def _load_wr_times_by_course(
             col(RecordPb.scope) == scope,
             col(RecordPb.type) == record_type,
             tuple_(col(MapCourse.map_id), col(MapCourse.stage)).in_(course_keys),
-            not_active_ban_exists_clause(
-                steamid64_column=col(RecordPb.steamid64)
-            ),
+            not_active_ban_exists_clause(steamid64_column=col(RecordPb.steamid64)),
         )
         .group_by(col(MapCourse.map_id), col(MapCourse.stage))
     )
@@ -445,14 +443,10 @@ def _pb_key_candidates_for_record(
     if not is_valid:
         return set()
 
-    keys = {
-        (scope_id, course_id, steamid64, RecordType.NUB)
-        for scope_id in scope_ids
-    }
+    keys = {(scope_id, course_id, steamid64, RecordType.NUB) for scope_id in scope_ids}
     if teleports == 0:
         keys |= {
-            (scope_id, course_id, steamid64, RecordType.PRO)
-            for scope_id in scope_ids
+            (scope_id, course_id, steamid64, RecordType.PRO) for scope_id in scope_ids
         }
     return keys
 
@@ -822,7 +816,9 @@ async def recalculate_estimated_record_pb_points_for_player(
     for row in rows:
         if (row.scope, row.course_id, row.type) in wr_bucket_keys:
             continue
-        estimated_points = estimated_points_by_row_key[(row.scope, row.course_id, row.type)]
+        estimated_points = estimated_points_by_row_key[
+            (row.scope, row.course_id, row.type)
+        ]
         if row.points == estimated_points:
             continue
         raw_updates.append(
@@ -863,10 +859,7 @@ async def _sync_record_pb_bucket(
             )
         )
     ).all()
-    existing_by_steamid64 = {
-        row.steamid64: row
-        for row in existing_rows
-    }
+    existing_by_steamid64 = {row.steamid64: row for row in existing_rows}
 
     winner_entries = await _load_bucket_winner_entries(
         session=session,
@@ -1047,41 +1040,41 @@ async def rebuild_record_pb_points_bucket(
         is_pro_only=record_type.is_pro,
     )
     updates = [
-            (
-                _record_pb_points_update_params(
-                    scope=row_scope_id,
-                    course_id=row_course_id,
-                    steamid64=steamid64,
-                    record_type=row_record_type,
-                    points=(
-                        _stored_points_for_banned_record()
-                        if steamid64 in banned_steamid64s
-                        else points_by_uuid[record_uuid]
-                    ),
-                    updated_at=row_updated_on,
+        (
+            _record_pb_points_update_params(
+                scope=row_scope_id,
+                course_id=row_course_id,
+                steamid64=steamid64,
+                record_type=row_record_type,
+                points=(
+                    _stored_points_for_banned_record()
+                    if steamid64 in banned_steamid64s
+                    else points_by_uuid[record_uuid]
                 ),
-                current_points,
-                _stored_points_for_banned_record()
-                if steamid64 in banned_steamid64s
-                else points_by_uuid[record_uuid],
-            )
-            for (
-                row_scope_id,
-                row_course_id,
-                steamid64,
-                row_record_type,
-                record_uuid,
-                _time_seconds,
-                current_points,
-                row_updated_on,
-            ) in rows
-            if current_points
-            != (
-                _stored_points_for_banned_record()
-                if steamid64 in banned_steamid64s
-                else points_by_uuid[record_uuid]
-            )
-        ]
+                updated_at=row_updated_on,
+            ),
+            current_points,
+            _stored_points_for_banned_record()
+            if steamid64 in banned_steamid64s
+            else points_by_uuid[record_uuid],
+        )
+        for (
+            row_scope_id,
+            row_course_id,
+            steamid64,
+            row_record_type,
+            record_uuid,
+            _time_seconds,
+            current_points,
+            row_updated_on,
+        ) in rows
+        if current_points
+        != (
+            _stored_points_for_banned_record()
+            if steamid64 in banned_steamid64s
+            else points_by_uuid[record_uuid]
+        )
+    ]
     if updates:
         await _execute_point_updates(session=session, updates=updates)
         _expunge_loaded_record_pbs(session=session)
@@ -1116,7 +1109,9 @@ async def rebuild_record_pb_points_for_course(
     )
     if scope_ids is not None:
         statement = statement.where(
-            col(RecordPb.scope).in_([mode_scope_from_id(scope_id) for scope_id in scope_ids])
+            col(RecordPb.scope).in_(
+                [mode_scope_from_id(scope_id) for scope_id in scope_ids]
+            )
         )
 
     rows = (await session.exec(statement)).all()
@@ -1256,8 +1251,9 @@ async def rebuild_record_pbs(*, session: AsyncSession) -> None:
     await ensure_map_courses_for_valid_records(session=session)
     courses = (
         await session.exec(
-            select(MapCourse)
-            .order_by(col(MapCourse.map_id), col(MapCourse.stage), col(MapCourse.id))
+            select(MapCourse).order_by(
+                col(MapCourse.map_id), col(MapCourse.stage), col(MapCourse.id)
+            )
         )
     ).all()
     for course in courses:
@@ -1470,9 +1466,7 @@ async def read_map_wr_history(
     if rows:
         first_wr_created_at = rows[0][7]
         stabilization_end = first_wr_created_at + timedelta(days=30)
-        initial_window_rows = [
-            row for row in rows if row[7] < stabilization_end
-        ]
+        initial_window_rows = [row for row in rows if row[7] < stabilization_end]
         first_wr = min(
             initial_window_rows,
             key=lambda row: (row[6], row[7], str(row[0])),
@@ -1518,7 +1512,9 @@ async def _pb_keys_for_record_snapshot(
     teleports: int,
     is_valid: bool,
 ) -> set[tuple[int, int, int, RecordType]]:
-    course = await _get_or_create_map_course(session=session, map_id=map_id, stage=stage)
+    course = await _get_or_create_map_course(
+        session=session, map_id=map_id, stage=stage
+    )
     if course.id is None:
         return set()
     return _pb_key_candidates_for_record(
@@ -1539,10 +1535,7 @@ def _map_leaderboard_keys_for_record_snapshot(
     if stage != 0 or map_id <= 0:
         return set()
 
-    return {
-        (map_id, scope_id)
-        for scope_id in _scope_ids_for_mode_id(mode_id)
-    }
+    return {(map_id, scope_id) for scope_id in _scope_ids_for_mode_id(mode_id)}
 
 
 async def _load_wr_snapshots_for_bucket_keys(
@@ -1666,12 +1659,15 @@ async def _refresh_record_read_models_for_change(
         (scope_id, course_id, record_type)
         for scope_id, course_id, _steamid64, record_type in pb_keys
     }
+    track_recent_wr_changes = any(
+        record is not None and record.stage == 0 for record in (before, after)
+    )
     wr_snapshots_before = (
         await _load_wr_snapshots_for_bucket_keys(
             session=session,
             bucket_keys=bucket_keys,
         )
-        if emit_wr_notifications
+        if emit_wr_notifications or track_recent_wr_changes
         else {}
     )
 
@@ -1680,16 +1676,35 @@ async def _refresh_record_read_models_for_change(
         keys=pb_keys,
         time_changed_record_uuids=time_changed_record_uuids,
     )
-    if emit_wr_notifications:
-        wr_snapshots_after = await _load_wr_snapshots_for_bucket_keys(
+    wr_snapshots_after = (
+        await _load_wr_snapshots_for_bucket_keys(
             session=session,
             bucket_keys=bucket_keys,
         )
+        if emit_wr_notifications or track_recent_wr_changes
+        else {}
+    )
+    if emit_wr_notifications:
         await _create_wr_beaten_notifications_for_changes(
             session=session,
             before=wr_snapshots_before,
             after=wr_snapshots_after,
         )
+
+    if track_recent_wr_changes and wr_snapshots_before != wr_snapshots_after:
+        from .recent_wr import rebuild_recent_wr_events_for_map
+
+        recent_wr_map_ids = {
+            record.map_id
+            for record in (before, after)
+            if record is not None and record.stage == 0
+        }
+        for map_id in sorted(recent_wr_map_ids):
+            await rebuild_recent_wr_events_for_map(
+                session=session,
+                map_id=map_id,
+                notify=True,
+            )
 
     await rebuild_map_leaderboards_for_keys(
         session=session,
@@ -1743,7 +1758,9 @@ async def _estimate_record_count(
 ) -> int:
     total_estimate = (
         await session.exec(
-            text("SELECT COALESCE(reltuples, 0) FROM pg_class WHERE oid = 'record'::regclass")
+            text(
+                "SELECT COALESCE(reltuples, 0) FROM pg_class WHERE oid = 'record'::regclass"
+            )
         )
     ).one()
     normalized_total_estimate = max(int(round(float(total_estimate[0]))), 0)
@@ -1796,7 +1813,9 @@ async def _load_record_context(
     server = await session.get(ServerGlobalapi, record.server_id)
     map_obj = await session.get(Map, record.map_id)
     mode = (
-        await session.exec(select(Mode).where(col(Mode.name_short) == record.mode).limit(1))
+        await session.exec(
+            select(Mode).where(col(Mode.name_short) == record.mode).limit(1)
+        )
     ).first()
     if player is None or server is None or map_obj is None or mode is None:
         raise ValueError("Record references missing related entities")
@@ -2120,9 +2139,7 @@ async def read_recent_records(
             col(Record.mode).in_(list(mode_scope_modes(query.scope)))
         )
         if query.steamid64 is not None:
-            statement = statement.where(
-                col(Record.steamid64) == int(query.steamid64)
-            )
+            statement = statement.where(col(Record.steamid64) == int(query.steamid64))
         if query.mode is not None:
             statement = statement.where(col(Record.mode) == query.mode)
         if query.map_id is not None:
@@ -2360,11 +2377,13 @@ async def get_recent_record_public_by_uuid(
         return None
 
     record, player, server, server_group, map_obj, mode = row
-    scoped_points = (await _load_pb_points_by_record_uuid(
-        session=session,
-        record_uuids=[record.uuid],
-        scope=scope,
-    )).get(record.uuid, 0)
+    scoped_points = (
+        await _load_pb_points_by_record_uuid(
+            session=session,
+            record_uuids=[record.uuid],
+            scope=scope,
+        )
+    ).get(record.uuid, 0)
     map_tier = (
         await _load_scoped_record_tiers(
             session=session,
@@ -2582,6 +2601,15 @@ async def bulk_soft_delete_course_records(
             )
         )
 
+    if payload.stage == 0:
+        from .recent_wr import rebuild_recent_wr_events_for_map
+
+        await rebuild_recent_wr_events_for_map(
+            session=session,
+            map_id=payload.map_id,
+            notify=True,
+        )
+
     await session.commit()
     return records
 
@@ -2668,7 +2696,9 @@ async def _get_pb_records_v0(
             statement = statement.where(col(MapCourse.stage) == stage)
     if mode_ids:
         statement = statement.where(
-            col(Record.mode).in_([legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids])
+            col(Record.mode).in_(
+                [legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids]
+            )
         )
     if server_ids:
         statement = statement.where(col(Record.server_id).in_(list(server_ids)))
@@ -2694,7 +2724,9 @@ async def _get_pb_records_v0(
             col(RecordPb.record_uuid).asc(),
         )
     statement = statement.offset(offset).limit(limit)
-    return [(record, points) for record, points in (await session.exec(statement)).all()]
+    return [
+        (record, points) for record, points in (await session.exec(statement)).all()
+    ]
 
 
 async def get_pb_records(
@@ -2900,7 +2932,9 @@ async def get_pb_record_publics(
         (country,) if country is not None else get_region_country_codes(region)
     )
     if geography_country_codes is not None:
-        statement = statement.where(col(Player.country).in_(list(geography_country_codes)))
+        statement = statement.where(
+            col(Player.country).in_(list(geography_country_codes))
+        )
     if exclude_cheaters:
         statement = statement.where(
             not_active_ban_exists_clause(steamid64_column=col(Record.steamid64))
@@ -3079,7 +3113,9 @@ async def read_map_pb_leaderboard(
             unique_nub_finishes=0,
             unique_pro_finishes=0,
             current_user_rank=None,
-            current_user_steamid64=str(viewer_steamid64) if viewer_steamid64 is not None else None,
+            current_user_steamid64=str(viewer_steamid64)
+            if viewer_steamid64 is not None
+            else None,
         )
 
     geography_country_codes = (
@@ -3111,12 +3147,16 @@ async def read_map_pb_leaderboard(
         )
     if exclude_cheaters:
         counts_statement = counts_statement.where(
-            _not_active_ban_exists_split_clause(steamid64_column=col(RecordPb.steamid64))
+            _not_active_ban_exists_split_clause(
+                steamid64_column=col(RecordPb.steamid64)
+            )
         )
 
     counts_by_type = {
         result_record_type: int(result_count or 0)
-        for result_record_type, result_count in (await session.exec(counts_statement)).all()
+        for result_record_type, result_count in (
+            await session.exec(counts_statement)
+        ).all()
     }
     unique_nub_finishes = counts_by_type.get(RecordType.NUB, 0)
     unique_pro_finishes = counts_by_type.get(RecordType.PRO, 0)
@@ -3125,7 +3165,9 @@ async def read_map_pb_leaderboard(
     anchor_pb = aliased(RecordPb)
     pro_pb = aliased(RecordPb)
     ovr_pb = aliased(RecordPb)
-    scoped_points = pro_pb.points if record_type.is_pro else func.coalesce(ovr_pb.points, 0)
+    scoped_points = (
+        pro_pb.points if record_type.is_pro else func.coalesce(ovr_pb.points, 0)
+    )
     public_scoped_points = case(
         (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
         else_=scoped_points,
@@ -3197,7 +3239,9 @@ async def read_map_pb_leaderboard(
         .limit(limit)
     )
     if geography_country_codes is not None:
-        statement = statement.where(col(Player.country).in_(list(geography_country_codes)))
+        statement = statement.where(
+            col(Player.country).in_(list(geography_country_codes))
+        )
     if friends_viewer_steamid64 is not None:
         statement = statement.where(
             _friend_or_self_clause(
@@ -3382,7 +3426,9 @@ async def read_map_pb_leaderboard(
         unique_nub_finishes=unique_nub_finishes,
         unique_pro_finishes=unique_pro_finishes,
         current_user_rank=current_user_rank,
-        current_user_steamid64=str(viewer_steamid64) if viewer_steamid64 is not None else None,
+        current_user_steamid64=str(viewer_steamid64)
+        if viewer_steamid64 is not None
+        else None,
     )
 
 
@@ -3437,9 +3483,7 @@ async def read_record_ranks(
                 ),
             )
             .label("rank"),
-            func.count()
-            .over(partition_by=RecordPb.course_id)
-            .label("total_count"),
+            func.count().over(partition_by=RecordPb.course_id).label("total_count"),
         )
         .select_from(RecordPb)
         .where(
@@ -3483,28 +3527,31 @@ async def get_record_place(
     record: Record,
 ) -> int:
     teleports_condition = (
-        col(Record.teleports) == 0 if record.teleports == 0 else col(Record.teleports) > 0
+        col(Record.teleports) == 0
+        if record.teleports == 0
+        else col(Record.teleports) > 0
     )
-    better_statement = select(func.count()).select_from(Record).where(
-        col(Record.is_valid).is_(True),
-        col(Record.id).is_not(None),
-        col(Record.map_id) == record.map_id,
-        col(Record.mode) == record.mode,
-        col(Record.stage) == record.stage,
-        teleports_condition,
-        (
-            (col(Record.time) < record.time)
-            | (
-                (col(Record.time) == record.time)
-                & (
-                    (col(Record.id) < record.id)
-                    | (
-                        col(Record.id).is_(None)
-                        & (col(Record.uuid) < record.uuid)
+    better_statement = (
+        select(func.count())
+        .select_from(Record)
+        .where(
+            col(Record.is_valid).is_(True),
+            col(Record.id).is_not(None),
+            col(Record.map_id) == record.map_id,
+            col(Record.mode) == record.mode,
+            col(Record.stage) == record.stage,
+            teleports_condition,
+            (
+                (col(Record.time) < record.time)
+                | (
+                    (col(Record.time) == record.time)
+                    & (
+                        (col(Record.id) < record.id)
+                        | (col(Record.id).is_(None) & (col(Record.uuid) < record.uuid))
                     )
                 )
-            )
-        ),
+            ),
+        )
     )
     better_count = (await session.exec(better_statement)).one()
     return better_count + 1
@@ -3595,7 +3642,9 @@ async def get_world_record_counts_v0(
         statement = statement.where(col(Record.stage).in_(list(stages)))
     if mode_ids:
         statement = statement.where(
-            col(Record.mode).in_([legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids])
+            col(Record.mode).in_(
+                [legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids]
+            )
         )
     if exclude_cheaters:
         statement = statement.where(
@@ -3703,7 +3752,9 @@ async def get_recent_top_records_v0(
         )
     if mode_ids:
         statement = statement.where(
-            col(Record.mode).in_([legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids])
+            col(Record.mode).in_(
+                [legacy_mode_id_to_kz_mode(mode_id) for mode_id in mode_ids]
+            )
         )
     if stage is not None:
         statement = statement.where(col(Record.stage) == stage)
@@ -3725,25 +3776,29 @@ async def get_recent_top_records_v0(
     for record in recent_records:
         place = await get_record_place(session=session, record=record)
 
-        overall_statement = select(func.count()).select_from(Record).where(
-            col(Record.is_valid).is_(True),
-            col(Record.id).is_not(None),
-            col(Record.map_id) == record.map_id,
-            col(Record.mode) == record.mode,
-            col(Record.stage) == record.stage,
-            (
-                (col(Record.time) < record.time)
-                | (
-                    (col(Record.time) == record.time)
-                    & (
-                        (col(Record.id) < record.id)
-                        | (
-                            col(Record.id).is_(None)
-                            & (col(Record.uuid) < record.uuid)
+        overall_statement = (
+            select(func.count())
+            .select_from(Record)
+            .where(
+                col(Record.is_valid).is_(True),
+                col(Record.id).is_not(None),
+                col(Record.map_id) == record.map_id,
+                col(Record.mode) == record.mode,
+                col(Record.stage) == record.stage,
+                (
+                    (col(Record.time) < record.time)
+                    | (
+                        (col(Record.time) == record.time)
+                        & (
+                            (col(Record.id) < record.id)
+                            | (
+                                col(Record.id).is_(None)
+                                & (col(Record.uuid) < record.uuid)
+                            )
                         )
                     )
-                )
-            ),
+                ),
+            )
         )
         place_overall = (await session.exec(overall_statement)).one() + 1
 

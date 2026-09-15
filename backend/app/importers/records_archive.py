@@ -67,7 +67,9 @@ class ImportedRecordRow:
     is_valid: bool
 
 
-def _iter_statement_chunks[T](items: Sequence[T], *, column_count: int) -> Iterator[list[T]]:
+def _iter_statement_chunks[T](
+    items: Sequence[T], *, column_count: int
+) -> Iterator[list[T]]:
     if column_count <= 0:
         raise ValueError("column_count must be positive")
     max_rows = max(1, POSTGRES_MAX_BIND_PARAMS // column_count)
@@ -133,7 +135,9 @@ def _open_text(path: Path) -> TextIO:
     return path.open(mode="rt", encoding="utf-8")
 
 
-def _iter_json_array(stream: TextIO, *, chunk_size: int = DEFAULT_CHUNK_SIZE) -> Iterator[Any]:
+def _iter_json_array(
+    stream: TextIO, *, chunk_size: int = DEFAULT_CHUNK_SIZE
+) -> Iterator[Any]:
     decoder = json.JSONDecoder()
     buffer = ""
     cursor = 0
@@ -411,9 +415,7 @@ async def _upsert_servers(*, session, rows: list[ImportedRecordRow]) -> None:
 async def _upsert_records(*, session, rows: list[ImportedRecordRow]) -> tuple[int, int]:
     record_ids = [row.id for row in rows]
     existing_ids = set(
-        (
-            await session.exec(select(Record.id).where(Record.id.in_(record_ids)))
-        ).all()
+        (await session.exec(select(Record.id).where(Record.id.in_(record_ids)))).all()
     )
 
     record_values = [
@@ -465,10 +467,22 @@ async def _upsert_records(*, session, rows: list[ImportedRecordRow]) -> tuple[in
 
 
 async def _import_batch(*, session, rows: list[ImportedRecordRow]) -> tuple[int, int]:
+    from app.crud.recent_wr import (
+        rebuild_recent_wr_events_for_maps,
+        recent_wr_backfill_is_ready,
+    )
+
     await _upsert_players(session=session, rows=rows)
     await _upsert_maps(session=session, rows=rows)
     await _upsert_servers(session=session, rows=rows)
     created, updated = await _upsert_records(session=session, rows=rows)
+    if await recent_wr_backfill_is_ready(session=session):
+        affected_main_map_ids = sorted({row.map_id for row in rows if row.stage == 0})
+        await rebuild_recent_wr_events_for_maps(
+            session=session,
+            map_ids=affected_main_map_ids,
+            notify=True,
+        )
     await session.commit()
     return created, updated
 

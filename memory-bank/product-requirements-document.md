@@ -68,6 +68,8 @@ Scope model:
 - Record ingestion and retrieval flows.
 - Map top views with scope-aware rank and points context.
 - Main-map world-record reads are served from a PostgreSQL cache/read model derived from main-course PB rows and keyed by scope and NUB/PRO record type.
+- `/dashboard` defaults to `/dashboard/wrs`, where the most recently created current 1000-point PB winners on validated main courses appear as responsive cards with map and tier filters, a NUB/PRO view toggle, and the app-wide scope filter. The run time and active view's improvement plus previous holder appear over the map image. A zero-teleport run retains its combined NUB and PRO achievements in either view, including its positive improvement over the next-fastest eligible PB or a First WR label.
+- The recent-WR feed retains the newest 100 distinct WR cards per scope, loads 20 cards initially, and automatically loads additional 20-card batches while scrolling until the 100-card cap is reached. Filtered WebSocket snapshots refresh the first batch; when a new WR changes the head of the feed, loaded later batches are discarded and can be fetched again so offset pages never overlap. The API stays in a preparation state until the standalone resumable cache backfill has completed; Alembic performs schema creation only.
 - World-record and recent-record experiences.
 - Scope-dependent points for rank-oriented queries.
 - Selected leaderboard and record list surfaces exclude players with any active mirrored ban by default, while recent feeds and record detail views remain unchanged. Local admin-created bans are visible in `/v1/bans` but do not participate in the mirrored-ban compatibility flows unless they also have an upstream GlobalAPI id.

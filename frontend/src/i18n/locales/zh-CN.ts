@@ -299,6 +299,24 @@ export const zhCN = {
   dashboard: {
     records: "记录",
     reviews: "评论",
+    wrs: {
+      tab: "WR",
+      firstWr: "首个 WR",
+      previousDelta: "比上个纪录快 {{delta}}",
+      previousPlayerPrefix: "快 {{delta}}（上个：",
+      previousPlayerSuffix: "）",
+      newAvailable: "有新的 WR",
+      preparing: "最近 WR 历史正在准备中，请稍后再来。",
+      loadFailed: "无法加载最近 WR，请刷新页面重试。",
+      noMatches: "没有符合当前筛选条件的最近 WR。",
+      totalLabel: "WR",
+      filters: {
+        map: "按地图筛选 WR",
+        tier: "难度",
+        type: "切换 NUB/PRO WR",
+        noMaps: "未找到地图。",
+      },
+    },
   },
   settings: {
     title: "设置",

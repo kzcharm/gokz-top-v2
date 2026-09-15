@@ -590,6 +590,9 @@ test("Maps catalog filters maps with collapsible range controls", async ({
     "data-testid",
     "map-card-kz_special_search",
   )
+  await expect(firstMapCard.getByTestId("player-record-subline")).toHaveText(
+    "KZT · 1:10.000",
+  )
   await expect(firstMapCard).toContainText("Rating: 4.40")
   await page.setViewportSize({ width: 418, height: 800 })
   const tooltipHoverStartedAt = Date.now()

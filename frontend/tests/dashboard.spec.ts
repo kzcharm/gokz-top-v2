@@ -2,6 +2,211 @@ import { expect, test } from "@playwright/test"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
+test("Dashboard defaults to WR cards with combined NUB and PRO gains", async ({
+  page,
+}) => {
+  const recentWrRequestTypes: string[] = []
+  const recentWrRequestOffsets: number[] = []
+  const recentWrRequestLimits: number[] = []
+  await page.addInitScript(() => {
+    const sockets: MockWebSocket[] = []
+    class MockWebSocket {
+      static OPEN = 1
+      readyState = MockWebSocket.OPEN
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: { data: string }) => void) | null = null
+      onclose: ((event: Event) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+
+      constructor(_url: string) {
+        sockets.push(this)
+        queueMicrotask(() => this.onopen?.(new Event("open")))
+      }
+
+      send(_data?: unknown) {}
+      close() {}
+      dispatchMessage(payload: unknown) {
+        this.onmessage?.({ data: JSON.stringify(payload) })
+      }
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: MockWebSocket,
+    })
+    Object.assign(window, {
+      __dispatchRecentWrMessage: (payload: unknown) => {
+        for (const socket of sockets) socket.dispatchMessage(payload)
+      },
+    })
+  })
+
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ id: 980210, name: "kz_wr_card" }]),
+    })
+  })
+  await page.route(/\/v1\/records\/wrs\/recent(\?.*)?$/, async (route) => {
+    const searchParams = new URL(route.request().url()).searchParams
+    const requestedType = searchParams.get("type")
+    if (requestedType) recentWrRequestTypes.push(requestedType)
+    recentWrRequestOffsets.push(Number(searchParams.get("offset") ?? 0))
+    recentWrRequestLimits.push(Number(searchParams.get("limit") ?? 0))
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 101,
+        data: [
+          {
+            record: {
+              uuid: "019dbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb",
+              id: 981020,
+              player: {
+                steamid64: "76561198000000006",
+                name: "WR Runner",
+                alias: null,
+                avatar_hash: null,
+                country: "DE",
+              },
+              map: { id: 980210, name: "kz_wr_card", tier: 5 },
+              server: { id: 980300, name: "WR Server", group: null },
+              mode: { id: 200, name: "KZT" },
+              stage: 0,
+              teleports: 0,
+              time: 48.75,
+              points: 1000,
+              created_on: "2026-09-15T12:00:00Z",
+              updated_on: "2026-09-15T12:00:00Z",
+              is_replay_available: false,
+            },
+            achievements: [
+              {
+                type: "NUB",
+                previous_record_uuid: "019daaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa",
+                previous_player_name:
+                  "Previous Runner With An Extremely Long Display Name",
+                previous_time: 50,
+                improvement_seconds: 1.25,
+              },
+              {
+                type: "PRO",
+                previous_record_uuid: null,
+                previous_time: null,
+                improvement_seconds: null,
+              },
+            ],
+          },
+        ],
+      }),
+    })
+  })
+
+  await page.goto("/dashboard")
+
+  await expect(page).toHaveURL(/\/dashboard\/wrs$/)
+  await expect(page.getByRole("tab", { name: "WRs" })).toBeVisible()
+  const card = page.getByTestId(
+    "recent-wr-card-019dbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb",
+  )
+  await expect(card).toContainText("kz_wr_card")
+  await expect(card).toContainText("WR Runner")
+  const imagePlayerName = card.getByTestId("recent-wr-player-name")
+  await expect(imagePlayerName).toHaveText("WR Runner")
+  await expect(imagePlayerName).toHaveClass(/truncate/)
+  const recordSubline = card.getByTestId("player-record-subline")
+  await expect(recordSubline).toHaveText("KZT · NUB · 48.750")
+  await expect(card.getByText("WR Server", { exact: true })).toHaveCount(0)
+  const imageWrTime = card.getByTestId("recent-wr-time")
+  await expect(imageWrTime).toHaveText("48.750")
+  await expect(imageWrTime).toHaveCSS("font-family", /Arial/)
+  await expect(imageWrTime).toHaveClass(/font-normal/)
+  await expect(imageWrTime).not.toHaveClass(/-webkit-text-stroke/)
+  await expect(card.getByText("World Record", { exact: true })).toHaveCount(0)
+  await expect(card).toContainText("-1.250 (prev.")
+  const previousPlayerName = card.getByTestId("recent-wr-previous-player")
+  await expect(previousPlayerName).toHaveText(
+    "Previous Runner With An Extremely Long Display Name",
+  )
+  await expect(previousPlayerName).toHaveClass(/truncate/)
+  await expect(card.getByTestId("recent-wr-type")).toContainText("NUB / PRO WR")
+  await expect(card.getByRole("link", { name: "History" })).toHaveCount(0)
+  await expect(
+    card
+      .getByTestId("recent-wr-map-preview")
+      .getByTestId("recent-wr-created-at"),
+  ).toBeVisible()
+  await expect.poll(() => recentWrRequestTypes.at(-1)).toBe("NUB")
+  const tierFilter = page.getByRole("combobox", { name: "Tier" })
+  await expect(tierFilter).toHaveClass(/min-w-24/)
+  const wrTypeToggle = page.getByRole("button", {
+    name: "Toggle NUB or PRO WRs",
+  })
+  await expect(wrTypeToggle).toHaveText("NUB")
+  await wrTypeToggle.click()
+  await expect(wrTypeToggle).toHaveText("PRO")
+  await expect.poll(() => recentWrRequestTypes.at(-1)).toBe("PRO")
+  await expect(recordSubline).toContainText("PRO")
+  await expect(card).toContainText("First WR")
+  await expect(card.getByTestId("recent-wr-type")).toContainText("NUB / PRO WR")
+  const mapPreviewBox = await card
+    .getByTestId("recent-wr-map-preview")
+    .boundingBox()
+  expect(mapPreviewBox).not.toBeNull()
+  expect(mapPreviewBox!.width / mapPreviewBox!.height).toBeCloseTo(16 / 9, 2)
+  await expect.poll(() => recentWrRequestOffsets).toContain(80)
+  expect(recentWrRequestOffsets).not.toContain(100)
+  expect(recentWrRequestLimits.every((limit) => limit === 20)).toBe(true)
+  await expect(page.getByTestId("recent-wrs-load-more")).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Go to next page" }),
+  ).toHaveCount(0)
+
+  await page.evaluate(() => {
+    ;(window as any).__dispatchRecentWrMessage({
+      type: "recent_wrs.snapshot",
+      count: 21,
+      data: [
+        {
+          record: {
+            uuid: "019dcccc-cccc-7ccc-8ccc-cccccccccccc",
+            id: 981021,
+            player: {
+              steamid64: "76561198000000007",
+              display_name: "Live WR Runner",
+            },
+            map: { id: 980210, name: "kz_wr_card", tier: 5 },
+            server: { id: 980300, name: "WR Server", group: null },
+            mode: { id: 200, name: "KZT" },
+            stage: 0,
+            teleports: 0,
+            time: 47.5,
+            points: 1000,
+            created_on: "2026-09-15T12:01:00Z",
+            updated_on: "2026-09-15T12:01:00Z",
+            is_replay_available: false,
+          },
+          achievements: [
+            {
+              type: "NUB",
+              previous_record_uuid: "019dbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb",
+              previous_time: 48.75,
+              improvement_seconds: 1.25,
+            },
+          ],
+        },
+      ],
+    })
+  })
+  await expect(
+    page.getByTestId("recent-wr-player-name").filter({
+      hasText: "Live WR Runner",
+    }),
+  ).toBeVisible()
+})
+
 const seededRecentRecords = {
   count: 1,
   data: [

@@ -11,6 +11,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
+from app.crud.recent_wr import (
+    RECENT_WR_BACKFILL_TASK_NAME,
+    rebuild_recent_wr_events_for_map,
+    rebuild_recent_wr_events_for_maps,
+)
 from app.models import (
     Ban,
     BanType,
@@ -27,6 +32,7 @@ from app.models import (
     RecordModerationActionType,
     RecordPb,
     RecordType,
+    ScheduledTaskState,
     ServerGlobalapi,
     legacy_mode_id_to_kz_mode,
 )
@@ -98,9 +104,7 @@ async def _create_server_globalapi(
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
     for steamid64 in (76561198000000010, 76561198000000020):
-
         if await db.get(Player, steamid64) is None:
-
             db.add(Player(steamid64=steamid64, name=str(steamid64)))
 
     server = ServerGlobalapi(
@@ -319,7 +323,9 @@ async def test_read_records_v1_list_and_detail(
         points=420,
         replay_id=123,
     )
-    save_run_replay(map_name="kz_record_test", replay_id=record.uuid, replay_bytes=b"run")
+    save_run_replay(
+        map_name="kz_record_test", replay_id=record.uuid, replay_bytes=b"run"
+    )
 
     list_response = await client.get(
         f"{settings.API_V1_STR}/records",
@@ -526,6 +532,168 @@ async def test_read_recent_records_v1_rejects_limit_above_max(
     )
 
     assert response.status_code == 422
+
+
+async def test_read_recent_wrs_combines_nub_and_pro_improvements(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_records(db)
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[(first_player, "First WR"), (second_player, "Double WR")],
+    )
+    db.add(
+        ScheduledTaskState(
+            task_name=RECENT_WR_BACKFILL_TASK_NAME,
+            last_successful_at=datetime.now(UTC),
+        )
+    )
+    await db.commit()
+
+    await _create_record(
+        db,
+        id=980460,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="50.000",
+        teleports=2,
+        created_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+    )
+    improved = await _create_record(
+        db,
+        id=980461,
+        steamid64=second_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="48.750",
+        teleports=0,
+        created_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+    )
+    await _create_record(
+        db,
+        id=980463,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="40.000",
+        teleports=0,
+        is_valid=False,
+        created_on=datetime(2026, 3, 30, 12, 3, tzinfo=UTC),
+    )
+    await _create_record(
+        db,
+        id=980464,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=1,
+        time="10.000",
+        teleports=0,
+        created_on=datetime(2026, 3, 30, 12, 4, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/wrs/recent",
+        params={"scope": "KZT", "limit": 20},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["record"]["uuid"] == str(improved.uuid)
+    achievements = payload["data"][0]["achievements"]
+    assert [achievement["type"] for achievement in achievements] == ["NUB", "PRO"]
+    assert achievements[0]["previous_player_name"] == "First WR"
+    assert achievements[0]["previous_time"] == 50.0
+    assert achievements[0]["improvement_seconds"] == 1.25
+    assert achievements[1]["previous_time"] is None
+    assert achievements[1]["previous_player_name"] is None
+    assert achievements[1]["improvement_seconds"] is None
+
+    await _create_record(
+        db,
+        id=980462,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="48.750",
+        teleports=0,
+        created_on=datetime(2026, 3, 30, 12, 2, tzinfo=UTC),
+    )
+
+    pro_response = await client.get(
+        f"{settings.API_V1_STR}/records/wrs/recent",
+        params={"scope": "KZT", "type": "PRO"},
+    )
+    assert pro_response.status_code == 200
+    assert pro_response.json()["count"] == 1
+    assert [
+        achievement["type"]
+        for achievement in pro_response.json()["data"][0]["achievements"]
+    ] == ["NUB", "PRO"]
+
+    skz_response = await client.get(
+        f"{settings.API_V1_STR}/records/wrs/recent",
+        params={"scope": "SKZ"},
+    )
+    assert skz_response.status_code == 200
+    assert skz_response.json() == {"data": [], "count": 0}
+
+    filtered_response = await client.get(
+        f"{settings.API_V1_STR}/records/wrs/recent",
+        params={"scope": "KZT", "map_id": 980200, "tier": 0},
+    )
+    assert filtered_response.status_code == 200
+    assert filtered_response.json()["count"] == 1
+
+    rerun = await rebuild_recent_wr_events_for_maps(
+        session=db,
+        map_ids=[980200],
+    )
+    await db.commit()
+    assert rerun.inserted == 0
+    assert rerun.updated > 0
+    assert rerun.deleted == 0
+    rerun_response = await client.get(
+        f"{settings.API_V1_STR}/records/wrs/recent",
+        params={"scope": "KZT"},
+    )
+    assert rerun_response.json()["count"] == 1
+
+    await _create_ban(
+        db,
+        id=980465,
+        steamid64=second_player,
+        expires_on=None,
+    )
+    await rebuild_recent_wr_events_for_map(session=db, map_id=980200)
+    await db.commit()
+    banned_response = await client.get(
+        f"{settings.API_V1_STR}/records/wrs/recent",
+        params={"scope": "KZT"},
+    )
+    assert banned_response.status_code == 200
+    assert banned_response.json() == {"data": [], "count": 0}
+
+
+async def test_read_recent_wrs_returns_preparing_until_backfill_completes(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(f"{settings.API_V1_STR}/records/wrs/recent")
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Recent WR history is being prepared."
 
 
 async def test_read_recent_records_v1_scope_points_and_pro_filters(
@@ -832,16 +1000,12 @@ async def test_patch_record_v1_updates_validity(
     assert response.status_code == 200
     assert response.json()["is_valid"] is False
 
-    action = (
-        await db.exec(select(RecordModerationAction))
-    ).one()
+    action = (await db.exec(select(RecordModerationAction))).one()
     assert action.actor_steamid64 == settings.SUPER_USER_STEAMID64
     assert action.action_type == RecordModerationActionType.SINGLE_SOFT_DELETE
     assert action.target_record_uuid == record.uuid
 
-    action_record = (
-        await db.exec(select(RecordModerationActionRecord))
-    ).one()
+    action_record = (await db.exec(select(RecordModerationActionRecord))).one()
     assert action_record.record_uuid == record.uuid
     assert action_record.before_snapshot is not None
     assert action_record.after_snapshot is not None
@@ -875,9 +1039,7 @@ async def test_patch_record_v1_allows_admin_role(
             "name": "Admin Record Moderator",
         },
     )
-    admin_headers = {
-        "Authorization": f"Bearer {admin_auth.json()['access_token']}"
-    }
+    admin_headers = {"Authorization": f"Bearer {admin_auth.json()['access_token']}"}
 
     response = await client.patch(
         f"{settings.API_V1_STR}/records/{record.uuid}",
@@ -982,9 +1144,7 @@ async def test_bulk_delete_course_records_soft_deletes_all_valid_matching_rows(
         and refreshed_unaffected_player.is_valid is True
     )
 
-    action = (
-        await db.exec(select(RecordModerationAction))
-    ).one()
+    action = (await db.exec(select(RecordModerationAction))).one()
     assert action.action_type == RecordModerationActionType.BULK_SOFT_DELETE_COURSE
     assert action.target_player_steamid64 == player_id
     assert action.target_map_id == 980200
@@ -1067,7 +1227,9 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
         teleports=0,
         is_valid=False,
     )
-    save_run_replay(map_name="kz_record_test", replay_id=winning.uuid, replay_bytes=b"pb")
+    save_run_replay(
+        map_name="kz_record_test", replay_id=winning.uuid, replay_bytes=b"pb"
+    )
 
     response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -1413,9 +1575,7 @@ async def test_read_pb_records_v1_player_anchor_excludes_invalidated_maps(
     invalidated_map.validated = False
     db.add(invalidated_map)
     await db.commit()
-    assert (
-        await db.exec(select(Map.validated).where(Map.id == 980202))
-    ).one() is False
+    assert (await db.exec(select(Map.validated).where(Map.id == 980202))).one() is False
 
     response = await client.get(
         f"{settings.API_V1_STR}/records/pb",
@@ -3033,7 +3193,12 @@ async def test_read_record_v0_top_and_world_records_exclude_cheaters_by_default(
 
     top = await client.get(
         "/v0/records/top",
-        params={"map_id": 980200, "stage": 0, "modes_list": "kz_timer", "has_teleports": False},
+        params={
+            "map_id": 980200,
+            "stage": 0,
+            "modes_list": "kz_timer",
+            "has_teleports": False,
+        },
     )
     assert top.status_code == 200
     assert [row["id"] for row in top.json()] == [981021]

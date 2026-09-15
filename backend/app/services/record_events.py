@@ -10,12 +10,14 @@ from fastapi import WebSocket
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
+from app.crud.recent_wr import RECENT_WR_NOTIFY_CHANNEL
 from app.models import (
     ModeScope,
     RecentRecordListQuery,
     RecentRecordSnapshotEvent,
     RecentRecordUpsertEvent,
 )
+from app.services.recent_wr_events import recent_wr_event_hub
 
 RECENT_RECORD_SNAPSHOT_LIMIT = 50
 
@@ -150,8 +152,14 @@ async def listen_for_recent_record_updates() -> None:
             ) as connection:
                 async with connection.cursor() as cursor:
                     await cursor.execute(f"LISTEN {crud.RECENT_RECORD_NOTIFY_CHANNEL}")
+                    await cursor.execute(f"LISTEN {RECENT_WR_NOTIFY_CHANNEL}")
                 async for notify in connection.notifies(timeout=5.0):
-                    await recent_record_event_hub.broadcast_record_upsert(notify.payload)
+                    if notify.channel == RECENT_WR_NOTIFY_CHANNEL:
+                        await recent_wr_event_hub.broadcast_scope(notify.payload)
+                    else:
+                        await recent_record_event_hub.broadcast_record_upsert(
+                            notify.payload
+                        )
         except asyncio.CancelledError:
             raise
         except Exception:

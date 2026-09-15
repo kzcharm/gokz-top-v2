@@ -135,14 +135,6 @@ export function MapCard({
     nonZeroSkillPortions.length > 0 && nonZeroSkillPortions.length < 4
       ? allSkillPortions.slice(0, 4)
       : nonZeroSkillPortions.slice(0, 4)
-  const wrSubline = wrRecord
-    ? [
-        getRecordModeLabelById(wrRecord.mode_id),
-        formatRecordTime(wrRecord.time),
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : null
   const leaderboardMetric = leaderboardEntry
     ? (
         {
@@ -287,8 +279,11 @@ export function MapCard({
                 className="min-w-0 flex-1"
                 nameMaxLength={22}
                 subline={{
-                  type: "text",
-                  value: wrSubline,
+                  type: "record",
+                  mode: getRecordModeLabelById(wrRecord.mode_id) ?? "Unknown",
+                  recordType: wrRecord.type,
+                  showRecordType: false,
+                  time: wrRecord.time,
                 }}
               />
             </div>

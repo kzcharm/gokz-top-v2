@@ -127,6 +127,13 @@ type PlayerDisplaySubline =
       value?: string | null
     }
   | {
+      type: "record"
+      mode: string
+      recordType: RecordType
+      showRecordType?: boolean
+      time: number
+    }
+  | {
       type: "wr"
       mapId?: number | null
       mapName?: string | null
@@ -604,11 +611,35 @@ export function PlayerDisplay({
     }
   }, [menuOpen])
 
-  let sublineContent: string | null = null
+  let sublineContent: ReactNode = null
+  let sublineTitle: string | undefined
   if (effectiveSubline?.type === "steamid64") {
     sublineContent = steamid64
+    sublineTitle = steamid64
   } else if (effectiveSubline?.type === "text") {
     sublineContent = effectiveSubline.value?.trim() || null
+    sublineTitle = effectiveSubline.value?.trim() || undefined
+  } else if (effectiveSubline?.type === "record") {
+    const formattedTime = formatRecordTime(effectiveSubline.time)
+    const recordTypeLabel =
+      effectiveSubline.showRecordType === false
+        ? ""
+        : ` · ${effectiveSubline.recordType}`
+    sublineTitle = `${effectiveSubline.mode}${recordTypeLabel} · ${formattedTime}`
+    sublineContent = (
+      <span
+        data-testid="player-record-subline"
+        className="block min-w-0 truncate"
+      >
+        <span className="font-medium text-foreground/75">
+          {effectiveSubline.mode}
+          {recordTypeLabel} ·{" "}
+        </span>
+        <span className="font-sans tabular-nums text-muted-foreground">
+          {formattedTime}
+        </span>
+      </span>
+    )
   } else if (effectiveSubline?.type === "wr") {
     const matchingWr = wrSublineQuery.data?.find(
       (record) =>
@@ -618,11 +649,15 @@ export function PlayerDisplay({
     )
 
     if (matchingWr) {
-      sublineContent = `WR: ${formatRecordTime(matchingWr.time)}`
+      const wrLabel = `WR: ${formatRecordTime(matchingWr.time)}`
+      sublineContent = wrLabel
+      sublineTitle = wrLabel
     } else if (wrSublineQuery.isLoading) {
       sublineContent = "WR: ..."
+      sublineTitle = "WR: ..."
     } else if (effectiveSubline.emptyLabel !== undefined) {
       sublineContent = effectiveSubline.emptyLabel
+      sublineTitle = effectiveSubline.emptyLabel ?? undefined
     }
   }
 
@@ -769,7 +804,7 @@ export function PlayerDisplay({
               "w-full truncate text-xs text-muted-foreground",
               effectiveSubline?.type === "steamid64" && "font-mono",
             )}
-            title={sublineContent}
+            title={sublineTitle}
           >
             {sublineContent}
           </p>

@@ -300,6 +300,24 @@ export const en = {
   dashboard: {
     records: "Records",
     reviews: "Reviews",
+    wrs: {
+      tab: "WRs",
+      firstWr: "First WR",
+      previousDelta: "-{{delta}} vs prev",
+      previousPlayerPrefix: "-{{delta}} (prev.",
+      previousPlayerSuffix: ")",
+      newAvailable: "New WRs available",
+      preparing: "Recent WR history is being prepared. Check back soon.",
+      loadFailed: "Unable to load recent WRs. Try refreshing the page.",
+      noMatches: "No recent WRs match the current filters.",
+      totalLabel: "WRs",
+      filters: {
+        map: "Filter WRs by map",
+        tier: "Tier",
+        type: "Toggle NUB or PRO WRs",
+        noMaps: "No maps found.",
+      },
+    },
   },
   settings: {
     title: "Settings",

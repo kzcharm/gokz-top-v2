@@ -305,6 +305,24 @@ export const ru = {
   dashboard: {
     records: "Рекорды",
     reviews: "Отзывы",
+    wrs: {
+      tab: "WR",
+      firstWr: "Первый WR",
+      previousDelta: "-{{delta}} от прошлого",
+      previousPlayerPrefix: "-{{delta}} (пред.",
+      previousPlayerSuffix: ")",
+      newAvailable: "Доступны новые WR",
+      preparing: "История последних WR подготавливается. Загляните позже.",
+      loadFailed: "Не удалось загрузить последние WR. Обновите страницу.",
+      noMatches: "Нет последних WR, соответствующих фильтрам.",
+      totalLabel: "WR",
+      filters: {
+        map: "Фильтр WR по карте",
+        tier: "Тир",
+        type: "Переключить NUB/PRO WR",
+        noMaps: "Карты не найдены.",
+      },
+    },
   },
   settings: {
     title: "Настройки",

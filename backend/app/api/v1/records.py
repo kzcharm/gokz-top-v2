@@ -7,6 +7,12 @@ from app import crud
 from app.api.deps import SessionDep, get_current_active_admin
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
+from app.crud.recent_wr import (
+    read_recent_wrs as read_recent_wrs_from_cache,
+)
+from app.crud.recent_wr import (
+    recent_wr_backfill_is_ready,
+)
 from app.crud.record import get_pb_record_publics
 from app.models import (
     Map,
@@ -14,6 +20,8 @@ from app.models import (
     Player,
     RecentRecordListQuery,
     RecentRecordsPublic,
+    RecentWrListQuery,
+    RecentWrsPublic,
     Record,
     RecordBulkDeleteCourse,
     RecordBulkDeleteResult,
@@ -142,6 +150,20 @@ async def read_recent_records(
     return RecentRecordsPublic(data=records, count=count)
 
 
+@router.get("/wrs/recent", response_model=RecentWrsPublic)
+async def read_recent_wrs(
+    session: SessionDep,
+    query: Annotated[RecentWrListQuery, Query()],
+) -> RecentWrsPublic:
+    if not await recent_wr_backfill_is_ready(session=session):
+        raise HTTPException(
+            status_code=503,
+            detail="Recent WR history is being prepared.",
+        )
+    records, count = await read_recent_wrs_from_cache(session=session, query=query)
+    return RecentWrsPublic(data=records, count=count)
+
+
 @router.get("/pb", response_model=list[RecordPublic])
 async def read_pb_records(
     session: SessionDep,
@@ -172,8 +194,12 @@ async def read_pb_records(
             status_code=422,
             detail="At least one of map_id/map_name or identifier must be provided",
         )
-    normalized_country = country.strip().upper() if country is not None and country.strip() else None
-    normalized_region = region.strip().upper() if region is not None and region.strip() else None
+    normalized_country = (
+        country.strip().upper() if country is not None and country.strip() else None
+    )
+    normalized_region = (
+        region.strip().upper() if region is not None and region.strip() else None
+    )
     _validate_geography_filters(country=normalized_country, region=normalized_region)
 
     return await get_pb_record_publics(
@@ -210,7 +236,9 @@ async def read_record_ranks(
     type: RecordType = RecordType.NUB,
     country: Annotated[str | None, Query(max_length=2)] = None,
 ) -> RecordRanksPublic:
-    normalized_country = country.strip().upper() if country is not None and country.strip() else None
+    normalized_country = (
+        country.strip().upper() if country is not None and country.strip() else None
+    )
     ranks = await crud.read_record_ranks(
         session=session,
         record_uuids=record_uuids,
@@ -265,9 +293,7 @@ async def read_record(
     record = await crud.get_record_by_uuid(session=session, record_uuid=record_uuid)
     if record is None:
         raise HTTPException(status_code=404, detail="Record not found")
-    return (
-        await _to_record_publics(session, [record], scope=scope)
-    )[0]
+    return (await _to_record_publics(session, [record], scope=scope))[0]
 
 
 @router.patch(
@@ -291,9 +317,7 @@ async def patch_record(
         patch=patch,
         actor_steamid64=current_user.steamid64,
     )
-    return (
-        await _to_record_publics(session, [record], scope=ModeScope.OVR)
-    )[0]
+    return (await _to_record_publics(session, [record], scope=ModeScope.OVR))[0]
 
 
 @router.post(

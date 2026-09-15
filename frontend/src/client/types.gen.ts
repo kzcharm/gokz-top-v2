@@ -1516,6 +1516,24 @@ export type RecentRecordsPublic = {
     count: number;
 };
 
+export type RecentWrAchievementPublic = {
+    type: RecordType;
+    previous_record_uuid?: (string | null);
+    previous_player_name?: (string | null);
+    previous_time?: (number | null);
+    improvement_seconds?: (number | null);
+};
+
+export type RecentWrPublic = {
+    record: RecentRecordPublic;
+    achievements: Array<RecentWrAchievementPublic>;
+};
+
+export type RecentWrsPublic = {
+    data: Array<RecentWrPublic>;
+    count: number;
+};
+
 export type RecordBulkDeleteCourse = {
     steamid64: string;
     map_id: number;
@@ -3080,6 +3098,17 @@ export type RecordsReadRecentRecordsData = {
 };
 
 export type RecordsReadRecentRecordsResponse = (RecentRecordsPublic);
+
+export type RecordsReadRecentWrsData = {
+    limit?: number;
+    mapId?: (number | null);
+    offset?: number;
+    scope?: ModeScope;
+    tier?: (number | null);
+    type?: (RecordType | null);
+};
+
+export type RecordsReadRecentWrsResponse = (RecentWrsPublic);
 
 export type RecordsReadPbRecordsData = {
     country?: (string | null);
