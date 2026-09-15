@@ -1061,7 +1061,7 @@ export function ProfileRecordsTab({
                     updateViewState("selectedMode", value)
                   }
                   allLabel="Modes"
-                  triggerClassName="h-8 border-border/70 bg-background/80 text-xs"
+                  triggerClassName="data-[size=default]:h-8 border-border/70 bg-background/80 text-xs"
                   ariaLabel="Filter by mode"
                 />
               ),
@@ -1072,7 +1072,7 @@ export function ProfileRecordsTab({
                     updateViewState("selectedTier", value)
                   }
                   allLabel="Tier"
-                  triggerClassName="h-8 border-border/70 bg-background/80 text-xs"
+                  triggerClassName="data-[size=default]:h-8 border-border/70 bg-background/80 text-xs"
                   ariaLabel="Filter by tier"
                 />
               ) : undefined,

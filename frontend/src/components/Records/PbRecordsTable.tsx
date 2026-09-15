@@ -543,7 +543,13 @@ export function PbRecordsTable({
                       key={`filter-${column}`}
                       className="h-auto border-t border-border/60 px-3 py-3 align-top"
                     >
-                      {columnFilters?.[column] ?? null}
+                      {column === "rating" ? (
+                        <div className="flex justify-center">
+                          {columnFilters?.[column] ?? null}
+                        </div>
+                      ) : (
+                        (columnFilters?.[column] ?? null)
+                      )}
                     </TableHead>
                   )
 
