@@ -40,6 +40,8 @@ export interface ProfileRecordsViewState {
   selectedStage: number | null
   minTeleports: string
   maxTeleports: string
+  minTime: string
+  maxTime: string
   minPoints: string
   maxPoints: string
   minRating: string
@@ -57,6 +59,8 @@ export const DEFAULT_PROFILE_RECORDS_VIEW_STATE: ProfileRecordsViewState = {
   selectedStage: null,
   minTeleports: "",
   maxTeleports: "",
+  minTime: "",
+  maxTime: "",
   minPoints: "",
   maxPoints: "",
   minRating: "",
@@ -146,6 +150,8 @@ function parseViewState(value: unknown): ProfileRecordsViewState | null {
     selectedStage: stage,
     minTeleports: readString(value.minTeleports),
     maxTeleports: readString(value.maxTeleports),
+    minTime: readString(value.minTime),
+    maxTime: readString(value.maxTime),
     minPoints: readString(value.minPoints),
     maxPoints: readString(value.maxPoints),
     minRating: readString(value.minRating),

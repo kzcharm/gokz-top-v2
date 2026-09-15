@@ -83,6 +83,51 @@ function parseBound(value: string, fallback: number, max?: number) {
   return max === undefined ? roundedValue : Math.min(max, roundedValue)
 }
 
+function parseWholeSecondTime(value: string) {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) {
+    return null
+  }
+
+  if (/^\d+$/.test(trimmedValue)) {
+    return Number(trimmedValue)
+  }
+
+  const parts = trimmedValue.split(":")
+  if (
+    (parts.length !== 2 && parts.length !== 3) ||
+    parts.some((part) => !/^\d+$/.test(part))
+  ) {
+    return null
+  }
+
+  const values = parts.map(Number)
+  const [hours, minutes, seconds] =
+    values.length === 3 ? values : [0, values[0] ?? 0, values[1] ?? 0]
+  if (
+    hours === undefined ||
+    minutes === undefined ||
+    seconds === undefined ||
+    minutes >= 60 ||
+    seconds >= 60
+  ) {
+    return null
+  }
+
+  return hours * 3600 + minutes * 60 + seconds
+}
+
+function formatWholeSecondTime(seconds: number) {
+  const totalSeconds = Math.max(0, Math.floor(seconds))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const remainingSeconds = totalSeconds % 60
+  const minuteAndSecond = `${minutes}:${String(remainingSeconds).padStart(2, "0")}`
+  return hours > 0
+    ? `${hours}:${minuteAndSecond.padStart(5, "0")}`
+    : minuteAndSecond
+}
+
 function getLocalDateKey(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
@@ -591,6 +636,117 @@ function NumericRangeFilter({
   )
 }
 
+function TimeRangeFilter({
+  minValue,
+  maxValue,
+  onMinValueChange,
+  onMaxValueChange,
+}: {
+  minValue: string
+  maxValue: string
+  onMinValueChange: (value: string) => void
+  onMaxValueChange: (value: string) => void
+}) {
+  const parsedMinValue = parseWholeSecondTime(minValue)
+  const parsedMaxValue = parseWholeSecondTime(maxValue)
+  const hasActiveRange =
+    minValue.trim().length > 0 || maxValue.trim().length > 0
+  const rangeLabel =
+    parsedMinValue !== null && parsedMaxValue !== null
+      ? `${formatWholeSecondTime(parsedMinValue)} ~ ${formatWholeSecondTime(parsedMaxValue)}`
+      : parsedMinValue !== null
+        ? `${formatWholeSecondTime(parsedMinValue)}+`
+        : parsedMaxValue !== null
+          ? `to ${formatWholeSecondTime(parsedMaxValue)}`
+          : null
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Filter by time range"
+          className={cn(
+            "flex h-8 min-w-11 items-center justify-center rounded-md border border-border/70 bg-background/80 px-1.5 text-[11px] font-medium shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            hasActiveRange ? "w-[6.75rem]" : "w-11",
+            hasActiveRange && "border-primary/40 text-foreground",
+          )}
+        >
+          <span className="flex min-w-0 items-center justify-center gap-1">
+            {rangeLabel ? (
+              <span className="truncate text-[10px] font-semibold tabular-nums">
+                {rangeLabel}
+              </span>
+            ) : null}
+            <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-56 space-y-3 p-3"
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        <div className="space-y-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Time
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label
+              htmlFor="profile-records-time-min"
+              className="space-y-1 text-[11px] text-muted-foreground"
+            >
+              <span>Min</span>
+              <Input
+                id="profile-records-time-min"
+                type="text"
+                inputMode="numeric"
+                aria-label="Minimum time"
+                placeholder="m:ss"
+                value={minValue}
+                onChange={(event) => onMinValueChange(event.target.value)}
+                className="h-8 px-2 text-center font-mono text-xs"
+              />
+            </label>
+            <label
+              htmlFor="profile-records-time-max"
+              className="space-y-1 text-[11px] text-muted-foreground"
+            >
+              <span>Max</span>
+              <Input
+                id="profile-records-time-max"
+                type="text"
+                inputMode="numeric"
+                aria-label="Maximum time"
+                placeholder="m:ss"
+                value={maxValue}
+                onChange={(event) => onMaxValueChange(event.target.value)}
+                className="h-8 px-2 text-center font-mono text-xs"
+              />
+            </label>
+          </div>
+          <p className="text-[10px] leading-4 text-muted-foreground">
+            Use seconds, m:ss, or h:mm:ss.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-full px-2 text-[10px]"
+            onClick={() => {
+              onMinValueChange("")
+              onMaxValueChange("")
+            }}
+          >
+            Reset
+          </Button>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function DateRangeFilter({
   fromDate,
   toDate,
@@ -752,6 +908,8 @@ export function ProfileRecordsTab({
     selectedStage,
     minTeleports,
     maxTeleports,
+    minTime,
+    maxTime,
     minPoints,
     maxPoints,
     minRating,
@@ -798,6 +956,8 @@ export function ProfileRecordsTab({
       maxTeleports.trim() === "" ? null : Number(maxTeleports)
     const parsedMinPoints = minPoints.trim() === "" ? null : Number(minPoints)
     const parsedMaxPoints = maxPoints.trim() === "" ? null : Number(maxPoints)
+    const parsedMinTime = parseWholeSecondTime(minTime)
+    const parsedMaxTime = parseWholeSecondTime(maxTime)
     const parsedMinRating = minRating.trim() === "" ? null : Number(minRating)
     const parsedMaxRating = maxRating.trim() === "" ? null : Number(maxRating)
 
@@ -855,6 +1015,15 @@ export function ProfileRecordsTab({
         return false
       }
 
+      const recordTimeInSeconds = Math.floor(record.time)
+      if (parsedMinTime !== null && recordTimeInSeconds < parsedMinTime) {
+        return false
+      }
+
+      if (parsedMaxTime !== null && recordTimeInSeconds > parsedMaxTime) {
+        return false
+      }
+
       if (parsedMinPoints !== null && Number.isFinite(parsedMinPoints)) {
         if (record.points < parsedMinPoints) {
           return false
@@ -904,6 +1073,8 @@ export function ProfileRecordsTab({
     deferredServerSearch,
     minTeleports,
     maxTeleports,
+    minTime,
+    maxTime,
     minPoints,
     maxPoints,
     minRating,
@@ -985,6 +1156,8 @@ export function ProfileRecordsTab({
     (isBonus && selectedStage !== null) ||
     minTeleports.trim().length > 0 ||
     maxTeleports.trim().length > 0 ||
+    minTime.trim().length > 0 ||
+    maxTime.trim().length > 0 ||
     minPoints.trim().length > 0 ||
     maxPoints.trim().length > 0 ||
     (!isBonus &&
@@ -1157,6 +1330,18 @@ export function ProfileRecordsTab({
                   }
                   onMaxValueChange={(value) =>
                     updateViewState("maxTeleports", value)
+                  }
+                />
+              ),
+              time: (
+                <TimeRangeFilter
+                  minValue={minTime}
+                  maxValue={maxTime}
+                  onMinValueChange={(value) =>
+                    updateViewState("minTime", value)
+                  }
+                  onMaxValueChange={(value) =>
+                    updateViewState("maxTime", value)
                   }
                 />
               ),

@@ -518,6 +518,37 @@ test("Profile records TP and rating filters accept typed ranges", async ({
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
 })
 
+test("Profile records time filter uses whole-second ranges", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count: 1, data: [seededPlayer] }),
+    })
+  })
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(ovrRecords),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByLabel("Filter by time range").click()
+  await page.getByRole("textbox", { name: "Minimum time" }).fill("0:50")
+  await page.getByRole("textbox", { name: "Maximum time" }).fill("0:50")
+
+  await expect(page.getByText("kz_seed_beta")).toBeVisible()
+  await expect(page.getByText("kz_seed_alpha")).toHaveCount(0)
+  await expect(page.getByText("kz_seed_gamma")).toHaveCount(0)
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
+})
+
 test("Profile records date filter uses inclusive day precision", async ({
   page,
 }) => {
