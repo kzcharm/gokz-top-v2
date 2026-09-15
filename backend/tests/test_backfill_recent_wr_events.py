@@ -27,7 +27,6 @@ def test_recent_wr_backfill_cli_supports_safe_operational_modes() -> None:
 
     assert dry_run.dry_run is True
     assert dry_run.batch_size == 7
-    assert dry_run.limit_per_scope == 100
     assert repair.course_id == 42
     assert reset.reset_progress is True
 
@@ -40,8 +39,8 @@ async def test_recent_wr_backfill_rejects_non_positive_batch_size(
     with pytest.raises(ValueError, match="batch-size"):
         await _main_async(["--batch-size", value])
 
+def test_recent_wr_backfill_has_no_database_retention_limit() -> None:
+    parser = _build_parser()
 
-@pytest.mark.asyncio
-async def test_recent_wr_backfill_rejects_non_positive_scope_limit() -> None:
-    with pytest.raises(ValueError, match="limit-per-scope"):
-        await _main_async(["--limit-per-scope", "0"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--limit-per-scope", "100"])

@@ -32,12 +32,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Number of main-map courses to commit per transaction.",
     )
     parser.add_argument(
-        "--limit-per-scope",
-        type=int,
-        default=100,
-        help="Maximum distinct recent WR records retained per scope (default: 100).",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Report pending course counts without scanning record history.",
@@ -80,8 +74,6 @@ async def _main_async(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
     if args.batch_size < 1:
         raise ValueError("--batch-size must be at least 1")
-    if args.limit_per_scope < 1:
-        raise ValueError("--limit-per-scope must be at least 1")
     if args.course_id is not None and args.course_id < 1:
         raise ValueError("--course-id must be at least 1")
     if args.dry_run and args.reset_progress:
@@ -121,7 +113,6 @@ async def _main_async(argv: list[str] | None = None) -> None:
                 result = await rebuild_recent_wr_events_for_map(
                     session=session,
                     map_id=course[1],
-                    limit_per_scope=args.limit_per_scope,
                     notify=True,
                 )
                 await session.commit()
@@ -159,10 +150,9 @@ async def _main_async(argv: list[str] | None = None) -> None:
             )
             if args.dry_run:
                 logger.info(
-                    "Recent WR backfill cursor=%s pending_courses=%s limit_per_scope=%s",
+                    "Recent WR backfill cursor=%s pending_courses=%s",
                     state.cursor,
                     pending,
-                    args.limit_per_scope,
                 )
                 return
 
@@ -194,7 +184,6 @@ async def _main_async(argv: list[str] | None = None) -> None:
                 result = await rebuild_recent_wr_events_for_maps(
                     session=session,
                     map_ids=sorted({map_id for _course_id, map_id in courses}),
-                    limit_per_scope=args.limit_per_scope,
                 )
                 processed += len(courses)
                 inserted += result.inserted

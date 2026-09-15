@@ -609,7 +609,7 @@ async def test_read_recent_wrs_combines_nub_and_pro_improvements(
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["count"] == 1
+    assert payload["count"] == 2
     assert payload["data"][0]["record"]["uuid"] == str(improved.uuid)
     achievements = payload["data"][0]["achievements"]
     assert [achievement["type"] for achievement in achievements] == ["NUB", "PRO"]
@@ -656,7 +656,7 @@ async def test_read_recent_wrs_combines_nub_and_pro_improvements(
         params={"scope": "KZT", "map_id": 980200, "tier": 0},
     )
     assert filtered_response.status_code == 200
-    assert filtered_response.json()["count"] == 1
+    assert filtered_response.json()["count"] == 2
 
     rerun = await rebuild_recent_wr_events_for_maps(
         session=db,
@@ -670,7 +670,7 @@ async def test_read_recent_wrs_combines_nub_and_pro_improvements(
         f"{settings.API_V1_STR}/records/wrs/recent",
         params={"scope": "KZT"},
     )
-    assert rerun_response.json()["count"] == 1
+    assert rerun_response.json()["count"] == 2
 
     await _create_ban(
         db,
@@ -685,7 +685,75 @@ async def test_read_recent_wrs_combines_nub_and_pro_improvements(
         params={"scope": "KZT"},
     )
     assert banned_response.status_code == 200
-    assert banned_response.json() == {"data": [], "count": 0}
+    banned_payload = banned_response.json()
+    assert banned_payload["count"] == 1
+    assert (
+        banned_payload["data"][0]["record"]["player"]["display_name"]
+        == "First WR"
+    )
+
+
+async def test_new_wr_preserves_previous_wr_event(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    await _clear_records(db)
+    first_player = random_steamid64()
+    second_player = random_steamid64()
+    await _seed_record_dependencies(
+        db,
+        players=[(first_player, "First WR"), (second_player, "Second WR")],
+    )
+    db.add(
+        ScheduledTaskState(
+            task_name=RECENT_WR_BACKFILL_TASK_NAME,
+            last_successful_at=datetime.now(UTC),
+        )
+    )
+    await db.commit()
+
+    first = await _create_record(
+        db,
+        id=980470,
+        steamid64=first_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="50.000",
+        teleports=1,
+        created_on=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+    )
+    second = await _create_record(
+        db,
+        id=980471,
+        steamid64=second_player,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="48.750",
+        teleports=1,
+        created_on=datetime(2026, 3, 30, 12, 1, tzinfo=UTC),
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/records/wrs/recent",
+        params={"scope": "KZT", "type": "NUB"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 2
+    assert [item["record"]["uuid"] for item in payload["data"]] == [
+        str(second.uuid),
+        str(first.uuid),
+    ]
+    assert payload["data"][0]["achievements"][0]["previous_record_uuid"] == str(
+        first.uuid
+    )
+    assert payload["data"][0]["achievements"][0]["improvement_seconds"] == 1.25
+    assert payload["data"][1]["achievements"][0]["previous_record_uuid"] is None
 
 
 async def test_read_recent_wrs_returns_preparing_until_backfill_completes(

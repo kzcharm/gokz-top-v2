@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, cast
 
-from sqlalchemy import and_, delete, func, text
+from sqlalchemy import and_, func, text
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -31,7 +31,6 @@ from .record import to_recent_record_public
 
 RECENT_WR_BACKFILL_TASK_NAME = "recent_wr_events_backfill_v3"
 RECENT_WR_NOTIFY_CHANNEL = "recent_wr_updates"
-RECENT_WR_DEFAULT_LIMIT_PER_SCOPE = 100
 
 
 @dataclass(frozen=True)
@@ -69,13 +68,43 @@ async def rebuild_recent_wr_bucket(
             )
         ).all()
     )
-    await session.exec(
-        delete(RecentWrEventCache).where(
-            col(RecentWrEventCache.map_id) == map_id,
-            col(RecentWrEventCache.scope) == scope,
-            col(RecentWrEventCache.type) == record_type,
-        )
+    deleted_result = await session.exec(
+        cast(
+            Any,
+            text(
+                """
+                DELETE FROM cache.recent_wr_events AS event
+                USING record, map
+                WHERE event.record_uuid = record.uuid
+                  AND event.map_id = map.id
+                  AND event.map_id = :map_id
+                  AND event.scope = CAST(:scope AS mode_scope)
+                  AND event.type = CAST(:record_type AS record_type)
+                  AND (
+                      record.is_valid = false
+                      OR map.validated = false
+                      OR EXISTS (
+                          SELECT 1
+                          FROM ban
+                          WHERE ban.steamid64 = record.steamid64
+                            AND (
+                                ban.expires_at IS NULL
+                                OR ban.expires_at >= CURRENT_TIMESTAMP
+                            )
+                      )
+                  )
+                RETURNING event.record_uuid
+                """
+            ),
+        ),
+        params={
+            "map_id": map_id,
+            "scope": str(scope),
+            "record_type": record_type.value,
+        },
     )
+    deleted_record_uuids = {row[0] for row in deleted_result.all()}
+    surviving_record_uuids = existing_record_uuids - deleted_record_uuids
     insert_sql = text(
         """
         WITH winner AS (
@@ -164,9 +193,9 @@ async def rebuild_recent_wr_bucket(
         },
     )
     resulting_record_uuids = {row[0] for row in inserted_result.all()}
-    inserted = len(resulting_record_uuids - existing_record_uuids)
-    updated = len(resulting_record_uuids & existing_record_uuids)
-    deleted = len(existing_record_uuids - resulting_record_uuids)
+    inserted = len(resulting_record_uuids - surviving_record_uuids)
+    updated = len(resulting_record_uuids & surviving_record_uuids)
+    deleted = len(deleted_record_uuids)
     if notify and (deleted > 0 or inserted > 0 or updated > 0):
         await session.exec(
             cast(
@@ -186,7 +215,6 @@ async def rebuild_recent_wr_events_for_map(
     *,
     session: AsyncSession,
     map_id: int,
-    limit_per_scope: int = RECENT_WR_DEFAULT_LIMIT_PER_SCOPE,
     notify: bool = False,
 ) -> RecentWrBucketRefreshResult:
     deleted = 0
@@ -207,12 +235,6 @@ async def rebuild_recent_wr_events_for_map(
             updated += result.updated
             if result.deleted or result.inserted or result.updated:
                 changed_scopes.add(scope)
-    pruned_by_scope = await prune_recent_wr_events(
-        session=session,
-        limit_per_scope=limit_per_scope,
-    )
-    deleted += sum(pruned_by_scope.values())
-    changed_scopes.update(pruned_by_scope)
     if notify:
         for scope in sorted(changed_scopes, key=lambda value: value.value):
             await session.exec(
@@ -233,7 +255,6 @@ async def rebuild_recent_wr_events_for_maps(
     *,
     session: AsyncSession,
     map_ids: list[int],
-    limit_per_scope: int = RECENT_WR_DEFAULT_LIMIT_PER_SCOPE,
     notify: bool = False,
 ) -> RecentWrBucketRefreshResult:
     if not map_ids:
@@ -252,9 +273,40 @@ async def rebuild_recent_wr_events_for_maps(
         (record_uuid, ModeScope(scope), RecordType(record_type))
         for record_uuid, scope, record_type in existing_rows
     }
-    await session.exec(
-        delete(RecentWrEventCache).where(col(RecentWrEventCache.map_id).in_(map_ids))
+    deleted_result = await session.exec(
+        cast(
+            Any,
+            text(
+                """
+                DELETE FROM cache.recent_wr_events AS event
+                USING record, map
+                WHERE event.record_uuid = record.uuid
+                  AND event.map_id = map.id
+                  AND event.map_id = ANY(:map_ids)
+                  AND (
+                      record.is_valid = false
+                      OR map.validated = false
+                      OR EXISTS (
+                          SELECT 1
+                          FROM ban
+                          WHERE ban.steamid64 = record.steamid64
+                            AND (
+                                ban.expires_at IS NULL
+                                OR ban.expires_at >= CURRENT_TIMESTAMP
+                            )
+                      )
+                  )
+                RETURNING event.record_uuid, event.scope::text, event.type::text
+                """
+            ),
+        ),
+        params={"map_ids": map_ids},
     )
+    deleted_keys = {
+        (record_uuid, ModeScope(scope), RecordType(record_type))
+        for record_uuid, scope, record_type in deleted_result.all()
+    }
+    surviving_keys = existing_keys - deleted_keys
     insert_sql = text(
         """
         WITH winners AS (
@@ -343,19 +395,11 @@ async def rebuild_recent_wr_events_for_maps(
         (record_uuid, ModeScope(scope), RecordType(record_type))
         for record_uuid, scope, record_type in result_rows
     }
-    inserted = len(resulting_keys - existing_keys)
-    updated = len(resulting_keys & existing_keys)
-    deleted = len(existing_keys - resulting_keys)
+    inserted = len(resulting_keys - surviving_keys)
+    updated = len(resulting_keys & surviving_keys)
+    deleted = len(deleted_keys)
 
-    pruned_by_scope = await prune_recent_wr_events(
-        session=session,
-        limit_per_scope=limit_per_scope,
-    )
-    deleted += sum(pruned_by_scope.values())
-    changed_scopes = {
-        key[1] for key in existing_keys.symmetric_difference(resulting_keys)
-    }
-    changed_scopes.update(pruned_by_scope)
+    changed_scopes = {key[1] for key in deleted_keys | resulting_keys}
     if notify:
         for scope in sorted(changed_scopes, key=lambda value: value.value):
             await session.exec(
@@ -376,7 +420,6 @@ async def rebuild_recent_wr_events_for_players(
     *,
     session: AsyncSession,
     steamid64s: list[int],
-    limit_per_scope: int = RECENT_WR_DEFAULT_LIMIT_PER_SCOPE,
     notify: bool = False,
 ) -> RecentWrBucketRefreshResult:
     if not steamid64s:
@@ -394,48 +437,8 @@ async def rebuild_recent_wr_events_for_players(
     return await rebuild_recent_wr_events_for_maps(
         session=session,
         map_ids=sorted(map_ids),
-        limit_per_scope=limit_per_scope,
         notify=notify,
     )
-
-
-async def prune_recent_wr_events(
-    *,
-    session: AsyncSession,
-    limit_per_scope: int = RECENT_WR_DEFAULT_LIMIT_PER_SCOPE,
-) -> dict[ModeScope, int]:
-    prune_sql = text(
-        """
-        WITH ranked_records AS (
-            SELECT
-                scope,
-                record_uuid,
-                ROW_NUMBER() OVER (
-                    PARTITION BY scope
-                    ORDER BY MAX(event_created_at) DESC, record_uuid DESC
-                ) AS position
-            FROM cache.recent_wr_events
-            GROUP BY scope, record_uuid
-        ), deleted AS (
-            DELETE FROM cache.recent_wr_events AS event
-            USING ranked_records AS ranked
-            WHERE event.scope = ranked.scope
-              AND event.record_uuid = ranked.record_uuid
-              AND ranked.position > :limit_per_scope
-            RETURNING event.scope
-        )
-        SELECT scope::text, COUNT(*)
-        FROM deleted
-        GROUP BY scope
-        """
-    )
-    rows = (
-        await session.exec(
-            cast(Any, prune_sql),
-            params={"limit_per_scope": limit_per_scope},
-        )
-    ).all()
-    return {ModeScope(scope): count for scope, count in rows}
 
 
 async def read_recent_wrs(
