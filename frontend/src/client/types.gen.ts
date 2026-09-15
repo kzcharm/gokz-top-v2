@@ -929,6 +929,22 @@ export type PlayerFriendSyncPublic = {
     steam_friends_count?: (number | null);
 };
 
+export type PlayerHiddenMapCreate = {
+    map_id: number;
+};
+
+export type PlayerHiddenMapPublic = {
+    id: string;
+    map_id: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PlayerHiddenMapsPublic = {
+    data: Array<PlayerHiddenMapPublic>;
+    count: number;
+};
+
 export type PlayerLeaderboardEntryPublic = {
     rank: number;
     global_rank?: (number | null);
@@ -2575,6 +2591,20 @@ export type MeTestCurrentPlayerWebhookData = {
 };
 
 export type MeTestCurrentPlayerWebhookResponse = (PlayerWebhookPublic);
+
+export type MeGetCurrentPlayerHiddenMapsResponse = (PlayerHiddenMapsPublic);
+
+export type MeCreateCurrentPlayerHiddenMapData = {
+    requestBody: PlayerHiddenMapCreate;
+};
+
+export type MeCreateCurrentPlayerHiddenMapResponse = (PlayerHiddenMapsPublic);
+
+export type MeDeleteCurrentPlayerHiddenMapData = {
+    mapId: number;
+};
+
+export type MeDeleteCurrentPlayerHiddenMapResponse = (PlayerHiddenMapsPublic);
 
 export type MeSyncCurrentPlayerFriendsResponse = (PlayerFriendsPublic);
 

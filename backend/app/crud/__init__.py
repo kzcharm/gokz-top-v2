@@ -153,6 +153,11 @@ from .player_friend import (
     get_player_friends,
     upsert_player_friend_edges,
 )
+from .player_hidden_map import (
+    create_player_hidden_map,
+    delete_player_hidden_map,
+    list_player_hidden_maps,
+)
 from .player_like import count_player_likes, create_player_like, get_player_likers
 from .player_notification import (
     count_unread_player_notifications,
@@ -406,6 +411,7 @@ __all__ = [
     "create_player_profile_history",
     "create_player_profile_history_if_changed",
     "create_player_like",
+    "create_player_hidden_map",
     "create_player_follow_notification",
     "create_player_notification",
     "create_player_report",
@@ -421,6 +427,7 @@ __all__ = [
     "delete_player_comment",
     "delete_ban",
     "delete_player_follow",
+    "delete_player_hidden_map",
     "delete_player_pinned_record",
     "delete_player_social_link",
     "delete_player_webhook",
@@ -454,6 +461,7 @@ __all__ = [
     "get_player_followers",
     "get_player_following",
     "get_player_likers",
+    "list_player_hidden_maps",
     "get_player_pinned_record",
     "get_player_session_by_id",
     "get_player_social_link",

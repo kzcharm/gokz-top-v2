@@ -77,6 +77,7 @@ async function installPinnedRecordRoutes(page: Page) {
     type: "NUB" | "PRO"
     record: (typeof nubRecords)[number]
   }> = []
+  const hiddenMapIds = new Set<number>()
 
   await page.addInitScript((token) => {
     localStorage.setItem("access_token", token)
@@ -193,6 +194,31 @@ async function installPinnedRecordRoutes(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ data, count: data.length }),
+    })
+  })
+
+  await page.route(/\/v1\/me\/hidden-maps(?:\/\d+)?$/, async (route: Route) => {
+    const method = route.request().method()
+    if (method === "POST") {
+      const body = route.request().postDataJSON() as { map_id: number }
+      hiddenMapIds.add(body.map_id)
+    } else if (method === "DELETE") {
+      const mapId = Number(route.request().url().split("/").pop())
+      hiddenMapIds.delete(mapId)
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [...hiddenMapIds].map((mapId) => ({
+          id: `hidden-${mapId}`,
+          map_id: mapId,
+          created_at: "2026-03-31T12:00:00Z",
+          updated_at: "2026-03-31T12:00:00Z",
+        })),
+        count: hiddenMapIds.size,
+      }),
     })
   })
 
@@ -315,4 +341,29 @@ test("Own profile can pin and unpin records from the records tab and home card",
   await expect(
     page.getByRole("menuitem", { name: "Pin this record" }),
   ).toBeVisible()
+})
+
+test("Own profile can hide and restore maps from the records tab", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  await page.goto(`/profile/${steamid64}/runs`)
+
+  await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
+    button: "right",
+  })
+  await page.getByRole("menuitem", { name: "Hide this map" }).click()
+  await expect(page.getByText("kz_alpha")).toHaveCount(0)
+  await expect(page.getByText("kz_beta")).toBeVisible()
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show hidden records" })
+    .click()
+  await expect(page.getByText("kz_alpha")).toBeVisible()
+  await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
+    button: "right",
+  })
+  await page.getByRole("menuitem", { name: "Unhide this map" }).click()
+  await expect(page.getByText("kz_alpha")).toBeVisible()
 })

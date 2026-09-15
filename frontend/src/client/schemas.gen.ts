@@ -4609,6 +4609,64 @@ export const PlayerFriendsVisibilitySchema = {
     title: 'PlayerFriendsVisibility'
 } as const;
 
+export const PlayerHiddenMapCreateSchema = {
+    properties: {
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        }
+    },
+    type: 'object',
+    required: ['map_id'],
+    title: 'PlayerHiddenMapCreate'
+} as const;
+
+export const PlayerHiddenMapPublicSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'map_id', 'created_at', 'updated_at'],
+    title: 'PlayerHiddenMapPublic'
+} as const;
+
+export const PlayerHiddenMapsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerHiddenMapPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerHiddenMapsPublic'
+} as const;
+
 export const PlayerLeaderboardEntryPublicSchema = {
     properties: {
         rank: {

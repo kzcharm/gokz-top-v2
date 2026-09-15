@@ -826,6 +826,66 @@ export function getProfilePinnedRecordKey({
   return `${mapId}:${stage}:${type}`
 }
 
+export function getProfileHiddenMapsQueryOptions({
+  enabled,
+}: {
+  enabled: boolean
+}) {
+  return queryOptions({
+    queryKey: ["profile-hidden-maps"],
+    queryFn: async () => {
+      const accessToken = localStorage.getItem("access_token")
+      const response = await fetch(`${OpenAPI.BASE}/v1/me/hidden-maps`, {
+        credentials: OpenAPI.CREDENTIALS,
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      })
+      if (!response.ok) {
+        throw new Error("Failed to fetch hidden maps")
+      }
+
+      const payload = (await response.json()) as {
+        data?: Array<{ map_id: number }>
+      }
+      return new Set((payload.data ?? []).map((entry) => entry.map_id))
+    },
+    enabled,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+async function fetchHiddenMapMutation(
+  url: string,
+  init: RequestInit,
+): Promise<void> {
+  const accessToken = localStorage.getItem("access_token")
+  const response = await fetch(url, {
+    ...init,
+    credentials: OpenAPI.CREDENTIALS,
+    headers: {
+      ...(init.method === "POST" ? { "Content-Type": "application/json" } : {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  })
+  if (!response.ok) {
+    throw new Error("Hidden map mutation failed")
+  }
+}
+
+export async function hideProfileMap(mapId: number) {
+  await fetchHiddenMapMutation(`${OpenAPI.BASE}/v1/me/hidden-maps`, {
+    method: "POST",
+    body: JSON.stringify({ map_id: mapId }),
+  })
+}
+
+export async function unhideProfileMap(mapId: number) {
+  await fetchHiddenMapMutation(`${OpenAPI.BASE}/v1/me/hidden-maps/${mapId}`, {
+    method: "DELETE",
+  })
+}
+
 export function getProfilePinnedRecordsQueryOptions({
   identifier,
   scope,

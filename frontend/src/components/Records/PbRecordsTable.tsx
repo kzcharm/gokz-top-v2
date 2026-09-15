@@ -48,6 +48,7 @@ interface PbRecordsTableProps {
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
   getRowContextMenu?: (record: RecordPublic) => ReactNode
+  getRowClassName?: (record: RecordPublic) => string | undefined
   getMapContextMenu?: (record: RecordPublic) => ReactNode
   onRowClick?: (record: RecordPublic) => void
   showReplayColumn?: boolean
@@ -70,6 +71,7 @@ function PbRecordTableRow({
   dateTimeDisplay,
   getMapContextMenu,
   getRowContextMenu,
+  getRowClassName,
   onRowClick,
   record,
   showReplayColumn,
@@ -79,6 +81,7 @@ function PbRecordTableRow({
   dateTimeDisplay: DateTimeDisplay
   getMapContextMenu?: (record: RecordPublic) => ReactNode
   getRowContextMenu?: (record: RecordPublic) => ReactNode
+  getRowClassName?: (record: RecordPublic) => string | undefined
   onRowClick?: (record: RecordPublic) => void
   record: RecordPublic
   renderAdminActions?: (record: RecordPublic) => ReactNode
@@ -120,7 +123,7 @@ function PbRecordTableRow({
   const row = (
     <TableRow
       data-testid={`pb-record-row-${record.uuid}`}
-      className={cn(onRowClick && "cursor-pointer")}
+      className={cn(onRowClick && "cursor-pointer", getRowClassName?.(record))}
       onClick={
         onRowClick
           ? (event: MouseEvent<HTMLTableRowElement>) => {
@@ -362,6 +365,7 @@ export function PbRecordsTable({
   sort,
   onSortChange,
   getRowContextMenu,
+  getRowClassName,
   getMapContextMenu,
   onRowClick,
   showReplayColumn = false,
@@ -587,6 +591,7 @@ export function PbRecordsTable({
                   dateTimeDisplay={dateTimeDisplay}
                   getMapContextMenu={getMapContextMenu}
                   getRowContextMenu={getRowContextMenu}
+                  getRowClassName={getRowClassName}
                   onRowClick={onRowClick}
                   record={record}
                   renderAdminActions={renderAdminActions}

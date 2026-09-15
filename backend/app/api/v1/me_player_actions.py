@@ -16,6 +16,9 @@ from app.models import (
     ModeScope,
     PlayerBanStatusCheckPublic,
     PlayerFriendsPublic,
+    PlayerHiddenMapCreate,
+    PlayerHiddenMapPublic,
+    PlayerHiddenMapsPublic,
     PlayerPinnedRecordsPublic,
     PlayerPinnedRecordUpsert,
     RecordType,
@@ -31,6 +34,76 @@ from app.services.player_friends import (
 )
 
 router = APIRouter(prefix="/me", tags=["me"])
+
+
+async def read_current_player_hidden_maps(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerHiddenMapsPublic:
+    hidden_maps = await crud.list_player_hidden_maps(
+        session=session,
+        player_steamid64=current_user.steamid64,
+    )
+    data = [
+        PlayerHiddenMapPublic(
+            id=hidden_map.id,
+            map_id=hidden_map.map_id,
+            created_at=hidden_map.created_at,
+            updated_at=hidden_map.updated_at,
+        )
+        for hidden_map in hidden_maps
+    ]
+    return PlayerHiddenMapsPublic(data=data, count=len(data))
+
+
+@router.get("/hidden-maps", response_model=PlayerHiddenMapsPublic)
+async def get_current_player_hidden_maps(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerHiddenMapsPublic:
+    return await read_current_player_hidden_maps(
+        session=session,
+        current_user=current_user,
+    )
+
+
+@router.post("/hidden-maps", response_model=PlayerHiddenMapsPublic)
+async def create_current_player_hidden_map(
+    body: PlayerHiddenMapCreate,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerHiddenMapsPublic:
+    map_ = await crud.get_map_by_id(session=session, id=body.map_id)
+    if map_ is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    await crud.create_player_hidden_map(
+        session=session,
+        player_steamid64=current_user.steamid64,
+        map_id=map_.id,
+    )
+    return await read_current_player_hidden_maps(
+        session=session,
+        current_user=current_user,
+    )
+
+
+@router.delete("/hidden-maps/{map_id}", response_model=PlayerHiddenMapsPublic)
+async def delete_current_player_hidden_map(
+    map_id: int,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> PlayerHiddenMapsPublic:
+    await crud.delete_player_hidden_map(
+        session=session,
+        player_steamid64=current_user.steamid64,
+        map_id=map_id,
+    )
+    return await read_current_player_hidden_maps(
+        session=session,
+        current_user=current_user,
+    )
 
 
 @router.post("/friend-sync-requests", response_model=PlayerFriendsPublic)

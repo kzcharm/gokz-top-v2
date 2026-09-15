@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
-import { CalendarDaysIcon, ChevronDownIcon, Pin, PinOff } from "lucide-react"
+import {
+  CalendarDaysIcon,
+  ChevronDownIcon,
+  Eye,
+  EyeOff,
+  Pin,
+  PinOff,
+} from "lucide-react"
 import {
   type Dispatch,
   type SetStateAction,
@@ -10,6 +17,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 import type { RecordPublic } from "@/client"
 import {
   useAdminMode,
@@ -704,10 +712,16 @@ export function ProfileRecordsTab({
   viewState,
   onViewStateChange,
   canManagePinnedRecords,
+  canManageHiddenMaps,
+  hiddenMapIds,
+  showHiddenRecords,
+  hiddenMapsMutating,
   pinnedRecordKeys,
   pinnedRecordsMutating,
   onPinRecord,
   onUnpinRecord,
+  onHideMap,
+  onUnhideMap,
 }: {
   steamid64: string
   isProOnly: boolean
@@ -715,11 +729,18 @@ export function ProfileRecordsTab({
   viewState: ProfileRecordsViewState
   onViewStateChange: Dispatch<SetStateAction<ProfileRecordsViewState>>
   canManagePinnedRecords: boolean
+  canManageHiddenMaps: boolean
+  hiddenMapIds: Set<number>
+  showHiddenRecords: boolean
+  hiddenMapsMutating: boolean
   pinnedRecordKeys: Set<string>
   pinnedRecordsMutating: boolean
   onPinRecord: (mapId: number, stage: number, type: "NUB" | "PRO") => void
   onUnpinRecord: (mapId: number, stage: number, type: "NUB" | "PRO") => void
+  onHideMap: (mapId: number) => void
+  onUnhideMap: (mapId: number) => void
 }) {
+  const { t } = useTranslation()
   const { enabled: adminModeEnabled } = useAdminMode()
   const { user } = useAuth()
   const { scope } = useScope()
@@ -781,6 +802,9 @@ export function ProfileRecordsTab({
     const parsedMaxRating = maxRating.trim() === "" ? null : Number(maxRating)
 
     const filteredRecords = (recordsQuery.data ?? []).filter((record) => {
+      if (!showHiddenRecords && hiddenMapIds.has(record.map_id)) {
+        return false
+      }
       if (
         normalizedMapSearch.length > 0 &&
         !record.map_name.toLocaleLowerCase().includes(normalizedMapSearch)
@@ -891,6 +915,8 @@ export function ProfileRecordsTab({
     selectedTier,
     selectedStage,
     isBonus,
+    hiddenMapIds,
+    showHiddenRecords,
     sort,
   ])
 
@@ -978,7 +1004,7 @@ export function ProfileRecordsTab({
     ...new Set((recordsQuery.data ?? []).map((record) => record.stage)),
   ].sort((a, b) => a - b)
   const getRowContextMenu = (record: RecordPublic) => {
-    if (!canManagePinnedRecords) {
+    if (!canManagePinnedRecords && !canManageHiddenMaps) {
       return null
     }
 
@@ -990,20 +1016,42 @@ export function ProfileRecordsTab({
       }),
     )
 
+    const isHidden = hiddenMapIds.has(record.map_id)
     return (
-      <RowContextMenuItem
-        disabled={pinnedRecordsMutating}
-        onSelect={() => {
-          if (isPinned) {
-            onUnpinRecord(record.map_id, record.stage, recordType)
-            return
-          }
-          onPinRecord(record.map_id, record.stage, recordType)
-        }}
-      >
-        {isPinned ? <PinOff /> : <Pin />}
-        {isPinned ? "Unpin this record" : "Pin this record"}
-      </RowContextMenuItem>
+      <>
+        {canManageHiddenMaps ? (
+          <RowContextMenuItem
+            disabled={hiddenMapsMutating}
+            onSelect={() => {
+              if (isHidden) {
+                onUnhideMap(record.map_id)
+                return
+              }
+              onHideMap(record.map_id)
+            }}
+          >
+            {isHidden ? <Eye /> : <EyeOff />}
+            {isHidden
+              ? t("profile.hiddenMaps.unhideAction")
+              : t("profile.hiddenMaps.hideAction")}
+          </RowContextMenuItem>
+        ) : null}
+        {canManagePinnedRecords ? (
+          <RowContextMenuItem
+            disabled={pinnedRecordsMutating}
+            onSelect={() => {
+              if (isPinned) {
+                onUnpinRecord(record.map_id, record.stage, recordType)
+                return
+              }
+              onPinRecord(record.map_id, record.stage, recordType)
+            }}
+          >
+            {isPinned ? <PinOff /> : <Pin />}
+            {isPinned ? "Unpin this record" : "Pin this record"}
+          </RowContextMenuItem>
+        ) : null}
+      </>
     )
   }
 
@@ -1171,6 +1219,11 @@ export function ProfileRecordsTab({
             onSortChange={handleSortChange}
             onRowClick={setHistoryRecord}
             getRowContextMenu={getRowContextMenu}
+            getRowClassName={(record) =>
+              hiddenMapIds.has(record.map_id)
+                ? "bg-slate-200/85 text-muted-foreground hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-800"
+                : undefined
+            }
             renderAdminActions={
               adminModeForRecords ? renderAdminActions : undefined
             }

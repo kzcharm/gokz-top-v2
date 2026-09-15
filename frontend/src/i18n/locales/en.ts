@@ -650,6 +650,15 @@ export const en = {
       empty: "No pinned records found for this scope.",
       unpin: "Unpin this record",
     },
+    hiddenMaps: {
+      showToggle: "Show hidden records",
+      hideAction: "Hide this map",
+      unhideAction: "Unhide this map",
+      hidden: "Map hidden from your runs",
+      unhidden: "Map restored to your runs",
+      hideFailed: "Failed to hide map",
+      unhideFailed: "Failed to restore map",
+    },
     completion: {
       loadFailedTitle: "Unable to load completion progress",
       loadFailedBody:

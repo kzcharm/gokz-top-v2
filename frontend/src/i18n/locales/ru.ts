@@ -658,6 +658,15 @@ export const ru = {
       empty: "Для этой области закреплённые рекорды не найдены.",
       unpin: "Открепить этот рекорд",
     },
+    hiddenMaps: {
+      showToggle: "Показывать скрытые рекорды",
+      hideAction: "Скрыть эту карту",
+      unhideAction: "Вернуть эту карту",
+      hidden: "Карта скрыта из ваших забегов",
+      unhidden: "Карта возвращена в ваши забеги",
+      hideFailed: "Не удалось скрыть карту",
+      unhideFailed: "Не удалось вернуть карту",
+    },
     completion: {
       loadFailedTitle: "Не удалось загрузить прогресс прохождения",
       loadFailedBody:

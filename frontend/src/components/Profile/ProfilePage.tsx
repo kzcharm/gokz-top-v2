@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Calculator, RefreshCw, TriangleAlertIcon } from "lucide-react"
+import {
+  Calculator,
+  RefreshCw,
+  Settings2,
+  TriangleAlertIcon,
+} from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -15,6 +20,12 @@ import NotFound from "@/components/Common/NotFound"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -53,6 +64,7 @@ import {
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfileFriendsQueryOptions,
+  getProfileHiddenMapsQueryOptions,
   getProfileLikesQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
@@ -63,10 +75,12 @@ import {
   getProfileUnfinishedMapWrsQueryOptions,
   getProfileValidatedMapsQueryOptions,
   getProfileViewsQueryOptions,
+  hideProfileMap,
   type ProfileLikeResult,
   type ProfileTab,
   pinProfileRecord,
   syncProfileFriends,
+  unhideProfileMap,
   unpinProfileRecord,
 } from "./profile-utils"
 
@@ -112,6 +126,7 @@ export function ProfilePage({
   const autoSyncedFriendsRef = useRef<Set<string>>(new Set())
   const [isProOnly, setIsProOnly] = useState(false)
   const [isBonus, setIsBonus] = useState(false)
+  const [showHiddenRecords, setShowHiddenRecords] = useState(false)
   const [recordsViewState, setRecordsViewState] = useState(
     DEFAULT_PROFILE_RECORDS_VIEW_STATE,
   )
@@ -293,6 +308,10 @@ export function ProfilePage({
     }))
   }, [pinnedRecordCandidates, pinnedRecordRanksQuery.data])
   const isOwnProfile = currentUser?.steamid64 === playerSteamid64
+  const hiddenMapsQuery = useQuery(
+    getProfileHiddenMapsQueryOptions({ enabled: isOwnProfile }),
+  )
+  const hiddenMapIds = hiddenMapsQuery.data ?? new Set<number>()
   const pinnedRecordKeys = useMemo(() => {
     return new Set(
       pinnedRecordCandidates.map((entry) =>
@@ -365,6 +384,29 @@ export function ProfilePage({
     },
     onError: () => {
       toast.error(t("profile.ban.unpinFailed"))
+    },
+  })
+  const invalidateHiddenMaps = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["profile-hidden-maps"] })
+  }
+  const hideMapMutation = useMutation({
+    mutationFn: hideProfileMap,
+    onSuccess: async () => {
+      await invalidateHiddenMaps()
+      toast.success(t("profile.hiddenMaps.hidden"))
+    },
+    onError: () => {
+      toast.error(t("profile.hiddenMaps.hideFailed"))
+    },
+  })
+  const unhideMapMutation = useMutation({
+    mutationFn: unhideProfileMap,
+    onSuccess: async () => {
+      await invalidateHiddenMaps()
+      toast.success(t("profile.hiddenMaps.unhidden"))
+    },
+    onError: () => {
+      toast.error(t("profile.hiddenMaps.unhideFailed"))
     },
   })
   const unbanCheckMutation = useMutation({
@@ -665,6 +707,30 @@ export function ProfilePage({
             setRecordsViewState(settings.view)
           }}
         />
+        {isOwnProfile ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Record page settings"
+                title="Record page settings"
+                className="size-9 border-border/70 bg-background/80"
+              >
+                <Settings2 />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuCheckboxItem
+                checked={showHiddenRecords}
+                onCheckedChange={setShowHiddenRecords}
+              >
+                {t("profile.hiddenMaps.showToggle")}
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </div>
     ) : null
 
@@ -875,6 +941,12 @@ export function ProfilePage({
               viewState={recordsViewState}
               onViewStateChange={setRecordsViewState}
               canManagePinnedRecords={isOwnProfile}
+              canManageHiddenMaps={isOwnProfile}
+              hiddenMapIds={hiddenMapIds}
+              showHiddenRecords={showHiddenRecords}
+              hiddenMapsMutating={
+                hideMapMutation.isPending || unhideMapMutation.isPending
+              }
               pinnedRecordKeys={pinnedRecordKeys}
               pinnedRecordsMutating={
                 pinRecordMutation.isPending || unpinRecordMutation.isPending
@@ -885,6 +957,8 @@ export function ProfilePage({
               onUnpinRecord={(mapId, stage, type) => {
                 unpinRecordMutation.mutate({ mapId, stage, type })
               }}
+              onHideMap={(mapId) => hideMapMutation.mutate(mapId)}
+              onUnhideMap={(mapId) => unhideMapMutation.mutate(mapId)}
             />
           ) : activeTab === "unfinished" ? (
             <ProfileUnfinishedTab

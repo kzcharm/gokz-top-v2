@@ -637,6 +637,15 @@ export const zhCN = {
       empty: "当前范围内没有置顶记录。",
       unpin: "取消置顶此记录",
     },
+    hiddenMaps: {
+      showToggle: "显示隐藏记录",
+      hideAction: "隐藏此地图",
+      unhideAction: "恢复此地图",
+      hidden: "地图已从你的跑图记录中隐藏",
+      unhidden: "地图已恢复到你的跑图记录中",
+      hideFailed: "隐藏地图失败",
+      unhideFailed: "恢复地图失败",
+    },
     completion: {
       loadFailedTitle: "无法加载完成进度",
       loadFailedBody: "无法加载个人主页完成进度条，请刷新页面后重试。",

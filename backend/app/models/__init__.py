@@ -196,6 +196,12 @@ from .player_friend import (
     PlayerFriendSyncPublic,
     PlayerFriendSyncResult,
 )
+from .player_hidden_map import (
+    PlayerHiddenMap,
+    PlayerHiddenMapCreate,
+    PlayerHiddenMapPublic,
+    PlayerHiddenMapsPublic,
+)
 from .player_like import PlayerLike
 from .player_notification import (
     PlayerNotification,
@@ -747,6 +753,10 @@ __all__ = [
     "PlayerFollow",
     "PlayerFollowListQuery",
     "PlayerFollowSummaryPublic",
+    "PlayerHiddenMap",
+    "PlayerHiddenMapCreate",
+    "PlayerHiddenMapPublic",
+    "PlayerHiddenMapsPublic",
     "PlayerPinnedRecord",
     "PlayerPinnedRecordPublic",
     "PlayerPinnedRecordsPublic",
