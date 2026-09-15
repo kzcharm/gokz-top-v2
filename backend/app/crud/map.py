@@ -109,6 +109,19 @@ async def get_map_by_name(*, session: AsyncSession, map_name: str) -> Map | None
     return (await session.exec(statement)).first()
 
 
+async def read_maps_by_names(
+    *,
+    session: AsyncSession,
+    map_names: list[str],
+) -> list[Map]:
+    if not map_names:
+        return []
+    statement = (
+        select(Map).where(col(Map.name).in_(map_names)).order_by(col(Map.id).asc())
+    )
+    return list((await session.exec(statement)).all())
+
+
 async def read_maps_v1(
     *,
     session: AsyncSession,

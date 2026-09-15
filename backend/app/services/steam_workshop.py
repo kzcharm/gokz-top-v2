@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import WorkshopPreviewUrlCache
@@ -124,26 +125,92 @@ async def get_cached_workshop_preview_url(
     session: AsyncSession,
     workshop_id: str,
 ) -> str | None:
-    normalized_workshop_id = int(workshop_id)
-    cache_row = await session.get(WorkshopPreviewUrlCache, normalized_workshop_id)
-    if cache_row is not None:
-        if _is_cached_preview_url_fresh(cache_row):
-            return cache_row.preview_url
-        if _is_cached_preview_miss_fresh(cache_row):
-            return None
+    normalized_workshop_id = str(int(workshop_id))
+    preview_urls = await get_cached_workshop_preview_urls(
+        session=session,
+        workshop_ids=[normalized_workshop_id],
+    )
+    return preview_urls.get(normalized_workshop_id)
 
-    preview_url = await fetch_workshop_preview_url(workshop_id=workshop_id)
+
+async def get_cached_workshop_preview_urls(
+    *,
+    session: AsyncSession,
+    workshop_ids: list[str],
+) -> dict[str, str | None]:
+    normalized_workshop_ids = list(
+        dict.fromkeys(
+            str(int(workshop_id.strip()))
+            for workshop_id in workshop_ids
+            if workshop_id.strip().isdigit()
+        )
+    )
+    if not normalized_workshop_ids:
+        return {}
+
+    normalized_workshop_id_values = [
+        int(workshop_id) for workshop_id in normalized_workshop_ids
+    ]
+    cache_rows = list(
+        (
+            await session.exec(
+                select(WorkshopPreviewUrlCache).where(
+                    col(WorkshopPreviewUrlCache.workshop_id).in_(
+                        normalized_workshop_id_values
+                    )
+                )
+            )
+        ).all()
+    )
+    cache_rows_by_workshop_id = {
+        str(cache_row.workshop_id): cache_row for cache_row in cache_rows
+    }
+    preview_urls: dict[str, str | None] = {}
+    workshop_ids_to_refresh: list[str] = []
+    for workshop_id in normalized_workshop_ids:
+        cache_row = cache_rows_by_workshop_id.get(workshop_id)
+        if cache_row is not None and _is_cached_preview_url_fresh(cache_row):
+            preview_urls[workshop_id] = cache_row.preview_url
+        elif cache_row is not None and _is_cached_preview_miss_fresh(cache_row):
+            preview_urls[workshop_id] = None
+        else:
+            workshop_ids_to_refresh.append(workshop_id)
+
+    if not workshop_ids_to_refresh:
+        return preview_urls
+
+    if len(workshop_ids_to_refresh) == 1:
+        workshop_id = workshop_ids_to_refresh[0]
+        refreshed_preview_urls = {
+            workshop_id: await fetch_workshop_preview_url(workshop_id=workshop_id)
+        }
+    else:
+        workshop_details = await fetch_workshop_file_details(
+            workshop_ids=workshop_ids_to_refresh
+        )
+        refreshed_preview_urls = {
+            workshop_id: (
+                workshop_details[workshop_id].preview_url
+                if workshop_id in workshop_details
+                else None
+            )
+            for workshop_id in workshop_ids_to_refresh
+        }
+
     now = get_datetime_utc()
-    error_message = (
-        None if preview_url is not None else "Workshop preview not found"
-    )
-    insert_statement = postgresql_insert(WorkshopPreviewUrlCache).values(
-        workshop_id=normalized_workshop_id,
-        preview_url=preview_url,
-        fetched_at=now if preview_url is not None else None,
-        last_attempted_at=now,
-        error_message=error_message,
-    )
+    cache_values = [
+        {
+            "workshop_id": int(workshop_id),
+            "preview_url": preview_url,
+            "fetched_at": now if preview_url is not None else None,
+            "last_attempted_at": now,
+            "error_message": (
+                None if preview_url is not None else "Workshop preview not found"
+            ),
+        }
+        for workshop_id, preview_url in refreshed_preview_urls.items()
+    ]
+    insert_statement = postgresql_insert(WorkshopPreviewUrlCache).values(cache_values)
     await session.exec(
         insert_statement.on_conflict_do_update(
             index_elements=[WorkshopPreviewUrlCache.workshop_id],
@@ -156,7 +223,8 @@ async def get_cached_workshop_preview_url(
         )
     )
     await session.commit()
-    return preview_url
+    preview_urls.update(refreshed_preview_urls)
+    return preview_urls
 
 
 async def fetch_workshop_file_details(

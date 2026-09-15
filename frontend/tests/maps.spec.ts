@@ -2,6 +2,46 @@ import { expect, type Page, test } from "@playwright/test"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
+async function stubMapImageGraphql(
+  page: Page,
+  onBatch?: (
+    inputs: Array<{ mapName: string; workshopId: string | null }>,
+  ) => void,
+) {
+  await page.route("**/v1/graphql", async (route) => {
+    const body = route.request().postDataJSON() as {
+      query?: string
+      variables?: {
+        inputs?: Array<{ mapName: string; workshopId?: string | null }>
+      }
+    }
+    if (!body.query?.includes("query MapImages")) {
+      await route.fallback()
+      return
+    }
+
+    const inputs = (body.variables?.inputs ?? []).map((input) => ({
+      mapName: input.mapName,
+      workshopId: input.workshopId ?? null,
+    }))
+    onBatch?.(inputs)
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          mapImages: inputs.map((input) => ({
+            ...input,
+            previewUrl: input.workshopId
+              ? `https://steam.example/${input.workshopId}.jpg`
+              : null,
+          })),
+        },
+      }),
+    })
+  })
+}
+
 async function stubRegions(page: Page) {
   await page.route("**/v1/regions", async (route) => {
     await route.fulfill({
@@ -626,6 +666,10 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   page,
 }) => {
   let mapsRequestUrl = ""
+  const mapImageBatches: Array<
+    Array<{ mapName: string; workshopId: string | null }>
+  > = []
+  const previewRedirectRequests: string[] = []
   const leaderboardRequests: Array<{
     type: string | null
     limit: string | null
@@ -639,6 +683,12 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     localStorage.setItem("gokz-datetime-format", "iso")
   })
   await stubRegions(page)
+  await stubMapImageGraphql(page, (inputs) => mapImageBatches.push(inputs))
+  page.on("request", (request) => {
+    if (/\/v1\/maps\/(?:workshop\/[^/]+\/)?preview-image/.test(request.url())) {
+      previewRedirectRequests.push(request.url())
+    }
+  })
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     mapsRequestUrl = route.request().url()
@@ -812,12 +862,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     .evaluate((element) => window.getComputedStyle(element).backgroundImage)
   const staticAlphaImageUrl =
     "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_alpha.webp"
-  const workshopAlphaImagePath = "/v1/maps/workshop/1986459001/preview-image"
+  const workshopAlphaImagePath = "https://steam.example/1986459001.jpg"
   expect(alphaCardBackground).toContain(staticAlphaImageUrl)
   expect(alphaCardBackground).toContain(workshopAlphaImagePath)
   expect(alphaCardBackground.indexOf(staticAlphaImageUrl)).toBeLessThan(
     alphaCardBackground.indexOf(workshopAlphaImagePath),
   )
+  await expect.poll(() => mapImageBatches.length).toBe(1)
+  expect(mapImageBatches[0].length).toBeGreaterThan(1)
+  expect(previewRedirectRequests).toEqual([])
   const pageInput = page.getByRole("spinbutton", {
     name: "Current page, 2 total pages",
   })
@@ -918,7 +971,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByRole("heading", { name: "kz_alpha" })).toBeVisible()
   await expect(
     page.getByRole("img", { name: "kz_alpha preview image" }),
-  ).toHaveAttribute("src", /\/v1\/maps\/workshop\/1986459001\/preview-image/)
+  ).toHaveAttribute("src", "https://steam.example/1986459001.jpg")
   await expect(page.getByRole("tab", { name: "Map Top" })).toBeVisible()
   await expect(page.getByText("Alpha Runner")).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Rank" })).toBeVisible()

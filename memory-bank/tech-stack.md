@@ -12,7 +12,7 @@
 - API surfaces:
   - `/v0` for GlobalAPI v2.0 compatibility behavior
   - `/v1` for project-native endpoints
-  - `/v1/graphql` for player-focused GraphQL read queries
+  - `/v1/graphql` for selectively hydrated player data and batched map-preview URL reads
   - `/v1/ws/players` for live completion events when an on-demand Steam player-profile refresh changes visible identity data
   - `/v1/ws/records/recent` for scope-aware live record events, with an optional `steamid64` subscription filter used by a player's own runs page
   - Profile run WR columns join `/v1/records/pb` results with the matching scoped `/v1/maps/wrs` response in the frontend; the WR response includes the winning run's teleport count for PRO/TP color treatment, and the PB endpoint does not perform per-record WR enrichment

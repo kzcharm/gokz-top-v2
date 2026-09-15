@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { cn } from "@/lib/utils"
 
 import {
@@ -21,7 +22,6 @@ import {
   getServerAddress,
   getServerHostname,
   getServerLastSuccessfulQueryAt,
-  getServerMapImageUrls,
   getServerMapName,
   getServerPlayerCount,
   getServerPlayers,
@@ -47,7 +47,11 @@ export function ServerDetailSheet({
   onSteamConnect,
 }: ServerDetailSheetProps) {
   const mapName = server ? getServerMapName(server) : null
-  const mapImageUrls = server ? getServerMapImageUrls(server) : []
+  const mapImageUrls = useMapImageUrls(
+    mapName,
+    server?.live_status?.workshop_id ?? null,
+    server !== null,
+  )
   const isRefreshing = server ? isServerStatusRefreshing(server) : false
   const lastSuccessfulQueryAt = server
     ? getServerLastSuccessfulQueryAt(server)

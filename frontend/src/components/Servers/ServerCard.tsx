@@ -11,6 +11,7 @@ import { TierBadge } from "@/components/Servers/TierBadge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { loadPlayerForDisplay } from "@/lib/player-graphql"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
@@ -24,7 +25,6 @@ import {
   getPlayerStatusSurfaceClass,
   getPlayerStringValue,
   getServerHostname,
-  getServerMapImageUrls,
   getServerMapName,
   getServerPlayerCount,
   getServerPlayers,
@@ -166,7 +166,10 @@ export const ServerCard = memo(function ServerCard({
   onSteamConnect,
 }: ServerCardProps) {
   const mapName = getServerMapName(server)
-  const mapImageUrls = useMemo(() => getServerMapImageUrls(server), [server])
+  const mapImageUrls = useMapImageUrls(
+    mapName,
+    server.live_status?.workshop_id ?? null,
+  )
   const playerCount = getServerPlayerCount(server)
   const maxPlayers = server.live_status?.max_players ?? 0
   const isFull = maxPlayers > 0 && playerCount >= maxPlayers

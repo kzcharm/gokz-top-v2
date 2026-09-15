@@ -188,7 +188,7 @@ Scope model:
 - New product-native behavior should prefer `/v1` instead of changing `/v0` semantics.
 - Bans now have both `/v0/bans` compatibility reads and `/v1/bans` public `{data, count}` reads for future user-facing bans pages.
 - `/v0/bans` only returns mirrored GlobalAPI bans with a non-null external id, while `/v1/bans` exposes both `uuid` and nullable external `id`, allows superuser manual creation through `POST /v1/bans`, and uses UUIDs for `/v1/bans/{uuid}` detail reads.
-- `/v1/graphql` is an additive read-only player query surface for selective frontend hydration; it does not replace `/v0` and does not remove dedicated `/v1/players*` endpoints.
+- `/v1/graphql` is an additive read-only surface for selective player hydration and batched map-preview URL resolution; it does not replace `/v0` or remove dedicated `/v1` REST endpoints.
 - Touched `/v1` non-player responses should embed compact player references instead of full player payloads when only identity/display name is required inline.
 
 ## 7) Engineering Requirements

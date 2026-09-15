@@ -8,10 +8,7 @@ import type {
   MapWrPublic,
 } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import {
-  getMapImageUrls,
-  MapNameContextMenu,
-} from "@/components/Common/MapDisplay"
+import { MapNameContextMenu } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { getRecordModeLabelById } from "@/components/Records/mode"
@@ -24,6 +21,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { cn } from "@/lib/utils"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
@@ -123,7 +121,7 @@ export function MapCard({
   sortField = "name",
 }: MapCardProps) {
   const { t } = useTranslation()
-  const imageUrls = getMapImageUrls(map.name, map.workshop_id)
+  const imageUrls = useMapImageUrls(map.name, map.workshop_id)
   const downloadUrl = getMapDownloadUrl(map)
   const reviewSummary = map.review_summary
   const bonusCount = map.bonus_count ?? 0

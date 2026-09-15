@@ -10,12 +10,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from strawberry.fastapi import GraphQLRouter
 
 from app.api.deps import get_db
+from app.crud import map as map_crud
 from app.crud import player as player_crud
 from app.crud.leaderboard_player import load_player_ratings_by_scope
 from app.crud.player_profile_view import count_player_profile_views_batch
-from app.models import ModeScope, Player, UserRole
+from app.models import Map, ModeScope, Player, UserRole
 from app.models.leaderboard_player import scale_public_rating
 from app.services.player_steam_profile import sync_player_steam_profiles_if_due
+from app.services.steam_workshop import get_cached_workshop_preview_urls
 
 strawberry.enum(ModeScope, name="ModeScope")
 strawberry.enum(UserRole, name="UserRole")
@@ -49,6 +51,19 @@ class PlayerGQL:
 class PlayerConnectionGQL:
     data: list[PlayerGQL]
     count: int
+
+
+@strawberry.input(name="MapImageInput")
+class MapImageInputGQL:
+    map_name: str
+    workshop_id: strawberry.ID | None = None
+
+
+@strawberry.type(name="MapImage")
+class MapImageGQL:
+    map_name: str
+    workshop_id: strawberry.ID | None
+    preview_url: str | None
 
 
 def _serialize_datetime(value: datetime | None) -> str | None:
@@ -117,6 +132,59 @@ async def _to_graphql_players(
 
 @strawberry.type
 class Query:
+    @strawberry.field
+    async def map_images(
+        self,
+        info: strawberry.Info[dict[str, AsyncSession], None],
+        inputs: list[MapImageInputGQL],
+    ) -> list[MapImageGQL]:
+        normalized_inputs: list[tuple[str, str | None]] = []
+        map_names_to_resolve: list[str] = []
+        for image_input in inputs:
+            map_name = image_input.map_name.strip()
+            raw_workshop_id = str(image_input.workshop_id or "").strip()
+            workshop_id = (
+                str(int(raw_workshop_id)) if raw_workshop_id.isdigit() else None
+            )
+            normalized_inputs.append((map_name, workshop_id))
+            if workshop_id is None and map_name:
+                map_names_to_resolve.append(map_name)
+
+        maps_by_name: dict[str, Map] = {}
+        for loaded_map in await map_crud.read_maps_by_names(
+            session=_get_session(info),
+            map_names=list(dict.fromkeys(map_names_to_resolve)),
+        ):
+            maps_by_name.setdefault(loaded_map.name, loaded_map)
+        resolved_inputs: list[tuple[str, str | None]] = []
+        for map_name, workshop_id in normalized_inputs:
+            if workshop_id is None:
+                resolved_map = maps_by_name.get(map_name)
+                if resolved_map is not None and resolved_map.workshop_id is not None:
+                    workshop_id = str(resolved_map.workshop_id)
+            resolved_inputs.append((map_name, workshop_id))
+
+        preview_urls = await get_cached_workshop_preview_urls(
+            session=_get_session(info),
+            workshop_ids=[
+                workshop_id
+                for _map_name, workshop_id in resolved_inputs
+                if workshop_id is not None
+            ],
+        )
+        return [
+            MapImageGQL(
+                map_name=map_name,
+                workshop_id=(
+                    strawberry.ID(workshop_id) if workshop_id is not None else None
+                ),
+                preview_url=(
+                    preview_urls.get(workshop_id) if workshop_id is not None else None
+                ),
+            )
+            for map_name, workshop_id in resolved_inputs
+        ]
+
     @strawberry.field
     async def player(
         self,

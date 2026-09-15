@@ -5,7 +5,6 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { MapsService } from "@/client"
-import { OpenAPI } from "@/client/core/OpenAPI"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,9 +14,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { getMapDownloadUrlForMapName } from "@/lib/map-downloads"
+import {
+  getLegacyMapImageUrls,
+  getMapImageUrl,
+  getMapPreviewImageUrl,
+  getWorkshopPreviewImageUrl,
+} from "@/lib/map-images"
 import { cn } from "@/lib/utils"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
+
+export { getMapImageUrl, getMapPreviewImageUrl, getWorkshopPreviewImageUrl }
 
 interface MapDisplayProps {
   mapName: string | null | undefined
@@ -45,57 +53,11 @@ function stopMenuPropagation(event: MouseEvent | KeyboardEvent) {
   event.stopPropagation()
 }
 
-export function getMapImageUrl(mapName: string | null | undefined) {
-  if (!mapName || mapName.trim() === "") {
-    return null
-  }
-
-  return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${mapName}.webp`
-}
-
-function buildApiUrl(path: string) {
-  const configuredBase = OpenAPI.BASE || window.location.origin
-  const baseUrl = new URL(configuredBase, window.location.origin)
-  const normalizedBasePath =
-    baseUrl.pathname === "/" ? "" : baseUrl.pathname.replace(/\/$/, "")
-
-  return `${baseUrl.origin}${normalizedBasePath}${path}`
-}
-
-export function getWorkshopPreviewImageUrl(
-  workshopId: number | string | null | undefined,
-) {
-  const normalizedWorkshopId = String(workshopId ?? "").trim()
-  if (!normalizedWorkshopId || !/^\d+$/.test(normalizedWorkshopId)) {
-    return null
-  }
-
-  return buildApiUrl(
-    `/v1/maps/workshop/${encodeURIComponent(normalizedWorkshopId)}/preview-image`,
-  )
-}
-
-export function getMapPreviewImageUrl(mapName: string | null | undefined) {
-  const normalizedMapName = String(mapName ?? "").trim()
-  if (!normalizedMapName) {
-    return null
-  }
-
-  return buildApiUrl(
-    `/v1/maps/preview-image?map_name=${encodeURIComponent(normalizedMapName)}`,
-  )
-}
-
 export function getMapImageUrls(
   mapName: string | null | undefined,
   workshopId?: number | string | null,
 ) {
-  const workshopPreviewUrl =
-    getWorkshopPreviewImageUrl(workshopId) ?? getMapPreviewImageUrl(mapName)
-
-  return [getMapImageUrl(mapName), workshopPreviewUrl].filter(
-    (url): url is string => Boolean(url),
-  )
+  return getLegacyMapImageUrls(mapName, workshopId)
 }
 
 export function MapNameContextMenu({
@@ -298,15 +260,19 @@ export function MapDisplay({
   const [, copyToClipboard] = useCopyToClipboard()
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
+  const shouldLoadImageUrls = !imageUrls || imageUrls.length === 0
+  const loadedImageUrls = useMapImageUrls(
+    mapName,
+    workshopId,
+    shouldLoadImageUrls,
+  )
 
   if (!mapName || mapName.trim() === "") {
     return <span className="text-muted-foreground">-</span>
   }
 
   const resolvedImageUrls =
-    imageUrls && imageUrls.length > 0
-      ? imageUrls
-      : getMapImageUrls(mapName, workshopId)
+    imageUrls && imageUrls.length > 0 ? imageUrls : loadedImageUrls
   const mapParams = { mapName }
   const resolvedDownloadUrl = getMapDownloadUrlForMapName(mapName, downloadUrl)
 

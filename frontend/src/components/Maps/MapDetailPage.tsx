@@ -22,7 +22,6 @@ import {
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
-import { getMapImageUrls } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { formatRecordTime } from "@/components/Records/utils"
@@ -46,6 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
+import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { formatNumber, getLocale } from "@/i18n/locale"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
@@ -265,7 +265,7 @@ function MapHero({
     map.workshop_id !== null && map.workshop_id !== undefined
       ? String(map.workshop_id)
       : null
-  const imageUrls = getMapImageUrls(map.name, workshopId)
+  const imageUrls = useMapImageUrls(map.name, workshopId)
   const downloadUrl = getMapDownloadUrl(map)
   const imageUrlsKey = imageUrls.join("\n")
   const [imageFallback, setImageFallback] = useState({ key: "", index: 0 })

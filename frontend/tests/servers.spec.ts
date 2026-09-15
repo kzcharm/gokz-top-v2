@@ -6,6 +6,46 @@ import { logInUser } from "./utils/user"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
+async function stubMapImageGraphql(
+  page: Page,
+  onBatch?: (
+    inputs: Array<{ mapName: string; workshopId: string | null }>,
+  ) => void,
+) {
+  await page.route("**/v1/graphql", async (route) => {
+    const body = route.request().postDataJSON() as {
+      query?: string
+      variables?: {
+        inputs?: Array<{ mapName: string; workshopId?: string | null }>
+      }
+    }
+    if (!body.query?.includes("query MapImages")) {
+      await route.fallback()
+      return
+    }
+
+    const inputs = (body.variables?.inputs ?? []).map((input) => ({
+      mapName: input.mapName,
+      workshopId: input.workshopId ?? null,
+    }))
+    onBatch?.(inputs)
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          mapImages: inputs.map((input) => ({
+            ...input,
+            previewUrl: input.workshopId
+              ? `https://steam.example/${input.workshopId}.jpg`
+              : null,
+          })),
+        },
+      }),
+    })
+  })
+}
+
 const seedServers = {
   count: 1,
   data: [
@@ -536,6 +576,16 @@ test("Server details show rich telemetry and update legacy snapshots", async ({
 test("Public servers page supports live updates, filters, and route-bound details", async ({
   page,
 }) => {
+  const mapImageBatches: Array<
+    Array<{ mapName: string; workshopId: string | null }>
+  > = []
+  const previewRedirectRequests: string[] = []
+  await stubMapImageGraphql(page, (inputs) => mapImageBatches.push(inputs))
+  page.on("request", (request) => {
+    if (/\/v1\/maps\/(?:workshop\/[^/]+\/)?preview-image/.test(request.url())) {
+      previewRedirectRequests.push(request.url())
+    }
+  })
   await page.addInitScript(() => {
     localStorage.setItem("gokz-datetime-format", "iso")
 
@@ -635,7 +685,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
           (element) => window.getComputedStyle(element).backgroundImage,
         ),
     )
-    .toContain("/v1/maps/workshop/123456789/preview-image")
+    .toContain("https://steam.example/123456789.jpg")
   await expect
     .poll(async () =>
       page
@@ -656,10 +706,15 @@ test("Public servers page supports live updates, filters, and route-bound detail
     .evaluate((element) => window.getComputedStyle(element).backgroundImage)
   const staticSeedImageUrl =
     "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_seed.webp"
-  const workshopSeedImagePath = "/v1/maps/workshop/123456789/preview-image"
+  const workshopSeedImagePath = "https://steam.example/123456789.jpg"
   expect(seedCardBackground.indexOf(staticSeedImageUrl)).toBeLessThan(
     seedCardBackground.indexOf(workshopSeedImagePath),
   )
+  await expect.poll(() => mapImageBatches.length).toBe(1)
+  expect(mapImageBatches[0]).toEqual([
+    { mapName: "kz_seed", workshopId: "123456789" },
+  ])
+  expect(previewRedirectRequests).toEqual([])
 
   await page.waitForFunction(() => {
     return (

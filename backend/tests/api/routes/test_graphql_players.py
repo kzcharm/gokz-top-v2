@@ -6,7 +6,7 @@ from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1 import graphql as graphql_api
-from app.models import Ban, BanType, LeaderboardPlayer, ModeScope, Player, User
+from app.models import Ban, BanType, LeaderboardPlayer, Map, ModeScope, Player, User
 from app.models.player_profile_view import PlayerProfileView
 from tests.utils.utils import random_steamid64
 
@@ -151,6 +151,80 @@ async def test_graphql_players_batch_preserves_order_and_returns_null_for_unknow
     assert players[1] is None
     assert players[2]["steamid64"] == str(alpha)
     assert players[2]["displayName"] == "Alpha"
+
+
+async def test_graphql_map_images_batches_and_preserves_input_order(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db.add(Map(id=9_820_001, name="kz_graphql_beta", workshop_id=222))
+    await db.commit()
+    requested_workshop_ids: list[str] = []
+
+    async def _fake_get_cached_workshop_preview_urls(
+        *,
+        session: AsyncSession,
+        workshop_ids: list[str],
+    ) -> dict[str, str | None]:
+        assert session is not None
+        requested_workshop_ids.extend(workshop_ids)
+        return {
+            "111": "https://steam.example/alpha.jpg",
+            "222": "https://steam.example/beta.jpg",
+        }
+
+    monkeypatch.setattr(
+        graphql_api,
+        "get_cached_workshop_preview_urls",
+        _fake_get_cached_workshop_preview_urls,
+    )
+
+    payload = await _post_graphql(
+        client,
+        query="""
+        query MapImages($inputs: [MapImageInput!]!) {
+          mapImages(inputs: $inputs) {
+            mapName
+            workshopId
+            previewUrl
+          }
+        }
+        """,
+        variables={
+            "inputs": [
+                {"mapName": "kz_graphql_alpha", "workshopId": "111"},
+                {"mapName": "kz_graphql_beta"},
+                {"mapName": "kz_graphql_missing", "workshopId": "invalid"},
+                {"mapName": "kz_graphql_alpha", "workshopId": "111"},
+            ]
+        },
+    )
+
+    assert payload.get("errors") is None
+    assert requested_workshop_ids == ["111", "222", "111"]
+    assert payload["data"]["mapImages"] == [
+        {
+            "mapName": "kz_graphql_alpha",
+            "workshopId": "111",
+            "previewUrl": "https://steam.example/alpha.jpg",
+        },
+        {
+            "mapName": "kz_graphql_beta",
+            "workshopId": "222",
+            "previewUrl": "https://steam.example/beta.jpg",
+        },
+        {
+            "mapName": "kz_graphql_missing",
+            "workshopId": None,
+            "previewUrl": None,
+        },
+        {
+            "mapName": "kz_graphql_alpha",
+            "workshopId": "111",
+            "previewUrl": "https://steam.example/alpha.jpg",
+        },
+    ]
 
 
 async def test_graphql_players_schedule_non_blocking_steam_profile_sync(
