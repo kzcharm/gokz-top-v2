@@ -33,14 +33,18 @@ import { cn } from "@/lib/utils"
 import { ReportPlayerDialog } from "../Reports/ReportPlayerDialog"
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
-import type { PbRecordsColumn, PbRecordsSortState } from "./pb-records-utils"
+import type {
+  PbRecordsColumn,
+  PbRecordsSortState,
+  PbRecordWithWr,
+} from "./pb-records-utils"
 import { RecordServerDisplay } from "./RecordServerDisplay"
 import { ReplayAvailabilityButton } from "./ReplayAvailabilityButton"
 import { TeleportsBadge } from "./TeleportsBadge"
 import { formatRecordTime } from "./utils"
 
 interface PbRecordsTableProps {
-  records: RecordPublic[]
+  records: PbRecordWithWr[]
   columns?: PbRecordsColumn[]
   columnFilters?: Partial<Record<PbRecordsColumn, ReactNode>>
   emptyMessage?: string
@@ -83,7 +87,7 @@ function PbRecordTableRow({
   getRowContextMenu?: (record: RecordPublic) => ReactNode
   getRowClassName?: (record: RecordPublic) => string | undefined
   onRowClick?: (record: RecordPublic) => void
-  record: RecordPublic
+  record: PbRecordWithWr
   renderAdminActions?: (record: RecordPublic) => ReactNode
   showReplayColumn: boolean
   visibleColumns: Set<PbRecordsColumn>
@@ -216,7 +220,16 @@ function PbRecordTableRow({
         </TableCell>
       ) : null}
       {visibleColumns.has("wrTime") ? (
-        <TableCell className="text-right font-mono font-medium">
+        <TableCell
+          className={cn(
+            "text-right font-mono font-medium",
+            record.wr_time != null && record.wr_teleports === 0
+              ? "text-[#258ac7] dark:text-[#42b5f5]"
+              : record.wr_time != null && record.wr_teleports != null
+                ? "text-[#d39e00] dark:text-[#ffc400]"
+                : undefined,
+          )}
+        >
           {record.wr_time == null ? "-" : formatRecordTime(record.wr_time)}
         </TableCell>
       ) : null}

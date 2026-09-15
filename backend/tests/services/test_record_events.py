@@ -2,8 +2,10 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any, cast
 
 import pytest
+from fastapi import WebSocket
 from sqlmodel import delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -20,12 +22,25 @@ from app.models import (
 )
 from app.services import record_events
 from app.services.record_events import (
+    RecentRecordEventHub,
     build_recent_record_snapshot_event,
     build_recent_record_upsert_event,
 )
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
+
+
+class _FakeWebSocket:
+    def __init__(self) -> None:
+        self.accepted = False
+        self.payloads: list[dict[str, Any]] = []
+
+    async def accept(self) -> None:
+        self.accepted = True
+
+    async def send_json(self, payload: dict[str, Any]) -> None:
+        self.payloads.append(payload)
 
 
 async def _create_player(
@@ -190,6 +205,78 @@ async def test_build_recent_record_snapshot_event_returns_latest_records(
 
     skz_event = await build_recent_record_snapshot_event(scope=ModeScope.SKZ)
     assert [record.uuid for record in skz_event.records] == [newest.uuid]
+
+    player_event = await build_recent_record_snapshot_event(
+        steamid64=str(player_one)
+    )
+    assert [record.uuid for record in player_event.records] == [oldest.uuid]
+
+    player_skz_event = await build_recent_record_snapshot_event(
+        scope=ModeScope.SKZ,
+        steamid64=str(player_one),
+    )
+    assert player_skz_event.records == []
+
+
+async def test_recent_record_event_hub_filters_player_subscriptions(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @asynccontextmanager
+    async def _session_maker():
+        yield db
+
+    monkeypatch.setattr(record_events, "async_session_maker", _session_maker)
+
+    matching_player = random_steamid64()
+    other_player = random_steamid64()
+    await _create_player(db, steamid64=matching_player, name="Matching Runner")
+    await _create_player(db, steamid64=other_player, name="Other Runner")
+    await _create_map(db, map_id=992200, name="kz_filtered_live", difficulty=4)
+    await _create_server(db, server_id=992300, name="Filtered Live Server")
+    record = await _create_record(
+        db,
+        record_id=None,
+        steamid64=matching_player,
+        map_id=992200,
+        server_id=992300,
+        mode_id=200,
+        created_on=datetime(2026, 3, 30, 12, 3, tzinfo=UTC),
+    )
+
+    unfiltered_socket = _FakeWebSocket()
+    matching_socket = _FakeWebSocket()
+    other_socket = _FakeWebSocket()
+    other_scope_socket = _FakeWebSocket()
+    hub = RecentRecordEventHub()
+    await hub.connect(cast(WebSocket, unfiltered_socket), scope=ModeScope.OVR)
+    await hub.connect(
+        cast(WebSocket, matching_socket),
+        scope=ModeScope.OVR,
+        steamid64=str(matching_player),
+    )
+    await hub.connect(
+        cast(WebSocket, other_socket),
+        scope=ModeScope.OVR,
+        steamid64=str(other_player),
+    )
+    await hub.connect(
+        cast(WebSocket, other_scope_socket),
+        scope=ModeScope.SKZ,
+        steamid64=str(matching_player),
+    )
+
+    await hub.broadcast_record_upsert(str(record.uuid))
+
+    assert unfiltered_socket.accepted is True
+    assert [payload["type"] for payload in unfiltered_socket.payloads] == [
+        "record.upserted"
+    ]
+    assert [payload["type"] for payload in matching_socket.payloads] == [
+        "record.upserted"
+    ]
+    assert other_socket.payloads == []
+    assert other_scope_socket.payloads == []
 
 
 async def test_build_recent_record_upsert_event_returns_single_record_payload(

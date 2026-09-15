@@ -3607,6 +3607,10 @@ export const MapWrPublicSchema = {
             type: 'number',
             title: 'Time'
         },
+        teleports: {
+            type: 'integer',
+            title: 'Teleports'
+        },
         updated_at: {
             type: 'string',
             format: 'date-time',
@@ -3614,7 +3618,7 @@ export const MapWrPublicSchema = {
         }
     },
     type: 'object',
-    required: ['record_uuid', 'map_id', 'scope', 'type', 'mode_id', 'player', 'time', 'updated_at'],
+    required: ['record_uuid', 'map_id', 'scope', 'type', 'mode_id', 'player', 'time', 'teleports', 'updated_at'],
     title: 'MapWrPublic'
 } as const;
 

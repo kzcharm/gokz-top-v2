@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-09-14
+- Last Updated: 2026-09-15
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -14,6 +14,8 @@
   - `/v1` for project-native endpoints
   - `/v1/graphql` for player-focused GraphQL read queries
   - `/v1/ws/players` for live completion events when an on-demand Steam player-profile refresh changes visible identity data
+  - `/v1/ws/records/recent` for scope-aware live record events, with an optional `steamid64` subscription filter used by a player's own runs page
+  - Profile run WR columns join `/v1/records/pb` results with the matching scoped `/v1/maps/wrs` response in the frontend; the WR response includes the winning run's teleport count for PRO/TP color treatment, and the PB endpoint does not perform per-record WR enrichment
   - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying of Bilibili preview assets
   - `/v1/me/notifications` for authenticated player notification inbox reads, unread counts, and read-state mutations
   - `/v1/me/qq-binding-code` for authenticated short-lived QQ bot binding code generation backed by an admin-managed encrypted shared secret

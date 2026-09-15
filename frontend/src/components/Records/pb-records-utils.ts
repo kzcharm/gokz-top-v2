@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 
 import {
+  type MapWrPublic,
   type RecordPublic,
   type RecordRunHistoryPublic,
   RecordsService,
@@ -43,6 +44,46 @@ export interface PbRecordsSortState {
   direction: PbRecordsSortDirection
 }
 
+export type PbRecordWithWr = RecordPublic & {
+  wr_teleports?: number | null
+}
+
+function getWrGap(recordTime: number, wrTime: number) {
+  if (
+    !Number.isFinite(recordTime) ||
+    !Number.isFinite(wrTime) ||
+    wrTime <= 0 ||
+    recordTime <= wrTime
+  ) {
+    return null
+  }
+
+  const gap = Math.log2(recordTime / wrTime - 1)
+  return Number.isFinite(gap) ? Math.round(gap * 1000) / 1000 : null
+}
+
+export function attachMapWrsToPbRecords(
+  records: RecordPublic[],
+  wrs: MapWrPublic[],
+) {
+  const wrByMapId = new Map<number, MapWrPublic>()
+  for (const wr of wrs) {
+    if (!wrByMapId.has(wr.map_id)) {
+      wrByMapId.set(wr.map_id, wr)
+    }
+  }
+
+  return records.map((record) => {
+    const wr = record.stage === 0 ? wrByMapId.get(record.map_id) : undefined
+    return {
+      ...record,
+      wr_time: wr?.time ?? null,
+      wr_gap: wr === undefined ? null : getWrGap(record.time, wr.time),
+      wr_teleports: wr?.teleports ?? null,
+    }
+  })
+}
+
 function compareStrings(left: string, right: string) {
   return left.localeCompare(right, undefined, {
     numeric: true,
@@ -81,8 +122,8 @@ function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
   }
 }
 
-export function sortPbRecords(
-  records: RecordPublic[],
+export function sortPbRecords<Record extends RecordPublic>(
+  records: Record[],
   sort: PbRecordsSortState,
 ) {
   return [...records].sort((left, right) => {

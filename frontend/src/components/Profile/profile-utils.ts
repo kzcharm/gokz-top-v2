@@ -534,7 +534,7 @@ export function getProfileValidatedMapsQueryOptions() {
   })
 }
 
-export function getProfileUnfinishedMapWrsQueryOptions({
+export function getProfileMapWrsQueryOptions({
   scope,
   isProOnly,
 }: {
@@ -542,7 +542,7 @@ export function getProfileUnfinishedMapWrsQueryOptions({
   isProOnly: boolean
 }) {
   return queryOptions({
-    queryKey: ["profile-unfinished-wrs", scope, isProOnly],
+    queryKey: ["profile-map-wrs", scope, isProOnly],
     queryFn: () =>
       MapsService.readMapWrs({
         scope,

@@ -504,6 +504,18 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
         "display_name": "Alias One",
     }
 
+    player_response = await client.get(
+        f"{settings.API_V1_STR}/records/recent",
+        params={"steamid64": first_player_id},
+    )
+    assert player_response.status_code == 200
+    player_payload = player_response.json()
+    assert [row["uuid"] for row in player_payload["data"]] == [
+        str(null_id.uuid),
+        str(oldest.uuid),
+    ]
+    assert player_payload["count"] == 2
+
 
 async def test_read_recent_records_v1_rejects_limit_above_max(
     client: AsyncClient,
@@ -776,6 +788,7 @@ async def test_read_recent_records_v1_rejects_invalid_filter_bounds(
         {"stage": -1},
         {"tier": 9},
         {"points_less_or_equal_than": 1001},
+        {"steamid64": "not-a-steamid64"},
     ):
         response = await client.get(
             f"{settings.API_V1_STR}/records/recent",
@@ -1324,10 +1337,8 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     assert payload[0]["map_tier"] == 0
     assert payload[0]["teleports"] == 0
     assert payload[0]["raw_rating_contribution"] == 123
-    assert payload[0]["wr_time"] == 20.0
-    assert payload[0]["wr_gap"] == pytest.approx(
-        round(math.log2(24 / 20 - 1), 3)
-    )
+    assert payload[0]["wr_time"] is None
+    assert payload[0]["wr_gap"] is None
 
     bonus_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",

@@ -31,6 +31,7 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import { useOwnProfileRecordsRealtime } from "@/hooks/useOwnProfileRecordsRealtime"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
@@ -66,13 +67,13 @@ import {
   getProfileFriendsQueryOptions,
   getProfileHiddenMapsQueryOptions,
   getProfileLikesQueryOptions,
+  getProfileMapWrsQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
   getProfilePointsStandingQueryOptions,
   getProfileRecordRanksQueryOptions,
   getProfileStatsQueryOptions,
-  getProfileUnfinishedMapWrsQueryOptions,
   getProfileValidatedMapsQueryOptions,
   getProfileViewsQueryOptions,
   hideProfileMap,
@@ -83,6 +84,27 @@ import {
   unhideProfileMap,
   unpinProfileRecord,
 } from "./profile-utils"
+
+const PROFILE_RUNS_SHOW_WR_TIME_COOKIE = "profile_runs_show_wr_time"
+const PROFILE_RUNS_SHOW_WR_GAP_COOKIE = "profile_runs_show_wr_gap"
+const PROFILE_RUNS_PREFERENCE_MAX_AGE = 60 * 60 * 24 * 365
+
+function readBooleanCookie(name: string) {
+  if (typeof document === "undefined") {
+    return false
+  }
+
+  const prefix = `${name}=`
+  const cookie = document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith(prefix))
+  return cookie?.slice(prefix.length) === "true"
+}
+
+function writeBooleanCookie(name: string, value: boolean) {
+  // biome-ignore lint/suspicious/noDocumentCookie: these UI preferences must be readable during synchronous state initialization
+  document.cookie = `${name}=${value}; Path=/; Max-Age=${PROFILE_RUNS_PREFERENCE_MAX_AGE}; SameSite=Lax`
+}
 
 function formatBanType(value: string) {
   return value
@@ -127,8 +149,12 @@ export function ProfilePage({
   const [isProOnly, setIsProOnly] = useState(false)
   const [isBonus, setIsBonus] = useState(false)
   const [showHiddenRecords, setShowHiddenRecords] = useState(false)
-  const [showWrTime, setShowWrTime] = useState(false)
-  const [showWrGap, setShowWrGap] = useState(false)
+  const [showWrTime, setShowWrTime] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_SHOW_WR_TIME_COOKIE),
+  )
+  const [showWrGap, setShowWrGap] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_SHOW_WR_GAP_COOKIE),
+  )
   const [recordsViewState, setRecordsViewState] = useState(
     DEFAULT_PROFILE_RECORDS_VIEW_STATE,
   )
@@ -190,7 +216,7 @@ export function ProfilePage({
   const useWrBasedProCompletion =
     currentPlayerSettingsQuery.data?.use_wr_based_pro_completion ?? true
   const proWrsQuery = useQuery({
-    ...getProfileUnfinishedMapWrsQueryOptions({
+    ...getProfileMapWrsQueryOptions({
       scope,
       isProOnly: true,
     }),
@@ -310,6 +336,11 @@ export function ProfilePage({
     }))
   }, [pinnedRecordCandidates, pinnedRecordRanksQuery.data])
   const isOwnProfile = currentUser?.steamid64 === playerSteamid64
+  useOwnProfileRecordsRealtime({
+    enabled: activeTab === "records" && isOwnProfile,
+    scope,
+    steamid64: playerSteamid64,
+  })
   const hiddenMapsQuery = useQuery(
     getProfileHiddenMapsQueryOptions({ enabled: isOwnProfile }),
   )
@@ -732,13 +763,19 @@ export function ProfilePage({
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={showWrTime}
-                onCheckedChange={setShowWrTime}
+                onCheckedChange={(checked) => {
+                  setShowWrTime(checked)
+                  writeBooleanCookie(PROFILE_RUNS_SHOW_WR_TIME_COOKIE, checked)
+                }}
               >
                 {t("profile.records.showWrTime")}
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={showWrGap}
-                onCheckedChange={setShowWrGap}
+                onCheckedChange={(checked) => {
+                  setShowWrGap(checked)
+                  writeBooleanCookie(PROFILE_RUNS_SHOW_WR_GAP_COOKIE, checked)
+                }}
               >
                 {t("profile.records.showWrGap")}
               </DropdownMenuCheckboxItem>

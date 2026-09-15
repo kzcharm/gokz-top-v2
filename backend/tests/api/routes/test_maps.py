@@ -1166,10 +1166,12 @@ async def test_read_map_wrs_v1_returns_nub_and_pro_rows(
     assert [row["type"] for row in payload] == ["NUB", "PRO"]
     assert payload[0]["player"]["display_name"] == "Nub Winner"
     assert payload[0]["time"] == pytest.approx(10.5)
+    assert payload[0]["teleports"] == 1
     assert payload[0]["map_id"] == map_obj.id
     assert payload[0]["scope"] == "OVR"
     assert payload[1]["player"]["display_name"] == "Pro Winner"
     assert payload[1]["mode_id"] == 201
+    assert payload[1]["teleports"] == 0
 
 
 @pytest.mark.asyncio

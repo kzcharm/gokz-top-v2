@@ -1344,6 +1344,7 @@ async def read_map_wrs(
             Record.mode,
             Record.steamid64,
             RecordPb.time,
+            Record.teleports,
         )
         .join(MapCourse, MapCourse.id == RecordPb.course_id)
         .join(Map, Map.id == MapCourse.map_id)
@@ -1377,6 +1378,7 @@ async def read_map_wrs(
             mode_id=mode.mode_id,
             player=to_player_ref_public(player=players_by_steamid64[player_steamid64]),
             time=float(record_time),
+            teleports=record_teleports,
             updated_at=updated_at,
         )
         for (
@@ -1388,6 +1390,7 @@ async def read_map_wrs(
             mode,
             player_steamid64,
             record_time,
+            record_teleports,
         ) in rows
     ]
 
@@ -2116,6 +2119,10 @@ async def read_recent_records(
         statement = statement.where(
             col(Record.mode).in_(list(mode_scope_modes(query.scope)))
         )
+        if query.steamid64 is not None:
+            statement = statement.where(
+                col(Record.steamid64) == int(query.steamid64)
+            )
         if query.mode is not None:
             statement = statement.where(col(Record.mode) == query.mode)
         if query.map_id is not None:
@@ -2175,6 +2182,7 @@ async def read_recent_records(
 
     is_unfiltered_recent_query = (
         query.scope is ModeScope.OVR
+        and query.steamid64 is None
         and query.mode is None
         and query.map_id is None
         and query.stage is None
@@ -2975,12 +2983,6 @@ async def get_pb_record_publics(
         ],
         scope=scope,
     )
-    wr_times_by_course = await _load_wr_times_by_course(
-        session=session,
-        record_courses=list(tiers_by_course),
-        scope=scope,
-        record_type=record_type,
-    )
     return [
         RecordPublic(
             uuid=record_uuid,
@@ -3006,19 +3008,6 @@ async def get_pb_record_publics(
             stage=record_stage,
             tickrate=128,
             time=float(record_time),
-            wr_time=(
-                float(wr_times_by_course[(record_map_id, record_stage)])
-                if (record_map_id, record_stage) in wr_times_by_course
-                else None
-            ),
-            wr_gap=(
-                _record_time_to_wr_gap(
-                    wr_time=wr_times_by_course[(record_map_id, record_stage)],
-                    record_time=record_time,
-                )
-                if (record_map_id, record_stage) in wr_times_by_course
-                else None
-            ),
             teleports=record_teleports,
             points=points,
             raw_rating_contribution=raw_rating_contribution,

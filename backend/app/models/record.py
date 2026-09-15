@@ -4,7 +4,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
@@ -661,6 +661,7 @@ class MapWrPublic(SQLModel):
     mode_id: int
     player: PlayerRefPublic
     time: float
+    teleports: int
     updated_at: datetime
 
 
@@ -723,6 +724,7 @@ class RecentRecordListQuery(SQLModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=50, ge=1, le=100000)
     scope: ModeScope = ModeScope.OVR
+    steamid64: str | None = Field(default=None, regex=r"^[1-9]\d{0,18}$")
     mode: KZMode | None = None
     map_id: int | None = Field(default=None, ge=1)
     stage: int | None = Field(default=None, ge=0)
@@ -732,6 +734,13 @@ class RecentRecordListQuery(SQLModel):
     points_less_or_equal_than: int | None = Field(default=None, ge=0, le=1000)
     type: RecordType | None = None
     is_pro_only: bool | None = None
+
+    @field_validator("steamid64")
+    @classmethod
+    def _validate_steamid64(cls, value: str | None) -> str | None:
+        if value is not None and int(value) > 9_223_372_036_854_775_807:
+            raise ValueError("steamid64 must fit in a signed 64-bit integer")
+        return value
 
 
 class RecentRecordSnapshotEvent(SQLModel):

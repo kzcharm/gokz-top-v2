@@ -37,7 +37,7 @@ import {
 
 import {
   buildProfileUnfinishedRows,
-  getProfileUnfinishedMapWrsQueryOptions,
+  getProfileMapWrsQueryOptions,
   type ProfileUnfinishedRow,
 } from "./profile-utils"
 
@@ -316,13 +316,13 @@ export function ProfileUnfinishedTab({
   const nubLoadMoreRef = useRef<HTMLDivElement | null>(null)
   const proLoadMoreRef = useRef<HTMLDivElement | null>(null)
   const nubWrsQuery = useQuery(
-    getProfileUnfinishedMapWrsQueryOptions({
+    getProfileMapWrsQueryOptions({
       scope,
       isProOnly: false,
     }),
   )
   const proWrsQuery = useQuery(
-    getProfileUnfinishedMapWrsQueryOptions({
+    getProfileMapWrsQueryOptions({
       scope,
       isProOnly: true,
     }),

@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from contextlib import suppress
+from dataclasses import dataclass
 from typing import Any
 
 import psycopg
@@ -19,19 +20,29 @@ from app.models import (
 RECENT_RECORD_SNAPSHOT_LIMIT = 50
 
 
+@dataclass(frozen=True)
+class RecentRecordSubscription:
+    scope: ModeScope
+    steamid64: str | None = None
+
+
 class RecentRecordEventHub:
     def __init__(self) -> None:
-        self._connections: dict[WebSocket, ModeScope] = {}
+        self._connections: dict[WebSocket, RecentRecordSubscription] = {}
         self._lock = asyncio.Lock()
 
     async def connect(
         self,
         websocket: WebSocket,
         scope: ModeScope = ModeScope.OVR,
+        steamid64: str | None = None,
     ) -> None:
         await websocket.accept()
         async with self._lock:
-            self._connections[websocket] = scope
+            self._connections[websocket] = RecentRecordSubscription(
+                scope=scope,
+                steamid64=steamid64,
+            )
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
@@ -60,17 +71,27 @@ class RecentRecordEventHub:
 
     async def broadcast_record_upsert(self, record_uuid: str) -> None:
         async with self._lock:
-            scopes_by_connection = dict(self._connections)
+            subscriptions_by_connection = dict(self._connections)
 
         payloads: dict[WebSocket, dict[str, Any]] = {}
-        for scope in set(scopes_by_connection.values()):
+        scopes = {
+            subscription.scope for subscription in subscriptions_by_connection.values()
+        }
+        for scope in scopes:
             event = await build_recent_record_upsert_event(record_uuid, scope=scope)
             if event is None:
                 continue
             payload = event.model_dump(mode="json")
-            for connection, connection_scope in scopes_by_connection.items():
-                if connection_scope == scope:
-                    payloads[connection] = payload
+            event_steamid64 = event.record.player.steamid64
+            for connection, subscription in subscriptions_by_connection.items():
+                if subscription.scope != scope:
+                    continue
+                if (
+                    subscription.steamid64 is not None
+                    and subscription.steamid64 != event_steamid64
+                ):
+                    continue
+                payloads[connection] = payload
 
         await self._broadcast_json(payloads)
 
@@ -80,6 +101,7 @@ recent_record_event_hub = RecentRecordEventHub()
 
 async def build_recent_record_snapshot_event(
     scope: ModeScope = ModeScope.OVR,
+    steamid64: str | None = None,
 ) -> RecentRecordSnapshotEvent:
     async with async_session_maker() as session:
         records, _ = await crud.read_recent_records(
@@ -87,6 +109,7 @@ async def build_recent_record_snapshot_event(
             query=RecentRecordListQuery(
                 limit=RECENT_RECORD_SNAPSHOT_LIMIT,
                 scope=scope,
+                steamid64=steamid64,
             ),
         )
     return RecentRecordSnapshotEvent(records=records)

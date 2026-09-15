@@ -1,4 +1,6 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from typing import Annotated
+
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from app.models import ModeScope
 from app.services.record_events import (
@@ -10,11 +12,21 @@ router = APIRouter(prefix="/ws", tags=["record-ws"])
 
 
 @router.websocket("/records/recent")
-async def websocket_recent_records(websocket: WebSocket) -> None:
-    scope = ModeScope(websocket.query_params.get("scope", ModeScope.OVR.value))
-    await recent_record_event_hub.connect(websocket, scope=scope)
+async def websocket_recent_records(
+    websocket: WebSocket,
+    scope: Annotated[ModeScope, Query()] = ModeScope.OVR,
+    steamid64: Annotated[str | None, Query(pattern=r"^[1-9]\d{0,18}$")] = None,
+) -> None:
+    await recent_record_event_hub.connect(
+        websocket,
+        scope=scope,
+        steamid64=steamid64,
+    )
     try:
-        snapshot = await build_recent_record_snapshot_event(scope=scope)
+        snapshot = await build_recent_record_snapshot_event(
+            scope=scope,
+            steamid64=steamid64,
+        )
         await websocket.send_json(snapshot.model_dump(mode="json"))
         while True:
             await websocket.receive()

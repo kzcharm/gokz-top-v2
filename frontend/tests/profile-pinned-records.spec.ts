@@ -35,8 +35,8 @@ const nubRecords = [
     stage: 0,
     tickrate: 128,
     time: 42.123,
-    wr_time: 40,
-    wr_gap: -3,
+    wr_time: null,
+    wr_gap: null,
     teleports: 1,
     points: 960,
     created_on: "2026-03-31T12:00:00Z",
@@ -60,8 +60,8 @@ const nubRecords = [
     stage: 0,
     tickrate: 128,
     time: 43.5,
-    wr_time: 41,
-    wr_gap: -2.5,
+    wr_time: null,
+    wr_gap: null,
     teleports: 2,
     points: 920,
     created_on: "2026-03-30T08:15:00Z",
@@ -188,6 +188,22 @@ async function installPinnedRecordRoutes(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify([]),
+    })
+  })
+
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, async (route: Route) => {
+    const url = new URL(route.request().url())
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        url.searchParams.get("type") === "PRO"
+          ? []
+          : [
+              { map_id: 980200, time: 40, teleports: 0 },
+              { map_id: 980201, time: 41, teleports: 2 },
+            ],
+      ),
     })
   })
 
@@ -466,6 +482,20 @@ test("Own profile can show and filter WR time and WR gap columns", async ({
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
 
+  await expect
+    .poll(async () => {
+      const cookies = await page.context().cookies()
+      return Object.fromEntries(
+        cookies.map((cookie) => [cookie.name, cookie.value]),
+      )
+    })
+    .toMatchObject({
+      profile_runs_show_wr_time: "true",
+      profile_runs_show_wr_gap: "true",
+    })
+
+  await page.reload()
+
   await expect(
     page.getByRole("columnheader", { name: "WR Time", exact: true }),
   ).toBeVisible()
@@ -473,7 +503,17 @@ test("Own profile can show and filter WR time and WR gap columns", async ({
     page.getByRole("columnheader", { name: "WR Gap", exact: true }),
   ).toBeVisible()
   await expect(page.getByText("40.000", { exact: true })).toBeVisible()
-  await expect(page.getByText("-3.00", { exact: true })).toBeVisible()
+  await expect(page.getByText("-4.24", { exact: true })).toBeVisible()
+  await expect(
+    page
+      .getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+      .getByText("40.000", { exact: true }),
+  ).toHaveClass(/text-\[#258ac7\]/)
+  await expect(
+    page
+      .getByTestId(`pb-record-row-${nubRecords[1].uuid}`)
+      .getByText("41.000", { exact: true }),
+  ).toHaveClass(/text-\[#d39e00\]/)
 
   await page.getByLabel("Filter by wr time range").click()
   await page.getByRole("textbox", { name: "Minimum wr time" }).fill("0:41")
@@ -482,7 +522,7 @@ test("Own profile can show and filter WR time and WR gap columns", async ({
   await page.getByRole("textbox", { name: "Minimum wr time" }).fill("")
 
   await page.getByLabel("Filter by wr gap range").click()
-  await page.getByRole("spinbutton", { name: "Maximum wr gap" }).fill("-2.75")
+  await page.getByRole("spinbutton", { name: "Maximum wr gap" }).fill("-4.1")
   await expect(page.getByText("kz_alpha")).toBeVisible()
   await expect(page.getByText("kz_beta")).toHaveCount(0)
 })

@@ -71,7 +71,10 @@ export interface RecentRecordsFilters {
   maxPoints?: number | null
 }
 
-export function buildRecentRecordsWebSocketUrl(scope: AppScope = "OVR") {
+export function buildRecentRecordsWebSocketUrl(
+  scope: AppScope = "OVR",
+  steamid64?: string,
+) {
   const configuredBase = OpenAPI.BASE || window.location.origin
   const baseUrl = new URL(configuredBase, window.location.origin)
   const protocol = baseUrl.protocol === "https:" ? "wss:" : "ws:"
@@ -79,6 +82,9 @@ export function buildRecentRecordsWebSocketUrl(scope: AppScope = "OVR") {
     baseUrl.pathname === "/" ? "" : baseUrl.pathname.replace(/\/$/, "")
 
   const params = new URLSearchParams({ scope })
+  if (steamid64) {
+    params.set("steamid64", steamid64)
+  }
   return `${protocol}//${baseUrl.host}${normalizedPath}/v1/ws/records/recent?${params.toString()}`
 }
 

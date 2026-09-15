@@ -1397,6 +1397,7 @@ async def test_read_map_wrs_uses_record_pb_main_course_rows(
         (RecordType.NUB, nub_record.uuid),
         (RecordType.PRO, pro_record.uuid),
     ]
+    assert [row.teleports for row in wr_rows] == [1, 0]
 
     main_course = (
         await db.exec(

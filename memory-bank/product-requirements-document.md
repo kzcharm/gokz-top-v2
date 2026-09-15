@@ -104,6 +104,7 @@ Scope model:
 - When Cloudflare R2 is configured, `/live` stores each changed Bilibili and Twitch stream keyframe at a new immutable UUIDv7 URL, skips uploads when the image hash is unchanged, and uses the last saved image for offline stream cards. Superseded objects are removed after the replacement is committed, while an hourly sweep removes unreferenced keyframes older than 24 hours.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).
 - Profile views now consume a consolidated player stats endpoint backed by lazily refreshed PostgreSQL cache rows, with UTC daily activity, total playtime, most-played-server breakdowns, and most-played-map breakdowns by records submitted and record time available on the profile.
+- An authenticated player's own `/profile/:identifier/runs` page must subscribe to player-filtered live record events and refresh its PB data automatically when new records become available; anonymous visitors and viewers of other players' runs must not open that subscription. WR times are blue when the winning run has zero teleports and yellow when it has teleports, including zero-teleport winners shown in the NUB bucket. The Show WR time and Show WR gap choices persist in first-party browser cookies.
 - Player profile sidebars expose a `Fav Server` row below Long Jump. By default it reflects the player's all-time most-played server/group from cached stats; grouped servers display the server group name and link to the server-group page.
 - Shareable, fast-loading profile UI with clear information hierarchy.
 

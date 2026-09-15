@@ -29,6 +29,7 @@ import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { normalizeRecordMode } from "@/components/Records/mode"
 import { PbRecordsTable } from "@/components/Records/PbRecordsTable"
 import {
+  attachMapWrsToPbRecords,
   type PbRecordsColumn,
   sortPbRecords,
 } from "@/components/Records/pb-records-utils"
@@ -55,6 +56,7 @@ import {
 } from "../Records/admin-actions"
 import type { ProfileRecordsViewState } from "./ProfileRecordsPresetMenu"
 import {
+  getProfileMapWrsQueryOptions,
   getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
 } from "./profile-utils"
@@ -1067,6 +1069,16 @@ export function ProfileRecordsTab({
       stage: selectedStage,
     }),
   })
+  const wrsQuery = useQuery(
+    getProfileMapWrsQueryOptions({
+      scope,
+      isProOnly,
+    }),
+  )
+  const recordsWithWrs = useMemo(
+    () => attachMapWrsToPbRecords(recordsQuery.data ?? [], wrsQuery.data ?? []),
+    [recordsQuery.data, wrsQuery.data],
+  )
 
   const sortedRecords = useMemo(() => {
     const normalizedMapSearch = deferredMapSearch.trim().toLocaleLowerCase()
@@ -1088,7 +1100,7 @@ export function ProfileRecordsTab({
     const parsedMinRating = minRating.trim() === "" ? null : Number(minRating)
     const parsedMaxRating = maxRating.trim() === "" ? null : Number(maxRating)
 
-    const filteredRecords = (recordsQuery.data ?? []).filter((record) => {
+    const filteredRecords = recordsWithWrs.filter((record) => {
       if (!showHiddenRecords && hiddenMapIds.has(record.map_id)) {
         return false
       }
@@ -1246,7 +1258,7 @@ export function ProfileRecordsTab({
     maxRating,
     fromDate,
     toDate,
-    recordsQuery.data,
+    recordsWithWrs,
     selectedMode,
     selectedTier,
     selectedStage,

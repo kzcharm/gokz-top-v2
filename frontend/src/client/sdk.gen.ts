@@ -3556,6 +3556,7 @@ export class RecordsService {
      * @param data.offset
      * @param data.limit
      * @param data.scope
+     * @param data.steamid64
      * @param data.mode
      * @param data.mapId
      * @param data.stage
@@ -3576,6 +3577,7 @@ export class RecordsService {
                 offset: data.offset,
                 limit: data.limit,
                 scope: data.scope,
+                steamid64: data.steamid64,
                 mode: data.mode,
                 map_id: data.mapId,
                 stage: data.stage,

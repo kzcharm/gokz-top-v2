@@ -735,6 +735,7 @@ export type MapWrPublic = {
     mode_id: number;
     player: PlayerRefPublic;
     time: number;
+    teleports: number;
     updated_at: string;
 };
 
@@ -3073,6 +3074,7 @@ export type RecordsReadRecentRecordsData = {
     pointsMoreOrEqualThan?: (number | null);
     scope?: ModeScope;
     stage?: (number | null);
+    steamid64?: (string | null);
     tier?: (number | null);
     type?: (RecordType | null);
 };
