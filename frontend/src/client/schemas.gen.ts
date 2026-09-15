@@ -7803,6 +7803,28 @@ export const RecordPublicSchema = {
             type: 'number',
             title: 'Time'
         },
+        wr_time: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Wr Time'
+        },
+        wr_gap: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Wr Gap'
+        },
         teleports: {
             type: 'integer',
             title: 'Teleports'

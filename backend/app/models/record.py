@@ -594,6 +594,8 @@ class RecordPublic(SQLModel):
     stage: int
     tickrate: int = 128
     time: float
+    wr_time: float | None = None
+    wr_gap: float | None = None
     teleports: int
     points: int
     raw_rating_contribution: int = 0

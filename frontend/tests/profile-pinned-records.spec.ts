@@ -35,6 +35,8 @@ const nubRecords = [
     stage: 0,
     tickrate: 128,
     time: 42.123,
+    wr_time: 40,
+    wr_gap: -3,
     teleports: 1,
     points: 960,
     created_on: "2026-03-31T12:00:00Z",
@@ -58,6 +60,8 @@ const nubRecords = [
     stage: 0,
     tickrate: 128,
     time: 43.5,
+    wr_time: 41,
+    wr_gap: -2.5,
     teleports: 2,
     points: 920,
     created_on: "2026-03-30T08:15:00Z",
@@ -83,6 +87,14 @@ async function installPinnedRecordRoutes(page: Page) {
     localStorage.setItem("access_token", token)
   }, accessToken)
 
+  await page.route(/\/v1\//, async (route: Route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Unhandled test route" }),
+    })
+  })
+
   await page.route(/\/v1\/admin\/servers\/access$/, async (route: Route) => {
     await route.fulfill({
       status: 403,
@@ -105,6 +117,31 @@ async function installPinnedRecordRoutes(page: Page) {
       }),
     })
   })
+
+  await page.route(/\/v1\/me\/settings$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        player,
+        alias: { can_change: true },
+        custom_id: { can_change: true },
+        country: { can_change: true },
+        use_wr_based_pro_completion: true,
+      }),
+    })
+  })
+
+  await page.route(
+    /\/v1\/me\/notifications\/unread-count$/,
+    async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ unread_count: 0 }),
+      })
+    },
+  )
 
   await page.route(/\/v1\/players\/[^/]+$/, async (route: Route) => {
     await route.fulfill({
@@ -302,6 +339,53 @@ async function installPinnedRecordRoutes(page: Page) {
       })
     },
   )
+
+  await page.route(
+    /\/v1\/me\/pinned-records(?:\/\d+\/[^/]+\/[^/?]+)?(?:\?.*)?$/,
+    async (route: Route) => {
+      if (route.request().method() === "POST") {
+        const body = route.request().postDataJSON() as {
+          map_id: number
+          scope: string
+          type: "NUB" | "PRO"
+        }
+        const record = nubRecords.find((entry) => entry.map_id === body.map_id)
+        if (record) {
+          pinnedRecords.unshift({
+            id: `pin-${body.map_id}-${body.type}`,
+            player_steamid64: steamid64,
+            map_id: body.map_id,
+            scope: body.scope,
+            type: body.type,
+            record,
+          })
+        }
+      } else if (route.request().method() === "DELETE") {
+        const pathParts = new URL(route.request().url()).pathname.split("/")
+        const mapId = Number(pathParts.at(-3))
+        const scope = pathParts.at(-2)
+        const type = pathParts.at(-1)
+        const nextPinnedRecords = pinnedRecords.filter(
+          (entry) =>
+            !(
+              entry.map_id === mapId &&
+              entry.scope === scope &&
+              entry.type === type
+            ),
+        )
+        pinnedRecords.splice(0, pinnedRecords.length, ...nextPinnedRecords)
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: pinnedRecords,
+          count: pinnedRecords.length,
+        }),
+      })
+    },
+  )
 }
 
 test("Own profile can pin and unpin records from the records tab and home card", async ({
@@ -366,4 +450,39 @@ test("Own profile can hide and restore maps from the records tab", async ({
   })
   await page.getByRole("menuitem", { name: "Unhide this map" }).click()
   await expect(page.getByText("kz_alpha")).toBeVisible()
+})
+
+test("Own profile can show and filter WR time and WR gap columns", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  await page.goto(`/profile/${steamid64}/runs`)
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Show WR time" }).click()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show WR time" }),
+  ).toHaveCount(0)
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
+
+  await expect(
+    page.getByRole("columnheader", { name: "WR Time", exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("columnheader", { name: "WR Gap", exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText("40.000", { exact: true })).toBeVisible()
+  await expect(page.getByText("-3.00", { exact: true })).toBeVisible()
+
+  await page.getByLabel("Filter by wr time range").click()
+  await page.getByRole("textbox", { name: "Minimum wr time" }).fill("0:41")
+  await expect(page.getByText("kz_alpha")).toHaveCount(0)
+  await expect(page.getByText("kz_beta")).toBeVisible()
+  await page.getByRole("textbox", { name: "Minimum wr time" }).fill("")
+
+  await page.getByLabel("Filter by wr gap range").click()
+  await page.getByRole("spinbutton", { name: "Maximum wr gap" }).fill("-2.75")
+  await expect(page.getByText("kz_alpha")).toBeVisible()
+  await expect(page.getByText("kz_beta")).toHaveCount(0)
 })

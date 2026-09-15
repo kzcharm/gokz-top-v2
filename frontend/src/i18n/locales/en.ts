@@ -478,6 +478,8 @@ export const en = {
       ratingLabel: "Rating",
     },
     records: {
+      showWrTime: "Show WR time",
+      showWrGap: "Show WR gap",
       ratingContributionInfo: "Rating contribution info",
       ratingContributionTooltip:
         "Raw rating this record contributes to the player's rating.",

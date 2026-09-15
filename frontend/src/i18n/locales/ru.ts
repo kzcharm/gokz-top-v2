@@ -483,6 +483,8 @@ export const ru = {
       ratingLabel: "Рейтинг",
     },
     records: {
+      showWrTime: "Показывать время WR",
+      showWrGap: "Показывать разрыв с WR",
       ratingContributionInfo: "Информация о вкладе в рейтинг",
       ratingContributionTooltip:
         "Сырой рейтинг, который эта запись добавляет к рейтингу игрока.",

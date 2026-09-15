@@ -42,6 +42,10 @@ export interface ProfileRecordsViewState {
   maxTeleports: string
   minTime: string
   maxTime: string
+  minWrTime: string
+  maxWrTime: string
+  minWrGap: string
+  maxWrGap: string
   minPoints: string
   maxPoints: string
   minRating: string
@@ -61,6 +65,10 @@ export const DEFAULT_PROFILE_RECORDS_VIEW_STATE: ProfileRecordsViewState = {
   maxTeleports: "",
   minTime: "",
   maxTime: "",
+  minWrTime: "",
+  maxWrTime: "",
+  minWrGap: "",
+  maxWrGap: "",
   minPoints: "",
   maxPoints: "",
   minRating: "",
@@ -133,6 +141,8 @@ function parseViewState(value: unknown): ProfileRecordsViewState | null {
       "stage",
       "tps",
       "time",
+      "wrTime",
+      "wrGap",
       "points",
       "rating",
       "server",
@@ -152,6 +162,10 @@ function parseViewState(value: unknown): ProfileRecordsViewState | null {
     maxTeleports: readString(value.maxTeleports),
     minTime: readString(value.minTime),
     maxTime: readString(value.maxTime),
+    minWrTime: readString(value.minWrTime),
+    maxWrTime: readString(value.maxWrTime),
+    minWrGap: readString(value.minWrGap),
+    maxWrGap: readString(value.maxWrGap),
     minPoints: readString(value.minPoints),
     maxPoints: readString(value.maxPoints),
     minRating: readString(value.minRating),

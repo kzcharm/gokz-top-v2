@@ -637,11 +637,15 @@ function NumericRangeFilter({
 }
 
 function TimeRangeFilter({
+  label = "Time",
+  idPrefix = "time",
   minValue,
   maxValue,
   onMinValueChange,
   onMaxValueChange,
 }: {
+  label?: string
+  idPrefix?: string
   minValue: string
   maxValue: string
   onMinValueChange: (value: string) => void
@@ -665,7 +669,7 @@ function TimeRangeFilter({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Filter by time range"
+          aria-label={`Filter by ${label.toLocaleLowerCase()} range`}
           className={cn(
             "flex h-8 min-w-11 items-center justify-center rounded-md border border-border/70 bg-background/80 px-1.5 text-[11px] font-medium shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
             hasActiveRange ? "w-[6.75rem]" : "w-11",
@@ -690,19 +694,19 @@ function TimeRangeFilter({
       >
         <div className="space-y-3">
           <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Time
+            {label}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <label
-              htmlFor="profile-records-time-min"
+              htmlFor={`profile-records-${idPrefix}-min`}
               className="space-y-1 text-[11px] text-muted-foreground"
             >
               <span>Min</span>
               <Input
-                id="profile-records-time-min"
+                id={`profile-records-${idPrefix}-min`}
                 type="text"
                 inputMode="numeric"
-                aria-label="Minimum time"
+                aria-label={`Minimum ${label.toLocaleLowerCase()}`}
                 placeholder="m:ss"
                 value={minValue}
                 onChange={(event) => onMinValueChange(event.target.value)}
@@ -710,15 +714,15 @@ function TimeRangeFilter({
               />
             </label>
             <label
-              htmlFor="profile-records-time-max"
+              htmlFor={`profile-records-${idPrefix}-max`}
               className="space-y-1 text-[11px] text-muted-foreground"
             >
               <span>Max</span>
               <Input
-                id="profile-records-time-max"
+                id={`profile-records-${idPrefix}-max`}
                 type="text"
                 inputMode="numeric"
-                aria-label="Maximum time"
+                aria-label={`Maximum ${label.toLocaleLowerCase()}`}
                 placeholder="m:ss"
                 value={maxValue}
                 onChange={(event) => onMaxValueChange(event.target.value)}
@@ -729,6 +733,117 @@ function TimeRangeFilter({
           <p className="text-[10px] leading-4 text-muted-foreground">
             Use seconds, m:ss, or h:mm:ss.
           </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-full px-2 text-[10px]"
+            onClick={() => {
+              onMinValueChange("")
+              onMaxValueChange("")
+            }}
+          >
+            Reset
+          </Button>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function DecimalRangeFilter({
+  label,
+  idPrefix,
+  minValue,
+  maxValue,
+  onMinValueChange,
+  onMaxValueChange,
+}: {
+  label: string
+  idPrefix: string
+  minValue: string
+  maxValue: string
+  onMinValueChange: (value: string) => void
+  onMaxValueChange: (value: string) => void
+}) {
+  const hasActiveRange =
+    minValue.trim().length > 0 || maxValue.trim().length > 0
+  const rangeLabel =
+    minValue.trim().length > 0 && maxValue.trim().length > 0
+      ? `${minValue} ~ ${maxValue}`
+      : minValue.trim().length > 0
+        ? `${minValue}+`
+        : maxValue.trim().length > 0
+          ? `to ${maxValue}`
+          : null
+  const accessibleLabel = label.toLocaleLowerCase()
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Filter by ${accessibleLabel} range`}
+          className={cn(
+            "flex h-8 min-w-11 items-center justify-center rounded-md border border-border/70 bg-background/80 px-1.5 text-[11px] font-medium shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            hasActiveRange ? "w-[6.75rem]" : "w-11",
+            hasActiveRange && "border-primary/40 text-foreground",
+          )}
+        >
+          <span className="flex min-w-0 items-center justify-center gap-1">
+            {rangeLabel ? (
+              <span className="truncate text-[10px] font-semibold tabular-nums">
+                {rangeLabel}
+              </span>
+            ) : null}
+            <ChevronDownIcon className="size-3.5 shrink-0 opacity-50" />
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-56 space-y-3 p-3"
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        <div className="space-y-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            {label}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label
+              htmlFor={`profile-records-${idPrefix}-min`}
+              className="space-y-1 text-[11px] text-muted-foreground"
+            >
+              <span>Min</span>
+              <Input
+                id={`profile-records-${idPrefix}-min`}
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                aria-label={`Minimum ${accessibleLabel}`}
+                value={minValue}
+                onChange={(event) => onMinValueChange(event.target.value)}
+                className="h-8 px-2 text-center font-mono text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            </label>
+            <label
+              htmlFor={`profile-records-${idPrefix}-max`}
+              className="space-y-1 text-[11px] text-muted-foreground"
+            >
+              <span>Max</span>
+              <Input
+                id={`profile-records-${idPrefix}-max`}
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                aria-label={`Maximum ${accessibleLabel}`}
+                value={maxValue}
+                onChange={(event) => onMaxValueChange(event.target.value)}
+                className="h-8 px-2 text-center font-mono text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            </label>
+          </div>
           <Button
             type="button"
             variant="ghost"
@@ -871,6 +986,8 @@ export function ProfileRecordsTab({
   canManageHiddenMaps,
   hiddenMapIds,
   showHiddenRecords,
+  showWrTime,
+  showWrGap,
   hiddenMapsMutating,
   pinnedRecordKeys,
   pinnedRecordsMutating,
@@ -888,6 +1005,8 @@ export function ProfileRecordsTab({
   canManageHiddenMaps: boolean
   hiddenMapIds: Set<number>
   showHiddenRecords: boolean
+  showWrTime: boolean
+  showWrGap: boolean
   hiddenMapsMutating: boolean
   pinnedRecordKeys: Set<string>
   pinnedRecordsMutating: boolean
@@ -910,6 +1029,10 @@ export function ProfileRecordsTab({
     maxTeleports,
     minTime,
     maxTime,
+    minWrTime,
+    maxWrTime,
+    minWrGap,
+    maxWrGap,
     minPoints,
     maxPoints,
     minRating,
@@ -958,6 +1081,10 @@ export function ProfileRecordsTab({
     const parsedMaxPoints = maxPoints.trim() === "" ? null : Number(maxPoints)
     const parsedMinTime = parseWholeSecondTime(minTime)
     const parsedMaxTime = parseWholeSecondTime(maxTime)
+    const parsedMinWrTime = parseWholeSecondTime(minWrTime)
+    const parsedMaxWrTime = parseWholeSecondTime(maxWrTime)
+    const parsedMinWrGap = minWrGap.trim() === "" ? null : Number(minWrGap)
+    const parsedMaxWrGap = maxWrGap.trim() === "" ? null : Number(maxWrGap)
     const parsedMinRating = minRating.trim() === "" ? null : Number(minRating)
     const parsedMaxRating = maxRating.trim() === "" ? null : Number(maxRating)
 
@@ -1024,6 +1151,40 @@ export function ProfileRecordsTab({
         return false
       }
 
+      const wrTimeInSeconds =
+        record.wr_time == null ? null : Math.floor(record.wr_time)
+      if (
+        showWrTime &&
+        parsedMinWrTime !== null &&
+        (wrTimeInSeconds === null || wrTimeInSeconds < parsedMinWrTime)
+      ) {
+        return false
+      }
+      if (
+        showWrTime &&
+        parsedMaxWrTime !== null &&
+        (wrTimeInSeconds === null || wrTimeInSeconds > parsedMaxWrTime)
+      ) {
+        return false
+      }
+
+      if (
+        showWrGap &&
+        parsedMinWrGap !== null &&
+        Number.isFinite(parsedMinWrGap) &&
+        (record.wr_gap == null || record.wr_gap < parsedMinWrGap)
+      ) {
+        return false
+      }
+      if (
+        showWrGap &&
+        parsedMaxWrGap !== null &&
+        Number.isFinite(parsedMaxWrGap) &&
+        (record.wr_gap == null || record.wr_gap > parsedMaxWrGap)
+      ) {
+        return false
+      }
+
       if (parsedMinPoints !== null && Number.isFinite(parsedMinPoints)) {
         if (record.points < parsedMinPoints) {
           return false
@@ -1075,6 +1236,10 @@ export function ProfileRecordsTab({
     maxTeleports,
     minTime,
     maxTime,
+    minWrTime,
+    maxWrTime,
+    minWrGap,
+    maxWrGap,
     minPoints,
     maxPoints,
     minRating,
@@ -1088,6 +1253,8 @@ export function ProfileRecordsTab({
     isBonus,
     hiddenMapIds,
     showHiddenRecords,
+    showWrTime,
+    showWrGap,
     sort,
   ])
 
@@ -1158,6 +1325,9 @@ export function ProfileRecordsTab({
     maxTeleports.trim().length > 0 ||
     minTime.trim().length > 0 ||
     maxTime.trim().length > 0 ||
+    (showWrTime &&
+      (minWrTime.trim().length > 0 || maxWrTime.trim().length > 0)) ||
+    (showWrGap && (minWrGap.trim().length > 0 || maxWrGap.trim().length > 0)) ||
     minPoints.trim().length > 0 ||
     maxPoints.trim().length > 0 ||
     (!isBonus &&
@@ -1256,7 +1426,9 @@ export function ProfileRecordsTab({
               "mode",
               ...(isBonus ? ["stage" as const] : ["tier" as const]),
               "tps",
+              ...(showWrTime ? ["wrTime" as const] : []),
               "time",
+              ...(showWrGap ? ["wrGap" as const] : []),
               "points",
               ...(!isBonus ? ["rating" as const] : []),
               "server",
@@ -1345,6 +1517,34 @@ export function ProfileRecordsTab({
                   }
                 />
               ),
+              wrTime: showWrTime ? (
+                <TimeRangeFilter
+                  label="WR Time"
+                  idPrefix="wr-time"
+                  minValue={minWrTime}
+                  maxValue={maxWrTime}
+                  onMinValueChange={(value) =>
+                    updateViewState("minWrTime", value)
+                  }
+                  onMaxValueChange={(value) =>
+                    updateViewState("maxWrTime", value)
+                  }
+                />
+              ) : undefined,
+              wrGap: showWrGap ? (
+                <DecimalRangeFilter
+                  label="WR Gap"
+                  idPrefix="wr-gap"
+                  minValue={minWrGap}
+                  maxValue={maxWrGap}
+                  onMinValueChange={(value) =>
+                    updateViewState("minWrGap", value)
+                  }
+                  onMaxValueChange={(value) =>
+                    updateViewState("maxWrGap", value)
+                  }
+                />
+              ) : undefined,
               points: (
                 <NumericRangeFilter
                   label="Points"

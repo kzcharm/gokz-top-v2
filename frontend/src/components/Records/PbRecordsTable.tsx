@@ -215,9 +215,19 @@ function PbRecordTableRow({
           <TeleportsBadge teleports={record.teleports} />
         </TableCell>
       ) : null}
+      {visibleColumns.has("wrTime") ? (
+        <TableCell className="text-right font-mono font-medium">
+          {record.wr_time == null ? "-" : formatRecordTime(record.wr_time)}
+        </TableCell>
+      ) : null}
       {visibleColumns.has("time") ? (
         <TableCell className="text-right font-mono font-medium">
           {formatRecordTime(record.time)}
+        </TableCell>
+      ) : null}
+      {visibleColumns.has("wrGap") ? (
+        <TableCell className="text-right font-mono font-medium">
+          {record.wr_gap == null ? "-" : record.wr_gap.toFixed(2)}
         </TableCell>
       ) : null}
       {visibleColumns.has("points") ? (
@@ -452,6 +462,19 @@ export function PbRecordsTable({
                   />
                 </TableHead>
               ) : null}
+              {visibleColumns.has("wrTime") ? (
+                <TableHead
+                  className={`min-w-24 text-right ${tableHeadClassName}`}
+                >
+                  <SortableHeader
+                    column="wrTime"
+                    label={t("labels.wrTime")}
+                    sort={sort}
+                    onSortChange={onSortChange}
+                    className={`justify-end ${tableHeadClassName}`}
+                  />
+                </TableHead>
+              ) : null}
               {visibleColumns.has("time") ? (
                 <TableHead
                   className={`min-w-24 text-right ${tableHeadClassName}`}
@@ -459,6 +482,19 @@ export function PbRecordsTable({
                   <SortableHeader
                     column="time"
                     label={t("labels.time")}
+                    sort={sort}
+                    onSortChange={onSortChange}
+                    className={`justify-end ${tableHeadClassName}`}
+                  />
+                </TableHead>
+              ) : null}
+              {visibleColumns.has("wrGap") ? (
+                <TableHead
+                  className={`min-w-24 text-right ${tableHeadClassName}`}
+                >
+                  <SortableHeader
+                    column="wrGap"
+                    label={t("labels.wrGap")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={`justify-end ${tableHeadClassName}`}
@@ -547,10 +583,15 @@ export function PbRecordsTable({
                       key={`filter-${column}`}
                       className="h-auto border-t border-border/60 px-3 py-3 align-top"
                     >
-                      {column === "rating" || column === "time" ? (
+                      {column === "rating" ||
+                      column === "time" ||
+                      column === "wrTime" ||
+                      column === "wrGap" ? (
                         <div
                           className={
-                            column === "time"
+                            column === "time" ||
+                            column === "wrTime" ||
+                            column === "wrGap"
                               ? "flex justify-end"
                               : "flex justify-center"
                           }

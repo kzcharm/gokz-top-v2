@@ -29,6 +29,8 @@ export type PbRecordsColumn =
   | "stage"
   | "tps"
   | "time"
+  | "wrTime"
+  | "wrGap"
   | "points"
   | "rating"
   | "server"
@@ -64,6 +66,10 @@ function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
       return record.teleports
     case "time":
       return record.time
+    case "wrTime":
+      return record.wr_time ?? Number.POSITIVE_INFINITY
+    case "wrGap":
+      return record.wr_gap ?? Number.POSITIVE_INFINITY
     case "points":
       return record.points
     case "rating":

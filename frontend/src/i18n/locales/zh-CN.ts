@@ -470,6 +470,8 @@ export const zhCN = {
       ratingLabel: "Rating",
     },
     records: {
+      showWrTime: "显示 WR 用时",
+      showWrGap: "显示 WR 差距",
       ratingContributionInfo: "Rating 贡献说明",
       ratingContributionTooltip: "这条记录贡献给玩家 Rating 的原始分值。",
     },

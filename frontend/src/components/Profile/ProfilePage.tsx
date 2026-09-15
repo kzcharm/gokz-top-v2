@@ -127,6 +127,8 @@ export function ProfilePage({
   const [isProOnly, setIsProOnly] = useState(false)
   const [isBonus, setIsBonus] = useState(false)
   const [showHiddenRecords, setShowHiddenRecords] = useState(false)
+  const [showWrTime, setShowWrTime] = useState(false)
+  const [showWrGap, setShowWrGap] = useState(false)
   const [recordsViewState, setRecordsViewState] = useState(
     DEFAULT_PROFILE_RECORDS_VIEW_STATE,
   )
@@ -728,6 +730,18 @@ export function ProfilePage({
               >
                 {t("profile.hiddenMaps.showToggle")}
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={showWrTime}
+                onCheckedChange={setShowWrTime}
+              >
+                {t("profile.records.showWrTime")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={showWrGap}
+                onCheckedChange={setShowWrGap}
+              >
+                {t("profile.records.showWrGap")}
+              </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
@@ -944,6 +958,8 @@ export function ProfilePage({
               canManageHiddenMaps={isOwnProfile}
               hiddenMapIds={hiddenMapIds}
               showHiddenRecords={showHiddenRecords}
+              showWrTime={showWrTime}
+              showWrGap={showWrGap}
               hiddenMapsMutating={
                 hideMapMutation.isPending || unhideMapMutation.isPending
               }

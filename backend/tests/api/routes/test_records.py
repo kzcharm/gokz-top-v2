@@ -1234,11 +1234,26 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     db: AsyncSession,
 ) -> None:
     player_id = random_steamid64()
+    wr_player_id = random_steamid64()
     await _seed_record_dependencies(
         db,
-        players=[(player_id, "Runner Gamma")],
+        players=[
+            (player_id, "Runner Gamma"),
+            (wr_player_id, "WR Runner"),
+        ],
     )
     await _create_server_globalapi(db, id=980301, name="Secondary Server")
+    await _create_record(
+        db,
+        id=980424,
+        steamid64=wr_player_id,
+        server_id=980300,
+        mode_id=200,
+        map_id=980200,
+        stage=0,
+        time="20.000",
+        teleports=0,
+    )
     await _create_record(
         db,
         id=980420,
@@ -1309,6 +1324,10 @@ async def test_read_pb_records_v1_player_anchor_and_filters(
     assert payload[0]["map_tier"] == 0
     assert payload[0]["teleports"] == 0
     assert payload[0]["raw_rating_contribution"] == 123
+    assert payload[0]["wr_time"] == 20.0
+    assert payload[0]["wr_gap"] == pytest.approx(
+        round(math.log2(24 / 20 - 1), 3)
+    )
 
     bonus_response = await client.get(
         f"{settings.API_V1_STR}/records/pb",

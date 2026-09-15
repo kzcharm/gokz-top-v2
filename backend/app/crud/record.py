@@ -18,6 +18,7 @@ from sqlalchemy import (
     or_,
     text,
     true,
+    tuple_,
     update,
 )
 from sqlalchemy.orm import aliased
@@ -400,6 +401,37 @@ async def _load_scoped_record_tiers(
         course_keys=record_courses,
         scope=scope,
     )
+
+
+async def _load_wr_times_by_course(
+    *,
+    session: AsyncSession,
+    record_courses: Sequence[tuple[int, int]],
+    scope: ModeScope,
+    record_type: RecordType,
+) -> dict[tuple[int, int], Decimal]:
+    course_keys = set(record_courses)
+    if not course_keys:
+        return {}
+
+    statement = (
+        select(MapCourse.map_id, MapCourse.stage, func.min(RecordPb.time))
+        .join(RecordPb, col(RecordPb.course_id) == col(MapCourse.id))
+        .where(
+            col(RecordPb.scope) == scope,
+            col(RecordPb.type) == record_type,
+            tuple_(col(MapCourse.map_id), col(MapCourse.stage)).in_(course_keys),
+            not_active_ban_exists_clause(
+                steamid64_column=col(RecordPb.steamid64)
+            ),
+        )
+        .group_by(col(MapCourse.map_id), col(MapCourse.stage))
+    )
+    return {
+        (map_id, stage): wr_time
+        for map_id, stage, wr_time in (await session.exec(statement)).all()
+        if wr_time is not None
+    }
 
 
 def _pb_key_candidates_for_record(
@@ -2943,6 +2975,12 @@ async def get_pb_record_publics(
         ],
         scope=scope,
     )
+    wr_times_by_course = await _load_wr_times_by_course(
+        session=session,
+        record_courses=list(tiers_by_course),
+        scope=scope,
+        record_type=record_type,
+    )
     return [
         RecordPublic(
             uuid=record_uuid,
@@ -2968,6 +3006,19 @@ async def get_pb_record_publics(
             stage=record_stage,
             tickrate=128,
             time=float(record_time),
+            wr_time=(
+                float(wr_times_by_course[(record_map_id, record_stage)])
+                if (record_map_id, record_stage) in wr_times_by_course
+                else None
+            ),
+            wr_gap=(
+                _record_time_to_wr_gap(
+                    wr_time=wr_times_by_course[(record_map_id, record_stage)],
+                    record_time=record_time,
+                )
+                if (record_map_id, record_stage) in wr_times_by_course
+                else None
+            ),
             teleports=record_teleports,
             points=points,
             raw_rating_contribution=raw_rating_contribution,
@@ -3206,6 +3257,12 @@ async def read_map_pb_leaderboard(
         ],
         scope=scope,
     )
+    wr_times_by_course = await _load_wr_times_by_course(
+        session=session,
+        record_courses=list(tiers_by_course),
+        scope=scope,
+        record_type=record_type,
+    )
     data = [
         RecordPublic(
             uuid=record_uuid,
@@ -3231,6 +3288,19 @@ async def read_map_pb_leaderboard(
             stage=record_stage,
             tickrate=128,
             time=float(record_time),
+            wr_time=(
+                float(wr_times_by_course[(record_map_id, record_stage)])
+                if (record_map_id, record_stage) in wr_times_by_course
+                else None
+            ),
+            wr_gap=(
+                _record_time_to_wr_gap(
+                    wr_time=wr_times_by_course[(record_map_id, record_stage)],
+                    record_time=record_time,
+                )
+                if (record_map_id, record_stage) in wr_times_by_course
+                else None
+            ),
             teleports=record_teleports,
             points=points,
             raw_rating_contribution=raw_rating_contribution,

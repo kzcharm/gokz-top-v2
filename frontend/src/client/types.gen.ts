@@ -1554,6 +1554,8 @@ export type RecordPublic = {
     stage: number;
     tickrate?: number;
     time: number;
+    wr_time?: (number | null);
+    wr_gap?: (number | null);
     teleports: number;
     points: number;
     raw_rating_contribution?: number;
