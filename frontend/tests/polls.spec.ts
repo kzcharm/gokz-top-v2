@@ -59,6 +59,13 @@ const closedPoll = {
       percentage: 10,
     },
   ],
+  voters: Array.from({ length: 40 }, (_, index) => ({
+    steamid64: `765611980000000${String(index).padStart(2, "0")}`,
+    name: `Voter ${index + 1}`,
+    alias: null,
+    avatar_hash: null,
+    option_ids: [poll.options[1].id],
+  })),
 }
 
 test.beforeEach(async ({ page }) => {
@@ -131,4 +138,32 @@ test("visible poll results are ordered by most votes in the details dialog", asy
   await expect(options.nth(0)).toContainText(/1\.\s*B\.\s*Map showcase/)
   await expect(options.nth(1)).toContainText(/2\.\s*A\.\s*Tournament/)
   await expect(options.nth(2)).toContainText(/3\.\s*C\.\s*Speedrun relay/)
+})
+
+test("expanded voter avatars stay overlapped and wrap onto multiple rows", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 420, height: 800 })
+  await page.goto(`/polls/${closedPoll.id}`)
+
+  await page.getByRole("button", { name: "Show all 40 voters" }).click()
+
+  const avatarGroup = page.getByTestId("poll-voter-avatars").first()
+  const firstAvatar = avatarGroup.getByRole("link").first()
+  const secondAvatar = avatarGroup.getByRole("link").nth(1)
+  const lastAvatar = avatarGroup.getByRole("link").last()
+  const [firstBox, secondBox, lastBox] = await Promise.all([
+    firstAvatar.boundingBox(),
+    secondAvatar.boundingBox(),
+    lastAvatar.boundingBox(),
+  ])
+
+  expect(firstBox).not.toBeNull()
+  expect(secondBox).not.toBeNull()
+  expect(lastBox).not.toBeNull()
+  expect(secondBox?.y).toBe(firstBox?.y)
+  expect(secondBox?.x).toBeLessThan(
+    (firstBox?.x ?? Number.NEGATIVE_INFINITY) + (firstBox?.width ?? 0),
+  )
+  expect(lastBox?.y).toBeGreaterThan(firstBox?.y ?? Number.POSITIVE_INFINITY)
 })

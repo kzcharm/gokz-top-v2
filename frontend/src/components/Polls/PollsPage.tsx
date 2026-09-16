@@ -103,8 +103,15 @@ function VoterAvatars({ voters }: { voters: Voter[] }) {
   const visible = expanded ? voters : voters.slice(0, 10)
   const remaining = voters.length - 10
   return (
-    <div className="mt-2 flex items-center gap-2">
-      <AvatarGroup>
+    <div className="mt-2 flex items-start gap-2">
+      <AvatarGroup
+        className={
+          expanded
+            ? "min-w-0 flex-1 flex-wrap gap-y-1 pl-3.5 [&>*]:-ml-3.5"
+            : undefined
+        }
+        data-testid="poll-voter-avatars"
+      >
         {visible.map((voter) => {
           const displayName =
             voter.alias?.trim() || voter.name?.trim() || voter.steamid64
