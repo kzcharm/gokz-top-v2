@@ -606,6 +606,7 @@ export type MapPublic = {
     authors?: Array<(string)>;
     no_steamid_names?: Array<(string)>;
     review_summary?: (MapReviewSummaryPublic | null);
+    skills?: (MapSkillsPublic | null);
     readonly workshop_url: (string | null);
 };
 
@@ -671,6 +672,15 @@ export type MapReviewUpsert = {
     map_id: number;
     steamid64?: (number | null);
     content: MapReviewContentInput;
+};
+
+export type MapSkillsPublic = {
+    boxtech: number;
+    strafe: number;
+    bhop: number;
+    climb: number;
+    ladder: number;
+    slide: number;
 };
 
 export type MapStatsPublic = {

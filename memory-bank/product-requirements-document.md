@@ -76,6 +76,7 @@ Scope model:
 
 ### 5.3 Maps and Reviews
 - Map catalog and detail pages with filters and metadata.
+- Map catalog cards display manually imported backend skill-analysis fractions, use 100% Unknown when analysis is unavailable, and support sorting by each measured skill. Ordered analysis segments remain stored for future features but are excluded from normal map responses.
 - Validated maps can expose a BSP `download_url` once the production map file distributor has uploaded the raw BSP to Cloudflare R2.
 - Production map file distribution maintains raw BSP files, optional FastDL-sized BZ2 archives for BSPs under 150 MB, a full `packages/GlobalMaps.7z`, and per-date release ZIPs for maps updated on a given UTC date.
 - Deleted Workshop maps can be preserved only when operators seed their BSPs manually from the starter `GlobalMaps.7z`; otherwise the distributor records the missing file and continues syncing Workshop-available maps.

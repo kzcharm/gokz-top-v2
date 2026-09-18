@@ -21,6 +21,7 @@ This document summarizes the core features implemented in this repository (backe
 ### 3. Maps discovery and review system
 - Map list and detail pages with filtering (name, validation status, difficulty, author info, timestamps).
 - Map metadata support including workshop IDs/URLs and author attribution.
+- Map skill breakdowns are backed by manually imported PostgreSQL data rather than a frontend-bundled analysis file; ordinary map reads expose aggregate skills only.
 - Map reviews and review summary endpoints.
 - Player map comments/ratings retrieval.
 - Map sync endpoint for pulling map updates from external/global data.
@@ -106,4 +107,3 @@ This document summarizes the core features implemented in this repository (backe
 - Backend tests with Pytest.
 - Frontend E2E test setup with Playwright.
 - Docker Compose-based local/prod workflows and deployment scripts/docs.
-

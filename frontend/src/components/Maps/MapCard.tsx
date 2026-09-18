@@ -127,7 +127,7 @@ export function MapCard({
   const bonusCount = map.bonus_count ?? 0
   const reviewsCount = reviewSummary?.reviews_count ?? 0
   const commentsCount = reviewSummary?.comments_count ?? 0
-  const allSkillPortions = getMapSkillPortions(map.name)
+  const allSkillPortions = getMapSkillPortions(map)
   const nonZeroSkillPortions = allSkillPortions.filter(
     (portion) => portion.percentage > 0,
   )

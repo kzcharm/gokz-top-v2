@@ -42,6 +42,14 @@ $ ./kztop sync profiles --steamid64 76561198000000000
 The wrapper runs the backend CLI through the repository's own Python environment,
 so it does not need a global install or a shell `PATH` change.
 
+Map skill analysis is imported separately and only when an operator requests it. After applying database migrations, run this from `backend/` with a version 3 analysis file:
+
+```console
+$ python -m app.import_map_skills /path/to/index.json
+```
+
+The command upserts every database map matching an input name, preserves each ordered segment array, reports unmatched names, and leaves rows omitted from later files unchanged.
+
 Inside the backend container, run the same commands from the checkout root:
 
 ```console

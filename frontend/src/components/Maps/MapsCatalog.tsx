@@ -519,8 +519,8 @@ function sortMaps(
         break
       case "skill":
         comparison =
-          getMapSkillPercentage(left.name, selectedSkill) -
-          getMapSkillPercentage(right.name, selectedSkill)
+          getMapSkillPercentage(left, selectedSkill) -
+          getMapSkillPercentage(right, selectedSkill)
         break
       default:
         comparison = compareLocaleText(left.name, right.name)

@@ -109,6 +109,7 @@ from .map_review import (
     MapReviewUpsert,
 )
 from .map_review_summary import MapReviewSummaryCache, MapReviewSummaryPublic
+from .map_skill import MapSkill, MapSkillsPublic
 from .map_stat import (
     MapStatCache,
     MapStatsPublic,
@@ -612,6 +613,8 @@ __all__ = [
     "MapReviewSummaryPublic",
     "MapReviewsPublic",
     "MapReviewUpsert",
+    "MapSkill",
+    "MapSkillsPublic",
     "MapStatCache",
     "MapStatsPublic",
     "MapStatType",

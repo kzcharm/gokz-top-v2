@@ -13,6 +13,8 @@ from app.models import (
     MapFileDistribution,
     MapPublic,
     MapReviewSummaryPublic,
+    MapSkill,
+    MapSkillsPublic,
     MapTiers,
     ModeScope,
     mode_scope_modes,
@@ -84,17 +86,21 @@ async def read_maps(
     created_since: datetime | None = None,
     updated_since: datetime | None = None,
 ) -> list[Map]:
-    statement = _build_read_maps_statement(
-        id=id,
-        name=name,
-        larger_than_filesize=larger_than_filesize,
-        smaller_than_filesize=smaller_than_filesize,
-        is_validated=is_validated,
-        difficulty=difficulty,
-        scope=scope,
-        created_since=created_since,
-        updated_since=updated_since,
-    ).offset(offset).limit(limit)
+    statement = (
+        _build_read_maps_statement(
+            id=id,
+            name=name,
+            larger_than_filesize=larger_than_filesize,
+            smaller_than_filesize=smaller_than_filesize,
+            is_validated=is_validated,
+            difficulty=difficulty,
+            scope=scope,
+            created_since=created_since,
+            updated_since=updated_since,
+        )
+        .offset(offset)
+        .limit(limit)
+    )
     return list((await session.exec(statement)).all())
 
 
@@ -211,11 +217,7 @@ async def load_map_download_urls(
             col(MapFileDistribution.map_id).in_(map_ids)
         )
     )
-    return {
-        map_id: download_url
-        for map_id, download_url in rows.all()
-        if download_url
-    }
+    return {map_id: download_url for map_id, download_url in rows.all() if download_url}
 
 
 async def load_map_bonus_counts(
@@ -225,13 +227,42 @@ async def load_map_bonus_counts(
         return {}
 
     rows = await session.exec(
-        select(MapCourse.map_id, func.max(MapCourse.stage)).where(
-            col(MapCourse.map_id).in_(map_ids)
-        ).group_by(MapCourse.map_id)
+        select(MapCourse.map_id, func.max(MapCourse.stage))
+        .where(col(MapCourse.map_id).in_(map_ids))
+        .group_by(MapCourse.map_id)
     )
     return {
-        int(map_id): max(int(max_stage or 0), 0)
-        for map_id, max_stage in rows.all()
+        int(map_id): max(int(max_stage or 0), 0) for map_id, max_stage in rows.all()
+    }
+
+
+async def load_map_skills(
+    *, session: AsyncSession, map_ids: list[int]
+) -> dict[int, MapSkillsPublic]:
+    if not map_ids:
+        return {}
+    # Select scalar columns only: the potentially large segment timelines stay in PostgreSQL.
+    rows = await session.exec(
+        select(  # type: ignore[call-overload]
+            MapSkill.map_id,
+            MapSkill.boxtech,
+            MapSkill.strafe,
+            MapSkill.bhop,
+            MapSkill.climb,
+            MapSkill.ladder,
+            MapSkill.slide,
+        ).where(col(MapSkill.map_id).in_(map_ids))
+    )
+    return {
+        map_id: MapSkillsPublic(
+            boxtech=float(boxtech),
+            strafe=float(strafe),
+            bhop=float(bhop),
+            climb=float(climb),
+            ladder=float(ladder),
+            slide=float(slide),
+        )
+        for map_id, boxtech, strafe, bhop, climb, ladder, slide in rows.all()
     }
 
 
@@ -259,6 +290,7 @@ def to_map_public(
     review_summary: MapReviewSummaryPublic | None,
     bonus_count: int = 0,
     download_url: str | None = None,
+    skills: MapSkillsPublic | None = None,
 ) -> MapPublic:
     return MapPublic(
         id=map_obj.id,
@@ -276,6 +308,7 @@ def to_map_public(
         authors=map_obj.authors or [],
         no_steamid_names=map_obj.no_steamid_names or [],
         review_summary=review_summary,
+        skills=skills,
     )
 
 
@@ -339,6 +372,9 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
         session=session,
         map_ids=[map_obj.id for map_obj in maps],
     )
+    skills_by_map_id = await load_map_skills(
+        session=session, map_ids=[map_obj.id for map_obj in maps]
+    )
     return [
         to_map_public(
             map_obj=map_obj,
@@ -349,6 +385,7 @@ async def to_map_publics(*, session: AsyncSession, maps: list[Map]) -> list[MapP
             review_summary=review_summaries_by_map_id.get(map_obj.id),
             bonus_count=bonus_counts_by_map_id.get(map_obj.id, 0),
             download_url=download_urls_by_map_id.get(map_obj.id),
+            skills=skills_by_map_id.get(map_obj.id),
         )
         for map_obj in maps
     ]

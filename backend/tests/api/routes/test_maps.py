@@ -17,6 +17,7 @@ from app.models import (
     MapFileDistribution,
     MapReview,
     MapReviewSummaryCache,
+    MapSkill,
     MapSyncResult,
     ModeScope,
     Player,
@@ -278,7 +279,9 @@ async def test_read_workshop_preview_image_retries_expired_cached_missing_previe
         "https://steamuserimages-a.akamaihd.net/recovered.jpg"
     )
     await db.refresh(cache_row)
-    assert cache_row.preview_url == "https://steamuserimages-a.akamaihd.net/recovered.jpg"
+    assert (
+        cache_row.preview_url == "https://steamuserimages-a.akamaihd.net/recovered.jpg"
+    )
     assert cache_row.error_message is None
 
 
@@ -667,6 +670,19 @@ async def _create_map_record(
 @pytest.mark.asyncio
 async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> None:
     await _create_map(db, id=930200)
+    db.add(
+        MapSkill(
+            map_id=930200,
+            boxtech=Decimal("0.1"),
+            strafe=Decimal("0.2"),
+            bhop=Decimal("0.3"),
+            climb=Decimal("0.1"),
+            ladder=Decimal("0.1"),
+            slide=Decimal("0.1"),
+            segments=[{"skill": "bhop", "tick_count": 10}],
+        )
+    )
+    await db.commit()
 
     response = await client.get("/v0/maps", params={"id": 930200, "limit": 10000})
 
@@ -683,6 +699,41 @@ async def test_read_maps_v0_contract(client: AsyncClient, db: AsyncSession) -> N
     )
     assert map_payload["download_url"] == ""
     assert "bonus_count" not in map_payload
+    assert "skills" not in map_payload
+    assert "segments" not in map_payload
+
+
+@pytest.mark.asyncio
+async def test_read_maps_v1_returns_skill_fractions_without_segments(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    await _create_map(db, id=930209)
+    db.add(
+        MapSkill(
+            map_id=930209,
+            boxtech=Decimal("0.1"),
+            strafe=Decimal("0.2"),
+            bhop=Decimal("0.3"),
+            climb=Decimal("0.1"),
+            ladder=Decimal("0.1"),
+            slide=Decimal("0.1"),
+            segments=[{"skill": "bhop", "tick_count": 10}],
+        )
+    )
+    await db.commit()
+
+    response = await client.get(f"{settings.API_V1_STR}/maps", params={"id": 930209})
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["skills"] == {
+        "boxtech": 0.1,
+        "strafe": 0.2,
+        "bhop": 0.3,
+        "climb": 0.1,
+        "ladder": 0.1,
+        "slide": 0.1,
+    }
+    assert "segments" not in row
 
 
 @pytest.mark.asyncio
@@ -709,6 +760,7 @@ async def test_read_maps_v1_hides_invalid_and_non_positive_ids(
     assert -1 not in returned_ids
     assert visible_map["authors"] == ["76561198000000001"]
     assert visible_map["no_steamid_names"] == ["Unknown Mapper"]
+    assert visible_map["skills"] is None
 
 
 @pytest.mark.asyncio
@@ -1045,7 +1097,7 @@ async def test_read_map_pb_leaderboard_v1_friends_only_filters_to_authenticated_
     assert payload["current_user_steamid64"] == str(viewer)
     assert [row["player"]["display_name"] for row in payload["data"]] == [
         "Viewer Runner",
-        "Friend Runner"
+        "Friend Runner",
     ]
 
 
@@ -1766,7 +1818,11 @@ async def test_put_map_review_rejects_invalid_qq_bot_key(
     response = await client.put(
         f"{settings.API_V1_STR}/maps/reviews",
         headers={"X-QQ-Bot-Key": "wrong-key"},
-        json={"steamid64": str(random_steamid64()), "map_id": map_obj.id, "content": {"overall": 5}},
+        json={
+            "steamid64": str(random_steamid64()),
+            "map_id": map_obj.id,
+            "content": {"overall": 5},
+        },
     )
 
     assert response.status_code == 401
@@ -2287,7 +2343,10 @@ async def test_admin_delete_map_review_comments_for_player_sends_notification(
     assert notification.map_id == map_obj.id
     assert notification.map_name == map_obj.name
     assert notification.target_url == f"/maps/{map_obj.name}/reviews"
-    assert notification.comment_preview == "server group original comment --- website original comment"
+    assert (
+        notification.comment_preview
+        == "server group original comment --- website original comment"
+    )
     assert notification.comment_text == (
         "server group original comment\n\n---\n\nwebsite original comment"
     )

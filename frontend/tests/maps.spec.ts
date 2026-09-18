@@ -100,6 +100,14 @@ seededMaps[0] = {
     VNL: 4,
   },
   bonus_count: 3,
+  skills: {
+    boxtech: 0.4,
+    strafe: 0.2,
+    bhop: 0.15,
+    climb: 0.1,
+    ladder: 0.05,
+    slide: 0.05,
+  },
   updated_on: "2026-03-01T12:00:00Z",
 }
 
@@ -113,6 +121,14 @@ seededMaps[1] = {
     VNL: 2,
   },
   bonus_count: 5,
+  skills: {
+    boxtech: 0.8,
+    strafe: 0.04,
+    bhop: 0.04,
+    climb: 0.04,
+    ladder: 0.04,
+    slide: 0.04,
+  },
   updated_on: "2026-03-30T12:00:00Z",
 }
 
@@ -882,6 +898,20 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_omega")).toHaveCount(0)
   await expect(page.getByTestId("map-card-kz_alpha")).toContainText("3 Bonuses")
+  await expect(page.getByTestId("map-card-kz_alpha")).toContainText(
+    "Boxtech40%",
+  )
+  await expect(
+    page
+      .getByTestId("map-card-kz_alpha")
+      .getByText("Boxtech", { exact: true })
+      .locator("xpath=..")
+      .locator("span")
+      .first(),
+  ).toHaveCSS("background-color", "rgb(184, 50, 128)")
+  await expect(page.getByTestId("map-card-kz_map_04")).toContainText(
+    "Unknown100%",
+  )
 
   await page.keyboard.press("KeyS")
   await expect
@@ -947,7 +977,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page.getByRole("button", { name: "Tier", exact: true }).click()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_08")
   await page.getByRole("button", { name: "Tier", exact: true }).click()
-  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_map_07")
+  await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_omega")
 
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
@@ -963,8 +993,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(
     page.getByRole("button", { name: "Select record scope" }),
   ).toContainText("OVR")
+  await page.getByRole("button", { name: "Skill", exact: true }).click()
+  await page.getByRole("button", { name: "Boxtech", exact: true }).click()
   await page.reload()
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
+  await page.getByRole("button", { name: "Skill", exact: true }).click()
+  await page.getByRole("button", { name: "Boxtech", exact: true }).click()
+  await expect(
+    page.locator('[data-testid^="map-card-"]').first(),
+  ).toHaveAttribute("data-testid", "map-card-kz_omega")
   await page
     .getByTestId("map-card-kz_alpha")
     .getByRole("link", { name: "Open kz_alpha" })

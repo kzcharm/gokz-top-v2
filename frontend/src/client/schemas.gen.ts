@@ -3018,6 +3018,16 @@ export const MapPublicSchema = {
                 }
             ]
         },
+        skills: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/MapSkillsPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
         workshop_url: {
             anyOf: [
                 {
@@ -3340,6 +3350,38 @@ export const MapReviewsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'MapReviewsPublic'
+} as const;
+
+export const MapSkillsPublicSchema = {
+    properties: {
+        boxtech: {
+            type: 'number',
+            title: 'Boxtech'
+        },
+        strafe: {
+            type: 'number',
+            title: 'Strafe'
+        },
+        bhop: {
+            type: 'number',
+            title: 'Bhop'
+        },
+        climb: {
+            type: 'number',
+            title: 'Climb'
+        },
+        ladder: {
+            type: 'number',
+            title: 'Ladder'
+        },
+        slide: {
+            type: 'number',
+            title: 'Slide'
+        }
+    },
+    type: 'object',
+    required: ['boxtech', 'strafe', 'bhop', 'climb', 'ladder', 'slide'],
+    title: 'MapSkillsPublic'
 } as const;
 
 export const MapStatsPublicSchema = {

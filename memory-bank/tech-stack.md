@@ -27,6 +27,7 @@
   - `/v1/polls` provides public poll browsing and authenticated voting, while `/v1/admin/polls` is restricted to root admins for poll lifecycle management and voter audits
 - Data strategy:
   - PostgreSQL as primary persistent store
+  - Map skill analysis is stored in `map_skill`, keyed by map ID, with six aggregate fractions and the ordered analysis segments retained as JSONB. Operators populate it with the manual `python -m app.import_map_skills <index.json>` CLI; normal `/v1/maps` responses expose only the aggregate fractions.
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
   - Application-wide settings use typed accessors over the `app_setting` key/value table, with JSONB payloads per key. Public settings APIs expose only an explicit safe subset; the encrypted QQ binding secret, community-link placement, and deployment-local GlobalAPI record-sync toggle share this store without exposing arbitrary rows.
   - Ban rows are stored locally in PostgreSQL with an internal UUIDv7 primary key (`ban.uuid`) plus a nullable external GlobalAPI id (`ban.id`), allowing append/update-only mirrored GlobalAPI bans and superuser-created local bans to coexist in the same table

@@ -1,14 +1,13 @@
 import { type MapPublic, MapsService } from "@/client"
 import type { AppScope } from "@/components/scope-provider"
-import mapSkillAnalysisData from "@/data/map-skill-analysis.json"
 
 const MAP_SKILLS = [
-  { color: "#d29922", key: "ladder", label: "Ladder" },
-  { color: "#3fb950", key: "bhop", label: "Bhop" },
-  { color: "#8b72d9", key: "slide", label: "Slide" },
-  { color: "#7fb77e", key: "climb", label: "Climb" },
-  { color: "#58a6ff", key: "strafe", label: "Strafe" },
-  { color: "#e5534b", key: "boxtech", label: "Boxtech" },
+  { color: "#e57d2b", key: "ladder", label: "Ladder" },
+  { color: "#229ac2", key: "bhop", label: "Bhop" },
+  { color: "#776ba5", key: "slide", label: "Slide" },
+  { color: "#26965c", key: "climb", label: "Climb" },
+  { color: "#d64545", key: "strafe", label: "Strafe" },
+  { color: "#b83280", key: "boxtech", label: "Boxtech" },
   { color: "#8b949e", key: "unknown", label: "Unknown" },
 ] as const
 
@@ -28,41 +27,6 @@ interface SkillRemainderEntry {
   remainder: number
 }
 
-interface MapSkillSummary {
-  skill: MapSkillKey
-  percentage: number
-}
-
-interface MapSkillAnalysisMap {
-  map_name: string
-  summaries: MapSkillSummary[]
-}
-
-interface MapSkillAnalysisData {
-  maps: MapSkillAnalysisMap[]
-}
-
-const mapSkillPortionsByName = new Map<string, Record<MapSkillKey, number>>(
-  (mapSkillAnalysisData as MapSkillAnalysisData).maps.map((entry) => [
-    entry.map_name.toLowerCase(),
-    entry.summaries.reduce<Record<MapSkillKey, number>>(
-      (skillPortions, summary) => {
-        skillPortions[summary.skill] = summary.percentage * 100
-        return skillPortions
-      },
-      {
-        ladder: 0,
-        bhop: 0,
-        slide: 0,
-        climb: 0,
-        strafe: 0,
-        boxtech: 0,
-        unknown: 0,
-      },
-    ),
-  ]),
-)
-
 export async function fetchMapByName(mapName: string) {
   const maps = await MapsService.readMaps({
     name: mapName,
@@ -76,26 +40,6 @@ export async function fetchMapByName(mapName: string) {
 
 export function getMapTierForScope(map: MapPublic, scope: AppScope) {
   return map.tiers[scope] ?? 0
-}
-
-function hashString(value: string) {
-  let hash = 2166136261
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-
-  return hash >>> 0
-}
-
-function createSeededRandom(seed: number) {
-  let state = seed || 1
-
-  return function nextRandom() {
-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
-    return state / 4294967296
-  }
 }
 
 function normalizeSkillPercentages(
@@ -132,39 +76,32 @@ function normalizeSkillPercentages(
   return normalizedPercentages
 }
 
-function buildSeededSkillPercentages(mapName: string) {
-  const nextRandom = createSeededRandom(hashString(mapName))
-  const dominantSkillIndex = Math.floor(nextRandom() * MAP_SKILLS.length)
-  const weights = MAP_SKILLS.map((_, index) => {
-    const baseWeight = nextRandom() * 100 + 10
-    return index === dominantSkillIndex ? baseWeight + 140 : baseWeight
-  })
-
-  const guaranteedWeights = weights.map((weight) => weight + 1)
-  return normalizeSkillPercentages(guaranteedWeights)
-}
-
-function getNormalizedSkillPercentages(mapName: string): number[] {
-  const skillPortionsRecord = mapSkillPortionsByName.get(mapName.toLowerCase())
-  return skillPortionsRecord
-    ? normalizeSkillPercentages(
-        MAP_SKILLS.map((skill) => skillPortionsRecord[skill.key] ?? 0),
-      )
-    : buildSeededSkillPercentages(mapName)
+function getNormalizedSkillPercentages(map: MapPublic): number[] {
+  if (!map.skills) {
+    return MAP_SKILLS.map((skill) => (skill.key === "unknown" ? 100 : 0))
+  }
+  const known = MAP_SORTABLE_SKILLS.map((skill) => map.skills?.[skill.key] ?? 0)
+  const unknown = Math.max(
+    0,
+    1 - known.reduce((sum, fraction) => sum + fraction, 0),
+  )
+  return normalizeSkillPercentages(
+    [...known, unknown].map((fraction) => fraction * 100),
+  )
 }
 
 export function getMapSkillPercentage(
-  mapName: string,
+  map: MapPublic,
   skillKey: Exclude<MapSkillKey, "unknown">,
 ) {
-  const percentages = getNormalizedSkillPercentages(mapName)
+  const percentages = getNormalizedSkillPercentages(map)
   const skillIndex = MAP_SKILLS.findIndex((skill) => skill.key === skillKey)
 
   return skillIndex >= 0 ? percentages[skillIndex] : 0
 }
 
-export function getMapSkillPortions(mapName: string): MapSkillPortion[] {
-  const percentages = getNormalizedSkillPercentages(mapName)
+export function getMapSkillPortions(map: MapPublic): MapSkillPortion[] {
+  const percentages = getNormalizedSkillPercentages(map)
 
   return [...MAP_SKILLS]
     .map((skill, index) => ({
