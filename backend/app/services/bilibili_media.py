@@ -4,7 +4,7 @@ import hashlib
 import logging
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlencode, urlparse, urlsplit
 
 import httpx
@@ -22,12 +22,14 @@ from app.models import (
     get_datetime_utc,
 )
 from app.services import r2_storage
+from app.services.media_classifier import classify_media_post
 
 logger = logging.getLogger(__name__)
 BILIBILI_MEDIA_RETENTION_DAYS = 90
 BILIBILI_WBI_KEYS_URL = "https://api.bilibili.com/x/web-interface/nav"
 BILIBILI_UPLOADS_URL = "https://api.bilibili.com/x/space/wbi/arc/search"
 BILIBILI_VIDEO_VIEW_URL = "https://api.bilibili.com/x/web-interface/view"
+BILIBILI_VIDEO_TAGS_URL = "https://api.bilibili.com/x/tag/archive/tags"
 BILIBILI_WBI_CACHE_TTL = timedelta(minutes=10)
 BILIBILI_THUMBNAIL_HOST_SUFFIXES = ("hdslb.com",)
 _BILIBILI_BROWSER_HEADERS = {
@@ -351,6 +353,37 @@ async def fetch_bilibili_video_view_counts(video_ids: list[str]) -> dict[str, in
     return view_counts
 
 
+async def fetch_bilibili_video_detail(bvid: str) -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=15.0, headers=_bilibili_headers()) as client:
+        response = await client.get(BILIBILI_VIDEO_VIEW_URL, params={"bvid": bvid})
+        response.raise_for_status()
+        payload = response.json()
+    if payload.get("code") != 0:
+        raise ValueError(payload.get("message") or "Bilibili video API error")
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise ValueError("Bilibili video API returned an invalid payload")
+    return data
+
+
+async def fetch_bilibili_video_tags(bvid: str) -> list[str]:
+    async with httpx.AsyncClient(timeout=15.0, headers=_bilibili_headers()) as client:
+        response = await client.get(BILIBILI_VIDEO_TAGS_URL, params={"bvid": bvid})
+        response.raise_for_status()
+        payload = response.json()
+    if payload.get("code") != 0:
+        raise ValueError(payload.get("message") or "Bilibili tag API error")
+    data = payload.get("data")
+    if not isinstance(data, list):
+        raise ValueError("Bilibili tag API returned an invalid payload")
+    return [
+        tag_name
+        for item in data
+        if isinstance(item, dict)
+        and isinstance((tag_name := item.get("tag_name")), str)
+    ]
+
+
 async def cache_bilibili_thumbnail(*, bvid: str, raw_url: object) -> str | None:
     if not isinstance(raw_url, str) or not raw_url:
         return None
@@ -361,14 +394,11 @@ async def cache_bilibili_thumbnail(*, bvid: str, raw_url: object) -> str | None:
         return source_url
     try:
         content, content_type = await fetch_bilibili_thumbnail(source_url)
-        return cast(
-            str,
-            await r2_storage.put_object(
-                key=f"media/thumbnails/bilibili/{bvid}.jpg",
-                body=content,
-                content_type=content_type,
-                cache_control="public, max-age=31536000, immutable",
-            ),
+        return await r2_storage.put_object(
+            key=f"media/thumbnails/bilibili/{bvid}.jpg",
+            body=content,
+            content_type=content_type,
+            cache_control="public, max-age=31536000, immutable",
         )
     except Exception:
         logger.exception("Failed to cache Bilibili thumbnail", extra={"bvid": bvid})
@@ -399,6 +429,23 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                 entries = await fetch_bilibili_posts(
                     int(link.account_identifier), cutoff=cutoff
                 )
+                entry_ids = [
+                    bvid
+                    for item in entries
+                    if isinstance((bvid := item.get("bvid")), str)
+                ]
+                existing_posts = {
+                    post.external_video_id: post
+                    for post in (
+                        await session.exec(
+                            select(MediaPost).where(
+                                col(MediaPost.platform)
+                                == PlayerSocialPlatform.BILIBILI,
+                                col(MediaPost.external_video_id).in_(entry_ids),
+                            )
+                        )
+                    ).all()
+                }
                 for item in entries:
                     published_at = _parse_published(item.get("created"))
                     bvid = item.get("bvid")
@@ -408,30 +455,86 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                         or published_at < cutoff
                     ):
                         continue
-                    title = str(item.get("title") or "Untitled video")[:500]
-                    thumbnail_url = await cache_bilibili_thumbnail(
-                        bvid=bvid, raw_url=item.get("pic")
+                    existing = existing_posts.get(bvid)
+                    detail: dict[str, Any] | None = None
+                    metadata_error: str | None = None
+                    try:
+                        detail = await fetch_bilibili_video_detail(bvid)
+                    except Exception as exc:
+                        metadata_error = str(exc)[:500]
+
+                    source = detail if detail is not None else item
+                    title = str(source.get("title") or "Untitled video")[:500]
+                    description = (
+                        str(source.get("desc") or source.get("description") or "")[
+                            :10000
+                        ]
+                        or None
                     )
+                    tags: list[str] | None = None
+                    classification = classify_media_post(
+                        title=title, description=description, tags=None
+                    )
+                    metadata_resolved = detail is not None
+                    if metadata_resolved and not classification.is_kz_video:
+                        try:
+                            tags = await fetch_bilibili_video_tags(bvid)
+                            classification = classify_media_post(
+                                title=title, description=description, tags=tags
+                            )
+                        except Exception as exc:
+                            metadata_resolved = False
+                            metadata_error = str(exc)[:500]
+
+                    is_kz_video = (
+                        classification.is_kz_video if metadata_resolved else False
+                    )
+                    if (
+                        not metadata_resolved
+                        and existing is not None
+                        and existing.is_kz_video
+                    ):
+                        is_kz_video = True
+                    stored_tags = (
+                        tags
+                        if tags is not None
+                        else (existing.tags if existing else None)
+                    )
+                    thumbnail_url = (
+                        existing.thumbnail_url if existing is not None else None
+                    )
+                    if is_kz_video:
+                        thumbnail_url = await cache_bilibili_thumbnail(
+                            bvid=bvid, raw_url=source.get("pic")
+                        )
+                    statistics = source.get("stat")
                     values = {
                         "player_social_link_id": link.id,
                         "player_steamid64": link.player_steamid64,
                         "platform": PlayerSocialPlatform.BILIBILI,
                         "external_video_id": bvid,
                         "title": title,
-                        "description": str(item.get("description") or "")[:10000]
-                        or None,
+                        "description": description,
+                        "tags": stored_tags,
+                        "is_kz_video": is_kz_video,
                         "url": f"https://www.bilibili.com/video/{bvid}",
                         "thumbnail_url": thumbnail_url,
                         "published_at": published_at,
-                        "view_count": _parse_view_count(item.get("play")),
+                        "view_count": _parse_view_count(
+                            statistics.get("view")
+                            if isinstance(statistics, dict)
+                            else source.get("play")
+                        ),
                         "discovered_at": now,
-                        "duration_seconds": _parse_duration(item.get("length")),
+                        "duration_seconds": _parse_duration(
+                            source.get("duration") or source.get("length")
+                        ),
                         "available": True,
                         "last_checked_at": now,
-                        "last_error": None,
+                        "last_error": metadata_error,
                     }
                     statement = (
-                        pg_insert(MediaPost.__table__)
+                        pg_insert(MediaPost.__table__)  # type: ignore[attr-defined]
                         .values(values)
                         .on_conflict_do_update(
                             index_elements=["platform", "external_video_id"],
@@ -442,6 +545,8 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                                     "player_steamid64",
                                     "title",
                                     "description",
+                                    "tags",
+                                    "is_kz_video",
                                     "url",
                                     "thumbnail_url",
                                     "published_at",

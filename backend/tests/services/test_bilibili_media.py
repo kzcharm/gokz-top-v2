@@ -235,7 +235,17 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
         assert raw_url == "https://example.com/thumb.jpg"
         return str(raw_url)
 
+    async def _fetch_detail(_: str) -> dict[str, Any]:
+        return {
+            "title": "Recent KZ run",
+            "desc": "A precise run",
+            "pic": "https://example.com/thumb.jpg",
+            "duration": 102,
+            "stat": {"view": 42},
+        }
+
     monkeypatch.setattr(bilibili_media, "fetch_bilibili_posts", _fetch_posts)
+    monkeypatch.setattr(bilibili_media, "fetch_bilibili_video_detail", _fetch_detail)
     monkeypatch.setattr(bilibili_media, "cache_bilibili_thumbnail", _cache_thumbnail)
 
     assert await bilibili_media.sync_bilibili_media_once(session=db) == 1
@@ -246,3 +256,70 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
     assert post.url == "https://www.bilibili.com/video/BV1media"
     assert post.duration_seconds == 102
     assert post.view_count == 42
+    assert post.tags is None
+    assert post.is_kz_video is True
+
+
+@pytest.mark.asyncio
+async def test_sync_bilibili_media_retries_failed_tags_and_promotes_hidden_post(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Tag Player")
+    db.add(player)
+    await db.commit()
+    link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="654321",
+        verified=True,
+    )
+    db.add(link)
+    await db.commit()
+
+    async def _fetch_posts(_: int, *, cutoff: datetime) -> list[dict[str, Any]]:
+        assert cutoff < datetime.now(UTC)
+        return [{"bvid": "BVtag", "created": 1_786_032_000}]
+
+    async def _fetch_detail(_: str) -> dict[str, Any]:
+        return {
+            "title": "A new upload",
+            "desc": "No text match",
+            "pic": "https://example.com/thumb.jpg",
+            "duration": 42,
+            "stat": {"view": 5},
+        }
+
+    tag_attempts = 0
+
+    async def _fetch_tags(_: str) -> list[str]:
+        nonlocal tag_attempts
+        tag_attempts += 1
+        if tag_attempts == 1:
+            raise RuntimeError("temporary tag failure")
+        return ["KZ"]
+
+    cached: list[str] = []
+
+    async def _cache(*, bvid: str, raw_url: object) -> str | None:
+        cached.append(bvid)
+        return str(raw_url)
+
+    monkeypatch.setattr(bilibili_media, "fetch_bilibili_posts", _fetch_posts)
+    monkeypatch.setattr(bilibili_media, "fetch_bilibili_video_detail", _fetch_detail)
+    monkeypatch.setattr(bilibili_media, "fetch_bilibili_video_tags", _fetch_tags)
+    monkeypatch.setattr(bilibili_media, "cache_bilibili_thumbnail", _cache)
+
+    await bilibili_media.sync_bilibili_media_once(session=db)
+    post = (await db.exec(select(MediaPost))).one()
+    assert post.tags is None
+    assert post.is_kz_video is False
+    assert post.thumbnail_url is None
+    assert cached == []
+
+    await bilibili_media.sync_bilibili_media_once(session=db)
+    await db.refresh(post)
+    assert post.tags == ["KZ"]
+    assert post.is_kz_video is True
+    assert post.thumbnail_url == "https://example.com/thumb.jpg"
+    assert cached == ["BVtag"]

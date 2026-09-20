@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 from dataclasses import dataclass
 
 import pytest
@@ -109,6 +110,66 @@ def test_cli_rebuild_maps_dispatches_filters(
     assert captured["map_ids"] == [123, 456]
     assert "Maps Rebuild Complete" in result.output
     assert "Rows rebuilt" in result.output
+
+
+def test_cli_sync_media_dispatches_reclassification_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    class _SessionContext:
+        async def __aenter__(self) -> object:
+            return object()
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+    async def _fake_reclassify_media_posts(
+        **kwargs: object,
+    ) -> cli.MediaReclassificationResult:
+        captured.update(kwargs)
+        return cli.MediaReclassificationResult(
+            inspected=2,
+            matched_by_reason=Counter({cli.MediaMatchReason.TAG: 1}),
+            rejected=1,
+            unchanged=0,
+            failed=0,
+            dry_run=True,
+        )
+
+    monkeypatch.setattr(
+        "app.core.db.async_session_maker", lambda: _SessionContext()
+    )
+    monkeypatch.setattr(cli, "reclassify_media_posts", _fake_reclassify_media_posts)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "sync",
+            "media",
+            "--reclassify-existing",
+            "--platform",
+            "youtube",
+            "--limit",
+            "2",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["platform"] == cli.PlayerSocialPlatform.YOUTUBE
+    assert captured["limit"] == 2
+    assert captured["dry_run"] is True
+    assert "Media Reclassification Dry Run" in _plain_output(result.output)
+    assert "Matched: tag" in _plain_output(result.output)
+
+
+def test_cli_sync_media_requires_explicit_reclassification_flag() -> None:
+    result = CliRunner().invoke(cli.app, ["sync", "media"])
+
+    assert result.exit_code != 0
+    assert "--reclassify-existing" in result.output
 
 
 def test_cli_sync_help() -> None:

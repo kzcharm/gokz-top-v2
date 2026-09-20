@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, Text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Text
 from sqlalchemy import Enum as SqlEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from .player import PlayerRefPublic
@@ -45,6 +46,11 @@ class MediaPost(SQLModel, table=True):
     external_video_id: str = Field(max_length=128, nullable=False)
     title: str = Field(max_length=500, nullable=False)
     description: str | None = Field(default=None, sa_column=Column(Text))
+    tags: list[str] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    is_kz_video: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, server_default="false"),
+    )
     url: str = Field(max_length=500, nullable=False)
     thumbnail_url: str | None = Field(default=None, max_length=1000)
     published_at: datetime = Field(sa_type=DateTime(timezone=True))  # type: ignore

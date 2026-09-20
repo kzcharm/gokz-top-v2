@@ -93,6 +93,7 @@ async def read_media_posts(
     to: datetime | None,
 ) -> MediaPostsPublic:
     filters: list[Any] = [
+        col(MediaPost.is_kz_video).is_(True),
         col(MediaPost.platform).in_(
             [PlayerSocialPlatform.YOUTUBE, PlayerSocialPlatform.BILIBILI]
         )
@@ -210,6 +211,7 @@ async def refresh_media_post_view_counts(
             await session.exec(
                 select(MediaPost).where(
                     col(MediaPost.id).in_(unique_post_ids),
+                    col(MediaPost.is_kz_video).is_(True),
                     col(MediaPost.platform).in_(
                         [PlayerSocialPlatform.YOUTUBE, PlayerSocialPlatform.BILIBILI]
                     ),

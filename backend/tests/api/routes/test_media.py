@@ -34,6 +34,7 @@ async def test_read_media_posts_proxies_bilibili_thumbnails(
         platform=PlayerSocialPlatform.BILIBILI,
         external_video_id="BV1thumbnail",
         title="Bilibili thumbnail",
+        is_kz_video=True,
         url="https://www.bilibili.com/video/BV1thumbnail",
         thumbnail_url="http://i0.hdslb.com/bfs/archive/thumbnail.jpg",
         published_at=get_datetime_utc(),
@@ -72,6 +73,7 @@ async def test_read_media_posts_returns_youtube_duration(
             platform=PlayerSocialPlatform.YOUTUBE,
             external_video_id="youtube-duration",
             title="YouTube duration",
+            is_kz_video=True,
             url="https://www.youtube.com/watch?v=youtube-duration",
             published_at=get_datetime_utc(),
             duration_seconds=3723,
@@ -108,6 +110,7 @@ async def test_read_media_posts_excludes_hidden_social_links(
             platform=PlayerSocialPlatform.YOUTUBE,
             external_video_id="hidden-video",
             title="Hidden video",
+            is_kz_video=True,
             url="https://www.youtube.com/watch?v=hidden-video",
             published_at=get_datetime_utc(),
         )
@@ -152,6 +155,7 @@ async def test_read_media_posts_filters_and_sorts_each_cursor_page(
                 platform=PlayerSocialPlatform.YOUTUBE,
                 external_video_id=f"youtube-{index}",
                 title=f"YouTube {index}",
+                is_kz_video=True,
                 url=f"https://youtube.example/{index}",
                 published_at=now - timedelta(seconds=index),
                 view_count=view_count,
@@ -164,9 +168,23 @@ async def test_read_media_posts_filters_and_sorts_each_cursor_page(
             platform=PlayerSocialPlatform.BILIBILI,
             external_video_id="bilibili-1",
             title="Bilibili",
+            is_kz_video=True,
             url="https://bilibili.example/1",
             published_at=now,
             view_count=50_000,
+        )
+    )
+    db.add(
+        MediaPost(
+            player_social_link_id=youtube_link.id,
+            player_steamid64=player.steamid64,
+            platform=PlayerSocialPlatform.YOUTUBE,
+            external_video_id="rejected-video",
+            title="Unrelated upload",
+            is_kz_video=False,
+            url="https://youtube.example/rejected",
+            published_at=now + timedelta(seconds=1),
+            view_count=100_000,
         )
     )
     await db.commit()
@@ -237,6 +255,7 @@ async def test_read_media_posts_serves_cached_bilibili_thumbnail_directly(
             platform=PlayerSocialPlatform.BILIBILI,
             external_video_id="BV1cached",
             title="Cached Bilibili thumbnail",
+            is_kz_video=True,
             url="https://www.bilibili.com/video/BV1cached",
             thumbnail_url=thumbnail_url,
             published_at=get_datetime_utc(),
@@ -292,6 +311,7 @@ async def test_refresh_media_post_view_counts_updates_stale_posts_by_platform(
         platform=PlayerSocialPlatform.YOUTUBE,
         external_video_id="stale-video",
         title="Stale video",
+        is_kz_video=True,
         url="https://youtube.example/stale-video",
         published_at=now,
         view_count=10,
@@ -303,6 +323,7 @@ async def test_refresh_media_post_view_counts_updates_stale_posts_by_platform(
         platform=PlayerSocialPlatform.YOUTUBE,
         external_video_id="fresh-video",
         title="Fresh video",
+        is_kz_video=True,
         url="https://youtube.example/fresh-video",
         published_at=now,
         view_count=20,
@@ -314,14 +335,28 @@ async def test_refresh_media_post_view_counts_updates_stale_posts_by_platform(
         platform=PlayerSocialPlatform.BILIBILI,
         external_video_id="bilibili-video",
         title="Bilibili video",
+        is_kz_video=True,
         url="https://bilibili.example/bilibili-video",
         published_at=now,
         view_count=30,
         last_checked_at=now - timedelta(hours=2),
     )
+    rejected_youtube = MediaPost(
+        player_social_link_id=youtube_link.id,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        external_video_id="rejected-video",
+        title="Unrelated upload",
+        is_kz_video=False,
+        url="https://youtube.example/rejected-video",
+        published_at=now,
+        view_count=40,
+        last_checked_at=now - timedelta(hours=2),
+    )
     db.add(stale_youtube)
     db.add(fresh_youtube)
     db.add(bilibili_post)
+    db.add(rejected_youtube)
     await db.commit()
 
     requested_youtube_ids: list[str] = []
@@ -350,6 +385,7 @@ async def test_refresh_media_post_view_counts_updates_stale_posts_by_platform(
                 str(stale_youtube.id),
                 str(fresh_youtube.id),
                 str(bilibili_post.id),
+                str(rejected_youtube.id),
             ]
         },
     )
@@ -395,6 +431,7 @@ async def test_refresh_media_post_view_counts_preserves_cached_values_on_failure
         platform=PlayerSocialPlatform.YOUTUBE,
         external_video_id="video",
         title="Video",
+        is_kz_video=True,
         url="https://youtube.example/video",
         published_at=datetime.now(UTC),
         view_count=10,

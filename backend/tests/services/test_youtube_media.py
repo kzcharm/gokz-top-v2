@@ -66,6 +66,11 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
                     "items": [
                         {
                             "id": "video-123",
+                            "snippet": {
+                                "title": "Canonical KZ title",
+                                "description": "Canonical description",
+                                "tags": ["KZ"],
+                            },
                             "statistics": {"viewCount": "42"},
                             "contentDetails": {"duration": "PT1H2M3S"},
                         }
@@ -81,7 +86,13 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
     assert posts == [
         {
             "id": "playlist-item",
-            "snippet": {"resourceId": {"videoId": "video-123"}},
+            "snippet": {
+                "resourceId": {"videoId": "video-123"},
+                "title": "Canonical KZ title",
+                "description": "Canonical description",
+                "tags": ["KZ"],
+            },
+            "metadata_resolved": True,
             "view_count": 42,
             "duration_seconds": 3723,
         }
@@ -107,7 +118,7 @@ async def test_fetch_youtube_posts_reads_the_channel_uploads_playlist(
         (
             youtube_media.YOUTUBE_VIDEOS_URL,
             {
-                "part": "contentDetails,statistics",
+                "part": "snippet,contentDetails,statistics",
                 "key": "youtube-key",
                 "id": "video-123",
             },
@@ -206,6 +217,7 @@ async def test_sync_youtube_media_creates_posts_for_verified_youtube_links(
                 "contentDetails": {"videoPublishedAt": "2026-08-10T12:00:00Z"},
                 "view_count": 42,
                 "duration_seconds": 3723,
+                "metadata_resolved": True,
             }
         ]
 
@@ -227,6 +239,55 @@ async def test_sync_youtube_media_creates_posts_for_verified_youtube_links(
     assert post.published_at == datetime(2026, 8, 10, 12, 0, tzinfo=UTC)
     assert post.view_count == 42
     assert post.duration_seconds == 3723
+    assert post.tags == []
+    assert post.is_kz_video is True
+
+
+@pytest.mark.asyncio
+async def test_sync_youtube_media_retains_rejected_post_without_caching_thumbnail(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Unrelated Player")
+    db.add(player)
+    await db.commit()
+    link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@unrelated",
+        verified=True,
+    )
+    db.add(link)
+    await db.commit()
+
+    async def _fetch_posts(_: str) -> list[dict[str, Any]]:
+        return [
+            {
+                "snippet": {
+                    "title": "Cooking stream",
+                    "description": "Dinner preparation",
+                    "tags": ["food"],
+                    "resourceId": {"videoId": "not-kz"},
+                    "thumbnails": {"high": {"url": "https://example.com/thumb.jpg"}},
+                },
+                "contentDetails": {"videoPublishedAt": "2026-08-10T12:00:00Z"},
+                "metadata_resolved": True,
+                "view_count": 4,
+                "duration_seconds": 60,
+            }
+        ]
+
+    async def _unexpected_cache(**_: object) -> str | None:
+        raise AssertionError("rejected thumbnail must not be cached")
+
+    monkeypatch.setattr(youtube_media, "fetch_youtube_posts", _fetch_posts)
+    monkeypatch.setattr(youtube_media, "cache_youtube_thumbnail", _unexpected_cache)
+
+    assert await youtube_media.sync_youtube_media_once(session=db) == 1
+    post = (await db.exec(select(MediaPost))).one()
+    assert post.tags == ["food"]
+    assert post.is_kz_video is False
+    assert post.thumbnail_url is None
 
 
 @pytest.mark.asyncio
@@ -257,6 +318,7 @@ async def test_media_feed_returns_youtube_and_bilibili_posts(db: AsyncSession) -
             platform=PlayerSocialPlatform.YOUTUBE,
             external_video_id="youtube-video",
             title="YouTube video",
+            is_kz_video=True,
             url="https://www.youtube.com/watch?v=youtube-video",
             published_at=now,
         )
@@ -268,6 +330,7 @@ async def test_media_feed_returns_youtube_and_bilibili_posts(db: AsyncSession) -
             platform=PlayerSocialPlatform.BILIBILI,
             external_video_id="bilibili-video",
             title="Bilibili video",
+            is_kz_video=True,
             url="https://www.bilibili.com/video/bilibili-video",
             published_at=now - timedelta(seconds=1),
         )

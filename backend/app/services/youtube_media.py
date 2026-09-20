@@ -7,7 +7,7 @@ import logging
 import re
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -27,6 +27,7 @@ from app.models import (
 )
 from app.services import r2_storage
 from app.services.bilibili_media import sync_bilibili_media_once
+from app.services.media_classifier import classify_media_post
 
 logger = logging.getLogger(__name__)
 MEDIA_SYNC_LOCK_ID = int.from_bytes(
@@ -211,49 +212,70 @@ async def fetch_youtube_posts(
     if not video_ids:
         return playlist_items
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        videos_response = await client.get(
-            YOUTUBE_VIDEOS_URL,
-            params={
-                "part": "contentDetails,statistics",
-                "key": settings.YOUTUBE_API_KEY,
-                "id": ",".join(video_ids),
-            },
-        )
-        videos_response.raise_for_status()
-        videos_payload = videos_response.json()
-
-    videos = videos_payload.get("items")
-    video_metadata: dict[str, tuple[int, int | None]] = {}
-    if isinstance(videos, list):
-        for video in videos:
-            if not isinstance(video, dict):
-                continue
-            video_id = video.get("id")
-            statistics = video.get("statistics")
-            content_details = video.get("contentDetails")
-            if isinstance(video_id, str):
-                video_metadata[video_id] = (
-                    _parse_view_count(
-                        statistics.get("viewCount")
-                        if isinstance(statistics, dict)
-                        else None
-                    ),
-                    _parse_duration(
-                        content_details.get("duration")
-                        if isinstance(content_details, dict)
-                        else None
-                    ),
-                )
+    video_metadata = await fetch_youtube_video_metadata(video_ids)
     for item in playlist_items:
         snippet = item.get("snippet")
         resource = snippet.get("resourceId") if isinstance(snippet, dict) else None
         video_id = resource.get("videoId") if isinstance(resource, dict) else None
         if isinstance(video_id, str):
-            view_count, duration_seconds = video_metadata.get(video_id, (0, None))
-            item["view_count"] = view_count
-            item["duration_seconds"] = duration_seconds
+            metadata = video_metadata.get(video_id)
+            item["metadata_resolved"] = metadata is not None
+            if metadata is None:
+                item["view_count"] = 0
+                item["duration_seconds"] = None
+                continue
+            canonical_snippet = metadata.get("snippet")
+            if isinstance(snippet, dict) and isinstance(canonical_snippet, dict):
+                snippet.update(canonical_snippet)
+                snippet["resourceId"] = resource
+            item["view_count"] = metadata["view_count"]
+            item["duration_seconds"] = metadata["duration_seconds"]
     return playlist_items
+
+
+async def fetch_youtube_video_metadata(
+    video_ids: list[str],
+) -> dict[str, dict[str, Any]]:
+    if not video_ids:
+        return {}
+    if not settings.YOUTUBE_API_KEY:
+        raise RuntimeError("YouTube media sync credentials are not configured")
+
+    metadata: dict[str, dict[str, Any]] = {}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for start in range(0, len(video_ids), 50):
+            response = await client.get(
+                YOUTUBE_VIDEOS_URL,
+                params={
+                    "part": "snippet,contentDetails,statistics",
+                    "key": settings.YOUTUBE_API_KEY,
+                    "id": ",".join(video_ids[start : start + 50]),
+                },
+            )
+            response.raise_for_status()
+            videos = response.json().get("items")
+            if not isinstance(videos, list):
+                continue
+            for video in videos:
+                if not isinstance(video, dict) or not isinstance(video.get("id"), str):
+                    continue
+                snippet = video.get("snippet")
+                content_details = video.get("contentDetails")
+                statistics = video.get("statistics")
+                metadata[video["id"]] = {
+                    "snippet": snippet if isinstance(snippet, dict) else {},
+                    "view_count": _parse_view_count(
+                        statistics.get("viewCount")
+                        if isinstance(statistics, dict)
+                        else None
+                    ),
+                    "duration_seconds": _parse_duration(
+                        content_details.get("duration")
+                        if isinstance(content_details, dict)
+                        else None
+                    ),
+                }
+    return metadata
 
 
 async def fetch_youtube_video_view_counts(video_ids: list[str]) -> dict[str, int]:
@@ -388,14 +410,11 @@ async def cache_youtube_thumbnail(*, video_id: str, raw_url: str | None) -> str 
         ]
         if not content_type.startswith("image/"):
             raise ValueError("YouTube thumbnail was not an image")
-        return cast(
-            str,
-            await r2_storage.put_object(
-                key=f"media/thumbnails/youtube/{video_id}.jpg",
-                body=response.content,
-                content_type=content_type,
-                cache_control="public, max-age=31536000, immutable",
-            ),
+        return await r2_storage.put_object(
+            key=f"media/thumbnails/youtube/{video_id}.jpg",
+            body=response.content,
+            content_type=content_type,
+            cache_control="public, max-age=31536000, immutable",
         )
     except Exception:
         logger.exception(
@@ -427,6 +446,25 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
         for link in links:
             try:
                 entries = await fetch_youtube_posts(link.account_identifier)
+                entry_ids = [
+                    video_id
+                    for item in entries
+                    if isinstance((snippet := item.get("snippet")), dict)
+                    and isinstance((resource := snippet.get("resourceId")), dict)
+                    and isinstance((video_id := resource.get("videoId")), str)
+                ]
+                existing_posts = {
+                    post.external_video_id: post
+                    for post in (
+                        await session.exec(
+                            select(MediaPost).where(
+                                col(MediaPost.platform)
+                                == PlayerSocialPlatform.YOUTUBE,
+                                col(MediaPost.external_video_id).in_(entry_ids),
+                            )
+                        )
+                    ).all()
+                }
                 for item in entries:
                     snippet = item.get("snippet")
                     content_details = item.get("contentDetails")
@@ -448,18 +486,54 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
                         or published_at < cutoff
                     ):
                         continue
-                    thumbnail_url = await cache_youtube_thumbnail(
-                        video_id=video_id,
-                        raw_url=_thumbnail_url(snippet),
+                    existing = existing_posts.get(video_id)
+                    metadata_resolved = item.get("metadata_resolved") is True
+                    raw_tags = snippet.get("tags")
+                    tags = (
+                        [tag for tag in raw_tags if isinstance(tag, str)]
+                        if isinstance(raw_tags, list)
+                        else []
                     )
+                    title = str(snippet.get("title") or "Untitled video")[:500]
+                    description = (
+                        str(snippet.get("description") or "")[:10000] or None
+                    )
+                    classification = classify_media_post(
+                        title=title, description=description, tags=tags
+                    )
+                    is_kz_video = (
+                        classification.is_kz_video if metadata_resolved else False
+                    )
+                    if (
+                        not metadata_resolved
+                        and existing is not None
+                        and existing.is_kz_video
+                    ):
+                        is_kz_video = True
+                        title = existing.title
+                        description = existing.description
+                        tags = existing.tags or []
+                    thumbnail_url = (
+                        existing.thumbnail_url if existing is not None else None
+                    )
+                    if is_kz_video:
+                        thumbnail_url = await cache_youtube_thumbnail(
+                            video_id=video_id,
+                            raw_url=_thumbnail_url(snippet),
+                        )
                     values = {
                         "player_social_link_id": link.id,
                         "player_steamid64": link.player_steamid64,
                         "platform": PlayerSocialPlatform.YOUTUBE,
                         "external_video_id": video_id,
-                        "title": str(snippet.get("title") or "Untitled video")[:500],
-                        "description": str(snippet.get("description") or "")[:10000]
-                        or None,
+                        "title": title,
+                        "description": description,
+                        "tags": (
+                            tags
+                            if metadata_resolved
+                            else (existing.tags if existing else None)
+                        ),
+                        "is_kz_video": is_kz_video,
                         "url": f"https://www.youtube.com/watch?v={video_id}",
                         "thumbnail_url": thumbnail_url,
                         "published_at": published_at,
@@ -468,7 +542,11 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
                         "duration_seconds": _parse_duration(item.get("duration_seconds")),
                         "available": True,
                         "last_checked_at": now,
-                        "last_error": None,
+                        "last_error": (
+                            None
+                            if metadata_resolved
+                            else "YouTube metadata unavailable"
+                        ),
                     }
                     statement = (
                         pg_insert(MediaPost.__table__)  # type: ignore[attr-defined]
@@ -482,6 +560,8 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
                                     "player_steamid64",
                                     "title",
                                     "description",
+                                    "tags",
+                                    "is_kz_video",
                                     "url",
                                     "thumbnail_url",
                                     "published_at",

@@ -7,10 +7,15 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from app.models import MapFileDistributionSyncResult, ModeScope
+from app.models import MapFileDistributionSyncResult, ModeScope, PlayerSocialPlatform
 from app.services.map_authors import seed_map_authors_from_kz_map_info
 from app.services.map_file_distribution import seed_map_package, sync_map_files
 from app.services.map_file_distribution_worker import run_map_file_distribution_runner
+from app.services.media_classifier import MediaMatchReason
+from app.services.media_reclassification import (
+    MediaReclassificationResult,
+    reclassify_media_posts,
+)
 from app.services.skill_rating_converter import (
     TIED_TOP_DISPLAY_RATING,
     TOP_DISPLAY_RATING,
@@ -682,6 +687,72 @@ def sync_map_authors() -> None:
             ("Maps updated", str(result.updated)),
             ("Rows skipped", str(result.skipped)),
         ],
+    )
+
+
+@sync_app.command("media")
+def sync_media(
+    reclassify_existing: Annotated[
+        bool,
+        typer.Option(
+            "--reclassify-existing",
+            help="Re-fetch and reclassify retained media posts.",
+        ),
+    ] = False,
+    platform: Annotated[
+        str | None,
+        typer.Option(help="Restrict reclassification to youtube or bilibili."),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(min=1, help="Only inspect the first N retained posts."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(help="Fetch and classify without persisting changes."),
+    ] = False,
+) -> None:
+    if not reclassify_existing:
+        raise typer.BadParameter("Pass --reclassify-existing to run this command.")
+    selected_platform: PlayerSocialPlatform | None = None
+    if platform is not None:
+        try:
+            selected_platform = PlayerSocialPlatform[platform.upper()]
+        except KeyError as exc:
+            raise typer.BadParameter(
+                "Invalid platform. Expected youtube or bilibili."
+            ) from exc
+
+    from app.core.db import async_session_maker
+
+    async def _run() -> MediaReclassificationResult:
+        async with async_session_maker() as session:
+            return await reclassify_media_posts(
+                session=session,
+                platform=selected_platform,
+                limit=limit,
+                dry_run=dry_run,
+            )
+
+    result = _run_async(_run())
+    rows = [
+        ("Inspected", str(result.inspected)),
+        *[
+            (f"Matched: {reason.value}", str(result.matched_by_reason[reason]))
+            for reason in MediaMatchReason
+            if reason != MediaMatchReason.NO_MATCH
+        ],
+        ("Rejected", str(result.rejected)),
+        ("Unchanged", str(result.unchanged)),
+        ("Failed", str(result.failed)),
+    ]
+    _render_summary(
+        (
+            "Media Reclassification Dry Run"
+            if dry_run
+            else "Media Reclassification Complete"
+        ),
+        rows,
     )
 
 
