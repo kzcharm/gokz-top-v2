@@ -295,9 +295,9 @@ test.describe("Leaderboards page", () => {
             {
               rank: 1,
               player: buildPlayerRef("76561198000000001", "Alpha"),
-              rating: 1000,
-              rating_easy: 500,
-              rating_hard: 500,
+              rating: 4.409,
+              rating_easy: 4.4,
+              rating_hard: null,
               points: 2000,
               wrs_nub: 1,
               wrs_pro: 0,
@@ -327,11 +327,63 @@ test.describe("Leaderboards page", () => {
 
     await expect(page.getByText("Alpha")).toBeVisible()
     await expect(page.getByText("Beta")).toBeVisible()
+    const alphaRow = page.locator(
+      'tr[data-player-steamid64="76561198000000001"]',
+    )
+    await expect(alphaRow.getByText("4.40", { exact: true })).toHaveCount(2)
+    await expect(alphaRow.getByText("0.00", { exact: true })).toHaveCount(1)
     await expect.poll(() => playerBatchRequests.length).toBe(1)
     expect(playerBatchRequests[0]).toEqual([
       "76561198000000001",
       "76561198000000002",
     ])
+  })
+
+  test("country leaderboard floors ratings and preserves unavailable values", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+    await page.route("**/v1/leaderboards/countries*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 2,
+          data: [
+            {
+              rank: 1,
+              country: "DE",
+              ranked_players: 10,
+              active_players: 8,
+              top_players: [],
+              top10_average_rating: 4.409,
+              top10_percentile_rating: 4.4,
+            },
+            {
+              rank: null,
+              country: "FR",
+              ranked_players: 2,
+              active_players: 1,
+              top_players: [],
+              top10_average_rating: null,
+              top10_percentile_rating: null,
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards/countries")
+
+    const germanyRow = page.locator("tbody tr").filter({
+      has: page.getByText("Germany", { exact: true }),
+    })
+    await expect(germanyRow.getByText("4.40", { exact: true })).toHaveCount(2)
+    const franceRow = page.locator("tbody tr").filter({
+      has: page.getByText("France", { exact: true }),
+    })
+    await expect(franceRow.getByText("N/A", { exact: true })).toHaveCount(2)
   })
 
   test("switching scope refetches leaderboard data", async ({ page }) => {
@@ -984,7 +1036,7 @@ test.describe("Leaderboards page", () => {
               map: { id: 1, name: "kz_alpha" },
               tier: 5,
               review_summary: {
-                overall_avg: 4.7,
+                overall_avg: 4.89,
                 gameplay_avg: 4.5,
                 visuals_avg: 4.9,
                 reviews_count: 10,
@@ -1071,6 +1123,16 @@ test.describe("Leaderboards page", () => {
     await expect(
       page.locator("tbody tr").first().getByText("kz_alpha"),
     ).toBeVisible()
+    const alphaMapRow = page.locator("tbody tr").filter({
+      has: page.getByText("kz_alpha", { exact: true }),
+    })
+    await expect(alphaMapRow.getByText("4.8", { exact: true })).toBeVisible()
+    await expect(
+      alphaMapRow.getByRole("img", {
+        name: "4.8 out of 5 stars from 10 reviews",
+      }),
+    ).toBeVisible()
+    await expect(alphaMapRow.locator("svg.fill-amber-400")).toHaveCount(4)
 
     await page
       .getByRole("combobox", { name: "Filter maps leaderboard by tier" })

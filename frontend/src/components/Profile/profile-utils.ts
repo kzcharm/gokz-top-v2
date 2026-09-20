@@ -23,6 +23,7 @@ import { OpenAPI } from "@/client/core/OpenAPI"
 import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { getTierColor, normalizeTierValue } from "@/components/Servers/tier"
 import type { AppScope } from "@/components/scope-provider"
+import { formatFlooredDecimal } from "@/lib/number-format"
 
 export type ProfileTab =
   | "home"
@@ -1096,10 +1097,7 @@ export function formatNumber(value: number) {
 }
 
 export function formatRating(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)
+  return formatFlooredDecimal(value, 2, "en-US")
 }
 
 export function formatHours(hours: number) {

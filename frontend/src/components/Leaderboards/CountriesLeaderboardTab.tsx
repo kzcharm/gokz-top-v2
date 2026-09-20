@@ -31,10 +31,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { formatNumber } from "@/i18n/locale"
+import { formatFlooredDecimal } from "@/lib/number-format"
 import { extractErrorMessage } from "@/utils"
 
 function rating(value: number | null) {
-  return value === null ? "N/A" : value.toFixed(2)
+  return value === null ? "N/A" : formatFlooredDecimal(value, 2)
 }
 
 type CountryMetric =

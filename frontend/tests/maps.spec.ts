@@ -532,10 +532,10 @@ test("Maps catalog filters maps with collapsible range controls", async ({
       ...seededMaps[2],
       created_on: "2026-03-15T08:00:00Z",
       review_summary: {
-        overall_avg: 4.8,
-        overall_adjusted: 4.4,
-        gameplay_avg: 4.8,
-        visuals_avg: 4.8,
+        overall_avg: 4.89,
+        overall_adjusted: 4.409,
+        gameplay_avg: 4.89,
+        visuals_avg: 4.89,
         reviews_count: 20,
         gameplay_count: 20,
         visuals_count: 20,
@@ -610,6 +610,7 @@ test("Maps catalog filters maps with collapsible range controls", async ({
     "KZT · 1:10.000",
   )
   await expect(firstMapCard).toContainText("Rating: 4.40")
+  await expect(firstMapCard.getByText("4.8", { exact: true })).toHaveCount(3)
   await page.setViewportSize({ width: 418, height: 800 })
   const tooltipHoverStartedAt = Date.now()
   await firstMapCard.getByText("Rating: 4.40").hover()

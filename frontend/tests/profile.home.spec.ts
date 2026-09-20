@@ -215,9 +215,11 @@ async function installProfileHomeRoutes(
     stats = playerStats,
     currentUserSteamid64 = null,
     activeBans = [],
+    rating = 5.5,
   }: {
     stats?: typeof playerStats
     currentUserSteamid64?: string | null
+    rating?: number | null
     activeBans?: Array<{
       id: number
       ban_type: string
@@ -466,7 +468,7 @@ async function installProfileHomeRoutes(
           rank: 42,
           rank_regional: 7,
           region: "EU",
-          rating: 5.5,
+          rating,
           rating_easy: 0,
           rating_hard: 0,
           points: 0,
@@ -598,6 +600,14 @@ test("Profile home renders live pinned records with points badges and absolute d
     nubRecords[4].uuid,
     nubRecords[5].uuid,
   ])
+})
+
+test("Profile floors displayed ratings at two decimals", async ({ page }) => {
+  await installProfileHomeRoutes(page, { rating: 4.409 })
+
+  await page.goto(`/profile/${steamid64}`)
+
+  await expect(page.getByRole("button", { name: "Casual 4.40" })).toBeVisible()
 })
 
 test("Profile card renders unverified social link icons", async ({ page }) => {

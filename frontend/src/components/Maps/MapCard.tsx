@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
+import { formatFlooredDecimal } from "@/lib/number-format"
 import { cn } from "@/lib/utils"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
 
@@ -40,7 +41,7 @@ function formatReviewAverage(value: number | null | undefined) {
     return "0.0"
   }
 
-  return value.toFixed(1)
+  return formatFlooredDecimal(value, 1)
 }
 
 function formatAveragePlaytime(seconds: number) {
@@ -166,7 +167,9 @@ export function MapCard({
   const adjustedRating =
     sortField === "bestRated" ? reviewSummary?.overall_adjusted : undefined
   const cardMetric =
-    adjustedRating === undefined ? leaderboardMetric : adjustedRating.toFixed(2)
+    adjustedRating === undefined
+      ? leaderboardMetric
+      : formatFlooredDecimal(adjustedRating, 2)
 
   return (
     <Card

@@ -7,6 +7,7 @@ import { MapDisplay } from "@/components/Common/MapDisplay"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
 import { formatNumber, getLocale } from "@/i18n/locale"
+import { formatFlooredDecimal } from "@/lib/number-format"
 import { cn } from "@/lib/utils"
 
 export type MapLeaderboardSortField =
@@ -119,8 +120,9 @@ function OverallRatingStars({
   overall: number | null
   reviewsCount: number
 }) {
-  const filledStars = overall === null ? 0 : Math.round(overall)
-  const averageLabel = overall === null ? "0.0" : overall.toFixed(1)
+  const filledStars = overall === null ? 0 : Math.floor(overall)
+  const averageLabel =
+    overall === null ? "0.0" : formatFlooredDecimal(overall, 1)
 
   return (
     <div className="flex items-center gap-2">
@@ -131,7 +133,7 @@ function OverallRatingStars({
           reviewsCount === 0 || overall === null
             ? t("reviews.noReviewsAria")
             : t("reviews.reviewsAria", {
-                rating: overall.toFixed(2),
+                rating: formatFlooredDecimal(overall, 1),
                 count: reviewsCount,
               })
         }
