@@ -25,12 +25,14 @@ function createAccessToken(steamid64: string) {
 
 function buildPlayer({
   alias,
+  avatarHash = null,
   name,
   profileViews = 0,
   roles = null,
   steamid64,
 }: {
   alias: string
+  avatarHash?: string | null
   name: string
   profileViews?: number
   roles?: string[] | null
@@ -40,7 +42,7 @@ function buildPlayer({
     name,
     alias,
     custom_id: null,
-    avatar_hash: null,
+    avatar_hash: avatarHash,
     country: "DE",
     created_at: "2026-03-01T12:00:00Z",
     last_played_at: "2026-03-31T12:00:00Z",
@@ -417,6 +419,48 @@ test("Profile avatar has no ring for non-users", async ({ page }) => {
   await expect(
     page.getByTestId(`profile-avatar-ring-${targetSteamid64}`),
   ).toHaveCount(0)
+})
+
+test("Profile avatar falls back to initials when the Steam image fails", async ({
+  page,
+}) => {
+  const avatarHash = "unavailable-avatar"
+  await page.route(
+    `https://avatars.steamstatic.com/${avatarHash}_full.jpg`,
+    async (route) => {
+      await route.abort("failed")
+    },
+  )
+  await installProfileRoutes({
+    page,
+    player: buildPlayer({
+      steamid64: targetSteamid64,
+      name: "Target Runner",
+      alias: "Target Alias",
+      avatarHash,
+    }),
+    summary: {
+      follower_count: 12,
+      following_count: 4,
+      viewer_is_following: null,
+      viewer_is_self: false,
+    },
+  })
+
+  await page.goto(`/profile/${targetSteamid64}`)
+
+  const avatarFallback = page.getByTestId("profile-avatar-fallback")
+  await expect(avatarFallback).toBeVisible()
+  await expect(avatarFallback).toContainText("TA")
+  await expect(avatarFallback).toHaveClass(/bg-gradient-to-br/)
+  await expect(page.getByAltText("Target Runner avatar")).not.toBeVisible()
+
+  await avatarFallback.click()
+  const enlargedFallback = page
+    .getByRole("dialog")
+    .getByTestId("profile-avatar-fallback")
+  await expect(enlargedFallback).toBeVisible()
+  await expect(enlargedFallback).toContainText("TA")
 })
 
 test("Logged-in user can follow another player and sees state update", async ({

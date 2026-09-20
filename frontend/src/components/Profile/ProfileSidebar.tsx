@@ -39,6 +39,7 @@ import {
   PlayerFollowContextMenuItem,
 } from "@/components/Common/PlayerDisplay"
 import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Dialog,
@@ -101,6 +102,37 @@ function formatJumpDistance(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function ProfileAvatar({
+  alt,
+  avatarUrl,
+  className,
+  name,
+}: {
+  alt: string
+  avatarUrl: string | null
+  className: string
+  name: string
+}) {
+  return (
+    <Avatar className={cn("rounded-[28px]", className)}>
+      {avatarUrl ? (
+        <AvatarImage src={avatarUrl} alt={alt} className="object-cover" />
+      ) : null}
+      <AvatarFallback
+        className="rounded-[28px] bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85 text-white"
+        data-testid="profile-avatar-fallback"
+      >
+        <span
+          className="font-semibold tracking-tight drop-shadow-sm"
+          aria-hidden="true"
+        >
+          {getInitials(name)}
+        </span>
+      </AvatarFallback>
+    </Avatar>
+  )
 }
 
 type RatingLadderEntry = ReturnType<typeof getRatingRankLadder>[number]
@@ -307,8 +339,6 @@ function ProfileIdentityCard({
     >
       <Card className="h-full min-w-0 gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="relative space-y-6 p-6">
-          <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(127,119,221,0.2),transparent_42%),radial-gradient(circle_at_75%_20%,rgba(29,158,117,0.16),transparent_28%)]" />
-
           <div className="relative flex flex-col items-center gap-4 text-center">
             <div
               className={cn(
@@ -336,17 +366,12 @@ function ProfileIdentityCard({
                         name: player.name,
                       })}
                     >
-                      {avatarUrl ? (
-                        <img
-                          src={avatarUrl}
-                          alt={t("profile.avatarAlt", { name: player.name })}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-3xl font-semibold text-white">
-                          {getInitials(player.alias || player.name)}
-                        </span>
-                      )}
+                      <ProfileAvatar
+                        avatarUrl={avatarUrl}
+                        alt={t("profile.avatarAlt", { name: player.name })}
+                        name={player.alias || player.name}
+                        className="size-full text-3xl"
+                      />
                     </button>
                   </DialogTrigger>
                   <DialogContent
@@ -354,21 +379,14 @@ function ProfileIdentityCard({
                     showCloseButton={false}
                   >
                     <div className="flex justify-center overflow-hidden rounded-[24px]">
-                      {avatarUrl ? (
-                        <img
-                          src={avatarUrl}
-                          alt={t("profile.avatarAltEnlarged", {
-                            name: player.name,
-                          })}
-                          className="h-[min(80vh,32rem)] w-[min(80vw,32rem)] rounded-[24px] object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-[min(80vh,32rem)] w-[min(80vw,32rem)] items-center justify-center rounded-[24px] bg-gradient-to-br from-primary via-primary/85 to-emerald-500/85">
-                          <span className="text-6xl font-semibold text-white">
-                            {getInitials(player.alias || player.name)}
-                          </span>
-                        </div>
-                      )}
+                      <ProfileAvatar
+                        avatarUrl={avatarUrl}
+                        alt={t("profile.avatarAltEnlarged", {
+                          name: player.name,
+                        })}
+                        name={player.alias || player.name}
+                        className="h-[min(80vh,32rem)] w-[min(80vw,32rem)] text-6xl"
+                      />
                     </div>
                   </DialogContent>
                 </Dialog>
