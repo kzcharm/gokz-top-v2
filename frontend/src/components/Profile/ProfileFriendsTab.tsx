@@ -105,6 +105,7 @@ export function ProfileFriendsTab({
   sync,
   loading,
   error,
+  isOwnProfile,
   actions,
 }: {
   friends: PlayerPublic[]
@@ -112,6 +113,7 @@ export function ProfileFriendsTab({
   sync: ProfileFriendSync | null
   loading: boolean
   error: boolean
+  isOwnProfile: boolean
   actions?: ReactNode
 }) {
   const { t, i18n } = useTranslation()
@@ -249,7 +251,7 @@ export function ProfileFriendsTab({
     )
   }
 
-  if (sync?.visibility === "private_profile") {
+  if (sync?.visibility === "private_profile" && !isOwnProfile) {
     return (
       <Alert data-testid="profile-friends-warning">
         <AlertTitle>{t("profile.friends.privateProfileTitle")}</AlertTitle>
@@ -260,7 +262,7 @@ export function ProfileFriendsTab({
     )
   }
 
-  if (sync?.visibility === "private_friends") {
+  if (sync?.visibility === "private_friends" && !isOwnProfile) {
     return (
       <Alert data-testid="profile-friends-warning">
         <AlertTitle>{t("profile.friends.privateFriendsTitle")}</AlertTitle>
@@ -272,9 +274,32 @@ export function ProfileFriendsTab({
   }
 
   const showHeader = friends.length > 0 || actions || friendsRatio
+  const privateCacheWarning =
+    sync?.visibility === "private_profile"
+      ? {
+          title: t("profile.friends.privateProfileTitle"),
+          body: t("profile.friends.privateProfileOwnerBody"),
+        }
+      : sync?.visibility === "private_friends"
+        ? {
+            title: t("profile.friends.privateFriendsTitle"),
+            body: t("profile.friends.privateFriendsOwnerBody"),
+          }
+        : null
 
   return (
     <div className="space-y-3">
+      {privateCacheWarning ? (
+        <Alert
+          className="border-amber-300/70 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
+          data-testid="profile-friends-warning"
+        >
+          <AlertTitle>{privateCacheWarning.title}</AlertTitle>
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            {privateCacheWarning.body}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {showHeader ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {friends.length > 0 ? (

@@ -190,7 +190,10 @@ export function ProfilePage({
     enabled: canonicalIdentifier !== null,
   })
   const friendsQuery = useQuery({
-    ...getProfileFriendsQueryOptions(canonicalIdentifier),
+    ...getProfileFriendsQueryOptions(
+      canonicalIdentifier,
+      currentUser?.steamid64 ?? null,
+    ),
     enabled: canonicalIdentifier !== null && activeTab === "friends",
   })
   const nubRecordsQuery = useQuery({
@@ -1035,6 +1038,7 @@ export function ProfilePage({
               sync={friendsQuery.data?.sync ?? null}
               loading={friendsQuery.isLoading}
               error={friendsQuery.isError}
+              isOwnProfile={isOwnProfile}
               actions={
                 isOwnProfile ? (
                   <Button

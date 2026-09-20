@@ -115,6 +115,58 @@ async def test_read_player_friends_returns_public_sync_metadata(
     assert payload["sync"]["steam_friends_count"] == 3
 
 
+async def test_private_cached_friends_are_visible_only_to_the_owner(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    owner = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Owner",
+        friends_visibility=PlayerFriendsVisibility.PRIVATE_FRIENDS,
+        friends_visibility_checked_at=datetime.now(UTC),
+        steam_friends_count=3,
+    )
+    friend = await _create_player(
+        db,
+        steamid64=random_steamid64(),
+        name="Cached Friend",
+    )
+    await _insert_friendship(
+        db,
+        player_steamid64=owner.steamid64,
+        friend_steamid64=friend.steamid64,
+    )
+
+    url = f"{settings.API_V1_STR}/players/{owner.steamid64}/friends"
+
+    anonymous_response = await client.get(url)
+    assert anonymous_response.status_code == 200
+    assert anonymous_response.json()["data"] == []
+    assert anonymous_response.json()["count"] == 0
+    assert anonymous_response.json()["sync"]["visibility"] == "private_friends"
+
+    other_headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=random_steamid64(),
+        db=db,
+    )
+    other_response = await client.get(url, headers=other_headers)
+    assert other_response.status_code == 200
+    assert other_response.json()["data"] == []
+    assert other_response.json()["count"] == 0
+
+    owner_headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=owner.steamid64,
+        db=db,
+    )
+    owner_response = await client.get(url, headers=owner_headers)
+    assert owner_response.status_code == 200
+    assert owner_response.json()["count"] == 1
+    assert owner_response.json()["data"][0]["steamid64"] == str(friend.steamid64)
+
+
 async def test_sync_player_friends_reconciles_known_friends_and_deletes_stale_edges(
     client: AsyncClient,
     db: AsyncSession,

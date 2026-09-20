@@ -304,16 +304,26 @@ export function getProfileFollowSummaryQueryOptions(identifier: string) {
   })
 }
 
-export function getProfileFriendsQueryOptions(identifier: string | null) {
+export function getProfileFriendsQueryOptions(
+  identifier: string | null,
+  viewerSteamid64: string | null = null,
+) {
   return queryOptions({
-    queryKey: ["profile-friends", identifier],
+    queryKey: ["profile-friends", identifier, viewerSteamid64],
     queryFn: async (): Promise<ProfileFriendsResult | null> => {
       if (!identifier) {
         return null
       }
 
+      const accessToken = localStorage.getItem("access_token")
       const response = await fetch(
         `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/friends`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {},
+        },
       )
       if (!response.ok) {
         throw new Error("Failed to load friends")

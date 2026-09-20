@@ -564,8 +564,12 @@ export const zhCN = {
       privateProfileTitle: "Steam 个人资料为私密",
       privateProfileBody:
         "该玩家的 Steam 个人资料不是公开状态，因此无法同步其好友列表。",
+      privateProfileOwnerBody:
+        "你的 Steam 个人资料为私密。只有你能看到下方最后缓存的好友列表；在个人资料公开前无法刷新。",
       privateFriendsTitle: "Steam 好友列表为私密",
       privateFriendsBody: "该玩家的 Steam 好友列表被隐藏，因此无法同步其好友。",
+      privateFriendsOwnerBody:
+        "你的 Steam 好友列表为私密。只有你能看到下方最后缓存的好友列表；在好友列表公开前无法刷新。",
     },
     maps: {
       loadFailedTitle: "无法加载地图",

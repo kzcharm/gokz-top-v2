@@ -136,7 +136,11 @@ async def sync_current_player_friends(
     if result.kind == "failed":
         raise HTTPException(status_code=502, detail="Friends sync failed")
 
-    return await read_player_friends_public(session=session, player=player)
+    return await read_player_friends_public(
+        session=session,
+        player=player,
+        include_private_cache=True,
+    )
 
 
 @router.post("/ban-status-checks", response_model=PlayerBanStatusCheckPublic)

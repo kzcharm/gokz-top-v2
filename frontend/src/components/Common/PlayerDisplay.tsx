@@ -525,7 +525,7 @@ export function PlayerDisplay({
     steamid64Pattern.test(steamid64) &&
     (viewerSteamid64 === steamid64 || user?.steamid64 === steamid64)
   const viewerFriendsQuery = useQuery({
-    ...getProfileFriendsQueryOptions(viewerSteamid64),
+    ...getProfileFriendsQueryOptions(viewerSteamid64, viewerSteamid64),
     enabled:
       viewerSteamid64 !== null &&
       steamid64Pattern.test(steamid64) &&

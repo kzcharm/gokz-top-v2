@@ -166,11 +166,21 @@ async def read_player_friends_public(
     *,
     session: AsyncSession,
     player: Player,
+    include_private_cache: bool = False,
 ) -> PlayerFriendsPublic:
-    friends, count = await crud.get_player_friends(
-        session=session,
-        player_steamid64=player.steamid64,
-    )
+    is_private = player.friends_visibility in {
+        PlayerFriendsVisibility.PRIVATE_PROFILE,
+        PlayerFriendsVisibility.PRIVATE_FRIENDS,
+    }
+    friends: list[Player]
+    if is_private and not include_private_cache:
+        friends = []
+        count = 0
+    else:
+        friends, count = await crud.get_player_friends(
+            session=session,
+            player_steamid64=player.steamid64,
+        )
     return PlayerFriendsPublic(
         data=await crud.to_player_publics(session=session, players=friends),
         count=count,

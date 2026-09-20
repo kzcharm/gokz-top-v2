@@ -174,6 +174,30 @@ async function installProfileShellRoutes(
     })
   })
 
+  await page.route(/\/v1\/live\/streams(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+
+  await page.route(/\/v1\/media\/posts(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], next_cursor: null }),
+    })
+  })
+
+  await page.route(/\/v1\/polls(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+
   if (currentUserSteamid64) {
     await page.route("**/v1/users/me**", async (route) => {
       await route.fulfill({
@@ -342,6 +366,14 @@ async function installProfileShellRoutes(
     })
   })
 
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  })
+
   await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
@@ -465,6 +497,44 @@ test("Public visitor sees privacy warning and no sync button", async ({
 
   await expect(page.getByTestId("profile-friends-warning")).toBeVisible()
   await expect(page.getByTestId("profile-friends-sync-button")).toHaveCount(0)
+  await expect(page.getByTestId("profile-friends-kz-ratio")).toHaveCount(0)
+})
+
+test("Owner can view a cached friends list after making it private", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page, {
+    currentUserSteamid64: steamid64,
+    friendsPayload: () => ({
+      data: [friend],
+      count: 1,
+      sync: {
+        visibility: "private_friends",
+        last_checked_at: "2026-05-13T12:00:00Z",
+        last_attempted_at: "2026-05-13T12:00:00Z",
+        next_allowed_at: null,
+        steam_friends_count: 2,
+      },
+    }),
+  })
+
+  const friendsRequestPromise = page.waitForRequest(
+    /\/v1\/players\/[^/]+\/friends/,
+  )
+  await page.goto(`/profile/${steamid64}/friends`)
+
+  const friendsRequest = await friendsRequestPromise
+  expect(friendsRequest.headers().authorization).toMatch(/^Bearer /)
+  const privacyWarning = page.getByTestId("profile-friends-warning")
+  await expect(privacyWarning).toContainText(
+    "Only you can see the last cached friends list below",
+  )
+  await expect(privacyWarning).toHaveClass(/bg-amber-50/)
+  await expect(page.getByTestId("profile-friends-list")).toBeVisible()
+  await expect(page.getByText("Friend Alias")).toBeVisible()
+  await expect(page.getByTestId("profile-friends-sync-button")).toHaveText(
+    "Sync",
+  )
   await expect(page.getByTestId("profile-friends-kz-ratio")).toHaveCount(0)
 })
 

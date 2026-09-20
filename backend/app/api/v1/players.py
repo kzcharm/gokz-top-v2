@@ -474,9 +474,15 @@ async def read_player_friends(
     session: SessionDep,
     current_user: OptionalCurrentUser,
 ) -> PlayerFriendsPublic:
-    del current_user
     player = await get_player_or_404(session=session, identifier=identifier)
-    return await read_player_friends_public(session=session, player=player)
+    return await read_player_friends_public(
+        session=session,
+        player=player,
+        include_private_cache=(
+            current_user is not None
+            and current_user.steamid64 == player.steamid64
+        ),
+    )
 
 
 @router.get(

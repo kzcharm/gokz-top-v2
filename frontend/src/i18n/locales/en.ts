@@ -576,9 +576,13 @@ export const en = {
       privateProfileTitle: "Steam profile is private",
       privateProfileBody:
         "This player's Steam profile is not public, so their friends list cannot be synced.",
+      privateProfileOwnerBody:
+        "Your Steam profile is private. Only you can see the last cached friends list below; it cannot be refreshed until your profile is public.",
       privateFriendsTitle: "Steam friends list is private",
       privateFriendsBody:
         "This player's Steam friends list is hidden, so their friends cannot be synced.",
+      privateFriendsOwnerBody:
+        "Your Steam friends list is private. Only you can see the last cached friends list below; it cannot be refreshed until your friends list is public.",
     },
     maps: {
       loadFailedTitle: "Unable to load maps",
