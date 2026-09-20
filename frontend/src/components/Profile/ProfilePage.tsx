@@ -743,48 +743,48 @@ export function ProfilePage({
             setRecordsViewState(settings.view)
           }}
         />
-        {isOwnProfile ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Record page settings"
-                title="Record page settings"
-                className="size-9 border-border/70 bg-background/80"
-              >
-                <Settings2 />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Record page settings"
+              title="Record page settings"
+              className="size-9 border-border/70 bg-background/80"
+            >
+              <Settings2 />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {isOwnProfile ? (
               <DropdownMenuCheckboxItem
                 checked={showHiddenRecords}
                 onCheckedChange={setShowHiddenRecords}
               >
                 {t("profile.hiddenMaps.showToggle")}
               </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={showWrTime}
-                onCheckedChange={(checked) => {
-                  setShowWrTime(checked)
-                  writeBooleanCookie(PROFILE_RUNS_SHOW_WR_TIME_COOKIE, checked)
-                }}
-              >
-                {t("profile.records.showWrTime")}
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={showWrGap}
-                onCheckedChange={(checked) => {
-                  setShowWrGap(checked)
-                  writeBooleanCookie(PROFILE_RUNS_SHOW_WR_GAP_COOKIE, checked)
-                }}
-              >
-                {t("profile.records.showWrGap")}
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
+            ) : null}
+            <DropdownMenuCheckboxItem
+              checked={showWrTime}
+              onCheckedChange={(checked) => {
+                setShowWrTime(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_WR_TIME_COOKIE, checked)
+              }}
+            >
+              {t("profile.records.showWrTime")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showWrGap}
+              onCheckedChange={(checked) => {
+                setShowWrGap(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_WR_GAP_COOKIE, checked)
+              }}
+            >
+              {t("profile.records.showWrGap")}
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     ) : null
 

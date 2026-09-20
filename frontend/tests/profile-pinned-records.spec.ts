@@ -72,7 +72,10 @@ const nubRecords = [
   },
 ]
 
-async function installPinnedRecordRoutes(page: Page) {
+async function installPinnedRecordRoutes(
+  page: Page,
+  currentUserSteamid64 = steamid64,
+) {
   const pinnedRecords: Array<{
     id: string
     player_steamid64: string
@@ -108,12 +111,15 @@ async function installPinnedRecordRoutes(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        steamid64,
+        steamid64: currentUserSteamid64,
         is_active: true,
         roles: [],
         created_at: "2026-03-01T12:00:00Z",
         last_visited_at: "2026-03-31T12:00:00Z",
-        player: { steamid64, display_name: "Pinned Alias" },
+        player: {
+          steamid64: currentUserSteamid64,
+          display_name: "Current User",
+        },
       }),
     })
   })
@@ -525,4 +531,22 @@ test("Own profile can show and filter WR time and WR gap columns", async ({
   await page.getByRole("spinbutton", { name: "Maximum wr gap" }).fill("-4.1")
   await expect(page.getByText("kz_alpha")).toBeVisible()
   await expect(page.getByText("kz_beta")).toHaveCount(0)
+})
+
+test("Other profiles expose WR column options without hidden records", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page, "76561198000000099")
+  await page.goto(`/profile/${steamid64}/runs`)
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show WR time" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show WR gap" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show hidden records" }),
+  ).toHaveCount(0)
 })
