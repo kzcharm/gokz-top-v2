@@ -533,6 +533,60 @@ test("Own profile can show and filter WR time and WR gap columns", async ({
   await expect(page.getByText("kz_beta")).toHaveCount(0)
 })
 
+test("WR time and gap preset filters stay active while their columns are hidden", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  await page.goto(`/profile/${steamid64}/runs`)
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Show WR time" }).click()
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
+
+  await page.getByLabel("Filter by wr time range").click()
+  await page.getByRole("textbox", { name: "Maximum wr time" }).fill("0:40")
+  await page.keyboard.press("Escape")
+  await page.getByLabel("Filter by wr gap range").click()
+  await page.getByRole("spinbutton", { name: "Maximum wr gap" }).fill("-4.1")
+  await page.keyboard.press("Escape")
+
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page.getByText("Save current view").click()
+  await page.getByLabel("Preset name").fill("Hidden WR filters")
+  await page.getByRole("button", { name: "Save preset" }).click()
+
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page.getByText("Reset view").click()
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Show WR time" }).click()
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
+
+  await expect(
+    page.getByRole("columnheader", { name: "WR Time", exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("columnheader", { name: "WR Gap", exact: true }),
+  ).toHaveCount(0)
+  await expect(page.getByText("kz_alpha")).toBeVisible()
+  await expect(page.getByText("kz_beta")).toBeVisible()
+
+  await page.getByRole("button", { name: "Presets" }).click()
+  await page
+    .getByRole("button", { name: "Apply preset Hidden WR filters" })
+    .click()
+
+  await expect(page.getByText("kz_alpha")).toBeVisible()
+  await expect(page.getByText("kz_beta")).toHaveCount(0)
+  await expect(
+    page.getByRole("columnheader", { name: "WR Time", exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("columnheader", { name: "WR Gap", exact: true }),
+  ).toHaveCount(0)
+})
+
 test("Other profiles expose WR column options without hidden records", async ({
   page,
 }) => {

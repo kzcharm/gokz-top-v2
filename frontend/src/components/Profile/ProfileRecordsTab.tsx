@@ -1166,14 +1166,12 @@ export function ProfileRecordsTab({
       const wrTimeInSeconds =
         record.wr_time == null ? null : Math.floor(record.wr_time)
       if (
-        showWrTime &&
         parsedMinWrTime !== null &&
         (wrTimeInSeconds === null || wrTimeInSeconds < parsedMinWrTime)
       ) {
         return false
       }
       if (
-        showWrTime &&
         parsedMaxWrTime !== null &&
         (wrTimeInSeconds === null || wrTimeInSeconds > parsedMaxWrTime)
       ) {
@@ -1181,7 +1179,6 @@ export function ProfileRecordsTab({
       }
 
       if (
-        showWrGap &&
         parsedMinWrGap !== null &&
         Number.isFinite(parsedMinWrGap) &&
         (record.wr_gap == null || record.wr_gap < parsedMinWrGap)
@@ -1189,7 +1186,6 @@ export function ProfileRecordsTab({
         return false
       }
       if (
-        showWrGap &&
         parsedMaxWrGap !== null &&
         Number.isFinite(parsedMaxWrGap) &&
         (record.wr_gap == null || record.wr_gap > parsedMaxWrGap)
@@ -1265,8 +1261,6 @@ export function ProfileRecordsTab({
     isBonus,
     hiddenMapIds,
     showHiddenRecords,
-    showWrTime,
-    showWrGap,
     sort,
   ])
 
@@ -1337,9 +1331,10 @@ export function ProfileRecordsTab({
     maxTeleports.trim().length > 0 ||
     minTime.trim().length > 0 ||
     maxTime.trim().length > 0 ||
-    (showWrTime &&
-      (minWrTime.trim().length > 0 || maxWrTime.trim().length > 0)) ||
-    (showWrGap && (minWrGap.trim().length > 0 || maxWrGap.trim().length > 0)) ||
+    minWrTime.trim().length > 0 ||
+    maxWrTime.trim().length > 0 ||
+    minWrGap.trim().length > 0 ||
+    maxWrGap.trim().length > 0 ||
     minPoints.trim().length > 0 ||
     maxPoints.trim().length > 0 ||
     (!isBonus &&
