@@ -169,7 +169,7 @@ def test_cli_sync_media_requires_explicit_reclassification_flag() -> None:
     result = CliRunner().invoke(cli.app, ["sync", "media"])
 
     assert result.exit_code != 0
-    assert "--reclassify-existing" in result.output
+    assert "--reclassify-existing" in _plain_output(result.output)
 
 
 def test_cli_sync_help() -> None:
