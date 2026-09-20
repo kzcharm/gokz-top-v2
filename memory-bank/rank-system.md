@@ -187,12 +187,28 @@ This weighting makes a player's best results matter most while still rewarding b
 
 `backend/rank-system.toml` is the runtime source of truth for the decay, PB-point tuning values, and the target raw-rating cap. The current config uses:
 
-- `Decay = 0.99`
+- `Decay = 0.975`
 - `MaxMapRatingPoints = 1000`
 - `TargetMaxRawRating = 40000`
-- `RatingMultiplier = 0.4`
+- `RatingMultiplier = 1.0`
 
 With those values, the normalized theoretical maximum rating remains `40000`.
+
+### Skill ratings
+
+Each eligible map's best NUB/PRO PB points also supplies virtual entries for Boxtech, Strafe, BHOP, Climb, Ladder, and Slide. Missing map analysis or zero skill portion supplies no entries. A portion `w` in `0..1` represents `100 * w` atomic entries, each retaining the map's unchanged PB points; fractional entries such as `0.5% = 0.5 atomic entries` are kept continuously rather than rounded. Sort maps by PB points `P` descending (ties by map ID), then calculate each skill independently without materializing the repeated entries. Each skill keeps at most `50 / 6` full-portion entries—the amount of that skill expected from 50 maps whose portions were evenly distributed among six skills. A 100%-portion map therefore consumes one of those `8⅓` entries, while a 50%-portion map consumes half; the final map block is truncated continuously when it crosses the limit. Skill ratings have an independently configurable full-portion decay `D`; one atomic virtual entry therefore decays by `D^(1/100)`:
+
+```text
+C_i = sum of w for preceding maps
+MapBlock_i = 40 * P_i * D^C_i * (1 - D^w_i)
+RawSkillRating = min(40000, trunc(sum(MapBlock_i)))
+```
+
+The final factor is evaluated with a numerically stable exponential form. The current OVR tune uses `D = 0.90`, which gives about 6.58 full skill-portions of half-life and makes early, higher-point entries dominate completion breadth. Raising `D` gives completion breadth more influence. Overall, easy, and hard ratings keep their existing formula and settings.
+
+Six nonnegative raw ratings are stored per player and scope. Their display values use 24 persisted, manually calibrated converters (six skills × four scopes). Each converter samples all eligible, unbanned ranked players in its scope, including zero skill ratings. Level `L` from 2 through 10 requires a raw rating strictly above at least `1 - 2^(1-L)` of that population; tied raw values must never be split. When level 10 is attainable and the best observed raw value is unique, it anchors at `10.99999`, while a tie at the best raw value anchors at `10.99`. Competitive decimal ratings are floored at two displayed decimal places, so both values display as `10.99` and exact level 11 remains unattainable. The distinct underlying unique-leader anchor preserves ordering without displaying a value above the stored converter result. This population-best anchor is added only when level 10 is attainable, preserving the rule that sparse upper tails are not extrapolated. A monotone smooth interpolation between attainable anchors gives fractional display values. Unreachable levels remain unreachable until the next explicit recalibration. Zero raw ratings or missing converters have no skill display rating. These curves do not affect overall, easy, or hard rating conversion; nightly rebuilds do not refresh them.
+
+For full-population tuning, run `python scripts/tune_skill_ratings.py snapshot` once from `backend/`, then run `python scripts/tune_skill_ratings.py evaluate` (the coarse grid) or add `--decay VALUE` for one candidate. The versioned snapshot and JSONL reports stay under `.temp/skill-rating-tuning/`; candidate evaluation reads only the numeric snapshot. Applying a reviewed OVR candidate requires the explicit `apply --decay VALUE` command, is restricted to the local environment, verifies the complete source fingerprint again, and saves all six OVR converters atomically with the raw-rating rebuild. After deploying the formula, operators must explicitly rebuild raw skill ratings and save fresh converters for `OVR`, `KZT`, `SKZ`, and `VNL`; application reads and nightly rebuilds never perform that cross-scope calibration automatically.
 
 If a player has no qualifying PB points, both `total points` and `rating` are `0`.
 

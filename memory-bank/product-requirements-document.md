@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-09-14
+- Last Updated: 2026-09-20
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -42,8 +42,9 @@ Build the long-term platform for the GOKZ ecosystem:
 
 ### 5.1 Competitive Data and Rankings
 - Player ratings, points, and rankings with scope-aware calculations.
+- Profile skill radar uses six scope-aware raw ratings calculated from virtual entries at each analyzed main map's unchanged best NUB/PRO PB points. Each skill independently orders its map evidence by PB points with deterministic map-ID tie-breaking and retains at most `50 / 6` full-portion entries, representing the per-skill share expected from 50 evenly distributed six-skill maps. A map portion `w` provides `100 * w` atomic entries, including fractional entries, and a final block that crosses the limit is truncated continuously. Each skill uses an independently configurable full-portion decay without changing the overall rating formula. Separate per-skill, per-scope percentile curves calibrate levels 2–10 manually; a unique population leader anchors at `10.99999`, tied leaders anchor at `10.99`, and both display as `10.99` under the site-wide two-decimal floor rule. The radar currently provides a relative plot that keeps the strongest skill at the same radius as the global 0–11 calculation, then expands the player's minimum-to-maximum range inside that footprint. Its inner bound rises with the weakest absolute global rating, preventing a near-11 skill from looking genuinely weak. Every axis label contains the globally calibrated rating. The direct Global view is not currently exposed, though its plot calculation is retained for possible future use. Skill ratings are shown only when available, and the existing overall rating converter is unchanged. Production rollout requires an explicit raw rebuild and fresh six-skill converter calibration for `OVR`, `KZT`, `SKZ`, and `VNL` after deployment.
 - `/compare` accepts two player identifiers and exposes a shareable scope-aware comparison of rating, points, global rank, tiered validated-main-map completion, and NUB/PRO main-stage PBs. The route supports replacing either player through search, swapping the sides, and filtering each PB table to maps finished by both players. Authenticated player context menus prefill the viewer against the selected player.
-- Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and eligibility-based membership semantics.
+- Public player leaderboard is now available at `/v1/leaderboards/players` with scope switching, server-side sorting, pagination, and eligibility-based membership semantics. Its selectable skill column can display and sort by any of the six independently calibrated skills.
 - Public maps leaderboard is now available inside the `/leaderboards` page `Maps` tab, backed by `/v1/leaderboards/maps`, with scope switching, full validated-map reads, and client-side sorting/filtering for record-derived map metrics plus review summary fields.
 - Public community leaderboard entries expose the player's largest cached verified platform follower audience across Bilibili, YouTube, and Twitch, including the platform URL for the displayed icon link and server-side sorting by that follower count.
 - Public country leaderboard is available at `/leaderboards/countries`, backed by `/v1/leaderboards/countries`; it ranks countries with at least 10 eligible players by top-10 average rating and shows the country median rating, ranked and 30-day active-player counts, and the top three players.

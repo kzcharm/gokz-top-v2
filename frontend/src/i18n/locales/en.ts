@@ -516,8 +516,16 @@ export const en = {
     skillRadar: {
       title: "Skills",
       ariaLabel: "Profile skill radar",
-      placeholderTooltip: "This section currently shows placeholder data.",
-      placeholderTooltipAria: "Show skills placeholder notice",
+      relativeAriaLabel: "Relative profile skill radar",
+      tooltip:
+        "The relative view keeps the strongest skill at its global radius and magnifies the shape inside that footprint. The weakest radius also reflects its absolute rating, so a near-11 skill remains near the outside. Displayed numbers always remain the global ratings and are floored to two decimals. Levels 2–10 use progressively smaller top-percentile groups; the population-best anchor remains below 11. Unavailable skills show —.",
+      tooltipAria: "How skill ratings work",
+      scaleAria: "Skill radar scale",
+      globalView: "Global",
+      relativeView: "Relative",
+      globalHint: "Shared 0–11 scale for comparing players.",
+      relativeHint:
+        "Global outer size; absolute strength limits the inner dip.",
       boxtech: "Boxtech",
       strafe: "Strafe",
       bhop: "Bhop",
@@ -876,6 +884,10 @@ export const en = {
       },
     },
     players: {
+      skills: {
+        select: "Select skill, currently {{skill}}",
+        rawRating: "Raw rating: {{rating}}",
+      },
       friends: {
         label: "Friends",
         loginRequiredTitle: "Login required",

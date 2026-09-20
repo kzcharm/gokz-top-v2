@@ -4,8 +4,9 @@ from decimal import Decimal
 from typing import Literal
 
 from pydantic import field_serializer
-from sqlalchemy import BigInteger, Column, DateTime, Index, text
+from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, Text, text
 from sqlalchemy import Enum as SqlEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from app.core.rank_system import get_rank_system_settings
@@ -19,6 +20,12 @@ LeaderboardPlayerSortBy = Literal[
     "rating",
     "rating_easy",
     "rating_hard",
+    "rating_boxtech",
+    "rating_strafe",
+    "rating_bhop",
+    "rating_climb",
+    "rating_ladder",
+    "rating_slide",
     "points",
     "wrs_nub",
     "wrs_pro",
@@ -58,9 +65,9 @@ def _pchip_endpoint_slope(
     delta_this: float,
     delta_other: float,
 ) -> float:
-    slope = (
-        ((2 * h_this) + h_other) * delta_this - h_this * delta_other
-    ) / (h_this + h_other)
+    slope = (((2 * h_this) + h_other) * delta_this - h_this * delta_other) / (
+        h_this + h_other
+    )
     if slope * delta_this <= 0:
         return 0.0
     if delta_this * delta_other < 0 and abs(slope) > abs(3 * delta_this):
@@ -74,12 +81,14 @@ def _build_public_rating_slopes() -> tuple[float, ...]:
         return ()
 
     h_values = [
-        _PUBLIC_RATING_ANCHOR_INPUTS[index + 1]
-        - _PUBLIC_RATING_ANCHOR_INPUTS[index]
+        _PUBLIC_RATING_ANCHOR_INPUTS[index + 1] - _PUBLIC_RATING_ANCHOR_INPUTS[index]
         for index in range(point_count - 1)
     ]
     deltas = [
-        (_PUBLIC_RATING_ANCHOR_OUTPUTS[index + 1] - _PUBLIC_RATING_ANCHOR_OUTPUTS[index])
+        (
+            _PUBLIC_RATING_ANCHOR_OUTPUTS[index + 1]
+            - _PUBLIC_RATING_ANCHOR_OUTPUTS[index]
+        )
         / h_values[index]
         for index in range(point_count - 1)
     ]
@@ -162,9 +171,9 @@ def scale_public_rating(value: float | None) -> float | None:
     if value is None or value <= 0:
         return None
 
-    old_rating = (Decimal(str(value)) * _PUBLIC_RATING_SCALE / _PUBLIC_RATING_DIVISOR) + (
-        _PUBLIC_RATING_OFFSET
-    )
+    old_rating = (
+        Decimal(str(value)) * _PUBLIC_RATING_SCALE / _PUBLIC_RATING_DIVISOR
+    ) + (_PUBLIC_RATING_OFFSET)
     return redistribute_display_rating(float(old_rating))
 
 
@@ -205,6 +214,12 @@ class LeaderboardPlayerBase(LegacyDatetimeNamesMixin):
     rating: int = Field(default=0, ge=0)
     rating_easy: int = Field(default=0, ge=0)
     rating_hard: int = Field(default=0, ge=0)
+    rating_boxtech: int = Field(default=0, ge=0)
+    rating_strafe: int = Field(default=0, ge=0)
+    rating_bhop: int = Field(default=0, ge=0)
+    rating_climb: int = Field(default=0, ge=0)
+    rating_ladder: int = Field(default=0, ge=0)
+    rating_slide: int = Field(default=0, ge=0)
     points: int = Field(default=0, ge=0)
     wrs_nub: int = Field(default=0, ge=0)
     wrs_pro: int = Field(default=0, ge=0)
@@ -244,6 +259,48 @@ class LeaderboardPlayer(LeaderboardPlayerBase, table=True):
             "ix_lb_player_scope_rating_hard_order",
             "scope",
             text("rating_hard DESC"),
+            text("rating DESC"),
+            "steamid64",
+        ),
+        Index(
+            "ix_lb_player_scope_rating_boxtech_order",
+            "scope",
+            text("rating_boxtech DESC"),
+            text("rating DESC"),
+            "steamid64",
+        ),
+        Index(
+            "ix_lb_player_scope_rating_strafe_order",
+            "scope",
+            text("rating_strafe DESC"),
+            text("rating DESC"),
+            "steamid64",
+        ),
+        Index(
+            "ix_lb_player_scope_rating_bhop_order",
+            "scope",
+            text("rating_bhop DESC"),
+            text("rating DESC"),
+            "steamid64",
+        ),
+        Index(
+            "ix_lb_player_scope_rating_climb_order",
+            "scope",
+            text("rating_climb DESC"),
+            text("rating DESC"),
+            "steamid64",
+        ),
+        Index(
+            "ix_lb_player_scope_rating_ladder_order",
+            "scope",
+            text("rating_ladder DESC"),
+            text("rating DESC"),
+            "steamid64",
+        ),
+        Index(
+            "ix_lb_player_scope_rating_slide_order",
+            "scope",
+            text("rating_slide DESC"),
             text("rating DESC"),
             "steamid64",
         ),
@@ -316,12 +373,33 @@ class LeaderboardPlayerCount(LegacyDatetimeNamesMixin, table=True):
         super().__init__(**payload)
 
 
+class SkillRatingConverter(SQLModel, table=True):
+    __tablename__ = "skill_rating_converter"
+
+    scope: ModeScope = Field(
+        sa_column=Column(SqlEnum(ModeScope, name="mode_scope"), primary_key=True)
+    )
+    skill: str = Field(sa_column=Column(Text, primary_key=True))
+    anchors: list[list[int | float]] = Field(sa_column=Column(JSONB, nullable=False))
+    sample_size: int = Field(sa_column=Column(Integer, nullable=False))
+    updated_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+class SkillRatingPublic(SQLModel):
+    raw_rating: int
+    rating: float | None
+
+
 class PlayerLeaderboardEntryPublic(SQLModel):
     rank: int
     global_rank: int | None = None
     player: PlayerRefPublic
     rating: float | None
     raw_rating: int | None
+    skill_ratings: dict[str, SkillRatingPublic] = Field(default_factory=dict)
     rating_easy: float | None
     rating_hard: float | None
     points: int
@@ -346,6 +424,7 @@ class PlayerLeaderboardRankPublic(SQLModel):
     rating: float | None
     rating_easy: float | None
     rating_hard: float | None
+    skill_ratings: dict[str, SkillRatingPublic] = Field(default_factory=dict)
     points: int
     wrs_nub: int
     wrs_pro: int

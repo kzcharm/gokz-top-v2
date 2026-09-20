@@ -4,7 +4,6 @@ import {
   Copy,
   Eye,
   Heart,
-  InfoIcon,
   Search,
   UserCheck,
   UserPlus,
@@ -80,7 +79,6 @@ import {
   type ProfileSocialTab,
 } from "./ProfileSocialDialog"
 import { ProfileTournamentAchievements } from "./ProfileTournamentAchievements"
-import { profileHomePlaceholder } from "./profile-home-placeholder"
 import {
   getRatingRankLadder,
   getRatingRankLevel,
@@ -94,6 +92,8 @@ import {
   getFollowSummaryCount,
   getProfileFollowSummaryQueryOptions,
   type ProfilePlayer,
+  type ProfileSkillKey,
+  type ProfileSkillRatings,
   type ProfileSummaryData,
 } from "./profile-utils"
 
@@ -805,15 +805,71 @@ function SummaryMiniCard({
   )
 }
 
-function SkillRadar() {
+const SKILL_KEYS: ProfileSkillKey[] = [
+  "boxtech",
+  "strafe",
+  "bhop",
+  "climb",
+  "ladder",
+  "slide",
+]
+
+type SkillRadarScale = "global" | "relative"
+
+const RELATIVE_RADAR_BASE_INNER_RATIO = 0.25
+const RELATIVE_RADAR_ABSOLUTE_STRENGTH_WEIGHT = 0.55
+
+function getSkillRadarPlotValues(
+  values: Array<number | null>,
+  scale: SkillRadarScale,
+) {
+  const globalValues = values.map((value) =>
+    value === null ? 0 : Math.min(1, Math.max(0, value / 11)),
+  )
+
+  // Keep the global scale implementation archived here so it can be restored
+  // without rebuilding its plotting behavior. The profile currently renders
+  // the relative scale directly.
+  if (scale === "global") {
+    return globalValues
+  }
+
+  const availableValues = globalValues.filter(
+    (_, index) => values[index] !== null,
+  )
+  if (availableValues.length === 0) {
+    return values.map(() => 0)
+  }
+
+  const minimum = Math.min(...availableValues)
+  const maximum = Math.max(...availableValues)
+  const range = maximum - minimum
+  if (range < 0.005) {
+    return globalValues
+  }
+
+  const innerRatio =
+    RELATIVE_RADAR_BASE_INNER_RATIO +
+    RELATIVE_RADAR_ABSOLUTE_STRENGTH_WEIGHT * minimum
+
+  return globalValues.map((value, index) => {
+    if (values[index] === null) {
+      return 0
+    }
+    const position = (value - minimum) / range
+    return maximum * (innerRatio + position * (1 - innerRatio))
+  })
+}
+
+function SkillRadar({ ratings }: { ratings: ProfileSkillRatings | null }) {
   const { t } = useTranslation()
   const size = 220
   const center = size / 2
   const radius = 74
-  const labels = profileHomePlaceholder.skills.map((skill) => ({
-    ...skill,
+  const labels = SKILL_KEYS.map((skill) => ({
+    value: ratings?.[skill]?.rating ?? null,
     label: t(
-      `profile.skillRadar.${skill.label.toLowerCase()}` as
+      `profile.skillRadar.${skill}` as
         | "profile.skillRadar.boxtech"
         | "profile.skillRadar.strafe"
         | "profile.skillRadar.bhop"
@@ -822,11 +878,15 @@ function SkillRadar() {
         | "profile.skillRadar.slide",
     ),
   }))
+  const plotValues = getSkillRadarPlotValues(
+    labels.map((skill) => skill.value),
+    "relative",
+  )
 
   const polygon = labels
-    .map((skill, index) => {
+    .map((_, index) => {
       const angle = (Math.PI * 2 * index) / labels.length - Math.PI / 2
-      const pointRadius = (skill.value / 100) * radius
+      const pointRadius = plotValues[index] * radius
       const x = center + Math.cos(angle) * pointRadius
       const y = center + Math.sin(angle) * pointRadius
       return `${x},${y}`
@@ -834,17 +894,18 @@ function SkillRadar() {
     .join(" ")
 
   return (
-    <div className="grid gap-5">
-      <div className="flex justify-center">
+    <div className="w-full">
+      <div className="flex w-full justify-center">
         <svg
           viewBox={`0 0 ${size} ${size}`}
           className="h-[220px] w-[220px] overflow-visible"
           role="img"
-          aria-label={t("profile.skillRadar.ariaLabel")}
+          aria-label={t("profile.skillRadar.relativeAriaLabel")}
         >
           {[0.25, 0.5, 0.75, 1].map((step) => (
             <polygon
               key={step}
+              data-testid="profile-skill-radar-grid-line"
               points={labels
                 .map((_, index) => {
                   const angle =
@@ -877,15 +938,18 @@ function SkillRadar() {
               />
             )
           })}
-          <polygon
-            points={polygon}
-            fill="rgba(127,119,221,0.18)"
-            stroke="rgba(127,119,221,1)"
-            strokeWidth="2"
-          />
+          {labels.every((skill) => skill.value !== null) && (
+            <polygon
+              data-testid="profile-skill-radar-polygon"
+              points={polygon}
+              fill="rgba(127,119,221,0.18)"
+              stroke="rgba(127,119,221,1)"
+              strokeWidth="2"
+            />
+          )}
           {labels.map((skill, index) => {
             const angle = (Math.PI * 2 * index) / labels.length - Math.PI / 2
-            const pointRadius = (skill.value / 100) * radius
+            const pointRadius = plotValues[index] * radius
             const x = center + Math.cos(angle) * pointRadius
             const y = center + Math.sin(angle) * pointRadius
             const labelRadius = radius + 26
@@ -893,15 +957,18 @@ function SkillRadar() {
             const ly = center + Math.sin(angle) * labelRadius
             return (
               <g key={skill.label}>
-                <circle cx={x} cy={y} r="4" fill="rgba(127,119,221,1)" />
+                {skill.value !== null && (
+                  <circle cx={x} cy={y} r="4" fill="rgba(127,119,221,1)" />
+                )}
                 <text
                   x={lx}
                   y={ly}
+                  data-skill-label={SKILL_KEYS[index]}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   className="fill-muted-foreground text-[10px] font-medium"
                 >
-                  {`${skill.label} ${skill.value}`}
+                  {`${skill.label} ${skill.value === null ? "—" : formatRating(skill.value)}`}
                 </text>
               </g>
             )
@@ -1352,29 +1419,11 @@ export function ProfileSidebar({
         <Card className="h-full min-w-0 gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
           <CardContent className="space-y-5 p-6">
             <div>
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  {t("profile.skillRadar.title")}
-                </p>
-                <Tooltip delayDuration={150}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={t(
-                        "profile.skillRadar.placeholderTooltipAria",
-                      )}
-                      className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <InfoIcon className="size-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent sideOffset={8} className="max-w-56">
-                    {t("profile.skillRadar.placeholderTooltip")}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                {t("profile.skillRadar.title")}
+              </p>
             </div>
-            <SkillRadar />
+            <SkillRadar ratings={summary.skillRatings} />
           </CardContent>
         </Card>
       </div>

@@ -506,8 +506,15 @@ export const zhCN = {
     skillRadar: {
       title: "技能雷达",
       ariaLabel: "个人主页技能雷达图",
-      placeholderTooltip: "这个区域目前显示的是占位数据。",
-      placeholderTooltipAria: "显示技能区域占位提示",
+      relativeAriaLabel: "个人主页相对技能雷达图",
+      tooltip:
+        "相对视图会让最强技能保持其全局半径，并在这个外轮廓内放大该玩家自身的技能差异。最弱项的半径也会参考其绝对评分，因此接近 11 的技能仍会靠近外圈。显示的数字始终是全局评分，并向下保留两位小数。等级 2–10 逐级使用更小的顶尖百分位人群，最高人群锚点仍低于 11。暂无评分的技能显示 —。",
+      tooltipAria: "了解技能评分",
+      scaleAria: "技能雷达图刻度",
+      globalView: "全局",
+      relativeView: "相对",
+      globalHint: "统一的 0–11 刻度，用于比较不同玩家。",
+      relativeHint: "外轮廓保持全局大小；绝对强度限制向内凹陷。",
       boxtech: "Boxtech",
       strafe: "加速",
       bhop: "Bhop",
@@ -856,6 +863,10 @@ export const zhCN = {
       },
     },
     players: {
+      skills: {
+        select: "选择技能，当前为{{skill}}",
+        rawRating: "原始评级：{{rating}}",
+      },
       friends: {
         label: "好友",
         loginRequiredTitle: "需要登录",

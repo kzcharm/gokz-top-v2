@@ -22,6 +22,7 @@ from app.models import (
     LeaderboardPlayerCount,
     Map,
     MapCourse,
+    MapSkill,
     ModeScope,
     Player,
     PlayerFriend,
@@ -31,6 +32,8 @@ from app.models import (
     Record,
     RecordPb,
     RecordType,
+    SkillRatingConverter,
+    SkillRatingPublic,
     legacy_mode_id_to_kz_mode,
     mode_scope_from_id,
     mode_scope_modes,
@@ -38,6 +41,8 @@ from app.models import (
 )
 from app.models.leaderboard_player import LeaderboardPlayerSortBy
 from app.models.utils import get_datetime_utc
+from app.services.skill_rating import SKILLS, calculate_skill_rating
+from app.services.skill_rating_converter import convert_skill_rating
 
 from .ban import not_active_ban_exists_split_clause
 
@@ -78,6 +83,7 @@ async def load_player_ratings_by_scope(
     for steamid64, scope, rating in rows:
         ratings_by_player[int(steamid64)][scope] = rating
     return dict(ratings_by_player)
+
 
 def _scope_ids_for_mode_id(mode_id: int) -> tuple[int, ...]:
     return tuple(
@@ -186,8 +192,7 @@ def _apply_player_leaderboard_filters(
                 col(LeaderboardPlayer.steamid64) == friends_viewer_steamid64,
                 exists(
                     select(PlayerFriend.friend_steamid64).where(
-                        col(PlayerFriend.player_steamid64)
-                        == friends_viewer_steamid64,
+                        col(PlayerFriend.player_steamid64) == friends_viewer_steamid64,
                         col(PlayerFriend.friend_steamid64)
                         == col(LeaderboardPlayer.steamid64),
                     )
@@ -231,7 +236,8 @@ async def _count_active_banned_scope_players(
                 .select_from(LeaderboardPlayer)
                 .join(
                     active_banned_players,
-                    active_banned_players.c.steamid64 == col(LeaderboardPlayer.steamid64),
+                    active_banned_players.c.steamid64
+                    == col(LeaderboardPlayer.steamid64),
                 )
                 .where(col(LeaderboardPlayer.scope) == scope)
             )
@@ -296,6 +302,7 @@ def _build_player_leaderboard_entry_public(
     rank: int,
     global_rank: int | None,
     leaderboard_row: LeaderboardPlayer,
+    converters: dict[str, list[list[int]]],
 ) -> PlayerLeaderboardEntryPublic:
     return PlayerLeaderboardEntryPublic(
         rank=rank,
@@ -303,6 +310,7 @@ def _build_player_leaderboard_entry_public(
         player=to_player_ref_public(player=player),
         rating=leaderboard_row.rating,
         raw_rating=leaderboard_row.rating,
+        skill_ratings=_public_skill_ratings(leaderboard_row, converters),
         rating_easy=leaderboard_row.rating_easy,
         rating_hard=leaderboard_row.rating_hard,
         points=leaderboard_row.points,
@@ -312,6 +320,30 @@ def _build_player_leaderboard_entry_public(
         records_800_plus=leaderboard_row.records_800_plus,
         unique_map_finishes=leaderboard_row.unique_map_finishes,
     )
+
+
+def _public_skill_ratings(
+    row: LeaderboardPlayer, converters: dict[str, list[list[int | float]]]
+) -> dict[str, SkillRatingPublic]:
+    return {
+        skill: SkillRatingPublic(
+            raw_rating=raw,
+            rating=convert_skill_rating(raw, converters.get(skill)),
+        )
+        for skill in SKILLS
+        for raw in [getattr(row, f"rating_{skill}")]
+    }
+
+
+async def _load_skill_converters(
+    *, session: AsyncSession, scope: ModeScope
+) -> dict[str, list[list[int | float]]]:
+    rows = (
+        await session.exec(
+            select(SkillRatingConverter).where(col(SkillRatingConverter.scope) == scope)
+        )
+    ).all()
+    return {row.skill: row.anchors for row in rows}
 
 
 async def _load_player_pb_rows(
@@ -356,6 +388,7 @@ def _build_leaderboard_values(
     *,
     rows: Sequence[PlayerPbRow],
     tiers_by_course_id: dict[int, int],
+    skills_by_map_id: dict[int, MapSkill] | None = None,
 ) -> dict[str, int]:
     points_by_course_id: dict[int, dict[RecordType, int]] = defaultdict(dict)
     total_points = 0
@@ -376,9 +409,19 @@ def _build_leaderboard_values(
     map_best_points: list[int] = []
     easy_points: list[int] = []
     hard_points: list[int] = []
+    map_id_by_course_id = {row.course_id: row.map_id for row in rows}
+    portions_by_skill: dict[str, list[tuple[int, Decimal, int]]] = {
+        skill: [] for skill in SKILLS
+    }
     for course_id, values in points_by_course_id.items():
         best_points = max(values.values())
         map_best_points.append(best_points)
+        analysis = (skills_by_map_id or {}).get(map_id_by_course_id[course_id])
+        if analysis is not None:
+            for skill in SKILLS:
+                portions_by_skill[skill].append(
+                    (best_points, getattr(analysis, skill), analysis.map_id)
+                )
         tier = tiers_by_course_id.get(course_id, 0)
         if 0 < tier <= 4:
             easy_points.append(best_points)
@@ -405,6 +448,12 @@ def _build_leaderboard_values(
         "rating": rating,
         "rating_easy": rating_easy,
         "rating_hard": rating_hard,
+        **{
+            f"rating_{skill}": calculate_skill_rating(portions_by_skill[skill])
+            if unique_map_finishes >= ELIGIBLE_UNIQUE_MAP_FINISHES
+            else 0
+            for skill in SKILLS
+        },
         "points": total_points,
         "wrs_nub": wrs_nub,
         "wrs_pro": wrs_pro,
@@ -575,11 +624,19 @@ async def rebuild_leaderboard_player(
         course_keys=course_keys,
         scope=scope,
     )
-    tiers_by_course_id = {
-        row.course_id: tiers_by_map[(row.map_id, 0)]
-        for row in rows
-    }
-    values = _build_leaderboard_values(rows=rows, tiers_by_course_id=tiers_by_course_id)
+    tiers_by_course_id = {row.course_id: tiers_by_map[(row.map_id, 0)] for row in rows}
+    skill_rows = (
+        await session.exec(
+            select(MapSkill).where(
+                col(MapSkill.map_id).in_(list({row.map_id for row in rows}))
+            )
+        )
+    ).all()
+    values = _build_leaderboard_values(
+        rows=rows,
+        tiers_by_course_id=tiers_by_course_id,
+        skills_by_map_id={skill_row.map_id: skill_row for skill_row in skill_rows},
+    )
     contributions_changed = await _sync_player_raw_rating_contributions(
         session=session,
         scope=scope,
@@ -602,6 +659,7 @@ async def rebuild_leaderboard_player(
         "rating": existing.rating,
         "rating_easy": existing.rating_easy,
         "rating_hard": existing.rating_hard,
+        **{f"rating_{skill}": getattr(existing, f"rating_{skill}") for skill in SKILLS},
         "points": existing.points,
         "wrs_nub": existing.wrs_nub,
         "wrs_pro": existing.wrs_pro,
@@ -672,7 +730,9 @@ async def load_leaderboard_player_keys(
     )
     if scope_ids:
         source_statement = source_statement.where(
-            col(RecordPb.scope).in_([mode_scope_from_id(scope_id) for scope_id in scope_ids])
+            col(RecordPb.scope).in_(
+                [mode_scope_from_id(scope_id) for scope_id in scope_ids]
+            )
         )
         existing_statement = existing_statement.where(
             col(LeaderboardPlayer.scope).in_(
@@ -693,7 +753,9 @@ async def load_leaderboard_player_keys(
     }
     existing_keys = {
         (mode_scope_to_id(scope), steamid64)
-        for scope, steamid64 in (await session.exec(existing_statement.distinct())).all()
+        for scope, steamid64 in (
+            await session.exec(existing_statement.distinct())
+        ).all()
     }
     if not prioritize_existing_rating:
         return sorted(source_keys | existing_keys)
@@ -718,7 +780,9 @@ async def load_leaderboard_player_keys(
     )
     existing_keys_in_order = [
         (mode_scope_to_id(scope), steamid64)
-        for scope, steamid64 in (await session.exec(prioritized_existing_statement)).all()
+        for scope, steamid64 in (
+            await session.exec(prioritized_existing_statement)
+        ).all()
     ]
     remaining_source_keys = sorted(source_keys - set(existing_keys_in_order))
     return [*existing_keys_in_order, *remaining_source_keys]
@@ -789,27 +853,30 @@ async def read_player_leaderboard(
     query: PlayerLeaderboardListQuery,
     friends_viewer_steamid64: int | None = None,
 ) -> tuple[list[PlayerLeaderboardEntryPublic], int]:
+    converters = await _load_skill_converters(session=session, scope=query.scope)
+    selected_columns: list[Any] = [
+        col(LeaderboardPlayer.scope).label("scope"),
+        col(LeaderboardPlayer.steamid64).label("steamid64"),
+        col(LeaderboardPlayer.rating).label("rating"),
+        col(LeaderboardPlayer.rating_easy).label("rating_easy"),
+        col(LeaderboardPlayer.rating_hard).label("rating_hard"),
+        *[
+            getattr(LeaderboardPlayer, f"rating_{skill}").label(f"rating_{skill}")
+            for skill in SKILLS
+        ],
+        col(LeaderboardPlayer.points).label("points"),
+        col(LeaderboardPlayer.wrs_nub).label("wrs_nub"),
+        col(LeaderboardPlayer.wrs_pro).label("wrs_pro"),
+        col(LeaderboardPlayer.records_900_plus).label("records_900_plus"),
+        col(LeaderboardPlayer.records_800_plus).label("records_800_plus"),
+        col(LeaderboardPlayer.unique_map_finishes).label("unique_map_finishes"),
+    ]
     base_order_expressions = _leaderboard_order_expressions(
         sort_by=query.sort_by,
         columns=LeaderboardPlayer,
     )
     filtered_statement = _apply_player_leaderboard_filters(
-        statement=(
-            select(
-                col(LeaderboardPlayer.scope).label("scope"),
-                col(LeaderboardPlayer.steamid64).label("steamid64"),
-                col(LeaderboardPlayer.rating).label("rating"),
-                col(LeaderboardPlayer.rating_easy).label("rating_easy"),
-                col(LeaderboardPlayer.rating_hard).label("rating_hard"),
-                col(LeaderboardPlayer.points).label("points"),
-                col(LeaderboardPlayer.wrs_nub).label("wrs_nub"),
-                col(LeaderboardPlayer.wrs_pro).label("wrs_pro"),
-                col(LeaderboardPlayer.records_900_plus).label("records_900_plus"),
-                col(LeaderboardPlayer.records_800_plus).label("records_800_plus"),
-                col(LeaderboardPlayer.unique_map_finishes).label("unique_map_finishes"),
-            )
-            .select_from(LeaderboardPlayer)
-        ),
+        statement=(select(*selected_columns).select_from(LeaderboardPlayer)),
         scope=query.scope,
         geography_country_codes=_country_codes_for_geography(
             country=query.country,
@@ -849,7 +916,11 @@ async def read_player_leaderboard(
 
     count = -1
     if query.include_count:
-        if query.country is None and query.region is None and friends_viewer_steamid64 is None:
+        if (
+            query.country is None
+            and query.region is None
+            and friends_viewer_steamid64 is None
+        ):
             scope = query.scope
             cached_total = await _read_cached_scope_count(
                 session=session,
@@ -893,6 +964,7 @@ async def read_player_leaderboard(
             page_subquery.c.rating,
             page_subquery.c.rating_easy,
             page_subquery.c.rating_hard,
+            *(getattr(page_subquery.c, f"rating_{skill}") for skill in SKILLS),
             page_subquery.c.points,
             page_subquery.c.wrs_nub,
             page_subquery.c.wrs_pro,
@@ -922,6 +994,10 @@ async def read_player_leaderboard(
                     rating=rating,
                     rating_easy=rating_easy,
                     rating_hard=rating_hard,
+                    **{
+                        f"rating_{skill}": value
+                        for skill, value in zip(SKILLS, skill_values, strict=True)
+                    },
                     points=points,
                     wrs_nub=wrs_nub,
                     wrs_pro=wrs_pro,
@@ -929,12 +1005,14 @@ async def read_player_leaderboard(
                     records_800_plus=records_800_plus,
                     unique_map_finishes=unique_map_finishes,
                 ),
+                converters=converters,
             )
             for index, (
                 player,
                 rating,
                 rating_easy,
                 rating_hard,
+                *skill_values,
                 points,
                 wrs_nub,
                 wrs_pro,
@@ -963,7 +1041,9 @@ async def _read_metric_rank(
         return None
 
     metric_column = col(getattr(LeaderboardPlayer, metric_name))
-    geography_country_codes = _country_codes_for_geography(country=country, region=region)
+    geography_country_codes = _country_codes_for_geography(
+        country=country, region=region
+    )
     higher_count_statement = _apply_player_leaderboard_filters(
         statement=(
             select(func.count())
@@ -1005,6 +1085,7 @@ async def read_player_leaderboard_rank(
     region: str | None = None,
     friends_viewer_steamid64: int | None = None,
 ) -> PlayerLeaderboardRankPublic:
+    converters = await _load_skill_converters(session=session, scope=scope)
     leaderboard_row = await session.get(
         LeaderboardPlayer,
         (scope, player.steamid64),
@@ -1059,6 +1140,9 @@ async def read_player_leaderboard_rank(
         rating=leaderboard_row.rating if leaderboard_row is not None else 0,
         rating_easy=leaderboard_row.rating_easy if leaderboard_row is not None else 0,
         rating_hard=leaderboard_row.rating_hard if leaderboard_row is not None else 0,
+        skill_ratings=_public_skill_ratings(leaderboard_row, converters)
+        if leaderboard_row is not None
+        else {skill: SkillRatingPublic(raw_rating=0, rating=None) for skill in SKILLS},
         points=leaderboard_row.points if leaderboard_row is not None else 0,
         wrs_nub=leaderboard_row.wrs_nub if leaderboard_row is not None else 0,
         wrs_pro=leaderboard_row.wrs_pro if leaderboard_row is not None else 0,

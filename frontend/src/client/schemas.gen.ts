@@ -4755,6 +4755,13 @@ export const PlayerLeaderboardEntryPublicSchema = {
             ],
             title: 'Raw Rating'
         },
+        skill_ratings: {
+            additionalProperties: {
+                '$ref': '#/components/schemas/SkillRatingPublic'
+            },
+            type: 'object',
+            title: 'Skill Ratings'
+        },
         rating_easy: {
             anyOf: [
                 {
@@ -4891,6 +4898,13 @@ export const PlayerLeaderboardRankPublicSchema = {
                 }
             ],
             title: 'Rating Hard'
+        },
+        skill_ratings: {
+            additionalProperties: {
+                '$ref': '#/components/schemas/SkillRatingPublic'
+            },
+            type: 'object',
+            title: 'Skill Ratings'
         },
         points: {
             type: 'integer',
@@ -9817,6 +9831,29 @@ export const ServersPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ServersPublic'
+} as const;
+
+export const SkillRatingPublicSchema = {
+    properties: {
+        raw_rating: {
+            type: 'integer',
+            title: 'Raw Rating'
+        },
+        rating: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rating'
+        }
+    },
+    type: 'object',
+    required: ['raw_rating', 'rating'],
+    title: 'SkillRatingPublic'
 } as const;
 
 export const TournamentAchievementCreateSchema = {

@@ -260,6 +260,113 @@ test.describe("Leaderboards page", () => {
     ).toHaveValue("1")
   })
 
+  test("selects and sorts the player leaderboard by skill", async ({
+    page,
+  }) => {
+    const requestedSorts: string[] = []
+
+    await page.addInitScript(() => {
+      localStorage.clear()
+    })
+    await stubRegions(page)
+    await stubPlayerGraphql(page, {
+      playersBySteamid64: {
+        "76561198000000001": buildGraphqlPlayer({
+          steamid64: "76561198000000001",
+          displayName: "Skill Player",
+        }),
+      },
+    })
+    await page.route("**/v1/leaderboards/players*", async (route) => {
+      const sortBy = new URL(route.request().url()).searchParams.get("sort_by")
+      if (sortBy) {
+        requestedSorts.push(sortBy)
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          count: 1,
+          data: [
+            {
+              rank: 1,
+              player: buildPlayerRef("76561198000000001", "Skill Player"),
+              rating: 10.5,
+              raw_rating: 30000,
+              skill_ratings: {
+                boxtech: { raw_rating: 20100, rating: 8.1 },
+                strafe: { raw_rating: 20200, rating: 8.2 },
+                bhop: { raw_rating: 20300, rating: 8.3 },
+                climb: { raw_rating: 20400, rating: 8.4 },
+                ladder: { raw_rating: 20500, rating: 8.5 },
+                slide: { raw_rating: 20600, rating: 10.99999 },
+              },
+              rating_easy: 9.5,
+              rating_hard: 9.8,
+              points: 2000,
+              wrs_nub: 1,
+              wrs_pro: 0,
+              records_900_plus: 2,
+              records_800_plus: 2,
+              unique_map_finishes: 20,
+            },
+          ],
+        }),
+      })
+    })
+
+    await page.goto("/leaderboards/players")
+
+    const skillHeader = page.getByRole("button", {
+      name: "Select skill, currently Climb",
+    })
+    await expect(skillHeader).toBeVisible()
+    await expect(page.getByText("8.40", { exact: true })).toBeVisible()
+    await skillHeader.click()
+
+    const skillItems = page.getByRole("menuitemradio")
+    await expect(skillItems).toHaveCount(6)
+    await expect(
+      page.getByRole("menuitemradio", { name: "Boxtech" }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("menuitemradio", { name: "Strafe" }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("menuitemradio", { name: "Bhop" }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("menuitemradio", { name: "Climb" }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("menuitemradio", { name: "Ladder" }),
+    ).toBeVisible()
+    const skillColors = {
+      boxtech: "rgb(184, 50, 128)",
+      strafe: "rgb(214, 69, 69)",
+      bhop: "rgb(34, 154, 194)",
+      climb: "rgb(38, 150, 92)",
+      ladder: "rgb(229, 125, 43)",
+      slide: "rgb(119, 107, 165)",
+    }
+    for (const [skill, color] of Object.entries(skillColors)) {
+      await expect(page.locator(`[data-skill-color="${skill}"]`)).toHaveCSS(
+        "background-color",
+        color,
+      )
+    }
+    await page.getByRole("menuitemradio", { name: "Climb" }).click()
+    await expect.poll(() => requestedSorts).toContain("rating_climb")
+
+    await skillHeader.click()
+    await page.getByRole("menuitemradio", { name: "Slide" }).click()
+
+    await expect(
+      page.getByRole("button", { name: "Select skill, currently Slide" }),
+    ).toBeVisible()
+    await expect(page.getByText("10.99", { exact: true })).toBeVisible()
+    await expect.poll(() => requestedSorts).toContain("rating_slide")
+  })
+
   test("hydrates visible leaderboard players with one batched graphql request", async ({
     page,
   }) => {

@@ -11,6 +11,10 @@ from app.models import MapFileDistributionSyncResult, ModeScope
 from app.services.map_authors import seed_map_authors_from_kz_map_info
 from app.services.map_file_distribution import seed_map_package, sync_map_files
 from app.services.map_file_distribution_worker import run_map_file_distribution_runner
+from app.services.skill_rating_converter import (
+    TIED_TOP_DISPLAY_RATING,
+    TOP_DISPLAY_RATING,
+)
 from app.tasks import friends as friends_task
 from app.tasks import record_transfer as record_transfer_task
 from app.tasks.build import maps as maps_task
@@ -18,6 +22,8 @@ from app.tasks.build import pb as pb_task
 from app.tasks.build import points as points_task
 from app.tasks.build import profile as profile_task
 from app.tasks.build import rating as rating_task
+from app.tasks.build import skill_rating_converters as skill_converter_task
+from app.tasks.build import skill_ratings as skill_ratings_task
 
 app = typer.Typer(
     help="GOKZ.TOP backend operator CLI.",
@@ -210,7 +216,10 @@ def rebuild_maps(
         "Maps Rebuild Complete",
         [
             ("Scopes", ", ".join(scope.name for scope in result.scopes)),
-            ("Map IDs", "*" if not result.map_ids else ", ".join(map(str, result.map_ids))),
+            (
+                "Map IDs",
+                "*" if not result.map_ids else ", ".join(map(str, result.map_ids)),
+            ),
             ("Rows rebuilt", str(result.rows_rebuilt)),
         ],
     )
@@ -253,12 +262,88 @@ def build_rating(
     _render_summary("Rating Build Complete", rows)
 
 
+@build_app.command("skill-converters")
+def build_skill_converters(
+    scope_names: ScopeOption = None,
+    save: Annotated[
+        bool,
+        typer.Option("--save", help="Persist calibrated curves (preview by default)."),
+    ] = False,
+) -> None:
+    """Inspect or save 24 independently calibrated skill rating curves."""
+
+    def threshold_label(raw: int, level: int | float) -> str:
+        if level == TOP_DISPLAY_RATING:
+            return f"10.99999 (unique):{raw}"
+        if level == TIED_TOP_DISPLAY_RATING:
+            return f"10.99 (tie):{raw}"
+        return f"{level}:{raw}"
+
+    scopes = _parse_scopes(scope_names) or tuple(ModeScope)
+    results = _run_async(
+        skill_converter_task.calibrate_skill_converters(scopes=scopes, save=save)
+    )
+    table = Table(
+        title="Skill converter calibration" + (" (saved)" if save else " (preview)")
+    )
+    for heading in (
+        "Scope",
+        "Skill",
+        "Players",
+        "Zero",
+        "Positive",
+        "Ties",
+        "Level thresholds",
+    ):
+        table.add_column(heading)
+    for result in results:
+        calibration = result.calibration
+        table.add_row(
+            result.scope.value,
+            result.skill,
+            str(result.population),
+            str(result.population - result.positive),
+            str(result.positive),
+            str(result.ties),
+            ", ".join(
+                threshold_label(int(raw), level)
+                for raw, level in calibration.anchors[1:]
+            )
+            if calibration
+            else "No positive results; skipped",
+        )
+    console.print(table)
+
+
+@build_app.command("skill-ratings")
+def build_skill_ratings(
+    scope_names: ScopeOption = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            help="Optional number of highest-rated players to rebuild per scope.",
+        ),
+    ] = None,
+) -> None:
+    """Backfill skill ratings, optionally for the highest-rated rows only."""
+    scopes = _parse_scopes(scope_names) or tuple(ModeScope)
+    updated = _run_async(
+        skill_ratings_task.rebuild_all_skill_ratings(scopes=scopes, limit=limit)
+    )
+    rows = [(scope.value, str(count)) for scope, count in updated.items()]
+    rows.append(("Total rows updated", str(sum(updated.values()))))
+    _render_summary("Skill Rating Backfill Complete", rows)
+
+
 @build_app.command("points")
 def build_points(
     scope_names: ScopeOption = None,
     map_names: Annotated[
         list[str] | None,
-        typer.Option("--map-name", help="Filter by map name. Repeat for multiple maps."),
+        typer.Option(
+            "--map-name", help="Filter by map name. Repeat for multiple maps."
+        ),
     ] = None,
     stage: Annotated[
         int | None,
@@ -266,7 +351,9 @@ def build_points(
     ] = None,
     all_stages: Annotated[
         bool,
-        typer.Option("--all-stages", help="Process all stages instead of only stage 0."),
+        typer.Option(
+            "--all-stages", help="Process all stages instead of only stage 0."
+        ),
     ] = False,
     limit: Annotated[
         int | None,
@@ -333,11 +420,15 @@ def _build_pb_impl(
 def build_pb(
     list_only: Annotated[
         bool,
-        typer.Option("--list-only", help="List the rebuild plan without mutating record_pb."),
+        typer.Option(
+            "--list-only", help="List the rebuild plan without mutating record_pb."
+        ),
     ] = False,
     force_all: Annotated[
         bool,
-        typer.Option("--force-all", help="Rebuild every bucket, not only dirty buckets."),
+        typer.Option(
+            "--force-all", help="Rebuild every bucket, not only dirty buckets."
+        ),
     ] = False,
     limit: Annotated[
         int | None,
@@ -345,7 +436,9 @@ def build_pb(
     ] = None,
     analyze: Annotated[
         bool,
-        typer.Option("--analyze", help="Run ANALYZE on map_course and record_pb after rebuild."),
+        typer.Option(
+            "--analyze", help="Run ANALYZE on map_course and record_pb after rebuild."
+        ),
     ] = False,
     ensure_map_courses: Annotated[
         bool,
@@ -368,11 +461,15 @@ def build_pb(
 def build_pbs(
     list_only: Annotated[
         bool,
-        typer.Option("--list-only", help="List the rebuild plan without mutating record_pb."),
+        typer.Option(
+            "--list-only", help="List the rebuild plan without mutating record_pb."
+        ),
     ] = False,
     force_all: Annotated[
         bool,
-        typer.Option("--force-all", help="Rebuild every bucket, not only dirty buckets."),
+        typer.Option(
+            "--force-all", help="Rebuild every bucket, not only dirty buckets."
+        ),
     ] = False,
     limit: Annotated[
         int | None,
@@ -380,7 +477,9 @@ def build_pbs(
     ] = None,
     analyze: Annotated[
         bool,
-        typer.Option("--analyze", help="Run ANALYZE on map_course and record_pb after rebuild."),
+        typer.Option(
+            "--analyze", help="Run ANALYZE on map_course and record_pb after rebuild."
+        ),
     ] = False,
     ensure_map_courses: Annotated[
         bool,
@@ -519,7 +618,9 @@ def sync_profiles(
     ] = False,
     leaderboard: Annotated[
         str | None,
-        typer.Option("--leaderboard", help="Select all players on a leaderboard scope."),
+        typer.Option(
+            "--leaderboard", help="Select all players on a leaderboard scope."
+        ),
     ] = None,
     stale_days: Annotated[
         int | None,
@@ -548,7 +649,9 @@ def sync_friends(
     steamid64s: SteamIdOption = None,
     leaderboard: Annotated[
         str | None,
-        typer.Option("--leaderboard", help="Select all players on a leaderboard scope."),
+        typer.Option(
+            "--leaderboard", help="Select all players on a leaderboard scope."
+        ),
     ] = None,
     limit: Annotated[
         int | None,
@@ -613,7 +716,9 @@ def seed_map_files(
 def sync_map_files_command(
     force: Annotated[
         bool,
-        typer.Option("--force", help="Process all validated maps, even if metadata is current."),
+        typer.Option(
+            "--force", help="Process all validated maps, even if metadata is current."
+        ),
     ] = False,
     map_ids: Annotated[
         list[int] | None,
@@ -653,7 +758,10 @@ def build_profile(
     steamid64s: SteamIdOption = None,
     all_players: Annotated[
         bool,
-        typer.Option("--all", help="Process all existing players instead of only missing avatars."),
+        typer.Option(
+            "--all",
+            help="Process all existing players instead of only missing avatars.",
+        ),
     ] = False,
     leaderboard: Annotated[
         str | None,

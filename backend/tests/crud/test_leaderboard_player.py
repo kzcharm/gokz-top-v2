@@ -20,6 +20,7 @@ from app.models import (
     Map,
     MapCourse,
     MapCourseTier,
+    MapSkill,
     ModeScope,
     ModeScopeId,
     Player,
@@ -272,7 +273,9 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
     assert sum(1 for pb in pb_rows if pb.raw_rating_contribution > 0) == 10
 
 
-async def test_build_raw_rating_contributions_does_not_add_rounding_to_top_course() -> None:
+async def test_build_raw_rating_contributions_does_not_add_rounding_to_top_course() -> (
+    None
+):
     rows = [
         PlayerPbRow(index, index, RecordType.NUB, UUID(int=index), 1000)
         for index in range(1, 1002)
@@ -299,7 +302,9 @@ async def test_build_raw_rating_contributions_truncates_decimal_part() -> None:
     assert contributions[(2, RecordType.NUB)] == 324
 
 
-async def test_build_leaderboard_values_counts_high_point_records_once_per_map() -> None:
+async def test_build_leaderboard_values_counts_high_point_records_once_per_map() -> (
+    None
+):
     values = _build_leaderboard_values(
         rows=[
             PlayerPbRow(101, 1001, RecordType.NUB, UUID(int=101), 870),
@@ -314,6 +319,48 @@ async def test_build_leaderboard_values_counts_high_point_records_once_per_map()
     assert values["records_900_plus"] == 2
     assert values["records_800_plus"] == 0
     assert values["unique_map_finishes"] == 3
+
+
+async def test_skill_ratings_use_best_pb_and_ignore_missing_analysis() -> None:
+    rows = [
+        PlayerPbRow(index, index, RecordType.NUB, UUID(int=index), 700)
+        for index in range(1, 11)
+    ]
+    rows.append(PlayerPbRow(2, 2, RecordType.PRO, UUID(int=12), 900))
+    analyses = {
+        1: MapSkill(
+            map_id=1,
+            boxtech=Decimal(0),
+            strafe=Decimal(0),
+            bhop=Decimal(1),
+            climb=Decimal(0),
+            ladder=Decimal(0),
+            slide=Decimal(0),
+            segments=[],
+        ),
+        2: MapSkill(
+            map_id=2,
+            boxtech=Decimal(0),
+            strafe=Decimal(0),
+            bhop=Decimal("0.5"),
+            climb=Decimal(0),
+            ladder=Decimal(0),
+            slide=Decimal(0),
+            segments=[],
+        ),
+    }
+    values = _build_leaderboard_values(
+        rows=rows,
+        tiers_by_course_id={},
+        skills_by_map_id=analyses,
+    )
+    from app.services.skill_rating import calculate_skill_rating
+
+    assert values["rating_bhop"] == calculate_skill_rating(
+        [(700, Decimal(1)), (900, Decimal("0.5"))]
+    )
+    assert values["rating_strafe"] == 0
+    assert values["unique_map_finishes"] == 10
 
 
 async def test_rebuild_leaderboard_player_deletes_row_below_threshold(

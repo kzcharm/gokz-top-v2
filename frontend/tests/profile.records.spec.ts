@@ -18,7 +18,22 @@ const seededPlayer = {
 
 const profileViews = 3
 
-async function installProfileShellRoutes(page: Page) {
+const defaultSkillRatings = {
+  boxtech: { raw_rating: 1200, rating: 2.25 },
+  strafe: { raw_rating: 2400, rating: 3.5 },
+  bhop: { raw_rating: 3600, rating: 4.75 },
+  climb: { raw_rating: 4800, rating: 6 },
+  ladder: { raw_rating: 0, rating: null },
+  slide: { raw_rating: 6000, rating: 7.25 },
+}
+
+async function installProfileShellRoutes(
+  page: Page,
+  skillRatings: Record<
+    string,
+    { raw_rating: number; rating: number | null }
+  > = defaultSkillRatings,
+) {
   await page.route(/\/v1\/users\/me$/, async (route) => {
     await route.fulfill({
       status: 401,
@@ -120,6 +135,7 @@ async function installProfileShellRoutes(page: Page) {
           rank_regional: 7,
           region: "EU",
           rating: 5.5,
+          skill_ratings: skillRatings,
         }),
       })
     },
@@ -214,6 +230,128 @@ const ovrRecords = [
     is_valid: true,
   },
 ]
+
+test("Profile sidebar renders calibrated skill ratings and unavailable skills", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+
+  await expect(
+    page.getByRole("img", { name: "Relative profile skill radar" }),
+  ).toBeVisible()
+  await expect(page.locator('[data-skill-label="bhop"]')).toContainText(
+    "Bhop 4.75",
+  )
+  await expect(page.locator('[data-skill-label="ladder"]')).toContainText(
+    "Ladder —",
+  )
+  await expect(
+    page.getByRole("button", { name: "How skill ratings work" }),
+  ).toHaveCount(0)
+})
+
+test("Profile skill radar directly shows the compact relative view", async ({
+  page,
+}) => {
+  const ratings = {
+    boxtech: { raw_rating: 7000, rating: 10.99999 },
+    strafe: { raw_rating: 7100, rating: 10.9 },
+    bhop: { raw_rating: 7200, rating: 10.97 },
+    climb: { raw_rating: 7300, rating: 10.98 },
+    ladder: { raw_rating: 7150, rating: 10.96 },
+    slide: { raw_rating: 7250, rating: 10.97 },
+  }
+  await installProfileShellRoutes(page, ratings)
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+
+  const polygon = page.getByTestId("profile-skill-radar-polygon")
+  const relativePoints = await polygon.getAttribute("points")
+
+  await expect(
+    page.getByRole("img", { name: "Relative profile skill radar" }),
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Relative" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Global" })).toHaveCount(0)
+  await expect(
+    page.getByText(/absolute strength limits the inner dip/),
+  ).toHaveCount(0)
+  await expect(page.locator('[data-skill-label="strafe"]')).toContainText(
+    "Strafe 10.90",
+  )
+  await expect(page.locator('[data-skill-label="boxtech"]')).toContainText(
+    "Boxtech 10.99",
+  )
+  await expect(page.locator('[data-skill-label="climb"]')).toContainText(
+    "Climb 10.98",
+  )
+
+  await expect(page.getByTestId("profile-skill-radar-grid-line")).toHaveCount(4)
+
+  const maximumRadius = (points: string | null) =>
+    Math.max(
+      ...(points ?? "").split(" ").map((point) => {
+        const [x, y] = point.split(",").map(Number)
+        return Math.hypot(x - 110, y - 110)
+      }),
+    )
+  expect(maximumRadius(relativePoints)).toBeGreaterThan(70)
+  const relativeRadii = (relativePoints ?? "").split(" ").map((point) => {
+    const [x, y] = point.split(",").map(Number)
+    return Math.hypot(x - 110, y - 110)
+  })
+  expect(
+    Math.min(...relativeRadii) / Math.max(...relativeRadii),
+  ).toBeGreaterThan(0.75)
+
+  const chartBox = await page
+    .getByRole("img", { name: "Relative profile skill radar" })
+    .boundingBox()
+  const cardBox = await page
+    .getByRole("img", { name: "Relative profile skill radar" })
+    .locator("xpath=ancestor::*[contains(@class, 'rounded-[28px]')][1]")
+    .boundingBox()
+  expect(chartBox?.width).toBe(220)
+  expect(chartBox?.width).toBeLessThanOrEqual(cardBox?.width ?? 0)
+
+  for (const skill of [
+    "boxtech",
+    "strafe",
+    "bhop",
+    "climb",
+    "ladder",
+    "slide",
+  ]) {
+    const label = page.locator(`[data-skill-label="${skill}"]`)
+    await expect(label).toHaveCSS("font-size", "10px")
+    await expect(label).toHaveAttribute("text-anchor", "middle")
+    const labelBox = await label.boundingBox()
+    expect(labelBox?.x).toBeGreaterThanOrEqual(cardBox?.x ?? 0)
+    expect((labelBox?.x ?? 0) + (labelBox?.width ?? 0)).toBeLessThanOrEqual(
+      (cardBox?.x ?? 0) + (cardBox?.width ?? 0),
+    )
+    expect(labelBox?.y).toBeGreaterThanOrEqual(cardBox?.y ?? 0)
+    expect((labelBox?.y ?? 0) + (labelBox?.height ?? 0)).toBeLessThanOrEqual(
+      (cardBox?.y ?? 0) + (cardBox?.height ?? 0),
+    )
+  }
+})
 
 test("Profile records page renders sidebar, filters, and scope-aware PB rows", async ({
   page,

@@ -962,6 +962,9 @@ export type PlayerLeaderboardEntryPublic = {
     player: PlayerRefPublic;
     rating: (number | null);
     raw_rating: (number | null);
+    skill_ratings?: {
+        [key: string]: SkillRatingPublic;
+    };
     rating_easy: (number | null);
     rating_hard: (number | null);
     points: number;
@@ -982,6 +985,9 @@ export type PlayerLeaderboardRankPublic = {
     rating: (number | null);
     rating_easy: (number | null);
     rating_hard: (number | null);
+    skill_ratings?: {
+        [key: string]: SkillRatingPublic;
+    };
     points: number;
     wrs_nub: number;
     wrs_pro: number;
@@ -1898,6 +1904,11 @@ export type ServerUpdate = {
     longitude?: (number | null);
 };
 
+export type SkillRatingPublic = {
+    raw_rating: number;
+    rating: (number | null);
+};
+
 export type TournamentAchievementCreate = {
     tournament_id: string;
     player_steamid64: string;
@@ -2426,7 +2437,7 @@ export type LeaderboardsReadPlayerLeaderboardData = {
     offset?: number;
     region?: (string | null);
     scope?: ModeScope;
-    sortBy?: 'rating' | 'rating_easy' | 'rating_hard' | 'points' | 'wrs_nub' | 'wrs_pro' | 'records_900_plus' | 'records_800_plus' | 'unique_map_finishes';
+    sortBy?: 'rating' | 'rating_easy' | 'rating_hard' | 'rating_boxtech' | 'rating_strafe' | 'rating_bhop' | 'rating_climb' | 'rating_ladder' | 'rating_slide' | 'points' | 'wrs_nub' | 'wrs_pro' | 'records_900_plus' | 'records_800_plus' | 'unique_map_finishes';
     sortOrder?: "desc";
 };
 

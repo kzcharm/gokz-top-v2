@@ -8,6 +8,8 @@ def test_load_rank_system_settings_parses_current_config() -> None:
     settings = load_rank_system_settings()
 
     assert settings.rating.decay == Decimal("0.975")
+    assert settings.rating.skill_full_portion_decay == Decimal("0.9")
+    assert settings.rating.skill_top_map_equivalents == 50
     assert settings.rating.max_map_points == 1000
     assert settings.rating.target_max_raw_rating == 40000
     assert settings.rating.multiplier == Decimal("1.000")
@@ -23,6 +25,8 @@ def test_load_rank_system_settings_computes_legacy_multiplier(tmp_path: Path) ->
             [
                 "[rating]",
                 "decay = 0.975",
+                "skill_full_portion_decay = 0.9",
+                "skill_top_map_equivalents = 50",
                 "max_map_points = 1000",
                 "target_max_raw_rating = 40000",
                 "",

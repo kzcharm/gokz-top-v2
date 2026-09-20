@@ -23,6 +23,7 @@ import { RegionBadge } from "@/components/Common/RegionFlag"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   getLeaderboardColumns,
+  type LeaderboardSkill,
   type LeaderboardTableRow,
 } from "@/components/Leaderboards/columns"
 import { useScope } from "@/components/scope-provider"
@@ -134,6 +135,7 @@ export function PlayersLeaderboardTab() {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "rating", desc: true },
   ])
+  const [selectedSkill, setSelectedSkill] = useState<LeaderboardSkill>("climb")
   const deferredSearchInput = useDeferredValue(searchInput)
   const spotlightTimeoutRef = useRef<number | null>(null)
   const spotlightStartTimeoutRef = useRef<number | null>(null)
@@ -146,6 +148,12 @@ export function PlayersLeaderboardTab() {
   const sortBy =
     sorting[0]?.id === "rating_easy" ||
     sorting[0]?.id === "rating_hard" ||
+    sorting[0]?.id === "rating_boxtech" ||
+    sorting[0]?.id === "rating_strafe" ||
+    sorting[0]?.id === "rating_bhop" ||
+    sorting[0]?.id === "rating_climb" ||
+    sorting[0]?.id === "rating_ladder" ||
+    sorting[0]?.id === "rating_slide" ||
     sorting[0]?.id === "points" ||
     sorting[0]?.id === "wrs_nub" ||
     sorting[0]?.id === "wrs_pro" ||
@@ -286,8 +294,13 @@ export function PlayersLeaderboardTab() {
     [leaderboardPlayersBySteamid64, visibleLeaderboardEntries],
   )
   const columns = useMemo(
-    () => getLeaderboardColumns(t, scope, isFriendsOnly),
-    [isFriendsOnly, scope, t],
+    () =>
+      getLeaderboardColumns(t, scope, isFriendsOnly, selectedSkill, (skill) => {
+        setSelectedSkill(skill)
+        setSorting([{ id: `rating_${skill}`, desc: true }])
+        setPageIndex(0)
+      }),
+    [isFriendsOnly, scope, selectedSkill, t],
   )
 
   useEffect(() => {

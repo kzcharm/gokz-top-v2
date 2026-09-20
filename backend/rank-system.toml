@@ -1,5 +1,7 @@
 [rating]
 decay = 0.975
+skill_full_portion_decay = 0.9
+skill_top_map_equivalents = 50
 max_map_points = 1000
 target_max_raw_rating = 40000
 

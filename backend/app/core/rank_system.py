@@ -12,6 +12,8 @@ _RANK_SYSTEM_CONFIG_PATH = Path(__file__).resolve().parents[2] / "rank-system.to
 @dataclass(frozen=True, slots=True)
 class RatingSettings:
     decay: Decimal
+    skill_full_portion_decay: Decimal
+    skill_top_map_equivalents: int
     max_map_points: int
     target_max_raw_rating: int
 
@@ -75,6 +77,10 @@ def load_rank_system_settings(
     return RankSystemSettings(
         rating=RatingSettings(
             decay=Decimal(str(raw_rating["decay"])),
+            skill_full_portion_decay=Decimal(
+                str(raw_rating["skill_full_portion_decay"])
+            ),
+            skill_top_map_equivalents=int(raw_rating["skill_top_map_equivalents"]),
             max_map_points=int(raw_rating["max_map_points"]),
             target_max_raw_rating=int(raw_rating["target_max_raw_rating"]),
         ),

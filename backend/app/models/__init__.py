@@ -64,6 +64,8 @@ from .leaderboard_player import (
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
     PlayerLeaderboardsPublic,
+    SkillRatingConverter,
+    SkillRatingPublic,
 )
 from .live_stream import (
     LiveStreamCardPublic,
@@ -559,6 +561,8 @@ __all__ = [
     "KZMode",
     "LeaderboardPlayer",
     "LeaderboardPlayerCount",
+    "SkillRatingConverter",
+    "SkillRatingPublic",
     "AdminMapListQuery",
     "AdminMapPublic",
     "AdminMapsPublic",

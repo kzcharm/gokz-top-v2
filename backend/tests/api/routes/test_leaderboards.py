@@ -24,6 +24,7 @@ from app.models import (
     Player,
     RecordFilter,
     ServerGlobalapi,
+    SkillRatingConverter,
     legacy_mode_id_to_kz_mode,
 )
 from app.models.leaderboard_player import (
@@ -432,6 +433,12 @@ async def _seed_leaderboard_data(
         "rating",
         "rating_easy",
         "rating_hard",
+        "rating_boxtech",
+        "rating_strafe",
+        "rating_bhop",
+        "rating_climb",
+        "rating_ladder",
+        "rating_slide",
         "points",
         "wrs_nub",
         "wrs_pro",
@@ -463,6 +470,32 @@ async def test_read_player_leaderboard_uses_stable_scope_membership_across_sorts
     assert [entry["player"]["steamid64"] for entry in payload["data"]] == expected_order
 
 
+async def test_read_player_leaderboard_sorts_by_raw_skill_rating(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    alpha_row = await _get_kzt_leaderboard_row(db, steamid64=players["alpha"])
+    beta_row = await _get_kzt_leaderboard_row(db, steamid64=players["beta"])
+    alpha_row.rating_climb = 12_000
+    beta_row.rating_climb = 24_000
+    db.add(alpha_row)
+    db.add(beta_row)
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players",
+        params={"scope": "KZT", "sort_by": "rating_climb"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [entry["player"]["steamid64"] for entry in payload["data"]] == [
+        str(players["beta"]),
+        str(players["alpha"]),
+    ]
+
+
 async def test_read_player_leaderboard_default_sort_and_rank(
     client: AsyncClient,
     db: AsyncSession,
@@ -481,12 +514,20 @@ async def test_read_player_leaderboard_default_sort_and_rank(
     assert payload["data"][0]["player"]["steamid64"] == str(players["alpha"])
     assert payload["data"][0]["player"]["display_name"] == "Alpha"
     assert payload["data"][0]["rank"] == 1
-    assert payload["data"][0]["rating"] == pytest.approx(_public_rating(alpha_row.rating))
+    assert payload["data"][0]["rating"] == pytest.approx(
+        _public_rating(alpha_row.rating)
+    )
     assert payload["data"][0]["raw_rating"] == alpha_row.rating
+    assert payload["data"][0]["skill_ratings"]["bhop"] == {
+        "raw_rating": 0,
+        "rating": None,
+    }
     assert payload["data"][1]["player"]["steamid64"] == str(players["beta"])
     assert payload["data"][1]["player"]["display_name"] == "Beta"
     assert payload["data"][1]["rank"] == 2
-    assert payload["data"][1]["rating"] == pytest.approx(_public_rating(beta_row.rating))
+    assert payload["data"][1]["rating"] == pytest.approx(
+        _public_rating(beta_row.rating)
+    )
     assert payload["data"][1]["raw_rating"] == beta_row.rating
     assert len(payload["data"]) == 2
 
@@ -551,6 +592,35 @@ async def test_read_player_leaderboard_can_skip_count(
     payload = response.json()
     assert payload["count"] == -1
     assert len(payload["data"]) == 2
+
+
+async def test_read_player_leaderboard_exposes_calibrated_skill_rating(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    alpha_row = await _get_kzt_leaderboard_row(db, steamid64=players["alpha"])
+    alpha_row.rating_bhop = 100
+    db.add(
+        SkillRatingConverter(
+            scope=ModeScope.KZT,
+            skill="bhop",
+            anchors=[[0, 0], [100, 2], [200, 3]],
+            sample_size=100,
+        )
+    )
+    await db.flush()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/alpha",
+        params={"scope": "KZT"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["skill_ratings"]["bhop"] == {
+        "raw_rating": 100,
+        "rating": 2.0,
+    }
 
 
 async def test_read_player_leaderboard_filters_by_country(
@@ -735,8 +805,12 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert "rating_rank" not in payload
     assert payload["points"] > payload["rating"]
     assert payload["rating"] == pytest.approx(_public_rating(alpha_row.rating))
-    assert payload["rating_easy"] == pytest.approx(_public_rating(alpha_row.rating_easy))
-    assert payload["rating_hard"] == pytest.approx(_public_rating(alpha_row.rating_hard))
+    assert payload["rating_easy"] == pytest.approx(
+        _public_rating(alpha_row.rating_easy)
+    )
+    assert payload["rating_hard"] == pytest.approx(
+        _public_rating(alpha_row.rating_hard)
+    )
 
 
 async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_ineligible(
@@ -1104,7 +1178,10 @@ async def test_read_jumpstat_leaderboard_returns_pb_rows_for_scope_and_type(
     assert response.status_code == 200
     payload = response.json()
     assert payload["count"] == 2
-    assert [row["player"]["display_name"] for row in payload["data"]] == ["Alpha", "Beta"]
+    assert [row["player"]["display_name"] for row in payload["data"]] == [
+        "Alpha",
+        "Beta",
+    ]
     assert [row["distance"] for row in payload["data"]] == [284.4444, 279.5555]
     assert payload["data"][0]["block"] == 282
     assert payload["data"][0]["strafes"] == 8
@@ -1180,7 +1257,9 @@ async def test_read_jumpstat_leaderboard_block_sort_uses_distance_tiebreaker(
     await _set_leaderboard_rating(
         db, scope=ModeScope.OVR, steamid64=players["gamma"], rating=38_000
     )
-    group, _api_key = await create_test_server_group(db, name="Jumpstats Block Leaderboard")
+    group, _api_key = await create_test_server_group(
+        db, name="Jumpstats Block Leaderboard"
+    )
 
     await _create_jumpstat(
         db,
@@ -1239,7 +1318,9 @@ async def test_read_jumpstat_leaderboard_excludes_banned_players(
     await _set_leaderboard_rating(
         db, scope=ModeScope.KZT, steamid64=players["beta"], rating=39_000
     )
-    group, _api_key = await create_test_server_group(db, name="Jumpstats Ban Leaderboard")
+    group, _api_key = await create_test_server_group(
+        db, name="Jumpstats Ban Leaderboard"
+    )
 
     await _create_jumpstat(
         db,

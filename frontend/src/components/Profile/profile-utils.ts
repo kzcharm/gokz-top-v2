@@ -599,7 +599,21 @@ export type ProfileSummaryData = {
   regionalStanding: number | null
   region: string | null
   rating: number | null
+  skillRatings: ProfileSkillRatings | null
 }
+
+export type ProfileSkillKey =
+  | "boxtech"
+  | "strafe"
+  | "bhop"
+  | "climb"
+  | "ladder"
+  | "slide"
+
+export type ProfileSkillRatings = Record<
+  ProfileSkillKey,
+  { raw_rating: number; rating: number | null }
+>
 
 export type ProfilePinnedRecord = {
   id: string
@@ -1089,12 +1103,14 @@ export function getProfilePointsStandingQueryOptions({
         rank_regional?: number | null
         region?: string | null
         rating?: number | null
+        skill_ratings?: ProfileSkillRatings
       }
       return {
         rank: data.rank ?? null,
         regionalRank: data.rank_regional ?? null,
         region: data.region ?? null,
         rating: data.rating ?? null,
+        skillRatings: data.skill_ratings ?? null,
       }
     },
     enabled: identifier !== null,

@@ -609,6 +609,7 @@ export function ProfilePage({
       regionalStanding: pointsStandingQuery.data?.regionalRank ?? null,
       region: pointsStandingQuery.data?.region ?? null,
       rating: pointsStandingQuery.data?.rating ?? null,
+      skillRatings: pointsStandingQuery.data?.skillRatings ?? null,
     }
   }, [nubRecordsQuery.data, pointsStandingQuery.data, proRecordsQuery.data])
   const completionTrophies = useMemo(() => {
