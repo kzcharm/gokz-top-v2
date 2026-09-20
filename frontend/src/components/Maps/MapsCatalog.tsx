@@ -1058,69 +1058,64 @@ export function MapsCatalog() {
   const requestedValidatedMaps = validationStatus === "validated"
   const normalizedDeferredSearch = deferredSearch.trim().toLowerCase()
   const mapsQuery = useQuery({
-    queryKey: ["maps", "catalog", scope, validationStatus],
+    queryKey: ["maps", "catalog", scope],
     queryFn: () =>
       MapsService.readMaps({
         offset: 0,
         limit: 10000,
-        isValidated: requestedValidatedMaps,
+        includeInvalid: true,
         scope,
       }),
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: 1,
   })
+  const validatedMaps = useMemo(
+    () => (mapsQuery.data ?? []).filter((map) => map.validated),
+    [mapsQuery.data],
+  )
+  const invalidMaps = useMemo(
+    () => (mapsQuery.data ?? []).filter((map) => !map.validated),
+    [mapsQuery.data],
+  )
   const validNameMatchCount = useMemo(() => {
     if (!requestedValidatedMaps || normalizedDeferredSearch === "") {
-      return mapsQuery.data?.length ?? 0
+      return validatedMaps.length
     }
 
-    return (mapsQuery.data ?? []).filter((map) =>
+    return validatedMaps.filter((map) =>
       map.name.toLowerCase().includes(normalizedDeferredSearch),
     ).length
-  }, [mapsQuery.data, normalizedDeferredSearch, requestedValidatedMaps])
+  }, [normalizedDeferredSearch, requestedValidatedMaps, validatedMaps])
   const shouldCheckInvalidSearchMatches =
     requestedValidatedMaps &&
     normalizedDeferredSearch !== "" &&
     !mapsQuery.isLoading &&
     validNameMatchCount === 0
-  const invalidSearchMapsQuery = useQuery({
-    queryKey: ["maps", "catalog", scope, "invalid-search-fallback"],
-    queryFn: () =>
-      MapsService.readMaps({
-        offset: 0,
-        limit: 10000,
-        isValidated: false,
-        scope,
-      }),
-    enabled: shouldCheckInvalidSearchMatches,
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-    retry: 1,
-  })
   const invalidSearchNameMatchCount = useMemo(() => {
     if (!shouldCheckInvalidSearchMatches) {
       return 0
     }
 
-    return (invalidSearchMapsQuery.data ?? []).filter((map) =>
+    return invalidMaps.filter((map) =>
       map.name.toLowerCase().includes(normalizedDeferredSearch),
     ).length
-  }, [
-    invalidSearchMapsQuery.data,
-    normalizedDeferredSearch,
-    shouldCheckInvalidSearchMatches,
-  ])
+  }, [invalidMaps, normalizedDeferredSearch, shouldCheckInvalidSearchMatches])
   const showingInvalidSearchFallback =
     shouldCheckInvalidSearchMatches && invalidSearchNameMatchCount > 0
   const activeValidationStatus: MapValidationStatus =
     showingInvalidSearchFallback ? "invalid" : validationStatus
   const activeMaps = useMemo(
     () =>
-      showingInvalidSearchFallback
-        ? (invalidSearchMapsQuery.data ?? [])
-        : (mapsQuery.data ?? []),
-    [invalidSearchMapsQuery.data, mapsQuery.data, showingInvalidSearchFallback],
+      showingInvalidSearchFallback || !requestedValidatedMaps
+        ? invalidMaps
+        : validatedMaps,
+    [
+      invalidMaps,
+      requestedValidatedMaps,
+      showingInvalidSearchFallback,
+      validatedMaps,
+    ],
   )
   const wrsQuery = useQuery({
     queryKey: ["maps", "catalog", "wrs", scope, "NUB"],

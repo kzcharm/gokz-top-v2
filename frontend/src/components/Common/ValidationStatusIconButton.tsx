@@ -32,14 +32,6 @@ export function ValidationStatusIconButton({
       onClick={onClick}
       title={label}
     >
-      <span
-        key={status}
-        aria-hidden="true"
-        className={cn(
-          "absolute inset-0 rounded-md opacity-35 motion-safe:animate-ping",
-          isValidated ? "bg-emerald-300" : "bg-red-300",
-        )}
-      />
       <Globe
         className={cn(
           "relative size-4 transform-gpu transition-transform duration-300 ease-out",

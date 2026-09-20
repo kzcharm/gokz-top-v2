@@ -138,6 +138,7 @@ async def read_maps_v1(
     larger_than_filesize: int | None = None,
     smaller_than_filesize: int | None = None,
     is_validated: bool | None = None,
+    include_invalid: bool = False,
     scope: ModeScope | None = None,
     created_since: datetime | None = None,
     updated_since: datetime | None = None,
@@ -154,7 +155,7 @@ async def read_maps_v1(
         updated_since=updated_since,
     ).where(col(Map.id) > 0)
 
-    if is_validated is None:
+    if is_validated is None and not include_invalid:
         statement = statement.where(col(Map.validated).is_(True))
 
     statement = statement.offset(offset).limit(limit)

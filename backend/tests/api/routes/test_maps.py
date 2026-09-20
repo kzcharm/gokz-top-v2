@@ -762,6 +762,18 @@ async def test_read_maps_v1_hides_invalid_and_non_positive_ids(
     assert visible_map["no_steamid_names"] == ["Unknown Mapper"]
     assert visible_map["skills"] is None
 
+    include_invalid_response = await client.get(
+        f"{settings.API_V1_STR}/maps",
+        params={
+            "id": [930210, 930211],
+            "limit": 10000,
+            "include_invalid": True,
+        },
+    )
+
+    assert include_invalid_response.status_code == 200
+    assert [row["id"] for row in include_invalid_response.json()] == [930210, 930211]
+
 
 @pytest.mark.asyncio
 async def test_read_maps_v1_filters_to_positive_scope_tiers(

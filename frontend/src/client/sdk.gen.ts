@@ -1579,6 +1579,7 @@ export class MapsService {
      * @param data.largerThanFilesize
      * @param data.smallerThanFilesize
      * @param data.isValidated
+     * @param data.includeInvalid Include both validated and invalid maps when is_validated is omitted.
      * @param data.scope
      * @param data.createdSince
      * @param data.updatedSince
@@ -1597,6 +1598,7 @@ export class MapsService {
                 larger_than_filesize: data.largerThanFilesize,
                 smaller_than_filesize: data.smallerThanFilesize,
                 is_validated: data.isValidated,
+                include_invalid: data.includeInvalid,
                 scope: data.scope,
                 created_since: data.createdSince,
                 updated_since: data.updatedSince

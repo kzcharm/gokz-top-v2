@@ -2482,6 +2482,10 @@ export type LoginTestTokenResponse = (UserPublic);
 export type MapsReadMapsData = {
     createdSince?: (string | null);
     id?: (Array<(number)> | null);
+    /**
+     * Include both validated and invalid maps when is_validated is omitted.
+     */
+    includeInvalid?: boolean;
     isValidated?: (boolean | null);
     largerThanFilesize?: (number | null);
     limit?: number;
