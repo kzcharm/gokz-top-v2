@@ -993,6 +993,108 @@ test("Profile records map context menu items do not open run history", async ({
   await expect.poll(() => runHistoryRequests).toBe(0)
 })
 
+test("Profile record run history shows total records and playtime", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+
+  await page.route(/\/v1\/players\/$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 1,
+        data: [seededPlayer],
+      }),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([ovrRecords[0]]),
+    })
+  })
+
+  await page.route(/\/v1\/records\/run-history(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 3,
+        wr_time: 80,
+        data: [
+          {
+            uuid: "019d1111-1111-7111-8111-111111111111",
+            id: 981201,
+            server_id: 980300,
+            server_name: "Seed Server",
+            mode_id: 200,
+            mode: "KZT",
+            time: 1500,
+            teleports: 0,
+            wr_gap: -2,
+            is_pb: true,
+            created_on: "2026-03-28T12:00:00Z",
+            is_replay_available: false,
+          },
+          {
+            uuid: "019d2222-2222-7222-8222-222222222222",
+            id: 981202,
+            server_id: 980300,
+            server_name: "Seed Server",
+            mode_id: 200,
+            mode: "KZT",
+            time: 1560,
+            teleports: 2,
+            wr_gap: -1.415,
+            is_pb: false,
+            created_on: "2026-03-29T12:00:00Z",
+            is_replay_available: false,
+          },
+          {
+            uuid: "019d3333-3333-7333-8333-333333333333",
+            id: 981203,
+            server_id: 980300,
+            server_name: "Seed Server",
+            mode_id: 201,
+            mode: "SKZ",
+            time: 1561.714,
+            teleports: 0,
+            wr_gap: -2.415,
+            is_pb: true,
+            created_on: "2026-03-30T12:00:00Z",
+            is_replay_available: false,
+          },
+        ],
+      }),
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+
+  const recordRow = page.getByTestId(`pb-record-row-${ovrRecords[0].uuid}`)
+  await recordRow.focus()
+  await page.keyboard.press("Enter")
+
+  await expect(page.getByTestId("record-run-history-dialog")).toBeVisible()
+  await expect(page.getByTestId("record-run-history-total-records")).toHaveText(
+    "3",
+  )
+  await expect(
+    page.getByTestId("record-run-history-total-playtime"),
+  ).toHaveText("1.3 hours")
+
+  await page.getByRole("tab", { name: "PB Runs" }).click()
+  await expect(page.getByTestId("record-run-history-total-records")).toHaveText(
+    "3",
+  )
+  await expect(
+    page.getByTestId("record-run-history-total-playtime"),
+  ).toHaveText("1.3 hours")
+})
+
 test("Profile records page shows an error state when PB loading fails", async ({
   page,
 }) => {

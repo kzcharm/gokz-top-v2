@@ -92,6 +92,10 @@ function getRunTimeDeltaLabel(delta: number) {
   return `${sign}${formatRecordTime(Math.abs(delta))}`
 }
 
+function formatTotalPlaytime(seconds: number) {
+  return `${(seconds / 3600).toFixed(1)} hours`
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -598,6 +602,8 @@ export function RecordRunHistoryDialog({
     }),
   })
   const rows = historyQuery.data?.data ?? []
+  const totalRecordCount = historyQuery.data?.count ?? rows.length
+  const totalPlaytime = rows.reduce((total, row) => total + row.time, 0)
   const filteredRows = showPbOnly ? rows.filter((row) => row.is_pb) : rows
   const previousPbDeltaByUuid = useMemo(
     () => getPreviousPbDeltaByUuid(filteredRows),
@@ -670,15 +676,44 @@ export function RecordRunHistoryDialog({
           </div>
         </div>
 
-        {currentPbRun ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-semibold tracking-[0.08em] text-amber-700 uppercase dark:text-amber-300">
-              Current PB
-            </span>
-            <span className="font-mono font-semibold">
-              {formatRecordTime(currentPbRun.time)}
-            </span>
-          </div>
+        {!historyQuery.isLoading && !historyQuery.isError ? (
+          <dl
+            className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/60 py-2.5 text-sm"
+            data-testid="record-run-history-summary"
+          >
+            <div className="flex items-baseline gap-2">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Total Records
+              </dt>
+              <dd
+                className="font-mono font-semibold tabular-nums"
+                data-testid="record-run-history-total-records"
+              >
+                {totalRecordCount}
+              </dd>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Total Playtime
+              </dt>
+              <dd
+                className="font-mono font-semibold tabular-nums"
+                data-testid="record-run-history-total-playtime"
+              >
+                {formatTotalPlaytime(totalPlaytime)}
+              </dd>
+            </div>
+            {currentPbRun ? (
+              <div className="flex items-center gap-2">
+                <dt className="rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-semibold tracking-[0.08em] text-amber-700 uppercase dark:text-amber-300">
+                  Current PB
+                </dt>
+                <dd className="font-mono font-semibold tabular-nums">
+                  {formatRecordTime(currentPbRun.time)}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
         ) : null}
 
         {historyQuery.isLoading ? (
