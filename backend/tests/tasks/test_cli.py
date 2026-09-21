@@ -1,6 +1,8 @@
 import re
 from collections import Counter
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -54,7 +56,118 @@ def test_cli_root_help() -> None:
     assert "build" in result.output
     assert "rebuild" in result.output
     assert "sync" in result.output
+    assert "export" in result.output
     assert "GOKZ.TOP backend operator CLI" in result.output
+
+
+def test_cli_export_records_dispatches_filters(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+    output_path = tmp_path / "axe-records.csv.gz"
+
+    async def _fake_export_records_to_csv(
+        **kwargs: object,
+    ) -> cli.record_csv_export_service.RecordCsvExportResult:
+        captured.update(kwargs)
+        return cli.record_csv_export_service.RecordCsvExportResult(
+            output_path=output_path,
+            server_ids=(1633, 1683),
+            after=datetime(2026, 1, 1, tzinfo=UTC),
+            before=datetime(2026, 1, 31, 23, 59, 59, 999999, tzinfo=UTC),
+            exported_rows=509_006,
+            skipped_invalid_rows=9,
+            skipped_bad_steamid_rows=4,
+            compressed_size=8_000_000,
+        )
+
+    monkeypatch.setattr(
+        cli.record_csv_export_service,
+        "export_records_to_csv",
+        _fake_export_records_to_csv,
+    )
+
+    result = CliRunner().invoke(
+        cli.app,
+        [
+            "export",
+            "records",
+            "--server-id",
+            "1683",
+            "--server-id",
+            "1633",
+            "--after",
+            "2026-01-01",
+            "--before",
+            "2026-01-31",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured == {
+        "output_path": output_path,
+        "server_ids": [1683, 1633],
+        "server_groups": None,
+        "after": "2026-01-01",
+        "before": "2026-01-31",
+        "force": False,
+    }
+    assert "Record CSV Export Complete" in _plain_output(result.output)
+    assert "509006" in _plain_output(result.output).replace(",", "")
+
+
+def test_cli_export_players_dispatches_group_filter(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+    output_path = tmp_path / "axe-players.csv.gz"
+
+    async def _fake_export_players_to_csv(
+        **kwargs: object,
+    ) -> cli.player_csv_export_service.PlayerCsvExportResult:
+        captured.update(kwargs)
+        return cli.player_csv_export_service.PlayerCsvExportResult(
+            output_path=output_path,
+            server_ids=(1633, 1683),
+            after=None,
+            before=None,
+            exported_players=3_778,
+            compressed_size=200_000,
+        )
+
+    monkeypatch.setattr(
+        cli.player_csv_export_service,
+        "export_players_to_csv",
+        _fake_export_players_to_csv,
+    )
+
+    result = CliRunner().invoke(
+        cli.app,
+        [
+            "export",
+            "players",
+            "--server-group",
+            "axe",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured == {
+        "output_path": output_path,
+        "server_ids": None,
+        "server_groups": ["axe"],
+        "after": None,
+        "before": None,
+        "force": False,
+    }
+    assert "Player CSV Export Complete" in _plain_output(result.output)
+    assert "3778" in _plain_output(result.output).replace(",", "")
 
 
 def test_cli_build_help() -> None:

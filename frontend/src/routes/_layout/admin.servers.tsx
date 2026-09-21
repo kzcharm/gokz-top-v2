@@ -16,6 +16,7 @@ import {
   ArrowUp,
   Check,
   Copy,
+  Download,
   Github,
   KeyRound,
   Pencil,
@@ -32,6 +33,7 @@ import {
   type AdminServerGroupPublic,
   AdminServersService,
   type ApiError,
+  OpenAPI,
   type ServerGlobalapiAdminPublic,
   type ServerPublic,
   UsersService,
@@ -52,6 +54,7 @@ import { RegionFlag } from "@/components/Common/RegionFlag"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -85,6 +88,43 @@ type ServerGroupSortBy =
   | "last_api_key_used_at"
   | "created_at"
   | "updated_at"
+
+async function downloadGokzLocalDbRecords(serverIds: number[]) {
+  const params = new URLSearchParams()
+  for (const serverId of [...serverIds].sort((a, b) => a - b)) {
+    params.append("server_id", String(serverId))
+  }
+  const accessToken = localStorage.getItem("access_token")
+  const response = await fetch(
+    `${OpenAPI.BASE}/v1/admin/servers/globalapi/records/export?${params.toString()}`,
+    {
+      headers: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined,
+    },
+  )
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    const detail =
+      payload && typeof payload.detail === "string"
+        ? payload.detail
+        : "Unable to export GOKZ LocalDB records."
+    throw new Error(detail)
+  }
+
+  const disposition = response.headers.get("content-disposition")
+  const filename =
+    disposition?.match(/filename="([^"]+)"/)?.[1] ??
+    "gokz-localdb-records.sql.gz"
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 
 const ADMIN_SERVER_TAB_OPTIONS = [
   {
@@ -202,6 +242,9 @@ export function GlobalApiServersTab({
   const [approvalFilter, setApprovalFilter] = useState("1")
   const [editingServer, setEditingServer] =
     useState<ServerGlobalapiAdminPublic | null>(null)
+  const [selectedServerIds, setSelectedServerIds] = useState<Set<number>>(
+    () => new Set(),
+  )
   const [sorting, setSorting] = useState<SortingState>([
     { id: "id", desc: true },
   ])
@@ -285,9 +328,73 @@ export function GlobalApiServersTab({
     },
     onError: (error: ApiError) => showErrorToast(extractErrorMessage(error)),
   })
+  const downloadMutation = useMutation({
+    mutationFn: downloadGokzLocalDbRecords,
+    onSuccess: () => {
+      showSuccessToast("GOKZ LocalDB record export downloaded.")
+    },
+    onError: (error: Error) => showErrorToast(error.message),
+  })
+
+  const visibleServerIds = useMemo(
+    () => (query.data?.data ?? []).map((server) => server.id),
+    [query.data?.data],
+  )
+  const selectedVisibleCount = visibleServerIds.filter((serverId) =>
+    selectedServerIds.has(serverId),
+  ).length
+  const allVisibleSelected =
+    visibleServerIds.length > 0 &&
+    selectedVisibleCount === visibleServerIds.length
 
   const columns = useMemo<ColumnDef<ServerGlobalapiAdminPublic>[]>(
     () => [
+      {
+        id: "select",
+        size: 44,
+        header: () => (
+          <Checkbox
+            aria-label="Select all visible GlobalAPI servers"
+            checked={
+              allVisibleSelected
+                ? true
+                : selectedVisibleCount > 0
+                  ? "indeterminate"
+                  : false
+            }
+            onCheckedChange={(checked) => {
+              setSelectedServerIds((current) => {
+                const next = new Set(current)
+                for (const serverId of visibleServerIds) {
+                  if (checked) {
+                    next.add(serverId)
+                  } else {
+                    next.delete(serverId)
+                  }
+                }
+                return next
+              })
+            }}
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label={`Select GlobalAPI server ${row.original.id}`}
+            checked={selectedServerIds.has(row.original.id)}
+            onCheckedChange={(checked) => {
+              setSelectedServerIds((current) => {
+                const next = new Set(current)
+                if (checked) {
+                  next.add(row.original.id)
+                } else {
+                  next.delete(row.original.id)
+                }
+                return next
+              })
+            }}
+          />
+        ),
+      },
       {
         accessorKey: "id",
         header: ({ column }) => <SortableHeader column={column} label="ID" />,
@@ -376,7 +483,13 @@ export function GlobalApiServersTab({
         ),
       },
     ],
-    [groupNamesById],
+    [
+      allVisibleSelected,
+      groupNamesById,
+      selectedServerIds,
+      selectedVisibleCount,
+      visibleServerIds,
+    ],
   )
 
   return (
@@ -408,6 +521,19 @@ export function GlobalApiServersTab({
               <SelectItem value="0">Pending</SelectItem>
             </SelectContent>
           </Select>
+          <LoadingButton
+            type="button"
+            variant="outline"
+            loading={downloadMutation.isPending}
+            disabled={selectedServerIds.size === 0}
+            onClick={() =>
+              downloadMutation.mutate(Array.from(selectedServerIds))
+            }
+          >
+            <Download />
+            Export records
+            {selectedServerIds.size > 0 ? ` (${selectedServerIds.size})` : ""}
+          </LoadingButton>
         </div>
       </AdminControlsCard>
       <AdminTableCard>

@@ -2,6 +2,7 @@ import uuid
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app import crud
 from app.api.deps import AdminServerPrincipal, AdminServerPrincipalDep, SessionDep
@@ -26,6 +27,11 @@ from app.models import (
     ServersPublic,
     ServerUpdate,
     get_datetime_utc,
+)
+from app.services.gokz_localdb_export import (
+    get_gokz_localdb_export_stats,
+    gzip_sql_stream,
+    iter_gokz_localdb_mysql_sql,
 )
 
 router = APIRouter(prefix="/admin/servers", tags=["admin-servers"])
@@ -91,7 +97,9 @@ async def read_admin_globalapi_servers(
     sort_order: Annotated[Literal["asc", "desc"], Query()] = "desc",
 ) -> ServerGlobalapiAdminServersPublic:
     effective_owner = (
-        None if principal.role == AdminServerRole.ROOT_ADMIN else principal.user.steamid64
+        None
+        if principal.role == AdminServerRole.ROOT_ADMIN
+        else principal.user.steamid64
     )
     query = ServerGlobalapiListQuery(
         offset=offset,
@@ -110,10 +118,74 @@ async def read_admin_globalapi_servers(
     )
     return ServerGlobalapiAdminServersPublic(
         data=[
-            crud.to_server_globalapi_admin_public(server=server)
-            for server in servers
+            crud.to_server_globalapi_admin_public(server=server) for server in servers
         ],
         count=count,
+    )
+
+
+@router.get(
+    "/globalapi/records/export",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {
+                "application/gzip": {"schema": {"type": "string", "format": "binary"}}
+            },
+            "description": "Gzip-compressed GOKZ LocalDB MySQL import script",
+        }
+    },
+)
+async def export_admin_globalapi_server_records(
+    *,
+    session: SessionDep,
+    principal: AdminServerPrincipalDep,
+    server_id: Annotated[list[int], Query(min_length=1, max_length=20)],
+) -> StreamingResponse:
+    server_ids = sorted(set(server_id))
+    for selected_server_id in server_ids:
+        server = await crud.get_server_globalapi_by_id(
+            session=session,
+            id=selected_server_id,
+        )
+        if server is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"GlobalAPI server {selected_server_id} not found",
+            )
+        if (
+            principal.role != AdminServerRole.ROOT_ADMIN
+            and server.owner_steamid64 != principal.user.steamid64
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail=f"GlobalAPI server {selected_server_id} is not owned by user",
+            )
+    stats = await get_gokz_localdb_export_stats(
+        session=session,
+        server_ids=server_ids,
+    )
+    if stats.exportable_rows == 0:
+        raise HTTPException(
+            status_code=422,
+            detail="Selected servers have no valid GOKZ LocalDB-compatible records",
+        )
+
+    id_suffix = "-".join(str(value) for value in server_ids)
+    filename = f"gokz-localdb-records-{id_suffix}.sql.gz"
+    sql_chunks = iter_gokz_localdb_mysql_sql(
+        session=session,
+        server_ids=server_ids,
+        stats=stats,
+    )
+    return StreamingResponse(
+        gzip_sql_stream(sql_chunks),
+        media_type="application/gzip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Exported-Record-Count": str(stats.exportable_rows),
+            "X-Skipped-Record-Count": str(stats.skipped_rows),
+        },
     )
 
 
@@ -135,7 +207,9 @@ async def update_admin_globalapi_server(
         principal.role != AdminServerRole.ROOT_ADMIN
         and server.owner_steamid64 != principal.user.steamid64
     ):
-        raise HTTPException(status_code=403, detail="GlobalAPI server is not owned by user")
+        raise HTTPException(
+            status_code=403, detail="GlobalAPI server is not owned by user"
+        )
 
     update_data = server_in.model_dump(exclude_unset=True)
     if "owner_steamid64" in update_data:
@@ -156,7 +230,9 @@ async def update_admin_globalapi_server(
         group_id = update_data["group_id"]
         _ensure_group_access(principal=principal, group_id=group_id)
         if group_id is not None:
-            group = await crud.get_server_group_by_id(session=session, group_id=group_id)
+            group = await crud.get_server_group_by_id(
+                session=session, group_id=group_id
+            )
             if group is None:
                 raise HTTPException(status_code=404, detail="Server group not found")
         server.group_id = group_id
@@ -279,7 +355,9 @@ async def read_admin_server_groups(
     sort_order: Annotated[Literal["asc", "desc"], Query()] = "asc",
 ) -> AdminServerGroupsPublic:
     owner_steamid64 = (
-        None if principal.role == AdminServerRole.ROOT_ADMIN else principal.user.steamid64
+        None
+        if principal.role == AdminServerRole.ROOT_ADMIN
+        else principal.user.steamid64
     )
     groups, counts, count = await crud.read_server_groups_for_admin(
         session=session,
@@ -352,7 +430,9 @@ async def update_admin_server_group(
         raise HTTPException(status_code=404, detail="Server group not found")
     if owner_was_set:
         if principal.role != AdminServerRole.ROOT_ADMIN:
-            raise HTTPException(status_code=403, detail="Cannot change server group owner")
+            raise HTTPException(
+                status_code=403, detail="Cannot change server group owner"
+            )
         owner_id = int(owner_steamid64) if owner_steamid64 is not None else None
         if owner_id is not None:
             owner = await crud.get_player_by_steamid64(

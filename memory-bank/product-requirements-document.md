@@ -116,6 +116,9 @@ Scope model:
 - Public server registry and ownership-aware management.
 - Server visibility is controlled independently from operational status. Hidden servers continue normal heartbeat and health collection but must not appear in public lists, detail/history reads, server-group counts, or live WebSocket updates.
 - Admin server management provides Root Admin access to all GlobalAPI/public servers and Server Owner access to owned servers, with approval control reserved for Root Admins.
+- Root Admins and Server Owners can select one or more accessible GlobalAPI servers and export valid VNL/SKZ/KZT records as a streamed, gzip-compressed MySQL script for an existing GOKZ LocalDB database.
+- Backend operators can export valid VNL/SKZ/KZT/NKZ records for explicit GlobalAPI server IDs or complete server groups as a streamed `.csv.gz` archive, with optional inclusive UTC creation-time bounds, alias-aware player names, GOKZ-local mode/runtime values, long map names, and exclusion counts for invalid records and incompatible Steam IDs.
+- Backend operators can export the distinct players represented by the same eligible server records as a `.csv.gz` archive, enriched with permanent-ban status and the newest IP, earliest connection, and latest completed-session disconnect from player sessions across all servers.
 - Root Admins can investigate possible alternate accounts from player-session IP evidence using bounded exact-IP, `/24`, or `/16 + city` traversal; the workflow returns explainable links and skipped busy buckets, not scores or automated enforcement.
 - Live status ingestion and display.
 - Server group support and filterable browsing.

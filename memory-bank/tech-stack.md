@@ -22,10 +22,13 @@
   - `/v1/me/qq-binding-code` for authenticated short-lived QQ bot binding code generation backed by an admin-managed encrypted shared secret
   - `/v1/player-reports` for authenticated player report submissions with optional record context
   - `/v1/admin/servers` for RBAC-protected server and server-group management
+  - `/v1/admin/servers/globalapi/records/export` for owner-scoped, streamed GOKZ LocalDB MySQL record exports across one or more GlobalAPI server IDs
   - `/v1/admin/player-social-links` for superuser management of player social links and verification state
   - `/v1/maps/reviews` supports website-authored review upserts, server-group writes, and QQ-bot writes authenticated by the active QQ binding secret; authenticated comment-only deletion remains available across a player's review rows for a map
   - `/v1/polls` provides public poll browsing and authenticated voting, while `/v1/admin/polls` is restricted to root admins for poll lifecycle management and voter audits
 - Data strategy:
+  - Backend operators can stream valid records for explicit GlobalAPI server IDs or server groups into a gzip-compressed CSV with `kztop export records`, optionally bounded by inclusive UTC creation dates. The archive retains VNL/SKZ/KZT/NKZ and long map names, excludes invalid rows and non-convertible Steam IDs, and carries both source and GOKZ-local identifiers and runtimes. `kztop export players` exports the corresponding distinct players with alias fallback, permanent-ban flags, and all-server session IP/activity enrichment.
+  - GOKZ LocalDB exports translate valid GlobalAPI VNL/SKZ/KZT records into gzip-compressed MySQL scripts for the standard `Players`, `Maps`, `MapCourses`, and `Times` tables. Exports preserve existing player/map rows, append time rows, convert SteamID64 to account IDs, and stream both database reads and gzip output to keep memory bounded for large servers.
   - PostgreSQL as primary persistent store
   - Map skill analysis is stored in `map_skill`, keyed by map ID, with six aggregate fractions and the ordered analysis segments retained as JSONB. Operators populate it with the manual `python -m app.import_map_skills <index.json>` CLI; normal `/v1/maps` responses expose only the aggregate fractions.
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)

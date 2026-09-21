@@ -2153,6 +2153,12 @@ export type AdminServersReadAdminGlobalapiServersData = {
 
 export type AdminServersReadAdminGlobalapiServersResponse = (ServerGlobalapiAdminServersPublic);
 
+export type AdminServersExportAdminGlobalapiServerRecordsData = {
+    serverId: Array<(number)>;
+};
+
+export type AdminServersExportAdminGlobalapiServerRecordsResponse = ((Blob | File));
+
 export type AdminServersUpdateAdminGlobalapiServerData = {
     requestBody: ServerGlobalapiAdminUpdate;
     serverId: number;

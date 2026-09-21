@@ -1,5 +1,7 @@
+import gzip
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -7,7 +9,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import (
+    KZMode,
+    Map,
     Player,
+    Record,
     Server,
     ServerGlobalapi,
     ServerGroup,
@@ -282,6 +287,116 @@ async def test_admin_globalapi_owner_can_update_server_name(
     refreshed = await db.get(ServerGlobalapi, server.id)
     assert refreshed is not None
     assert refreshed.name == "Updated Server Name"
+
+
+async def test_admin_globalapi_root_can_export_gokz_localdb_mysql_dump(
+    client: AsyncClient,
+    db: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    owner_steamid64 = 76561199000000123
+    server = await _create_globalapi_server(
+        db,
+        id=979028,
+        owner_steamid64=owner_steamid64,
+        approval_status=1,
+        name="Export Server",
+    )
+    map_obj = Map(
+        id=979028,
+        name="kz_export_test",
+        validated=True,
+        created_at=datetime(2024, 1, 1, tzinfo=UTC),
+        updated_at=datetime(2024, 1, 1, tzinfo=UTC),
+        synced_at=datetime(2024, 1, 1, tzinfo=UTC),
+    )
+    created_at = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+    db.add(map_obj)
+    db.add(
+        Record(
+            id=979028,
+            steamid64=owner_steamid64,
+            server_id=server.id,
+            mode=KZMode.KZT,
+            map_id=map_obj.id,
+            stage=1,
+            time=Decimal("12.345"),
+            teleports=4,
+            created_at=created_at,
+            updated_at=created_at,
+        )
+    )
+    db.add(
+        Record(
+            id=979029,
+            steamid64=owner_steamid64,
+            server_id=server.id,
+            mode=KZMode.VNL,
+            map_id=map_obj.id,
+            time=Decimal("22.000"),
+            created_at=created_at,
+            updated_at=created_at,
+            is_valid=False,
+        )
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi/records/export",
+        headers=superuser_token_headers,
+        params=[("server_id", server.id)],
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/gzip"
+    assert response.headers["x-exported-record-count"] == "1"
+    assert response.headers["x-skipped-record-count"] == "1"
+    assert (
+        response.headers["content-disposition"]
+        == 'attachment; filename="gokz-localdb-records-979028.sql.gz"'
+    )
+    sql = gzip.decompress(response.content).decode()
+    steamid32 = owner_steamid64 - 76561197960265728
+    assert "INSERT IGNORE INTO `Players`" in sql
+    assert "INSERT IGNORE INTO `Maps`" in sql
+    assert "INSERT INTO `Times`" in sql
+    assert f"({steamid32},'kz_export_test',1,2,0,12345,4,'2026-01-02 03:04:05')" in sql
+    assert "Exported records: 1" in sql
+    assert "Skipped records: 1" in sql
+
+
+async def test_admin_globalapi_owner_cannot_export_another_servers_records(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    owner_steamid64 = random_steamid64()
+    other_owner_steamid64 = random_steamid64()
+    headers = await authentication_token_from_steamid(
+        client=client,
+        steamid64=owner_steamid64,
+        db=db,
+    )
+    owned_server = await _create_globalapi_server(
+        db,
+        id=979029,
+        owner_steamid64=owner_steamid64,
+    )
+    other_server = await _create_globalapi_server(
+        db,
+        id=979030,
+        owner_steamid64=other_owner_steamid64,
+    )
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi/records/export",
+        headers=headers,
+        params=[
+            ("server_id", owned_server.id),
+            ("server_id", other_server.id),
+        ],
+    )
+
+    assert response.status_code == 403
 
 
 async def test_admin_globalapi_list_supports_filtering_and_sorting(
@@ -698,9 +813,7 @@ async def test_admin_server_groups_owner_scope_and_metadata_update(
         json={"owner_steamid64": str(new_owner_steamid64)},
     )
     assert owner_update_response.status_code == 200
-    assert owner_update_response.json()["owner_steamid64"] == str(
-        new_owner_steamid64
-    )
+    assert owner_update_response.json()["owner_steamid64"] == str(new_owner_steamid64)
     await db.refresh(other_group)
     assert other_group.owner_steamid64 == new_owner_steamid64
 
@@ -759,9 +872,7 @@ async def test_admin_server_groups_support_backend_sorting_and_pagination(
     )
     assert paginated_response.status_code == 200
     assert paginated_response.json()["count"] == 3
-    assert [group["name"] for group in paginated_response.json()["data"]] == [
-        "Beta"
-    ]
+    assert [group["name"] for group in paginated_response.json()["data"]] == ["Beta"]
 
 
 async def test_admin_server_group_custom_id_validation_and_delete_conflict(

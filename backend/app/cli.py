@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Coroutine, Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -8,6 +9,8 @@ from rich.console import Console
 from rich.table import Table
 
 from app.models import MapFileDistributionSyncResult, ModeScope, PlayerSocialPlatform
+from app.services import player_csv_export as player_csv_export_service
+from app.services import record_csv_export as record_csv_export_service
 from app.services.map_authors import seed_map_authors_from_kz_map_info
 from app.services.map_file_distribution import seed_map_package, sync_map_files
 from app.services.map_file_distribution_worker import run_map_file_distribution_runner
@@ -65,6 +68,12 @@ transfer_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(transfer_app, name="transfer")
+export_app = typer.Typer(
+    help="Export backend data for operators.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+app.add_typer(export_app, name="export")
 
 console = Console()
 
@@ -142,6 +151,156 @@ def _render_record_transfer_summary(
 
 def _run_async[T](coro: Coroutine[object, object, T]) -> T:
     return asyncio.run(coro)
+
+
+def _format_optional_datetime(value: datetime | None) -> str:
+    return value.isoformat() if value is not None else "none"
+
+
+@export_app.command("records")
+def export_records(
+    output_path: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Required destination path ending in .csv.gz.",
+        ),
+    ],
+    server_ids: Annotated[
+        list[int] | None,
+        typer.Option(
+            "--server-id",
+            help="GlobalAPI server ID. Repeat for multiple servers.",
+        ),
+    ] = None,
+    server_groups: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--server-group",
+            help="Server group UUID, custom ID, or exact name. Repeat for multiple groups.",
+        ),
+    ] = None,
+    after: Annotated[
+        str | None,
+        typer.Option(
+            "--after",
+            help="Inclusive UTC date/datetime lower bound (ISO 8601).",
+        ),
+    ] = None,
+    before: Annotated[
+        str | None,
+        typer.Option(
+            "--before",
+            help="Inclusive UTC date/datetime upper bound (ISO 8601).",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Replace an existing output file.",
+        ),
+    ] = False,
+) -> None:
+    try:
+        result = _run_async(
+            record_csv_export_service.export_records_to_csv(
+                output_path=output_path,
+                server_ids=server_ids,
+                server_groups=server_groups,
+                after=after,
+                before=before,
+                force=force,
+            )
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    _render_summary(
+        "Record CSV Export Complete",
+        [
+            ("Server IDs", ", ".join(str(value) for value in result.server_ids)),
+            ("After", _format_optional_datetime(result.after)),
+            ("Before", _format_optional_datetime(result.before)),
+            ("Exported records", str(result.exported_rows)),
+            ("Skipped invalid", str(result.skipped_invalid_rows)),
+            ("Skipped bad SteamIDs", str(result.skipped_bad_steamid_rows)),
+            ("Compressed bytes", str(result.compressed_size)),
+            ("Output path", str(result.output_path)),
+        ],
+    )
+
+
+@export_app.command("players")
+def export_players(
+    output_path: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Required destination path ending in .csv.gz.",
+        ),
+    ],
+    server_ids: Annotated[
+        list[int] | None,
+        typer.Option(
+            "--server-id",
+            help="GlobalAPI server ID. Repeat for multiple servers.",
+        ),
+    ] = None,
+    server_groups: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--server-group",
+            help="Server group UUID, custom ID, or exact name. Repeat for multiple groups.",
+        ),
+    ] = None,
+    after: Annotated[
+        str | None,
+        typer.Option(
+            "--after",
+            help="Inclusive UTC record date/datetime lower bound (ISO 8601).",
+        ),
+    ] = None,
+    before: Annotated[
+        str | None,
+        typer.Option(
+            "--before",
+            help="Inclusive UTC record date/datetime upper bound (ISO 8601).",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Replace an existing output file.",
+        ),
+    ] = False,
+) -> None:
+    try:
+        result = _run_async(
+            player_csv_export_service.export_players_to_csv(
+                output_path=output_path,
+                server_ids=server_ids,
+                server_groups=server_groups,
+                after=after,
+                before=before,
+                force=force,
+            )
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    _render_summary(
+        "Player CSV Export Complete",
+        [
+            ("Server IDs", ", ".join(str(value) for value in result.server_ids)),
+            ("After", _format_optional_datetime(result.after)),
+            ("Before", _format_optional_datetime(result.before)),
+            ("Exported players", str(result.exported_players)),
+            ("Compressed bytes", str(result.compressed_size)),
+            ("Output path", str(result.output_path)),
+        ],
+    )
 
 
 @transfer_app.command("records")
