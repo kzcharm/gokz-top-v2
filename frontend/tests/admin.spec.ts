@@ -663,7 +663,7 @@ test("Superusers can manage application settings", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("gokz-language", "zh-CN"))
   await page.reload()
   await expect(
-    page.locator("footer").getByRole("link", { name: "加入我们的 QQ 群" }),
+    page.locator("footer").getByRole("link", { name: "加入我们的 Discord" }),
   ).toBeVisible()
 })
 

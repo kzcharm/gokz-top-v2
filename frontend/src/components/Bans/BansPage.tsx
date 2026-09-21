@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Plus, Search, ShieldAlert, X } from "lucide-react"
 import { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
-import { FaDiscord, FaQq } from "react-icons/fa"
+import { FaDiscord } from "react-icons/fa"
 
 import { OpenAPI } from "@/client/core/OpenAPI"
 import {
@@ -140,16 +139,10 @@ export function BansPage({
   initialServerFilter: number | "none" | null
   initialStatus: BanStatusFilter | ""
 }) {
-  const { i18n } = useTranslation()
   const { user } = useAuth()
   const { enabled: adminModeEnabled } = useAdminMode()
   const canModerateBans = canModerateBansAndRecords(user)
   useAdminModeSurface(canModerateBans)
-  const reportLink =
-    i18n.resolvedLanguage === "zh-CN"
-      ? COMMUNITY_LINKS.qq
-      : COMMUNITY_LINKS.discord
-  const ReportIcon = i18n.resolvedLanguage === "zh-CN" ? FaQq : FaDiscord
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = usePersistedPageSize({
     storageKey: "gokz-page-size-bans",
@@ -371,8 +364,8 @@ export function BansPage({
             type="button"
             className="bg-yellow-500 text-white hover:bg-yellow-500/90 focus-visible:ring-yellow-500/30 dark:bg-yellow-500 dark:text-white dark:hover:bg-yellow-400"
           >
-            <a href={reportLink} target="_blank" rel="noreferrer">
-              <ReportIcon className="size-4" />
+            <a href={COMMUNITY_LINKS.discord} target="_blank" rel="noreferrer">
+              <FaDiscord className="size-4" />
               Report
             </a>
           </Button>

@@ -589,7 +589,7 @@ test("Users without admin moderation rights do not see Add Ban entry points", as
   await expect(page.getByText("KZCharm Public Server")).toBeVisible()
 })
 
-test("Chinese users get the QQ report link on the bans page", async ({
+test("Chinese users get the Discord report link on the bans page", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -626,7 +626,7 @@ test("Chinese users get the QQ report link on the bans page", async ({
 
   await expect(page.getByRole("link", { name: "Report" })).toHaveAttribute(
     "href",
-    COMMUNITY_LINKS.qq,
+    COMMUNITY_LINKS.discord,
   )
 })
 

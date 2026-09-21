@@ -120,7 +120,6 @@ export const zhCN = {
   },
   footer: {
     joinDiscord: "加入我们的 Discord",
-    joinQqGroup: "加入我们的 QQ 群",
   },
   polls: {
     votes: "票",
@@ -212,8 +211,7 @@ export const zhCN = {
     title: "应用设置",
     communityLinks: {
       title: "社区链接",
-      description:
-        "在导航栏显示 Discord 链接和中文版 QQ 群链接。关闭后，这些链接将移至页脚。",
+      description: "在导航栏显示 Discord 链接。关闭后，该链接将移至页脚。",
       showInNavbar: "在导航栏显示社区链接",
       toasts: {
         updated: "社区链接位置已更新。",

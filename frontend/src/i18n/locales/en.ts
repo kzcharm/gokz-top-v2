@@ -120,7 +120,6 @@ export const en = {
   },
   footer: {
     joinDiscord: "Join us on Discord",
-    joinQqGroup: "Join our QQ group",
   },
   polls: {
     votes: "votes",
@@ -214,7 +213,7 @@ export const en = {
     communityLinks: {
       title: "Community links",
       description:
-        "Show the Discord link and the Chinese-language QQ group link in the navbar. Turn this off to move them to the footer.",
+        "Show the Discord link in the navbar. Turn this off to move it to the footer.",
       showInNavbar: "Show community links in navbar",
       toasts: {
         updated: "Community link placement updated.",
