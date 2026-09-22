@@ -98,6 +98,7 @@ from .map_leaderboard import (
     MapLeaderboardEntryPublic,
     MapLeaderboardsPublic,
 )
+from .map_lj_room import LJRoom, LJRoomSpot, MapLJRoom, MapLJRoomPayload
 from .map_review import (
     MapReview,
     MapReviewCommentInput,
@@ -619,6 +620,10 @@ __all__ = [
     "MapReviewUpsert",
     "MapSkill",
     "MapSkillsPublic",
+    "LJRoom",
+    "LJRoomSpot",
+    "MapLJRoom",
+    "MapLJRoomPayload",
     "MapStatCache",
     "MapStatsPublic",
     "MapStatType",

@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-09-20
+- Last Updated: 2026-09-22
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -18,6 +18,7 @@
   - `/v1/records/wrs/recent` and `/v1/ws/records/wrs/recent` for the paginated, filterable historical main-course WR event feed and live page-one snapshots
   - Profile run WR columns join `/v1/records/pb` results with the matching scoped `/v1/maps/wrs` response in the frontend; the WR response includes the winning run's teleport count for PRO/TP color treatment, and the PB endpoint does not perform per-record WR enrichment
   - `/v1/live/streams` for the public verified-stream directory plus `/v1/live/preview-image` for approved external preview proxying of Bilibili preview assets
+  - `/v1/maps/lj-rooms` for unauthenticated, map-name-addressed LJ-room coordinates consumed by the `gokz-top-ljroom` SourceMod plugin
   - `/v1/me/notifications` for authenticated player notification inbox reads, unread counts, and read-state mutations
   - `/v1/me/qq-binding-code` for authenticated short-lived QQ bot binding code generation backed by an admin-managed encrypted shared secret
   - `/v1/player-reports` for authenticated player report submissions with optional record context
@@ -31,6 +32,7 @@
   - GOKZ LocalDB exports translate valid GlobalAPI VNL/SKZ/KZT records into gzip-compressed MySQL scripts for the standard `Players`, `Maps`, `MapCourses`, and `Times` tables. Exports preserve existing player/map rows, append time rows, convert SteamID64 to account IDs, and stream both database reads and gzip output to keep memory bounded for large servers.
   - PostgreSQL as primary persistent store
   - Map skill analysis is stored in `map_skill`, keyed by map ID, with six aggregate fractions and the ordered analysis segments retained as JSONB. Operators populate it with the manual `python -m app.import_map_skills <index.json>` CLI; normal `/v1/maps` responses expose only the aggregate fractions.
+  - Detected LJ-room payloads are stored in `map_lj_room`, keyed by map ID with one opaque JSONB document per map. Operators populate or refresh them with `python -m app.import_lj_rooms <gokz-lj-rooms.json>`; the analyzer export is not bundled with deployments.
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)
   - Application-wide settings use typed accessors over the `app_setting` key/value table, with JSONB payloads per key. Public settings APIs expose only an explicit safe subset; the encrypted QQ binding secret, community-link placement, and deployment-local GlobalAPI record-sync toggle share this store without exposing arbitrary rows.
   - Ban rows are stored locally in PostgreSQL with an internal UUIDv7 primary key (`ban.uuid`) plus a nullable external GlobalAPI id (`ban.id`), allowing append/update-only mirrored GlobalAPI bans and superuser-created local bans to coexist in the same table
@@ -82,6 +84,7 @@
   - Server country/city/latitude/longitude are persisted on `server` rows and resolved only on writes when missing or when the IP changes, preferring online IP location providers before falling back to the local GeoIP database
   - SourceMod server heartbeats are sent by `gokz-top-servers`, which reuses `gokz-top-core` auth config and resolves the target server by cached public IPv4 plus `hostport`
   - SourceMod in-game profile/rating reads are served by `gokz-top-profile`, which preserves the legacy `gokz-profile` library/native surface while reading cached `/v1/leaderboards/players/{identifier}` data through `gokz-top-core`
+  - SourceMod LJ-room teleports are served by `gokz-top-ljroom`, which reuses `gokz-top-core` HTTP configuration, fetches `/v1/maps/lj-rooms` at map start, and keeps player default distances in private client cookies
   - Plugin heartbeats ingest through `PUT /v1/servers/status` with a server-group API key and resolve servers by `(ip, port)`
   - Plugin heartbeats also carry cached `gokz-global` GlobalAPI check results; public `/v1/servers` reads expose the per-check and KZT/SKZ/VNL mode results used by the servers-page GlobalAPI badge
   - Plugin heartbeat player payloads are typed and richer than A2S player rows, including GOKZ timer status, mode, teleports, timer time, pause state, stage, and per-connection duration

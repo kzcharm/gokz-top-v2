@@ -18,6 +18,8 @@ from app.core.regions import is_valid_region_code
 from app.crud.server import mark_server_group_api_key_used
 from app.models import (
     MapFileDistributionSyncResult,
+    MapLJRoom,
+    MapLJRoomPayload,
     MapPbLeaderboardPublic,
     MapPublic,
     MapReviewListQuery,
@@ -170,6 +172,25 @@ async def read_map_preview_image(
     return RedirectResponse(url=preview_url)
 
 
+@router.get("/lj-rooms", response_model=MapLJRoomPayload)
+async def read_map_lj_rooms(
+    session: SessionDep,
+    map_name: Annotated[str, Query(min_length=1, max_length=255)],
+) -> MapLJRoomPayload:
+    normalized_map_name = map_name.strip()
+    if not normalized_map_name:
+        raise HTTPException(status_code=422, detail="map_name cannot be blank")
+
+    map_obj = await crud.get_map_by_name(session=session, map_name=normalized_map_name)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="LJ-room data not found")
+
+    row = await session.get(MapLJRoom, map_obj.id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="LJ-room data not found")
+    return MapLJRoomPayload.model_validate(row.data)
+
+
 @router.get("/{map_id:int}/leaderboard", response_model=MapPbLeaderboardPublic)
 async def read_map_pb_leaderboard(
     session: SessionDep,
@@ -188,8 +209,12 @@ async def read_map_pb_leaderboard(
     if map_obj is None:
         raise HTTPException(status_code=404, detail="Map not found")
 
-    normalized_country = country.strip().upper() if country is not None and country.strip() else None
-    normalized_region = region.strip().upper() if region is not None and region.strip() else None
+    normalized_country = (
+        country.strip().upper() if country is not None and country.strip() else None
+    )
+    normalized_region = (
+        region.strip().upper() if region is not None and region.strip() else None
+    )
     _validate_map_leaderboard_filters(
         country=normalized_country,
         region=normalized_region,

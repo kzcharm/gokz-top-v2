@@ -135,6 +135,8 @@ Scope model:
 
 ### 5.6 Jumpstats and Replays
 - Jumpstats submission/query/top views.
+- Public `GET /v1/maps/lj-rooms?map_name=...` returns manually imported analyzer room/slot coordinates without authentication; an imported map with no detected room returns an empty room list, while absent data returns not found.
+- GOKZ servers can run `gokz-top-ljroom` to fetch the current map's data at map start and provide `!lj [distance]`, nearest-distance fallback, and a private saved default distance while stopping any active timer before teleporting.
 - Public jumpstat reads remain available through:
   - `/v1/jumpstats` for global list/top reads
   - `/v1/jumpstats/{id}` for single jumpstat detail

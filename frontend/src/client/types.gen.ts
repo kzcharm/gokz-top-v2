@@ -545,6 +545,31 @@ export type LiveStreamsPublic = {
     count: number;
 };
 
+export type LJRoom = {
+    rank: number;
+    score: number;
+    spots: Array<LJRoomSpot>;
+};
+
+export type LJRoomSpot = {
+    distance: number;
+    raw_distance: number;
+    origin: [
+        number,
+        number,
+        number
+    ];
+    angles: [
+        number,
+        number
+    ];
+    landing: [
+        number,
+        number,
+        number
+    ];
+};
+
 export type MapFileDistributionSyncResult = {
     processed?: number;
     downloaded?: number;
@@ -579,6 +604,13 @@ export type MapLeaderboardEntryPublic = {
 export type MapLeaderboardsPublic = {
     data: Array<MapLeaderboardEntryPublic>;
     count: number;
+};
+
+export type MapLJRoomPayload = {
+    map_name: string;
+    api_map_id: number;
+    filesize: number;
+    rooms: Array<LJRoom>;
 };
 
 export type MapPbLeaderboardPublic = {
@@ -2526,6 +2558,12 @@ export type MapsReadMapPreviewImageData = {
 };
 
 export type MapsReadMapPreviewImageResponse = (unknown);
+
+export type MapsReadMapLjRoomsData = {
+    mapName: string;
+};
+
+export type MapsReadMapLjRoomsResponse = (MapLJRoomPayload);
 
 export type MapsReadMapPbLeaderboardData = {
     country?: (string | null);

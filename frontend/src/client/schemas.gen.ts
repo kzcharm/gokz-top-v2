@@ -2532,6 +2532,99 @@ export const KZModeSchema = {
     title: 'KZMode'
 } as const;
 
+export const LJRoomSchema = {
+    properties: {
+        rank: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Rank'
+        },
+        score: {
+            type: 'number',
+            minimum: 0,
+            title: 'Score'
+        },
+        spots: {
+            items: {
+                '$ref': '#/components/schemas/LJRoomSpot'
+            },
+            type: 'array',
+            title: 'Spots'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['rank', 'score', 'spots'],
+    title: 'LJRoom'
+} as const;
+
+export const LJRoomSpotSchema = {
+    properties: {
+        distance: {
+            type: 'integer',
+            exclusiveMinimum: 0,
+            title: 'Distance'
+        },
+        raw_distance: {
+            type: 'number',
+            exclusiveMinimum: 0,
+            title: 'Raw Distance'
+        },
+        origin: {
+            prefixItems: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'number'
+                }
+            ],
+            type: 'array',
+            maxItems: 3,
+            minItems: 3,
+            title: 'Origin'
+        },
+        angles: {
+            prefixItems: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'number'
+                }
+            ],
+            type: 'array',
+            maxItems: 2,
+            minItems: 2,
+            title: 'Angles'
+        },
+        landing: {
+            prefixItems: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'number'
+                }
+            ],
+            type: 'array',
+            maxItems: 3,
+            minItems: 3,
+            title: 'Landing'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['distance', 'raw_distance', 'origin', 'angles', 'landing'],
+    title: 'LJRoomSpot'
+} as const;
+
 export const LiveStreamCardPublicSchema = {
     properties: {
         player: {
@@ -2774,6 +2867,38 @@ export const MapFileDistributionSyncResultSchema = {
     },
     type: 'object',
     title: 'MapFileDistributionSyncResult'
+} as const;
+
+export const MapLJRoomPayloadSchema = {
+    properties: {
+        map_name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Map Name'
+        },
+        api_map_id: {
+            type: 'integer',
+            exclusiveMinimum: 0,
+            title: 'Api Map Id'
+        },
+        filesize: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Filesize'
+        },
+        rooms: {
+            items: {
+                '$ref': '#/components/schemas/LJRoom'
+            },
+            type: 'array',
+            title: 'Rooms'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['map_name', 'api_map_id', 'filesize', 'rooms'],
+    title: 'MapLJRoomPayload'
 } as const;
 
 export const MapLeaderboardEntryPublicSchema = {

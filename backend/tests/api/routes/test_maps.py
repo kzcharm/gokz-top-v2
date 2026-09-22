@@ -15,6 +15,7 @@ from app.models import (
     MapCourse,
     MapCourseTier,
     MapFileDistribution,
+    MapLJRoom,
     MapReview,
     MapReviewSummaryCache,
     MapSkill,
@@ -60,6 +61,79 @@ async def _create_map(db: AsyncSession, *, id: int = 930200) -> Map:
     await db.commit()
     await db.refresh(map_obj)
     return map_obj
+
+
+@pytest.mark.asyncio
+async def test_read_map_lj_rooms_is_public_and_returns_stored_payload(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    map_obj = await _create_map(db, id=930201)
+    payload = {
+        "map_name": map_obj.name,
+        "api_map_id": map_obj.id,
+        "filesize": map_obj.filesize,
+        "rooms": [
+            {
+                "rank": 0,
+                "score": 12.5,
+                "spots": [
+                    {
+                        "distance": 260,
+                        "raw_distance": 260.0,
+                        "origin": [1.0, 2.0, 3.0],
+                        "angles": [0.0, 90.0],
+                        "landing": [4.0, 5.0, 6.0],
+                    }
+                ],
+            }
+        ],
+    }
+    db.add(MapLJRoom(id=map_obj.id, data=payload))
+    await db.commit()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/maps/lj-rooms", params={"map_name": map_obj.name}
+    )
+    assert response.status_code == 200
+    assert response.json() == payload
+
+
+@pytest.mark.asyncio
+async def test_read_map_lj_rooms_distinguishes_empty_from_missing(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    empty_map = await _create_map(db, id=930202)
+    missing_map = await _create_map(db, id=930203)
+    db.add(
+        MapLJRoom(
+            id=empty_map.id,
+            data={
+                "map_name": empty_map.name,
+                "api_map_id": empty_map.id,
+                "filesize": empty_map.filesize,
+                "rooms": [],
+            },
+        )
+    )
+    await db.commit()
+
+    empty_response = await client.get(
+        f"{settings.API_V1_STR}/maps/lj-rooms",
+        params={"map_name": empty_map.name},
+    )
+    missing_response = await client.get(
+        f"{settings.API_V1_STR}/maps/lj-rooms",
+        params={"map_name": missing_map.name},
+    )
+    unknown_response = await client.get(
+        f"{settings.API_V1_STR}/maps/lj-rooms",
+        params={"map_name": "kz_not_imported"},
+    )
+
+    assert empty_response.status_code == 200
+    assert empty_response.json()["rooms"] == []
+    assert missing_response.status_code == 404
+    assert unknown_response.status_code == 404
 
 
 @pytest.mark.asyncio
