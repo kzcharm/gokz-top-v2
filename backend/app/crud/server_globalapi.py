@@ -53,13 +53,17 @@ async def read_server_globalapi(
     sort_column = col(ServerGlobalapi.id)
     if query.sort_by == "server":
         sort_column = col(ServerGlobalapi.name)
+    elif query.sort_by == "synced_at":
+        sort_column = col(ServerGlobalapi.synced_at)
     elif query.sort_by == "updated_at":
         sort_column = col(ServerGlobalapi.updated_at)
     elif query.sort_by == "created_at":
         sort_column = col(ServerGlobalapi.created_at)
 
     if query.sort_order == "desc":
-        statement = statement.order_by(sort_column.desc(), col(ServerGlobalapi.id).asc())
+        statement = statement.order_by(
+            sort_column.desc(), col(ServerGlobalapi.id).asc()
+        )
     else:
         statement = statement.order_by(sort_column.asc(), col(ServerGlobalapi.id).asc())
     all_rows = list((await session.exec(statement)).all())

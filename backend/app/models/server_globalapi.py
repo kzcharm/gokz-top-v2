@@ -86,10 +86,13 @@ class ServerGlobalapiAdminPublic(SQLModel):
 class ServerGlobalapiAdminUpdate(SQLModel):
     group_id: uuid.UUID | None = None
     name: str | None = Field(default=None, max_length=255)
-    owner_steamid64: Annotated[
-        str,
-        StringConstraints(pattern=r"^\d{17}$"),
-    ] | None = None
+    owner_steamid64: (
+        Annotated[
+            str,
+            StringConstraints(pattern=r"^\d{17}$"),
+        ]
+        | None
+    ) = None
     approval_status: int | None = Field(default=None, ge=0, le=1)
 
 
@@ -109,5 +112,5 @@ class ServerGlobalapiListQuery(SQLModel):
     name: str | None = Field(default=None, max_length=255)
     owner_steamid64: int | None = Field(default=None, sa_type=BigInteger)
     approval_status: int | None = Field(default=None, ge=0, le=1)
-    sort_by: Literal["id", "server", "updated_at", "created_at"] = "id"
+    sort_by: Literal["id", "server", "synced_at", "updated_at", "created_at"] = "id"
     sort_order: Literal["asc", "desc"] = "asc"

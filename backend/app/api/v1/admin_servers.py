@@ -91,7 +91,7 @@ async def read_admin_globalapi_servers(
     approval_status: Annotated[int | None, Query(ge=0, le=1)] = None,
     group_id: uuid.UUID | None = None,
     sort_by: Annotated[
-        Literal["id", "server", "updated_at", "created_at"],
+        Literal["id", "server", "synced_at", "updated_at", "created_at"],
         Query(),
     ] = "id",
     sort_order: Annotated[Literal["asc", "desc"], Query()] = "desc",

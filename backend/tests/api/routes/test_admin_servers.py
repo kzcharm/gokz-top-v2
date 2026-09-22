@@ -39,6 +39,7 @@ async def _create_globalapi_server(
     name: str | None = None,
     created_at: datetime | None = None,
     updated_at: datetime | None = None,
+    synced_at: datetime | None = None,
 ) -> ServerGlobalapi:
     if await db.get(Player, owner_steamid64) is None:
         db.add(Player(steamid64=owner_steamid64, name=str(owner_steamid64)))
@@ -53,7 +54,7 @@ async def _create_globalapi_server(
         approved_by_steamid64=None,
         created_at=created_at or datetime(2021, 1, 1, tzinfo=UTC),
         updated_at=updated_at or datetime(2021, 1, 2, tzinfo=UTC),
-        synced_at=datetime(2021, 1, 3, tzinfo=UTC),
+        synced_at=synced_at or datetime(2021, 1, 3, tzinfo=UTC),
     )
     db.add(server)
     await db.commit()
@@ -413,6 +414,7 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         name="Charlie Server",
         created_at=datetime(2021, 1, 9, tzinfo=UTC),
         updated_at=datetime(2021, 1, 6, tzinfo=UTC),
+        synced_at=datetime(2021, 1, 4, tzinfo=UTC),
     )
     await _create_globalapi_server(
         db,
@@ -422,6 +424,7 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         name="Alpha Server",
         created_at=datetime(2021, 1, 5, tzinfo=UTC),
         updated_at=datetime(2021, 1, 4, tzinfo=UTC),
+        synced_at=datetime(2021, 1, 9, tzinfo=UTC),
     )
     await _create_globalapi_server(
         db,
@@ -431,6 +434,7 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         name="Bravo Server",
         created_at=datetime(2021, 1, 7, tzinfo=UTC),
         updated_at=datetime(2021, 1, 8, tzinfo=UTC),
+        synced_at=datetime(2021, 1, 6, tzinfo=UTC),
     )
 
     default_response = await client.get(
@@ -500,6 +504,23 @@ async def test_admin_globalapi_list_supports_filtering_and_sorting(
         970023,
         970021,
         970022,
+    ]
+
+    synced_sort_response = await client.get(
+        f"{settings.API_V1_STR}/admin/servers/globalapi",
+        headers=superuser_token_headers,
+        params={
+            "limit": 100,
+            "owner_steamid64": owner_steamid64,
+            "sort_by": "synced_at",
+            "sort_order": "desc",
+        },
+    )
+    assert synced_sort_response.status_code == 200
+    assert [server["id"] for server in synced_sort_response.json()["data"]] == [
+        970022,
+        970023,
+        970021,
     ]
 
     created_sort_response = await client.get(

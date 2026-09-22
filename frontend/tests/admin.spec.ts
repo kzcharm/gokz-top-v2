@@ -174,6 +174,86 @@ test("Superusers can manage public server visibility", async ({ page }) => {
   await expect.poll(() => requestedVisibility).toBe("false")
 })
 
+test("GlobalAPI server table shows and sorts by sync time", async ({
+  page,
+}) => {
+  let requestedSortBy: string | null = null
+
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "test-access-token")
+  })
+  await page.route("**/v1/users/me", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        steamid64: "76561198000000000",
+        roles: ["superuser"],
+        is_active: true,
+        player: null,
+      }),
+    })
+  })
+  await page.route("**/v1/admin/servers/access", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        role: "root_admin",
+        can_approve_servers: true,
+        owned_group_count: 0,
+      }),
+    })
+  })
+  await page.route(/\/v1\/admin\/servers\/groups(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], count: 0 }),
+    })
+  })
+  await page.route(
+    /\/v1\/admin\/servers\/globalapi(?:\?.*)?$/,
+    async (route) => {
+      requestedSortBy = new URL(route.request().url()).searchParams.get(
+        "sort_by",
+      )
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: 1908,
+              group_id: null,
+              port: 27897,
+              ip: "121.127.47.33",
+              name: "pawsome",
+              owner_steamid64: "76561199023084408",
+              approval_status: 1,
+              approved_by_steamid64: null,
+              created_at: "2018-01-09T10:45:50Z",
+              updated_at: "2026-09-22T10:00:00Z",
+              synced_at: "2026-09-08T09:39:37Z",
+            },
+          ],
+          count: 1,
+        }),
+      })
+    },
+  )
+
+  await page.goto("/admin/servers/globalapi-server")
+
+  const syncedHeader = page.getByRole("button", {
+    name: "Synced",
+    exact: true,
+  })
+  await expect(syncedHeader).toBeVisible()
+  await expect(page.getByRole("columnheader", { name: "Created" })).toHaveCount(
+    0,
+  )
+
+  await syncedHeader.click()
+  await expect.poll(() => requestedSortBy).toBe("synced_at")
+})
+
 test("Superusers can paginate server groups", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("access_token", "test-access-token")

@@ -82,7 +82,12 @@ import { extractErrorMessage } from "@/utils"
 
 const NO_GROUP = "__none"
 const GOKZ_TOP_PLUGINS_URL = "https://github.com/kzcharm/gokz-top-plugins"
-type GlobalApiSortBy = "id" | "server" | "updated_at" | "created_at"
+type GlobalApiSortBy =
+  | "id"
+  | "server"
+  | "synced_at"
+  | "updated_at"
+  | "created_at"
 type ServerGroupSortBy =
   | "name"
   | "last_api_key_used_at"
@@ -258,6 +263,7 @@ export function GlobalApiServersTab({
   const sortBy: GlobalApiSortBy =
     activeSort.id === "id" ||
     activeSort.id === "server" ||
+    activeSort.id === "synced_at" ||
     activeSort.id === "updated_at" ||
     activeSort.id === "created_at"
       ? activeSort.id
@@ -441,13 +447,11 @@ export function GlobalApiServersTab({
         ),
       },
       {
-        accessorKey: "created_at",
+        accessorKey: "synced_at",
         header: ({ column }) => (
-          <SortableHeader column={column} label="Created" />
+          <SortableHeader column={column} label="Synced" />
         ),
-        cell: ({ row }) => (
-          <FormattedDateTime value={row.original.created_at} />
-        ),
+        cell: ({ row }) => <FormattedDateTime value={row.original.synced_at} />,
       },
       {
         accessorKey: "updated_at",

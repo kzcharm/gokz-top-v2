@@ -2147,7 +2147,7 @@ export type AdminServersReadAdminGlobalapiServersData = {
     offset?: number;
     ownerSteamid64?: (number | null);
     q?: (string | null);
-    sortBy?: 'id' | 'server' | 'updated_at' | 'created_at';
+    sortBy?: 'id' | 'server' | 'synced_at' | 'updated_at' | 'created_at';
     sortOrder?: 'asc' | 'desc';
 };
 

@@ -8,6 +8,7 @@ from app.models import Player, ServerGlobalapi
 from app.services.globalapi_server_sync import (
     SERVER_DATETIME_FALLBACK,
     _normalize_datetime,
+    _server_values_from_globalapi,
     sync_servers_from_globalapi,
 )
 from tests.utils.server import create_server_group
@@ -15,7 +16,7 @@ from tests.utils.server import create_server_group
 pytestmark = pytest.mark.asyncio
 
 
-async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
+async def test_sync_servers_from_globalapi_promotes_approval_and_preserves_local_fields(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -24,11 +25,19 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
     new_id = 941001
     duplicate_id = 941002
     stale_id = 941003
+    locally_approved_id = 941005
 
     await db.exec(
         delete(ServerGlobalapi).where(
             ServerGlobalapi.id.in_(
-                [existing_id, unchanged_id, new_id, duplicate_id, stale_id]
+                [
+                    existing_id,
+                    unchanged_id,
+                    new_id,
+                    duplicate_id,
+                    stale_id,
+                    locally_approved_id,
+                ]
             )
         )
     )
@@ -41,6 +50,7 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
             Player(steamid64=76561198000001000, name="Existing Owner"),
             Player(steamid64=76561198000001003, name="Stale Owner"),
             Player(steamid64=76561198000001004, name="Unchanged Owner"),
+            Player(steamid64=76561198000001005, name="Locally Approved Owner"),
         ]
     )
     existing_server = ServerGlobalapi(
@@ -80,12 +90,27 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
         updated_on=datetime(2020, 1, 2, tzinfo=UTC),
         synced_at=datetime(2020, 1, 2, tzinfo=UTC),
     )
+    locally_approved_server = ServerGlobalapi(
+        id=locally_approved_id,
+        port=27023,
+        ip="198.51.100.23",
+        name="Locally Approved",
+        owner_steamid64=76561198000001005,
+        approval_status=1,
+        approved_by_steamid64=None,
+        created_on=datetime(2020, 1, 3, tzinfo=UTC),
+        updated_on=datetime(2020, 1, 3, tzinfo=UTC),
+        synced_at=datetime(2020, 1, 3, tzinfo=UTC),
+    )
     db.add(existing_server)
     db.add(stale_server)
     db.add(unchanged_server)
+    db.add(locally_approved_server)
     await db.commit()
 
-    async def _mock_fetch(*, approval_status: int, client: object | None = None) -> list[dict[str, object]]:
+    async def _mock_fetch(
+        *, approval_status: int, client: object | None = None
+    ) -> list[dict[str, object]]:
         del client
         if approval_status == 0:
             return [
@@ -99,6 +124,13 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
                     "created_on": "bad",
                     "updated_on": None,
                     "approval_status": 1,
+                },
+                {
+                    "id": locally_approved_id,
+                    "port": 27024,
+                    "ip": "198.51.100.24",
+                    "name": "Still Pending Upstream",
+                    "owner_steamid64": "76561198000001005",
                 },
                 {"id": "bad-id"},
             ]
@@ -150,11 +182,13 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
         _mock_fetch,
     )
 
+    sync_started_at = datetime.now(UTC)
     result = await sync_servers_from_globalapi(session=db)
+    sync_finished_at = datetime.now(UTC)
 
-    assert result.processed == 6
+    assert result.processed == 7
     assert result.created == 2
-    assert result.updated == 0
+    assert result.updated == 1
     assert result.errors == 1
     assert result.warnings == 1
 
@@ -171,10 +205,10 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
         )
     ).one()
     assert refreshed_existing[0] == group_id
-    assert refreshed_existing[1] == 0
+    assert refreshed_existing[1] == 1
     assert refreshed_existing[2] == "Existing Replica"
     assert refreshed_existing[3] == datetime(2020, 1, 1, tzinfo=UTC)
-    assert refreshed_existing[4] == datetime(2020, 1, 1, tzinfo=UTC)
+    assert sync_started_at <= refreshed_existing[4] <= sync_finished_at
     assert refreshed_existing[5] == datetime(2020, 1, 1, tzinfo=UTC)
 
     refreshed_new = (
@@ -223,6 +257,17 @@ async def test_sync_servers_from_globalapi_upserts_and_preserves_local_approval(
         datetime(2020, 1, 2, tzinfo=UTC),
     )
 
+    refreshed_locally_approved = (
+        await db.exec(
+            select(
+                ServerGlobalapi.approval_status,
+                ServerGlobalapi.port,
+                ServerGlobalapi.name,
+            ).where(ServerGlobalapi.id == locally_approved_id)
+        )
+    ).one()
+    assert refreshed_locally_approved == (1, 27023, "Locally Approved")
+
 
 async def test_normalize_server_datetime_fallback() -> None:
     fallback = _normalize_datetime(SERVER_DATETIME_FALLBACK)
@@ -230,3 +275,16 @@ async def test_normalize_server_datetime_fallback() -> None:
     assert _normalize_datetime(None) == fallback
     assert _normalize_datetime("bad-value") == fallback
     assert _normalize_datetime("0001-01-01T00:00:00") == fallback
+
+
+async def test_server_values_default_updated_at_to_created_at() -> None:
+    created_at = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
+
+    values = _server_values_from_globalapi(
+        payload={"created_on": created_at.isoformat()},
+        approval_status=0,
+        synced_at=datetime(2026, 9, 22, tzinfo=UTC),
+    )
+
+    assert values["created_at"] == created_at
+    assert values["updated_at"] == created_at

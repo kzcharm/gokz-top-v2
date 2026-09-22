@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -73,6 +74,8 @@ def _server_values_from_globalapi(
     approval_status: int,
     synced_at: datetime,
 ) -> dict[str, Any]:
+    created_at = _normalize_datetime(payload.get("created_on"))
+    updated_on = payload.get("updated_on")
     return {
         "port": _normalize_port(payload.get("port")),
         "ip": _parse_optional_string(payload.get("ip")),
@@ -82,8 +85,10 @@ def _server_values_from_globalapi(
         "approved_by_steamid64": _parse_optional_steamid64(
             payload.get("approved_by_steamid64")
         ),
-        "created_at": _normalize_datetime(payload.get("created_on")),
-        "updated_at": _normalize_datetime(payload.get("updated_on")),
+        "created_at": created_at,
+        "updated_at": (
+            created_at if updated_on in (None, "") else _normalize_datetime(updated_on)
+        ),
         "synced_at": synced_at,
     }
 
@@ -94,7 +99,9 @@ async def fetch_servers_from_globalapi(
     client: httpx.AsyncClient | None = None,
 ) -> list[dict[str, Any]]:
     close_client = client is None
-    resolved_client = client or httpx.AsyncClient(timeout=settings.GLOBALAPI_TIMEOUT_SECONDS)
+    resolved_client = client or httpx.AsyncClient(
+        timeout=settings.GLOBALAPI_TIMEOUT_SECONDS
+    )
     try:
         response = await resolved_client.get(
             f"{settings.GLOBALAPI_BASE_URL}/servers",
@@ -196,11 +203,21 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
 
     server_table = ServerGlobalapi.__table__
     rows_to_insert = [
-        row for server_id, row in rows_by_id.items() if server_id not in existing_servers
+        row
+        for server_id, row in rows_by_id.items()
+        if server_id not in existing_servers
     ]
-    # Approval state is managed locally by root admins in v2. New rows start with
-    # the mirrored GlobalAPI value, but existing rows keep local approval edits.
-    updated = 0
+    # GlobalAPI approval promotes an existing pending row. Keep this one-way so
+    # a server that a root admin approved locally is not demoted merely because
+    # it is still pending upstream.
+    server_ids_to_promote = [
+        server_id
+        for server_id, row in rows_by_id.items()
+        if int(row["approval_status"]) == 1
+        and (existing_server := existing_servers.get(server_id)) is not None
+        and existing_server.approval_status == 0
+    ]
+    updated = len(server_ids_to_promote)
 
     if rows_to_insert:
         referenced_steamid64s = {
@@ -228,7 +245,16 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
             )
 
         insert_statement = pg_insert(server_table).values(rows_to_insert)
-        await session.exec(insert_statement.on_conflict_do_nothing(index_elements=[server_table.c.id]))
+        await session.exec(
+            insert_statement.on_conflict_do_nothing(index_elements=[server_table.c.id])
+        )
+
+    if server_ids_to_promote:
+        await session.exec(
+            update(ServerGlobalapi)
+            .where(ServerGlobalapi.id.in_(server_ids_to_promote))
+            .values(approval_status=1, updated_at=now)
+        )
 
     await session.commit()
 
