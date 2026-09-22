@@ -30,7 +30,8 @@
 - Data strategy:
   - Backend operators can stream valid records for explicit GlobalAPI server IDs or server groups into a gzip-compressed CSV with `kztop export records`, optionally bounded by inclusive UTC creation dates. The archive retains VNL/SKZ/KZT/NKZ and long map names, excludes invalid rows and non-convertible Steam IDs, and carries both source and GOKZ-local identifiers and runtimes. `kztop export players` exports the corresponding distinct players with alias fallback, permanent-ban flags, and all-server session IP/activity enrichment.
   - GOKZ LocalDB exports translate valid GlobalAPI VNL/SKZ/KZT records into gzip-compressed MySQL scripts for the standard `Players`, `Maps`, `MapCourses`, and `Times` tables. Exports preserve existing player/map rows, append time rows, convert SteamID64 to account IDs, and stream both database reads and gzip output to keep memory bounded for large servers.
-  - PostgreSQL as primary persistent store
+- PostgreSQL as primary persistent store
+  - Community reactions use a polymorphic `(content_type, content_id)` target key so new reactable resource types do not require nullable target columns; target existence and cleanup are enforced by application workflows because PostgreSQL cannot apply one foreign key across multiple target tables.
   - Map skill analysis is stored in `map_skill`, keyed by map ID, with six aggregate fractions and the ordered analysis segments retained as JSONB. Operators populate it with the manual `python -m app.import_map_skills <index.json>` CLI; normal `/v1/maps` responses expose only the aggregate fractions.
   - Detected LJ-room payloads are stored in `map_lj_room`, keyed by map ID with one opaque JSONB document per map. Operators populate or refresh them with `python -m app.import_lj_rooms <gokz-lj-rooms.json>`; the analyzer export is not bundled with deployments.
   - PostgreSQL-centric derived/cache artifacts (no Redis runtime dependency)

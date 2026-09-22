@@ -2,15 +2,70 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.crud import media_post
-from app.models import MediaPost, Player, PlayerSocialLink, PlayerSocialPlatform
+from app.models import (
+    ContentReaction,
+    MediaPost,
+    Player,
+    PlayerSocialLink,
+    PlayerSocialPlatform,
+)
 from app.models.utils import get_datetime_utc
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
+
+
+async def test_prune_media_posts_deletes_polymorphic_reactions(
+    client: AsyncClient,
+    db: AsyncSession,
+    normal_user_token_headers: dict[str, str],
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Pruned Media Player")
+    db.add(player)
+    await db.commit()
+    link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        account_identifier="@pruned-media-player",
+        verified=True,
+    )
+    db.add(link)
+    await db.commit()
+    published_at = get_datetime_utc()
+    post = MediaPost(
+        player_social_link_id=link.id,
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.YOUTUBE,
+        external_video_id="pruned-reaction-video",
+        title="Pruned reaction video",
+        is_kz_video=True,
+        url="https://www.youtube.com/watch?v=pruned-reaction-video",
+        published_at=published_at,
+    )
+    db.add(post)
+    await db.commit()
+
+    response = await client.put(
+        f"/v1/reactions/media_post/{post.id}",
+        headers=normal_user_token_headers,
+        json={"emoji_key": "unicode:fire"},
+    )
+    assert response.status_code == 200
+    assert (await db.exec(select(func.count()).select_from(ContentReaction))).one() == 1
+
+    deleted_count = await media_post.prune_media_posts(
+        session=db,
+        before=published_at + timedelta(seconds=1),
+    )
+
+    assert deleted_count == 1
+    assert await db.get(MediaPost, post.id) is None
+    assert (await db.exec(select(func.count()).select_from(ContentReaction))).one() == 0
 
 
 async def test_read_media_posts_proxies_bilibili_thumbnails(

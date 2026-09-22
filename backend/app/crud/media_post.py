@@ -203,6 +203,21 @@ async def read_media_posts(
 async def prune_media_posts(*, session: AsyncSession, before: datetime) -> int:
     from sqlalchemy import delete
 
+    from app.crud.content_reaction import delete_content_reactions_for_targets
+
+    expired_post_ids = list(
+        (
+            await session.exec(
+                select(MediaPost.id).where(col(MediaPost.published_at) < before)
+            )
+        ).all()
+    )
+    await delete_content_reactions_for_targets(
+        session=session,
+        target_type=ReactionTargetType.MEDIA_POST,
+        target_ids=expired_post_ids,
+    )
+
     result = await session.exec(
         delete(MediaPost).where(col(MediaPost.published_at) < before)
     )

@@ -57,6 +57,10 @@ async def test_reaction_catalog_and_poll_reaction_lifecycle(
     assert first.status_code == 200
     assert first.json()["groups"][0]["reacted_by_me"] is True
     reaction_id = first.json()["groups"][0]["reaction_id"]
+    stored_reaction = await db.get(ContentReaction, reaction_id)
+    assert stored_reaction is not None
+    assert stored_reaction.content_type == "poll"
+    assert stored_reaction.content_id == poll["id"]
 
     duplicate = await client.put(
         target_url,

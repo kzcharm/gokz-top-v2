@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    String,
     UniqueConstraint,
 )
 from sqlmodel import Field, SQLModel
@@ -29,25 +30,22 @@ class ContentReaction(SQLModel, table=True):
     __tablename__ = "content_reaction"
     __table_args__ = (
         CheckConstraint(
-            "num_nonnulls(media_post_id, record_uuid, map_review_id, poll_id, github_release_id) = 1",
-            name="ck_content_reaction_exactly_one_target",
+            "content_type IN ('media_post', 'recent_wr', 'map_review_comment', 'poll', 'release')",
+            name="ck_content_reaction_content_type",
         ),
         UniqueConstraint(
             "user_steamid64",
             "emoji_key",
-            "media_post_id",
-            "record_uuid",
-            "map_review_id",
-            "poll_id",
-            "github_release_id",
+            "content_type",
+            "content_id",
             name="uq_content_reaction_user_emoji_target",
-            postgresql_nulls_not_distinct=True,
         ),
-        Index("ix_content_reaction_media_post", "media_post_id", "emoji_key"),
-        Index("ix_content_reaction_record", "record_uuid", "emoji_key"),
-        Index("ix_content_reaction_map_review", "map_review_id", "emoji_key"),
-        Index("ix_content_reaction_poll", "poll_id", "emoji_key"),
-        Index("ix_content_reaction_release", "github_release_id", "emoji_key"),
+        Index(
+            "ix_content_reaction_target",
+            "content_type",
+            "content_id",
+            "emoji_key",
+        ),
     )
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
@@ -59,34 +57,10 @@ class ContentReaction(SQLModel, table=True):
         )
     )
     emoji_key: str = Field(max_length=128)
-    media_post_id: uuid.UUID | None = Field(
-        default=None,
-        foreign_key="media_post.id",
-        ondelete="CASCADE",
+    content_type: ReactionTargetType = Field(
+        sa_column=Column(String(32), nullable=False)
     )
-    record_uuid: uuid.UUID | None = Field(
-        default=None,
-        foreign_key="record.uuid",
-        ondelete="CASCADE",
-    )
-    map_review_id: uuid.UUID | None = Field(
-        default=None,
-        foreign_key="map_review.id",
-        ondelete="CASCADE",
-    )
-    poll_id: uuid.UUID | None = Field(
-        default=None,
-        foreign_key="poll.id",
-        ondelete="CASCADE",
-    )
-    github_release_id: int | None = Field(
-        default=None,
-        sa_column=Column(
-            BigInteger,
-            ForeignKey("github_release.id", ondelete="CASCADE"),
-            nullable=True,
-        ),
-    )
+    content_id: str = Field(sa_column=Column(String(64), nullable=False))
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         sa_column=Column(DateTime(timezone=True), nullable=False),

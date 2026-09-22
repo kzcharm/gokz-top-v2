@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
-from typing import Any
 
 from sqlalchemy import delete, func
 from sqlalchemy.dialects.postgresql import insert
@@ -47,21 +46,6 @@ REACTION_EMOJIS: tuple[ReactionEmojiPublic, ...] = (
 )
 REACTION_EMOJI_BY_KEY = {emoji.key: emoji for emoji in REACTION_EMOJIS}
 
-_TARGET_COLUMNS: dict[ReactionTargetType, Any] = {
-    ReactionTargetType.MEDIA_POST: ContentReaction.media_post_id,
-    ReactionTargetType.RECENT_WR: ContentReaction.record_uuid,
-    ReactionTargetType.MAP_REVIEW_COMMENT: ContentReaction.map_review_id,
-    ReactionTargetType.POLL: ContentReaction.poll_id,
-    ReactionTargetType.RELEASE: ContentReaction.github_release_id,
-}
-_TARGET_FIELD_NAMES = {
-    ReactionTargetType.MEDIA_POST: "media_post_id",
-    ReactionTargetType.RECENT_WR: "record_uuid",
-    ReactionTargetType.MAP_REVIEW_COMMENT: "map_review_id",
-    ReactionTargetType.POLL: "poll_id",
-    ReactionTargetType.RELEASE: "github_release_id",
-}
-
 
 def parse_reaction_target_id(
     target_type: ReactionTargetType, target_id: str
@@ -75,6 +59,10 @@ def parse_reaction_target_id(
         return uuid.UUID(target_id)
     except (TypeError, ValueError) as exc:
         raise ValueError("Invalid reaction target ID") from exc
+
+
+def _serialize_reaction_target_id(target_id: uuid.UUID | int) -> str:
+    return str(target_id)
 
 
 def get_reaction_emoji(emoji_key: str) -> ReactionEmojiPublic:
@@ -147,22 +135,30 @@ async def load_reaction_summaries(
     unique_target_ids = list(dict.fromkeys(target_ids))
     if not unique_target_ids:
         return {}
-    target_column = _TARGET_COLUMNS[target_type]
+    content_ids = [
+        _serialize_reaction_target_id(target_id) for target_id in unique_target_ids
+    ]
     count_rows = (
         await session.exec(
-            select(target_column, ContentReaction.emoji_key, func.count())
-            .where(col(target_column).in_(unique_target_ids))
-            .group_by(target_column, ContentReaction.emoji_key)
+            select(ContentReaction.content_id, ContentReaction.emoji_key, func.count())
+            .where(
+                col(ContentReaction.content_type) == target_type.value,
+                col(ContentReaction.content_id).in_(content_ids),
+            )
+            .group_by(ContentReaction.content_id, ContentReaction.emoji_key)
         )
     ).all()
-    viewer_rows: dict[tuple[uuid.UUID | int, str], uuid.UUID] = {}
+    viewer_rows: dict[tuple[str, str], uuid.UUID] = {}
     if viewer_steamid64 is not None:
         rows = (
             await session.exec(
                 select(
-                    target_column, ContentReaction.emoji_key, ContentReaction.id
+                    ContentReaction.content_id,
+                    ContentReaction.emoji_key,
+                    ContentReaction.id,
                 ).where(
-                    col(target_column).in_(unique_target_ids),
+                    col(ContentReaction.content_type) == target_type.value,
+                    col(ContentReaction.content_id).in_(content_ids),
                     col(ContentReaction.user_steamid64) == viewer_steamid64,
                 )
             )
@@ -172,18 +168,19 @@ async def load_reaction_summaries(
             for target_id, emoji_key, reaction_id in rows
         }
 
-    grouped: dict[uuid.UUID | int, dict[str, int]] = {}
-    for target_id, emoji_key, count in count_rows:
-        grouped.setdefault(target_id, {})[emoji_key] = int(count)
+    grouped: dict[str, dict[str, int]] = {}
+    for content_id, emoji_key, count in count_rows:
+        grouped.setdefault(content_id, {})[emoji_key] = int(count)
     result: dict[uuid.UUID | int, ReactionSummaryPublic] = {}
     for target_id in unique_target_ids:
-        counts = grouped.get(target_id, {})
+        content_id = _serialize_reaction_target_id(target_id)
+        counts = grouped.get(content_id, {})
         groups = []
         for emoji in REACTION_EMOJIS:
             count = counts.get(emoji.key, 0)
             if count == 0:
                 continue
-            reaction_id = viewer_rows.get((target_id, emoji.key))
+            reaction_id = viewer_rows.get((content_id, emoji.key))
             groups.append(
                 ReactionGroupPublic(
                     emoji=emoji,
@@ -209,12 +206,13 @@ async def create_content_reaction(
         session=session, target_type=target_type, target_id=target_id
     ):
         raise LookupError("Reaction target not found")
-    values: dict[str, Any] = {
+    values = {
         "id": generate_uuid7(),
         "user_steamid64": user_steamid64,
         "emoji_key": emoji_key,
         "created_at": get_datetime_utc(),
-        _TARGET_FIELD_NAMES[target_type]: target_id,
+        "content_type": target_type.value,
+        "content_id": _serialize_reaction_target_id(target_id),
     }
     statement = (
         insert(ContentReaction)
@@ -239,18 +237,11 @@ async def delete_content_reaction(
     reaction = await session.get(ContentReaction, reaction_id)
     if reaction is None or reaction.user_steamid64 != user_steamid64:
         raise LookupError("Reaction not found")
-    selected_target_type: ReactionTargetType | None = None
-    for candidate_target_type, field_name in _TARGET_FIELD_NAMES.items():
-        target_id = getattr(reaction, field_name)
-        if target_id is not None:
-            selected_target_type = candidate_target_type
-            break
-    else:  # pragma: no cover - protected by the database constraint
-        raise RuntimeError("Reaction has no target")
+    target_type = ReactionTargetType(reaction.content_type)
+    target_id = parse_reaction_target_id(target_type, reaction.content_id)
     await session.delete(reaction)
     await session.commit()
-    assert selected_target_type is not None
-    return selected_target_type, target_id
+    return target_type, target_id
 
 
 async def read_reaction_users(
@@ -267,9 +258,9 @@ async def read_reaction_users(
         session=session, target_type=target_type, target_id=target_id
     ):
         raise LookupError("Reaction target not found")
-    target_column = _TARGET_COLUMNS[target_type]
     filters = [
-        col(target_column) == target_id,
+        col(ContentReaction.content_type) == target_type.value,
+        col(ContentReaction.content_id) == _serialize_reaction_target_id(target_id),
         col(ContentReaction.emoji_key) == emoji_key,
     ]
     count = int(
@@ -311,13 +302,36 @@ async def delete_map_review_reactions(
     *, session: AsyncSession, review_ids: Iterable[uuid.UUID]
 ) -> None:
     ids = list(review_ids)
-    if ids:
-        await session.exec(
-            delete(ContentReaction).where(col(ContentReaction.map_review_id).in_(ids))
-        )
+    await delete_content_reactions_for_targets(
+        session=session,
+        target_type=ReactionTargetType.MAP_REVIEW_COMMENT,
+        target_ids=ids,
+    )
 
 
 async def delete_poll_reactions(*, session: AsyncSession, poll_id: uuid.UUID) -> None:
+    await delete_content_reactions_for_targets(
+        session=session,
+        target_type=ReactionTargetType.POLL,
+        target_ids=[poll_id],
+    )
+
+
+async def delete_content_reactions_for_targets(
+    *,
+    session: AsyncSession,
+    target_type: ReactionTargetType,
+    target_ids: Iterable[uuid.UUID | int],
+) -> None:
+    content_ids = [
+        _serialize_reaction_target_id(target_id)
+        for target_id in dict.fromkeys(target_ids)
+    ]
+    if not content_ids:
+        return
     await session.exec(
-        delete(ContentReaction).where(col(ContentReaction.poll_id) == poll_id)
+        delete(ContentReaction).where(
+            col(ContentReaction.content_type) == target_type.value,
+            col(ContentReaction.content_id).in_(content_ids),
+        )
     )
