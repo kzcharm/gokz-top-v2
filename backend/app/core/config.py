@@ -87,9 +87,7 @@ class Settings(BaseSettings):
         return (
             r"^https?://("
             r"localhost|"
-            r"127\.0\.0\.1|"
-            + PUBLIC_CORS_DOMAIN_REGEX
-            + r")(:\d+)?$"
+            r"127\.0\.0\.1|" + PUBLIC_CORS_DOMAIN_REGEX + r")(:\d+)?$"
         )
 
     PROJECT_NAME: str
@@ -151,6 +149,7 @@ class Settings(BaseSettings):
     LIVE_STREAM_POLL_SECONDS: int = 30
     MEDIA_SYNC_POLL_SECONDS: int = 900
     MEDIA_VIEW_COUNT_REFRESH_TTL_SECONDS: int = 3_600
+    GITHUB_RELEASES_CACHE_TTL_SECONDS: int = 300
     BILIBILI_COOKIE: str | None = None
     YOUTUBE_WEBSUB_ENABLED: bool = False
     YOUTUBE_WEBSUB_SECRET: str | None = None

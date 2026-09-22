@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.crud.content_reaction import delete_poll_reactions
 from app.models import (
     AdminPollPublic,
     Player,
@@ -151,6 +152,7 @@ async def delete_poll(session: AsyncSession, poll: Poll) -> None:
     poll.deleted_at = get_datetime_utc()
     poll.updated_at = poll.deleted_at
     session.add(poll)
+    await delete_poll_reactions(session=session, poll_id=poll.id)
     await session.commit()
 
 

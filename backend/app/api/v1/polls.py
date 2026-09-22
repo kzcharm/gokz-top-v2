@@ -16,6 +16,8 @@ from app.models import (
     PollPublic,
     PollsPublic,
     PollVoteCreate,
+    ReactionSummaryPublic,
+    ReactionTargetType,
     UserRole,
 )
 
@@ -33,18 +35,24 @@ async def read_polls(
     is_admin = current_user is not None and user_has_any_role(
         current_user, UserRole.SUPERUSER, UserRole.ADMIN
     )
-    return PollsPublic(
-        data=[
-            await crud.to_poll_public(
-                session,
-                poll,
-                current_user.steamid64 if current_user else None,
-                admin=is_admin,
-            )
-            for poll in polls
-        ],
-        count=count,
+    data = [
+        await crud.to_poll_public(
+            session,
+            poll,
+            current_user.steamid64 if current_user else None,
+            admin=is_admin,
+        )
+        for poll in polls
+    ]
+    summaries = await crud.load_reaction_summaries(
+        session=session,
+        target_type=ReactionTargetType.POLL,
+        target_ids=[poll.id for poll in polls],
+        viewer_steamid64=current_user.steamid64 if current_user else None,
     )
+    for item in data:
+        item.reactions = summaries.get(item.id, ReactionSummaryPublic())
+    return PollsPublic(data=data, count=count)
 
 
 @router.get("/{poll_id}", response_model=PollPublic)
@@ -57,12 +65,21 @@ async def read_poll(
     is_admin = current_user is not None and user_has_any_role(
         current_user, UserRole.SUPERUSER, UserRole.ADMIN
     )
-    return await crud.to_poll_public(
+    result = await crud.to_poll_public(
         session,
         poll,
         current_user.steamid64 if current_user else None,
         admin=is_admin,
     )
+    result.reactions = (
+        await crud.load_reaction_summaries(
+            session=session,
+            target_type=ReactionTargetType.POLL,
+            target_ids=[poll.id],
+            viewer_steamid64=current_user.steamid64 if current_user else None,
+        )
+    ).get(poll.id, ReactionSummaryPublic())
+    return result
 
 
 @router.post("/{poll_id}/votes", response_model=PollPublic)

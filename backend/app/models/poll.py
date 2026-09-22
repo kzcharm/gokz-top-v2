@@ -8,6 +8,7 @@ from sqlalchemy import JSON, BigInteger, Column, DateTime, ForeignKey, Index, In
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
+from .content_reaction import ReactionSummaryPublic
 from .utils import generate_uuid7, get_datetime_utc
 
 MAX_POLL_OPTIONS = 26
@@ -46,9 +47,7 @@ class PollCreate(SQLModel):
     ends_at: datetime | None = None
     max_selections: int = Field(default=1, ge=0, le=MAX_POLL_OPTIONS)
     allow_vote_change: bool = True
-    options: list[PollOptionInput] = Field(
-        min_length=2, max_length=MAX_POLL_OPTIONS
-    )
+    options: list[PollOptionInput] = Field(min_length=2, max_length=MAX_POLL_OPTIONS)
 
     @field_validator("ends_at", mode="after")
     @classmethod
@@ -81,9 +80,7 @@ class PollUpdate(SQLModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=5000)
     ends_at: datetime | None = None
-    max_selections: int | None = Field(
-        default=None, ge=0, le=MAX_POLL_OPTIONS
-    )
+    max_selections: int | None = Field(default=None, ge=0, le=MAX_POLL_OPTIONS)
     allow_vote_change: bool | None = None
     status: PollStatus | None = None
     options: list[PollOptionInput] | None = Field(
@@ -116,9 +113,7 @@ class PollListQuery(SQLModel):
 
 
 class PollVoteCreate(SQLModel):
-    option_ids: list[uuid.UUID] = Field(
-        min_length=1, max_length=MAX_POLL_OPTIONS
-    )
+    option_ids: list[uuid.UUID] = Field(min_length=1, max_length=MAX_POLL_OPTIONS)
 
 
 class PollOption(SQLModel, table=True):
@@ -247,6 +242,7 @@ class PollPublic(SQLModel):
     can_view_results: bool
     options: list[PollOptionPublic]
     voters: list[PollVoterPublic] = Field(default_factory=list)
+    reactions: ReactionSummaryPublic = Field(default_factory=ReactionSummaryPublic)
 
 
 class PollsPublic(SQLModel):

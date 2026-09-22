@@ -31,11 +31,23 @@ from .community_leaderboard import (
     CommunityLeaderboardSortBy,
     CommunityLeaderboardsPublic,
 )
+from .content_reaction import (
+    ContentReaction,
+    ReactionCreate,
+    ReactionEmojiPublic,
+    ReactionGroupPublic,
+    ReactionPlayerPublic,
+    ReactionSummaryPublic,
+    ReactionTargetType,
+    ReactionUserPublic,
+    ReactionUsersPublic,
+)
 from .country_leaderboard import (
     CountryLeaderboardEntryPublic,
     CountryLeaderboardListQuery,
     CountryLeaderboardsPublic,
 )
+from .github_release import GitHubRelease, GitHubReleasePublic, GitHubReleasesPublic
 from .globalapi_sync import GlobalApiSyncResult, GlobalApiSyncState
 from .jumpstat import (
     Jumpstat,
@@ -520,11 +532,15 @@ __all__ = [
     "CommunityLeaderboardListQuery",
     "CommunityLeaderboardSortBy",
     "CommunityLeaderboardsPublic",
+    "ContentReaction",
     "CountryLeaderboardEntryPublic",
     "CountryLeaderboardListQuery",
     "CountryLeaderboardsPublic",
     "GlobalApiSyncResult",
     "GlobalApiSyncState",
+    "GitHubRelease",
+    "GitHubReleasePublic",
+    "GitHubReleasesPublic",
     "Jumpstat",
     "JumpstatLeaderboardEntryPublic",
     "JumpstatLeaderboardListQuery",
@@ -807,6 +823,14 @@ __all__ = [
     "RecentWrPublic",
     "RecentWrsPublic",
     "RecentWrSnapshotEvent",
+    "ReactionCreate",
+    "ReactionEmojiPublic",
+    "ReactionGroupPublic",
+    "ReactionPlayerPublic",
+    "ReactionSummaryPublic",
+    "ReactionTargetType",
+    "ReactionUserPublic",
+    "ReactionUsersPublic",
     "RecordListQuery",
     "RecordPatch",
     "RecordPb",

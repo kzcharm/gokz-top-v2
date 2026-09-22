@@ -24,6 +24,17 @@ from .ban import (
     update_ban,
 )
 from .community_leaderboard import read_community_leaderboard
+from .content_reaction import (
+    REACTION_EMOJIS,
+    create_content_reaction,
+    delete_content_reaction,
+    delete_map_review_reactions,
+    delete_poll_reactions,
+    get_reaction_emoji,
+    load_reaction_summaries,
+    parse_reaction_target_id,
+    read_reaction_users,
+)
 from .country_leaderboard import read_country_leaderboard
 from .jumpstat import (
     get_jumpstat_by_id,
@@ -399,6 +410,7 @@ __all__ = [
     "calculate_weighted_rating",
     "claim_player_action_timestamp",
     "clear_map_review_comments",
+    "create_content_reaction",
     "get_or_rebuild_map_stats",
     "close_timed_out_player_sessions",
     "create_or_update_player_from_steam",
@@ -425,6 +437,9 @@ __all__ = [
     "connect_player_session",
     "create_user",
     "delete_player_comment",
+    "delete_content_reaction",
+    "delete_map_review_reactions",
+    "delete_poll_reactions",
     "delete_ban",
     "delete_player_follow",
     "delete_player_hidden_map",
@@ -438,8 +453,10 @@ __all__ = [
     "get_ban_by_uuid",
     "get_newest_active_ban_for_player",
     "get_map_by_id",
+    "get_reaction_emoji",
     "get_map_by_name",
     "load_changed_map_leaderboard_keys",
+    "load_reaction_summaries",
     "load_changed_map_stat_keys",
     "read_map_leaderboard",
     "get_mode_by_id",
@@ -492,6 +509,9 @@ __all__ = [
     "list_live_stream_keyframe_storage_references",
     "get_max_record_globalapi_id",
     "read_maps",
+    "read_reaction_users",
+    "parse_reaction_target_id",
+    "REACTION_EMOJIS",
     "read_admin_maps",
     "read_community_leaderboard",
     "read_country_leaderboard",

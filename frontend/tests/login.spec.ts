@@ -47,6 +47,23 @@ test("Auth callback stores token from hash and redirects", async ({
   await expect(tokenFromStorage).toBe(accessToken)
 })
 
+test("Auth callback restores a same-site return path", async ({
+  page,
+  request,
+}) => {
+  const { accessToken } = await issueSessionToken({
+    request,
+    steamid64: randomSteamid64(),
+  })
+  await page.goto("/polls?status=active")
+  await page.evaluate(() => {
+    sessionStorage.setItem("gokz-auth-return-to", "/updates?from=reaction")
+  })
+
+  await page.goto(`/auth/callback#access_token=${accessToken}`)
+  await expect(page).toHaveURL(/\/updates\?from=reaction$/)
+})
+
 test("Redirects to /login when token is wrong", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("access_token", "invalid_token")

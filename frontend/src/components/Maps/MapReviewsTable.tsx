@@ -2,10 +2,11 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Star } from "lucide-react"
 import { useMemo, useState } from "react"
 
-import type { MapReviewPublic } from "@/client"
+import type { MapReviewPublic, ReactionSummaryPublic } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { ReactionBar } from "@/components/Reactions/ReactionBar"
 import {
   DeleteMapReviewCommentsButton,
   type useMapReviewAdminActions,
@@ -21,6 +22,7 @@ type MapReviewRow = {
   comment: string | null
   updatedAt: string
   hasLongComment: boolean
+  reactions?: ReactionSummaryPublic
 }
 
 const COMMENT_EXPAND_THRESHOLD = 180
@@ -92,45 +94,50 @@ function CommentCell({
   isExpanded,
   hasLongComment,
   onToggle,
+  reactions,
 }: {
   reviewId: string
   comment: string | null
   isExpanded: boolean
   hasLongComment: boolean
   onToggle: (reviewId: string) => void
+  reactions?: ReactionSummaryPublic
 }) {
   if (!comment) {
     return <span className="text-sm text-muted-foreground">-</span>
   }
 
-  if (!hasLongComment) {
-    return (
-      <div className="w-[20rem] max-w-[20rem] whitespace-normal break-words text-sm leading-6 text-foreground/90 xl:w-[28rem] xl:max-w-[28rem]">
-        {comment}
-      </div>
-    )
-  }
-
   return (
     <div
       id={`map-review-comment-${reviewId}`}
-      className="w-[20rem] max-w-[20rem] whitespace-normal xl:w-[28rem] xl:max-w-[28rem]"
+      className="w-[20rem] max-w-[20rem] space-y-2 whitespace-normal xl:w-[28rem] xl:max-w-[28rem]"
     >
-      <button
-        type="button"
-        className={cn(
-          "block w-full cursor-pointer overflow-hidden text-left text-sm leading-6 text-foreground/90 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          isExpanded
-            ? "whitespace-pre-wrap break-words hover:text-foreground"
-            : "line-clamp-3 whitespace-normal break-words hover:text-foreground hover:underline",
-        )}
-        title={isExpanded ? undefined : comment}
-        aria-expanded={isExpanded}
-        aria-controls={`map-review-comment-${reviewId}`}
-        onClick={() => onToggle(reviewId)}
-      >
-        {comment}
-      </button>
+      {hasLongComment ? (
+        <button
+          type="button"
+          className={cn(
+            "block w-full cursor-pointer overflow-hidden text-left text-sm leading-6 text-foreground/90 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            isExpanded
+              ? "whitespace-pre-wrap break-words hover:text-foreground"
+              : "line-clamp-3 whitespace-normal break-words hover:text-foreground hover:underline",
+          )}
+          title={isExpanded ? undefined : comment}
+          aria-expanded={isExpanded}
+          aria-controls={`map-review-comment-${reviewId}`}
+          onClick={() => onToggle(reviewId)}
+        >
+          {comment}
+        </button>
+      ) : (
+        <div className="break-words text-sm leading-6 text-foreground/90">
+          {comment}
+        </div>
+      )}
+      <ReactionBar
+        targetType="map_review_comment"
+        targetId={reviewId}
+        reactions={reactions}
+      />
     </div>
   )
 }
@@ -168,7 +175,7 @@ export function MapReviewsTable({
         const comment = review.content.comment?.text?.trim() || null
 
         return {
-          id: `${review.steamid64}-${review.map_id}`,
+          id: review.id,
           player: review.player,
           overall: review.content.overall,
           gameplay: review.content.gameplay ?? null,
@@ -177,6 +184,7 @@ export function MapReviewsTable({
           updatedAt: review.updated_at,
           hasLongComment:
             comment !== null && comment.length > COMMENT_EXPAND_THRESHOLD,
+          reactions: review.reactions,
         }
       }),
     [reviews],
@@ -228,6 +236,7 @@ export function MapReviewsTable({
                     currentId === reviewId ? null : reviewId,
                   )
                 }}
+                reactions={row.original.reactions}
               />
             ),
           },

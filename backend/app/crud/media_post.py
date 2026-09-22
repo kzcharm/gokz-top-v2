@@ -23,6 +23,8 @@ from app.models import (
     Player,
     PlayerSocialLink,
     PlayerSocialPlatform,
+    ReactionSummaryPublic,
+    ReactionTargetType,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,11 +68,15 @@ def encode_media_cursor(post: MediaPost, *, sort: MediaPostSort) -> str:
     elif sort == "views":
         values.insert(0, post.view_count)
     else:
-        values.insert(0, post.duration_seconds if post.duration_seconds is not None else -1)
+        values.insert(
+            0, post.duration_seconds if post.duration_seconds is not None else -1
+        )
     return base64.urlsafe_b64encode(json.dumps(values).encode()).decode().rstrip("=")
 
 
-def _decode_cursor(cursor: str, *, sort: MediaPostSort) -> tuple[datetime | int, uuid.UUID]:
+def _decode_cursor(
+    cursor: str, *, sort: MediaPostSort
+) -> tuple[datetime | int, uuid.UUID]:
     padded = cursor + "=" * (-len(cursor) % 4)
     value, post_id = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
     if sort == "latest":
@@ -91,12 +97,13 @@ async def read_media_posts(
     sort: MediaPostSort,
     from_: datetime | None,
     to: datetime | None,
+    viewer_steamid64: int | None = None,
 ) -> MediaPostsPublic:
     filters: list[Any] = [
         col(MediaPost.is_kz_video).is_(True),
         col(MediaPost.platform).in_(
             [PlayerSocialPlatform.YOUTUBE, PlayerSocialPlatform.BILIBILI]
-        )
+        ),
     ]
     if steamid64 is not None:
         filters.append(col(MediaPost.player_steamid64) == int(steamid64))
@@ -174,12 +181,20 @@ async def read_media_posts(
         )
         for post, player in rows
     ]
+    from app.crud.content_reaction import load_reaction_summaries
+
+    summaries = await load_reaction_summaries(
+        session=session,
+        target_type=ReactionTargetType.MEDIA_POST,
+        target_ids=[post.id for post, _player in rows],
+        viewer_steamid64=viewer_steamid64,
+    )
+    for item in data:
+        item.reactions = summaries.get(item.id, ReactionSummaryPublic())
     return MediaPostsPublic(
         data=data,
         next_cursor=(
-            encode_media_cursor(rows[-1][0], sort=sort)
-            if has_more and rows
-            else None
+            encode_media_cursor(rows[-1][0], sort=sort) if has_more and rows else None
         ),
         count=len(data),
     )

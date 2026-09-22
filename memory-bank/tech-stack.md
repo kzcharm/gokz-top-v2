@@ -154,6 +154,7 @@
   - sonner
   - lucide-react
   - react-icons
+  - shared `ReactionBar` built from Radix/shadcn Popover and ScrollArea; reaction writes use optimistic local state and public reactor lists use paginated React Query reads
 - Generated API client:
   - @hey-api/openapi-ts
   - frontend review authoring flows read both latest-review and website-review variants from the generated `/v1/maps/reviews` contract
@@ -175,6 +176,7 @@
 
 ## External Integrations
 - Steam OpenID and Steam Web API integration paths exist in backend flows.
+- `/v1/releases` proxies GitHub releases through a five-minute PostgreSQL cache, keeps the latest 20 entries reactable, and serves stale cached entries during temporary GitHub failures.
 - GlobalAPI endpoints are consumed for synchronization/compatibility behavior.
 - GlobalAPI record-filter sync now mirrors availability rows only, ensures exact 128-tick `map_course` rows for locally known maps, and does not derive non-VNL course tiers from upstream filter data after the one-time backfill migration.
 - Twitch Helix API is consumed for verified Twitch live-stream status and cached Twitch follower counts using app credentials.
@@ -191,6 +193,7 @@
 - Treat 64-bit identifiers such as `steamid64` as strings at all API and frontend boundaries. Do not send them as JavaScript numbers, because precision loss can silently break queries and mutations. Convert to integers only inside backend internals when numeric DB comparisons are required.
 - `/v0/bans` remains a mirrored-GlobalAPI compatibility surface and excludes local manual bans, while `/v1/bans` returns both mirrored and local bans, exposes both `uuid` and nullable `id`, supports superuser `POST /v1/bans` manual creation, and uses UUIDs for `/v1/bans/{uuid}` detail reads.
 - Use UUIDv7 for new UUID fields/defaults and update touched UUID defaults to UUIDv7 unless compatibility requires otherwise.
+- Community reactions use stable allowlisted emoji keys and exactly one nullable target foreign key per row. Summaries must be batch-loaded for collection responses; WR WebSocket payloads remain viewer-neutral.
 - Frontend destructive actions should use the destructive red visual treatment consistently, including icon-only delete buttons in tables and settings surfaces.
 - Short frontend field titles and settings/tab labels should use title case in English copy, capitalizing the first letter of each word (for example `Steam Name`, `Social Links`, `Country / Region`).
 - Avoid filler UI copy that restates obvious page behavior or adds generic descriptive text without helping the user complete a task; only add explanatory copy when it conveys concrete, decision-relevant information.

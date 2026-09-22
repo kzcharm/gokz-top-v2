@@ -15,6 +15,7 @@ const poll = {
   has_voted: false,
   can_view_results: false,
   selected_option_ids: [],
+  reactions: { groups: [] },
   options: [
     {
       id: "01991e61-61d0-7c31-bfb8-4d6d36d2d2b3",
@@ -69,6 +70,13 @@ const closedPoll = {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/v1/reactions/emojis", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  })
   await page.route("**/v1/polls?**", async (route) => {
     await route.fulfill({
       status: 200,
@@ -107,6 +115,18 @@ test("poll cards link to a dedicated route and show the voting deadline", async 
       .getByRole("link", { name: /Archived community poll/ })
       .getByText("Closed"),
   ).toHaveClass(/bg-red-500\/15/)
+
+  const pollCard = page.locator("article").filter({
+    has: page.getByRole("link", { name: /Choose the next community event/ }),
+  })
+  const reactionBar = pollCard.getByTestId(`reaction-bar-poll-${pollId}`)
+  await expect(reactionBar).toHaveCSS("opacity", "0")
+  await expect(reactionBar).not.toHaveClass(/border-t/)
+  await pollCard.hover()
+  await expect(reactionBar).toHaveCSS("opacity", "1")
+  await expect(
+    reactionBar.getByRole("button", { name: "Add reaction" }),
+  ).toBeVisible()
 
   await pollLink.click()
 

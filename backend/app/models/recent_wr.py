@@ -6,6 +6,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, Numeric, text
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
+from .content_reaction import ReactionSummaryPublic
 from .mode_scope import ModeScope
 from .record import RecentRecordPublic, RecordType
 
@@ -76,6 +77,7 @@ class RecentWrAchievementPublic(SQLModel):
 class RecentWrPublic(SQLModel):
     record: RecentRecordPublic
     achievements: list[RecentWrAchievementPublic]
+    reactions: ReactionSummaryPublic = Field(default_factory=ReactionSummaryPublic)
 
 
 class RecentWrsPublic(SQLModel):

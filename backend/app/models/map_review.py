@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, Column, DateTime, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
+from .content_reaction import ReactionSummaryPublic
 from .map import MapRefPublic
 from .player import PlayerRefPublic
 from .utils import generate_uuid7, get_datetime_utc
@@ -70,9 +71,21 @@ class MapReview(SQLModel, table=True):
             name="uq_map_review_context",
             postgresql_nulls_not_distinct=True,
         ),
-        Index("ix_map_review_map_id_steamid64_updated_at", "map_id", "steamid64", "updated_at"),
-        Index("ix_map_review_steamid64_map_id_updated_at", "steamid64", "map_id", "updated_at"),
-        Index("ix_map_review_server_group_id_updated_at", "server_group_id", "updated_at"),
+        Index(
+            "ix_map_review_map_id_steamid64_updated_at",
+            "map_id",
+            "steamid64",
+            "updated_at",
+        ),
+        Index(
+            "ix_map_review_steamid64_map_id_updated_at",
+            "steamid64",
+            "map_id",
+            "updated_at",
+        ),
+        Index(
+            "ix_map_review_server_group_id_updated_at", "server_group_id", "updated_at"
+        ),
     )
 
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
@@ -105,6 +118,7 @@ class MapReview(SQLModel, table=True):
 
 
 class MapReviewPublic(SQLModel):
+    id: uuid.UUID
     steamid64: str
     map_id: int
     server_group_id: uuid.UUID | None = None
@@ -113,6 +127,7 @@ class MapReviewPublic(SQLModel):
     updated_at: datetime
     player: PlayerRefPublic
     map: MapRefPublic
+    reactions: ReactionSummaryPublic = Field(default_factory=ReactionSummaryPublic)
 
 
 class MapReviewsPublic(SQLModel):

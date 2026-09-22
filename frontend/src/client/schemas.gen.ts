@@ -826,6 +826,9 @@ export const AdminPollPublicSchema = {
             },
             type: 'array',
             title: 'Voters'
+        },
+        reactions: {
+            '$ref': '#/components/schemas/ReactionSummaryPublic'
         }
     },
     type: 'object',
@@ -1823,6 +1826,78 @@ export const CountryLeaderboardsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'CountryLeaderboardsPublic'
+} as const;
+
+export const GitHubReleasePublicSchema = {
+    properties: {
+        id: {
+            type: 'integer',
+            title: 'Id'
+        },
+        tag_name: {
+            type: 'string',
+            title: 'Tag Name'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        html_url: {
+            type: 'string',
+            title: 'Html Url'
+        },
+        published_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Published At'
+        },
+        body: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Body'
+        },
+        reactions: {
+            '$ref': '#/components/schemas/ReactionSummaryPublic'
+        }
+    },
+    type: 'object',
+    required: ['id', 'tag_name', 'name', 'html_url', 'published_at', 'body'],
+    title: 'GitHubReleasePublic'
+} as const;
+
+export const GitHubReleasesPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/GitHubReleasePublic'
+            },
+            type: 'array',
+            title: 'Data'
+        }
+    },
+    type: 'object',
+    required: ['data'],
+    title: 'GitHubReleasesPublic'
 } as const;
 
 export const HTTPValidationErrorSchema = {
@@ -3328,6 +3403,11 @@ export const MapReviewContentPublicSchema = {
 
 export const MapReviewPublicSchema = {
     properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
         steamid64: {
             type: 'string',
             title: 'Steamid64'
@@ -3366,10 +3446,13 @@ export const MapReviewPublicSchema = {
         },
         map: {
             '$ref': '#/components/schemas/MapRefPublic'
+        },
+        reactions: {
+            '$ref': '#/components/schemas/ReactionSummaryPublic'
         }
     },
     type: 'object',
-    required: ['steamid64', 'map_id', 'content', 'created_at', 'updated_at', 'player', 'map'],
+    required: ['id', 'steamid64', 'map_id', 'content', 'created_at', 'updated_at', 'player', 'map'],
     title: 'MapReviewPublic'
 } as const;
 
@@ -3875,6 +3958,9 @@ export const MediaPostPublicSchema = {
         available: {
             type: 'boolean',
             title: 'Available'
+        },
+        reactions: {
+            '$ref': '#/components/schemas/ReactionSummaryPublic'
         }
     },
     type: 'object',
@@ -7402,6 +7488,9 @@ export const PollPublicSchema = {
             },
             type: 'array',
             title: 'Voters'
+        },
+        reactions: {
+            '$ref': '#/components/schemas/ReactionSummaryPublic'
         }
     },
     type: 'object',
@@ -7671,6 +7760,172 @@ export const QQBindingSecretStatusPublicSchema = {
     title: 'QQBindingSecretStatusPublic'
 } as const;
 
+export const ReactionCreateSchema = {
+    properties: {
+        emoji_key: {
+            type: 'string',
+            maxLength: 128,
+            minLength: 1,
+            title: 'Emoji Key'
+        }
+    },
+    type: 'object',
+    required: ['emoji_key'],
+    title: 'ReactionCreate'
+} as const;
+
+export const ReactionEmojiPublicSchema = {
+    properties: {
+        key: {
+            type: 'string',
+            title: 'Key'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        value: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Value'
+        },
+        image_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Image Url'
+        }
+    },
+    type: 'object',
+    required: ['key', 'name'],
+    title: 'ReactionEmojiPublic'
+} as const;
+
+export const ReactionGroupPublicSchema = {
+    properties: {
+        emoji: {
+            '$ref': '#/components/schemas/ReactionEmojiPublic'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        reacted_by_me: {
+            type: 'boolean',
+            title: 'Reacted By Me',
+            default: false
+        },
+        reaction_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Reaction Id'
+        }
+    },
+    type: 'object',
+    required: ['emoji', 'count'],
+    title: 'ReactionGroupPublic'
+} as const;
+
+export const ReactionPlayerPublicSchema = {
+    properties: {
+        steamid64: {
+            type: 'string',
+            title: 'Steamid64'
+        },
+        display_name: {
+            type: 'string',
+            title: 'Display Name'
+        },
+        avatar_hash: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Avatar Hash'
+        }
+    },
+    type: 'object',
+    required: ['steamid64', 'display_name'],
+    title: 'ReactionPlayerPublic'
+} as const;
+
+export const ReactionSummaryPublicSchema = {
+    properties: {
+        groups: {
+            items: {
+                '$ref': '#/components/schemas/ReactionGroupPublic'
+            },
+            type: 'array',
+            title: 'Groups'
+        }
+    },
+    type: 'object',
+    title: 'ReactionSummaryPublic'
+} as const;
+
+export const ReactionTargetTypeSchema = {
+    type: 'string',
+    enum: ['media_post', 'recent_wr', 'map_review_comment', 'poll', 'release'],
+    title: 'ReactionTargetType'
+} as const;
+
+export const ReactionUserPublicSchema = {
+    properties: {
+        player: {
+            '$ref': '#/components/schemas/ReactionPlayerPublic'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['player', 'created_at'],
+    title: 'ReactionUserPublic'
+} as const;
+
+export const ReactionUsersPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ReactionUserPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ReactionUsersPublic'
+} as const;
+
 export const RecentRecordMapPublicSchema = {
     properties: {
         id: {
@@ -7885,6 +8140,9 @@ export const RecentWrPublicSchema = {
             },
             type: 'array',
             title: 'Achievements'
+        },
+        reactions: {
+            '$ref': '#/components/schemas/ReactionSummaryPublic'
         }
     },
     type: 'object',

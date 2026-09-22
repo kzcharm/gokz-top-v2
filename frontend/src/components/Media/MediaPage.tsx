@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { type MediaPostPublic, MediaService } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
+import { ReactionBar } from "@/components/Reactions/ReactionBar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -77,7 +78,7 @@ function MediaCard({ post }: { post: MediaPostPublic }) {
   const duration = formatDuration(post.duration_seconds)
 
   return (
-    <article className="group overflow-hidden rounded-md border bg-card transition-shadow hover:shadow-md">
+    <article className="group group/card relative overflow-hidden rounded-md border bg-card transition-shadow hover:shadow-md">
       <a
         href={post.url}
         target="_blank"
@@ -139,6 +140,12 @@ function MediaCard({ post }: { post: MediaPostPublic }) {
           </span>
         </div>
         <PlayerDisplay player={post.player} className="min-w-0" />
+        <ReactionBar
+          floatingWhenEmpty
+          targetType="media_post"
+          targetId={post.id}
+          reactions={post.reactions}
+        />
       </div>
     </article>
   )

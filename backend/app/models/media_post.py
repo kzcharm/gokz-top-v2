@@ -7,6 +7,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
+from .content_reaction import ReactionSummaryPublic
 from .player import PlayerRefPublic
 from .player_social_link import PlayerSocialPlatform
 from .utils import generate_uuid7, get_datetime_utc
@@ -83,6 +84,7 @@ class MediaPostPublic(SQLModel):
     view_count: int
     duration_seconds: int | None = None
     available: bool
+    reactions: ReactionSummaryPublic = Field(default_factory=ReactionSummaryPublic)
 
 
 class MediaPostsPublic(SQLModel):

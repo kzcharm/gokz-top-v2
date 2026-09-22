@@ -3,8 +3,9 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { Clock, Pencil, Plus, Trash2 } from "lucide-react"
 import { type ChangeEvent, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { OpenAPI } from "@/client"
+import { OpenAPI, type ReactionSummaryPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { ReactionBar } from "@/components/Reactions/ReactionBar"
 import {
   Avatar,
   AvatarFallback,
@@ -64,6 +65,7 @@ type Poll = {
   options: Option[]
   created_by_steamid64?: string | null
   voters?: Voter[]
+  reactions?: ReactionSummaryPublic
 }
 
 type Voter = {
@@ -402,83 +404,94 @@ export function PollsPage({ pollId }: { pollId?: string }) {
           const remainingOptions = poll.options.length - previewOptions.length
 
           return (
-            <Link
+            <article
               key={poll.id}
-              to="/polls/$pollId"
-              params={{ pollId: poll.id }}
-              className="bg-card text-card-foreground flex flex-col gap-0 overflow-hidden rounded-xl border py-0 text-left shadow-sm transition-colors hover:border-primary/60 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              className="group/card bg-card text-card-foreground relative flex flex-col overflow-hidden rounded-xl border shadow-sm transition-colors hover:border-primary/60 hover:shadow-sm"
             >
-              <span className="flex flex-col gap-3 p-5 sm:p-6">
-                <span className="flex items-start justify-between gap-3">
-                  <span className="text-xl font-medium leading-tight">
-                    {poll.title}
+              <Link
+                to="/polls/$pollId"
+                params={{ pollId: poll.id }}
+                className="flex flex-1 flex-col gap-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              >
+                <span className="flex flex-col gap-3 p-5 sm:p-6">
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="text-xl font-medium leading-tight">
+                      {poll.title}
+                    </span>
+                    {poll.status === "closed" ? (
+                      <Badge variant="outline" className={closedBadgeClassName}>
+                        {t("polls.closed")}
+                      </Badge>
+                    ) : null}
                   </span>
-                  {poll.status === "closed" ? (
-                    <Badge variant="outline" className={closedBadgeClassName}>
-                      {t("polls.closed")}
-                    </Badge>
-                  ) : null}
                 </span>
-              </span>
-              <span className="flex flex-col gap-3 px-5 pb-5 sm:px-6 sm:pb-6">
-                <span className="grid gap-2">
-                  {previewOptions.map((option) => (
-                    <span
-                      key={option.id}
-                      className="relative flex items-center gap-3 overflow-hidden rounded-md border border-border/70 bg-background px-3 py-2 text-sm"
-                    >
-                      {poll.can_view_results &&
-                      option.votes !== null &&
-                      option.votes !== undefined ? (
-                        <span
-                          aria-hidden="true"
-                          className="pointer-events-none absolute inset-y-0 left-0 bg-primary/20"
-                          style={{
-                            width: `${Math.max(
-                              0,
-                              Math.min(option.percentage ?? 0, 100),
-                            )}%`,
-                          }}
-                        />
-                      ) : null}
-                      <span className="relative z-10 shrink-0 text-sm font-semibold text-muted-foreground">
-                        {getOptionLetter(poll, option.id)}.
-                      </span>
-                      <span className="relative z-10 min-w-0 flex-1 truncate">
-                        {option.label}
-                      </span>
-                      {poll.can_view_results &&
-                      option.votes !== null &&
-                      option.votes !== undefined ? (
-                        <span className="relative z-10 shrink-0 whitespace-nowrap text-right text-muted-foreground">
-                          {option.votes} · {option.percentage?.toFixed(1)}%
+                <span className="flex flex-col gap-3 px-5 pb-5 sm:px-6 sm:pb-6">
+                  <span className="grid gap-2">
+                    {previewOptions.map((option) => (
+                      <span
+                        key={option.id}
+                        className="relative flex items-center gap-3 overflow-hidden rounded-md border border-border/70 bg-background px-3 py-2 text-sm"
+                      >
+                        {poll.can_view_results &&
+                        option.votes !== null &&
+                        option.votes !== undefined ? (
+                          <span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-y-0 left-0 bg-primary/20"
+                            style={{
+                              width: `${Math.max(
+                                0,
+                                Math.min(option.percentage ?? 0, 100),
+                              )}%`,
+                            }}
+                          />
+                        ) : null}
+                        <span className="relative z-10 shrink-0 text-sm font-semibold text-muted-foreground">
+                          {getOptionLetter(poll, option.id)}.
                         </span>
-                      ) : null}
-                    </span>
-                  ))}
-                  {remainingOptions > 0 ? (
-                    <span className="self-end text-right text-sm text-muted-foreground">
-                      {t("polls.moreOptions", { count: remainingOptions })}
+                        <span className="relative z-10 min-w-0 flex-1 truncate">
+                          {option.label}
+                        </span>
+                        {poll.can_view_results &&
+                        option.votes !== null &&
+                        option.votes !== undefined ? (
+                          <span className="relative z-10 shrink-0 whitespace-nowrap text-right text-muted-foreground">
+                            {option.votes} · {option.percentage?.toFixed(1)}%
+                          </span>
+                        ) : null}
+                      </span>
+                    ))}
+                    {remainingOptions > 0 ? (
+                      <span className="self-end text-right text-sm text-muted-foreground">
+                        {t("polls.moreOptions", { count: remainingOptions })}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="self-end text-right text-sm text-muted-foreground">
+                    {poll.total_votes} {t("polls.votes")}
+                  </span>
+                  {poll.ends_at ? (
+                    <span className="flex items-center justify-end gap-1.5 text-right text-sm text-muted-foreground">
+                      <Clock className="size-3.5" aria-hidden="true" />
+                      <span>
+                        {t("polls.voteEnds")}{" "}
+                        <FormattedDateTime
+                          value={poll.ends_at}
+                          display="relative"
+                        />
+                      </span>
                     </span>
                   ) : null}
                 </span>
-                <span className="self-end text-right text-sm text-muted-foreground">
-                  {poll.total_votes} {t("polls.votes")}
-                </span>
-                {poll.ends_at ? (
-                  <span className="flex items-center justify-end gap-1.5 text-right text-sm text-muted-foreground">
-                    <Clock className="size-3.5" aria-hidden="true" />
-                    <span>
-                      {t("polls.voteEnds")}{" "}
-                      <FormattedDateTime
-                        value={poll.ends_at}
-                        display="relative"
-                      />
-                    </span>
-                  </span>
-                ) : null}
-              </span>
-            </Link>
+              </Link>
+              <ReactionBar
+                className="mx-5 mb-4 sm:mx-6"
+                floatingWhenEmpty
+                targetType="poll"
+                targetId={poll.id}
+                reactions={poll.reactions}
+              />
+            </article>
           )
         })}
       </div>
@@ -637,6 +650,11 @@ export function PollsPage({ pollId }: { pollId?: string }) {
                 )
               })}
             </div>
+            <ReactionBar
+              targetType="poll"
+              targetId={openPoll.id}
+              reactions={openPoll.reactions}
+            />
             <DialogFooter className="items-center sm:justify-between">
               <div className="text-sm text-muted-foreground">
                 {openPoll.status === "closed"

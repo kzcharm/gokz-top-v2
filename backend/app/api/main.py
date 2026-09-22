@@ -34,9 +34,11 @@ from app.api.v1 import (
     players,
     polls,
     private,
+    reactions,
     record_ws,
     records,
     regions,
+    releases,
     replays,
     server_groups,
     server_ws,
@@ -75,6 +77,8 @@ api_router.include_router(modes.router)
 api_router.include_router(player_sessions.router)
 api_router.include_router(player_ws.router)
 api_router.include_router(records.router)
+api_router.include_router(reactions.router)
+api_router.include_router(releases.router)
 api_router.include_router(replays.router)
 api_router.include_router(regions.router)
 api_router.include_router(record_ws.router)

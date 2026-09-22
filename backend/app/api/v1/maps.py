@@ -31,6 +31,8 @@ from app.models import (
     MapWrHistoryPublic,
     MapWrPublic,
     ModeScope,
+    ReactionSummaryPublic,
+    ReactionTargetType,
     RecordType,
     ServerGroupStatus,
     UserRole,
@@ -318,6 +320,7 @@ async def read_map_by_id(
 @router.get("/reviews", response_model=MapReviewsPublic)
 async def read_map_reviews(
     session: SessionDep,
+    current_user: OptionalCurrentUser,
     query: Annotated[MapReviewListQuery, Query()],
 ) -> MapReviewsPublic:
     map_id = query.map_id
@@ -337,13 +340,19 @@ async def read_map_reviews(
         language=query.language,
         source=query.source,
     )
-    return MapReviewsPublic(
-        data=[
-            crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
-            for review, player, map_obj in reviews
-        ],
-        count=count,
+    data = [
+        crud.to_map_review_public(review=review, player=player, map_obj=map_obj)
+        for review, player, map_obj in reviews
+    ]
+    summaries = await crud.load_reaction_summaries(
+        session=session,
+        target_type=ReactionTargetType.MAP_REVIEW_COMMENT,
+        target_ids=[item.id for item in data if item.content.comment is not None],
+        viewer_steamid64=current_user.steamid64 if current_user else None,
     )
+    for item in data:
+        item.reactions = summaries.get(item.id, ReactionSummaryPublic())
+    return MapReviewsPublic(data=data, count=count)
 
 
 def _resolve_review_target_steamid64(

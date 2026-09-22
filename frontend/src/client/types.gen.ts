@@ -176,6 +176,7 @@ export type AdminPollPublic = {
     can_view_results: boolean;
     options: Array<PollOptionPublic>;
     voters: Array<PollVoterPublic>;
+    reactions?: ReactionSummaryPublic;
 };
 
 export type AdminPollsPublic = {
@@ -357,6 +358,20 @@ export type CountryLeaderboardEntryPublic = {
 export type CountryLeaderboardsPublic = {
     data: Array<CountryLeaderboardEntryPublic>;
     count: number;
+};
+
+export type GitHubReleasePublic = {
+    id: number;
+    tag_name: string;
+    name: (string | null);
+    html_url: string;
+    published_at: (string | null);
+    body: (string | null);
+    reactions?: ReactionSummaryPublic;
+};
+
+export type GitHubReleasesPublic = {
+    data: Array<GitHubReleasePublic>;
 };
 
 export type HTTPValidationError = {
@@ -673,6 +688,7 @@ export type MapReviewContentPublic = {
 };
 
 export type MapReviewPublic = {
+    id: string;
     steamid64: string;
     map_id: number;
     server_group_id?: (string | null);
@@ -681,6 +697,7 @@ export type MapReviewPublic = {
     updated_at: string;
     player: PlayerRefPublic;
     map: MapRefPublic;
+    reactions?: ReactionSummaryPublic;
 };
 
 export type MapReviewsPublic = {
@@ -799,6 +816,7 @@ export type MediaPostPublic = {
     view_count: number;
     duration_seconds?: (number | null);
     available: boolean;
+    reactions?: ReactionSummaryPublic;
 };
 
 export type MediaPostsPublic = {
@@ -1479,6 +1497,7 @@ export type PollPublic = {
     can_view_results: boolean;
     options: Array<PollOptionPublic>;
     voters?: Array<PollVoterPublic>;
+    reactions?: ReactionSummaryPublic;
 };
 
 export type PollsPublic = {
@@ -1524,6 +1543,46 @@ export type QQBindingSecretStatusPublic = {
     configured: boolean;
     created_at?: (string | null);
     updated_at?: (string | null);
+};
+
+export type ReactionCreate = {
+    emoji_key: string;
+};
+
+export type ReactionEmojiPublic = {
+    key: string;
+    name: string;
+    value?: (string | null);
+    image_url?: (string | null);
+};
+
+export type ReactionGroupPublic = {
+    emoji: ReactionEmojiPublic;
+    count: number;
+    reacted_by_me?: boolean;
+    reaction_id?: (string | null);
+};
+
+export type ReactionPlayerPublic = {
+    steamid64: string;
+    display_name: string;
+    avatar_hash?: (string | null);
+};
+
+export type ReactionSummaryPublic = {
+    groups?: Array<ReactionGroupPublic>;
+};
+
+export type ReactionTargetType = 'media_post' | 'recent_wr' | 'map_review_comment' | 'poll' | 'release';
+
+export type ReactionUserPublic = {
+    player: ReactionPlayerPublic;
+    created_at: string;
+};
+
+export type ReactionUsersPublic = {
+    data: Array<ReactionUserPublic>;
+    count: number;
 };
 
 export type RecentRecordMapPublic = {
@@ -1575,6 +1634,7 @@ export type RecentWrAchievementPublic = {
 export type RecentWrPublic = {
     record: RecentRecordPublic;
     achievements: Array<RecentWrAchievementPublic>;
+    reactions?: ReactionSummaryPublic;
 };
 
 export type RecentWrsPublic = {
@@ -3129,6 +3189,32 @@ export type PollsVotePollData = {
 
 export type PollsVotePollResponse = (PollPublic);
 
+export type ReactionsReadReactionEmojisResponse = (Array<ReactionEmojiPublic>);
+
+export type ReactionsPutReactionData = {
+    requestBody: ReactionCreate;
+    targetId: string;
+    targetType: ReactionTargetType;
+};
+
+export type ReactionsPutReactionResponse = (ReactionSummaryPublic);
+
+export type ReactionsDeleteReactionData = {
+    reactionId: string;
+};
+
+export type ReactionsDeleteReactionResponse = (ReactionSummaryPublic);
+
+export type ReactionsReadReactorsData = {
+    emojiKey: string;
+    limit?: number;
+    offset?: number;
+    targetId: string;
+    targetType: ReactionTargetType;
+};
+
+export type ReactionsReadReactorsResponse = (ReactionUsersPublic);
+
 export type RecordsReadRecordsData = {
     createdSince?: (string | null);
     excludeCheaters?: boolean;
@@ -3248,6 +3334,12 @@ export type RecordsRebuildPbPointsBucketData = {
 export type RecordsRebuildPbPointsBucketResponse = (RecordPbBucketRebuildResult);
 
 export type RegionsReadRegionsResponse = (RegionsPublic);
+
+export type ReleasesReadReleasesData = {
+    limit?: number;
+};
+
+export type ReleasesReadReleasesResponse = (GitHubReleasesPublic);
 
 export type ReplaysReadReplaysData = {
     excludeCheaters?: boolean;

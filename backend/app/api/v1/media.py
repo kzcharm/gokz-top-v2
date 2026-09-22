@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
 from app import crud
-from app.api.deps import SessionDep
+from app.api.deps import OptionalCurrentUser, SessionDep
 from app.models import (
     MediaPostsPublic,
     MediaPostsQuery,
@@ -45,6 +45,7 @@ async def proxy_bilibili_thumbnail(
 @router.get("/posts", response_model=MediaPostsPublic)
 async def read_media_posts(
     session: SessionDep,
+    current_user: OptionalCurrentUser,
     query: Annotated[MediaPostsQuery, Query()],
 ) -> MediaPostsPublic:
     return await crud.read_media_posts(
@@ -56,6 +57,7 @@ async def read_media_posts(
         sort=query.sort,
         from_=query.from_,
         to=query.to,
+        viewer_steamid64=current_user.steamid64 if current_user else None,
     )
 
 

@@ -3,16 +3,20 @@ import { RefreshCw } from "lucide-react"
 import { Fragment, type ReactNode, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
-import { LeaderboardsService, MapsService } from "@/client"
+import {
+  type GitHubReleasePublic,
+  LeaderboardsService,
+  MapsService,
+  ReleasesService,
+} from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { ReactionBar } from "@/components/Reactions/ReactionBar"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 
-const GITHUB_RELEASES_URL =
-  "https://api.github.com/repos/kzcharm/gokz-top-v2/releases?per_page=20"
-const PREVIEW_RELEASES: GitHubRelease[] = [
+const PREVIEW_RELEASES: GitHubReleasePublic[] = [
   {
     id: 1,
     tag_name: "v-preview",
@@ -37,15 +41,6 @@ const PREVIEW_ROUTE_DEFAULTS: RouteDefaults = {
   profileIdentifier: "76561198000000001",
 }
 
-type GitHubRelease = {
-  id: number
-  tag_name: string
-  name: string | null
-  html_url: string
-  published_at: string | null
-  body: string | null
-}
-
 type ReleaseSection = {
   title: string
   items: string[]
@@ -56,18 +51,8 @@ type RouteDefaults = {
   profileIdentifier?: string
 }
 
-async function fetchReleases(): Promise<GitHubRelease[]> {
-  const response = await fetch(GITHUB_RELEASES_URL, {
-    headers: {
-      Accept: "application/vnd.github+json",
-    },
-  })
-
-  if (!response.ok) {
-    throw new Error(`GitHub releases request failed: ${response.status}`)
-  }
-
-  return response.json()
+async function fetchReleases(): Promise<GitHubReleasePublic[]> {
+  return (await ReleasesService.readReleases({ limit: 20 })).data
 }
 
 function parseReleaseBody(body: string | null | undefined): ReleaseSection[] {
@@ -117,7 +102,7 @@ function parseReleaseBody(body: string | null | undefined): ReleaseSection[] {
 }
 
 function releaseBodyIncludes(
-  releases: GitHubRelease[] | undefined,
+  releases: GitHubReleasePublic[] | undefined,
   value: string,
 ) {
   return releases?.some((release) => release.body?.includes(value)) ?? false
@@ -374,6 +359,11 @@ export function UpdatesPage() {
                       </section>
                     ))
                   )}
+                  <ReactionBar
+                    targetType="release"
+                    targetId={String(release.id)}
+                    reactions={release.reactions}
+                  />
                 </div>
               </article>
             )

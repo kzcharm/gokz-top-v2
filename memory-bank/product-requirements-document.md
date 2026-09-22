@@ -213,6 +213,7 @@ Scope model:
 - Desktop and mobile support with predictable interactions.
 - High-value workflows must be quick: search player, inspect profile, compare rank, open map context, view live server state.
 - Public website UI copy should support English, Simplified Chinese, and Russian, with English as the primary source locale.
+- Public community content supports Discord-style emoji reactions on media, recent WRs, map-review comments, whole polls, and releases. Guests can inspect totals and reactor identities; authenticated players can independently toggle multiple catalog emoji. Reactions do not create notifications or influence sorting or activity timestamps.
 
 ## 9) Milestones
 1. Core compatibility foundation

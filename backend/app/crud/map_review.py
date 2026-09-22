@@ -10,6 +10,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.crud.content_reaction import delete_map_review_reactions
 from app.crud.player import to_player_ref_public
 from app.models import (
     Map,
@@ -72,8 +73,14 @@ def normalize_map_review_content(
 
     existing_comment = _parse_existing_comment(existing_content or {})
     existing_text = (
-        existing_comment.get("text") if isinstance(existing_comment.get("text"), str) else None
-    ) if existing_comment is not None else None
+        (
+            existing_comment.get("text")
+            if isinstance(existing_comment.get("text"), str)
+            else None
+        )
+        if existing_comment is not None
+        else None
+    )
 
     if existing_comment is not None and existing_text == comment_text:
         created_at = _normalize_comment_timestamp(
@@ -104,6 +111,7 @@ def to_map_review_public(
     map_obj: Map,
 ) -> MapReviewPublic:
     return MapReviewPublic(
+        id=review.id,
         steamid64=str(review.steamid64),
         map_id=review.map_id,
         server_group_id=review.server_group_id,
@@ -130,18 +138,15 @@ def _latest_map_review_ids_query(
     website_only: bool = False,
 ):
     review_table = MapReview.__table__  # type: ignore[attr-defined]
-    ranked_reviews = (
-        select(
-            review_table.c.id.label("review_id"),
-            func.row_number()
-            .over(
-                partition_by=(review_table.c.steamid64, review_table.c.map_id),
-                order_by=_map_review_order_by(review_table),
-            )
-            .label("rank"),
+    ranked_reviews = select(
+        review_table.c.id.label("review_id"),
+        func.row_number()
+        .over(
+            partition_by=(review_table.c.steamid64, review_table.c.map_id),
+            order_by=_map_review_order_by(review_table),
         )
-        .select_from(review_table)
-    )
+        .label("rank"),
+    ).select_from(review_table)
     if map_id is not None:
         ranked_reviews = ranked_reviews.where(review_table.c.map_id == map_id)
     if steamid64 is not None:
@@ -219,7 +224,9 @@ async def load_map_review_summaries(
         return {}
 
     cache_table = MapReviewSummaryCache.__table__  # type: ignore[attr-defined]
-    statement = select(MapReviewSummaryCache).where(col(MapReviewSummaryCache.map_id).in_(map_ids))
+    statement = select(MapReviewSummaryCache).where(
+        col(MapReviewSummaryCache.map_id).in_(map_ids)
+    )
     global_average_statement = select(
         func.sum(cache_table.c.overall_avg * cache_table.c.reviews_count),
         func.sum(cache_table.c.reviews_count),
@@ -290,7 +297,9 @@ async def rebuild_map_review_summary(
     if reviews_count == 0:
         try:
             await session.exec(
-                delete(MapReviewSummaryCache).where(col(MapReviewSummaryCache.map_id) == map_id)
+                delete(MapReviewSummaryCache).where(
+                    col(MapReviewSummaryCache.map_id) == map_id
+                )
             )
             await session.commit()
         except ProgrammingError as exc:
@@ -485,6 +494,7 @@ async def clear_map_review_comments(
     now = get_datetime_utc()
     has_changes = False
     deleted_comment_texts: list[str] = []
+    cleared_review_ids: list[uuid.UUID] = []
     for review in reviews:
         content = dict(review.content)
         comment = content.get("comment")
@@ -499,9 +509,13 @@ async def clear_map_review_comments(
         }
         review.updated_at = now
         session.add(review)
+        cleared_review_ids.append(review.id)
         has_changes = True
 
     if has_changes:
+        await delete_map_review_reactions(
+            session=session, review_ids=cleared_review_ids
+        )
         await session.commit()
 
     latest_reviews, _ = await read_latest_map_reviews(

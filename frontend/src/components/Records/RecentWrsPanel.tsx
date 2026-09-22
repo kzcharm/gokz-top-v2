@@ -29,6 +29,7 @@ import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
+import { ReactionBar } from "@/components/Reactions/ReactionBar"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { type AppScope, useScope } from "@/components/scope-provider"
@@ -102,7 +103,7 @@ function RecentWrCard({
     <Card
       data-testid={`recent-wr-card-${record.uuid}`}
       className={cn(
-        "group gap-0 overflow-hidden rounded-2xl border-border/70 py-0 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none",
+        "group group/card relative gap-0 overflow-hidden rounded-2xl border-border/70 py-0 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none",
         highlighted &&
           "animate-in border-primary/55 bg-primary/[0.035] fade-in slide-in-from-top-2 duration-500 motion-reduce:animate-none",
       )}
@@ -242,6 +243,13 @@ function RecentWrCard({
             recordType: selectedType,
             time: record.time,
           }}
+        />
+        <ReactionBar
+          className="mt-3"
+          floatingWhenEmpty
+          targetType="recent_wr"
+          targetId={record.uuid}
+          reactions={item.reactions}
         />
       </CardContent>
     </Card>
@@ -457,8 +465,20 @@ export function RecentWrsPanel() {
               cacheKey,
             )
           const previousUuid = previous?.pages[0]?.data[0]?.record.uuid ?? null
+          const previousItems = new Map(
+            previous?.pages
+              .flatMap((page) => page.data)
+              .map((item) => [item.record.uuid, item] as const) ?? [],
+          )
           const firstPage = {
-            data: snapshot.data.slice(0, RECENT_WRS_BATCH_SIZE),
+            data: snapshot.data.slice(0, RECENT_WRS_BATCH_SIZE).map((item) => ({
+              ...item,
+              reactions:
+                item.reactions?.groups?.length ||
+                !previousItems.get(item.record.uuid)?.reactions
+                  ? item.reactions
+                  : previousItems.get(item.record.uuid)?.reactions,
+            })),
             count: snapshot.count,
           }
           const firstRecordChanged = firstUuid !== previousUuid

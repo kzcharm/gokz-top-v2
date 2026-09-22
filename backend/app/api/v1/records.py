@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import crud
-from app.api.deps import SessionDep, get_current_active_admin
+from app.api.deps import OptionalCurrentUser, SessionDep, get_current_active_admin
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
 from app.crud.recent_wr import (
@@ -18,6 +18,8 @@ from app.models import (
     Map,
     ModeScope,
     Player,
+    ReactionSummaryPublic,
+    ReactionTargetType,
     RecentRecordListQuery,
     RecentRecordsPublic,
     RecentWrListQuery,
@@ -153,6 +155,7 @@ async def read_recent_records(
 @router.get("/wrs/recent", response_model=RecentWrsPublic)
 async def read_recent_wrs(
     session: SessionDep,
+    current_user: OptionalCurrentUser,
     query: Annotated[RecentWrListQuery, Query()],
 ) -> RecentWrsPublic:
     if not await recent_wr_backfill_is_ready(session=session):
@@ -161,6 +164,14 @@ async def read_recent_wrs(
             detail="Recent WR history is being prepared.",
         )
     records, count = await read_recent_wrs_from_cache(session=session, query=query)
+    summaries = await crud.load_reaction_summaries(
+        session=session,
+        target_type=ReactionTargetType.RECENT_WR,
+        target_ids=[item.record.uuid for item in records],
+        viewer_steamid64=current_user.steamid64 if current_user else None,
+    )
+    for item in records:
+        item.reactions = summaries.get(item.record.uuid, ReactionSummaryPublic())
     return RecentWrsPublic(data=records, count=count)
 
 

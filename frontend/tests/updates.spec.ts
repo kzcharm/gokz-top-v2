@@ -20,6 +20,21 @@ const releasesPayload = [
       "## Other",
       "- chore(frontend): document production api url",
     ].join("\n"),
+    reactions: {
+      groups: [
+        {
+          emoji: {
+            key: "unicode:thumbs_up",
+            name: "Thumbs up",
+            value: "👍",
+            image_url: null,
+          },
+          count: 2,
+          reacted_by_me: false,
+          reaction_id: null,
+        },
+      ],
+    },
   },
   {
     id: 1,
@@ -28,20 +43,57 @@ const releasesPayload = [
     html_url: "https://github.com/kzcharm/gokz-top-v2/releases/tag/v1.11.0",
     published_at: "2026-06-17T15:09:00Z",
     body: "## Features\n\n## Fixes\n\n## Other\n",
+    reactions: { groups: [] },
   },
 ]
 
 async function mockUpdatesDependencies(page: Page) {
-  await page.route(
-    "https://api.github.com/repos/kzcharm/gokz-top-v2/releases?per_page=20",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(releasesPayload),
-      })
-    },
-  )
+  await page.route(/\/v1\/reactions\/emojis$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          key: "unicode:thumbs_up",
+          name: "Thumbs up",
+          value: "👍",
+          image_url: null,
+        },
+        {
+          key: "unicode:fire",
+          name: "Fire",
+          value: "🔥",
+          image_url: null,
+        },
+      ]),
+    })
+  })
+  await page.route(/\/v1\/reactions\/release\/2\/reactors.*/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            player: {
+              steamid64: "76561198000000002",
+              display_name: "Reaction Player",
+              avatar_hash: "abc123",
+            },
+            created_at: "2026-09-22T12:00:00Z",
+          },
+        ],
+        count: 1,
+      }),
+    })
+  })
+  await page.route(/\/v1\/releases(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: releasesPayload }),
+    })
+  })
   await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
@@ -98,7 +150,7 @@ async function mockUpdatesDependencies(page: Page) {
   })
 }
 
-test("Updates page shows release notes from GitHub releases", async ({
+test("Updates page shows release notes from the cached releases API", async ({
   page,
 }) => {
   await mockUpdatesDependencies(page)
@@ -164,4 +216,32 @@ test("Version label opens the updates page without a sidebar item", async ({
 
   await expect(page).toHaveURL(/\/updates$/)
   await expect(page.getByRole("heading", { name: "Updates" })).toBeVisible()
+})
+
+test("release reactions show their public reactor list", async ({ page }) => {
+  await mockUpdatesDependencies(page)
+  await page.goto("/updates")
+
+  const release = page.locator("article").filter({ hasText: "v1.11.1" })
+  await release
+    .getByRole("button", { name: "Toggle Thumbs up reaction" })
+    .click({ button: "right" })
+  await expect(page.getByTestId("reaction-reactor-avatars")).toBeVisible()
+  const reactor = page.getByRole("link", { name: "Reaction Player" })
+  await expect(reactor).toBeVisible()
+  await expect(reactor).toHaveAttribute("href", "/profile/76561198000000002")
+})
+
+test("release reactions reveal reactors after a sustained hover", async ({
+  page,
+}) => {
+  await mockUpdatesDependencies(page)
+  await page.goto("/updates")
+
+  const release = page.locator("article").filter({ hasText: "v1.11.1" })
+  await release
+    .getByRole("button", { name: "Toggle Thumbs up reaction" })
+    .hover()
+
+  await expect(page.getByTestId("reaction-reactor-avatars")).toBeVisible()
 })
