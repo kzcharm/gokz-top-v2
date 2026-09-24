@@ -162,11 +162,15 @@ def _activity_summary_url(
     server_id: str,
     identifier: str,
     recent_hours: int = 50,
+    recent_days: int | None = None,
 ) -> str:
-    return (
+    url = (
         f"{settings.API_V1_STR}/servers/{server_id}/players/{identifier}"
         f"/activity-summary?recent_hours={recent_hours}"
     )
+    if recent_days is not None:
+        url += f"&recent_days={recent_days}"
+    return url
 
 
 def _plugin_player(
@@ -295,7 +299,7 @@ async def test_read_player_server_activity_summary_uses_record_playtime_window(
         "activity": {
             "first_seen_at": "2026-03-23T18:22:11Z",
             "first_server_record_at": "2026-03-23T18:22:11Z",
-            "active_days": 3,
+            "active_days": 2,
             "total_playtime_seconds": 5000.0,
             "recent_playtime": {
                 "requested_hours": 1,
@@ -357,6 +361,71 @@ async def test_read_player_server_activity_summary_uses_short_record_history(
         "on_server_seconds": 1200.0,
         "ratio": 1.0,
     }
+
+
+async def test_read_player_server_activity_summary_filters_active_days_by_recency(
+    client: AsyncClient,
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    steamid64 = 76561198000050104
+    generated_at = datetime(2026, 7, 20, 12, 0, tzinfo=UTC)
+    monkeypatch.setattr(servers_route, "get_datetime_utc", lambda: generated_at)
+    await _create_activity_player(db, steamid64=steamid64)
+    target_group = await _create_activity_group(
+        db,
+        custom_id="recent-kz",
+        name="Recent KZ",
+    )
+    await _create_map(db, id=990103, name="kz_recent_summary", difficulty=3)
+    target_server = await _create_activity_globalapi_server(
+        db,
+        id=990204,
+        group_id=target_group.id,
+        name="Recent Server",
+    )
+    await _create_activity_record(
+        db,
+        id=990305,
+        steamid64=steamid64,
+        server_id=target_server.id,
+        map_id=990103,
+        created_at=datetime(2025, 7, 19, 11, 59, 59, tzinfo=UTC),
+        time_seconds="600.000",
+    )
+    await _create_activity_record(
+        db,
+        id=990306,
+        steamid64=steamid64,
+        server_id=target_server.id,
+        map_id=990103,
+        created_at=datetime(2025, 7, 20, 12, 0, tzinfo=UTC),
+        time_seconds="600.000",
+    )
+    await _create_activity_record(
+        db,
+        id=990307,
+        steamid64=steamid64,
+        server_id=target_server.id,
+        map_id=990103,
+        created_at=datetime(2026, 7, 19, 12, 0, tzinfo=UTC),
+        time_seconds="600.000",
+    )
+
+    response = await client.get(
+        _activity_summary_url(
+            server_id="recent-kz",
+            identifier=str(steamid64),
+            recent_days=365,
+        )
+    )
+
+    assert response.status_code == 200
+    activity = response.json()["activity"]
+    assert activity["first_seen_at"] == "2025-07-19T11:59:59Z"
+    assert activity["first_server_record_at"] == "2025-07-19T11:59:59Z"
+    assert activity["active_days"] == 2
+    assert activity["total_playtime_seconds"] == 1800.0
 
 
 async def test_read_player_server_activity_summary_returns_not_found_for_missing_group(

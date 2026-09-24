@@ -474,17 +474,53 @@ class PlayerServerActivityRatingPublic(SQLModel):
 
 
 class PlayerServerRecentPlaytimePublic(SQLModel):
-    requested_hours: int = Field(ge=1)
-    window_seconds: float = Field(default=0, ge=0)
-    on_server_seconds: float = Field(default=0, ge=0)
-    ratio: float = Field(default=0, ge=0, le=1)
+    requested_hours: int = Field(
+        ge=1,
+        description="Requested record-time lookback window in hours.",
+    )
+    window_seconds: float = Field(
+        default=0,
+        ge=0,
+        description="Record time available in the requested lookback window.",
+    )
+    on_server_seconds: float = Field(
+        default=0,
+        ge=0,
+        description="Record time in the window created on the target server group.",
+    )
+    ratio: float = Field(
+        default=0,
+        ge=0,
+        le=1,
+        description="Target-server share of record time in the lookback window.",
+    )
 
 
 class PlayerServerActivityPublic(SQLModel):
-    first_seen_at: datetime | None = None
-    first_server_record_at: datetime | None = None
-    active_days: int = Field(default=0, ge=0)
-    total_playtime_seconds: float = Field(default=0, ge=0)
+    first_seen_at: datetime | None = Field(
+        default=None,
+        description="Datetime when the player created their first record on any server.",
+    )
+    first_server_record_at: datetime | None = Field(
+        default=None,
+        description=(
+            "Datetime when the player created their first record on the target server "
+            "group."
+        ),
+    )
+    active_days: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Number of unique UTC calendar days on which the player created a record "
+            "on the target server group, optionally limited by recent_days."
+        ),
+    )
+    total_playtime_seconds: float = Field(
+        default=0,
+        ge=0,
+        description="Total record time created by the player across all servers.",
+    )
     recent_playtime: PlayerServerRecentPlaytimePublic
 
 

@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -107,15 +108,24 @@ async def _read_player_server_activity_summary(
     player: Player,
     server_group: ServerGroup,
     requested_hours: int,
+    recent_days: int | None,
 ) -> PlayerServerActivitySummaryPublic:
-    record_day = func.date_trunc("day", Record.created_at)
+    generated_at = get_datetime_utc()
+    record_day = func.date_trunc(
+        "day",
+        func.timezone("UTC", Record.created_at),
+    )
+    target_server_filter = col(ServerGlobalapi.group_id) == server_group.id
+    active_day_filter = target_server_filter
+    if recent_days is not None:
+        active_day_filter = active_day_filter & (
+            col(Record.created_at) >= generated_at - timedelta(days=recent_days)
+        )
     activity_statement = (
         select(
             func.min(Record.created_at),
-            func.min(Record.created_at).filter(
-                col(ServerGlobalapi.group_id) == server_group.id
-            ),
-            func.count(func.distinct(record_day)),
+            func.min(Record.created_at).filter(target_server_filter),
+            func.count(func.distinct(record_day)).filter(active_day_filter),
             func.coalesce(func.sum(Record.time), Decimal("0")),
         )
         .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
@@ -143,7 +153,7 @@ async def _read_player_server_activity_summary(
     return PlayerServerActivitySummaryPublic(
         steam_id=str(player.steamid64),
         server_id=server_group.custom_id,
-        generated_at=get_datetime_utc(),
+        generated_at=generated_at,
         ratings=ratings,
         activity=PlayerServerActivityPublic(
             first_seen_at=first_seen_at,
@@ -283,7 +293,24 @@ async def read_player_server_activity_summary(
     session: SessionDep,
     server_id: Annotated[str, Path(min_length=1, max_length=25)],
     identifier: Annotated[str, Path(min_length=1)],
-    recent_hours: Annotated[int, Query(ge=1, le=500)] = 50,
+    recent_hours: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=500,
+            description="Record-time window used to calculate recent_playtime.",
+        ),
+    ] = 50,
+    recent_days: Annotated[
+        int | None,
+        Query(
+            ge=1,
+            description=(
+                "Count active_days only within this many days before generated_at. "
+                "Omit for the player's all-time active-day count on the server group."
+            ),
+        ),
+    ] = None,
 ) -> PlayerServerActivitySummaryPublic:
     try:
         normalized_server_id = crud.normalize_custom_id(server_id)
@@ -311,6 +338,7 @@ async def read_player_server_activity_summary(
         player=player,
         server_group=server_group,
         requested_hours=recent_hours,
+        recent_days=recent_days,
     )
 
 

@@ -1259,9 +1259,21 @@ export type PlayersBatchRead = {
 };
 
 export type PlayerServerActivityPublic = {
+    /**
+     * Datetime when the player created their first record on any server.
+     */
     first_seen_at?: (string | null);
+    /**
+     * Datetime when the player created their first record on the target server group.
+     */
     first_server_record_at?: (string | null);
+    /**
+     * Number of unique UTC calendar days on which the player created a record on the target server group, optionally limited by recent_days.
+     */
     active_days?: number;
+    /**
+     * Total record time created by the player across all servers.
+     */
     total_playtime_seconds?: number;
     recent_playtime: PlayerServerRecentPlaytimePublic;
 };
@@ -1281,9 +1293,21 @@ export type PlayerServerActivitySummaryPublic = {
 };
 
 export type PlayerServerRecentPlaytimePublic = {
+    /**
+     * Requested record-time lookback window in hours.
+     */
     requested_hours: number;
+    /**
+     * Record time available in the requested lookback window.
+     */
     window_seconds?: number;
+    /**
+     * Record time in the window created on the target server group.
+     */
     on_server_seconds?: number;
+    /**
+     * Target-server share of record time in the lookback window.
+     */
     ratio?: number;
 };
 
@@ -3435,6 +3459,13 @@ export type ServersReadServerHistoryResponse = (ServerHistoryPublic);
 
 export type ServersReadPlayerServerActivitySummaryData = {
     identifier: string;
+    /**
+     * Count active_days only within this many days before generated_at. Omit for the player's all-time active-day count on the server group.
+     */
+    recentDays?: (number | null);
+    /**
+     * Record-time window used to calculate recent_playtime.
+     */
     recentHours?: number;
     serverId: string;
 };

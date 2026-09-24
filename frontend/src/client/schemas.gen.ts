@@ -6270,7 +6270,8 @@ export const PlayerServerActivityPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'First Seen At'
+            title: 'First Seen At',
+            description: 'Datetime when the player created their first record on any server.'
         },
         first_server_record_at: {
             anyOf: [
@@ -6282,18 +6283,21 @@ export const PlayerServerActivityPublicSchema = {
                     type: 'null'
                 }
             ],
-            title: 'First Server Record At'
+            title: 'First Server Record At',
+            description: 'Datetime when the player created their first record on the target server group.'
         },
         active_days: {
             type: 'integer',
             minimum: 0,
             title: 'Active Days',
+            description: 'Number of unique UTC calendar days on which the player created a record on the target server group, optionally limited by recent_days.',
             default: 0
         },
         total_playtime_seconds: {
             type: 'number',
             minimum: 0,
             title: 'Total Playtime Seconds',
+            description: 'Total record time created by the player across all servers.',
             default: 0
         },
         recent_playtime: {
@@ -6362,18 +6366,21 @@ export const PlayerServerRecentPlaytimePublicSchema = {
         requested_hours: {
             type: 'integer',
             minimum: 1,
-            title: 'Requested Hours'
+            title: 'Requested Hours',
+            description: 'Requested record-time lookback window in hours.'
         },
         window_seconds: {
             type: 'number',
             minimum: 0,
             title: 'Window Seconds',
+            description: 'Record time available in the requested lookback window.',
             default: 0
         },
         on_server_seconds: {
             type: 'number',
             minimum: 0,
             title: 'On Server Seconds',
+            description: 'Record time in the window created on the target server group.',
             default: 0
         },
         ratio: {
@@ -6381,6 +6388,7 @@ export const PlayerServerRecentPlaytimePublicSchema = {
             maximum: 1,
             minimum: 0,
             title: 'Ratio',
+            description: 'Target-server share of record time in the lookback window.',
             default: 0
         }
     },

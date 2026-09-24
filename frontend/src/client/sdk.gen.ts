@@ -4278,7 +4278,8 @@ export class ServersService {
      * @param data The data for the request.
      * @param data.serverId
      * @param data.identifier
-     * @param data.recentHours
+     * @param data.recentHours Record-time window used to calculate recent_playtime.
+     * @param data.recentDays Count active_days only within this many days before generated_at. Omit for the player's all-time active-day count on the server group.
      * @returns PlayerServerActivitySummaryPublic Successful Response
      * @throws ApiError
      */
@@ -4291,7 +4292,8 @@ export class ServersService {
                 identifier: data.identifier
             },
             query: {
-                recent_hours: data.recentHours
+                recent_hours: data.recentHours,
+                recent_days: data.recentDays
             },
             errors: {
                 422: 'Validation Error'
