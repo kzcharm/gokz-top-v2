@@ -190,6 +190,27 @@ async def _count_record_pbs(*, session: AsyncSession, steamid64: int) -> int:
     )
 
 
+async def _rebuild_target_player_record_dates(
+    *,
+    session: AsyncSession,
+    target_steamid64: int,
+) -> None:
+    created_at, last_played_at = (
+        await session.exec(
+            select(
+                func.min(col(Record.created_at)),
+                func.max(col(Record.created_at)),
+            ).where(col(Record.steamid64) == target_steamid64)
+        )
+    ).one()
+    target_player = await session.get(Player, target_steamid64)
+    if target_player is None:
+        raise RuntimeError(f"Player does not exist: {target_steamid64}")
+    target_player.created_at = created_at
+    target_player.last_played_at = last_played_at
+    session.add(target_player)
+
+
 async def _load_source_records(
     *,
     session: AsyncSession,
@@ -427,6 +448,10 @@ async def transfer_records(
                 f"updated={transferred_records} expected={len(records)}"
             )
 
+        await _rebuild_target_player_record_dates(
+            session=session,
+            target_steamid64=target_steamid64,
+        )
         await recompute_record_pbs_for_keys(session=session, keys=pb_keys)
 
         leaderboard_keys = [
