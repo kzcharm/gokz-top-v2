@@ -57,6 +57,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
           path: ${{ env.CHECKOUT_DIRECTORY }}
+          submodules: recursive
 
       - name: Resolve release and deploy SHA
         id: release
