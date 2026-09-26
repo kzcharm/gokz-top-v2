@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import {
   startTransition,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -30,6 +31,7 @@ import {
   MapsService,
   type MapWrPublic,
 } from "@/client"
+import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import {
   TierSelector,
   type TierSelectorValue,
@@ -60,6 +62,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { compareLocaleText, formatNumber } from "@/i18n/locale"
+import {
+  fetchPlayersForDisplay,
+  type GraphqlPlayer,
+} from "@/lib/player-graphql"
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 24
@@ -81,6 +87,7 @@ const MAP_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.created", value: "created" },
   { labelKey: "maps.sortOptions.updated", value: "updated" },
   { labelKey: "maps.sortOptions.wr", value: "wr" },
+  { labelKey: "maps.sortOptions.wrDate", value: "wrDate" },
   { labelKey: "maps.sortOptions.review", value: "review" },
   { labelKey: "maps.sortOptions.metrics", value: "metrics" },
   { labelKey: "maps.sortOptions.bonus", value: "bonus" },
@@ -117,6 +124,7 @@ type SortableSkillKey = Exclude<MapSkillKey, "unknown">
 type MapValidationStatus = "validated" | "invalid"
 
 type MapFilterValues = {
+  mapper: string
   wrMin: string
   wrMax: string
   createdMin: string
@@ -132,6 +140,7 @@ type MapFilterValues = {
 }
 
 const EMPTY_MAP_FILTERS: MapFilterValues = {
+  mapper: "",
   wrMin: "",
   wrMax: "",
   createdMin: "",
@@ -396,6 +405,7 @@ function sortMaps(
   scope: AppScope,
   selectedSkill: SortableSkillKey,
   wrTimeByMapId: ReadonlyMap<number, number>,
+  wrDateByMapId: ReadonlyMap<number, number>,
   leaderboardByMapId: ReadonlyMap<number, MapLeaderboardEntryPublic>,
 ) {
   return [...maps].sort((left, right) => {
@@ -514,6 +524,13 @@ function sortMaps(
           sortDirection,
         )
         break
+      case "wrDate":
+        comparison = compareNullableNumbers(
+          wrDateByMapId.get(left.id),
+          wrDateByMapId.get(right.id),
+          sortDirection,
+        )
+        break
       case "bonus":
         comparison = (left.bonus_count ?? 0) - (right.bonus_count ?? 0)
         break
@@ -574,6 +591,7 @@ function sortMaps(
       sortField === "gameplay" ||
       sortField === "visuals" ||
       sortField === "wr" ||
+      sortField === "wrDate" ||
       sortField === "reviewCount" ||
       sortField === "commentsCount" ||
       sortField === "playtime" ||
@@ -1008,10 +1026,18 @@ export function MapsCatalog() {
       : "validated",
   )
   const [showFilters, setShowFilters] = useState(false)
-  const [mapFilters, setMapFilters] = useState<MapFilterValues>(() => ({
-    ...EMPTY_MAP_FILTERS,
-    ...(persistedState.mapFilters ?? {}),
-  }))
+  const [mapFilters, setMapFilters] = useState<MapFilterValues>(() => {
+    const persistedFilters = persistedState.mapFilters ?? EMPTY_MAP_FILTERS
+    return {
+      ...EMPTY_MAP_FILTERS,
+      ...persistedFilters,
+      mapper:
+        typeof persistedFilters.mapper === "string" &&
+        /^\d{17}$/.test(persistedFilters.mapper)
+          ? persistedFilters.mapper
+          : "",
+    }
+  })
   const [page, setPage] = useState(
     typeof persistedState.page === "number" && persistedState.page >= 1
       ? Math.trunc(persistedState.page)
@@ -1145,6 +1171,46 @@ export function MapsCatalog() {
     [activeMaps],
   )
 
+  const mapperSteamid64s = useMemo(
+    () =>
+      Array.from(
+        new Set((mapsQuery.data ?? []).flatMap((map) => map.authors ?? [])),
+      ).sort(),
+    [mapsQuery.data],
+  )
+  const selectedMapperQuery = useQuery({
+    queryKey: ["maps", "catalog", "selected-mapper", mapFilters.mapper],
+    queryFn: async () =>
+      (await fetchPlayersForDisplay([mapFilters.mapper]))[0] ?? null,
+    enabled:
+      mapFilters.mapper !== "" && mapperSteamid64s.includes(mapFilters.mapper),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
+  const searchMappers = useCallback(
+    async (query: string, limit: number) => {
+      const normalizedQuery = query.trim().toLowerCase()
+      const players = await fetchPlayersForDisplay(mapperSteamid64s)
+
+      return players
+        .filter((player): player is GraphqlPlayer => player !== null)
+        .filter((player) =>
+          [
+            player.steamid64,
+            player.displayName,
+            player.name,
+            player.alias,
+            player.customId,
+          ]
+            .filter((value): value is string => Boolean(value))
+            .some((value) => value.toLowerCase().includes(normalizedQuery)),
+        )
+        .slice(0, limit)
+    },
+    [mapperSteamid64s],
+  )
+
   const wrByMapId = useMemo(() => {
     const nextMap = new Map<number, MapWrPublic>()
     for (const record of wrsQuery.data ?? []) {
@@ -1159,6 +1225,14 @@ export function MapsCatalog() {
     const nextMap = new Map<number, number>()
     for (const [mapId, record] of wrByMapId) {
       nextMap.set(mapId, record.time)
+    }
+    return nextMap
+  }, [wrByMapId])
+
+  const wrDateByMapId = useMemo(() => {
+    const nextMap = new Map<number, number>()
+    for (const [mapId, record] of wrByMapId) {
+      nextMap.set(mapId, Date.parse(record.updated_at))
     }
     return nextMap
   }, [wrByMapId])
@@ -1248,6 +1322,13 @@ export function MapsCatalog() {
       }
 
       if (withBonusOnly && (map.bonus_count ?? 0) <= 0) {
+        return []
+      }
+
+      if (
+        mapFilters.mapper !== "" &&
+        !(map.authors ?? []).includes(mapFilters.mapper)
+      ) {
         return []
       }
 
@@ -1409,6 +1490,7 @@ export function MapsCatalog() {
         scope,
         selectedSkill,
         wrTimeByMapId,
+        wrDateByMapId,
         leaderboardByMapId,
       ),
     [
@@ -1418,6 +1500,7 @@ export function MapsCatalog() {
       sortDirection,
       sortField,
       wrTimeByMapId,
+      wrDateByMapId,
       leaderboardByMapId,
     ],
   )
@@ -1718,6 +1801,20 @@ export function MapsCatalog() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <PlayerSearchSelect
+                  id="maps-filter-mapper"
+                  label={t("maps.filterFields.mapper")}
+                  ariaLabel={t("maps.mapperAria")}
+                  placeholder={t("maps.mapperPlaceholder")}
+                  clearButtonLabel={t("maps.clearMapper")}
+                  searchQueryKey={`map-mappers:${mapperSteamid64s.join(",")}`}
+                  searchPlayers={searchMappers}
+                  selectedPlayer={selectedMapperQuery.data ?? null}
+                  onClearPlayer={() => updateMapFilter("mapper", "")}
+                  onSelectPlayer={(player) =>
+                    updateMapFilter("mapper", player.steamid64)
+                  }
+                />
                 <div className="space-y-2">
                   <Label>{t("maps.filterFields.tier")}</Label>
                   <div className="grid grid-cols-2 gap-2">

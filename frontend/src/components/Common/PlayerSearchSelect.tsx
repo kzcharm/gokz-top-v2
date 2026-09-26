@@ -31,10 +31,15 @@ type PlayerSearchSelectProps = {
   required?: boolean
   resultLimit?: number
   searchQueryKey?: string
+  searchPlayers?: (query: string, limit: number) => Promise<GraphqlPlayer[]>
   showSelectedPlayerDisplay?: boolean
   selectedPlayer: PlayerDisplayPlayer | null
   onClearPlayer: () => void
   onSelectPlayer: (player: GraphqlPlayer) => void
+}
+
+async function searchAllPlayers(query: string, limit: number) {
+  return (await searchPlayersGraphql(query, limit)).data
 }
 
 export function PlayerSearchSelect({
@@ -49,6 +54,7 @@ export function PlayerSearchSelect({
   required = false,
   resultLimit = 8,
   searchQueryKey = "default",
+  searchPlayers = searchAllPlayers,
   showSelectedPlayerDisplay = true,
   selectedPlayer,
   onClearPlayer,
@@ -87,8 +93,7 @@ export function PlayerSearchSelect({
       playerSearchQuery,
     ],
     enabled: playerSearchQuery.length > 0,
-    queryFn: async () =>
-      (await searchPlayersGraphql(playerSearchQuery, resultLimit)).data,
+    queryFn: () => searchPlayers(playerSearchQuery, resultLimit),
     staleTime: 30_000,
   })
 

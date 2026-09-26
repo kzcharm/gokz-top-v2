@@ -1052,6 +1052,9 @@ export const ru = {
     next: "Вперёд",
     searchPlaceholder: "Поиск карт...",
     searchAria: "Искать карты по названию",
+    mapperPlaceholder: "Поиск мапперов...",
+    mapperAria: "Фильтровать карты по мапперу",
+    clearMapper: "Очистить выбранного маппера",
     validated: "Проверенные",
     invalid: "Недействительные",
     validatedStatusAria:
@@ -1069,6 +1072,7 @@ export const ru = {
     invalidNumber: "Введите неотрицательное число.",
     invalidRange: "Минимум не может быть больше максимума.",
     filterFields: {
+      mapper: "Маппер",
       wrTime: "Время WR",
       tier: "Tier",
       createdAt: "Дата создания",
@@ -1151,6 +1155,7 @@ export const ru = {
       created: "Создано",
       updated: "Обновлено",
       wr: "WR",
+      wrDate: "Дата WR",
       review: "Отзыв",
       bonus: "Бонус",
       skill: "Навык",

@@ -500,6 +500,9 @@ test("Maps catalog filters maps with collapsible range controls", async ({
   const maps = [
     {
       ...seededMaps[0],
+      validated: true,
+      authors: ["76561198000000001"],
+      no_steamid_names: ["Alpha Mapper"],
       created_on: "2026-03-01T08:00:00Z",
       review_summary: {
         overall_avg: 5,
@@ -515,6 +518,9 @@ test("Maps catalog filters maps with collapsible range controls", async ({
     },
     {
       ...seededMaps[1],
+      validated: true,
+      authors: ["76561198000000002"],
+      no_steamid_names: ["Omega Mapper"],
       created_on: "2026-03-30T08:00:00Z",
       review_summary: {
         overall_avg: 2.5,
@@ -530,6 +536,9 @@ test("Maps catalog filters maps with collapsible range controls", async ({
     },
     {
       ...seededMaps[2],
+      validated: true,
+      authors: ["76561198000000003"],
+      no_steamid_names: ["Special Mapper"],
       created_on: "2026-03-15T08:00:00Z",
       review_summary: {
         overall_avg: 4.89,
@@ -544,6 +553,50 @@ test("Maps catalog filters maps with collapsible range controls", async ({
       },
     },
   ]
+
+  const mapperPlayers = new Map([
+    ["76561198000000001", "Alpha Mapper"],
+    ["76561198000000002", "Omega Mapper"],
+    ["76561198000000003", "Special Mapper"],
+  ])
+
+  await page.route("**/v1/graphql", async (route) => {
+    const body = route.request().postDataJSON() as {
+      query?: string
+      variables?: { steamid64s?: string[] }
+    }
+    if (!body.query?.includes("query PlayersForDisplay")) {
+      await route.fallback()
+      return
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          players: (body.variables?.steamid64s ?? []).map((steamid64) => {
+            const displayName = mapperPlayers.get(steamid64)
+            return displayName
+              ? {
+                  steamid64,
+                  displayName,
+                  name: displayName,
+                  alias: null,
+                  customId: null,
+                  avatarHash: null,
+                  country: null,
+                  primaryScope: "OVR",
+                  rating: 0,
+                  roles: null,
+                  lastPlayedAt: null,
+                }
+              : null
+          }),
+        },
+      }),
+    })
+  })
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     await route.fulfill({
@@ -645,6 +698,26 @@ test("Maps catalog filters maps with collapsible range controls", async ({
   await expect(
     page.getByRole("combobox", { name: "Maximum map tier" }),
   ).toBeVisible()
+
+  await page
+    .getByRole("textbox", { name: "Filter maps by mapper" })
+    .fill("runner")
+  await expect(page.getByText("No players found.")).toBeVisible()
+  await page
+    .getByRole("textbox", { name: "Filter maps by mapper" })
+    .fill("omega")
+  await page
+    .locator("#maps-filter-panel")
+    .getByText("Omega Mapper", { exact: true })
+    .click()
+  await expect(page.getByText("1 / 3")).toBeVisible()
+  await expect(page.getByTestId("map-card-kz_omega")).toBeVisible()
+  await page.getByRole("button", { name: "Clear Filters" }).click()
+
+  await page.getByRole("button", { name: "WR Date" }).click()
+  await expect(firstMapCard).toHaveAttribute("data-testid", "map-card-kz_alpha")
+  await page.getByRole("button", { name: "WR Date" }).click()
+  await expect(firstMapCard).toHaveAttribute("data-testid", "map-card-kz_omega")
 
   await page.getByRole("textbox", { name: "WR Time Min" }).fill("1:00")
   await page.getByRole("textbox", { name: "WR Time Max" }).fill("75")
