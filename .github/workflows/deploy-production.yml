@@ -57,10 +57,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
           path: ${{ env.CHECKOUT_DIRECTORY }}
-      - name: Checkout replay viewer
-        run: git submodule update --init replay-viewer
-        working-directory: ${{ env.CHECKOUT_DIRECTORY }}
-
       - name: Resolve release and deploy SHA
         id: release
         env:
@@ -276,18 +272,17 @@ jobs:
           EOF
         working-directory: ${{ env.CHECKOUT_DIRECTORY }}
 
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build backend frontend replayviewer
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build backend frontend
         working-directory: ${{ env.CHECKOUT_DIRECTORY }}
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d backend frontend replayviewer map-distributor
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d backend frontend map-distributor
         working-directory: ${{ env.CHECKOUT_DIRECTORY }}
-      - name: Verify production frontend, API, and replay viewer
+      - name: Verify production frontend and API
         run: |
           set -euo pipefail
 
           for _ in $(seq 1 20); do
             if curl -fsS "https://${DOMAIN}" > /dev/null \
               && curl -fsS "https://api.${DOMAIN}/v1/utils/health-check/" > /dev/null \
-              && curl -fsS "https://${REPLAY_VIEWER_HOSTNAME_PRODUCTION:-replays.gokz.top}" > /dev/null \
               && docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
                 curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
               exit 0
