@@ -273,17 +273,18 @@ jobs:
           EOF
         working-directory: ${{ env.CHECKOUT_DIRECTORY }}
 
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build backend frontend
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" build backend frontend replayviewer
         working-directory: ${{ env.CHECKOUT_DIRECTORY }}
-      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d backend frontend map-distributor
+      - run: docker compose -f compose.yml --project-name "${STACK_NAME}" up -d backend frontend replayviewer map-distributor
         working-directory: ${{ env.CHECKOUT_DIRECTORY }}
-      - name: Verify production frontend and API
+      - name: Verify production frontend, API, and replay viewer
         run: |
           set -euo pipefail
 
           for _ in $(seq 1 20); do
             if curl -fsS "https://${DOMAIN}" > /dev/null \
               && curl -fsS "https://api.${DOMAIN}/v1/utils/health-check/" > /dev/null \
+              && curl -fsS "https://${REPLAY_VIEWER_HOSTNAME_PRODUCTION:-replays.gokz.top}" > /dev/null \
               && docker compose -f compose.yml --project-name "${STACK_NAME}" exec -T backend \
                 curl -fsS "http://localhost:8000/v1/utils/health-check/" > /dev/null; then
               exit 0
