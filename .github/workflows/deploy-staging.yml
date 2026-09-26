@@ -98,7 +98,9 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
           path: ${{ env.CHECKOUT_DIRECTORY }}
-          submodules: recursive
+      - name: Checkout replay viewer
+        run: git submodule update --init replay-viewer
+        working-directory: ${{ env.CHECKOUT_DIRECTORY }}
       - name: Resolve app version
         id: version
         run: echo "app_version=$(bash scripts/get-app-version.sh)" >> "${GITHUB_OUTPUT}"

@@ -57,7 +57,9 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
           path: ${{ env.CHECKOUT_DIRECTORY }}
-          submodules: recursive
+      - name: Checkout replay viewer
+        run: git submodule update --init replay-viewer
+        working-directory: ${{ env.CHECKOUT_DIRECTORY }}
 
       - name: Resolve release and deploy SHA
         id: release
