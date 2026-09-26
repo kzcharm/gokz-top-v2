@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-09-22
+- Last Updated: 2026-09-26
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -174,6 +174,7 @@
 - Adminer for DB admin
 - Frontend served by Nginx in production container
 - Replay viewer served by its own Nginx production container at `replays.gokz.top`, with exported map resources mounted read-only from the host instead of copied into git or baked into the image
+- The replay viewer accepts mutually exclusive `replay`, `jump_id`, or public HTTPS `replay_url` deep links. External replay files are downloaded directly by the browser under the provider's CORS policy and still render only against the viewer's host-mounted map resources; there is no server-side external replay proxy.
 
 ## External Integrations
 - Steam OpenID and Steam Web API integration paths exist in backend flows.

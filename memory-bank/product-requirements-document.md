@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-09-20
+- Last Updated: 2026-09-26
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -153,6 +153,7 @@ Scope model:
 - Manual import tooling now supports historical run replay backfills from `.replay` files, directories, `.zip` archives, and `.7z` archives, matching exact player/mode/map/stage/time plus a 24-hour `created_at` window and rejecting ambiguous or non-`NRM` v2 replays.
 - `/v1` record-shaped responses now expose `is_replay_available` so replay visibility is integrated into player and map workflows without changing `/v0` compatibility payloads.
 - Run and jump replay playback opens the standalone replay viewer at `replays.gokz.top`, backed by the `replay-viewer/` submodule and host-mounted exported map resources.
+- External websites can deep-link public HTTPS GOKZ replay files into the standalone viewer with the mutually exclusive `replay_url` query parameter. The browser downloads the replay directly with provider-supplied CORS permission; external map-resource hosts, authenticated URLs, and a backend replay proxy are not supported.
 
 ### 5.7 Auth, Roles, and Settings
 - User auth/session flows and API key support.
