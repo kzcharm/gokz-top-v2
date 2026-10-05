@@ -11,7 +11,9 @@ confirm_action() {
   fi
 
   while true; do
-    read -r -p "$prompt $prompt_suffix " response
+    if ! read -r -p "$prompt $prompt_suffix " response; then
+      return 1
+    fi
     case "$response" in
       [yY]|[yY][eE][sS])
         return 0
@@ -280,7 +282,8 @@ prepare_backend_dev() {
   fi
 
   local container_id=""
-  while IFS= read -r container_id; do
+  # Keep stdin available for confirmation; Docker's output uses a separate fd.
+  while IFS= read -r -u 3 container_id; do
     [[ -z "$container_id" ]] && continue
     if [[ -n "$local_db_container_id" && "$container_id" == "$local_db_container_id" ]]; then
       continue
@@ -297,7 +300,7 @@ prepare_backend_dev() {
     fi
     echo "Stopping container on port 5432: $container_name"
     docker stop --time 20 "$container_id" >/dev/null
-  done < <(docker ps -q --filter "publish=5432")
+  done 3< <(docker ps --no-trunc -q --filter "publish=5432")
 
   local start_db="true"
   if [[ -n "$local_db_container_id" ]]; then

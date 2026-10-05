@@ -76,6 +76,11 @@ database instead when branches have incompatible migrations.
 
 Use `./dev d` to enable backend debug logging. The existing `./devbackend` and `./devfrontend` entry points still work if you only want one side.
 
+If another project's Docker database uses port `5432`, the launcher names the
+container and asks whether to stop it. Answer `y` to stop that container and
+continue starting this project's database. Enter, `n`, or unavailable input
+aborts startup. Stopping the container preserves its database volumes.
+
 When `./dev` or `./devbackend` starts, it checks whether the local database is behind the Alembic migrations in the working tree. If migrations are pending, it asks whether to upgrade to the latest revision; pressing Enter accepts the default (yes). Answer `n` to continue without upgrading.
 
 For example, you can stop that `frontend` service in the Docker Compose, in another terminal, run:
