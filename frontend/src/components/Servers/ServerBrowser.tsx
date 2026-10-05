@@ -22,6 +22,7 @@ import {
 } from "react"
 
 import { MapsService, type ServerPublic, ServersService } from "@/client"
+import { CountryFlag } from "@/components/Common/CountryFlag"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { AddServerButton } from "@/components/Servers/AddServerButton"
 import { PendingServers } from "@/components/Servers/PendingServers"
@@ -62,6 +63,7 @@ import {
   getSelectedServerAddress,
   getSelectedServerGroupCustomId,
   getServerAddress,
+  getServerBrowserRegion,
   getServerGroupCounts,
   getServerMapName,
   matchesServerGroupFilter,
@@ -398,7 +400,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
       if (
         activeSearch.region !== "all" &&
-        server.region?.toUpperCase() !== activeSearch.region
+        getServerBrowserRegion(server) !== activeSearch.region
       ) {
         return false
       }
@@ -512,7 +514,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
             (server) =>
               matchesServerStatusFilter(server, activeSearch.status) &&
               matchesServerGroupFilter(server, nextGroup) &&
-              server.region?.toUpperCase() === activeSearch.region,
+              getServerBrowserRegion(server) === activeSearch.region,
           )
 
     if (activeSearch.group !== "all" && nextGroup !== activeSearch.group) {
@@ -582,7 +584,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         (server) =>
           matchesServerStatusFilter(server, activeSearch.status) &&
           matchesServerGroupFilter(server, nextGroup) &&
-          server.region?.toUpperCase() === activeSearch.region,
+          getServerBrowserRegion(server) === activeSearch.region,
       )
 
       if (!groupHasSelectedRegion) {
@@ -865,10 +867,20 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                         onClick={() => handleRegionChange(regionCode)}
                       >
                         <div className="flex items-center gap-2 whitespace-nowrap">
-                          <RegionBadge
-                            regionCode={regionCode}
-                            regionName={region?.name}
-                          />
+                          {regionCode === "RU" ? (
+                            <span className="flex min-w-0 items-center gap-2">
+                              <CountryFlag
+                                countryCode="RU"
+                                showTooltip={false}
+                              />
+                              <span className="truncate">{regionCode}</span>
+                            </span>
+                          ) : (
+                            <RegionBadge
+                              regionCode={regionCode}
+                              regionName={region?.name}
+                            />
+                          )}
                           <span className="text-xs opacity-80">
                             ({regionCounts.playerCount})
                           </span>

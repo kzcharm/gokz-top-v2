@@ -1329,3 +1329,58 @@ test("Logged-in users can add a server from the servers page", async ({
   await expect(page.getByTestId("server-card-10.0.0.4:27018")).toBeVisible()
   await expect(page.getByText("Delta Added")).toBeVisible()
 })
+
+test("Russian servers have an RU filter separate from other CIS servers", async ({
+  page,
+}) => {
+  await page.routeWebSocket("**/v1/ws/servers", () => {})
+  await stubMapImageGraphql(page)
+  const russianServer = {
+    ...seedServers.data[0],
+    id: "019d4444-4444-7444-8444-444444444444",
+    ip: "10.0.0.4",
+    region: "CIS",
+    country: "RU",
+    city: "Moscow",
+  }
+  const otherCisServer = {
+    ...russianServer,
+    id: "019d5555-5555-7555-8555-555555555555",
+    ip: "10.0.0.5",
+    country: "KZ",
+    city: "Almaty",
+    live_status: { ...russianServer.live_status, player_count: 3 },
+  }
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        count: 3,
+        data: [...seedServers.data, russianServer, otherCisServer],
+      },
+    })
+  })
+  await page.goto("/servers")
+  const ruFilter = page.getByRole("button", { name: /RU \(5\)/ })
+  const cisFilter = page.getByRole("button", { name: /CIS \(3\)/ })
+  await expect(
+    ruFilter.getByRole("img", { name: "Russia", exact: true }),
+  ).toBeVisible()
+  await expect(cisFilter.locator("img")).toHaveAttribute(
+    "src",
+    /Flag_of_the_CIS/,
+  )
+  await page.screenshot({ path: "../.temp/screenshots/servers-ru-flag.png" })
+  await ruFilter.click()
+  await expect(page.getByTestId("server-card-10.0.0.4:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.5:27015")).toHaveCount(0)
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByTestId("server-card-10.0.0.4:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.5:27015")).toHaveCount(0)
+  await cisFilter.click()
+  await expect(page.getByTestId("server-card-10.0.0.5:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.4:27015")).toHaveCount(0)
+  await cisFilter.click()
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.4:27015")).toBeVisible()
+})

@@ -480,6 +480,13 @@ export function countOnlinePlayers(servers: ServerPublic[]) {
   }, 0)
 }
 
+// The server browser separates Russia from the broader CIS region.
+export function getServerBrowserRegion(server: ServerPublic) {
+  return server.country?.toUpperCase() === "RU"
+    ? "RU"
+    : server.region?.toUpperCase()
+}
+
 export function getRegionCounts(
   servers: ServerPublic[],
   statusFilter: ServerStatusFilter,
@@ -491,7 +498,7 @@ export function getRegionCounts(
       continue
     }
 
-    const region = server.region?.toUpperCase()
+    const region = getServerBrowserRegion(server)
     if (!region) {
       continue
     }
