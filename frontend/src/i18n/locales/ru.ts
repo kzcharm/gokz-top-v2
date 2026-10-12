@@ -1097,7 +1097,8 @@ export const ru = {
     withBonus: "С бонусами",
     withBonusAria: "Показать только карты с бонусами",
     downloadDialog: {
-      button: "Скачать",
+      button: "Скрипт",
+      packageButton: "Архив",
       title: "Скачать карты",
       description: "Скачать или обновить карты одной командой.",
       linuxLabel: "Linux / MacOS",

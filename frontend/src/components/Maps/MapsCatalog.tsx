@@ -62,6 +62,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { compareLocaleText, formatNumber } from "@/i18n/locale"
+import { getMapPackageDownloadUrl } from "@/lib/map-downloads"
 import {
   fetchPlayersForDisplay,
   type GraphqlPlayer,
@@ -1100,6 +1101,7 @@ export function MapsCatalog() {
     () => (mapsQuery.data ?? []).filter((map) => map.validated),
     [mapsQuery.data],
   )
+  const packageDownloadUrl = getMapPackageDownloadUrl(mapsQuery.data ?? [])
   const invalidMaps = useMemo(
     () => (mapsQuery.data ?? []).filter((map) => !map.validated),
     [mapsQuery.data],
@@ -1753,6 +1755,19 @@ export function MapsCatalog() {
             <div className="flex flex-wrap items-center gap-2">
               <MapsAutoUpdateDialog />
               <MapsDownloadDialog />
+              {packageDownloadUrl ? (
+                <Button asChild variant="outline" className="gap-2">
+                  <a href={packageDownloadUrl}>
+                    <Download className="size-4" aria-hidden="true" />
+                    {t("maps.downloadDialog.packageButton")}
+                  </a>
+                </Button>
+              ) : (
+                <Button variant="outline" className="gap-2" disabled>
+                  <Download className="size-4" aria-hidden="true" />
+                  {t("maps.downloadDialog.packageButton")}
+                </Button>
+              )}
             </div>
           </div>
 

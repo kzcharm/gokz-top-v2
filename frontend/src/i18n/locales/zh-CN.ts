@@ -1055,7 +1055,8 @@ export const zhCN = {
     withBonus: "含奖励关",
     withBonusAria: "只显示含 Bonus 的地图",
     downloadDialog: {
-      button: "下载",
+      button: "脚本",
+      packageButton: "压缩包",
       title: "下载地图",
       description: "一键下载/更新地图。",
       linuxLabel: "Linux / MacOS",

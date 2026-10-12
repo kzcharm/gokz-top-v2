@@ -1,5 +1,20 @@
 import type { MapPublic } from "@/client"
 
+export function getMapPackageDownloadUrl(
+  maps: Pick<MapPublic, "download_url">[],
+) {
+  const downloadUrls = [
+    ...maps.map((map) => map.download_url),
+    getConfiguredLocalMapDownloadUrl(),
+  ]
+  for (const downloadUrl of downloadUrls) {
+    if (downloadUrl?.includes("/maps/")) {
+      return `${downloadUrl.split("/maps/", 1)[0]}/packages/GlobalMaps.7z`
+    }
+  }
+  return null
+}
+
 function getConfiguredLocalMapDownloadUrl() {
   const configuredUrl = import.meta.env.VITE_LOCAL_MAP_DOWNLOAD_URL?.trim()
   if (!import.meta.env.DEV || !configuredUrl) {

@@ -311,7 +311,12 @@ test("Maps catalog shows manual and automatic map updater commands", async ({
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(seededMaps),
+      body: JSON.stringify(
+        seededMaps.map((map) => ({
+          ...map,
+          download_url: `https://maps.example/maps/${map.name}.bsp`,
+        })),
+      ),
     })
   })
 
@@ -325,8 +330,11 @@ test("Maps catalog shows manual and automatic map updater commands", async ({
 
   await page.goto("/maps")
 
-  await expect(page.getByText("30 / 30")).toBeVisible()
-  await page.getByRole("button", { name: "Download", exact: true }).click()
+  await expect(page.getByText("15 / 15")).toBeVisible()
+  await expect(
+    page.getByRole("link", { name: "Package", exact: true }),
+  ).toHaveAttribute("href", "https://maps.example/packages/GlobalMaps.7z")
+  await page.getByRole("button", { name: "Script", exact: true }).click()
   await expect(
     page.getByRole("dialog", { name: "Download Maps" }),
   ).toBeVisible()

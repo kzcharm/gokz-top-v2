@@ -1081,7 +1081,8 @@ export const en = {
     withBonus: "With Bonus",
     withBonusAria: "Show only maps with bonuses",
     downloadDialog: {
-      button: "Download",
+      button: "Script",
+      packageButton: "Package",
       title: "Download Maps",
       description: "Download or update maps with one command.",
       linuxLabel: "Linux / MacOS",
