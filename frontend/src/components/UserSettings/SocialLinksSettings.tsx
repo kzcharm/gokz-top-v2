@@ -39,6 +39,7 @@ import {
 import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
+import useDiscordConnection from "@/hooks/useDiscordConnection"
 import {
   detectSocialPlatformFromUrl,
   getSocialPlatformLabel,
@@ -439,7 +440,7 @@ function SocialLinkRow({
             <Info className="size-4" />
           </Button>
         ) : null}
-        {link.verified ? (
+        {link.verified && link.platform !== "discord" ? (
           <Tooltip delayDuration={500}>
             <TooltipTrigger asChild>
               <span className="inline-flex">
@@ -485,15 +486,17 @@ function SocialLinkRow({
             </Tooltip>
           )
         ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => onEdit(link)}
-          aria-label={`Edit ${platformLabel} link`}
-        >
-          <Pencil className="size-4" />
-        </Button>
+        {link.platform !== "discord" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(link)}
+            aria-label={`Edit ${platformLabel} link`}
+          >
+            <Pencil className="size-4" />
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -549,6 +552,7 @@ export default function SocialLinksSettings() {
   const links = data?.data ?? []
   const bilibiliLinked = links.some((link) => link.platform === "bilibili")
   const twitchLinked = links.some((link) => link.platform === "twitch")
+  const discordLinked = links.some((link) => link.platform === "discord")
   const youtubeLinked = links.some((link) => link.platform === "youtube")
 
   const refreshLinks = useCallback(() => {
@@ -557,6 +561,12 @@ export default function SocialLinksSettings() {
       queryKey: ["profile-player"],
     })
   }, [queryClient, queryKey])
+
+  const onDiscordLinked = useCallback(() => {
+    setDialogState(null)
+    refreshLinks()
+  }, [refreshLinks])
+  const discordConnection = useDiscordConnection(onDiscordLinked)
 
   const handleTwitchVerificationResult = useCallback(
     (result: TwitchVerificationMessage) => {
@@ -1164,6 +1174,7 @@ export default function SocialLinksSettings() {
       ? socialPlatformConfig[detectedPlatform].placeholder
       : "https://x.com/username"
   const pending =
+    discordConnection.isPending ||
     createMutation.isPending ||
     updateMutation.isPending ||
     deleteMutation.isPending ||
@@ -1348,29 +1359,36 @@ export default function SocialLinksSettings() {
                 <p className="text-sm font-medium">Quick link</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {socialPlatformOrder.map((platform) => {
+                    const isDiscord = platform === "discord"
                     const isTwitch = platform === "twitch"
                     const isBilibili = platform === "bilibili"
                     const isYoutube = platform === "youtube"
-                    const disabled = isTwitch
-                      ? twitchLinked
-                      : isBilibili
-                        ? bilibiliLinked
-                        : isYoutube
-                          ? youtubeLinked
-                          : true
-                    const label = isTwitch
-                      ? twitchLinked
-                        ? "Twitch already linked"
-                        : "Link with Twitch"
-                      : isBilibili
-                        ? bilibiliLinked
-                          ? "Bilibili already linked"
-                          : "Add and verify with your Bilibili profile URL"
-                        : isYoutube
-                          ? youtubeLinked
-                            ? "YouTube already linked"
-                            : "Link with YouTube"
-                          : `${getSocialPlatformLabel(platform)} coming soon`
+                    const disabled = isDiscord
+                      ? discordLinked || discordConnection.isPending
+                      : isTwitch
+                        ? twitchLinked
+                        : isBilibili
+                          ? bilibiliLinked
+                          : isYoutube
+                            ? youtubeLinked
+                            : true
+                    const label = isDiscord
+                      ? discordLinked
+                        ? "Discord already linked"
+                        : "Link with Discord"
+                      : isTwitch
+                        ? twitchLinked
+                          ? "Twitch already linked"
+                          : "Link with Twitch"
+                        : isBilibili
+                          ? bilibiliLinked
+                            ? "Bilibili already linked"
+                            : "Add and verify with your Bilibili profile URL"
+                          : isYoutube
+                            ? youtubeLinked
+                              ? "YouTube already linked"
+                              : "Link with YouTube"
+                            : `${getSocialPlatformLabel(platform)} coming soon`
 
                     return (
                       <Tooltip key={platform}>
@@ -1382,6 +1400,10 @@ export default function SocialLinksSettings() {
                               className="w-full justify-start"
                               disabled={disabled}
                               onClick={() => {
+                                if (isDiscord && !discordLinked) {
+                                  discordConnection.connect()
+                                  return
+                                }
                                 if (isTwitch && !twitchLinked) {
                                   launchTwitchLogin()
                                   return

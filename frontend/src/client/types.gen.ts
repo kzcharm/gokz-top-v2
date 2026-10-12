@@ -1430,7 +1430,7 @@ export type PlayerSocialLinkVerifyConfirm = {
     pending_token: string;
 };
 
-export type PlayerSocialPlatform = 'bilibili' | 'github' | 'twitch' | 'x' | 'youtube';
+export type PlayerSocialPlatform = 'bilibili' | 'discord' | 'github' | 'twitch' | 'x' | 'youtube';
 
 export type PlayersPublic = {
     data: Array<PlayerPublic>;
@@ -3089,6 +3089,10 @@ export type PlayerSessionsDisconnectPlayerSessionData = {
 };
 
 export type PlayerSessionsDisconnectPlayerSessionResponse = (PlayerSessionPublic);
+
+export type PlayerSocialLinksStartDiscordConnectionResponse = ({
+    [key: string]: (string);
+});
 
 export type PlayerSocialLinksReadPlayerSocialLinksData = {
     identifier: string;

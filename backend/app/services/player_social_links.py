@@ -6,6 +6,7 @@ from app.models import PlayerSocialPlatform
 
 SOCIAL_PLATFORM_ORDER = (
     PlayerSocialPlatform.BILIBILI,
+    PlayerSocialPlatform.DISCORD,
     PlayerSocialPlatform.GITHUB,
     PlayerSocialPlatform.TWITCH,
     PlayerSocialPlatform.X,
@@ -37,6 +38,19 @@ def parse_player_social_link_url(url: str) -> ParsedPlayerSocialLink | None:
 
     path_segments = [segment for segment in parsed.path.split("/") if segment]
     if not path_segments:
+        return None
+
+    if host == "discord.com":
+        if (
+            len(path_segments) == 2
+            and path_segments[0] == "users"
+            and re.fullmatch(r"[1-9][0-9]{0,19}", path_segments[1])
+            and int(path_segments[1]) < 2**64
+        ):
+            return ParsedPlayerSocialLink(
+                platform=PlayerSocialPlatform.DISCORD,
+                account_identifier=path_segments[1],
+            )
         return None
 
     if host in {"x.com", "twitter.com"}:
@@ -83,6 +97,8 @@ def build_player_social_link_url(
 ) -> str:
     if platform == PlayerSocialPlatform.BILIBILI:
         return f"https://space.bilibili.com/{account_identifier}"
+    if platform == PlayerSocialPlatform.DISCORD:
+        return f"https://discord.com/users/{account_identifier}"
     if platform == PlayerSocialPlatform.GITHUB:
         return f"https://github.com/{account_identifier}"
     if platform == PlayerSocialPlatform.TWITCH:

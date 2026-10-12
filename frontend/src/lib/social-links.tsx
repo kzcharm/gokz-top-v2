@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react"
-import { FaGithub, FaTwitch, FaYoutube } from "react-icons/fa"
+import { FaDiscord, FaGithub, FaTwitch, FaYoutube } from "react-icons/fa"
 import { FaXTwitter } from "react-icons/fa6"
 import { SiBilibili } from "react-icons/si"
 
@@ -15,6 +15,7 @@ type SocialPlatformConfig = {
 
 export const socialPlatformOrder: PlayerSocialPlatform[] = [
   "bilibili",
+  "discord",
   "github",
   "twitch",
   "x",
@@ -29,6 +30,11 @@ export const socialPlatformConfig: Record<
     icon: SiBilibili,
     label: "Bilibili",
     placeholder: "https://space.bilibili.com/123456",
+  },
+  discord: {
+    icon: FaDiscord,
+    label: "Discord",
+    placeholder: "https://discord.com/users/123456789012345678",
   },
   github: {
     icon: FaGithub,

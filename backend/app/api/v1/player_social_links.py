@@ -41,6 +41,7 @@ from app.services.bilibili_social_link_verification import (
     is_uuid_profile_text,
     verify_bilibili_profile_contains_code,
 )
+from app.services.player_social_links import parse_player_social_link_url
 from app.services.twitch_social_link_verification import (
     build_twitch_authorization_url,
     build_twitch_verification_error_return_url,
@@ -98,6 +99,13 @@ async def create_player_social_link(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> PlayerSocialLinksPublic:
+    if (
+        parsed := parse_player_social_link_url(body.url)
+    ) and parsed.platform == PlayerSocialPlatform.DISCORD:
+        raise HTTPException(
+            status_code=422, detail="Use OAuth to link your Discord account"
+        )
+
     try:
         await crud.create_player_social_link(
             session=session,
@@ -134,6 +142,16 @@ async def update_player_social_link(
         current_user=current_user,
         target_steamid64=link.player_steamid64,
     )
+
+    if body.url is not None:
+        parsed = parse_player_social_link_url(body.url)
+        if link.platform == PlayerSocialPlatform.DISCORD or (
+            parsed and parsed.platform == PlayerSocialPlatform.DISCORD
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Remove your Discord link before linking another account",
+            )
 
     try:
         await crud.update_player_social_link(

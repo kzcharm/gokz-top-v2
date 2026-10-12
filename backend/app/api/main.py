@@ -12,6 +12,7 @@ from app.api.v1 import (
     admin_tournaments,
     app_settings,
     bans,
+    discord_social_links,
     graphql,
     jumpstats,
     leaderboards,
@@ -63,6 +64,7 @@ api_router.include_router(me_notifications.router)
 api_router.include_router(player_follows.router)
 api_router.include_router(player_reports.router)
 api_router.include_router(polls.router)
+api_router.include_router(discord_social_links.router)
 api_router.include_router(player_social_links.router)
 api_router.include_router(player_social_links.verification_router)
 api_router.include_router(graphql.router)

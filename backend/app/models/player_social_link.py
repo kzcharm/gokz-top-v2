@@ -14,6 +14,7 @@ from .utils import generate_uuid7, get_datetime_utc
 
 class PlayerSocialPlatform(StrEnum):
     BILIBILI = "bilibili"
+    DISCORD = "discord"
     GITHUB = "github"
     TWITCH = "twitch"
     X = "x"

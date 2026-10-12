@@ -6960,7 +6960,7 @@ export const PlayerSocialLinksPublicSchema = {
 
 export const PlayerSocialPlatformSchema = {
     type: 'string',
-    enum: ['bilibili', 'github', 'twitch', 'x', 'youtube'],
+    enum: ['bilibili', 'discord', 'github', 'twitch', 'x', 'youtube'],
     title: 'PlayerSocialPlatform'
 } as const;
 

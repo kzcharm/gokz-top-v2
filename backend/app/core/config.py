@@ -163,6 +163,8 @@ class Settings(BaseSettings):
     MAP_DISTRIBUTION_HOUR_UTC: int = 3
     STEAMCMD_PATH: str = "steamcmd"
     SEVENZIP_PATH: str = "7z"
+    DISCORD_CLIENT_ID: str | None = None
+    DISCORD_CLIENT_SECRET: str | None = None
     TWITCH_CLIENT_ID: str | None = None
     TWITCH_CLIENT_SECRET: str | None = None
     YOUTUBE_CLIENT_ID: str | None = None
