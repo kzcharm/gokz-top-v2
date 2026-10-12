@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { redirectToSteamLogin } from "@/lib/auth"
 import { getInitials } from "@/utils"
 
 interface UserInfoProps {
@@ -96,13 +97,14 @@ export function User({ user }: { user: any }) {
           <SidebarMenuButton
             size="lg"
             tooltip={t("auth.login")}
-            asChild
             data-testid="sidebar-login-button"
+            onClick={() => {
+              handleMenuClick()
+              redirectToSteamLogin()
+            }}
           >
-            <RouterLink to="/login" onClick={handleMenuClick}>
-              <LogIn />
-              <span>{t("auth.login")}</span>
-            </RouterLink>
+            <LogIn />
+            <span>{t("auth.login")}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

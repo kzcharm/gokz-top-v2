@@ -35,12 +35,23 @@ export function getSteamid64FromAccessToken(token: string | null) {
   }
 }
 
+function isAuthReturnTo(value: string | null): value is string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return false
+  }
+  const url = new URL(value, window.location.origin)
+  const pathname = url.pathname.replace(/\/+$/, "")
+  return (
+    url.origin === window.location.origin &&
+    pathname !== "/login" &&
+    !pathname.startsWith("/auth/callback")
+  )
+}
+
 export function getStoredAuthReturnTo(fallback = "/") {
   const value = sessionStorage.getItem(AUTH_RETURN_TO_KEY)
   sessionStorage.removeItem(AUTH_RETURN_TO_KEY)
-  if (!value || !value.startsWith("/") || value.startsWith("//"))
-    return fallback
-  if (value.startsWith("/auth/callback")) return fallback
+  if (!isAuthReturnTo(value)) return fallback
   if (value === "/" && fallback !== "/") return fallback
   return value
 }
@@ -56,8 +67,10 @@ export function redirectToSteamLogin({
   const destination =
     returnTo ??
     `${window.location.pathname}${window.location.search}${window.location.hash}`
-  if (destination.startsWith("/") && !destination.startsWith("//")) {
+  if (isAuthReturnTo(destination)) {
     sessionStorage.setItem(AUTH_RETURN_TO_KEY, destination)
+  } else {
+    sessionStorage.removeItem(AUTH_RETURN_TO_KEY)
   }
 
   if (replace) {
