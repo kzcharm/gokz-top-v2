@@ -635,6 +635,7 @@ export const zhCN = {
     },
     activity: {
       title: "活动",
+      daysPlayed: "{{count}} 天 {{percentage}}",
       latest: "近期",
       latestRange: "最近 365 天",
       loadFailed: "当前无法加载每日活动。",

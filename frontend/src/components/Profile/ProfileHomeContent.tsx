@@ -356,9 +356,12 @@ function buildActivityCalendar({
   )
 
   return {
+    totalDays:
+      Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1,
     monthLabels: spacedMonthLabels,
     weeks,
-    hasActivity: Array.from(countsByDate.values()).some((count) => count > 0),
+    daysPlayed: Array.from(countsByDate.values()).filter((count) => count > 0)
+      .length,
   }
 }
 
@@ -394,28 +397,18 @@ function ActivityCard({
     )
   }, [yearViewIds])
 
-  const { hasActivity, monthLabels, weeks, emptyStateLabel, rangeKey } =
-    useMemo(() => {
-      if (activeView === ROLLING_ACTIVITY_WINDOW_ID) {
-        const end = getCurrentUtcDate()
-        const start = new Date(end)
-        start.setUTCDate(start.getUTCDate() - 364)
-
-        return {
-          ...buildActivityCalendar({
-            days: allDays,
-            start,
-            end,
-            locale,
-          }),
-          emptyStateLabel: t("profile.activity.latestRange"),
-          rangeKey: ROLLING_ACTIVITY_WINDOW_ID,
-        }
-      }
-
-      const selectedYear = Number(activeView)
-      const start = new Date(Date.UTC(selectedYear, 0, 1))
-      const end = new Date(Date.UTC(selectedYear, 11, 31))
+  const {
+    daysPlayed,
+    totalDays,
+    monthLabels,
+    weeks,
+    emptyStateLabel,
+    rangeKey,
+  } = useMemo(() => {
+    if (activeView === ROLLING_ACTIVITY_WINDOW_ID) {
+      const end = getCurrentUtcDate()
+      const start = new Date(end)
+      start.setUTCDate(start.getUTCDate() - 364)
 
       return {
         ...buildActivityCalendar({
@@ -424,10 +417,26 @@ function ActivityCard({
           end,
           locale,
         }),
-        emptyStateLabel: activeView,
-        rangeKey: activeView,
+        emptyStateLabel: t("profile.activity.latestRange"),
+        rangeKey: ROLLING_ACTIVITY_WINDOW_ID,
       }
-    }, [activeView, allDays, locale, t])
+    }
+
+    const selectedYear = Number(activeView)
+    const start = new Date(Date.UTC(selectedYear, 0, 1))
+    const end = new Date(Date.UTC(selectedYear, 11, 31))
+
+    return {
+      ...buildActivityCalendar({
+        days: allDays,
+        start,
+        end,
+        locale,
+      }),
+      emptyStateLabel: activeView,
+      rangeKey: activeView,
+    }
+  }, [activeView, allDays, locale, t])
 
   if (activityLoading) {
     return (
@@ -452,11 +461,9 @@ function ActivityCard({
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
       <CardContent className="space-y-5 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {t("profile.activity.title")}
-            </p>
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            {t("profile.activity.title")}
+          </p>
           <ProfileDurationControls
             activeViewId={activeView}
             defaultYearId={defaultYearId}
@@ -560,24 +567,41 @@ function ActivityCard({
           </div>
         </div>
 
-        {!activityError && !hasActivity ? (
+        {!activityError && daysPlayed === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("profile.activity.emptyState", { range: emptyStateLabel })}
           </p>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-          <span>{t("profile.activity.less")}</span>
-          {activityToneClasses.map((tone, index) => (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {!activityError ? (
             <span
-              key={index}
-              className={cn(
-                "h-2.5 w-2.5 rounded-[2px] border border-[rgba(27,31,35,0.06)] dark:border-[#1b1f23]",
-                tone,
-              )}
-            />
-          ))}
-          <span>{t("profile.activity.more")}</span>
+              className="text-sm tabular-nums text-muted-foreground"
+              data-testid="profile-activity-days-played"
+            >
+              {t("profile.activity.daysPlayed", {
+                count: daysPlayed,
+                percentage: new Intl.NumberFormat(locale, {
+                  style: "percent",
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                }).format(daysPlayed / totalDays),
+              })}
+            </span>
+          ) : null}
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{t("profile.activity.less")}</span>
+            {activityToneClasses.map((tone, index) => (
+              <span
+                key={index}
+                className={cn(
+                  "h-2.5 w-2.5 rounded-[2px] border border-[rgba(27,31,35,0.06)] dark:border-[#1b1f23]",
+                  tone,
+                )}
+              />
+            ))}
+            <span>{t("profile.activity.more")}</span>
+          </div>
         </div>
       </CardContent>
     </Card>

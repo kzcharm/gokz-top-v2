@@ -657,6 +657,10 @@ export const ru = {
     },
     activity: {
       title: "Активность",
+      daysPlayed_one: "{{count}} день {{percentage}}",
+      daysPlayed_few: "{{count}} дня {{percentage}}",
+      daysPlayed_many: "{{count}} дней {{percentage}}",
+      daysPlayed_other: "{{count}} дня {{percentage}}",
       latest: "Недавнее",
       latestRange: "последние 365 дней",
       loadFailed: "Сейчас не удаётся загрузить дневную активность.",

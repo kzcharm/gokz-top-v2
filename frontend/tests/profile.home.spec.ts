@@ -522,6 +522,54 @@ async function installProfileHomeRoutes(
   }
 }
 
+test("Profile activity counts days played within the selected period", async ({
+  page,
+}, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-04-03T12:00:00Z"))
+  await installProfileHomeRoutes(page, {
+    stats: {
+      ...playerStats,
+      daily_activity: {
+        ...playerStats.daily_activity,
+        days: [
+          ...playerStats.daily_activity.days,
+          { date: "2026-04-02", count: 0 },
+        ],
+      },
+    },
+  })
+  await page.goto(`/profile/${steamid64}`)
+
+  await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
+    "4 days 1.1%",
+  )
+  await page.getByTestId("profile-activity-year-input").fill("2026")
+  await page.getByTestId("profile-activity-year-input").press("Enter")
+  await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
+    "3 days 0.8%",
+  )
+
+  await page.getByTestId("profile-activity-previous-year").click()
+  await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
+    "1 day 0.3%",
+  )
+  await page.getByTestId("profile-activity-view-last-365-days").click()
+  await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
+    "4 days 1.1%",
+  )
+  const activityCard = page
+    .getByTestId("profile-activity-days-played")
+    .locator("xpath=ancestor::*[@data-slot='card'][1]")
+  await activityCard.screenshot({
+    path: testInfo.outputPath("activity-desktop.png"),
+  })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await expect(page.getByTestId("profile-activity-days-played")).toBeVisible()
+  await activityCard.screenshot({
+    path: testInfo.outputPath("activity-mobile.png"),
+  })
+})
+
 test("Profile home renders live pinned records with points badges and absolute dates", async ({
   page,
 }) => {
@@ -650,6 +698,9 @@ test("Profile home activity card shows empty-year message for players without ac
   await expect(
     page.getByText("No record submissions found in the latest 365 days."),
   ).toBeVisible()
+  await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
+    "0 days 0.0%",
+  )
   await expect(
     page.getByTestId(/profile-activity-cell-.+/).first(),
   ).toHaveAttribute("data-activity-level", "0")

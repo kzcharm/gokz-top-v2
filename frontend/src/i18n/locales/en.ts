@@ -650,6 +650,8 @@ export const en = {
     },
     activity: {
       title: "Activity",
+      daysPlayed_one: "{{count}} day {{percentage}}",
+      daysPlayed_other: "{{count}} days {{percentage}}",
       latest: "Recent",
       latestRange: "the latest 365 days",
       loadFailed: "Unable to load daily activity right now.",
