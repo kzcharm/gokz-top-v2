@@ -642,8 +642,8 @@ export const zhCN = {
       emptyState: "{{range}} 内没有记录提交。",
       less: "少",
       more: "多",
-      cellTooltip_one: "{{date}} UTC：{{count}} 条记录",
-      cellTooltip_other: "{{date}} UTC：{{count}} 条记录",
+      cellTooltip_one: "{{date}}：{{count}} 条记录",
+      cellTooltip_other: "{{date}}：{{count}} 条记录",
     },
     duration: {
       previousYear: "跳到上一年",

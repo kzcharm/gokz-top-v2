@@ -522,6 +522,47 @@ async function installProfileHomeRoutes(
   }
 }
 
+for (const timezoneId of ["America/Los_Angeles", "Pacific/Kiritimati"]) {
+  test.describe(`Profile activity tooltips in ${timezoneId}`, () => {
+    test.use({ timezoneId })
+
+    for (const { preset, date, emptyDate } of [
+      { preset: "iso", date: "2026-03-31", emptyDate: "2026-04-01" },
+      { preset: "us", date: "03/31/2026", emptyDate: "04/01/2026" },
+      { preset: "euro", date: "31/03/2026", emptyDate: "01/04/2026" },
+      { preset: "long", date: "March 31, 2026", emptyDate: "April 1, 2026" },
+    ]) {
+      test(`uses the ${preset} preference and retains record counts`, async ({
+        page,
+      }, testInfo) => {
+        await page.clock.setFixedTime(new Date("2026-04-03T12:00:00Z"))
+        await page.addInitScript((value) => {
+          localStorage.setItem("gokz-datetime-format", value)
+        }, preset)
+        await installProfileHomeRoutes(page)
+        await page.goto(`/profile/${steamid64}`)
+        await expect(page.getByText("kz_alpha")).toBeVisible()
+
+        const tooltip = page.locator(
+          '[role="tooltip"]:not([data-state="closed"])',
+        )
+        await page.getByTestId("profile-activity-cell-2026-03-31").hover()
+        await expect(tooltip).toHaveText(`4 records on ${date}`)
+        if (preset === "euro") {
+          await page.screenshot({
+            path: testInfo.outputPath("activity-tooltip.png"),
+          })
+        }
+
+        await page.getByTestId("profile-activity-cell-2026-04-01").hover()
+        await expect(tooltip).toHaveText(`0 records on ${emptyDate}`)
+        await page.getByTestId("profile-activity-cell-2026-01-01").hover()
+        await expect(tooltip).toContainText("1 record on ")
+      })
+    }
+  })
+}
+
 test("Profile activity counts days played within the selected period", async ({
   page,
 }, testInfo) => {

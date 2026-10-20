@@ -667,8 +667,8 @@ export const ru = {
       emptyState: "В период {{range}} не найдено отправленных рекордов.",
       less: "Меньше",
       more: "Больше",
-      cellTooltip_one: "{{count}} рекорд {{date}} UTC",
-      cellTooltip_other: "{{count}} рекордов {{date}} UTC",
+      cellTooltip_one: "{{count}} рекорд {{date}}",
+      cellTooltip_other: "{{count}} рекордов {{date}}",
     },
     duration: {
       previousYear: "Перейти к предыдущему году",

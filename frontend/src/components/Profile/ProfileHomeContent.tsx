@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import type { PlayerDailyActivityPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { TROPHY_ASSETS } from "@/components/Common/trophy-assets"
+import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { StageBadge } from "@/components/Records/StageBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
@@ -214,15 +215,6 @@ function getWeekdayLabels(locale: string) {
   )
 }
 
-function formatActivityDate(date: string, locale: string) {
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`))
-}
-
 function getActivityLevel(count: number) {
   if (count <= 0) {
     return 0
@@ -375,6 +367,7 @@ function ActivityCard({
   activityStat: PlayerDailyActivityPublic | null
 }) {
   const { t, i18n } = useTranslation()
+  const { formatDateTime } = useDateTimeFormat()
   const activityScrollRef = useHorizontalDragScroll<HTMLDivElement>()
   const allDays = activityStat?.days ?? []
   const fallbackYear = getCurrentUtcYear()
@@ -553,7 +546,12 @@ function ActivityCard({
                             >
                               {t("profile.activity.cellTooltip", {
                                 count: day.count,
-                                date: formatActivityDate(day.date, locale),
+                                // Keep this UTC activity bucket's calendar date
+                                // when formatting in the browser's time zone.
+                                date: formatDateTime(`${day.date}T00:00:00`, {
+                                  dateOnly: true,
+                                  locale,
+                                }),
                               })}
                             </TooltipContent>
                           </Tooltip>

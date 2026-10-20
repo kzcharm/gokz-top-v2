@@ -658,8 +658,8 @@ export const en = {
       emptyState: "No record submissions found in {{range}}.",
       less: "Less",
       more: "More",
-      cellTooltip_one: "{{count}} record on {{date}} UTC",
-      cellTooltip_other: "{{count}} records on {{date}} UTC",
+      cellTooltip_one: "{{count}} record on {{date}}",
+      cellTooltip_other: "{{count}} records on {{date}}",
     },
     duration: {
       previousYear: "Go to previous year",

@@ -28,6 +28,12 @@ Use UUIDv7 for new UUID fields/defaults and, when touching existing UUID default
 
 Frontend code uses TypeScript and Biome. Keep component filenames in `PascalCase` such as `DeleteUser.tsx`, hooks prefixed with `use`, and follow the formatter for quotes and semicolons.
 
+### Frontend Date and Time Formatting
+
+- Use `useDateTimeFormat` or `FormattedDateTime` for user-facing dates and times, including tooltips, so they respect the viewer's preferred date format and 12/24-hour clock.
+- For date-only activity buckets, preserve the original calendar date across browser time zones; do not convert UTC midnight into a different local date.
+- Profile activity tooltips must retain the record-count summary, use the preferred date format, and omit the `UTC` suffix.
+
 ### Frontend Table Pagination
 
 When adding pagination to a frontend table, reuse `frontend/src/components/Common/TablePaginationFooter.tsx`; do not create a route-specific pagination footer. This keeps the total count, persisted rows-per-page selection, exact-page input, keyboard navigation, and first/previous/next/last controls consistent across the app.
