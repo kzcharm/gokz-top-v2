@@ -2,6 +2,7 @@ import { Link as RouterLink, useRouterState } from "@tanstack/react-router"
 import { ChevronRight, type LucideIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
+import { NotificationDot } from "@/components/Common/NotificationDot"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -83,10 +84,7 @@ function MainMenuLink({
       <span className="flex items-center gap-2">
         <span>{item.title}</span>
         {item.showNotificationDot && !isActive ? (
-          <span
-            aria-hidden="true"
-            className="size-2 shrink-0 rounded-full bg-red-500 animate-pulse"
-          />
+          <NotificationDot pulse />
         ) : null}
       </span>
     </>

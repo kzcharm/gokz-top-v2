@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next"
 import {
   AdminServersService,
   LiveService,
+  MapsService,
   MediaService,
   OpenAPI,
 } from "@/client"
@@ -32,6 +33,12 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import useAuth from "@/hooks/useAuth"
+import {
+  getMapsLastVisitedAt,
+  MAPS_LAST_VISITED_EVENT,
+  MAPS_LAST_VISITED_STORAGE_KEY,
+  markMapsVisited,
+} from "@/lib/maps-notifications"
 import {
   getMediaLastVisitedAt,
   MEDIA_LAST_VISITED_EVENT,
@@ -50,6 +57,8 @@ export function AppSidebar() {
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [hasClickedLive, setHasClickedLive] = useState(false)
+  const [mapsLastVisitedAt, setMapsLastVisitedAt] =
+    useState(getMapsLastVisitedAt)
   const [mediaLastVisitedAt, setMediaLastVisitedAt] = useState(
     getMediaLastVisitedAt,
   )
@@ -74,6 +83,33 @@ export function AppSidebar() {
     liveStreamsQuery.data !== undefined &&
     liveStreamsQuery.data.count >= 1 &&
     !hasClickedLive
+  const mapsQuery = useQuery({
+    queryKey: ["maps", "sidebar", mapsLastVisitedAt],
+    queryFn: () =>
+      MapsService.readMaps({
+        isValidated: true,
+        limit: 1,
+        createdSince: new Date(mapsLastVisitedAt + 1).toISOString(),
+      }),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+  useEffect(() => {
+    const handleMapsVisited = () => setMapsLastVisitedAt(getMapsLastVisitedAt())
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === MAPS_LAST_VISITED_STORAGE_KEY || event.key === null) {
+        handleMapsVisited()
+      }
+    }
+    window.addEventListener(MAPS_LAST_VISITED_EVENT, handleMapsVisited)
+    window.addEventListener("storage", handleStorage)
+    handleMapsVisited()
+    return () => {
+      window.removeEventListener(MAPS_LAST_VISITED_EVENT, handleMapsVisited)
+      window.removeEventListener("storage", handleStorage)
+    }
+  }, [])
+  const showMapsDot = mapsQuery.isSuccess && mapsQuery.data.length > 0
   const mediaPostsQuery = useQuery({
     queryKey: ["media-posts", "sidebar"],
     queryFn: () => MediaService.readMediaPosts({ limit: 1 }),
@@ -135,7 +171,13 @@ export function AppSidebar() {
       path: "/leaderboards",
     },
     { type: "link", icon: Home, title: t("nav.dashboard"), path: "/dashboard" },
-    { type: "link", icon: MapIcon, title: t("nav.maps"), path: "/maps" },
+    {
+      type: "link",
+      icon: MapIcon,
+      title: t("nav.maps"),
+      path: "/maps",
+      showNotificationDot: showMapsDot,
+    },
     {
       type: "link",
       icon: Radio,
@@ -224,6 +266,9 @@ export function AppSidebar() {
         <Main
           items={items}
           onLinkNavigate={(path) => {
+            if (path === "/maps") {
+              setMapsLastVisitedAt(markMapsVisited())
+            }
             if (path === "/live") {
               setHasClickedLive(true)
             }

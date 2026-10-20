@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next"
 
 import { MeService } from "@/client"
+import { NotificationDot } from "@/components/Common/NotificationDot"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { getPageTitle } from "@/lib/site"
@@ -113,10 +114,7 @@ function UserSettingsLayout() {
               <span className="flex items-center gap-2">
                 <span>{t(tab.labelKey)}</span>
                 {tab.value === "notifications" && hasUnreadNotifications ? (
-                  <span
-                    aria-hidden="true"
-                    className="size-2 rounded-full bg-destructive"
-                  />
+                  <NotificationDot className="bg-destructive" />
                 ) : null}
               </span>
             </Link>
