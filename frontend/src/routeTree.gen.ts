@@ -35,6 +35,7 @@ import { Route as MapsMapNameReviewsRouteImport } from './routes/maps.$mapName.r
 import { Route as MapsMapNameMaptopRouteImport } from './routes/maps.$mapName.maptop'
 import { Route as LayoutSettingsWebhooksRouteImport } from './routes/_layout/settings.webhooks'
 import { Route as LayoutSettingsSocialLinksRouteImport } from './routes/_layout/settings.social-links'
+import { Route as LayoutSettingsSetupRouteImport } from './routes/_layout/settings.setup'
 import { Route as LayoutSettingsProfileRouteImport } from './routes/_layout/settings.profile'
 import { Route as LayoutSettingsNotificationsRouteImport } from './routes/_layout/settings.notifications'
 import { Route as LayoutSettingsBindingCodeRouteImport } from './routes/_layout/settings.binding-code'
@@ -46,6 +47,7 @@ import { Route as LayoutLeaderboardsPowRouteImport } from './routes/_layout/lead
 import { Route as LayoutLeaderboardsPlayersRouteImport } from './routes/_layout/leaderboards.players'
 import { Route as LayoutLeaderboardsMapsRouteImport } from './routes/_layout/leaderboards.maps'
 import { Route as LayoutLeaderboardsJumpstatsRouteImport } from './routes/_layout/leaderboards.jumpstats'
+import { Route as LayoutLeaderboardsGearRouteImport } from './routes/_layout/leaderboards.gear'
 import { Route as LayoutLeaderboardsCountriesRouteImport } from './routes/_layout/leaderboards.countries'
 import { Route as LayoutLeaderboardsCommunityRouteImport } from './routes/_layout/leaderboards.community'
 import { Route as LayoutDashboardWrsRouteImport } from './routes/_layout/dashboard.wrs'
@@ -202,6 +204,11 @@ const LayoutSettingsSocialLinksRoute =
     path: '/social-links',
     getParentRoute: () => LayoutSettingsRoute,
   } as any)
+const LayoutSettingsSetupRoute = LayoutSettingsSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => LayoutSettingsRoute,
+} as any)
 const LayoutSettingsProfileRoute = LayoutSettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -263,6 +270,11 @@ const LayoutLeaderboardsJumpstatsRoute =
     path: '/jumpstats',
     getParentRoute: () => LayoutLeaderboardsRoute,
   } as any)
+const LayoutLeaderboardsGearRoute = LayoutLeaderboardsGearRouteImport.update({
+  id: '/gear',
+  path: '/gear',
+  getParentRoute: () => LayoutLeaderboardsRoute,
+} as any)
 const LayoutLeaderboardsCountriesRoute =
   LayoutLeaderboardsCountriesRouteImport.update({
     id: '/countries',
@@ -437,6 +449,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/wrs': typeof LayoutDashboardWrsRoute
   '/leaderboards/community': typeof LayoutLeaderboardsCommunityRoute
   '/leaderboards/countries': typeof LayoutLeaderboardsCountriesRoute
+  '/leaderboards/gear': typeof LayoutLeaderboardsGearRoute
   '/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
   '/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
   '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
@@ -448,6 +461,7 @@ export interface FileRoutesByFullPath {
   '/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
   '/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/settings/profile': typeof LayoutSettingsProfileRoute
+  '/settings/setup': typeof LayoutSettingsSetupRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
@@ -500,6 +514,7 @@ export interface FileRoutesByTo {
   '/dashboard/wrs': typeof LayoutDashboardWrsRoute
   '/leaderboards/community': typeof LayoutLeaderboardsCommunityRoute
   '/leaderboards/countries': typeof LayoutLeaderboardsCountriesRoute
+  '/leaderboards/gear': typeof LayoutLeaderboardsGearRoute
   '/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
   '/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
   '/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
@@ -510,6 +525,7 @@ export interface FileRoutesByTo {
   '/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
   '/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/settings/profile': typeof LayoutSettingsProfileRoute
+  '/settings/setup': typeof LayoutSettingsSetupRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
@@ -564,6 +580,7 @@ export interface FileRoutesById {
   '/_layout/dashboard/wrs': typeof LayoutDashboardWrsRoute
   '/_layout/leaderboards/community': typeof LayoutLeaderboardsCommunityRoute
   '/_layout/leaderboards/countries': typeof LayoutLeaderboardsCountriesRoute
+  '/_layout/leaderboards/gear': typeof LayoutLeaderboardsGearRoute
   '/_layout/leaderboards/jumpstats': typeof LayoutLeaderboardsJumpstatsRoute
   '/_layout/leaderboards/maps': typeof LayoutLeaderboardsMapsRoute
   '/_layout/leaderboards/players': typeof LayoutLeaderboardsPlayersRoute
@@ -575,6 +592,7 @@ export interface FileRoutesById {
   '/_layout/settings/binding-code': typeof LayoutSettingsBindingCodeRoute
   '/_layout/settings/notifications': typeof LayoutSettingsNotificationsRoute
   '/_layout/settings/profile': typeof LayoutSettingsProfileRoute
+  '/_layout/settings/setup': typeof LayoutSettingsSetupRoute
   '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/_layout/settings/webhooks': typeof LayoutSettingsWebhooksRoute
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
@@ -629,6 +647,7 @@ export interface FileRouteTypes {
     | '/dashboard/wrs'
     | '/leaderboards/community'
     | '/leaderboards/countries'
+    | '/leaderboards/gear'
     | '/leaderboards/jumpstats'
     | '/leaderboards/maps'
     | '/leaderboards/players'
@@ -640,6 +659,7 @@ export interface FileRouteTypes {
     | '/settings/binding-code'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/setup'
     | '/settings/social-links'
     | '/settings/webhooks'
     | '/maps/$mapName/maptop'
@@ -692,6 +712,7 @@ export interface FileRouteTypes {
     | '/dashboard/wrs'
     | '/leaderboards/community'
     | '/leaderboards/countries'
+    | '/leaderboards/gear'
     | '/leaderboards/jumpstats'
     | '/leaderboards/maps'
     | '/leaderboards/players'
@@ -702,6 +723,7 @@ export interface FileRouteTypes {
     | '/settings/binding-code'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/setup'
     | '/settings/social-links'
     | '/settings/webhooks'
     | '/maps/$mapName/maptop'
@@ -755,6 +777,7 @@ export interface FileRouteTypes {
     | '/_layout/dashboard/wrs'
     | '/_layout/leaderboards/community'
     | '/_layout/leaderboards/countries'
+    | '/_layout/leaderboards/gear'
     | '/_layout/leaderboards/jumpstats'
     | '/_layout/leaderboards/maps'
     | '/_layout/leaderboards/players'
@@ -766,6 +789,7 @@ export interface FileRouteTypes {
     | '/_layout/settings/binding-code'
     | '/_layout/settings/notifications'
     | '/_layout/settings/profile'
+    | '/_layout/settings/setup'
     | '/_layout/settings/social-links'
     | '/_layout/settings/webhooks'
     | '/maps/$mapName/maptop'
@@ -979,6 +1003,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsSocialLinksRouteImport
       parentRoute: typeof LayoutSettingsRoute
     }
+    '/_layout/settings/setup': {
+      id: '/_layout/settings/setup'
+      path: '/setup'
+      fullPath: '/settings/setup'
+      preLoaderRoute: typeof LayoutSettingsSetupRouteImport
+      parentRoute: typeof LayoutSettingsRoute
+    }
     '/_layout/settings/profile': {
       id: '/_layout/settings/profile'
       path: '/profile'
@@ -1054,6 +1085,13 @@ declare module '@tanstack/react-router' {
       path: '/jumpstats'
       fullPath: '/leaderboards/jumpstats'
       preLoaderRoute: typeof LayoutLeaderboardsJumpstatsRouteImport
+      parentRoute: typeof LayoutLeaderboardsRoute
+    }
+    '/_layout/leaderboards/gear': {
+      id: '/_layout/leaderboards/gear'
+      path: '/gear'
+      fullPath: '/leaderboards/gear'
+      preLoaderRoute: typeof LayoutLeaderboardsGearRouteImport
       parentRoute: typeof LayoutLeaderboardsRoute
     }
     '/_layout/leaderboards/countries': {
@@ -1295,6 +1333,7 @@ const LayoutDashboardRouteWithChildren = LayoutDashboardRoute._addFileChildren(
 interface LayoutLeaderboardsRouteChildren {
   LayoutLeaderboardsCommunityRoute: typeof LayoutLeaderboardsCommunityRoute
   LayoutLeaderboardsCountriesRoute: typeof LayoutLeaderboardsCountriesRoute
+  LayoutLeaderboardsGearRoute: typeof LayoutLeaderboardsGearRoute
   LayoutLeaderboardsJumpstatsRoute: typeof LayoutLeaderboardsJumpstatsRoute
   LayoutLeaderboardsMapsRoute: typeof LayoutLeaderboardsMapsRoute
   LayoutLeaderboardsPlayersRoute: typeof LayoutLeaderboardsPlayersRoute
@@ -1305,6 +1344,7 @@ interface LayoutLeaderboardsRouteChildren {
 const LayoutLeaderboardsRouteChildren: LayoutLeaderboardsRouteChildren = {
   LayoutLeaderboardsCommunityRoute: LayoutLeaderboardsCommunityRoute,
   LayoutLeaderboardsCountriesRoute: LayoutLeaderboardsCountriesRoute,
+  LayoutLeaderboardsGearRoute: LayoutLeaderboardsGearRoute,
   LayoutLeaderboardsJumpstatsRoute: LayoutLeaderboardsJumpstatsRoute,
   LayoutLeaderboardsMapsRoute: LayoutLeaderboardsMapsRoute,
   LayoutLeaderboardsPlayersRoute: LayoutLeaderboardsPlayersRoute,
@@ -1320,6 +1360,7 @@ interface LayoutSettingsRouteChildren {
   LayoutSettingsBindingCodeRoute: typeof LayoutSettingsBindingCodeRoute
   LayoutSettingsNotificationsRoute: typeof LayoutSettingsNotificationsRoute
   LayoutSettingsProfileRoute: typeof LayoutSettingsProfileRoute
+  LayoutSettingsSetupRoute: typeof LayoutSettingsSetupRoute
   LayoutSettingsSocialLinksRoute: typeof LayoutSettingsSocialLinksRoute
   LayoutSettingsWebhooksRoute: typeof LayoutSettingsWebhooksRoute
 }
@@ -1329,6 +1370,7 @@ const LayoutSettingsRouteChildren: LayoutSettingsRouteChildren = {
   LayoutSettingsBindingCodeRoute: LayoutSettingsBindingCodeRoute,
   LayoutSettingsNotificationsRoute: LayoutSettingsNotificationsRoute,
   LayoutSettingsProfileRoute: LayoutSettingsProfileRoute,
+  LayoutSettingsSetupRoute: LayoutSettingsSetupRoute,
   LayoutSettingsSocialLinksRoute: LayoutSettingsSocialLinksRoute,
   LayoutSettingsWebhooksRoute: LayoutSettingsWebhooksRoute,
 }

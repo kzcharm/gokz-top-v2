@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from app.models import MapFileDistributionSyncResult, ModeScope, PlayerSocialPlatform
+from app.product_cli import app as products_app
 from app.services import player_csv_export as player_csv_export_service
 from app.services import record_csv_export as record_csv_export_service
 from app.services.map_authors import seed_map_authors_from_kz_map_info
@@ -74,6 +75,8 @@ export_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(export_app, name="export")
+
+app.add_typer(products_app, name="products")
 
 console = Console()
 

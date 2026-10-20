@@ -229,6 +229,7 @@ async function installProfileHomeRoutes(
     }>
   } = {},
 ) {
+  await page.route("**/v1/**", (route) => route.abort())
   const requestedRankUuids: string[] = []
   let unbanCheckCalls = 0
   let activeBanState = [...activeBans]
@@ -246,6 +247,17 @@ async function installProfileHomeRoutes(
       localStorage.setItem("access_token", token)
     }, createAccessToken(currentUserSteamid64))
   }
+
+  await page.route(/\/v1\/me\/settings$/, (route) =>
+    route.fulfill({ json: {} }),
+  )
+  await page.route(/\/v1\/me\/notifications\/unread-count$/, (route) =>
+    route.fulfill({ json: { unread_count: 0 } }),
+  )
+
+  await page.route(/\/v1\/players\/[^/]+\/setup$/, (route) =>
+    route.fulfill({ json: { hardware: [], game_settings: {} } }),
+  )
 
   await page.route(/\/v1\/users\/me$/, async (route: Route) => {
     if (currentUserSteamid64) {
@@ -320,25 +332,21 @@ async function installProfileHomeRoutes(
     })
   })
 
-  await page.route(
-    /\/v1\/players\/[^/]+\/unban-check$/,
-    async (route: Route) => {
-      unbanCheckCalls += 1
-      const clearedBanCount = activeBanState.length
-      activeBanState = []
+  await page.route(/\/v1\/me\/ban-status-checks$/, async (route: Route) => {
+    unbanCheckCalls += 1
+    const clearedBanCount = activeBanState.length
+    activeBanState = []
 
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          message:
-            "Your ban status has been updated and no active bans remain.",
-          cleared_ban_count: clearedBanCount,
-          remaining_active_ban_count: activeBanState.length,
-        }),
-      })
-    },
-  )
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        message: "Your ban status has been updated and no active bans remain.",
+        cleared_ban_count: clearedBanCount,
+        remaining_active_ban_count: activeBanState.length,
+      }),
+    })
+  })
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route: Route) => {
     await route.fulfill({
@@ -363,7 +371,7 @@ async function installProfileHomeRoutes(
   )
 
   await page.route(
-    /\/v1\/players\/[^/]+\/social-links$/,
+    /\/v1\/player-social-links\/players\/[^/]+$/,
     async (route: Route) => {
       await route.fulfill({
         status: 200,
@@ -624,21 +632,19 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText(/^Fri$/)).toBeVisible()
   await expect(page.getByText(/^Jan$/)).toBeVisible()
   await expect(page.getByText(/^Mar$/)).toBeVisible()
-  await expect(page.getByText("10.5 hrs")).toBeVisible()
+  await expect(page.getByText("10.5 hours")).toBeVisible()
   await expect(page.getByText("Long Jump")).toBeVisible()
   await expect(page.getByText("281.80")).toBeVisible()
   await expect(page.getByText("Recent", { exact: true })).toBeVisible()
   await expect(
     page.getByTestId("profile-activity-view-last-365-days"),
   ).toBeVisible()
-  await expect(page.getByTestId("profile-activity-view-2026")).toBeVisible()
-  await expect(page.getByTestId("profile-activity-view-2025")).toBeVisible()
+  await expect(page.getByTestId("profile-activity-year-input")).toHaveValue(
+    "2026",
+  )
   await expect(
     page.getByTestId("profile-activity-view-last-365-days"),
   ).toHaveClass(/bg-card/)
-  await expect(page.getByTestId("profile-activity-view-2026")).not.toHaveClass(
-    /bg-card/,
-  )
   await expect(
     page.getByTestId("profile-activity-cell-2026-03-31"),
   ).toHaveAttribute("data-activity-level", "2")
@@ -652,7 +658,8 @@ test("Profile home renders live pinned records with points badges and absolute d
     page.getByTestId("profile-activity-cell-2025-12-31"),
   ).toHaveAttribute("data-activity-level", "2")
 
-  await page.getByTestId("profile-activity-view-2025").click()
+  await page.getByTestId("profile-activity-year-input").fill("2025")
+  await page.getByTestId("profile-activity-year-input").press("Enter")
   await expect(
     page.getByTestId("profile-activity-cell-2025-12-31"),
   ).toHaveAttribute("data-activity-level", "2")
@@ -673,10 +680,12 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText("960")).toBeVisible()
   await expect(page.getByText("920")).toHaveCount(2)
 
-  await expect(page.getByText(/^KZT · #1$/)).toBeVisible()
-  await expect(page.getByText(/^SKZ · #2$/)).toBeVisible()
-  await expect(page.getByText(/^KZT · #3$/)).toBeVisible()
-  await expect(page.getByText(/^NKZ · Rank unavailable$/)).toBeVisible()
+  await expect(page.getByText("#1", { exact: true })).toBeVisible()
+  await expect(page.getByText("#2", { exact: true })).toBeVisible()
+  await expect(page.getByText("#3", { exact: true })).toBeVisible()
+  await expect(
+    page.getByText("Rank unavailable", { exact: true }),
+  ).toBeVisible()
 
   await expect(page.getByText(/^2026-03-31 \d{2}:00$/)).toBeVisible()
   await expect(page.getByText(/^2026-03-30 \d{2}:15$/)).toBeVisible()
@@ -792,4 +801,95 @@ test("Other viewers do not see the unban check button", async ({ page }) => {
 
   await expect(page.getByText("This player has been banned")).toBeVisible()
   await expect(page.getByTestId("profile-unban-check-button")).toHaveCount(0)
+})
+
+test("Profile home displays setup and eDPI before pinned records", async ({
+  page,
+}) => {
+  await installProfileHomeRoutes(page, { currentUserSteamid64: steamid64 })
+  await page.route(/\/v1\/players\/[^/]+\/setup$/, (route) =>
+    route.fulfill({
+      json: {
+        operating_system: "Windows 11",
+        hardware: [
+          {
+            category: "mouse",
+            product_id: "019d1111-1111-7111-8111-111111111111",
+            product: {
+              id: "019d1111-1111-7111-8111-111111111111",
+              category: "mouse",
+              brand: "Logitech",
+              model: "PRO X SUPERLIGHT 2",
+              community_added: true,
+            },
+          },
+          {
+            category: "storage",
+            product_id: null,
+            storage_capacity_gb: 2000,
+            storage_capacity_unit: "TB",
+          },
+        ],
+        game_settings: {
+          mouse_dpi: 800,
+          sensitivity: "1.250000",
+          edpi: "1000.000000",
+        },
+      },
+    }),
+  )
+  await page.goto(`/profile/${steamid64}`)
+  await expect(page.getByText("Logitech PRO X SUPERLIGHT 2")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Edit Setup" })).toBeVisible()
+  await expect(page.getByText("eDPI", { exact: true })).toBeVisible()
+  await expect(page.getByText("Windows 11", { exact: true })).toBeVisible()
+  await expect(page.getByText("2 TB", { exact: true })).toBeVisible()
+  await expect(page.getByText("Community Added", { exact: true })).toHaveCount(
+    0,
+  )
+  await expect(
+    page.getByRole("link", { name: "Popular Gear", exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page
+      .locator('[data-slot="card-header"]')
+      .getByRole("link", { name: "Edit Setup" }),
+  ).toBeVisible()
+  const productLink = page.getByRole("link", {
+    name: "Search for Logitech PRO X SUPERLIGHT 2 (opens in a new tab)",
+  })
+  await expect(productLink).not.toHaveClass(/decoration-dotted|underline/)
+  await page.screenshot({
+    path: "../.temp/screenshots/gear-profile-desktop.png",
+    fullPage: true,
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({
+    path: "../.temp/screenshots/gear-profile-mobile.png",
+    fullPage: true,
+  })
+})
+
+test("Points distributions are shown on Stats rather than Home", async ({
+  page,
+}) => {
+  await installProfileHomeRoutes(page, { currentUserSteamid64: steamid64 })
+  await page.goto(`/profile/${steamid64}`)
+  await expect(
+    page.getByText("NUB Points Distribution", { exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByText("PRO Points Distribution", { exact: true }),
+  ).toHaveCount(0)
+  await page.goto(`/profile/${steamid64}/stats`)
+  await expect(
+    page.getByText("NUB Points Distribution", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("PRO Points Distribution", { exact: true }),
+  ).toBeVisible()
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-stats-desktop.png",
+    fullPage: true,
+  })
 })

@@ -210,3 +210,22 @@
 - Only enable `ENABLE_TEST_AUTH_HELPERS=true` and the `/v1/private/auth/session` helper for explicit automated test runs or disposable local test environments.
 
 - Discord social-link OAuth uses optional `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET`, the `identify` scope, and `/v1/social-link-verifications/discord/callback`. Tokens are transient; player URL writes cannot bypass OAuth. Discord links use existing verified-account uniqueness and have no media visibility switch.
+
+## Player setup and product catalog
+
+- Product identities, aliases, and operator audit records live in the dedicated PostgreSQL `products` schema. `public.player_hardware` stores one primary selection per category; `public.player_game_settings` stores DPI and decimal CS:GO sensitivity. eDPI is derived at read time.
+- `/v1/products`, `/v1/me/setup`, `/v1/players/{identifier}/setup`, and `/v1/leaderboards/gear` provide the catalog, authenticated setup replacement, profile display, and current usage aggregation. Community products are shared immediately; short catalog/setup writes and merges use a PostgreSQL transaction advisory lock.
+- `kztop products` handles versioned imports, verification/correction, and transactional merges. Product names link to a web search; product image hosting and previews are out of scope. `backend/app/data/products.v1.json` records catalog sources and research dates for over 2,400 models across all 13 categories; re-run the idempotent import after catalog updates.
+- Alembic reflects only the managed public/cache/products schemas and model tables, leaving externally managed tables and partition children untouched.
+
+- Add-product dialogs explicitly show their fixed gear category and filter suggestions accordingly. Brand choices come from verified canonical catalog products, with an explicit missing-brand fallback. Optional HTTP/HTTPS product URLs are recorded in the existing operator audit log (including duplicate submissions), never fetched; `kztop products references` lists them for review and resolves merged products. No additional database migration is needed.
+
+- Setup product searches dismiss on outside pointer/focus changes. The brands endpoint requires a gear category and lists only verified brands in that category. Custom-product required fields use red asterisks; setup editing omits memory speed and retains existing stored speed when saving a retained memory entry.
+
+- Gear setup uses a category-filtered searchable brand popover with keyboard navigation. Inline product inputs retain selected labels and expose an accessible clear button; configuration controls live with their corresponding gear selectors.
+
+- Product catalog revision 4 contains 2,451 models, retaining the NuPhy/Ryzen/Chinese-market additions and expanding thin GPU, CPU, monitor, PSU, storage, case, and peripheral categories. The versioned products.coverage.v4.json records category counts and complete coverage of 81 explicitly named discrete GPU identifiers in the September 2026 Steam survey main table. Steam is a GPU coverage reference, not an exact CPU/peripheral model source or GOKZ usage ranking. Chinese brand/model aliases and R5/R7 shorthand are seeded; category-scoped curated brands are available after the idempotent operator import.
+
+- Setup replacement supports top-level operating_system stored in player_game_settings and positive storage_capacity_gb in player_hardware (including capacity-only storage). Additive migration 98ea05caeefd introduces nullable columns. Profile setup editing is in the card header, product links omit community badges/underlines, setup-related tabs are last, and the gear leaderboard omits search and descriptive participation text.
+
+- Migration 89e9355f393f preserves storage_capacity_unit (GB/TB, existing entries default GB) alongside integer GB capacity. Editor converts using decimal storage units (1 TB = 1000 GB); public setup respects the saved unit. Points distributions render only on profile Stats via ProfileRecordDistributionSection; gear categories appear as wrapping buttons above the leaderboard table, defaulting to Mouse; the title and category dropdown are removed.

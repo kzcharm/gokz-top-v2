@@ -1,0 +1,154 @@
+{
+  "catalog_revision": 4,
+  "researched_on": "2026-10-21",
+  "selection_policy": "Manufacturer product/support catalogs expand exact current and legacy model coverage across categories. No invented combinations of generations, capacities, wattages, or layouts. Retail variants explicitly listed by manufacturers remain distinct. Not a measured GOKZ or China market share report.",
+  "steam_reference": {
+    "url": "https://store.steampowered.com/hwsurvey/videocard/",
+    "survey_month": "September 2026",
+    "section": "ALL VIDEO CARDS",
+    "scope": "Explicit NVIDIA GeForce GTX/RTX/GT/MX, AMD Radeon RX, and numbered Intel Arc GPU model identifiers in the all-video-cards table. Generic/integrated names, vendor buckets, Other, and DirectX subgroup repeats are excluded. Coverage is by GPU identifier, not board partner or Founders Edition.",
+    "models": [
+      "NVIDIA GeForce RTX 5070",
+      "NVIDIA GeForce RTX 5060",
+      "NVIDIA GeForce RTX 5060 Ti",
+      "NVIDIA GeForce RTX 4060",
+      "NVIDIA GeForce RTX 3060",
+      "NVIDIA GeForce RTX 4060 Laptop GPU",
+      "NVIDIA GeForce RTX 3050",
+      "NVIDIA GeForce RTX 4060 Ti",
+      "NVIDIA GeForce RTX 5060 Laptop GPU",
+      "NVIDIA GeForce GTX 1650",
+      "NVIDIA GeForce RTX 4070",
+      "NVIDIA GeForce RTX 3060 Ti",
+      "NVIDIA GeForce RTX 5080",
+      "NVIDIA GeForce RTX 3070",
+      "NVIDIA GeForce RTX 5070 Ti",
+      "NVIDIA GeForce RTX 4070 SUPER",
+      "NVIDIA GeForce RTX 3060 Laptop GPU",
+      "NVIDIA GeForce RTX 4050 Laptop GPU",
+      "NVIDIA GeForce RTX 2060",
+      "AMD Radeon RX 9070 XT",
+      "NVIDIA GeForce GTX 1060",
+      "NVIDIA GeForce RTX 3080",
+      "NVIDIA GeForce GTX 1660 SUPER",
+      "NVIDIA GeForce GTX 1050 Ti",
+      "NVIDIA GeForce RTX 4070 Ti",
+      "NVIDIA GeForce RTX 3070 Ti",
+      "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "NVIDIA GeForce GTX 1660 Ti",
+      "AMD Radeon RX 9060 XT",
+      "AMD Radeon RX 6600",
+      "NVIDIA GeForce RTX 2060 SUPER",
+      "NVIDIA GeForce RTX 4070 Ti SUPER",
+      "NVIDIA GeForce RTX 4090",
+      "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+      "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "NVIDIA GeForce RTX 4080 SUPER",
+      "NVIDIA GeForce RTX 2070 SUPER",
+      "NVIDIA GeForce RTX 4080",
+      "AMD Radeon RX 7800 XT",
+      "NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+      "NVIDIA GeForce GTX 1070",
+      "AMD Radeon RX 580 2048SP",
+      "NVIDIA GeForce RTX 3080 Ti",
+      "AMD Radeon RX 5700 XT",
+      "AMD Radeon RX 6700 XT",
+      "AMD Radeon RX 580",
+      "NVIDIA GeForce GTX 1050",
+      "AMD Radeon RX 7600",
+      "NVIDIA GeForce RTX 2050",
+      "NVIDIA GeForce GTX 1660",
+      "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+      "NVIDIA GeForce RTX 2070",
+      "NVIDIA GeForce RTX 5090",
+      "AMD Radeon RX 7900 XTX",
+      "NVIDIA GeForce RTX 3070 Laptop GPU",
+      "NVIDIA GeForce RTX 5050 Laptop GPU",
+      "NVIDIA GeForce GTX 1080",
+      "NVIDIA GeForce RTX 3050 Laptop GPU",
+      "NVIDIA GeForce GTX 1650 Ti",
+      "NVIDIA GeForce RTX 3090",
+      "AMD Radeon RX 570",
+      "AMD Radeon RX 7900 XT",
+      "NVIDIA GeForce GTX 1080 Ti",
+      "AMD Radeon RX 6600 XT",
+      "NVIDIA GeForce GTX 1650 SUPER",
+      "AMD Radeon RX 7700 XT",
+      "NVIDIA GeForce RTX 2080 SUPER",
+      "NVIDIA GeForce RTX 5050",
+      "AMD Radeon RX 6650 XT",
+      "AMD Radeon RX 6750 XT",
+      "NVIDIA GeForce RTX 2080 Ti",
+      "AMD Radeon RX 6800 XT",
+      "NVIDIA GeForce RTX 3070 Ti Laptop GPU",
+      "AMD Radeon RX 9070",
+      "NVIDIA GeForce RTX 2080",
+      "AMD Radeon RX 550",
+      "NVIDIA GeForce GT 1030",
+      "NVIDIA GeForce GTX 1070 Ti",
+      "AMD Radeon RX 6500 XT",
+      "NVIDIA GeForce RTX 4080 Laptop GPU",
+      "NVIDIA GeForce GTX 970"
+    ],
+    "covered_models": 81,
+    "missing_models": [],
+    "limitations": "Steam does not identify exact CPU, monitor, peripheral, memory-kit, PSU, storage, or motherboard models. Those come from manufacturer catalogs. Steam shares do not feed GOKZ gear rankings."
+  },
+  "categories": {
+    "case": {
+      "before": 39,
+      "after": 128
+    },
+    "cooling": {
+      "before": 38,
+      "after": 356
+    },
+    "cpu": {
+      "before": 79,
+      "after": 339
+    },
+    "gpu": {
+      "before": 26,
+      "after": 203
+    },
+    "headset": {
+      "before": 48,
+      "after": 71
+    },
+    "keyboard": {
+      "before": 225,
+      "after": 403
+    },
+    "memory": {
+      "before": 48,
+      "after": 62
+    },
+    "monitor": {
+      "before": 24,
+      "after": 137
+    },
+    "motherboard": {
+      "before": 181,
+      "after": 181
+    },
+    "mouse": {
+      "before": 109,
+      "after": 265
+    },
+    "mouse_pad": {
+      "before": 36,
+      "after": 89
+    },
+    "power_supply": {
+      "before": 10,
+      "after": 144
+    },
+    "storage": {
+      "before": 21,
+      "after": 73
+    }
+  },
+  "before_total": 884,
+  "after_total": 2451,
+  "added": 1567
+}

@@ -360,6 +360,30 @@ export type CountryLeaderboardsPublic = {
     count: number;
 };
 
+export type GameSettingsInput = {
+    mouse_dpi?: (number | null);
+    sensitivity?: (number | string | null);
+};
+
+export type GameSettingsPublic = {
+    mouse_dpi?: (number | null);
+    sensitivity?: (string | null);
+    edpi?: (string | null);
+};
+
+export type GearLeaderboardEntry = {
+    rank: number;
+    product: ProductPublic;
+    players: number;
+    share: number;
+};
+
+export type GearLeaderboardPublic = {
+    data: Array<GearLeaderboardEntry>;
+    count: number;
+    participants: number;
+};
+
 export type GitHubReleasePublic = {
     id: number;
     tag_name: string;
@@ -372,6 +396,31 @@ export type GitHubReleasePublic = {
 
 export type GitHubReleasesPublic = {
     data: Array<GitHubReleasePublic>;
+};
+
+export type HardwareInput = {
+    category: ProductCategory;
+    product_id?: (string | null);
+    storage_capacity_unit?: 'GB' | 'TB';
+    storage_capacity_gb?: (number | null);
+    memory_capacity_gb?: (number | null);
+    memory_type?: (string | null);
+    memory_speed_mts?: (number | null);
+    monitor_refresh_hz?: (number | string | null);
+};
+
+export type storage_capacity_unit = 'GB' | 'TB';
+
+export type HardwarePublic = {
+    category: ProductCategory;
+    product_id?: (string | null);
+    storage_capacity_unit?: 'GB' | 'TB';
+    storage_capacity_gb?: (number | null);
+    memory_capacity_gb?: (number | null);
+    memory_type?: (string | null);
+    memory_speed_mts?: (number | null);
+    monitor_refresh_hz?: (string | null);
+    product?: (ProductPublic | null);
 };
 
 export type HTTPValidationError = {
@@ -1554,6 +1603,29 @@ export type PollVoterPublic = {
     voted_at: string;
 };
 
+export type ProductCategory = 'mouse' | 'mouse_pad' | 'keyboard' | 'monitor' | 'headset' | 'cpu' | 'gpu' | 'memory' | 'motherboard' | 'storage' | 'power_supply' | 'case' | 'cooling';
+
+export type ProductCreate = {
+    category: ProductCategory;
+    brand: string;
+    model: string;
+    product_url?: (string | null);
+};
+
+export type ProductPublic = {
+    category: ProductCategory;
+    brand: string;
+    model: string;
+    product_url?: (string | null);
+    id: string;
+    community_added: boolean;
+};
+
+export type ProductsPublic = {
+    data: Array<ProductPublic>;
+    count: number;
+};
+
 export type QQBindingCodePublic = {
     code: string;
     expires_at: string;
@@ -2018,6 +2090,18 @@ export type ServerUpdate = {
     city?: (string | null);
     latitude?: (number | null);
     longitude?: (number | null);
+};
+
+export type SetupInput = {
+    operating_system?: (string | null);
+    hardware?: Array<HardwareInput>;
+    game_settings?: GameSettingsInput;
+};
+
+export type SetupPublic = {
+    operating_system?: (string | null);
+    hardware: Array<HardwarePublic>;
+    game_settings: GameSettingsPublic;
 };
 
 export type SkillRatingPublic = {
@@ -3216,6 +3300,50 @@ export type PollsVotePollData = {
 };
 
 export type PollsVotePollResponse = (PollPublic);
+
+export type ProductsSearchProductsData = {
+    category: ProductCategory;
+    limit?: number;
+    q?: string;
+    skip?: number;
+};
+
+export type ProductsSearchProductsResponse = (ProductsPublic);
+
+export type ProductsCreateProductData = {
+    requestBody: ProductCreate;
+};
+
+export type ProductsCreateProductResponse = (ProductPublic);
+
+export type ProductsReadProductBrandsData = {
+    category: ProductCategory;
+};
+
+export type ProductsReadProductBrandsResponse = (Array<(string)>);
+
+export type ProductsReadMySetupResponse = (SetupPublic);
+
+export type ProductsSaveMySetupData = {
+    requestBody: SetupInput;
+};
+
+export type ProductsSaveMySetupResponse = (SetupPublic);
+
+export type ProductsReadPlayerSetupData = {
+    identifier: string;
+};
+
+export type ProductsReadPlayerSetupResponse = (SetupPublic);
+
+export type ProductsReadGearLeaderboardData = {
+    category?: ProductCategory;
+    limit?: number;
+    q?: string;
+    skip?: number;
+};
+
+export type ProductsReadGearLeaderboardResponse = (GearLeaderboardPublic);
 
 export type ReactionsReadReactionEmojisResponse = (Array<ReactionEmojiPublic>);
 

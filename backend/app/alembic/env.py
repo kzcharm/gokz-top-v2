@@ -30,6 +30,15 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 
+def include_name(name, type_, parent_names):
+    if type_ == "schema":
+        return name in {None, "public", "cache", "products"}
+    if type_ == "table":
+        # Leave partition children and externally managed tables untouched.
+        return parent_names["schema_qualified_table_name"] in target_metadata.tables
+    return True
+
+
 def get_url():
     return str(settings.SQLALCHEMY_DATABASE_URI)
 
@@ -48,7 +57,7 @@ def run_migrations_offline():
     """
     url = get_url()
     context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True
+        url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True, include_schemas=True, include_name=include_name
     )
 
     with context.begin_transaction():
@@ -72,7 +81,7 @@ def run_migrations_online():
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata, compare_type=True
+            connection=connection, target_metadata=target_metadata, compare_type=True, include_schemas=True, include_name=include_name
         )
 
         with context.begin_transaction():

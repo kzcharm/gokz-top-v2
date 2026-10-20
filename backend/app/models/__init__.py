@@ -955,3 +955,11 @@ __all__ = [
     "PollVoteCreate",
     "PollVoterPublic",
 ]
+
+from .product import (  # noqa: F401
+    PlayerGameSettings,
+    PlayerHardware,
+    Product,
+    ProductAlias,
+    ProductAudit,
+)

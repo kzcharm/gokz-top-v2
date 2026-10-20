@@ -1828,6 +1828,134 @@ export const CountryLeaderboardsPublicSchema = {
     title: 'CountryLeaderboardsPublic'
 } as const;
 
+export const GameSettingsInputSchema = {
+    properties: {
+        mouse_dpi: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 2147483647,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Mouse Dpi'
+        },
+        sensitivity: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sensitivity'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'GameSettingsInput'
+} as const;
+
+export const GameSettingsPublicSchema = {
+    properties: {
+        mouse_dpi: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 2147483647,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Mouse Dpi'
+        },
+        sensitivity: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sensitivity'
+        },
+        edpi: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Edpi'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'GameSettingsPublic'
+} as const;
+
+export const GearLeaderboardEntrySchema = {
+    properties: {
+        rank: {
+            type: 'integer',
+            title: 'Rank'
+        },
+        product: {
+            '$ref': '#/components/schemas/ProductPublic'
+        },
+        players: {
+            type: 'integer',
+            title: 'Players'
+        },
+        share: {
+            type: 'number',
+            title: 'Share'
+        }
+    },
+    type: 'object',
+    required: ['rank', 'product', 'players', 'share'],
+    title: 'GearLeaderboardEntry'
+} as const;
+
+export const GearLeaderboardPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/GearLeaderboardEntry'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        participants: {
+            type: 'integer',
+            title: 'Participants'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count', 'participants'],
+    title: 'GearLeaderboardPublic'
+} as const;
+
 export const GitHubReleasePublicSchema = {
     properties: {
         id: {
@@ -1912,6 +2040,207 @@ export const HTTPValidationErrorSchema = {
     },
     type: 'object',
     title: 'HTTPValidationError'
+} as const;
+
+export const HardwareInputSchema = {
+    properties: {
+        category: {
+            '$ref': '#/components/schemas/ProductCategory'
+        },
+        product_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Id'
+        },
+        storage_capacity_unit: {
+            type: 'string',
+            enum: ['GB', 'TB'],
+            title: 'Storage Capacity Unit',
+            default: 'GB'
+        },
+        storage_capacity_gb: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 1000000000,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Storage Capacity Gb'
+        },
+        memory_capacity_gb: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 1048576,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Memory Capacity Gb'
+        },
+        memory_type: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^DDR[1-6]$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Memory Type'
+        },
+        memory_speed_mts: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 1000000,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Memory Speed Mts'
+        },
+        monitor_refresh_hz: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 10000,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,3}0*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Refresh Hz'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['category'],
+    title: 'HardwareInput'
+} as const;
+
+export const HardwarePublicSchema = {
+    properties: {
+        category: {
+            '$ref': '#/components/schemas/ProductCategory'
+        },
+        product_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Id'
+        },
+        storage_capacity_unit: {
+            type: 'string',
+            enum: ['GB', 'TB'],
+            title: 'Storage Capacity Unit',
+            default: 'GB'
+        },
+        storage_capacity_gb: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 1000000000,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Storage Capacity Gb'
+        },
+        memory_capacity_gb: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 1048576,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Memory Capacity Gb'
+        },
+        memory_type: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^DDR[1-6]$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Memory Type'
+        },
+        memory_speed_mts: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 1000000,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Memory Speed Mts'
+        },
+        monitor_refresh_hz: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,3}0*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Refresh Hz'
+        },
+        product: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ProductPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['category'],
+    title: 'HardwarePublic'
 } as const;
 
 export const IPLookupRequestSchema = {
@@ -7701,6 +8030,116 @@ export const PollsPublicSchema = {
     title: 'PollsPublic'
 } as const;
 
+export const ProductCategorySchema = {
+    type: 'string',
+    enum: ['mouse', 'mouse_pad', 'keyboard', 'monitor', 'headset', 'cpu', 'gpu', 'memory', 'motherboard', 'storage', 'power_supply', 'case', 'cooling'],
+    title: 'ProductCategory'
+} as const;
+
+export const ProductCreateSchema = {
+    properties: {
+        category: {
+            '$ref': '#/components/schemas/ProductCategory'
+        },
+        brand: {
+            type: 'string',
+            maxLength: 100,
+            minLength: 1,
+            title: 'Brand'
+        },
+        model: {
+            type: 'string',
+            maxLength: 200,
+            minLength: 1,
+            title: 'Model'
+        },
+        product_url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2048,
+                    minLength: 1,
+                    format: 'uri'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Url'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['category', 'brand', 'model'],
+    title: 'ProductCreate'
+} as const;
+
+export const ProductPublicSchema = {
+    properties: {
+        category: {
+            '$ref': '#/components/schemas/ProductCategory'
+        },
+        brand: {
+            type: 'string',
+            maxLength: 100,
+            minLength: 1,
+            title: 'Brand'
+        },
+        model: {
+            type: 'string',
+            maxLength: 200,
+            minLength: 1,
+            title: 'Model'
+        },
+        product_url: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 2048,
+                    minLength: 1,
+                    format: 'uri'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Product Url'
+        },
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        community_added: {
+            type: 'boolean',
+            title: 'Community Added'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['category', 'brand', 'model', 'id', 'community_added'],
+    title: 'ProductPublic'
+} as const;
+
+export const ProductsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/ProductPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'ProductsPublic'
+} as const;
+
 export const QQBindingCodePublicSchema = {
     properties: {
         code: {
@@ -10222,6 +10661,67 @@ export const ServersPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ServersPublic'
+} as const;
+
+export const SetupInputSchema = {
+    properties: {
+        operating_system: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 100,
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Operating System'
+        },
+        hardware: {
+            items: {
+                '$ref': '#/components/schemas/HardwareInput'
+            },
+            type: 'array',
+            maxItems: 13,
+            title: 'Hardware'
+        },
+        game_settings: {
+            '$ref': '#/components/schemas/GameSettingsInput'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'SetupInput'
+} as const;
+
+export const SetupPublicSchema = {
+    properties: {
+        operating_system: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Operating System'
+        },
+        hardware: {
+            items: {
+                '$ref': '#/components/schemas/HardwarePublic'
+            },
+            type: 'array',
+            title: 'Hardware'
+        },
+        game_settings: {
+            '$ref': '#/components/schemas/GameSettingsPublic'
+        }
+    },
+    type: 'object',
+    required: ['hardware', 'game_settings'],
+    title: 'SetupPublic'
 } as const;
 
 export const SkillRatingPublicSchema = {

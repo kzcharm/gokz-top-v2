@@ -236,3 +236,23 @@ Scope model:
 - Scope-aware ranking/points behavior is deterministic and documented.
 - Sync and ingestion jobs are observable and recoverable.
 - Backend CI quality gates remain green, including coverage threshold.
+
+## Player setup and gear discovery
+
+- Players optionally publish primary peripherals and PC components from `/settings/setup`, including instantly shared custom models. Product identity verification is an operator task; there is no approval queue or automatic verification schedule.
+- Profile Home shows completed setup fields before pinned records, with product names linking to a web search in a new tab.
+- CS:GO sensitivity and mouse DPI are manually entered; eDPI is calculated as their product and omitted when either is absent. Memory configuration can be shared without a kit model.
+- `/leaderboards/gear` ranks current category selections by distinct players, with percentages based on all participants in that category regardless of search or pagination. Community-added models count; configuration-only memory rows do not.
+- The catalog contains over 2,400 models across all 13 categories with manufacturer sources and research dates; seed choices are not claimed as GOKZ usage statistics. Product images are out of scope.
+
+- Add-product dialogs explicitly show their fixed gear category and filter suggestions accordingly. Brand choices come from verified canonical catalog products, with an explicit missing-brand fallback. Optional HTTP/HTTPS product URLs are recorded in the existing operator audit log (including duplicate submissions), never fetched; `kztop products references` lists them for review and resolves merged products. No additional database migration is needed.
+
+- Setup product searches dismiss on outside pointer/focus changes. The brands endpoint requires a gear category and lists only verified brands in that category. Custom-product required fields use red asterisks; setup editing omits memory speed and retains existing stored speed when saving a retained memory entry.
+
+- Setup editing displays selected products inside clearable search inputs. Brand selection is searchable with the missing-brand choice first. DPI and refresh-rate controls sit beside mouse/monitor, while memory model, capacity, and type share a responsive row.
+
+- Product catalog revision 4 contains 2,451 models, retaining the NuPhy/Ryzen/Chinese-market additions and expanding thin GPU, CPU, monitor, PSU, storage, case, and peripheral categories. The versioned products.coverage.v4.json records category counts and complete coverage of 81 explicitly named discrete GPU identifiers in the September 2026 Steam survey main table. Steam is a GPU coverage reference, not an exact CPU/peripheral model source or GOKZ usage ranking. Chinese brand/model aliases and R5/R7 shorthand are seeded; category-scoped curated brands are available after the idempotent operator import.
+
+- Setup replacement supports top-level operating_system stored in player_game_settings and positive storage_capacity_gb in player_hardware (including capacity-only storage). Additive migration 98ea05caeefd introduces nullable columns. Profile setup editing is in the card header, product links omit community badges/underlines, setup-related tabs are last, and the gear leaderboard omits search and descriptive participation text.
+
+- Migration 89e9355f393f preserves storage_capacity_unit (GB/TB, existing entries default GB) alongside integer GB capacity. Editor converts using decimal storage units (1 TB = 1000 GB); public setup respects the saved unit. Points distributions render only on profile Stats via ProfileRecordDistributionSection; gear categories appear as wrapping buttons above the leaderboard table, defaulting to Mouse; the title and category dropdown are removed.

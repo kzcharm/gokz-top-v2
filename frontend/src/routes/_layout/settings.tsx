@@ -45,6 +45,7 @@ const SETTINGS_TAB_OPTIONS = [
     labelKey: "settings.tabs.bindingCode",
     to: "/settings/binding-code",
   },
+  { value: "setup", labelKey: "gear.setup", to: "/settings/setup" },
 ] as const
 
 export const Route = createFileRoute("/_layout/settings")({
@@ -107,20 +108,25 @@ function UserSettingsLayout() {
 
   return (
     <Tabs value={activeTab} className="flex flex-col gap-6">
-      <TabsList className="w-fit border border-border bg-background/60">
-        {SETTINGS_TAB_OPTIONS.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value} asChild>
-            <Link to={tab.to}>
-              <span className="flex items-center gap-2">
-                <span>{t(tab.labelKey)}</span>
-                {tab.value === "notifications" && hasUnreadNotifications ? (
-                  <NotificationDot className="bg-destructive" />
-                ) : null}
-              </span>
-            </Link>
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <TabsList className="h-auto w-full flex-wrap justify-start border border-border bg-background/60 sm:w-fit">
+          {SETTINGS_TAB_OPTIONS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} asChild>
+              <Link to={tab.to}>
+                <span className="flex items-center gap-2">
+                  <span>{t(tab.labelKey)}</span>
+                  {tab.value === "notifications" && hasUnreadNotifications ? (
+                    <NotificationDot className="bg-destructive" />
+                  ) : null}
+                </span>
+              </Link>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {activeTab === "setup" ? (
+          <div id="settings-setup-actions" className="ml-auto shrink-0" />
+        ) : null}
+      </div>
       <Outlet />
     </Tabs>
   )

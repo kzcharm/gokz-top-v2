@@ -44,6 +44,7 @@ import {
 } from "./ProfileHomeContent"
 import { ProfileJumpstatsTab } from "./ProfileJumpstatsTab"
 import { ProfileMapsTab } from "./ProfileMapsTab"
+import { ProfileRecordDistributionSection } from "./ProfileRecordDistributionSection"
 import {
   DEFAULT_PROFILE_RECORDS_VIEW_STATE,
   ProfileRecordsPresetMenu,
@@ -956,11 +957,11 @@ export function ProfilePage({
           {activeTab === "home" ? (
             <>
               <ProfileHomeContent
+                identifier={canonicalIdentifier}
                 activityError={playerStatsQuery.isError}
                 activityLoading={playerStatsQuery.isLoading}
                 activityStat={playerStatsQuery.data?.daily_activity ?? null}
                 canManagePinnedRecords={isOwnProfile}
-                nubRecordDistribution={nubRecordDistribution}
                 pinnedRecords={pinnedRecords}
                 pinnedRecordsError={
                   pinnedRecordsQuery.isError || pinnedRecordRanksQuery.isError
@@ -971,13 +972,6 @@ export function ProfilePage({
                 }
                 pinnedRecordsMutating={
                   pinRecordMutation.isPending || unpinRecordMutation.isPending
-                }
-                proRecordDistribution={proRecordDistribution}
-                recordDistributionError={
-                  nubRecordsQuery.isError || proRecordsQuery.isError
-                }
-                recordDistributionLoading={
-                  nubRecordsQuery.isLoading || proRecordsQuery.isLoading
                 }
                 onUnpinRecord={(mapId, stage, type) => {
                   unpinRecordMutation.mutate({ mapId, stage, type })
@@ -1070,14 +1064,26 @@ export function ProfilePage({
           ) : activeTab === "jumpstats" ? (
             <ProfileJumpstatsTab identifier={canonicalIdentifier} />
           ) : (
-            <ProfileStatsContent
-              error={playerStatsQuery.isError}
-              loading={playerStatsQuery.isLoading}
-              mostPlayedServer={
-                playerStatsQuery.data?.most_played_server ?? null
-              }
-              mostPlayedMaps={playerStatsQuery.data?.most_played_maps ?? null}
-            />
+            <>
+              <ProfileRecordDistributionSection
+                nubRecordDistribution={nubRecordDistribution}
+                proRecordDistribution={proRecordDistribution}
+                recordDistributionError={
+                  nubRecordsQuery.isError || proRecordsQuery.isError
+                }
+                recordDistributionLoading={
+                  nubRecordsQuery.isLoading || proRecordsQuery.isLoading
+                }
+              />
+              <ProfileStatsContent
+                error={playerStatsQuery.isError}
+                loading={playerStatsQuery.isLoading}
+                mostPlayedServer={
+                  playerStatsQuery.data?.most_played_server ?? null
+                }
+                mostPlayedMaps={playerStatsQuery.data?.most_played_maps ?? null}
+              />
+            </>
           )}
         </section>
       </div>

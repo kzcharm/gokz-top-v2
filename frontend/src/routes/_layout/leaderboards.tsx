@@ -36,6 +36,7 @@ const LEADERBOARD_TAB_OPTIONS = [
     labelKey: "leaderboards.tabs.countries",
     to: "/leaderboards/countries",
   },
+  { value: "gear", labelKey: "gear.gear", to: "/leaderboards/gear" },
 ] as const
 
 export const Route = createFileRoute("/_layout/leaderboards")({
