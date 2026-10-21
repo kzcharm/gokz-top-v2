@@ -1,4 +1,24 @@
 export const zhCN = {
+  recordModeration: {
+    previewTitle: "待删除记录",
+    previewTotal: "{{records}} 条记录 · {{players}} 位玩家",
+    previewRuns_other: "{{count}} 条记录",
+    previewEmpty: "没有需要删除的更快记录。",
+    previewLoading: "正在加载受影响记录",
+    previewFailed: "无法加载记录预览。",
+    previewRetry: "重试",
+    previewChanged: "记录已发生变化，请确认更新后的预览再删除。",
+
+    menu: "删除更快的记录…",
+    title: "删除更快的记录？",
+    description:
+      "将所有玩家在 {{map}}（{{course}}）中快于 {{time}} 的有效 {{scope}} {{type}} 记录设为无效，包括历史记录。同用时记录和所选记录将被保留。此操作不受国家和地区筛选条件限制。",
+    confirm: "删除更快的记录",
+    cancel: "取消",
+    deleted_one: "已删除 1 条记录。",
+    deleted_other: "已删除 {{count}} 条记录。",
+    failed: "无法删除更快的记录，请重试。",
+  },
   gear: {
     storageCapacity: "存储容量",
     storageUnit: "存储单位",
@@ -249,6 +269,9 @@ export const zhCN = {
       wrBeatenActionPrefix: "打破了你在",
       wrBeatenActionSuffix: "的 WR。",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
+      reportedRecordInvalidatedAction: "你举报的一条记录已被设为无效。",
+      targetLabel: "玩家：",
+      recordLabel: "记录：",
       playerReportAction: "提交了玩家举报。",
       mapReviewCommentDeletedAction: "你在 {{map}} 的地图评论已被删除。",
       mapReviewCommentDeletedActionPrefix: "你在",

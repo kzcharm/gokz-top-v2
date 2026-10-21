@@ -1,7 +1,13 @@
+import hashlib
+import json
 import uuid
+from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import true
+from sqlmodel import col, select
+from sqlmodel.sql.expression import SelectOfScalar
 
 from app import crud
 from app.api.deps import OptionalCurrentUser, SessionDep, get_current_active_admin
@@ -13,7 +19,7 @@ from app.crud.recent_wr import (
 from app.crud.recent_wr import (
     recent_wr_backfill_is_ready,
 )
-from app.crud.record import get_pb_record_publics
+from app.crud.record import get_pb_record_publics, soft_delete_records_with_audit
 from app.models import (
     Map,
     ModeScope,
@@ -26,8 +32,15 @@ from app.models import (
     RecentWrsPublic,
     Record,
     RecordBulkDeleteCourse,
+    RecordBulkDeleteFaster,
+    RecordBulkDeleteFasterPreview,
+    RecordBulkDeleteFasterPreviewPlayer,
+    RecordBulkDeleteFasterPreviewRun,
+    RecordBulkDeleteFasterResult,
     RecordBulkDeleteResult,
     RecordListQuery,
+    RecordModerationAction,
+    RecordModerationActionType,
     RecordPatch,
     RecordPbBucketRebuildResult,
     RecordPbSortBy,
@@ -40,6 +53,7 @@ from app.models import (
     ServerGlobalapi,
     ServerGroup,
     User,
+    mode_scope_modes,
 )
 
 router = APIRouter(prefix="/records", tags=["records"])
@@ -351,6 +365,151 @@ async def bulk_delete_course_records(
         data=await _to_record_publics(session, records, scope=ModeScope.OVR),
         count=len(records),
     )
+
+
+async def _faster_records_selection(
+    *,
+    session: SessionDep,
+    payload: RecordBulkDeleteFaster,
+) -> tuple[Record, SelectOfScalar[Record]]:
+    reference = await session.get(Record, payload.record_uuid)
+    if reference is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    if not reference.is_valid:
+        raise HTTPException(
+            status_code=409, detail="The selected record is already invalid"
+        )
+    modes = mode_scope_modes(payload.scope)
+    if reference.mode not in modes or (
+        payload.type == RecordType.PRO and reference.teleports != 0
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Record does not match the selected scope and category",
+        )
+    statement = select(Record).where(
+        col(Record.map_id) == reference.map_id,
+        col(Record.stage) == reference.stage,
+        col(Record.mode).in_(modes),
+        # Match the existing partial-index predicate. PostgreSQL does not
+        # infer `is_valid = true` from `is_valid IS TRUE` for these indexes.
+        col(Record.is_valid) == true(),
+        col(Record.time) < reference.time,
+    )
+    if payload.type == RecordType.PRO:
+        statement = statement.where(col(Record.teleports) == 0)
+    return reference, statement
+
+
+def _faster_records_preview_token(
+    *,
+    reference: Record,
+    payload: RecordBulkDeleteFaster,
+    records: Sequence[Record],
+) -> str:
+    snapshot = {
+        "reference": reference.model_dump(mode="json"),
+        "scope": payload.scope.value,
+        "type": payload.type.value,
+        "records": [
+            record.model_dump(mode="json")
+            for record in sorted(records, key=lambda r: str(r.uuid))
+        ],
+    }
+    return hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
+
+
+@router.post(
+    "/bulk-delete-faster/preview", response_model=RecordBulkDeleteFasterPreview
+)
+async def preview_bulk_delete_faster_records(
+    *,
+    session: SessionDep,
+    payload: RecordBulkDeleteFaster,
+    _current_user: CurrentAdmin,
+) -> RecordBulkDeleteFasterPreview:
+    reference, selection = await _faster_records_selection(
+        session=session, payload=payload
+    )
+    where_clause = selection.whereclause
+    assert where_clause is not None
+    rows = (
+        await session.exec(
+            select(Record, Player, ServerGlobalapi)
+            .join(Player, col(Player.steamid64) == col(Record.steamid64))
+            .join(ServerGlobalapi, col(ServerGlobalapi.id) == col(Record.server_id))
+            .where(where_clause)
+            .order_by(col(Record.time), col(Record.uuid))
+        )
+    ).all()
+    players: dict[int, RecordBulkDeleteFasterPreviewPlayer] = {}
+    for record, player, server in rows:
+        group = players.get(player.steamid64)
+        if group is None:
+            group = RecordBulkDeleteFasterPreviewPlayer(
+                player=player_crud.to_player_ref_public(player=player),
+                records=[],
+            )
+            players[player.steamid64] = group
+        group.records.append(
+            RecordBulkDeleteFasterPreviewRun(
+                uuid=record.uuid,
+                time=float(record.time),
+                mode=record.mode,
+                teleports=record.teleports,
+                server_name=server.name or "",
+                created_on=record.created_at,
+            )
+        )
+    return RecordBulkDeleteFasterPreview(
+        count=len(rows),
+        players=list(players.values()),
+        preview_token=_faster_records_preview_token(
+            reference=reference, payload=payload, records=[row[0] for row in rows]
+        ),
+    )
+
+
+@router.post("/bulk-delete-faster", response_model=RecordBulkDeleteFasterResult)
+async def bulk_delete_faster_records(
+    *,
+    session: SessionDep,
+    payload: RecordBulkDeleteFaster,
+    current_user: CurrentAdmin,
+) -> RecordBulkDeleteFasterResult:
+    reference, statement = await _faster_records_selection(
+        session=session, payload=payload
+    )
+    records = list(
+        (
+            await session.exec(statement.order_by(col(Record.uuid)).with_for_update())
+        ).all()
+    )
+    if (
+        payload.preview_token is not None
+        and payload.preview_token
+        != _faster_records_preview_token(
+            reference=reference,
+            payload=payload,
+            records=records,
+        )
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Records have changed. Refresh the preview before deleting.",
+        )
+    await soft_delete_records_with_audit(
+        session=session,
+        records=records,
+        action=RecordModerationAction(
+            actor_steamid64=current_user.steamid64,
+            action_type=RecordModerationActionType.BULK_SOFT_DELETE_FASTER,
+            target_record_uuid=reference.uuid,
+            target_map_id=reference.map_id,
+            target_stage=reference.stage,
+        ),
+    )
+    return RecordBulkDeleteFasterResult(count=len(records))
 
 
 @router.post(

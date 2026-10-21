@@ -1,8 +1,9 @@
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import func, update
+from sqlalchemy import ARRAY, Uuid, any_, func, literal, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import aliased
 from sqlmodel import col, select
@@ -10,11 +11,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.crud.player import to_player_ref_public
 from app.models import (
+    Map,
     ModeScope,
     Player,
     PlayerNotification,
     PlayerNotificationPublic,
     PlayerNotificationType,
+    PlayerReport,
+    Record,
     RecordType,
 )
 from app.models.utils import get_datetime_utc
@@ -109,7 +113,9 @@ async def create_player_notification(
         "record_type": record_type,
         "previous_record_uuid": previous_record_uuid,
         "new_record_uuid": new_record_uuid,
-        "new_record_time": float(new_record_time) if new_record_time is not None else None,
+        "new_record_time": float(new_record_time)
+        if new_record_time is not None
+        else None,
         "created_at": get_datetime_utc(),
     }
     statement = (
@@ -213,6 +219,68 @@ async def create_map_review_comment_deleted_notification(
     )
 
 
+async def create_reported_record_invalidated_notifications(
+    *,
+    session: AsyncSession,
+    records: Sequence[Record],
+    actor_steamid64: int,
+) -> None:
+    """Called only for valid-to-invalid transitions from admin moderation."""
+    if not records:
+        return
+    records_by_uuid = {record.uuid: record for record in records}
+    reports = (
+        await session.exec(
+            select(PlayerReport.record_uuid, PlayerReport.reporter_steamid64)
+            .where(
+                col(PlayerReport.record_uuid)
+                == any_(literal(list(records_by_uuid), type_=ARRAY(Uuid())))
+            )
+            .distinct()
+        )
+    ).all()
+    if not reports:
+        return
+    maps = (
+        await session.exec(
+            select(Map).where(col(Map.id).in_({record.map_id for record in records}))
+        )
+    ).all()
+    map_names = {map_obj.id: map_obj.name for map_obj in maps}
+    notifications: list[dict[str, object]] = []
+    for record_uuid, reporter_steamid64 in reports:
+        if record_uuid is None:
+            continue
+        record = records_by_uuid[record_uuid]
+        notifications.append(
+            {
+                "recipient_steamid64": reporter_steamid64,
+                "actor_steamid64": actor_steamid64,
+                "type": PlayerNotificationType.REPORTED_RECORD_INVALIDATED,
+                "source_key": f"reported-record-invalidated:{record.uuid}:{reporter_steamid64}",
+                "target_url": f"/profile/{record.steamid64}/records",
+                "target_player_steamid64": record.steamid64,
+                "map_id": record.map_id,
+                "map_name": map_names.get(record.map_id),
+                "scope": ModeScope.KZT
+                if record.mode.value == "NKZ"
+                else ModeScope(record.mode.value),
+                "record_type": RecordType.PRO
+                if record.teleports == 0
+                else RecordType.NUB,
+                "new_record_uuid": record.uuid,
+                "new_record_time": float(record.time),
+                "created_at": get_datetime_utc(),
+            }
+        )
+    for offset in range(0, len(notifications), 500):
+        await session.exec(
+            insert(PlayerNotification)
+            .values(notifications[offset : offset + 500])
+            .on_conflict_do_nothing(index_elements=[PlayerNotification.source_key])
+        )
+
+
 async def create_wr_beaten_notification(
     *,
     session: AsyncSession,
@@ -266,7 +334,9 @@ async def read_player_notifications(
     if unread_only:
         filters.append(col(PlayerNotification.read_at).is_(None))
 
-    count_statement = select(func.count()).select_from(PlayerNotification).where(*filters)
+    count_statement = (
+        select(func.count()).select_from(PlayerNotification).where(*filters)
+    )
     count = int((await session.exec(count_statement)).one())
 
     actor_player = aliased(Player)
@@ -298,9 +368,13 @@ async def count_unread_player_notifications(
     session: AsyncSession,
     recipient_steamid64: int,
 ) -> int:
-    statement = select(func.count()).select_from(PlayerNotification).where(
-        col(PlayerNotification.recipient_steamid64) == recipient_steamid64,
-        col(PlayerNotification.read_at).is_(None),
+    statement = (
+        select(func.count())
+        .select_from(PlayerNotification)
+        .where(
+            col(PlayerNotification.recipient_steamid64) == recipient_steamid64,
+            col(PlayerNotification.read_at).is_(None),
+        )
     )
     return int((await session.exec(statement)).one())
 

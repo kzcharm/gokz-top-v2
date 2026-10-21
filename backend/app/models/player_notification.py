@@ -19,6 +19,7 @@ class PlayerNotificationType(StrEnum):
     PLAYER_FOLLOW = "player_follow"
     WR_BEATEN = "wr_beaten"
     PLAYER_REPORT = "player_report"
+    REPORTED_RECORD_INVALIDATED = "reported_record_invalidated"
     MAP_REVIEW_COMMENT_DELETED = "map_review_comment_deleted"
 
 
@@ -113,7 +114,9 @@ class PlayerNotification(SQLModel, table=True):
     target_player_steamid64: int | None = Field(default=None, sa_type=BigInteger)
     comment_id: uuid.UUID | None = None
     comment_preview: str | None = Field(default=None, max_length=140)
-    comment_text: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    comment_text: str | None = Field(
+        default=None, sa_column=Column(Text, nullable=True)
+    )
     map_id: int | None = Field(default=None, foreign_key="map.id")
     map_name: str | None = Field(default=None, max_length=255)
     scope: ModeScope | None = Field(

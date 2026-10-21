@@ -1,4 +1,30 @@
 export const ru = {
+  recordModeration: {
+    previewTitle: "Рекорды для удаления",
+    previewTotal: "{{records}} забегов · {{players}} игроков",
+    previewRuns_one: "{{count}} забег",
+    previewRuns_few: "{{count}} забега",
+    previewRuns_many: "{{count}} забегов",
+    previewRuns_other: "{{count}} забега",
+    previewEmpty: "Нет более быстрых рекордов для удаления.",
+    previewLoading: "Загрузка затронутых рекордов",
+    previewFailed: "Не удалось загрузить предпросмотр рекордов.",
+    previewRetry: "Повторить",
+    previewChanged:
+      "Рекорды изменились. Проверьте обновлённый список перед удалением.",
+
+    menu: "Удалить более быстрые рекорды…",
+    title: "Удалить более быстрые рекорды?",
+    description:
+      "Сделать недействительными все действительные результаты {{scope}} {{type}} быстрее {{time}} на {{map}} ({{course}}) для всех игроков, включая прошлые забеги. Результаты с таким же временем и выбранный забег сохранятся. Фильтры страны и региона не ограничивают это действие.",
+    confirm: "Удалить более быстрые рекорды",
+    cancel: "Отмена",
+    deleted_one: "Удалён {{count}} рекорд.",
+    deleted_few: "Удалено {{count}} рекорда.",
+    deleted_many: "Удалено {{count}} рекордов.",
+    deleted_other: "Удалено {{count}} рекорда.",
+    failed: "Не удалось удалить более быстрые рекорды. Попробуйте ещё раз.",
+  },
   gear: {
     storageCapacity: "Объём накопителя",
     storageUnit: "Единица объёма",
@@ -24,7 +50,8 @@ export const ru = {
     otherBrand: "Бренда нет в списке",
     customBrand: "Другой бренд",
     productUrl: "Ссылка на товар",
-    productUrlHelp: "Добавьте HTTP- или HTTPS-ссылку на товар для проверки операторами.",
+    productUrlHelp:
+      "Добавьте HTTP- или HTTPS-ссылку на товар для проверки операторами.",
     invalidUrl: "Введите корректную HTTP- или HTTPS-ссылку.",
     brand: "Бренд",
     model: "Модель",
@@ -257,6 +284,10 @@ export const ru = {
       wrBeatenActionPrefix: "побил ваш WR на",
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
+      reportedRecordInvalidatedAction:
+        "Рекорд, на который вы пожаловались, признан недействительным.",
+      targetLabel: "Игрок:",
+      recordLabel: "Рекорд:",
       playerReportAction: "отправил жалобу на игрока.",
       mapReviewCommentDeletedAction:
         "ваш комментарий к отзыву о карте {{map}} был удалён.",

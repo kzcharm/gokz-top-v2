@@ -6106,7 +6106,7 @@ export const PlayerNotificationPublicSchema = {
 
 export const PlayerNotificationTypeSchema = {
     type: 'string',
-    enum: ['profile_like', 'profile_comment', 'player_follow', 'wr_beaten', 'player_report', 'map_review_comment_deleted'],
+    enum: ['profile_like', 'profile_comment', 'player_follow', 'wr_beaten', 'player_report', 'reported_record_invalidated', 'map_review_comment_deleted'],
     title: 'PlayerNotificationType'
 } as const;
 
@@ -8636,6 +8636,126 @@ export const RecordBulkDeleteCourseSchema = {
     type: 'object',
     required: ['steamid64', 'map_id', 'stage'],
     title: 'RecordBulkDeleteCourse'
+} as const;
+
+export const RecordBulkDeleteFasterSchema = {
+    properties: {
+        record_uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Record Uuid'
+        },
+        scope: {
+            '$ref': '#/components/schemas/ModeScope'
+        },
+        type: {
+            '$ref': '#/components/schemas/RecordType'
+        },
+        preview_token: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 64,
+                    minLength: 64
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Preview Token'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['record_uuid', 'scope', 'type'],
+    title: 'RecordBulkDeleteFaster'
+} as const;
+
+export const RecordBulkDeleteFasterPreviewSchema = {
+    properties: {
+        count: {
+            type: 'integer',
+            title: 'Count'
+        },
+        players: {
+            items: {
+                '$ref': '#/components/schemas/RecordBulkDeleteFasterPreviewPlayer'
+            },
+            type: 'array',
+            title: 'Players'
+        },
+        preview_token: {
+            type: 'string',
+            title: 'Preview Token'
+        }
+    },
+    type: 'object',
+    required: ['count', 'players', 'preview_token'],
+    title: 'RecordBulkDeleteFasterPreview'
+} as const;
+
+export const RecordBulkDeleteFasterPreviewPlayerSchema = {
+    properties: {
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        records: {
+            items: {
+                '$ref': '#/components/schemas/RecordBulkDeleteFasterPreviewRun'
+            },
+            type: 'array',
+            title: 'Records'
+        }
+    },
+    type: 'object',
+    required: ['player', 'records'],
+    title: 'RecordBulkDeleteFasterPreviewPlayer'
+} as const;
+
+export const RecordBulkDeleteFasterPreviewRunSchema = {
+    properties: {
+        uuid: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Uuid'
+        },
+        time: {
+            type: 'number',
+            title: 'Time'
+        },
+        mode: {
+            '$ref': '#/components/schemas/KZMode'
+        },
+        teleports: {
+            type: 'integer',
+            title: 'Teleports'
+        },
+        server_name: {
+            type: 'string',
+            title: 'Server Name'
+        },
+        created_on: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created On'
+        }
+    },
+    type: 'object',
+    required: ['uuid', 'time', 'mode', 'teleports', 'server_name', 'created_on'],
+    title: 'RecordBulkDeleteFasterPreviewRun'
+} as const;
+
+export const RecordBulkDeleteFasterResultSchema = {
+    properties: {
+        count: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['count'],
+    title: 'RecordBulkDeleteFasterResult'
 } as const;
 
 export const RecordBulkDeleteResultSchema = {

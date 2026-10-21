@@ -86,7 +86,10 @@ function notificationIcon(type: PlayerNotificationType) {
   if (type === "player_report") {
     return <Flag className="size-4" />
   }
-  if (type === "map_review_comment_deleted") {
+  if (
+    type === "map_review_comment_deleted" ||
+    type === "reported_record_invalidated"
+  ) {
     return <ShieldAlert className="size-4" />
   }
   return <Bell className="size-4" />
@@ -149,6 +152,16 @@ function buildNotificationDisplay(
       action: t("notifications.events.playerReportAction"),
       detail: notification.comment_preview ?? null,
       actor: notification.actor,
+    }
+  }
+
+  if (notification.type === "reported_record_invalidated") {
+    return {
+      icon: notificationIcon(notification.type),
+      action: t("notifications.events.reportedRecordInvalidatedAction"),
+      detail: null,
+      actor: null,
+      showActor: false,
     }
   }
 
@@ -234,7 +247,7 @@ function ReportNotificationDetails({
     <span className="block space-y-2 text-sm">
       {targetSteamid64 ? (
         <span className="grid gap-1 text-muted-foreground">
-          <span>Target:</span>
+          <span>{t("notifications.events.targetLabel")}</span>
           <span className="flex min-w-0 pl-4">
             {targetPlayer ? (
               <PlayerDisplay
@@ -258,7 +271,7 @@ function ReportNotificationDetails({
       ) : null}
       {hasRecordContext ? (
         <span className="block text-muted-foreground">
-          Record:{" "}
+          {t("notifications.events.recordLabel")}{" "}
           {notification.map_name ? (
             canLinkMap ? (
               <Link
@@ -532,7 +545,8 @@ export function NotificationsRoute() {
                       {display.detail}
                     </span>
                   ) : null}
-                  {notification.type === "player_report" ? (
+                  {notification.type === "player_report" ||
+                  notification.type === "reported_record_invalidated" ? (
                     <ReportNotificationDetails
                       notification={notification}
                       onMarkRead={() => handleNotificationClick(notification)}

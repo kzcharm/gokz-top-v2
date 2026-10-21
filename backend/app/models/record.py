@@ -73,6 +73,7 @@ MODE_SCOPE_MODE_IDS: dict[int, tuple[int, ...]] = {
     for scope in ModeScope
 }
 
+
 def legacy_mode_id_to_kz_mode(mode_id: int) -> KZMode:
     return KZ_MODE_BY_LEGACY_MODE_ID[mode_id]
 
@@ -200,9 +201,7 @@ class MapCourseTierBase(LegacyDatetimeNamesMixin):
 class MapCourseTier(MapCourseTierBase, table=True):
     __tablename__ = "map_course_tier"
     __table_args__ = (
-        CheckConstraint(
-            "tier >= 0 AND tier <= 8", name="ck_map_course_tier_range"
-        ),
+        CheckConstraint("tier >= 0 AND tier <= 8", name="ck_map_course_tier_range"),
         Index("ix_map_course_tier_course_id", "course_id"),
         Index("ix_map_course_tier_mode", "mode"),
     )
@@ -314,6 +313,14 @@ class Record(RecordBase, table=True):
             "steamid64",
             "time",
             "id",
+            "uuid",
+            postgresql_where=text("is_valid = true"),
+        ),
+        Index(
+            "ix_record_valid_map_stage_time_uuid",
+            "map_id",
+            "stage",
+            "time",
             "uuid",
             postgresql_where=text("is_valid = true"),
         ),
@@ -563,6 +570,39 @@ class RecordBulkDeleteCourse(SQLModel):
     steamid64: str
     map_id: int
     stage: int = Field(ge=0)
+
+
+class RecordBulkDeleteFaster(SQLModel):
+    model_config = {"extra": "forbid"}
+
+    record_uuid: uuid.UUID
+    scope: ModeScope
+    type: RecordType
+    preview_token: str | None = Field(default=None, min_length=64, max_length=64)
+
+
+class RecordBulkDeleteFasterPreviewRun(SQLModel):
+    uuid: uuid.UUID
+    time: float
+    mode: KZMode
+    teleports: int
+    server_name: str
+    created_on: datetime
+
+
+class RecordBulkDeleteFasterPreviewPlayer(SQLModel):
+    player: PlayerRefPublic
+    records: list[RecordBulkDeleteFasterPreviewRun]
+
+
+class RecordBulkDeleteFasterPreview(SQLModel):
+    count: int
+    players: list[RecordBulkDeleteFasterPreviewPlayer]
+    preview_token: str
+
+
+class RecordBulkDeleteFasterResult(SQLModel):
+    count: int = Field(ge=0)
 
 
 class RecordBulkDeleteResult(SQLModel):

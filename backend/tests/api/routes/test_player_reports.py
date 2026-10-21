@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.models import (
     KZMode,
     Map,
+    ModeScope,
     Player,
     PlayerNotification,
     PlayerNotificationType,
@@ -201,9 +202,11 @@ async def test_create_player_report_notifies_admins_and_root(
     )
 
 
+@pytest.mark.parametrize("mode", [KZMode.KZT, KZMode.NKZ])
 async def test_create_player_report_includes_record_context(
     client: AsyncClient,
     db: AsyncSession,
+    mode: KZMode,
 ) -> None:
     reporter_steamid64 = random_steamid64()
     target_steamid64 = random_steamid64()
@@ -219,6 +222,9 @@ async def test_create_player_report_includes_record_context(
         record_steamid64=target_steamid64,
         map_id=912301,
     )
+    record.mode = mode
+    db.add(record)
+    await db.commit()
     headers = await get_user_token_headers(client, reporter_steamid64)
 
     response = await client.post(
@@ -241,6 +247,7 @@ async def test_create_player_report_includes_record_context(
             )
         )
     ).one()
+    assert notification.scope == ModeScope.KZT
     assert notification.new_record_uuid == record.uuid
     assert notification.target_url == f"/profile/{target_steamid64}/records"
 
@@ -287,9 +294,7 @@ async def test_player_report_notification_includes_target_and_context(
     notification = notifications_response.json()["data"][0]
     assert notification["type"] == PlayerNotificationType.PLAYER_REPORT
     assert notification["target_player"]["steamid64"] == str(target_steamid64)
-    assert (
-        notification["target_player"]["display_name"] == f"Player {target_steamid64}"
-    )
+    assert notification["target_player"]["display_name"] == f"Player {target_steamid64}"
     assert notification["target_player_steamid64"] == str(target_steamid64)
     assert notification["new_record_uuid"] == str(record.uuid)
     assert notification["map_name"] == "kz_report_test_912304"

@@ -13,6 +13,7 @@ class RecordModerationActionType(StrEnum):
     SINGLE_SOFT_DELETE = "single_soft_delete"
     SINGLE_REENABLE = "single_reenable"
     BULK_SOFT_DELETE_COURSE = "bulk_soft_delete_course"
+    BULK_SOFT_DELETE_FASTER = "bulk_soft_delete_faster"
 
 
 class RecordModerationAction(SQLModel, table=True):

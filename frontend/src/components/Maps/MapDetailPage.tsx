@@ -1,12 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { Calculator, Copy, Download, LocateFixed, Users } from "lucide-react"
+import {
+  Calculator,
+  Copy,
+  Download,
+  LocateFixed,
+  Trash2,
+  Users,
+} from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FaSteam } from "react-icons/fa"
 import { toast } from "sonner"
-
 import {
   type MapPublic,
   MapsService,
@@ -24,6 +30,7 @@ import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
 import { RegionBadge } from "@/components/Common/RegionFlag"
+import { RowContextMenuItem } from "@/components/Common/RowContextMenu"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { type AppScope, useScope } from "@/components/scope-provider"
@@ -54,6 +61,8 @@ import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
 import {
   DeleteCourseRecordsButton,
+  DeleteFasterRecordsDialog,
+  type DeleteFasterRecordsTarget,
   useRecordAdminActions,
 } from "../Records/admin-actions"
 import { useMapReviewAdminActions } from "../Reviews/admin-actions"
@@ -471,7 +480,9 @@ export function MapDetailPage({
     canUseRecordAdminActions &&
       (activeTab === "top" || activeTab === "reviews"),
   )
-  const { bulkDeleteMutation } = useRecordAdminActions()
+  const { bulkDeleteMutation, deleteFasterMutation } = useRecordAdminActions()
+  const [deleteFasterTarget, setDeleteFasterTarget] =
+    useState<DeleteFasterRecordsTarget | null>(null)
   const { deleteCommentsMutation } = useMapReviewAdminActions()
   const queryClient = useQueryClient()
   const { showErrorToast, showSuccessToast } = useCustomToast()
@@ -735,6 +746,16 @@ export function MapDetailPage({
   }, [])
 
   useEffect(() => {
+    if (leaderboardQuery.data) {
+      const lastPage = Math.max(
+        0,
+        Math.ceil(leaderboardQuery.data.count / topPageSize) - 1,
+      )
+      setTopPageIndex((page) => Math.min(page, lastPage))
+    }
+  }, [leaderboardQuery.data, topPageSize])
+
+  useEffect(() => {
     const bonusCount = mapQuery.data?.bonus_count ?? 0
     if (selectedStage > bonusCount) {
       setSelectedStage(0)
@@ -873,6 +894,11 @@ export function MapDetailPage({
 
   return (
     <div className="space-y-6">
+      <DeleteFasterRecordsDialog
+        target={canAdministerRecords ? deleteFasterTarget : null}
+        onClose={() => setDeleteFasterTarget(null)}
+        mutation={deleteFasterMutation}
+      />
       <MapHero
         map={map}
         tier={activeTier}
@@ -1162,6 +1188,26 @@ export function MapDetailPage({
               currentUserSteamid64={authenticatedUserSteamid64}
               renderAdminActions={
                 canAdministerRecords ? renderAdminActions : undefined
+              }
+              getRowContextMenu={
+                canAdministerRecords
+                  ? (record) => (
+                      <RowContextMenuItem
+                        variant="destructive"
+                        disabled={deleteFasterMutation.isPending}
+                        onSelect={() =>
+                          setDeleteFasterTarget({
+                            record,
+                            scope,
+                            type: isProOnly ? "PRO" : "NUB",
+                          })
+                        }
+                      >
+                        <Trash2 />
+                        {t("recordModeration.menu")}
+                      </RowContextMenuItem>
+                    )
+                  : undefined
               }
             />
           )}

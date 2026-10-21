@@ -1,4 +1,26 @@
 export const en = {
+  recordModeration: {
+    previewTitle: "Records to delete",
+    previewTotal: "{{records}} runs · {{players}} players",
+    previewRuns_one: "{{count}} run",
+    previewRuns_other: "{{count}} runs",
+    previewEmpty: "No faster records to delete.",
+    previewLoading: "Loading affected records",
+    previewFailed: "Could not load the record preview.",
+    previewRetry: "Retry",
+    previewChanged:
+      "Records have changed. Review the updated preview before deleting.",
+
+    menu: "Delete faster records…",
+    title: "Delete faster records?",
+    description:
+      "Invalidate all valid {{scope}} {{type}} runs faster than {{time}} on {{map}} ({{course}}), across all players. Historical runs are included. Equal times and the selected run are preserved. Country and region filters do not restrict this action.",
+    confirm: "Delete faster records",
+    cancel: "Cancel",
+    deleted_one: "Deleted 1 record.",
+    deleted_other: "Deleted {{count}} records.",
+    failed: "Could not delete faster records. Please try again.",
+  },
   gear: {
     storageCapacity: "Storage Capacity",
     storageUnit: "Storage Unit",
@@ -24,7 +46,8 @@ export const en = {
     otherBrand: "Brand not listed",
     customBrand: "Other Brand",
     productUrl: "Product Link",
-    productUrlHelp: "Add an HTTP or HTTPS product page for operators to review.",
+    productUrlHelp:
+      "Add an HTTP or HTTPS product page for operators to review.",
     invalidUrl: "Enter a valid HTTP or HTTPS URL.",
     brand: "Brand",
     model: "Model",
@@ -250,6 +273,9 @@ export const en = {
       wrBeatenActionPrefix: "beat your WR on",
       wrBeatenActionSuffix: ".",
       wrBeatenDetail: "{{scope}} {{type}} - {{time}}",
+      reportedRecordInvalidatedAction: "A record you reported was invalidated.",
+      targetLabel: "Player:",
+      recordLabel: "Record:",
       playerReportAction: "submitted a player report.",
       mapReviewCommentDeletedAction:
         "Your map review comment on {{map}} was removed.",

@@ -9,12 +9,17 @@ from enum import Enum
 from typing import Any, Literal
 
 from sqlalchemy import (
+    ARRAY,
+    Uuid,
     and_,
+    any_,
     bindparam,
     case,
     delete,
     exists,
     func,
+    insert,
+    literal,
     or_,
     text,
     true,
@@ -22,6 +27,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.orm import aliased
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -86,7 +92,10 @@ from .ban import active_ban_exists_clause, not_active_ban_exists_clause
 from .map import get_map_by_name
 from .map_leaderboard import rebuild_map_leaderboards_for_keys
 from .player import read_players_batch, steamid64_to_steam2, to_player_ref_public
-from .player_notification import create_wr_beaten_notification
+from .player_notification import (
+    create_reported_record_invalidated_notifications,
+    create_wr_beaten_notification,
+)
 from .player_stats import refresh_player_daily_activity_cache_dates
 from .record_filter import load_scoped_course_tiers
 
@@ -2497,6 +2506,22 @@ async def update_record_validity(
     patch: RecordPatch,
     actor_steamid64: int,
 ) -> Record:
+    if not patch.is_valid:
+        await session.refresh(record, with_for_update=True)
+        if record.is_valid:
+            await soft_delete_records_with_audit(
+                session=session,
+                records=[record],
+                action=RecordModerationAction(
+                    actor_steamid64=actor_steamid64,
+                    action_type=RecordModerationActionType.SINGLE_SOFT_DELETE,
+                    target_record_uuid=record.uuid,
+                    target_player_steamid64=record.steamid64,
+                    target_map_id=record.map_id,
+                    target_stage=record.stage,
+                ),
+            )
+        return record
     before_record = Record.model_validate(record.model_dump())
     record.is_valid = patch.is_valid
     record.updated_at = get_datetime_utc()
@@ -2508,11 +2533,7 @@ async def update_record_validity(
     )
     action = RecordModerationAction(
         actor_steamid64=actor_steamid64,
-        action_type=(
-            RecordModerationActionType.SINGLE_REENABLE
-            if patch.is_valid
-            else RecordModerationActionType.SINGLE_SOFT_DELETE
-        ),
+        action_type=RecordModerationActionType.SINGLE_REENABLE,
         target_record_uuid=record.uuid,
         target_player_steamid64=record.steamid64,
         target_map_id=record.map_id,
@@ -2544,74 +2565,91 @@ async def bulk_soft_delete_course_records(
     actor_steamid64: int,
 ) -> list[Record]:
     target_steamid64 = int(payload.steamid64)
-    statement = (
-        select(Record)
-        .where(
-            col(Record.steamid64) == target_steamid64,
-            col(Record.map_id) == payload.map_id,
-            col(Record.stage) == payload.stage,
-            col(Record.is_valid).is_(True),
-        )
-        .order_by(*_record_tie_breakers())
+    records = list(
+        (
+            await session.exec(
+                select(Record)
+                .where(
+                    col(Record.steamid64) == target_steamid64,
+                    col(Record.map_id) == payload.map_id,
+                    col(Record.stage) == payload.stage,
+                    col(Record.is_valid).is_(True),
+                )
+                .order_by(col(Record.uuid))
+                .with_for_update()
+            )
+        ).all()
     )
-    records = list((await session.exec(statement)).all())
-    if not records:
-        return []
+    await soft_delete_records_with_audit(
+        session=session,
+        records=records,
+        action=RecordModerationAction(
+            actor_steamid64=actor_steamid64,
+            action_type=RecordModerationActionType.BULK_SOFT_DELETE_COURSE,
+            target_player_steamid64=target_steamid64,
+            target_map_id=payload.map_id,
+            target_stage=payload.stage,
+        ),
+    )
+    return records
 
-    before_records = [Record.model_validate(record.model_dump()) for record in records]
-    changed_at = get_datetime_utc()
-    action = RecordModerationAction(
-        actor_steamid64=actor_steamid64,
-        action_type=RecordModerationActionType.BULK_SOFT_DELETE_COURSE,
-        target_player_steamid64=target_steamid64,
-        target_map_id=payload.map_id,
-        target_stage=payload.stage,
-    )
+
+async def soft_delete_records_with_audit(
+    *,
+    session: AsyncSession,
+    records: list[Record],
+    action: RecordModerationAction,
+) -> None:
+    """Invalidate locked runs and remove their PBs without rebuilding caches."""
+    if not records:
+        return
     session.add(action)
     await session.flush()
-
-    course = await get_map_course_by_map_stage(
-        session=session,
-        map_id=payload.map_id,
-        stage=payload.stage,
+    changed_at = get_datetime_utc()
+    # One array bind avoids parameter limits and repeated scans for large
+    # histories. The caller already selected and locked these exact runs.
+    record_uuids = literal([record.uuid for record in records], type_=ARRAY(Uuid()))
+    await session.execute(
+        update(Record)
+        .where(col(Record.uuid) == any_(record_uuids))
+        .values(is_valid=False, updated_at=changed_at)
+        .execution_options(synchronize_session=False)
     )
-    if course is not None:
-        await session.exec(
-            delete(RecordPb).where(
-                col(RecordPb.course_id) == course.id,
-                col(RecordPb.steamid64) == target_steamid64,
+    # PBs have no validity flag. Delete only references to these invalid runs;
+    # fallback selection, points and caches are deferred to normal maintenance.
+    await session.execute(
+        delete(RecordPb)
+        .where(col(RecordPb.record_uuid) == any_(record_uuids))
+        .execution_options(synchronize_session=False)
+    )
+    # Bound audit INSERT parameter counts and ORM bookkeeping.
+    for offset in range(0, len(records), 1000):
+        batch = records[offset : offset + 1000]
+        snapshots: list[dict[str, object]] = []
+        for record in batch:
+            before_snapshot = _serialize_record_snapshot(record)
+            # Keep the caller's loaded records consistent without issuing a
+            # second ORM UPDATE per run during the next autoflush.
+            set_committed_value(record, "is_valid", False)
+            set_committed_value(record, "updated_at", changed_at)
+            snapshots.append(
+                {
+                    "action_id": action.id,
+                    "record_uuid": record.uuid,
+                    "record_id": record.id,
+                    "player_steamid64": record.steamid64,
+                    "map_id": record.map_id,
+                    "stage": record.stage,
+                    "before_snapshot": before_snapshot,
+                    "after_snapshot": _serialize_record_snapshot(record),
+                }
             )
-        )
-        _expunge_loaded_record_pbs(session=session)
-
-    for before_record, record in zip(before_records, records, strict=True):
-        record.is_valid = False
-        record.updated_at = changed_at
-        session.add(record)
-        session.add(
-            RecordModerationActionRecord(
-                action_id=action.id,
-                record_uuid=record.uuid,
-                record_id=record.id,
-                player_steamid64=record.steamid64,
-                map_id=record.map_id,
-                stage=record.stage,
-                before_snapshot=_serialize_record_snapshot(before_record),
-                after_snapshot=_serialize_record_snapshot(record),
-            )
-        )
-
-    if payload.stage == 0:
-        from .recent_wr import rebuild_recent_wr_events_for_map
-
-        await rebuild_recent_wr_events_for_map(
-            session=session,
-            map_id=payload.map_id,
-            notify=True,
-        )
-
+        await session.execute(insert(RecordModerationActionRecord), snapshots)
+    _expunge_loaded_record_pbs(session=session)
+    await create_reported_record_invalidated_notifications(
+        session=session, records=records, actor_steamid64=action.actor_steamid64
+    )
     await session.commit()
-    return records
 
 
 async def get_max_record_globalapi_id(*, session: AsyncSession) -> int | None:

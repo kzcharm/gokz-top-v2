@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import Mock
 
 import httpx
 import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.api.v1 import me_player_actions
 from app.core.config import settings
 from app.models import (
     Player,
@@ -207,7 +209,9 @@ async def test_sync_player_friends_reconciles_known_friends_and_deletes_stale_ed
             (missing_friend, datetime(2026, 5, 2, tzinfo=UTC)),
         ]
 
-    monkeypatch.setattr(player_friends, "_fetch_steam_profile_is_public", _public_profile)
+    monkeypatch.setattr(
+        player_friends, "_fetch_steam_profile_is_public", _public_profile
+    )
     monkeypatch.setattr(player_friends, "_fetch_steam_friends", _fetch_friends)
 
     headers = await authentication_token_from_steamid(
@@ -227,8 +231,14 @@ async def test_sync_player_friends_reconciles_known_friends_and_deletes_stale_ed
     assert payload["sync"]["visibility"] == "public"
     assert payload["sync"]["steam_friends_count"] == 2
 
-    assert await db.get(PlayerFriend, (owner.steamid64, current_friend.steamid64)) is not None
-    assert await db.get(PlayerFriend, (current_friend.steamid64, owner.steamid64)) is not None
+    assert (
+        await db.get(PlayerFriend, (owner.steamid64, current_friend.steamid64))
+        is not None
+    )
+    assert (
+        await db.get(PlayerFriend, (current_friend.steamid64, owner.steamid64))
+        is not None
+    )
     assert await db.get(PlayerFriend, (owner.steamid64, stale_friend.steamid64)) is None
     assert await db.get(PlayerFriend, (stale_friend.steamid64, owner.steamid64)) is None
     assert await db.get(PlayerFriend, (owner.steamid64, missing_friend)) is None
@@ -269,7 +279,9 @@ async def test_sync_player_friends_private_result_preserves_existing_edges(
         assert steamid64 == owner.steamid64
         raise player_friends.SteamFriendsPrivateError("private")
 
-    monkeypatch.setattr(player_friends, "_fetch_steam_profile_is_public", _public_profile)
+    monkeypatch.setattr(
+        player_friends, "_fetch_steam_profile_is_public", _public_profile
+    )
     monkeypatch.setattr(player_friends, "_fetch_steam_friends", _private_friends)
 
     headers = await authentication_token_from_steamid(
@@ -286,8 +298,14 @@ async def test_sync_player_friends_private_result_preserves_existing_edges(
     assert response.json()["sync"]["visibility"] == "private_friends"
     await db.refresh(owner)
     assert owner.steam_friends_count == 7
-    assert await db.get(PlayerFriend, (owner.steamid64, stale_friend.steamid64)) is not None
-    assert await db.get(PlayerFriend, (stale_friend.steamid64, owner.steamid64)) is not None
+    assert (
+        await db.get(PlayerFriend, (owner.steamid64, stale_friend.steamid64))
+        is not None
+    )
+    assert (
+        await db.get(PlayerFriend, (stale_friend.steamid64, owner.steamid64))
+        is not None
+    )
 
 
 async def test_sync_player_friends_failed_fetch_preserves_existing_edges_and_returns_502(
@@ -320,7 +338,9 @@ async def test_sync_player_friends_failed_fetch_preserves_existing_edges_and_ret
         assert steamid64 == owner.steamid64
         raise httpx.ReadTimeout("timeout")
 
-    monkeypatch.setattr(player_friends, "_fetch_steam_profile_is_public", _public_profile)
+    monkeypatch.setattr(
+        player_friends, "_fetch_steam_profile_is_public", _public_profile
+    )
     monkeypatch.setattr(player_friends, "_fetch_steam_friends", _timeout)
 
     headers = await authentication_token_from_steamid(
@@ -334,19 +354,31 @@ async def test_sync_player_friends_failed_fetch_preserves_existing_edges_and_ret
     )
 
     assert response.status_code == 502
-    assert await db.get(PlayerFriend, (owner.steamid64, stale_friend.steamid64)) is not None
-    assert await db.get(PlayerFriend, (stale_friend.steamid64, owner.steamid64)) is not None
+    assert (
+        await db.get(PlayerFriend, (owner.steamid64, stale_friend.steamid64))
+        is not None
+    )
+    assert (
+        await db.get(PlayerFriend, (stale_friend.steamid64, owner.steamid64))
+        is not None
+    )
 
 
 async def test_sync_player_friends_returns_429_when_rate_limited(
     client: AsyncClient,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Keep the exact Retry-After assertion independent of tracing and DB latency.
+    now = datetime.now(UTC)
+    clock = Mock(wraps=datetime)
+    clock.now.return_value = now
+    monkeypatch.setattr(me_player_actions, "datetime", clock)
     owner = await _create_player(db, steamid64=random_steamid64(), name="Owner")
     await _set_friends_sync_timestamp(
         db,
         steamid64=owner.steamid64,
-        recorded_at=datetime.now(UTC),
+        recorded_at=now,
     )
 
     headers = await authentication_token_from_steamid(

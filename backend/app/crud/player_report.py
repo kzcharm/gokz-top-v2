@@ -138,7 +138,13 @@ async def create_player_report(
             comment_preview=_preview_description(description),
             map_id=record.map_id if record is not None else None,
             map_name=record_map.name if record_map is not None else None,
-            scope=ModeScope(record.mode.value) if record is not None else None,
+            scope=(
+                ModeScope.KZT
+                if record.mode.value == "NKZ"
+                else ModeScope(record.mode.value)
+            )
+            if record is not None
+            else None,
             record_type=(
                 RecordType.PRO
                 if record is not None and record.teleports == 0

@@ -28,6 +28,10 @@ Use UUIDv7 for new UUID fields/defaults and, when touching existing UUID default
 
 Frontend code uses TypeScript and Biome. Keep component filenames in `PascalCase` such as `DeleteUser.tsx`, hooks prefixed with `use`, and follow the formatter for quotes and semicolons.
 
+### Frontend Player Presentation
+
+Use the shared `PlayerDisplay` component when presenting players in the UI, including tables, previews, dialogs, and notifications. Do not create separate player name or avatar layouts.
+
 ### Frontend Date and Time Formatting
 
 - Use `useDateTimeFormat` or `FormattedDateTime` for user-facing dates and times, including tooltips, so they respect the viewer's preferred date format and 12/24-hour clock.

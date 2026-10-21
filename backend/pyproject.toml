@@ -79,6 +79,7 @@ keep-runtime-typing = true
 
 [tool.coverage.run]
 source = ["app"]
+concurrency = ["greenlet"]
 dynamic_context = "test_function"
 
 [tool.coverage.report]

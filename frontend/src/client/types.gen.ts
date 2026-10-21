@@ -1206,7 +1206,7 @@ export type PlayerNotificationsPublic = {
     count: number;
 };
 
-export type PlayerNotificationType = 'profile_like' | 'profile_comment' | 'player_follow' | 'wr_beaten' | 'player_report' | 'map_review_comment_deleted';
+export type PlayerNotificationType = 'profile_like' | 'profile_comment' | 'player_follow' | 'wr_beaten' | 'player_report' | 'reported_record_invalidated' | 'map_review_comment_deleted';
 
 export type PlayerNotificationUnreadCountPublic = {
     unread_count: number;
@@ -1742,6 +1742,37 @@ export type RecordBulkDeleteCourse = {
     steamid64: string;
     map_id: number;
     stage: number;
+};
+
+export type RecordBulkDeleteFaster = {
+    record_uuid: string;
+    scope: ModeScope;
+    type: RecordType;
+    preview_token?: (string | null);
+};
+
+export type RecordBulkDeleteFasterPreview = {
+    count: number;
+    players: Array<RecordBulkDeleteFasterPreviewPlayer>;
+    preview_token: string;
+};
+
+export type RecordBulkDeleteFasterPreviewPlayer = {
+    player: PlayerRefPublic;
+    records: Array<RecordBulkDeleteFasterPreviewRun>;
+};
+
+export type RecordBulkDeleteFasterPreviewRun = {
+    uuid: string;
+    time: number;
+    mode: KZMode;
+    teleports: number;
+    server_name: string;
+    created_on: string;
+};
+
+export type RecordBulkDeleteFasterResult = {
+    count: number;
 };
 
 export type RecordBulkDeleteResult = {
@@ -3479,6 +3510,18 @@ export type RecordsBulkDeleteCourseRecordsData = {
 };
 
 export type RecordsBulkDeleteCourseRecordsResponse = (RecordBulkDeleteResult);
+
+export type RecordsPreviewBulkDeleteFasterRecordsData = {
+    requestBody: RecordBulkDeleteFaster;
+};
+
+export type RecordsPreviewBulkDeleteFasterRecordsResponse = (RecordBulkDeleteFasterPreview);
+
+export type RecordsBulkDeleteFasterRecordsData = {
+    requestBody: RecordBulkDeleteFaster;
+};
+
+export type RecordsBulkDeleteFasterRecordsResponse = (RecordBulkDeleteFasterResult);
 
 export type RecordsRebuildPbPointsBucketData = {
     mapId: number;
