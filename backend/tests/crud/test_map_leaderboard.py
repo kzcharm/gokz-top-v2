@@ -580,7 +580,7 @@ async def test_upsert_record_rebuilds_old_and_new_map_leaderboard_keys(
     assert beta_skz.total_finishes == 1
 
 
-async def test_update_record_validity_refreshes_map_leaderboard_row(
+async def test_update_record_validity_defers_map_leaderboard_refresh(
     db: AsyncSession,
 ) -> None:
     map_id = 2_133_000_001
@@ -612,6 +612,15 @@ async def test_update_record_validity_refreshes_map_leaderboard_row(
         patch=RecordPatch(is_valid=False),
         actor_steamid64=player_id,
     )
+
+    assert record.is_valid is False
+    assert await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT)) is not None
+
+    await crud.rebuild_map_leaderboards_for_keys(
+        session=db,
+        keys=[(map_id, mode_scope_to_id(ModeScope.KZT))],
+    )
+    await db.commit()
 
     assert await db.get(MapLeaderboardCache, (map_id, ModeScope.KZT)) is None
 
