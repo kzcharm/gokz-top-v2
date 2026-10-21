@@ -92,7 +92,7 @@ export function ProfileSetupCard({
                             : null,
                           item.memory_type,
                           item.memory_speed_mts
-                            ? `${item.memory_speed_mts} MT/s`
+                            ? `${item.memory_speed_mts} MHz`
                             : null,
                           item.monitor_refresh_hz
                             ? `${Number(item.monitor_refresh_hz)} Hz`

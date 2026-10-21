@@ -813,6 +813,13 @@ test("Profile home displays setup and eDPI before pinned records", async ({
         operating_system: "Windows 11",
         hardware: [
           {
+            category: "memory",
+            product_id: null,
+            memory_capacity_gb: 32,
+            memory_type: "DDR4",
+            memory_speed_mts: 3200,
+          },
+          {
             category: "mouse",
             product_id: "019d1111-1111-7111-8111-111111111111",
             product: {
@@ -844,6 +851,10 @@ test("Profile home displays setup and eDPI before pinned records", async ({
   await expect(page.getByText("eDPI", { exact: true })).toBeVisible()
   await expect(page.getByText("Windows 11", { exact: true })).toBeVisible()
   await expect(page.getByText("2 TB", { exact: true })).toBeVisible()
+  await expect(
+    page.getByText("32 GB · DDR4 · 3200 MHz", { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText("3200 MT/s", { exact: false })).toHaveCount(0)
   await expect(page.getByText("Community Added", { exact: true })).toHaveCount(
     0,
   )
