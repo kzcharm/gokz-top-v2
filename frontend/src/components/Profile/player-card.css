@@ -1,6 +1,7 @@
 .player-card {
   width: min(480px, 100%);
   margin: 0 auto;
+  padding: 24px 16px;
   color: var(--foreground);
   background: var(--background);
   overflow: hidden;
