@@ -20,10 +20,14 @@ from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
 
 from .mode_scope import (
-    ModeScope,
+    ModeScope as ModeScope,
+)
+from .mode_scope import (
     mode_scope_mode_ids,
     mode_scope_to_id,
-    normalize_mode_scope,
+)
+from .mode_scope import (
+    normalize_mode_scope as normalize_mode_scope,
 )
 from .player import PlayerRefPublic
 from .server import ServerGroupSummary
@@ -102,19 +106,23 @@ def _normalize_record_pb_payload(data: dict[str, object]) -> dict[str, object]:
     return payload
 
 
-def normalize_kz_mode(value: KZMode | str | int) -> KZMode:
+def normalize_kz_mode(value: object) -> KZMode:
     if isinstance(value, KZMode):
         return value
     if isinstance(value, int):
         return legacy_mode_id_to_kz_mode(value)
+    if not isinstance(value, str):
+        raise ValueError(f"{value!r} is not a valid KZMode")
     return KZMode(value)
 
 
-def normalize_record_type(value: RecordType | str | bool) -> RecordType:
+def normalize_record_type(value: object) -> RecordType:
     if isinstance(value, RecordType):
         return value
     if isinstance(value, bool):
         return RecordType.PRO if value else RecordType.NUB
+    if not isinstance(value, str):
+        raise ValueError(f"{value!r} is not a valid RecordType")
     return RecordType(value)
 
 
@@ -170,17 +178,21 @@ class MapCourseTierBase(LegacyDatetimeNamesMixin):
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="created_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_by_id: str | None = Field(
         default=None,
         max_length=32,
-        sa_type=String(32),
+        sa_column=Column(String(32), nullable=True),
     )
 
     def __init__(self, /, **data: object) -> None:
@@ -231,19 +243,23 @@ class RecordBase(LegacyDatetimeNamesMixin):
     )
     stage: int = Field(default=0, ge=0)
     time: Decimal = Field(
-        sa_type=Numeric(12, 3),
+        sa_column=Column(Numeric(12, 3), nullable=False),
     )
     teleports: int = Field(default=0, ge=0)
     points: int = Field(default=0, ge=0, le=1000)
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="created_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_by: int = Field(
         default=0,
@@ -438,7 +454,7 @@ class RecordPbBase(LegacyDatetimeNamesMixin):
     )
     record_uuid: uuid.UUID = Field(foreign_key="record.uuid", nullable=False)
     time: Decimal = Field(
-        sa_type=Numeric(12, 3),
+        sa_column=Column(Numeric(12, 3), nullable=False),
     )
     points: int = Field(
         default=1,
@@ -454,7 +470,9 @@ class RecordPbBase(LegacyDatetimeNamesMixin):
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
     def __init__(self, /, **data: object) -> None:

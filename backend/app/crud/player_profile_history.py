@@ -59,8 +59,10 @@ async def read_player_profile_history(
     offset: int = 0,
     limit: int = 100,
 ) -> tuple[list[PlayerProfileHistory], int]:
-    count_statement = select(func.count()).select_from(PlayerProfileHistory).where(
-        col(PlayerProfileHistory.player_steamid64) == player_steamid64
+    count_statement = (
+        select(func.count())
+        .select_from(PlayerProfileHistory)
+        .where(col(PlayerProfileHistory.player_steamid64) == player_steamid64)
     )
     count = (await session.exec(count_statement)).one()
 
@@ -92,6 +94,4 @@ def to_player_profile_history_public(
 def to_player_profile_history_publics(
     *, histories: list[PlayerProfileHistory]
 ) -> list[PlayerProfileHistoryEntryPublic]:
-    return [
-        to_player_profile_history_public(history=history) for history in histories
-    ]
+    return [to_player_profile_history_public(history=history) for history in histories]

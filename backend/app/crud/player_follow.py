@@ -77,8 +77,10 @@ async def get_player_follower_count(
     session: AsyncSession,
     target_steamid64: int,
 ) -> int:
-    statement = select(func.count()).select_from(PlayerFollow).where(
-        PlayerFollow.followed_steamid64 == target_steamid64
+    statement = (
+        select(func.count())
+        .select_from(PlayerFollow)
+        .where(PlayerFollow.followed_steamid64 == target_steamid64)
     )
     return int((await session.exec(statement)).one())
 
@@ -88,8 +90,10 @@ async def get_player_following_count(
     session: AsyncSession,
     target_steamid64: int,
 ) -> int:
-    statement = select(func.count()).select_from(PlayerFollow).where(
-        PlayerFollow.follower_steamid64 == target_steamid64
+    statement = (
+        select(func.count())
+        .select_from(PlayerFollow)
+        .where(PlayerFollow.follower_steamid64 == target_steamid64)
     )
     return int((await session.exec(statement)).one())
 
@@ -111,10 +115,14 @@ async def get_player_follow_summary(
     viewer_is_self = viewer_steamid64 == target_steamid64 if viewer_steamid64 else False
     viewer_is_following: bool | None = None
     if viewer_steamid64 is not None:
-        viewer_is_following = False if viewer_is_self else await is_player_following(
-            session=session,
-            follower_steamid64=viewer_steamid64,
-            followed_steamid64=target_steamid64,
+        viewer_is_following = (
+            False
+            if viewer_is_self
+            else await is_player_following(
+                session=session,
+                follower_steamid64=viewer_steamid64,
+                followed_steamid64=target_steamid64,
+            )
         )
 
     return PlayerFollowSummaryPublic(
@@ -132,14 +140,18 @@ async def get_player_followers(
     offset: int,
     limit: int,
 ) -> tuple[list[Player], int]:
-    count_statement = select(func.count()).select_from(PlayerFollow).where(
-        PlayerFollow.followed_steamid64 == target_steamid64
+    count_statement = (
+        select(func.count())
+        .select_from(PlayerFollow)
+        .where(PlayerFollow.followed_steamid64 == target_steamid64)
     )
     count = int((await session.exec(count_statement)).one())
 
     statement = (
         select(Player)
-        .join(PlayerFollow, Player.steamid64 == PlayerFollow.follower_steamid64)
+        .join(
+            PlayerFollow, col(Player.steamid64) == col(PlayerFollow.follower_steamid64)
+        )
         .where(PlayerFollow.followed_steamid64 == target_steamid64)
         .order_by(col(PlayerFollow.created_at).desc(), col(Player.steamid64).desc())
         .offset(offset)
@@ -156,14 +168,18 @@ async def get_player_following(
     offset: int,
     limit: int,
 ) -> tuple[list[Player], int]:
-    count_statement = select(func.count()).select_from(PlayerFollow).where(
-        PlayerFollow.follower_steamid64 == target_steamid64
+    count_statement = (
+        select(func.count())
+        .select_from(PlayerFollow)
+        .where(PlayerFollow.follower_steamid64 == target_steamid64)
     )
     count = int((await session.exec(count_statement)).one())
 
     statement = (
         select(Player)
-        .join(PlayerFollow, Player.steamid64 == PlayerFollow.followed_steamid64)
+        .join(
+            PlayerFollow, col(Player.steamid64) == col(PlayerFollow.followed_steamid64)
+        )
         .where(PlayerFollow.follower_steamid64 == target_steamid64)
         .order_by(col(PlayerFollow.created_at).desc(), col(Player.steamid64).desc())
         .offset(offset)

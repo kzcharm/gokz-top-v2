@@ -20,8 +20,10 @@ async def count_player_profile_views(
     session: AsyncSession,
     target_steamid64: int,
 ) -> int:
-    statement = select(func.count()).select_from(PlayerProfileView).where(
-        PlayerProfileView.target_steamid64 == target_steamid64
+    statement = (
+        select(func.count())
+        .select_from(PlayerProfileView)
+        .where(PlayerProfileView.target_steamid64 == target_steamid64)
     )
     return int((await session.exec(statement)).one())
 
@@ -71,9 +73,9 @@ async def create_player_profile_view(
         )
         .on_conflict_do_nothing(
             index_elements=[
-                PlayerProfileView.viewer_steamid64,
-                PlayerProfileView.target_steamid64,
-                PlayerProfileView.view_date,
+                col(PlayerProfileView.viewer_steamid64),
+                col(PlayerProfileView.target_steamid64),
+                col(PlayerProfileView.view_date),
             ]
         )
     )

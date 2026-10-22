@@ -94,7 +94,9 @@ def parse_run_replay_bytes(*, data: bytes, source_name: str) -> ParsedRunReplay:
         teleports_used = reader.read_i32()
 
         if not map_name:
-            raise RunReplayParseError(f"{source_name}: replay map name must not be blank")
+            raise RunReplayParseError(
+                f"{source_name}: replay map name must not be blank"
+            )
         if style_index != REPLAY_STYLE_NRM:
             raise RunReplayParseError(
                 f"{source_name}: unsupported replay style index {style_index}; expected NRM"
@@ -105,7 +107,9 @@ def parse_run_replay_bytes(*, data: bytes, source_name: str) -> ParsedRunReplay:
                 f"{source_name}: unsupported replay mode index {mode_index}"
             )
         if course < 0:
-            raise RunReplayParseError(f"{source_name}: replay course must be non-negative")
+            raise RunReplayParseError(
+                f"{source_name}: replay course must be non-negative"
+            )
         if teleports_used < 0:
             raise RunReplayParseError(
                 f"{source_name}: replay teleports must be non-negative"

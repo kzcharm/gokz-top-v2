@@ -1,13 +1,23 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Optional
+from typing import TYPE_CHECKING, Annotated, Any, Optional
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
-from sqlalchemy import BigInteger, Boolean, DateTime, Index, PrimaryKeyConstraint
+from pydantic import BaseModel, StringConstraints, field_validator
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    Index,
+    PrimaryKeyConstraint,
+)
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Column, Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .server_globalapi import ServerGlobalapi
 
 from .player import MAX_PLAYER_CUSTOM_ID_LENGTH, validate_player_custom_id
 from .utils import generate_uuid7, get_datetime_utc
@@ -101,14 +111,17 @@ class ServerGroupUpdate(SQLModel):
 
 
 class AdminServerGroupUpdate(ServerGroupUpdate):
-    owner_steamid64: Annotated[
-        str,
-        StringConstraints(pattern=r"^\d{17}$"),
-    ] | None = None
+    owner_steamid64: (
+        Annotated[
+            str,
+            StringConstraints(pattern=r"^\d{17}$"),
+        ]
+        | None
+    ) = None
 
 
 class ServerGroup(ServerGroupBase, table=True):
-    __tablename__ = "server_group"  # type: ignore[assignment]
+    __tablename__ = "server_group"
     __table_args__ = (
         Index("uq_server_group_name", "name", unique=True),
         Index("uq_server_group_api_key", "api_key", unique=True),
@@ -119,7 +132,7 @@ class ServerGroup(ServerGroupBase, table=True):
     api_key: str = Field(max_length=36)
     last_api_key_used_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     owner_steamid64: int | None = Field(
         default=None,
@@ -139,11 +152,15 @@ class ServerGroup(ServerGroupBase, table=True):
     )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     servers: list["Server"] = Relationship(back_populates="group")  # noqa: UP037
     globalapi_servers: list["ServerGlobalapi"] = Relationship(  # noqa: F821, UP037
@@ -186,7 +203,7 @@ class ServerUpdate(SQLModel):
 
 
 class Server(ServerBase, table=True):
-    __tablename__ = "server"  # type: ignore[assignment]
+    __tablename__ = "server"
     __table_args__ = (
         Index("ix_server_group_id", "group_id"),
         Index("ix_server_status", "status"),
@@ -220,15 +237,19 @@ class Server(ServerBase, table=True):
     )
     last_discovered_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
     group: ServerGroup | None = Relationship(back_populates="servers")
@@ -263,12 +284,14 @@ class ServerLiveStatusBase(SQLModel):
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
 class ServerStatusPlayerPut(SQLModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = {"extra": "forbid"}
 
     tag: str | None = Field(default=None, max_length=64)
     mode: str | None = Field(default=None, max_length=16)
@@ -301,7 +324,7 @@ class ServerStatusPlayerPut(SQLModel):
 
 
 class ServerPlayerPublic(SQLModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = {"extra": "allow"}
 
     tag: str | None = Field(default=None, max_length=64)
     mode: str | None = Field(default=None, max_length=16)
@@ -342,10 +365,8 @@ class ServerPlayerPublic(SQLModel):
 
 
 class ServerLiveStatus(ServerLiveStatusBase, table=True):
-    __tablename__ = "server_live_status"  # type: ignore[assignment]
-    __table_args__ = (
-        Index("ix_server_live_status_is_online", "is_online"),
-    )
+    __tablename__ = "server_live_status"
+    __table_args__ = (Index("ix_server_live_status_is_online", "is_online"),)
 
     server_id: uuid.UUID = Field(
         foreign_key="server.id",
@@ -356,7 +377,7 @@ class ServerLiveStatus(ServerLiveStatusBase, table=True):
 
 
 class ServerHeartbeatRaw(SQLModel, table=True):
-    __tablename__ = "server_heartbeat_raw"  # type: ignore[assignment]
+    __tablename__ = "server_heartbeat_raw"
     __table_args__ = (
         PrimaryKeyConstraint(
             "observed_at",
@@ -388,7 +409,7 @@ class ServerHeartbeatRaw(SQLModel, table=True):
         ),
     )
     observed_at: datetime = Field(
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=False),
     )
     hostname: str | None = Field(default=None, max_length=255)
     map: str | None = Field(default=None, max_length=255)
@@ -417,7 +438,7 @@ class ServerLiveStatusStatePublic(SQLModel):
 
 
 class ServerGlobalStatusPut(SQLModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = {"extra": "forbid"}
 
     api_key_valid: bool
     plugins_valid: bool
@@ -651,8 +672,8 @@ class ServerStatusPut(SQLModel):
 
 
 class ServerUpdateEvent(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "type": "server.updated",
                 "server": {
@@ -662,7 +683,7 @@ class ServerUpdateEvent(BaseModel):
                 },
             }
         }
-    )
+    }
 
     type: str
     server: ServerPublic

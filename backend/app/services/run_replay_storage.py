@@ -43,7 +43,9 @@ def has_run_replay(*, map_name: str, replay_id: uuid.UUID) -> bool:
     )
 
 
-def save_run_replay(*, map_name: str, replay_id: uuid.UUID, replay_bytes: bytes) -> Path:
+def save_run_replay(
+    *, map_name: str, replay_id: uuid.UUID, replay_bytes: bytes
+) -> Path:
     return save_replay(
         namespace="runs",
         relative_dir=Path(normalize_run_replay_map_dir(map_name)),

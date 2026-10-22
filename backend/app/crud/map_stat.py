@@ -25,6 +25,7 @@ from app.models import (
     mode_scope_modes,
     mode_scope_to_id,
 )
+from app.models.utils import get_sqlmodel_table
 
 from .ban import not_active_ban_exists_clause
 
@@ -87,7 +88,9 @@ def _empty_wr_gap_distribution(
     )
 
 
-def _build_wr_gap_distribution(*, record_times: Sequence[float]) -> MapWrGapDistributionContentPublic:
+def _build_wr_gap_distribution(
+    *, record_times: Sequence[float]
+) -> MapWrGapDistributionContentPublic:
     total_pb_count = len(record_times)
     if not record_times:
         return _empty_wr_gap_distribution(total_pb_count=0)
@@ -149,7 +152,7 @@ async def _get_stage_zero_course_id(
     map_id: int,
 ) -> int | None:
     statement = (
-        select(MapCourse.id)
+        select(col(MapCourse.id))
         .where(
             col(MapCourse.map_id) == map_id,
             col(MapCourse.stage) == 0,
@@ -168,7 +171,7 @@ async def _load_wr_gap_record_times(
 ) -> list[float]:
     rows = (
         await session.exec(
-            select(RecordPb.time)
+            select(col(RecordPb.time))
             .where(
                 col(RecordPb.course_id) == course_id,
                 col(RecordPb.scope) == scope,
@@ -209,7 +212,7 @@ async def rebuild_map_wr_gap_distribution_stat(
         content=content.model_dump(mode="json"),
         updated_at=current_now,
     )
-    table = MapStatCache.__table__  # type: ignore[attr-defined]
+    table = get_sqlmodel_table(MapStatCache)
     statement = (
         pg_insert(table)
         .values(cache_row.model_dump(mode="json"))
@@ -269,14 +272,18 @@ async def load_changed_map_stat_keys(
 ) -> list[tuple[int, int, RecordType]]:
     rows = (
         await session.exec(
-            select(Record.map_id, Record.mode, Record.teleports)
+            select(col(Record.map_id), col(Record.mode), col(Record.teleports))
             .where(
                 col(Record.stage) == 0,
                 col(Record.map_id) > 0,
                 col(Record.updated_at) >= window_start,
                 col(Record.updated_at) < window_end,
             )
-            .order_by(col(Record.map_id).asc(), col(Record.mode).asc(), col(Record.teleports).asc())
+            .order_by(
+                col(Record.map_id).asc(),
+                col(Record.mode).asc(),
+                col(Record.teleports).asc(),
+            )
         )
     ).all()
     return sorted(
@@ -297,7 +304,9 @@ async def load_changed_map_stat_keys(
     )
 
 
-def _distribution_from_row(cache_row: MapStatCache | None) -> MapWrGapDistributionContentPublic:
+def _distribution_from_row(
+    cache_row: MapStatCache | None,
+) -> MapWrGapDistributionContentPublic:
     if cache_row is None:
         return _empty_wr_gap_distribution()
     return MapWrGapDistributionContentPublic.model_validate(cache_row.content)
@@ -331,7 +340,9 @@ async def get_or_rebuild_map_stats(
     ]
     if missing_record_types:
         for record_type in missing_record_types:
-            rows_by_record_type[record_type] = await rebuild_map_wr_gap_distribution_stat(
+            rows_by_record_type[
+                record_type
+            ] = await rebuild_map_wr_gap_distribution_stat(
                 session=session,
                 map_id=map_id,
                 scope=scope,
@@ -347,6 +358,10 @@ async def get_or_rebuild_map_stats(
         map_id=map_id,
         scope=scope,
         updated_at=updated_at,
-        nub_wr_gap_distribution=_distribution_from_row(rows_by_record_type.get(RecordType.NUB)),
-        pro_wr_gap_distribution=_distribution_from_row(rows_by_record_type.get(RecordType.PRO)),
+        nub_wr_gap_distribution=_distribution_from_row(
+            rows_by_record_type.get(RecordType.NUB)
+        ),
+        pro_wr_gap_distribution=_distribution_from_row(
+            rows_by_record_type.get(RecordType.PRO)
+        ),
     )

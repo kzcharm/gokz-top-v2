@@ -3,7 +3,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import cast
+from typing import TypedDict, cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -47,6 +47,7 @@ from app.models import (
     normalize_user_roles,
 )
 from app.models.player import validate_player_custom_id
+from app.models.utils import select_row
 
 STEAM_COMMUNITY_HOSTS = {"steamcommunity.com", "www.steamcommunity.com"}
 STEAM_ID_TYPE_INDIVIDUAL = 1
@@ -54,6 +55,14 @@ STEAM_ID_INSTANCE_DESKTOP = 1
 PLAYER_SEARCH_WORD_SIMILARITY_OPERATOR = "<%"
 PLAYER_STEAM_PROFILE_NOTIFY_CHANNEL = "player_steam_profile_updates"
 _UNCHANGED = object()
+
+
+class SteamPlayerPayload(TypedDict):
+    name: str
+    custom_id: str | None
+    avatar_hash: str | None
+    country: str | None
+    fetched: bool
 
 
 class PlayerSettingsConflictError(ValueError):
@@ -105,7 +114,7 @@ def _extract_avatar_hash_from_url(avatar_url: str | None) -> str | None:
     return match.group(1)
 
 
-def _steam_api_fallback_payload(steamid64: int) -> dict[str, str | bool | None]:
+def _steam_api_fallback_payload(steamid64: int) -> SteamPlayerPayload:
     return {
         "name": str(steamid64),
         "custom_id": None,
@@ -149,9 +158,7 @@ def _parse_direct_steam_identifier_to_steamid64(identifier: str) -> int | None:
         universe = int(steam2_match.group(1))
         if universe == 0:
             universe = 1
-        account_id = (int(steam2_match.group(3)) << 1) | int(
-            steam2_match.group(2)
-        )
+        account_id = (int(steam2_match.group(3)) << 1) | int(steam2_match.group(2))
         return _build_individual_steamid64(
             account_id=account_id,
             universe=universe,
@@ -204,7 +211,7 @@ async def _resolve_steam_vanity_url_to_steamid64(vanity_url: str) -> int | None:
         return None
 
     try:
-        if int(response_payload.get("success")) != 1:
+        if int(response_payload["success"]) != 1:
             return None
         return int(response_payload["steamid"])
     except (KeyError, TypeError, ValueError):
@@ -213,7 +220,7 @@ async def _resolve_steam_vanity_url_to_steamid64(vanity_url: str) -> int | None:
 
 def _normalize_steam_player_payload(
     *, steamid64: int, player: object
-) -> dict[str, str | bool | None] | None:
+) -> SteamPlayerPayload | None:
     if not isinstance(player, dict):
         return None
 
@@ -235,7 +242,7 @@ def _normalize_steam_player_payload(
 
 async def _fetch_players_from_steam_api(
     steamid64s: Sequence[int],
-) -> dict[int, dict[str, str | bool | None]]:
+) -> dict[int, SteamPlayerPayload]:
     steam_data_by_steamid64 = await _fetch_players_from_steam_api_if_available(
         steamid64s,
     )
@@ -244,7 +251,7 @@ async def _fetch_players_from_steam_api(
 
 async def _fetch_players_from_steam_api_if_available(
     steamid64s: Sequence[int],
-) -> dict[int, dict[str, str | bool | None]] | None:
+) -> dict[int, SteamPlayerPayload] | None:
     unique_steamid64s = list(dict.fromkeys(steamid64s))
     if not unique_steamid64s or not settings.STEAM_API_KEY:
         return None
@@ -269,11 +276,13 @@ async def _fetch_players_from_steam_api_if_available(
     if not isinstance(players, list):
         return None
 
-    steam_data_by_steamid64: dict[int, dict[str, str | bool | None]] = {}
+    steam_data_by_steamid64: dict[int, SteamPlayerPayload] = {}
     for raw_player in players:
         if not isinstance(raw_player, dict):
             continue
         raw_steamid64 = raw_player.get("steamid")
+        if raw_steamid64 is None:
+            continue
         try:
             steamid64 = int(raw_steamid64)
         except (TypeError, ValueError):
@@ -290,9 +299,11 @@ async def _fetch_players_from_steam_api_if_available(
 
 async def _fetch_player_from_steam_api(
     steamid64: int,
-) -> dict[str, str | bool | None]:
+) -> SteamPlayerPayload:
     steam_data_by_steamid64 = await _fetch_players_from_steam_api([steamid64])
-    return steam_data_by_steamid64.get(steamid64, _steam_api_fallback_payload(steamid64))
+    return steam_data_by_steamid64.get(
+        steamid64, _steam_api_fallback_payload(steamid64)
+    )
 
 
 async def notify_player_steam_profile_updated(
@@ -359,8 +370,7 @@ async def update_player_identity_fields(
 ) -> None:
     resolved_name = cast(str, player.name if name is _UNCHANGED else name)
     resolved_avatar_hash = cast(
-        str | None,
-        player.avatar_hash if avatar_hash is _UNCHANGED else avatar_hash
+        str | None, player.avatar_hash if avatar_hash is _UNCHANGED else avatar_hash
     )
     resolved_custom_id = cast(
         str | None, player.custom_id if custom_id is _UNCHANGED else custom_id
@@ -390,7 +400,7 @@ async def _apply_steam_player_update(
     *,
     session: AsyncSession,
     player: Player,
-    steam_data: dict[str, str | bool | None],
+    steam_data: SteamPlayerPayload,
     now: datetime,
     custom_id: str | None,
     country_locked: bool,
@@ -420,7 +430,7 @@ async def _commit_player_update_with_custom_id_fallback(
     *,
     session: AsyncSession,
     steamid64: int,
-    steam_data: dict[str, str | bool | None],
+    steam_data: SteamPlayerPayload,
     now: datetime,
     custom_id: str | None,
 ) -> Player:
@@ -463,7 +473,9 @@ async def _build_player_search_input(
             search_text = profile_value
             is_direct_steam_identifier = True
         else:
-            exact_steamid64 = await _resolve_steam_vanity_url_to_steamid64(profile_value)
+            exact_steamid64 = await _resolve_steam_vanity_url_to_steamid64(
+                profile_value
+            )
             search_text = profile_value
     else:
         direct_steamid64 = _parse_direct_steam_identifier_to_steamid64(search_text)
@@ -634,7 +646,7 @@ async def search_players(
         func.word_similarity(search_term_lower, lower_name),
     )
     active_ban_exists = exists(
-        select(Ban.uuid).where(
+        select(col(Ban.uuid)).where(
             col(Ban.steamid64) == col(Player.steamid64),
             or_(
                 col(Ban.expires_at).is_(None),
@@ -818,7 +830,7 @@ async def create_or_update_player_from_steam_data_if_fetched(
     *,
     session: AsyncSession,
     steamid64: int,
-    steam_data: dict[str, str | bool | None] | None,
+    steam_data: SteamPlayerPayload | None,
 ) -> tuple[Player | None, bool]:
     now = datetime.now(UTC)
     if not steam_data or steam_data.get("fetched") is not True:
@@ -988,7 +1000,7 @@ async def resolve_player_favorite_server_public(
         return None
 
     statement = (
-        select(
+        select_row(
             col(ServerGlobalapi.id),
             col(ServerGlobalapi.name),
             col(ServerGroup.id),
@@ -1009,17 +1021,17 @@ async def resolve_player_favorite_server_public(
     group_name = row[3]
     group_custom_id = row[4]
     if group_id is not None and group_name is not None and group_custom_id is not None:
-        group = _favorite_server_group_public_from_values(
+        favorite_group = _favorite_server_group_public_from_values(
             group_id=group_id,
             group_name=group_name,
             group_custom_id=group_custom_id,
         )
         return PlayerFavoriteServerPublic(
-            key=f"group:{group.id}",
-            label=group.name,
+            key=f"group:{favorite_group.id}",
+            label=favorite_group.name,
             server_id=server_id,
             server_name=server_name,
-            server_group=group,
+            server_group=favorite_group,
         )
 
     return PlayerFavoriteServerPublic(
@@ -1045,9 +1057,7 @@ async def _build_player_favorite_server_options(
     )
     entries = stat.content.all_time.entries
     group_ids = [
-        uuid.UUID(entry.group_id)
-        for entry in entries
-        if entry.group_id is not None
+        uuid.UUID(entry.group_id) for entry in entries if entry.group_id is not None
     ]
     groups_by_id: dict[uuid.UUID, PlayerFavoriteServerGroupPublic] = {}
     if group_ids:
@@ -1160,7 +1170,9 @@ async def get_player_settings(
         alias=alias_status,
         custom_id=custom_id_status,
         country=PlayerProfileFieldStatus(
-            last_changed_at=country_changed_at.recorded_at if country_changed_at else None,
+            last_changed_at=country_changed_at.recorded_at
+            if country_changed_at
+            else None,
             next_available_at=None,
             can_change=True,
         ),
@@ -1332,7 +1344,7 @@ async def load_player_roles_by_steamid64(
     if not unique_steamid64s:
         return {}
 
-    statement = select(User.steamid64, User.roles).where(
+    statement = select(col(User.steamid64), col(User.roles)).where(
         col(User.steamid64).in_(unique_steamid64s)
     )
     return {

@@ -5,9 +5,12 @@ import asyncio
 import logging
 import uuid
 import zipfile
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
+
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.db import async_session_maker
@@ -85,7 +88,7 @@ def iter_replay_archive_members(path: Path) -> list[zipfile.ZipInfo]:
 
 
 @asynccontextmanager
-async def _import_session():
+async def _import_session() -> AsyncIterator[AsyncSession]:
     async with async_session_maker() as session:
         yield session
 

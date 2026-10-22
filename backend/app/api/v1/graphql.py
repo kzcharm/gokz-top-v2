@@ -272,7 +272,7 @@ async def get_graphql_context(
 
 
 schema = strawberry.Schema(query=Query)
-router = GraphQLRouter(
+router: GraphQLRouter[dict[str, AsyncSession], None] = GraphQLRouter(
     schema,
     path="/graphql",
     context_getter=get_graphql_context,

@@ -7,6 +7,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import Player, PlayerFriend
+from app.models.utils import get_sqlmodel_table
 
 
 async def get_player_friend_steamid64s(
@@ -14,7 +15,7 @@ async def get_player_friend_steamid64s(
     session: AsyncSession,
     player_steamid64: int,
 ) -> set[int]:
-    statement = select(PlayerFriend.friend_steamid64).where(
+    statement = select(col(PlayerFriend.friend_steamid64)).where(
         col(PlayerFriend.player_steamid64) == player_steamid64
     )
     return set((await session.exec(statement)).all())
@@ -25,14 +26,16 @@ async def get_player_friends(
     session: AsyncSession,
     player_steamid64: int,
 ) -> tuple[list[Player], int]:
-    count_statement = select(func.count()).select_from(PlayerFriend).where(
-        col(PlayerFriend.player_steamid64) == player_steamid64
+    count_statement = (
+        select(func.count())
+        .select_from(PlayerFriend)
+        .where(col(PlayerFriend.player_steamid64) == player_steamid64)
     )
     count = int((await session.exec(count_statement)).one())
 
     statement = (
         select(Player)
-        .join(PlayerFriend, Player.steamid64 == PlayerFriend.friend_steamid64)
+        .join(PlayerFriend, col(Player.steamid64) == col(PlayerFriend.friend_steamid64))
         .where(col(PlayerFriend.player_steamid64) == player_steamid64)
         .order_by(
             func.lower(func.coalesce(col(Player.alias), col(Player.name))).asc(),
@@ -51,7 +54,7 @@ async def upsert_player_friend_edges(
     if not edges:
         return
 
-    table = PlayerFriend.__table__  # type: ignore[attr-defined]
+    table = get_sqlmodel_table(PlayerFriend)
     statement = pg_insert(table).values(
         [
             {

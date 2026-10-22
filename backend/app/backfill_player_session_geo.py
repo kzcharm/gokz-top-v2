@@ -119,7 +119,9 @@ async def _main_async(argv: list[str] | None = None) -> None:
                         "geo_region": (
                             location.region_name if location is not None else None
                         ),
-                        "geo_city": location.city_name if location is not None else None,
+                        "geo_city": location.city_name
+                        if location is not None
+                        else None,
                     },
                 )
                 total_scanned += 1

@@ -15,6 +15,7 @@ from app.models import (
     PlayerSocialLink,
     PlayerVideoPlatformFollowerCache,
 )
+from app.models.utils import select_row
 from app.services.video_platform_followers import (
     VIDEO_FOLLOWER_PLATFORMS,
     load_best_video_platform_followers_for_players,
@@ -61,17 +62,14 @@ async def read_community_leaderboard(
     )
     platform_follower_metrics = (
         select(
-            col(PlayerVideoPlatformFollowerCache.player_steamid64).label(
-                "steamid64"
-            ),
+            col(PlayerVideoPlatformFollowerCache.player_steamid64).label("steamid64"),
             func.max(PlayerVideoPlatformFollowerCache.follower_count).label(
                 "platform_followers"
             ),
         )
         .join(
             PlayerSocialLink,
-            col(PlayerSocialLink.id)
-            == PlayerVideoPlatformFollowerCache.social_link_id,
+            col(PlayerSocialLink.id) == PlayerVideoPlatformFollowerCache.social_link_id,
         )
         .where(
             col(PlayerSocialLink.verified).is_(True),
@@ -88,11 +86,9 @@ async def read_community_leaderboard(
         select(platform_follower_metrics.c.steamid64),
     ).subquery()
     all_metrics = (
-        select(
+        select_row(
             targets.c.steamid64,
-            func.coalesce(profile_view_metrics.c.views_count, 0).label(
-                "views_count"
-            ),
+            func.coalesce(profile_view_metrics.c.views_count, 0).label("views_count"),
             func.coalesce(profile_view_metrics.c.unique_visitors, 0).label(
                 "unique_visitors"
             ),
@@ -115,7 +111,7 @@ async def read_community_leaderboard(
         .subquery()
     )
     metrics = (
-        select(
+        select_row(
             all_metrics.c.steamid64,
             all_metrics.c.views_count,
             all_metrics.c.unique_visitors,
@@ -134,11 +130,13 @@ async def read_community_leaderboard(
 
     count = -1
     if query.include_count:
-        count = int((await session.exec(select(func.count()).select_from(metrics))).one())
+        count = int(
+            (await session.exec(select(func.count()).select_from(metrics))).one()
+        )
 
     sort_column = _sort_column(query=query, subquery=metrics)
     page = (
-        select(
+        select_row(
             metrics.c.steamid64,
             metrics.c.views_count,
             metrics.c.unique_visitors,
@@ -161,7 +159,9 @@ async def read_community_leaderboard(
             page.c.unique_likers,
         )
         .join(Player, col(Player.steamid64) == page.c.steamid64)
-        .order_by(_sort_column(query=query, subquery=page).desc(), page.c.steamid64.asc())
+        .order_by(
+            _sort_column(query=query, subquery=page).desc(), page.c.steamid64.asc()
+        )
     )
     rows = (await session.execute(statement)).all()
     video_followers_by_steamid64 = await load_best_video_platform_followers_for_players(

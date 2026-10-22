@@ -13,7 +13,7 @@ from app.models import (
     LeaderboardPlayer,
     Player,
 )
-from app.models.utils import get_datetime_utc
+from app.models.utils import get_datetime_utc, select_row
 
 MIN_RANKED_PLAYERS = 10
 ACTIVE_LOOKBACK = timedelta(days=30)
@@ -23,7 +23,7 @@ async def read_country_leaderboard(
     *, session: AsyncSession, query: CountryLeaderboardListQuery
 ) -> CountryLeaderboardsPublic:
     eligible = (
-        select(
+        select_row(
             col(LeaderboardPlayer.steamid64).label("steamid64"),
             col(Player.country).label("country"),
             col(Player.last_played_at).label("last_played_at"),
@@ -51,7 +51,7 @@ async def read_country_leaderboard(
     )
     active_cutoff = get_datetime_utc() - ACTIVE_LOOKBACK
     aggregates = (
-        select(
+        select_row(
             eligible.c.country,
             func.count().label("ranked_players"),
             func.sum(
@@ -70,7 +70,7 @@ async def read_country_leaderboard(
     )
     rows = (
         await session.execute(
-            select(aggregates)
+            select_row(aggregates)
             .order_by(
                 (aggregates.c.ranked_players > MIN_RANKED_PLAYERS).desc(),
                 aggregates.c.top10_average_rating.desc().nullslast(),
@@ -81,7 +81,9 @@ async def read_country_leaderboard(
             .limit(query.limit)
         )
     ).all()
-    count = int((await session.exec(select(func.count()).select_from(aggregates))).one())
+    count = int(
+        (await session.exec(select(func.count()).select_from(aggregates))).one()
+    )
 
     top_rows = (
         await session.execute(
@@ -96,8 +98,14 @@ async def read_country_leaderboard(
     ).all()
     player_ids = [int(row.steamid64) for row in top_rows]
     players = (
-        await session.exec(select(Player).where(col(Player.steamid64).in_(player_ids)))
-    ).all() if player_ids else []
+        (
+            await session.exec(
+                select(Player).where(col(Player.steamid64).in_(player_ids))
+            )
+        ).all()
+        if player_ids
+        else []
+    )
     players_by_id = {player.steamid64: player for player in players}
     top_players_by_country: dict[str | None, list[Player]] = {}
     for top_row in top_rows:

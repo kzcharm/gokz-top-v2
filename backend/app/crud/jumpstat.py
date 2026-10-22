@@ -24,6 +24,7 @@ from app.models import (
     mode_scope_modes,
 )
 from app.models.leaderboard_player import min_raw_rating_for_public_rating
+from app.models.utils import get_sqlmodel_table, select_row
 
 type JumpstatRow = tuple[Jumpstat, Player, ServerGroup]
 
@@ -147,7 +148,7 @@ async def read_jumpstat_leaderboard(
 ) -> JumpstatLeaderboardsPublic:
     minimum_raw_rating = min_raw_rating_for_public_rating(query.min_rating)
     ranked_jumpstats_subquery = (
-        select(
+        select_row(
             col(Jumpstat.id).label("id"),
             col(Jumpstat.distance).label("distance"),
             col(Jumpstat.block).label("block"),
@@ -171,7 +172,7 @@ async def read_jumpstat_leaderboard(
             col(Jumpstat.type) == query.type,
             col(Jumpstat.mode).in_(list(mode_scope_modes(query.scope))),
             not_active_ban_exists_clause(
-                steamid64_column=Jumpstat.__table__.c.player_steamid64
+                steamid64_column=get_sqlmodel_table(Jumpstat).c.player_steamid64
             ),
             col(LeaderboardPlayer.rating) >= minimum_raw_rating,
         )
@@ -208,18 +209,23 @@ async def read_jumpstat_leaderboard(
                     select(Jumpstat, Player, ServerGroup)
                     .select_from(page_subquery)
                     .join(Jumpstat, col(Jumpstat.id) == page_subquery.c.id)
-                    .join(Player, col(Player.steamid64) == col(Jumpstat.player_steamid64))
-                    .join(ServerGroup, col(ServerGroup.id) == col(Jumpstat.server_group_id))
-                    .order_by(*_leaderboard_order_by(query=query, columns=page_subquery.c))
+                    .join(
+                        Player, col(Player.steamid64) == col(Jumpstat.player_steamid64)
+                    )
+                    .join(
+                        ServerGroup,
+                        col(ServerGroup.id) == col(Jumpstat.server_group_id),
+                    )
+                    .order_by(
+                        *_leaderboard_order_by(query=query, columns=page_subquery.c)
+                    )
                 )
             ).all()
         ),
     )
     count = int(
         (
-            await session.exec(
-                select(func.count()).select_from(pb_jumpstats_subquery)
-            )
+            await session.exec(select(func.count()).select_from(pb_jumpstats_subquery))
         ).one()
     )
     return JumpstatLeaderboardsPublic(
@@ -249,7 +255,7 @@ async def read_jumpstats(
     if query.exclude_cheaters:
         filters.append(
             not_active_ban_exists_clause(
-                steamid64_column=Jumpstat.__table__.c.player_steamid64
+                steamid64_column=get_sqlmodel_table(Jumpstat).c.player_steamid64
             )
         )
 

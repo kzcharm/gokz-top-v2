@@ -98,7 +98,9 @@ def validate_server_addition_info(result: A2SInfoResult) -> None:
         )
 
     if not is_supported_kz_map_name(result.map_name):
-        allowed_prefixes = ", ".join(f"{prefix}*" for prefix in SUPPORTED_KZ_MAP_PREFIXES)
+        allowed_prefixes = ", ".join(
+            f"{prefix}*" for prefix in SUPPORTED_KZ_MAP_PREFIXES
+        )
         raise ServerQueryError(
             f"Server is running map '{result.map_name}', expected one of {allowed_prefixes}"
         )
@@ -124,7 +126,9 @@ async def query_server_a2s_info(
     players_timeout: float | None = None,
 ) -> A2SInfoResult:
     address = (ip, port)
-    effective_players_timeout = players_timeout if players_timeout is not None else timeout
+    effective_players_timeout = (
+        players_timeout if players_timeout is not None else timeout
+    )
     try:
         info = await request_a2s_protocol(
             address=address,
@@ -157,7 +161,9 @@ async def query_server_a2s_info(
         max_players=int(info.max_players),
         players=players,
         observed_at=observed_at,
-        game_directory=str(info.folder) if getattr(info, "folder", None) is not None else None,
+        game_directory=str(info.folder)
+        if getattr(info, "folder", None) is not None
+        else None,
         game_name=str(info.game) if getattr(info, "game", None) is not None else None,
         app_id=int(info.app_id) if getattr(info, "app_id", None) is not None else None,
     )

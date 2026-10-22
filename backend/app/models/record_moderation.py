@@ -68,7 +68,9 @@ class RecordModerationAction(SQLModel, table=True):
     target_stage: int | None = Field(default=None, ge=0)
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
@@ -115,5 +117,7 @@ class RecordModerationActionRecord(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )

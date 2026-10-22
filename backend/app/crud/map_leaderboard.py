@@ -21,6 +21,7 @@ from app.models import (
     mode_scope_modes,
     mode_scope_to_id,
 )
+from app.models.utils import get_sqlmodel_table, select_row
 
 from .ban import not_active_ban_exists_clause
 from .map_review import load_map_review_summaries
@@ -76,7 +77,7 @@ async def _load_target_map_ids(
 
     rows = (
         await session.exec(
-            select(Map.id).where(col(Map.id) > 0).order_by(col(Map.id).asc())
+            select(col(Map.id)).where(col(Map.id) > 0).order_by(col(Map.id).asc())
         )
     ).all()
     return list(rows)
@@ -99,9 +100,9 @@ async def _build_map_leaderboard_values_for_scope(
         record_filters.append(col(Record.map_id).in_(list(map_ids)))
 
     per_player = (
-        select(
-            Record.map_id.label("map_id"),
-            Record.steamid64.label("steamid64"),
+        select_row(
+            col(Record.map_id).label("map_id"),
+            col(Record.steamid64).label("steamid64"),
             func.count().label("player_finishes"),
             func.coalesce(func.sum(Record.time), 0).label("player_playtime"),
             func.min(Record.time).label("first_completion_time"),
@@ -109,34 +110,36 @@ async def _build_map_leaderboard_values_for_scope(
         )
         .select_from(Record)
         .where(*record_filters)
-        .group_by(Record.map_id, Record.steamid64)
+        .group_by(col(Record.map_id), col(Record.steamid64))
         .subquery()
     )
 
     statement = (
-        select(
+        select_row(
             per_player.c.map_id,
             func.count().label("unique_nub_finishes"),
-            func.coalesce(func.sum(per_player.c.player_finishes), 0).label("total_finishes"),
-            func.coalesce(func.sum(per_player.c.player_playtime), 0).label("total_playtime"),
+            func.coalesce(func.sum(per_player.c.player_finishes), 0).label(
+                "total_finishes"
+            ),
+            func.coalesce(func.sum(per_player.c.player_playtime), 0).label(
+                "total_playtime"
+            ),
             func.avg(per_player.c.first_completion_time).label(
                 "average_first_completion_time"
             ),
-            func.percentile_cont(0.5).within_group(
-                per_player.c.first_completion_time
-            ).label("median_first_completion_time"),
+            func.percentile_cont(0.5)
+            .within_group(per_player.c.first_completion_time)
+            .label("median_first_completion_time"),
             func.avg(per_player.c.player_playtime).label("average_playtime_per_player"),
-            func.percentile_cont(0.5).within_group(per_player.c.player_playtime).label(
-                "median_playtime_per_player"
-            ),
+            func.percentile_cont(0.5)
+            .within_group(per_player.c.player_playtime)
+            .label("median_playtime_per_player"),
             func.avg(per_player.c.player_finishes).label("average_finishes_per_player"),
-            func.percentile_cont(0.5).within_group(per_player.c.player_finishes).label(
-                "median_finishes_per_player"
-            ),
+            func.percentile_cont(0.5)
+            .within_group(per_player.c.player_finishes)
+            .label("median_finishes_per_player"),
             func.coalesce(
-                func.sum(
-                    case((per_player.c.has_pro_finish.is_(True), 1), else_=0)
-                ),
+                func.sum(case((per_player.c.has_pro_finish.is_(True), 1), else_=0)),
                 0,
             ).label("unique_pro_finishes"),
         )
@@ -219,7 +222,7 @@ async def rebuild_map_leaderboards(
     if not normalized_scopes or not target_map_ids:
         return 0
 
-    cache_table = MapLeaderboardCache.__table__  # type: ignore[attr-defined]
+    cache_table = get_sqlmodel_table(MapLeaderboardCache)
     processed = 0
     for scope in normalized_scopes:
         await session.exec(
@@ -275,7 +278,7 @@ async def load_changed_map_leaderboard_keys(
 ) -> list[tuple[int, int]]:
     rows = (
         await session.exec(
-            select(Record.map_id, Record.mode)
+            select(col(Record.map_id), col(Record.mode))
             .where(
                 col(Record.stage) == 0,
                 col(Record.map_id) > 0,
@@ -335,19 +338,27 @@ async def read_map_leaderboard(
                 total_finishes=cache_row.total_finishes if cache_row is not None else 0,
                 total_playtime=cache_row.total_playtime if cache_row is not None else 0,
                 average_first_completion_time=(
-                    cache_row.average_first_completion_time if cache_row is not None else 0
+                    cache_row.average_first_completion_time
+                    if cache_row is not None
+                    else 0
                 ),
                 median_first_completion_time=(
-                    cache_row.median_first_completion_time if cache_row is not None else 0
+                    cache_row.median_first_completion_time
+                    if cache_row is not None
+                    else 0
                 ),
                 average_playtime_per_player=(
-                    cache_row.average_playtime_per_player if cache_row is not None else 0
+                    cache_row.average_playtime_per_player
+                    if cache_row is not None
+                    else 0
                 ),
                 median_playtime_per_player=(
                     cache_row.median_playtime_per_player if cache_row is not None else 0
                 ),
                 average_finishes_per_player=(
-                    cache_row.average_finishes_per_player if cache_row is not None else 0
+                    cache_row.average_finishes_per_player
+                    if cache_row is not None
+                    else 0
                 ),
                 median_finishes_per_player=(
                     cache_row.median_finishes_per_player if cache_row is not None else 0

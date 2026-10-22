@@ -68,7 +68,11 @@ def normalize_steamid64_list(value: Any) -> list[str]:
     else:
         return []
     return _dedupe_preserving_order(
-        [candidate for candidate in candidates if STEAMID64_PATTERN.fullmatch(candidate)]
+        [
+            candidate
+            for candidate in candidates
+            if STEAMID64_PATTERN.fullmatch(candidate)
+        ]
     )
 
 
@@ -224,14 +228,18 @@ async def seed_map_authors_from_kz_map_info(
         if (parsed := parse_kz_map_info_authors(row)) is not None
     ]
     if not parsed_rows:
-        return MapAuthorSeedResult(processed=len(source_rows), matched=0, updated=0, skipped=0)
+        return MapAuthorSeedResult(
+            processed=len(source_rows), matched=0, updated=0, skipped=0
+        )
 
     map_ids = [row.map_id for row in parsed_rows if row.map_id is not None]
     map_names = [row.map_name for row in parsed_rows]
     maps = list(
         (
             await session.exec(
-                select(Map).where(or_(col(Map.id).in_(map_ids), col(Map.name).in_(map_names)))
+                select(Map).where(
+                    or_(col(Map.id).in_(map_ids), col(Map.name).in_(map_names))
+                )
             )
         ).all()
     )
@@ -244,9 +252,7 @@ async def seed_map_authors_from_kz_map_info(
     all_author_steamid64s: list[str] = []
     for parsed in parsed_rows:
         map_obj = (
-            maps_by_id.get(parsed.map_id)
-            if parsed.map_id is not None
-            else None
+            maps_by_id.get(parsed.map_id) if parsed.map_id is not None else None
         ) or maps_by_name.get(parsed.map_name)
         if map_obj is None:
             skipped += 1

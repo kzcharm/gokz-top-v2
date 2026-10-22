@@ -20,6 +20,7 @@ from app.models import (
     MapLeaderboardsPublic,
     Message,
     ModeScope,
+    Player,
     PlayerLeaderboardListQuery,
     PlayerLeaderboardRankPublic,
     PlayerLeaderboardsPublic,
@@ -49,7 +50,7 @@ def _validate_geography_filters(
         raise HTTPException(status_code=422, detail="Invalid region")
 
 
-async def _get_player_or_404(*, session: SessionDep, identifier: str):
+async def _get_player_or_404(*, session: SessionDep, identifier: str) -> Player:
     player = await player_crud.get_player_by_identifier(
         session=session,
         identifier=identifier,
@@ -70,7 +71,7 @@ def _get_friends_only_viewer_steamid64(
         raise HTTPException(
             status_code=403,
             detail="Login is required to view a friends-only leaderboard.",
-    )
+        )
     return current_user.steamid64
 
 
@@ -144,8 +145,12 @@ async def read_player_leaderboard_rank(
         session=session,
         player=player,
         scope=scope,
-        country=country.strip().upper() if country is not None and country.strip() else None,
-        region=region.strip().upper() if region is not None and region.strip() else None,
+        country=country.strip().upper()
+        if country is not None and country.strip()
+        else None,
+        region=region.strip().upper()
+        if region is not None and region.strip()
+        else None,
         friends_viewer_steamid64=_get_friends_only_viewer_steamid64(
             friends_only=friends_only,
             current_user=current_user,

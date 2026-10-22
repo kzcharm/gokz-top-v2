@@ -81,11 +81,21 @@ async def _resolve_server_location(
         and resolved_latitude is not None
         and resolved_longitude is not None
     ):
-        return normalized_country, normalized_city, resolved_latitude, resolved_longitude
+        return (
+            normalized_country,
+            normalized_city,
+            resolved_latitude,
+            resolved_longitude,
+        )
 
     location = await lookup_ip_location(ip)
     if location is None:
-        return normalized_country, normalized_city, resolved_latitude, resolved_longitude
+        return (
+            normalized_country,
+            normalized_city,
+            resolved_latitude,
+            resolved_longitude,
+        )
 
     return (
         normalized_country or location.country_code,
@@ -111,14 +121,17 @@ async def _refresh_server_location(
     ):
         return
 
-    server.country, server.city, server.latitude, server.longitude = (
-        await _resolve_server_location(
-            ip=lookup_ip,
-            country=server.country,
-            city=server.city,
-            latitude=server.latitude,
-            longitude=server.longitude,
-        )
+    (
+        server.country,
+        server.city,
+        server.latitude,
+        server.longitude,
+    ) = await _resolve_server_location(
+        ip=lookup_ip,
+        country=server.country,
+        city=server.city,
+        latitude=server.latitude,
+        longitude=server.longitude,
     )
 
 
@@ -190,8 +203,7 @@ def _build_server_global_status_public(
     except ValidationError:
         return None
     modes = {
-        mode: bool(status.modes.get(mode, False))
-        for mode in SUPPORTED_GLOBAL_MODES
+        mode: bool(status.modes.get(mode, False)) for mode in SUPPORTED_GLOBAL_MODES
     }
     public_data = status.model_dump()
     public_data["modes"] = modes
@@ -411,7 +423,9 @@ async def get_server_group_by_api_key(
     return (await session.exec(statement)).first()
 
 
-def mark_server_group_api_key_used(*, session: AsyncSession, group: ServerGroup) -> None:
+def mark_server_group_api_key_used(
+    *, session: AsyncSession, group: ServerGroup
+) -> None:
     group.last_api_key_used_at = get_datetime_utc()
     session.add(group)
 
@@ -818,14 +832,17 @@ async def create_server(
             raise ValueError("Server already exists")
 
         now = get_datetime_utc()
-        resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
-            await _resolve_server_location(
-                ip=server_in.ip,
-                country=server_in.country,
-                city=server_in.city,
-                latitude=server_in.latitude,
-                longitude=server_in.longitude,
-            )
+        (
+            resolved_country,
+            resolved_city,
+            resolved_latitude,
+            resolved_longitude,
+        ) = await _resolve_server_location(
+            ip=server_in.ip,
+            country=server_in.country,
+            city=server_in.city,
+            latitude=server_in.latitude,
+            longitude=server_in.longitude,
         )
         existing_server.group_id = server_in.group_id
         existing_server.status = server_in.status
@@ -863,14 +880,17 @@ async def create_server(
         )
 
     now = get_datetime_utc()
-    resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
-        await _resolve_server_location(
-            ip=server_in.ip,
-            country=server_in.country,
-            city=server_in.city,
-            latitude=server_in.latitude,
-            longitude=server_in.longitude,
-        )
+    (
+        resolved_country,
+        resolved_city,
+        resolved_latitude,
+        resolved_longitude,
+    ) = await _resolve_server_location(
+        ip=server_in.ip,
+        country=server_in.country,
+        city=server_in.city,
+        latitude=server_in.latitude,
+        longitude=server_in.longitude,
     )
     server = Server(
         group_id=server_in.group_id,
@@ -925,14 +945,17 @@ async def upsert_server_from_plugin_heartbeat(
     now = get_datetime_utc()
 
     if server is None:
-        resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
-            await _resolve_server_location(
-                ip=payload.ip,
-                country=None,
-                city=None,
-                latitude=None,
-                longitude=None,
-            )
+        (
+            resolved_country,
+            resolved_city,
+            resolved_latitude,
+            resolved_longitude,
+        ) = await _resolve_server_location(
+            ip=payload.ip,
+            country=None,
+            city=None,
+            latitude=None,
+            longitude=None,
         )
         server = Server(
             group_id=group.id,
@@ -1044,14 +1067,17 @@ async def upsert_discovered_server(
     )
     now = observed_at
     if server is None:
-        resolved_country, resolved_city, resolved_latitude, resolved_longitude = (
-            await _resolve_server_location(
-                ip=ip,
-                country=None,
-                city=None,
-                latitude=None,
-                longitude=None,
-            )
+        (
+            resolved_country,
+            resolved_city,
+            resolved_latitude,
+            resolved_longitude,
+        ) = await _resolve_server_location(
+            ip=ip,
+            country=None,
+            city=None,
+            latitude=None,
+            longitude=None,
         )
         server = Server(
             ip=ip,

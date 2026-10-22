@@ -155,7 +155,8 @@ async def load_vanilla_tiers_by_map_id(
     ).all()
 
     normalized_local_map_ids = {
-        normalize_vanilla_tier_map_name(map_name): map_id for map_id, map_name in map_rows
+        normalize_vanilla_tier_map_name(map_name): map_id
+        for map_id, map_name in map_rows
     }
 
     resolved: dict[int, VanillaTierEntry] = {}

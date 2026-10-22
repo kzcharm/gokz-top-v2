@@ -35,10 +35,9 @@ def normalize_tournament_url(value: str | None) -> str | None:
     return normalized
 
 
-class TournamentBase(SQLModel):
+class _TournamentFields(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     starts_on: date
-    ends_on: date
     official_url: str | None = Field(default=None, max_length=500)
     level: TournamentLevel = Field(
         sa_column=Column(
@@ -64,6 +63,10 @@ class TournamentBase(SQLModel):
     def _normalize_official_url(cls, value: str | None) -> str | None:
         return normalize_tournament_url(value)
 
+
+class TournamentBase(_TournamentFields):
+    ends_on: date
+
     @model_validator(mode="after")
     def _validate_date_range(self) -> TournamentBase:
         if self.ends_on is not None and self.ends_on < self.starts_on:
@@ -81,11 +84,15 @@ class Tournament(TournamentBase, table=True):
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
@@ -120,21 +127,27 @@ class TournamentAchievement(SQLModel, table=True):
     placement: int = Field(ge=1, le=4)
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
-class TournamentCreate(TournamentBase):
+class TournamentCreate(_TournamentFields):
     ends_on: date | None = None
 
     @model_validator(mode="after")
     def _default_end_date(self) -> TournamentCreate:
         if self.ends_on is None:
             self.ends_on = self.starts_on
+        if self.ends_on < self.starts_on:
+            raise ValueError("ends_on must not be before starts_on")
         return self
 
 

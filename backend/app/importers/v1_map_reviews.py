@@ -24,6 +24,7 @@ from app.models import (
     Player,
     generate_uuid7,
 )
+from app.models.utils import get_sqlmodel_table
 from app.services.language_detection import detect_language_code
 
 logging.basicConfig(level=logging.INFO)
@@ -151,7 +152,11 @@ def _normalize_copy_escape(line: str) -> str:
             result.append("\v")
         elif escaped in "01234567":
             octal_digits = [escaped]
-            while index < len(line) and len(octal_digits) < 3 and line[index] in "01234567":
+            while (
+                index < len(line)
+                and len(octal_digits) < 3
+                and line[index] in "01234567"
+            ):
                 octal_digits.append(line[index])
                 index += 1
             result.append(chr(int("".join(octal_digits), 8)))
@@ -164,7 +169,9 @@ def _parse_copy_text_row(line: str, *, expected_fields: int = 5) -> list[str | N
     fields = line.rstrip("\n").split("\t")
     if len(fields) != expected_fields:
         raise ValueError(f"Expected {expected_fields} COPY fields, got {len(fields)}")
-    return [None if field == r"\N" else _normalize_copy_escape(field) for field in fields]
+    return [
+        None if field == r"\N" else _normalize_copy_escape(field) for field in fields
+    ]
 
 
 def iter_legacy_map_review_copy_rows(source_sql_gz: Path) -> Iterator[list[str | None]]:
@@ -211,7 +218,9 @@ def normalize_legacy_map_review_content(
     comment_text = _normalize_comment_text(payload.get("comment"))
     content_input = MapReviewContentInput(
         overall=_normalize_int(payload.get("overall"), field_name="overall"),
-        gameplay=_normalize_optional_int(payload.get("gameplay"), field_name="gameplay"),
+        gameplay=_normalize_optional_int(
+            payload.get("gameplay"), field_name="gameplay"
+        ),
         visuals=_normalize_optional_int(payload.get("visuals"), field_name="visuals"),
         comment=MapReviewCommentInput(text=comment_text),
     )
@@ -280,7 +289,9 @@ def _build_placeholder_player_rows(player_ids: set[int]) -> list[dict[str, Any]]
     ]
 
 
-def _build_review_insert_rows(rows: Sequence[LegacyMapReviewRow]) -> list[dict[str, Any]]:
+def _build_review_insert_rows(
+    rows: Sequence[LegacyMapReviewRow],
+) -> list[dict[str, Any]]:
     return [
         {
             "id": generate_uuid7(timestamp=row.updated_at),
@@ -325,10 +336,18 @@ async def _inspect_dependencies(
 
     async with async_session_maker() as session:
         existing_player_ids = set(
-            (await session.exec(select(Player.steamid64).where(col(Player.steamid64).in_(player_ids)))).all()
+            (
+                await session.exec(
+                    select(col(Player.steamid64)).where(
+                        col(Player.steamid64).in_(player_ids)
+                    )
+                )
+            ).all()
         )
         existing_map_ids = set(
-            (await session.exec(select(Map.id).where(col(Map.id).in_(map_ids)))).all()
+            (
+                await session.exec(select(col(Map.id)).where(col(Map.id).in_(map_ids)))
+            ).all()
         )
         existing_reviews = (
             await session.exec(
@@ -346,7 +365,11 @@ async def _inspect_dependencies(
         for review in existing_reviews
         if (review.steamid64, review.map_id) in source_contexts
     )
-    return player_ids - existing_player_ids, map_ids - existing_map_ids, existing_website_reviews
+    return (
+        player_ids - existing_player_ids,
+        map_ids - existing_map_ids,
+        existing_website_reviews,
+    )
 
 
 async def _insert_placeholder_players(*, player_ids: set[int]) -> int:
@@ -356,8 +379,12 @@ async def _insert_placeholder_players(*, player_ids: set[int]) -> int:
     rows = _build_placeholder_player_rows(player_ids)
     async with async_session_maker() as session:
         for chunk in _chunked(rows, size=1_000):
-            statement = pg_insert(Player.__table__).values(list(chunk)).on_conflict_do_nothing(
-                index_elements=[Player.__table__.c.steamid64]
+            statement = (
+                pg_insert(get_sqlmodel_table(Player))
+                .values(list(chunk))
+                .on_conflict_do_nothing(
+                    index_elements=[get_sqlmodel_table(Player).c.steamid64]
+                )
             )
             await session.exec(statement)
         await session.commit()
@@ -374,7 +401,7 @@ async def _upsert_map_reviews(
 
     insert_rows = _build_review_insert_rows(rows)
     touched_map_ids = {row.map_id for row in rows}
-    review_table = MapReview.__table__  # type: ignore[attr-defined]
+    review_table = get_sqlmodel_table(MapReview)
 
     async with async_session_maker() as session:
         for chunk in _chunked(insert_rows, size=batch_size):
@@ -434,7 +461,9 @@ async def verify_imported_map_reviews(
     }
     missing_contexts = sorted(set(source_by_context) - set(target_by_context))
     if missing_contexts:
-        raise ValueError(f"Target is missing {len(missing_contexts)} imported review rows")
+        raise ValueError(
+            f"Target is missing {len(missing_contexts)} imported review rows"
+        )
 
     mismatches: list[tuple[int, int]] = []
     for context, source in source_by_context.items():
@@ -447,7 +476,9 @@ async def verify_imported_map_reviews(
             mismatches.append(context)
 
     if mismatches:
-        raise ValueError(f"Target has {len(mismatches)} mismatched imported review rows")
+        raise ValueError(
+            f"Target has {len(mismatches)} mismatched imported review rows"
+        )
     if not summary_count:
         raise ValueError("Target has no map review summaries after import")
 
@@ -465,7 +496,9 @@ async def import_v1_map_reviews_from_sql_gz(
         raise FileNotFoundError(source_sql_gz)
 
     rows = read_legacy_map_review_rows(source_sql_gz)
-    missing_players, missing_maps, existing_reviews = await _inspect_dependencies(rows=rows)
+    missing_players, missing_maps, existing_reviews = await _inspect_dependencies(
+        rows=rows
+    )
     digest = compute_source_digest(rows)
 
     result = MapReviewImportResult(
@@ -512,7 +545,9 @@ def _log_result(result: MapReviewImportResult) -> None:
     logger.info("Distinct maps: %s", result.distinct_maps)
     logger.info("Missing placeholder players needed: %s", result.missing_players)
     logger.info("Missing map ids: %s", result.missing_maps)
-    logger.info("Existing website reviews to overwrite: %s", result.existing_website_reviews)
+    logger.info(
+        "Existing website reviews to overwrite: %s", result.existing_website_reviews
+    )
     logger.info("Imported rows: %s", result.imported_rows)
     logger.info("Summaries rebuilt: %s", result.summaries_rebuilt)
     logger.info("Source digest: %s", result.digest)

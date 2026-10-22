@@ -1,8 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import func
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.expression import SelectOfScalar
 
 from app.models import (
     AdminMapPublic,
@@ -19,6 +21,7 @@ from app.models import (
     ModeScope,
     mode_scope_modes,
 )
+from app.models.utils import select_row
 
 from .map_review import load_map_review_summaries
 from .record_filter import load_map_tiers_by_scope
@@ -35,11 +38,11 @@ def _build_read_maps_statement(
     scope: ModeScope | None = None,
     created_since: datetime | None = None,
     updated_since: datetime | None = None,
-):
+) -> SelectOfScalar[Map]:
     statement = select(Map)
 
     if id:
-        statement = statement.where(Map.id.in_(id))
+        statement = statement.where(col(Map.id).in_(id))
     if name:
         statement = statement.where(Map.name == name)
     if larger_than_filesize is not None:
@@ -175,7 +178,7 @@ async def read_admin_maps(
     statement = select(Map)
     count_statement = select(func.count()).select_from(Map)
 
-    filters = []
+    filters: list[ColumnElement[bool]] = []
     if q:
         filters.append(col(Map.name).ilike(f"%{q}%"))
     if validated is not None:
@@ -214,9 +217,9 @@ async def load_map_download_urls(
     if not map_ids:
         return {}
     rows = await session.exec(
-        select(MapFileDistribution.map_id, MapFileDistribution.bsp_download_url).where(
-            col(MapFileDistribution.map_id).in_(map_ids)
-        )
+        select(
+            col(MapFileDistribution.map_id), col(MapFileDistribution.bsp_download_url)
+        ).where(col(MapFileDistribution.map_id).in_(map_ids))
     )
     return {map_id: download_url for map_id, download_url in rows.all() if download_url}
 
@@ -228,9 +231,9 @@ async def load_map_bonus_counts(
         return {}
 
     rows = await session.exec(
-        select(MapCourse.map_id, func.max(MapCourse.stage))
+        select(col(MapCourse.map_id), func.max(MapCourse.stage))
         .where(col(MapCourse.map_id).in_(map_ids))
-        .group_by(MapCourse.map_id)
+        .group_by(col(MapCourse.map_id))
     )
     return {
         int(map_id): max(int(max_stage or 0), 0) for map_id, max_stage in rows.all()
@@ -244,14 +247,14 @@ async def load_map_skills(
         return {}
     # Select scalar columns only: the potentially large segment timelines stay in PostgreSQL.
     rows = await session.exec(
-        select(  # type: ignore[call-overload]
-            MapSkill.map_id,
-            MapSkill.boxtech,
-            MapSkill.strafe,
-            MapSkill.bhop,
-            MapSkill.climb,
-            MapSkill.ladder,
-            MapSkill.slide,
+        select_row(
+            col(MapSkill.map_id),
+            col(MapSkill.boxtech),
+            col(MapSkill.strafe),
+            col(MapSkill.bhop),
+            col(MapSkill.climb),
+            col(MapSkill.ladder),
+            col(MapSkill.slide),
         ).where(col(MapSkill.map_id).in_(map_ids))
     )
     return {

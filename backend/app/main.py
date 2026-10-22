@@ -1,5 +1,6 @@
 import asyncio
 import json
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -77,7 +78,7 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     listener_task = asyncio.create_task(listen_for_server_updates())
     recent_record_listener_task = asyncio.create_task(
         listen_for_recent_record_updates()
@@ -133,7 +134,12 @@ async def lifespan(_: FastAPI):
         await stop_map_file_distribution_runner(map_file_distribution_task)
 
 
-app = FastAPI(
+class VersionedOpenAPIFastAPI(FastAPI):
+    def openapi(self) -> dict[str, Any]:
+        return custom_openapi_v1()
+
+
+app = VersionedOpenAPIFastAPI(
     title=settings.PROJECT_NAME,
     docs_url=None,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
@@ -210,9 +216,6 @@ def custom_openapi_v1() -> dict[str, Any]:
             "v1 for project endpoints.",
         )
     return _openapi_v1_schema
-
-
-app.openapi = custom_openapi_v1
 
 
 @app.get("/v0/openapi.json", include_in_schema=False)

@@ -1,7 +1,9 @@
 import uuid
+from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import aliased
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -9,7 +11,7 @@ from app.crud.player import to_player_ref_public
 from app.models import Player, PlayerComment, PlayerCommentPublic
 
 
-def _player_comment_order_by() -> tuple:
+def _player_comment_order_by() -> tuple[ColumnElement[Any], ...]:
     return (
         col(PlayerComment.created_at).desc(),
         col(PlayerComment.id).desc(),
@@ -64,8 +66,10 @@ async def read_player_comments(
     limit: int,
 ) -> tuple[list[tuple[PlayerComment, Player]], int]:
     author_player = aliased(Player)
-    count_statement = select(func.count()).select_from(PlayerComment).where(
-        col(PlayerComment.target_steamid64) == target_steamid64
+    count_statement = (
+        select(func.count())
+        .select_from(PlayerComment)
+        .where(col(PlayerComment.target_steamid64) == target_steamid64)
     )
     count = int((await session.exec(count_statement)).one())
 

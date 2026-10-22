@@ -4,7 +4,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import ConfigDict, field_validator
+from pydantic import field_validator
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -53,13 +53,9 @@ def validate_player_custom_id(custom_id: str | None) -> str | None:
             f"custom_id must be at most {MAX_PLAYER_CUSTOM_ID_LENGTH} characters"
         )
     if not PLAYER_CUSTOM_ID_ALLOWED_PATTERN.fullmatch(normalized):
-        raise ValueError(
-            "custom_id can only use English letters, numbers, '-' or '_'"
-        )
+        raise ValueError("custom_id can only use English letters, numbers, '-' or '_'")
     if not PLAYER_CUSTOM_ID_PATTERN.fullmatch(normalized):
-        raise ValueError(
-            "custom_id must contain at least one English letter"
-        )
+        raise ValueError("custom_id must contain at least one English letter")
     return normalized
 
 
@@ -91,7 +87,7 @@ def normalize_player_country(country: str | None) -> str | None:
 
 
 class PlayerBase(SQLModel):
-    model_config = ConfigDict(validate_assignment=True)
+    model_config = {"validate_assignment": True}
 
     name: str = Field(max_length=255)
     alias: str | None = Field(default=None, max_length=25)
@@ -108,15 +104,19 @@ class PlayerBase(SQLModel):
     )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(
+            DateTime(timezone=True), nullable=True, default=get_datetime_utc
+        ),
     )
     last_played_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     updated_at: datetime | None = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(
+            DateTime(timezone=True), nullable=True, default=get_datetime_utc
+        ),
     )
 
     @field_validator("custom_id", mode="after")
@@ -175,11 +175,11 @@ class Player(PlayerBase, table=True):
     steamid64: int = Field(primary_key=True, sa_type=BigInteger)
     steam_profile_synced_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     steam_profile_sync_attempted_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     friends_visibility: PlayerFriendsVisibility | None = Field(
         default=None,
@@ -194,7 +194,7 @@ class Player(PlayerBase, table=True):
     )
     friends_visibility_checked_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     steam_friends_count: int | None = Field(
         default=None,

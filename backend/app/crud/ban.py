@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import and_, exists, func, not_, or_
+from sqlalchemy import SQLColumnExpression, and_, exists, func, not_, or_
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
@@ -67,7 +67,7 @@ def _parse_ban_type_values(
 
 def active_ban_exists_clause(
     *,
-    steamid64_column: ColumnElement[Any],
+    steamid64_column: SQLColumnExpression[Any],
     now: datetime | None = None,
 ) -> ColumnElement[bool]:
     current_time = now or get_datetime_utc()
@@ -84,7 +84,7 @@ def active_ban_exists_clause(
 
 def not_active_ban_exists_clause(
     *,
-    steamid64_column: ColumnElement[Any],
+    steamid64_column: SQLColumnExpression[Any],
     now: datetime | None = None,
 ) -> ColumnElement[bool]:
     return not_(active_ban_exists_clause(steamid64_column=steamid64_column, now=now))
@@ -92,7 +92,7 @@ def not_active_ban_exists_clause(
 
 def not_active_ban_exists_split_clause(
     *,
-    steamid64_column: ColumnElement[Any],
+    steamid64_column: SQLColumnExpression[Any],
     now: datetime | None = None,
 ) -> ColumnElement[bool]:
     current_time = now or get_datetime_utc()

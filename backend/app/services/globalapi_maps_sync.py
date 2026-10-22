@@ -202,7 +202,9 @@ async def _sync_main_course_tiers_from_map_difficulty(
     if not main_courses:
         return
 
-    course_ids = [course.id for course, _map_obj in main_courses if course.id is not None]
+    course_ids = [
+        course.id for course, _map_obj in main_courses if course.id is not None
+    ]
     if not course_ids:
         return
 

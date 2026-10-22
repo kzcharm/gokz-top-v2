@@ -171,7 +171,9 @@ async def read_record_filters_v0(
     if has_teleports is not None:
         statement = statement.where(col(RecordFilter.has_teleports) == has_teleports)
 
-    statement = statement.order_by(col(RecordFilter.id).asc()).offset(offset).limit(limit)
+    statement = (
+        statement.order_by(col(RecordFilter.id).asc()).offset(offset).limit(limit)
+    )
     rows = list((await session.exec(statement)).all())
     return [
         RecordFilterCompatPublicV0(
@@ -199,7 +201,7 @@ async def record_filter_exists_for_course_mode(
     has_teleports: bool,
 ) -> bool:
     statement = (
-        select(RecordFilter.id)
+        select(col(RecordFilter.id))
         .where(
             col(RecordFilter.stage) == stage,
             col(RecordFilter.mode) == legacy_mode_id_to_kz_mode(mode_id),
@@ -241,8 +243,7 @@ async def load_scoped_course_tiers(
     courses = list(
         (
             await session.exec(
-                select(MapCourse)
-                .where(
+                select(MapCourse).where(
                     col(MapCourse.map_id).in_(map_ids),
                     col(MapCourse.stage).in_(stages),
                 )
@@ -260,7 +261,7 @@ async def load_scoped_course_tiers(
     if course_ids:
         tier_rows = (
             await session.exec(
-                select(MapCourseTier.course_id, MapCourseTier.tier).where(
+                select(col(MapCourseTier.course_id), col(MapCourseTier.tier)).where(
                     col(MapCourseTier.course_id).in_(course_ids),
                     col(MapCourseTier.mode).in_(list(mode_scope_modes(scope))),
                 )
@@ -312,14 +313,15 @@ async def load_map_tiers_by_scope(
     if course_ids:
         rows = (
             await session.exec(
-                select(MapCourseTier.course_id, MapCourseTier.mode, MapCourseTier.tier).where(
-                    col(MapCourseTier.course_id).in_(course_ids)
-                )
+                select(
+                    col(MapCourseTier.course_id),
+                    col(MapCourseTier.mode),
+                    col(MapCourseTier.tier),
+                ).where(col(MapCourseTier.course_id).in_(course_ids))
             )
         ).all()
         tiers_by_course_id_and_mode = {
-            (int(course_id), mode): int(tier)
-            for course_id, mode, tier in rows
+            (int(course_id), mode): int(tier) for course_id, mode, tier in rows
         }
 
     resolved_tiers: dict[int, MapTiers] = {}

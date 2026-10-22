@@ -9,6 +9,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.expression import SelectOfScalar
 
 from app.crud.content_reaction import delete_map_review_reactions
 from app.crud.player import to_player_ref_public
@@ -28,6 +29,7 @@ from app.models import (
     RecordPb,
     get_datetime_utc,
 )
+from app.models.utils import get_sqlmodel_table, select_row
 from app.services.language_detection import detect_language_code
 
 MAP_REVIEW_PRIOR_STRENGTH = 6
@@ -136,8 +138,8 @@ def _latest_map_review_ids_query(
     map_id: int | None = None,
     steamid64: int | None = None,
     website_only: bool = False,
-):
-    review_table = MapReview.__table__  # type: ignore[attr-defined]
+) -> SelectOfScalar[uuid.UUID]:
+    review_table = get_sqlmodel_table(MapReview)
     ranked_reviews = select(
         review_table.c.id.label("review_id"),
         func.row_number()
@@ -180,7 +182,7 @@ async def has_finished_map_for_review(
     map_id: int,
 ) -> bool:
     statement = (
-        select(RecordPb.record_uuid)
+        select(col(RecordPb.record_uuid))
         .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
         .where(
             col(RecordPb.steamid64) == steamid64,
@@ -223,7 +225,7 @@ async def load_map_review_summaries(
     if not map_ids:
         return {}
 
-    cache_table = MapReviewSummaryCache.__table__  # type: ignore[attr-defined]
+    cache_table = get_sqlmodel_table(MapReviewSummaryCache)
     statement = select(MapReviewSummaryCache).where(
         col(MapReviewSummaryCache.map_id).in_(map_ids)
     )
@@ -260,7 +262,7 @@ async def rebuild_map_review_summary(
     map_id: int,
 ) -> MapReviewSummaryPublic | None:
     latest_ids = _latest_map_review_ids_query(map_id=map_id).subquery()
-    review_table = MapReview.__table__  # type: ignore[attr-defined]
+    review_table = get_sqlmodel_table(MapReview)
 
     overall_rating = cast(review_table.c.content["overall"].astext, Integer)
     gameplay_rating = cast(review_table.c.content["gameplay"].astext, Integer)
@@ -268,7 +270,7 @@ async def rebuild_map_review_summary(
     comment_text = review_table.c.content["comment"]["text"].astext
 
     summary_statement = (
-        select(
+        select_row(
             func.count().label("reviews_count"),
             func.avg(overall_rating).label("overall_avg"),
             func.avg(gameplay_rating).label("gameplay_avg"),
@@ -310,7 +312,7 @@ async def rebuild_map_review_summary(
         return None
 
     now = get_datetime_utc()
-    cache_table = MapReviewSummaryCache.__table__  # type: ignore[attr-defined]
+    cache_table = get_sqlmodel_table(MapReviewSummaryCache)
     values = {
         "map_id": map_id,
         "overall_avg": float(summary.overall_avg),
@@ -373,7 +375,7 @@ async def upsert_map_review(
         existing_content=existing.content if existing is not None else None,
     )
 
-    review_table = MapReview.__table__  # type: ignore[attr-defined]
+    review_table = get_sqlmodel_table(MapReview)
     values: dict[str, Any] = {
         "id": uuid.uuid7(),
         "steamid64": steamid64,
@@ -424,7 +426,7 @@ async def read_latest_map_reviews(
     language: str | None = None,
     source: MapReviewSource = "latest",
 ) -> tuple[list[tuple[MapReview, Player, Map]], int]:
-    review_table = MapReview.__table__  # type: ignore[attr-defined]
+    review_table = get_sqlmodel_table(MapReview)
     latest_ids = _latest_map_review_ids_query(
         map_id=map_id,
         steamid64=steamid64,

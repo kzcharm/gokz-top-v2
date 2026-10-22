@@ -46,10 +46,10 @@ class BanBase(LegacyDatetimeNamesMixin):
             nullable=False,
         ),
     )
-    expires_at: datetime | None = Field(  # type: ignore[call-overload]
+    expires_at: datetime | None = Field(
         default=None,
-        validation_alias=AliasChoices("expires_at", "expires_on"),
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        schema_extra={"validation_alias": AliasChoices("expires_at", "expires_on")},
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     ip: str | None = Field(default=None, max_length=64)
     steamid64: int = Field(foreign_key="player.steamid64", sa_type=BigInteger)
@@ -64,27 +64,35 @@ class BanBase(LegacyDatetimeNamesMixin):
     server_id: int | None = None
     updated_by_steamid64: int | None = Field(
         default=None,
-        validation_alias=AliasChoices("updated_by_steamid64", "updated_by_id"),
+        schema_extra={
+            "validation_alias": AliasChoices("updated_by_steamid64", "updated_by_id")
+        },
         sa_type=BigInteger,
     )
-    created_at: datetime = Field(  # type: ignore[call-overload]
+    created_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="created_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
-    updated_at: datetime = Field(  # type: ignore[call-overload]
+    updated_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
-    synced_at: datetime = Field(  # type: ignore[call-overload]
+    synced_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
 class Ban(BanBase, table=True):
-    __tablename__ = "ban"  # type: ignore[assignment]
+    __tablename__ = "ban"
     __table_args__ = (
         Index(
             "uq_ban_external_id",
@@ -108,7 +116,7 @@ class BanCreate(SQLModel):
     ban_type: BanType
     expires_at: datetime | None = Field(
         default=None,
-        validation_alias=AliasChoices("expires_at", "expires_on"),
+        schema_extra={"validation_alias": AliasChoices("expires_at", "expires_on")},
     )
     notes: str | None = None
     stats: str | None = None
@@ -118,7 +126,7 @@ class BanUpdate(SQLModel):
     ban_type: BanType
     expires_at: datetime | None = Field(
         default=None,
-        validation_alias=AliasChoices("expires_at", "expires_on"),
+        schema_extra={"validation_alias": AliasChoices("expires_at", "expires_on")},
     )
     notes: str | None = None
 

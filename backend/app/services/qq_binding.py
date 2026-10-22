@@ -107,7 +107,9 @@ def reveal_qq_binding_secret(*, encrypted_secret: str) -> QQBindingSecretPublic:
 
 
 def _get_fernet() -> Fernet:
-    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode()).digest())
+    key = base64.urlsafe_b64encode(
+        hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+    )
     return Fernet(key)
 
 

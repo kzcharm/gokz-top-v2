@@ -17,6 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.db import async_session_maker
 from app.models import Player, PlayerLike, PlayerSession, ServerGroup, ServerGroupStatus
 from app.models.player import validate_player_custom_id
+from app.models.utils import get_sqlmodel_table
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -139,7 +140,10 @@ def _parse_copy_columns(header: str, *, table: str) -> list[str]:
     column_end = header.find(") FROM stdin;")
     if column_end == -1:
         raise ValueError(f"{table} COPY header is missing FROM stdin terminator")
-    return [column.strip().strip('"') for column in header[len(prefix) : column_end].split(",")]
+    return [
+        column.strip().strip('"')
+        for column in header[len(prefix) : column_end].split(",")
+    ]
 
 
 def _unescape_copy_text(value: str) -> str:
@@ -261,8 +265,8 @@ def _stable_uuid7_from_source(
     source_id: uuid.UUID,
     timestamp: datetime,
 ) -> uuid.UUID:
-    normalized = timestamp.astimezone(UTC) if timestamp.tzinfo else timestamp.replace(
-        tzinfo=UTC
+    normalized = (
+        timestamp.astimezone(UTC) if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
     )
     unix_ts_ms = int(normalized.timestamp() * 1000)
     if unix_ts_ms < 0 or unix_ts_ms >= 1 << 48:
@@ -272,13 +276,7 @@ def _stable_uuid7_from_source(
     random_bits = int.from_bytes(digest[:10], "big") & ((1 << 74) - 1)
     rand_a = random_bits >> 62
     rand_b = random_bits & ((1 << 62) - 1)
-    value = (
-        (unix_ts_ms << 80)
-        | (0x7 << 76)
-        | (rand_a << 64)
-        | (0b10 << 62)
-        | rand_b
-    )
+    value = (unix_ts_ms << 80) | (0x7 << 76) | (rand_a << 64) | (0b10 << 62) | rand_b
     return uuid.UUID(int=value)
 
 
@@ -299,8 +297,10 @@ def read_v1_player_rows(path: Path) -> dict[int, V1PlayerRow]:
     for row in iter_copy_dict_rows(path, table="player"):
         steamid64 = _normalize_int(row.get("steamid64"), field_name="steamid64")
         raw_name = row.get("name")
-        name = raw_name.strip()[:255] if raw_name is not None and raw_name.strip() else str(
-            steamid64
+        name = (
+            raw_name.strip()[:255]
+            if raw_name is not None and raw_name.strip()
+            else str(steamid64)
         )
         rows[steamid64] = V1PlayerRow(
             steamid64=steamid64,
@@ -324,10 +324,16 @@ def read_v1_server_group_rows(path: Path) -> dict[uuid.UUID, V1ServerGroupRow]:
             ),
             website=_normalize_optional_text(row.get("website"), max_length=255),
             discord=_normalize_optional_text(row.get("discord"), max_length=255),
-            steam_group=_normalize_optional_text(row.get("steam_group"), max_length=255),
+            steam_group=_normalize_optional_text(
+                row.get("steam_group"), max_length=255
+            ),
             custom_id=_sanitize_custom_id(row.get("custom_id")),
-            created_at=_normalize_datetime(row.get("created_at"), field_name="created_at"),
-            updated_at=_normalize_datetime(row.get("updated_at"), field_name="updated_at"),
+            created_at=_normalize_datetime(
+                row.get("created_at"), field_name="created_at"
+            ),
+            updated_at=_normalize_datetime(
+                row.get("updated_at"), field_name="updated_at"
+            ),
         )
     return rows
 
@@ -368,15 +374,21 @@ def read_v1_player_session_rows(path: Path) -> list[V1PlayerSessionRow]:
                     field_name="player_steamid64",
                 ),
                 source_server_group_id=uuid.UUID(
-                    _normalize_text(row.get("server_group_id"), field_name="server_group_id")
+                    _normalize_text(
+                        row.get("server_group_id"), field_name="server_group_id"
+                    )
                 ),
                 connected_at=_normalize_datetime(
                     row.get("connected_time"),
                     field_name="connected_time",
                 ),
                 disconnect_at=_normalize_optional_datetime(row.get("disconnect_time")),
-                ip_address=_normalize_text(row.get("ip_address"), field_name="ip_address"),
-                map_name=_normalize_text(row.get("map_name"), field_name="map_name")[:255],
+                ip_address=_normalize_text(
+                    row.get("ip_address"), field_name="ip_address"
+                ),
+                map_name=_normalize_text(row.get("map_name"), field_name="map_name")[
+                    :255
+                ],
             )
         )
     return rows
@@ -448,15 +460,19 @@ async def _insert_placeholder_players(
         rows.append(
             {
                 "steamid64": steamid64,
-                "name": source_player.name if source_player is not None else str(steamid64),
+                "name": source_player.name
+                if source_player is not None
+                else str(steamid64),
                 "created_at": (
                     source_player.created_at
-                    if source_player is not None and source_player.created_at is not None
+                    if source_player is not None
+                    and source_player.created_at is not None
                     else now
                 ),
                 "updated_at": (
                     source_player.updated_at
-                    if source_player is not None and source_player.updated_at is not None
+                    if source_player is not None
+                    and source_player.updated_at is not None
                     else now
                 ),
             }
@@ -464,9 +480,11 @@ async def _insert_placeholder_players(
 
     for chunk in _chunked(rows, size=batch_size):
         statement = (
-            pg_insert(Player.__table__)
+            pg_insert(get_sqlmodel_table(Player))
             .values(list(chunk))
-            .on_conflict_do_nothing(index_elements=[Player.__table__.c.steamid64])
+            .on_conflict_do_nothing(
+                index_elements=[get_sqlmodel_table(Player).c.steamid64]
+            )
         )
         await session.exec(statement)
     return len(rows)
@@ -483,8 +501,12 @@ async def _resolve_server_groups(
 
     missing_source_group_ids = session_group_ids - set(source_groups)
     if missing_source_group_ids:
-        missing = ", ".join(str(group_id) for group_id in sorted(missing_source_group_ids))
-        raise ValueError(f"player_sessions references missing v1 server_groups: {missing}")
+        missing = ", ".join(
+            str(group_id) for group_id in sorted(missing_source_group_ids)
+        )
+        raise ValueError(
+            f"player_sessions references missing v1 server_groups: {missing}"
+        )
 
     existing_groups = list((await session.exec(select(ServerGroup))).all())
     existing_by_id = {group.id: group for group in existing_groups}
@@ -518,7 +540,9 @@ async def _resolve_server_groups(
             matches[group.id] = group
 
         if len(matches) > 1:
-            labels = ", ".join(f"{group.name} ({group.id})" for group in matches.values())
+            labels = ", ".join(
+                f"{group.name} ({group.id})" for group in matches.values()
+            )
             raise ValueError(
                 f"v1 server group {source_group.name} ({source_group.id}) "
                 f"matches multiple v2 groups: {labels}"
@@ -539,7 +563,10 @@ async def _resolve_server_groups(
                 f"v1 server group {source_group.name} ({source_group.id}) "
                 "would conflict with an existing v2 server_group custom_id"
             )
-        if api_key in planned_api_keys and existing_api_keys.get(api_key, None) is not None:
+        if (
+            api_key in planned_api_keys
+            and existing_api_keys.get(api_key, None) is not None
+        ):
             raise ValueError(
                 f"v1 server group {source_group.name} ({source_group.id}) "
                 "would conflict with an existing v2 server_group api_key"
@@ -584,9 +611,9 @@ async def _insert_server_groups(
         )
 
     statement = (
-        pg_insert(ServerGroup.__table__)
+        pg_insert(get_sqlmodel_table(ServerGroup))
         .values(rows)
-        .on_conflict_do_nothing(index_elements=[ServerGroup.__table__.c.id])
+        .on_conflict_do_nothing(index_elements=[get_sqlmodel_table(ServerGroup).c.id])
     )
     await session.exec(statement)
     return len(rows)
@@ -616,13 +643,13 @@ async def _import_player_likes(
 
     for chunk in _chunked(list(rows.values()), size=batch_size):
         statement = (
-            pg_insert(PlayerLike.__table__)
+            pg_insert(get_sqlmodel_table(PlayerLike))
             .values(list(chunk))
             .on_conflict_do_nothing(
                 index_elements=[
-                    PlayerLike.__table__.c.viewer_steamid64,
-                    PlayerLike.__table__.c.target_steamid64,
-                    PlayerLike.__table__.c.like_date,
+                    get_sqlmodel_table(PlayerLike).c.viewer_steamid64,
+                    get_sqlmodel_table(PlayerLike).c.target_steamid64,
+                    get_sqlmodel_table(PlayerLike).c.like_date,
                 ]
             )
         )
@@ -674,9 +701,9 @@ async def _import_player_sessions(
         group_id_map=group_id_map,
     )
     for chunk in _chunked(rows, size=batch_size):
-        statement = pg_insert(PlayerSession.__table__).values(list(chunk))
+        statement = pg_insert(get_sqlmodel_table(PlayerSession)).values(list(chunk))
         statement = statement.on_conflict_do_update(
-            index_elements=[PlayerSession.__table__.c.id],
+            index_elements=[get_sqlmodel_table(PlayerSession).c.id],
             set_={
                 "player_steamid64": statement.excluded.player_steamid64,
                 "server_group_id": statement.excluded.server_group_id,
@@ -782,8 +809,10 @@ async def import_v1_player_likes_sessions(
         if group_resolution.group_id_map[group_id] == group_id
         and group_id not in {group.id for group in group_resolution.groups_to_create}
     )
-    mapped_by_name_or_custom_id = len(session_group_ids) - mapped_by_existing_id - len(
-        group_resolution.groups_to_create
+    mapped_by_name_or_custom_id = (
+        len(session_group_ids)
+        - mapped_by_existing_id
+        - len(group_resolution.groups_to_create)
     )
 
     unique_like_rows = {
@@ -799,17 +828,16 @@ async def import_v1_player_likes_sessions(
         group_id_map=group_resolution.group_id_map,
     )
 
-    all_player_ids = {
-        row.player_steamid64 for row in source_sessions
-    } | {
-        row.viewer_steamid64 for row in source_likes
-    } | {
-        row.target_steamid64 for row in source_likes
-    } | {
-        group.owner_steamid64
-        for group in group_resolution.groups_to_create
-        if group.owner_steamid64 is not None
-    }
+    all_player_ids = (
+        {row.player_steamid64 for row in source_sessions}
+        | {row.viewer_steamid64 for row in source_likes}
+        | {row.target_steamid64 for row in source_likes}
+        | {
+            group.owner_steamid64
+            for group in group_resolution.groups_to_create
+            if group.owner_steamid64 is not None
+        }
+    )
 
     if dry_run:
         return V1PlayerLikesSessionsImportSummary(
@@ -889,7 +917,9 @@ def _log_summary(summary: V1PlayerLikesSessionsImportSummary) -> None:
     logger.info("Source sessions: %s", summary.source_sessions)
     logger.info("Skipped self-likes: %s", summary.skipped_self_likes)
     logger.info("Distinct session groups: %s", summary.distinct_session_groups)
-    logger.info("Groups mapped by existing id: %s", summary.groups_mapped_by_existing_id)
+    logger.info(
+        "Groups mapped by existing id: %s", summary.groups_mapped_by_existing_id
+    )
     logger.info(
         "Groups mapped by name/custom_id: %s",
         summary.groups_mapped_by_name_or_custom_id,

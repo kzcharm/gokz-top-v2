@@ -18,6 +18,7 @@ from app.models import (
     RecordFilter,
     legacy_mode_id_to_kz_mode,
 )
+from app.models.utils import get_sqlmodel_table
 from app.services.vanilla_tier import VanillaTierEntry, load_vanilla_tiers_by_map_id
 
 RECORD_FILTER_DATETIME_FALLBACK = "2018-07-10T21:02:51"
@@ -75,13 +76,17 @@ def _parse_optional_string(value: Any) -> str | None:
 
 
 def _resolve_shared_vnl_tier(entry: VanillaTierEntry) -> int:
-    positive_tiers = [tier for tier in (entry.tp_tier, entry.pro_tier) if tier and tier > 0]
+    positive_tiers = [
+        tier for tier in (entry.tp_tier, entry.pro_tier) if tier and tier > 0
+    ]
     if positive_tiers:
         return min(positive_tiers)
     return 0
 
 
-def _record_filter_values_from_globalapi(payload: dict[str, Any]) -> dict[str, Any] | None:
+def _record_filter_values_from_globalapi(
+    payload: dict[str, Any],
+) -> dict[str, Any] | None:
     record_filter_id = _parse_int(payload.get("id"), default=-1)
     map_id = _parse_int(payload.get("map_id"), default=-2)
     mode_id = _parse_int(payload.get("mode_id"), default=-1)
@@ -113,9 +118,7 @@ async def _ensure_main_courses_for_vanilla_maps(
     map_ids: list[int],
 ) -> None:
     existing_maps = set(
-        (
-            await session.exec(select(Map.id).where(col(Map.id).in_(map_ids)))
-        ).all()
+        (await session.exec(select(Map.id).where(col(Map.id).in_(map_ids)))).all()
     )
     if not existing_maps:
         return
@@ -174,7 +177,7 @@ async def _sync_vnl_course_tiers(
     if not rows:
         return
 
-    table = MapCourseTier.__table__
+    table = get_sqlmodel_table(MapCourseTier)
     insert_statement = pg_insert(table).values(rows)
     await session.exec(
         insert_statement.on_conflict_do_update(
@@ -289,19 +292,23 @@ async def sync_record_filters_from_globalapi(
                     (
                         await session.exec(
                             select(RecordFilter.id).where(
-                                RecordFilter.id.in_(record_filter_ids)
+                                col(RecordFilter.id).in_(record_filter_ids)
                             )
                         )
                     ).all()
                 )
                 created += sum(
-                    1 for record_filter_id in record_filter_ids if record_filter_id not in existing_ids
+                    1
+                    for record_filter_id in record_filter_ids
+                    if record_filter_id not in existing_ids
                 )
                 updated += sum(
-                    1 for record_filter_id in record_filter_ids if record_filter_id in existing_ids
+                    1
+                    for record_filter_id in record_filter_ids
+                    if record_filter_id in existing_ids
                 )
 
-                table = RecordFilter.__table__
+                table = get_sqlmodel_table(RecordFilter)
                 insert_statement = pg_insert(table).values(list(rows_by_id.values()))
                 upsert_statement = insert_statement.on_conflict_do_update(
                     index_elements=[table.c.id],
@@ -323,7 +330,7 @@ async def sync_record_filters_from_globalapi(
             offset += settings.GLOBALAPI_RECORD_FILTERS_LIMIT
 
         await session.exec(
-            pg_insert(MapCourse.__table__)
+            pg_insert(get_sqlmodel_table(MapCourse))
             .from_select(
                 ["map_id", "stage"],
                 select(RecordFilter.map_id, RecordFilter.stage)

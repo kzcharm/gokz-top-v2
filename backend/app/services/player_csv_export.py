@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.db import async_session_maker
 from app.models import Ban, Player, PlayerSession, Record
+from app.models.utils import select_row
 from app.services.record_csv_export import (
     STEAM_ACCOUNT_ID_MAX,
     STEAMID64_ACCOUNT_ID_BASE,
@@ -93,8 +94,7 @@ async def _write_csv(
             *record_selection,
             col(Record.is_valid).is_(True),
             col(Record.steamid64) >= STEAMID64_ACCOUNT_ID_BASE,
-            col(Record.steamid64)
-            <= STEAMID64_ACCOUNT_ID_BASE + STEAM_ACCOUNT_ID_MAX,
+            col(Record.steamid64) <= STEAMID64_ACCOUNT_ID_BASE + STEAM_ACCOUNT_ID_MAX,
         )
         .group_by(col(Record.steamid64))
         .subquery()
@@ -121,14 +121,14 @@ async def _write_csv(
         .scalar_subquery()
     )
     permanent_ban_exists = exists(
-        select(Ban.uuid).where(
+        select(col(Ban.uuid)).where(
             col(Ban.steamid64) == col(Player.steamid64),
             col(Ban.expires_at).is_(None),
         )
     )
     display_name = func.coalesce(func.nullif(col(Player.alias), ""), col(Player.name))
     export_rows = (
-        select(
+        select_row(
             col(Player.steamid64).label("steamid64"),
             display_name.label("alias"),
             case((permanent_ban_exists, 1), else_=0).label("cheater"),
@@ -152,7 +152,7 @@ async def _write_csv(
         .subquery()
     )
     statement = (
-        select(export_rows)
+        select_row(export_rows)
         .order_by(export_rows.c.steamid64.asc())
         .execution_options(yield_per=STREAM_BATCH_SIZE)
     )

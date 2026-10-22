@@ -9,6 +9,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import KZMode, Map, Player, Record, seconds_to_time_ms
+from app.models.utils import select_row
 
 STEAMID64_ACCOUNT_ID_BASE = 76_561_197_960_265_728
 STEAM_ACCOUNT_ID_MAX = 4_294_967_295
@@ -55,7 +56,7 @@ async def get_gokz_localdb_export_stats(
     *, session: AsyncSession, server_ids: list[int]
 ) -> GokzLocalDbExportStats:
     statement = (
-        select(
+        select_row(
             func.count().label("total_rows"),
             func.count().filter(col(Record.is_valid).is_(False)).label("invalid_rows"),
             func.count()
@@ -114,7 +115,7 @@ async def _iter_players_sql(
 ) -> AsyncIterator[str]:
     alias = func.coalesce(col(Player.alias), col(Player.name))
     statement = (
-        select(
+        select_row(
             col(Player.steamid64),
             alias.label("alias"),
             col(Player.country),
@@ -216,7 +217,7 @@ async def _iter_times_sql(
         )
     )
     statement = (
-        select(
+        select_row(
             col(Record.steamid64),
             col(Map.name).label("map_name"),
             col(Record.stage),

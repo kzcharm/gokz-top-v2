@@ -44,7 +44,9 @@ def _normalize_country_code(value: Any) -> str | None:
     return normalized.upper()[:2] or None
 
 
-def _normalize_coordinate(value: Any, *, minimum: float, maximum: float) -> float | None:
+def _normalize_coordinate(
+    value: Any, *, minimum: float, maximum: float
+) -> float | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, str):
@@ -167,7 +169,9 @@ async def lookup_ip_location(
     try:
         for provider in providers:
             try:
-                response = await resolved_client.get(provider.build_url(parsed_ip.compressed))
+                response = await resolved_client.get(
+                    provider.build_url(parsed_ip.compressed)
+                )
                 response.raise_for_status()
                 payload = response.json()
             except (httpx.HTTPError, ValueError):

@@ -165,9 +165,7 @@ async def recalculate_estimated_pb_points(
     )
     await session.commit()
     return Message(
-        message=(
-            f"Recalculated estimated PB points for {updated_count} row(s)."
-        )
+        message=(f"Recalculated estimated PB points for {updated_count} row(s).")
     )
 
 
@@ -479,8 +477,7 @@ async def read_player_friends(
         session=session,
         player=player,
         include_private_cache=(
-            current_user is not None
-            and current_user.steamid64 == player.steamid64
+            current_user is not None and current_user.steamid64 == player.steamid64
         ),
     )
 

@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import func, or_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.expression import Select
 
 from app.core.db import async_session_maker
 from app.models import (
@@ -73,7 +74,9 @@ class RecordCsvExportResult:
     compressed_size: int
 
 
-def parse_datetime_boundary(value: str | None, *, is_end: bool = False) -> datetime | None:
+def parse_datetime_boundary(
+    value: str | None, *, is_end: bool = False
+) -> datetime | None:
     """Parse an ISO date or datetime as an inclusive UTC boundary."""
     if value is None:
         return None
@@ -92,8 +95,8 @@ def parse_datetime_boundary(value: str | None, *, is_end: bool = False) -> datet
 
 
 def _format_datetime(value: datetime) -> str:
-    normalized = value.astimezone(UTC) if value.tzinfo is not None else value.replace(
-        tzinfo=UTC
+    normalized = (
+        value.astimezone(UTC) if value.tzinfo is not None else value.replace(tzinfo=UTC)
     )
     return normalized.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -119,7 +122,7 @@ async def _resolve_server_ids(
         existing_ids = set(
             (
                 await session.exec(
-                    select(ServerGlobalapi.id).where(
+                    select(col(ServerGlobalapi.id)).where(
                         col(ServerGlobalapi.id).in_(requested_ids)
                     )
                 )
@@ -150,11 +153,7 @@ async def _resolve_server_ids(
         if parsed_id is not None:
             conditions.append(col(ServerGroup.id) == parsed_id)
         matches = list(
-            (
-                await session.exec(
-                    select(ServerGroup).where(or_(*conditions))
-                )
-            ).all()
+            (await session.exec(select(ServerGroup).where(or_(*conditions)))).all()
         )
         unique_matches = {group.id: group for group in matches}
         if not unique_matches:
@@ -167,7 +166,7 @@ async def _resolve_server_ids(
         set(
             (
                 await session.exec(
-                    select(ServerGlobalapi.id).where(
+                    select(col(ServerGlobalapi.id)).where(
                         col(ServerGlobalapi.group_id).in_(group_ids)
                     )
                 )
@@ -196,8 +195,7 @@ def _selection_predicates(
 def _bad_steamid_predicate() -> Any:
     return or_(
         col(Record.steamid64) < STEAMID64_ACCOUNT_ID_BASE,
-        col(Record.steamid64)
-        > STEAMID64_ACCOUNT_ID_BASE + STEAM_ACCOUNT_ID_MAX,
+        col(Record.steamid64) > STEAMID64_ACCOUNT_ID_BASE + STEAM_ACCOUNT_ID_MAX,
     )
 
 
@@ -241,7 +239,7 @@ async def _write_csv(
         f".{output_path.name}.{uuid.uuid4().hex}.part"
     )
     player_name = func.coalesce(func.nullif(col(Player.alias), ""), col(Player.name))
-    statement = (
+    statement: Select[tuple[Record, Any, str | None, Any]] = (
         select(
             Record,
             player_name.label("player_name"),
@@ -336,11 +334,9 @@ async def export_records_to_csv(
             after=after_dt,
             before=before_dt,
         )
-        skipped_invalid_rows, skipped_bad_steamid_rows = (
-            await _get_exclusion_counts(
-                session=session,
-                selection_predicates=predicates,
-            )
+        skipped_invalid_rows, skipped_bad_steamid_rows = await _get_exclusion_counts(
+            session=session,
+            selection_predicates=predicates,
         )
         exported_rows = await _write_csv(
             session=session,

@@ -34,17 +34,21 @@ class RecordFilterBase(LegacyDatetimeNamesMixin):
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="created_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_by_id: str | None = Field(
         default=None,
         max_length=32,
-        sa_type=String(32),
+        sa_column=Column(String(32), nullable=True),
     )
 
     def __init__(self, /, **data: object) -> None:

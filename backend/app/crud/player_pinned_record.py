@@ -70,8 +70,12 @@ async def create_player_pinned_record(
     if existing is not None:
         return existing
 
-    count_statement = select(func.count()).select_from(PlayerPinnedRecord).where(
-        col(PlayerPinnedRecord.player_steamid64) == player_steamid64,
+    count_statement = (
+        select(func.count())
+        .select_from(PlayerPinnedRecord)
+        .where(
+            col(PlayerPinnedRecord.player_steamid64) == player_steamid64,
+        )
     )
     count = int((await session.exec(count_statement)).one())
     if count >= MAX_PLAYER_PINNED_RECORDS:

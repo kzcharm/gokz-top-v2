@@ -5,12 +5,13 @@ import asyncio
 import logging
 import tempfile
 import zipfile
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 import py7zr
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.db import async_session_maker
 from app.services.run_replay_matcher import match_record_for_run_replay
@@ -71,7 +72,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 @asynccontextmanager
-async def _import_session():
+async def _import_session() -> AsyncIterator[AsyncSession]:
     async with async_session_maker() as session:
         yield session
 

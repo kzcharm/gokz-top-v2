@@ -10,9 +10,7 @@ PLAYER_FRIEND_SYNC_COOLDOWN = timedelta(minutes=1)
 
 class PlayerFriend(SQLModel, table=True):
     __tablename__ = "player_friend"
-    __table_args__ = (
-        Index("ix_player_friend_friend_steamid64", "friend_steamid64"),
-    )
+    __table_args__ = (Index("ix_player_friend_friend_steamid64", "friend_steamid64"),)
 
     player_steamid64: int = Field(
         sa_column=Column(

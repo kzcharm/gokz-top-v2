@@ -78,6 +78,8 @@ async def _fetch_steam_profile_is_public(*, steamid64: int) -> bool | None:
         return None
 
     visibility = player.get("communityvisibilitystate")
+    if visibility is None:
+        return None
     try:
         return int(visibility) >= 3
     except (TypeError, ValueError):
@@ -212,7 +214,9 @@ async def sync_player_friends(
 
     is_public = await _fetch_steam_profile_is_public(steamid64=player.steamid64)
     if is_public is None:
-        return PlayerFriendSyncResult(kind="failed", visibility=player.friends_visibility)
+        return PlayerFriendSyncResult(
+            kind="failed", visibility=player.friends_visibility
+        )
     if not is_public:
         player.friends_visibility = PlayerFriendsVisibility.PRIVATE_PROFILE
         player.friends_visibility_checked_at = now
@@ -237,7 +241,9 @@ async def sync_player_friends(
             visibility=player.friends_visibility,
         )
     except Exception:
-        return PlayerFriendSyncResult(kind="failed", visibility=player.friends_visibility)
+        return PlayerFriendSyncResult(
+            kind="failed", visibility=player.friends_visibility
+        )
 
     steam_friend_ids = {
         friend_steamid64
@@ -246,13 +252,16 @@ async def sync_player_friends(
     }
     existing_player_ids: set[int] = set()
     if steam_friend_ids:
-        statement = select(Player.steamid64).where(col(Player.steamid64).in_(steam_friend_ids))
+        statement = select(col(Player.steamid64)).where(
+            col(Player.steamid64).in_(steam_friend_ids)
+        )
         existing_player_ids = set((await session.exec(statement)).all())
 
     kz_friends = [
         (friend_steamid64, friend_since)
         for friend_steamid64, friend_since in steam_friends
-        if friend_steamid64 in existing_player_ids and friend_steamid64 != player.steamid64
+        if friend_steamid64 in existing_player_ids
+        and friend_steamid64 != player.steamid64
     ]
     desired_friend_ids = {friend_steamid64 for friend_steamid64, _ in kz_friends}
     current_friend_ids = await crud.get_player_friend_steamid64s(

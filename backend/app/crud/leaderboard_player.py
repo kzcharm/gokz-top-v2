@@ -40,7 +40,7 @@ from app.models import (
     mode_scope_to_id,
 )
 from app.models.leaderboard_player import LeaderboardPlayerSortBy
-from app.models.utils import get_datetime_utc
+from app.models.utils import get_datetime_utc, select_row
 from app.services.skill_rating import SKILLS, calculate_skill_rating
 from app.services.skill_rating_converter import convert_skill_rating
 
@@ -70,9 +70,9 @@ async def load_player_ratings_by_scope(
     rows = (
         await session.exec(
             select(
-                LeaderboardPlayer.steamid64,
-                LeaderboardPlayer.scope,
-                LeaderboardPlayer.rating,
+                col(LeaderboardPlayer.steamid64),
+                col(LeaderboardPlayer.scope),
+                col(LeaderboardPlayer.rating),
             ).where(
                 col(LeaderboardPlayer.steamid64).in_(unique_steamid64s),
                 _not_banned_clause(),
@@ -191,7 +191,7 @@ def _apply_player_leaderboard_filters(
             or_(
                 col(LeaderboardPlayer.steamid64) == friends_viewer_steamid64,
                 exists(
-                    select(PlayerFriend.friend_steamid64).where(
+                    select(col(PlayerFriend.friend_steamid64)).where(
                         col(PlayerFriend.player_steamid64) == friends_viewer_steamid64,
                         col(PlayerFriend.friend_steamid64)
                         == col(LeaderboardPlayer.steamid64),
@@ -302,7 +302,7 @@ def _build_player_leaderboard_entry_public(
     rank: int,
     global_rank: int | None,
     leaderboard_row: LeaderboardPlayer,
-    converters: dict[str, list[list[int]]],
+    converters: dict[str, list[list[int | float]]],
 ) -> PlayerLeaderboardEntryPublic:
     return PlayerLeaderboardEntryPublic(
         rank=rank,
@@ -354,7 +354,7 @@ async def _load_player_pb_rows(
 ) -> list[PlayerPbRow]:
     rows = (
         await session.exec(
-            select(
+            select_row(
                 col(RecordPb.course_id),
                 col(MapCourse.map_id),
                 col(RecordPb.type),
@@ -524,9 +524,9 @@ async def _sync_player_raw_rating_contributions(
     existing_rows = (
         await session.exec(
             select(
-                RecordPb.course_id,
-                RecordPb.type,
-                RecordPb.raw_rating_contribution,
+                col(RecordPb.course_id),
+                col(RecordPb.type),
+                col(RecordPb.raw_rating_contribution),
             ).where(
                 col(RecordPb.scope) == scope,
                 col(RecordPb.steamid64) == steamid64,
@@ -709,7 +709,7 @@ async def load_leaderboard_player_keys(
     prioritize_existing_rating: bool = False,
 ) -> list[tuple[int, int]]:
     source_statement = (
-        select(RecordPb.scope, RecordPb.steamid64)
+        select(col(RecordPb.scope), col(RecordPb.steamid64))
         .join(MapCourse, col(RecordPb.course_id) == col(MapCourse.id))
         .join(Map, col(MapCourse.map_id) == col(Map.id))
         .where(
@@ -820,7 +820,7 @@ async def load_changed_leaderboard_player_keys(
         (mode_scope_to_id(scope), steamid64)
         for scope, steamid64 in (
             await session.exec(
-                select(RecordPb.scope, RecordPb.steamid64)
+                select(col(RecordPb.scope), col(RecordPb.steamid64))
                 .where(col(RecordPb.updated_at) >= window_start)
                 .distinct()
             )
@@ -829,7 +829,7 @@ async def load_changed_leaderboard_player_keys(
 
     changed_record_rows = (
         await session.exec(
-            select(Record.steamid64, Record.mode)
+            select(col(Record.steamid64), col(Record.mode))
             .where(
                 or_(
                     col(Record.created_at) >= window_start,

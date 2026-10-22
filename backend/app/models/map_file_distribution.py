@@ -1,13 +1,13 @@
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, Text
-from sqlmodel import Column, Field, SQLModel
+from sqlalchemy import BigInteger, Column, Date, DateTime, ForeignKey, Index, Text
+from sqlmodel import Field, SQLModel
 
 from .utils import get_datetime_utc
 
 
 class MapFileDistribution(SQLModel, table=True):
-    __tablename__ = "map_file_distribution"  # type: ignore[assignment]
+    __tablename__ = "map_file_distribution"
     __table_args__ = (
         Index("ix_map_file_distribution_map_name", "map_name"),
         Index("ix_map_file_distribution_synced_at", "synced_at"),
@@ -24,7 +24,7 @@ class MapFileDistribution(SQLModel, table=True):
     workshop_id: int | None = Field(default=None, sa_type=BigInteger)
     map_updated_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     bsp_size: int | None = Field(default=None, sa_type=BigInteger)
     bsp_sha256: str | None = Field(default=None, max_length=64)
@@ -36,11 +36,11 @@ class MapFileDistribution(SQLModel, table=True):
     source: str | None = Field(default=None, max_length=32)
     synced_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     uploaded_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     last_error: str | None = Field(
         default=None,
@@ -49,7 +49,7 @@ class MapFileDistribution(SQLModel, table=True):
 
 
 class MapPackageRelease(SQLModel, table=True):
-    __tablename__ = "map_package_release"  # type: ignore[assignment]
+    __tablename__ = "map_package_release"
 
     release_date: date = Field(
         sa_column=Column(Date, primary_key=True),
@@ -60,11 +60,15 @@ class MapPackageRelease(SQLModel, table=True):
     map_count: int = Field(default=0, ge=0)
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 

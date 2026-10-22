@@ -12,7 +12,10 @@ from app.models import MapFileDistributionSyncResult, ModeScope, PlayerSocialPla
 from app.product_cli import app as products_app
 from app.services import player_csv_export as player_csv_export_service
 from app.services import record_csv_export as record_csv_export_service
-from app.services.map_authors import seed_map_authors_from_kz_map_info
+from app.services.map_authors import (
+    MapAuthorSeedResult,
+    seed_map_authors_from_kz_map_info,
+)
 from app.services.map_file_distribution import seed_map_package, sync_map_files
 from app.services.map_file_distribution_worker import run_map_file_distribution_runner
 from app.services.media_classifier import MediaMatchReason
@@ -836,7 +839,7 @@ def sync_friends(
 def sync_map_authors() -> None:
     from app.core.db import async_session_maker
 
-    async def _run():
+    async def _run() -> MapAuthorSeedResult:
         async with async_session_maker() as session:
             return await seed_map_authors_from_kz_map_info(session=session)
 

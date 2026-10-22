@@ -1,10 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import StringConstraints
-from sqlalchemy import BigInteger, DateTime, Index
+from sqlalchemy import BigInteger, Column, DateTime, Index
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .server import ServerGroup
 
 from .utils import LegacyDatetimeNamesMixin, get_datetime_utc
 
@@ -27,21 +30,27 @@ class ServerGlobalapiBase(LegacyDatetimeNamesMixin):
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="created_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
         validation_alias="updated_on",
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     synced_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
 class ServerGlobalapi(ServerGlobalapiBase, table=True):
-    __tablename__ = "server_globalapi"  # type: ignore[assignment]
+    __tablename__ = "server_globalapi"
     __table_args__ = (
         Index("ix_server_globalapi_group_id", "group_id"),
         Index("ix_server_globalapi_name", "name"),

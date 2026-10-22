@@ -23,5 +23,7 @@ def normalize_user_roles(
     if roles is None:
         return []
 
-    role_set = {role if isinstance(role, UserRole) else UserRole(role) for role in roles}
+    role_set = {
+        role if isinstance(role, UserRole) else UserRole(role) for role in roles
+    }
     return [role for role in USER_ROLE_ORDER if role in role_set]

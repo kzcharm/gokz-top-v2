@@ -7,6 +7,7 @@ from sqlalchemy import cast as sa_cast
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.expression import Select
 
 from app.models import (
     AdminPlayerSessionIpLinkBucketPublic,
@@ -27,6 +28,7 @@ from app.models import (
     ServerGroup,
     get_datetime_utc,
 )
+from app.models.utils import get_sqlmodel_table
 from app.services.geoip import GeoIPLocation, lookup_geoip_city
 
 from .player import to_player_public
@@ -120,13 +122,13 @@ async def read_admin_player_sessions(
             )
             .label("session_rank")
         )
-        latest_sessions = select(
+        latest_sessions_query: Select[tuple[Any, int]] = select(
             col(PlayerSession.id).label("session_id"),
             session_rank,
         ).select_from(PlayerSession)
         if filters:
-            latest_sessions = latest_sessions.where(*filters)
-        latest_sessions = latest_sessions.subquery()
+            latest_sessions_query = latest_sessions_query.where(*filters)
+        latest_sessions = latest_sessions_query.subquery()
         statement = statement.join(
             latest_sessions,
             latest_sessions.c.session_id == col(PlayerSession.id),
@@ -139,7 +141,9 @@ async def read_admin_player_sessions(
     else:
         if filters:
             statement = statement.where(*filters)
-            count_statement = select(func.count()).select_from(PlayerSession).where(*filters)
+            count_statement = (
+                select(func.count()).select_from(PlayerSession).where(*filters)
+            )
         else:
             count_statement = select(func.count()).select_from(PlayerSession)
 
@@ -163,7 +167,9 @@ async def read_admin_player_sessions(
     return rows, count
 
 
-def _ip_link_bucket_sql(match_mode: AdminPlayerSessionIpLinkMatchMode) -> tuple[str, str]:
+def _ip_link_bucket_sql(
+    match_mode: AdminPlayerSessionIpLinkMatchMode,
+) -> tuple[str, str]:
     if match_mode == "exact_ip":
         return (
             """
@@ -334,8 +340,7 @@ async def read_admin_player_session_ip_links(
             )
         ).all()
         buckets = {
-            row._mapping["bucket_key"]: _bucket_from_row(row)
-            for row in bucket_rows
+            row._mapping["bucket_key"]: _bucket_from_row(row) for row in bucket_rows
         }
         if not buckets:
             break
@@ -495,8 +500,8 @@ async def _ensure_player_for_session(
     location: GeoIPLocation | None,
 ) -> None:
     country = location.country_code if location is not None else None
-    player_table = Player.__table__  # type: ignore[attr-defined]
-    field_change_table = PlayerActionTimestamp.__table__  # type: ignore[attr-defined]
+    player_table = get_sqlmodel_table(Player)
+    field_change_table = get_sqlmodel_table(PlayerActionTimestamp)
     insert_statement = pg_insert(player_table).values(
         steamid64=steamid64,
         name=str(steamid64),

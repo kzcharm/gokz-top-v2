@@ -123,7 +123,9 @@ async def get_mode_by_name(*, session: AsyncSession, mode_name: str) -> Mode | N
     return (await session.exec(statement)).first()
 
 
-async def get_mode_by_short_name(*, session: AsyncSession, short_name: KZMode) -> Mode | None:
+async def get_mode_by_short_name(
+    *, session: AsyncSession, short_name: KZMode
+) -> Mode | None:
     statement = select(Mode).where(Mode.name_short == short_name)
     return (await session.exec(statement)).first()
 

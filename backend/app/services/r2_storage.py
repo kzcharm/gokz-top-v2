@@ -451,7 +451,7 @@ async def _upload_multipart_part(
         raise RuntimeError(
             f"R2 did not return an ETag for multipart part {part_number}"
         )
-    return etag
+    return str(etag)
 
 
 async def _complete_multipart_upload(
@@ -601,7 +601,7 @@ def _build_complete_multipart_body(parts: Sequence[tuple[int, str]]) -> bytes:
         part = ElementTree.SubElement(root, "Part")
         ElementTree.SubElement(part, "PartNumber").text = str(part_number)
         ElementTree.SubElement(part, "ETag").text = etag
-    return ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
+    return bytes(ElementTree.tostring(root, encoding="utf-8", xml_declaration=True))
 
 
 def _build_authorization_header(

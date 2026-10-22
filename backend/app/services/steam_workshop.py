@@ -13,8 +13,7 @@ from app.models import WorkshopPreviewUrlCache
 from app.models.utils import get_datetime_utc
 
 STEAM_WORKSHOP_DETAILS_URL = (
-    "https://api.steampowered.com/ISteamRemoteStorage/"
-    "GetPublishedFileDetails/v1/"
+    "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/"
 )
 STEAM_WORKSHOP_DETAILS_BATCH_SIZE = 100
 WORKSHOP_PREVIEW_URL_TTL = timedelta(hours=24)
@@ -56,7 +55,9 @@ def _parse_preview_url(payload: Any) -> str | None:
     return _normalize_url(details[0].get("preview_url"))
 
 
-def _parse_workshop_file_detail(detail: dict[str, Any]) -> SteamWorkshopFileDetails | None:
+def _parse_workshop_file_detail(
+    detail: dict[str, Any],
+) -> SteamWorkshopFileDetails | None:
     publishedfileid = detail.get("publishedfileid")
     if not isinstance(publishedfileid, str) or not publishedfileid.strip().isdigit():
         return None
@@ -213,7 +214,7 @@ async def get_cached_workshop_preview_urls(
     insert_statement = postgresql_insert(WorkshopPreviewUrlCache).values(cache_values)
     await session.exec(
         insert_statement.on_conflict_do_update(
-            index_elements=[WorkshopPreviewUrlCache.workshop_id],
+            index_elements=[col(WorkshopPreviewUrlCache.workshop_id)],
             set_={
                 "preview_url": insert_statement.excluded.preview_url,
                 "fetched_at": insert_statement.excluded.fetched_at,
@@ -246,7 +247,9 @@ async def fetch_workshop_file_details(
     should_close = client is None
     results: dict[str, SteamWorkshopFileDetails] = {}
     try:
-        for start in range(0, len(normalized_workshop_ids), STEAM_WORKSHOP_DETAILS_BATCH_SIZE):
+        for start in range(
+            0, len(normalized_workshop_ids), STEAM_WORKSHOP_DETAILS_BATCH_SIZE
+        ):
             batch = normalized_workshop_ids[
                 start : start + STEAM_WORKSHOP_DETAILS_BATCH_SIZE
             ]

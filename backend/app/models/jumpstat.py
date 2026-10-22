@@ -336,7 +336,8 @@ class JumpstatDetailPublic(JumpstatPublic):
                 server_group=server_group,
             ).model_dump(),
             strafe_stats=[
-                JumpstatStrafeStat.model_validate(stat) for stat in jumpstat.strafe_stats
+                JumpstatStrafeStat.model_validate(stat)
+                for stat in jumpstat.strafe_stats
             ],
         )
 

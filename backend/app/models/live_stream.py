@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index
+from sqlalchemy import Column, DateTime, Index
 from sqlmodel import Field, SQLModel
 
 from .player_social_link import PlayerSocialPlatform
@@ -10,7 +10,7 @@ from .utils import get_datetime_utc
 
 
 class LiveStreamState(SQLModel, table=True):
-    __tablename__ = "live_stream_state"  # type: ignore[assignment]
+    __tablename__ = "live_stream_state"
     __table_args__ = (
         Index("ix_live_stream_state_is_live", "is_live"),
         Index("ix_live_stream_state_last_checked_at", "last_checked_at"),
@@ -24,16 +24,16 @@ class LiveStreamState(SQLModel, table=True):
     )
     last_checked_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     is_live: bool = Field(default=False, nullable=False)
     last_live_started_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     last_live_seen_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     last_stream_url: str | None = Field(default=None, max_length=500)
     last_stream_title: str | None = Field(default=None, max_length=255)
@@ -45,7 +45,9 @@ class LiveStreamState(SQLModel, table=True):
     last_viewer_count: int | None = Field(default=None, ge=0)
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 

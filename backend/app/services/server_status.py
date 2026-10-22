@@ -108,7 +108,9 @@ def validate_server_addition_info(result: A2SInfoResult) -> None:
         )
 
     if not is_supported_kz_map_name(result.map_name):
-        allowed_prefixes = ", ".join(f"{prefix}*" for prefix in SUPPORTED_KZ_MAP_PREFIXES)
+        allowed_prefixes = ", ".join(
+            f"{prefix}*" for prefix in SUPPORTED_KZ_MAP_PREFIXES
+        )
         raise ServerQueryError(
             f"Server is running map '{result.map_name}', expected one of {allowed_prefixes}"
         )
@@ -539,12 +541,12 @@ async def run_server_a2s_refresh_cycle() -> None:
 
     semaphore = asyncio.Semaphore(20)
     eligible_servers = []
-    for server in servers:
-        if _is_server_a2s_query_in_flight(server_id=server.id, now=now):
+    for candidate_server in servers:
+        if _is_server_a2s_query_in_flight(server_id=candidate_server.id, now=now):
             continue
 
-        _mark_server_a2s_query_started(server_id=server.id, now=now)
-        eligible_servers.append(server)
+        _mark_server_a2s_query_started(server_id=candidate_server.id, now=now)
+        eligible_servers.append(candidate_server)
 
     async def _probe(
         server_id: Any, ip: str, port: int
@@ -595,9 +597,8 @@ async def run_server_status_collector() -> None:
         now = datetime.now(UTC)
         if (
             SERVER_DISCOVERY_ENABLED
-            and (
-            now - last_discovery_at
-            ).total_seconds() >= SERVER_DISCOVERY_INTERVAL_SECONDS
+            and (now - last_discovery_at).total_seconds()
+            >= SERVER_DISCOVERY_INTERVAL_SECONDS
         ):
             try:
                 await run_server_discovery_cycle()

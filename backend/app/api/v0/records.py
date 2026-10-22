@@ -20,9 +20,9 @@ from app.models.record import TopRecordCompatPublicV0
 
 router = APIRouter(prefix="/records", tags=["records"])
 
-_MODE_LOOKUP = {
-    seed.name.lower(): seed.id for seed in CANONICAL_MODE_SEEDS
-} | {seed.name_short.lower(): seed.id for seed in CANONICAL_MODE_SEEDS}
+_MODE_LOOKUP = {seed.name.lower(): seed.id for seed in CANONICAL_MODE_SEEDS} | {
+    seed.name_short.lower(): seed.id for seed in CANONICAL_MODE_SEEDS
+}
 _MODE_LOOKUP |= {str(seed.id): seed.id for seed in CANONICAL_MODE_SEEDS}
 
 

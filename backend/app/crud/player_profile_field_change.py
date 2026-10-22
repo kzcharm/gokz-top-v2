@@ -51,7 +51,9 @@ async def get_player_action_timestamps(
         col(PlayerActionTimestamp.player_steamid64) == player_steamid64,
     )
     if actions is not None:
-        statement = statement.where(col(PlayerActionTimestamp.action).in_(list(actions)))
+        statement = statement.where(
+            col(PlayerActionTimestamp.action).in_(list(actions))
+        )
     rows = (await session.exec(statement)).all()
     return {row.action: row for row in rows}
 
@@ -121,7 +123,9 @@ async def claim_player_action_timestamp(
             action=action,
             recorded_at=recorded_at,
         )
-        .on_conflict_do_nothing(index_elements=[table.c.player_steamid64, table.c.action])
+        .on_conflict_do_nothing(
+            index_elements=[table.c.player_steamid64, table.c.action]
+        )
         .returning(table.c.recorded_at)
     )
     inserted_at = (await session.execute(insert_statement)).scalar_one_or_none()
@@ -133,9 +137,7 @@ async def claim_player_action_timestamp(
         player_steamid64=player_steamid64,
         action=action,
     )
-    next_available_at = (
-        None if existing is None else existing.recorded_at + cooldown
-    )
+    next_available_at = None if existing is None else existing.recorded_at + cooldown
     return PlayerActionTimestampClaim(
         claimed=False,
         recorded_at=existing.recorded_at if existing is not None else None,

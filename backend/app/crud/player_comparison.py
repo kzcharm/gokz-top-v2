@@ -95,24 +95,48 @@ async def read_player_comparison(
         session=session, player=player2, scope=scope
     )
     player1_nub = await get_pb_record_publics(
-        session=session, map_id=None, map_name=None, stage=0,
-        steamid64=player1.steamid64, scope=scope, record_type=RecordType.NUB,
-        exclude_cheaters=True, limit=1_000_000,
+        session=session,
+        map_id=None,
+        map_name=None,
+        stage=0,
+        steamid64=player1.steamid64,
+        scope=scope,
+        record_type=RecordType.NUB,
+        exclude_cheaters=True,
+        limit=1_000_000,
     )
     player2_nub = await get_pb_record_publics(
-        session=session, map_id=None, map_name=None, stage=0,
-        steamid64=player2.steamid64, scope=scope, record_type=RecordType.NUB,
-        exclude_cheaters=True, limit=1_000_000,
+        session=session,
+        map_id=None,
+        map_name=None,
+        stage=0,
+        steamid64=player2.steamid64,
+        scope=scope,
+        record_type=RecordType.NUB,
+        exclude_cheaters=True,
+        limit=1_000_000,
     )
     player1_pro = await get_pb_record_publics(
-        session=session, map_id=None, map_name=None, stage=0,
-        steamid64=player1.steamid64, scope=scope, record_type=RecordType.PRO,
-        exclude_cheaters=True, limit=1_000_000,
+        session=session,
+        map_id=None,
+        map_name=None,
+        stage=0,
+        steamid64=player1.steamid64,
+        scope=scope,
+        record_type=RecordType.PRO,
+        exclude_cheaters=True,
+        limit=1_000_000,
     )
     player2_pro = await get_pb_record_publics(
-        session=session, map_id=None, map_name=None, stage=0,
-        steamid64=player2.steamid64, scope=scope, record_type=RecordType.PRO,
-        exclude_cheaters=True, limit=1_000_000,
+        session=session,
+        map_id=None,
+        map_name=None,
+        stage=0,
+        steamid64=player2.steamid64,
+        scope=scope,
+        record_type=RecordType.PRO,
+        exclude_cheaters=True,
+        limit=1_000_000,
     )
     map_tiers = await _read_main_map_tiers(session=session, scope=scope)
     totals_by_tier: dict[int, int] = defaultdict(int)

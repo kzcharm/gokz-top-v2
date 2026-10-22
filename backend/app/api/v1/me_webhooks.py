@@ -143,7 +143,9 @@ async def test_current_player_webhook(
     try:
         await send_discord_webhook(webhook_url=webhook.url, payload=payload)
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to send webhook: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Failed to send webhook: {exc}"
+        ) from exc
 
     tested = await crud.mark_player_webhook_used(
         session=session,

@@ -131,9 +131,7 @@ def build_twitch_authorization_url(*, redirect_uri: str, state: str) -> str:
     return f"{TWITCH_AUTHORIZE_URL}?{urlencode(params)}"
 
 
-async def exchange_twitch_code_for_access_token(
-    *, code: str, redirect_uri: str
-) -> str:
+async def exchange_twitch_code_for_access_token(*, code: str, redirect_uri: str) -> str:
     ensure_twitch_verification_configured()
     client_id = settings.TWITCH_CLIENT_ID
     client_secret = settings.TWITCH_CLIENT_SECRET

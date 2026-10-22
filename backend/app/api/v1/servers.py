@@ -90,9 +90,7 @@ async def _read_recent_record_playtime(
             on_server_seconds += consumed_seconds
 
     ratio = (
-        round(float(on_server_seconds / window_seconds), 3)
-        if window_seconds > 0
-        else 0
+        round(float(on_server_seconds / window_seconds), 3) if window_seconds > 0 else 0
     )
     return PlayerServerRecentPlaytimePublic(
         requested_hours=requested_hours,
@@ -230,7 +228,9 @@ async def put_server_status(
                 payload.port,
                 group.id,
             )
-            raise HTTPException(status_code=403, detail="Server is not enabled") from exc
+            raise HTTPException(
+                status_code=403, detail="Server is not enabled"
+            ) from exc
         if str(exc) == "Server does not belong to this server group":
             logger.warning(
                 "Rejected server heartbeat ip=%s port=%s group_id=%s reason=group_mismatch",

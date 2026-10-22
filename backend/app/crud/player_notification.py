@@ -122,7 +122,7 @@ async def create_player_notification(
         insert(PlayerNotification)
         .values(**values)
         .on_conflict_do_nothing(index_elements=[PlayerNotification.source_key])
-        .returning(PlayerNotification.id)
+        .returning(col(PlayerNotification.id))
     )
     created_id = (await session.exec(statement)).one_or_none()
     if commit:
@@ -231,7 +231,7 @@ async def create_reported_record_invalidated_notifications(
     records_by_uuid = {record.uuid: record for record in records}
     reports = (
         await session.exec(
-            select(PlayerReport.record_uuid, PlayerReport.reporter_steamid64)
+            select(col(PlayerReport.record_uuid), col(PlayerReport.reporter_steamid64))
             .where(
                 col(PlayerReport.record_uuid)
                 == any_(literal(list(records_by_uuid), type_=ARRAY(Uuid())))

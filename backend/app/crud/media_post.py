@@ -5,9 +5,10 @@ import json
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlencode
 
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -50,7 +51,7 @@ async def fetch_youtube_video_view_counts(
 ) -> dict[str, int]:
     from app.services.youtube_media import fetch_youtube_video_view_counts as fetch
 
-    return cast(dict[str, int], await fetch(video_ids))
+    return await fetch(video_ids)
 
 
 async def fetch_bilibili_video_view_counts(
@@ -138,7 +139,10 @@ async def read_media_posts(
                 | ((duration == cursor_value) & (col(MediaPost.id) < post_id))
             )
     if sort == "latest":
-        order_by = [col(MediaPost.published_at).desc(), col(MediaPost.id).desc()]
+        order_by: list[ColumnElement[Any]] = [
+            col(MediaPost.published_at).desc(),
+            col(MediaPost.id).desc(),
+        ]
     elif sort == "views":
         order_by = [col(MediaPost.view_count).desc(), col(MediaPost.id).desc()]
     else:
@@ -208,7 +212,7 @@ async def prune_media_posts(*, session: AsyncSession, before: datetime) -> int:
     expired_post_ids = list(
         (
             await session.exec(
-                select(MediaPost.id).where(col(MediaPost.published_at) < before)
+                select(col(MediaPost.id)).where(col(MediaPost.published_at) < before)
             )
         ).all()
     )

@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from urllib.parse import urlsplit
 
-from pydantic import ConfigDict, field_validator
+from pydantic import field_validator
 from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, text
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
@@ -99,20 +99,24 @@ class PlayerWebhook(SQLModel, table=True):
     enabled: bool = Field(default=True, nullable=False)
     last_used_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     created_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
     updated_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
 class PlayerWebhookCreate(SQLModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = {"extra": "forbid"}
 
     url: str = Field(min_length=1, max_length=500)
 
@@ -123,7 +127,7 @@ class PlayerWebhookCreate(SQLModel):
 
 
 class PlayerWebhookUpdate(SQLModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = {"extra": "forbid"}
 
     url: str | None = Field(default=None, min_length=1, max_length=500)
     enabled: bool | None = None

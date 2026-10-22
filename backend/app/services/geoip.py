@@ -26,7 +26,9 @@ except ImportError:  # pragma: no cover - exercised through runtime fallback
     GeoIPAddressNotFoundError = FallbackGeoIPAddressNotFoundError
 
 
-def _normalize_coordinate(value: Any, *, minimum: float, maximum: float) -> float | None:
+def _normalize_coordinate(
+    value: Any, *, minimum: float, maximum: float
+) -> float | None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     coordinate = float(value)

@@ -1,4 +1,8 @@
 from enum import IntEnum, StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .record import KZMode
 
 
 class ModeScope(StrEnum):
@@ -26,6 +30,7 @@ MODE_SCOPE_ID_BY_SCOPE: dict[ModeScope, int] = {
     ModeScope.VNL: ModeScopeId.VNL,
 }
 
+
 def mode_scope_to_id(scope: ModeScope) -> int:
     return int(MODE_SCOPE_ID_BY_SCOPE[scope])
 
@@ -36,7 +41,7 @@ def mode_scope_from_id(scope_id: ModeScope | int) -> ModeScope:
     return ModeScope[ModeScopeId(scope_id).name]
 
 
-def mode_scope_modes(scope: ModeScope):
+def mode_scope_modes(scope: ModeScope) -> tuple[KZMode, ...]:
     from .record import KZMode
 
     if scope is ModeScope.OVR:
@@ -49,12 +54,16 @@ def mode_scope_modes(scope: ModeScope):
 
 
 def mode_scope_mode_ids(scope_id: int) -> tuple[int, ...]:
-    return tuple(mode.mode_id for mode in mode_scope_modes(mode_scope_from_id(scope_id)))
+    return tuple(
+        mode.mode_id for mode in mode_scope_modes(mode_scope_from_id(scope_id))
+    )
 
 
-def normalize_mode_scope(value: ModeScope | str | int) -> ModeScope:
+def normalize_mode_scope(value: object) -> ModeScope:
     if isinstance(value, ModeScope):
         return value
     if isinstance(value, int):
         return mode_scope_from_id(value)
+    if not isinstance(value, str):
+        raise ValueError(f"{value!r} is not a valid ModeScope")
     return ModeScope(value)

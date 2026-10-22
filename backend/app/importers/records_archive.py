@@ -13,7 +13,8 @@ from typing import Any, TextIO
 
 from sqlalchemy import String, case, cast, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import select
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.db import async_session_maker
@@ -295,7 +296,9 @@ async def _load_mode_ids_by_name() -> dict[str, int]:
     return {mode.name: mode.id for mode in modes}
 
 
-async def _upsert_players(*, session, rows: list[ImportedRecordRow]) -> None:
+async def _upsert_players(
+    *, session: AsyncSession, rows: list[ImportedRecordRow]
+) -> None:
     now = datetime.now(UTC)
     players_by_id: dict[int, dict[str, Any]] = {}
     for row in rows:
@@ -321,21 +324,25 @@ async def _upsert_players(*, session, rows: list[ImportedRecordRow]) -> None:
         insert_stmt = pg_insert(Player).values(player_chunk)
         await session.exec(
             insert_stmt.on_conflict_do_update(
-                index_elements=[Player.steamid64],
+                index_elements=[col(Player.steamid64)],
                 set_={
                     "name": case(
                         (
                             or_(
-                                Player.name.is_(None),
-                                Player.name == "",
-                                Player.name == cast(Player.steamid64, String()),
+                                col(Player.name).is_(None),
+                                col(Player.name) == "",
+                                col(Player.name)
+                                == cast(col(Player.steamid64), String()),
                             ),
                             insert_stmt.excluded.name,
                         ),
                         else_=Player.name,
                     ),
                     "created_at": case(
-                        (Player.created_at.is_(None), insert_stmt.excluded.created_at),
+                        (
+                            col(Player.created_at).is_(None),
+                            insert_stmt.excluded.created_at,
+                        ),
                         (
                             Player.created_at > insert_stmt.excluded.created_at,
                             insert_stmt.excluded.created_at,
@@ -344,7 +351,7 @@ async def _upsert_players(*, session, rows: list[ImportedRecordRow]) -> None:
                     ),
                     "last_played_at": case(
                         (
-                            Player.last_played_at.is_(None),
+                            col(Player.last_played_at).is_(None),
                             insert_stmt.excluded.last_played_at,
                         ),
                         (
@@ -359,7 +366,7 @@ async def _upsert_players(*, session, rows: list[ImportedRecordRow]) -> None:
         )
 
 
-async def _upsert_maps(*, session, rows: list[ImportedRecordRow]) -> None:
+async def _upsert_maps(*, session: AsyncSession, rows: list[ImportedRecordRow]) -> None:
     maps_by_id: dict[int, dict[str, Any]] = {}
     now = datetime.now(UTC)
     for row in rows:
@@ -381,10 +388,14 @@ async def _upsert_maps(*, session, rows: list[ImportedRecordRow]) -> None:
     map_values = list(maps_by_id.values())
     for map_chunk in _iter_statement_chunks(map_values, column_count=9):
         insert_stmt = pg_insert(Map).values(map_chunk)
-        await session.exec(insert_stmt.on_conflict_do_nothing(index_elements=[Map.id]))
+        await session.exec(
+            insert_stmt.on_conflict_do_nothing(index_elements=[col(Map.id)])
+        )
 
 
-async def _upsert_servers(*, session, rows: list[ImportedRecordRow]) -> None:
+async def _upsert_servers(
+    *, session: AsyncSession, rows: list[ImportedRecordRow]
+) -> None:
     servers_by_id: dict[int, dict[str, Any]] = {}
     now = datetime.now(UTC)
     for row in rows:
@@ -408,14 +419,20 @@ async def _upsert_servers(*, session, rows: list[ImportedRecordRow]) -> None:
     for server_chunk in _iter_statement_chunks(server_values, column_count=10):
         insert_stmt = pg_insert(ServerGlobalapi).values(server_chunk)
         await session.exec(
-            insert_stmt.on_conflict_do_nothing(index_elements=[ServerGlobalapi.id])
+            insert_stmt.on_conflict_do_nothing(index_elements=[col(ServerGlobalapi.id)])
         )
 
 
-async def _upsert_records(*, session, rows: list[ImportedRecordRow]) -> tuple[int, int]:
+async def _upsert_records(
+    *, session: AsyncSession, rows: list[ImportedRecordRow]
+) -> tuple[int, int]:
     record_ids = [row.id for row in rows]
     existing_ids = set(
-        (await session.exec(select(Record.id).where(Record.id.in_(record_ids)))).all()
+        (
+            await session.exec(
+                select(col(Record.id)).where(col(Record.id).in_(record_ids))
+            )
+        ).all()
     )
 
     record_values = [
@@ -442,8 +459,8 @@ async def _upsert_records(*, session, rows: list[ImportedRecordRow]) -> tuple[in
         insert_stmt = pg_insert(Record).values(record_chunk)
         await session.exec(
             insert_stmt.on_conflict_do_update(
-                index_elements=[Record.id],
-                index_where=Record.id.is_not(None),
+                index_elements=[col(Record.id)],
+                index_where=col(Record.id).is_not(None),
                 set_={
                     "steamid64": insert_stmt.excluded.steamid64,
                     "server_id": insert_stmt.excluded.server_id,
@@ -466,7 +483,9 @@ async def _upsert_records(*, session, rows: list[ImportedRecordRow]) -> tuple[in
     return created, updated
 
 
-async def _import_batch(*, session, rows: list[ImportedRecordRow]) -> tuple[int, int]:
+async def _import_batch(
+    *, session: AsyncSession, rows: list[ImportedRecordRow]
+) -> tuple[int, int]:
     from app.crud.recent_wr import (
         rebuild_recent_wr_events_for_maps,
         recent_wr_backfill_is_ready,

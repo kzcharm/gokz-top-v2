@@ -33,12 +33,12 @@ class BinaryReader:
         return value
 
     def read_i32(self) -> int:
-        value = struct.unpack_from("<i", self._data, self._pos)[0]
+        value = int(struct.unpack_from("<i", self._data, self._pos)[0])
         self._pos += 4
         return value
 
     def read_u32(self) -> int:
-        value = struct.unpack_from("<I", self._data, self._pos)[0]
+        value = int(struct.unpack_from("<I", self._data, self._pos)[0])
         self._pos += 4
         return value
 
@@ -50,10 +50,12 @@ class BinaryReader:
 
 
 def float_from_i32(raw: int) -> float:
-    return struct.unpack("<f", struct.pack("<I", raw & 0xFFFFFFFF))[0]
+    return float(struct.unpack("<f", struct.pack("<I", raw & 0xFFFFFFFF))[0])
 
 
-def ensure_finite(*, value: float, label: str, source_name: str, error_type: type[ValueError]) -> float:
+def ensure_finite(
+    *, value: float, label: str, source_name: str, error_type: type[ValueError]
+) -> float:
     if not math.isfinite(value):
         raise error_type(f"{source_name}: replay contains non-finite {label}")
     return value

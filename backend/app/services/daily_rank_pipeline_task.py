@@ -189,12 +189,12 @@ async def load_daily_rank_selection(*, session: AsyncSession) -> DailyRankSelect
     rows = (
         await session.exec(
             select(
-                RecordPb.course_id,
-                RecordPb.scope,
-                RecordPb.type,
-                RecordPb.steamid64,
+                col(RecordPb.course_id),
+                col(RecordPb.scope),
+                col(RecordPb.type),
+                col(RecordPb.steamid64),
             )
-            .join(Record, Record.uuid == RecordPb.record_uuid)
+            .join(Record, col(Record.uuid) == col(RecordPb.record_uuid))
             .where(
                 col(Record.created_at) >= window_start,
                 col(Record.created_at) < window_end,

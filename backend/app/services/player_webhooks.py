@@ -68,9 +68,7 @@ def build_discord_embed_payload(
     preview_image_url = event.stream_preview_image_url
     title_prefix = "Test notification" if is_test else "Stream started"
     footer_text = (
-        f"Test {platform_label} stream notification"
-        if is_test
-        else platform_label
+        f"Test {platform_label} stream notification" if is_test else platform_label
     )
 
     embed: dict[str, object] = {

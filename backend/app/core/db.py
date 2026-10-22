@@ -39,7 +39,9 @@ def init_db(session: Session) -> None:
 
     crud.sync_canonical_modes_sync(session=session)
 
-    player_statement = select(Player).where(Player.steamid64 == settings.SUPER_USER_STEAMID64)
+    player_statement = select(Player).where(
+        Player.steamid64 == settings.SUPER_USER_STEAMID64
+    )
     if not session.exec(player_statement).first():
         session.add(
             Player(
@@ -94,9 +96,7 @@ async def init_db_async(session: AsyncSession) -> None:
     await _ensure_local_superuser_test_webhook_async(session=session)
 
 
-async def _ensure_local_superuser_test_webhook_async(
-    *, session: AsyncSession
-) -> None:
+async def _ensure_local_superuser_test_webhook_async(*, session: AsyncSession) -> None:
     if settings.ENVIRONMENT != "local":
         return
 

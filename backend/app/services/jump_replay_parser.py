@@ -784,7 +784,9 @@ def _mouse_direction_from_yaw_delta(
     return JumpstatVisualizationMouseDirection.NONE
 
 
-def _canonicalize_route_offset(*, x: float, y: float, delta_x: float, delta_y: float) -> tuple[float, float]:
+def _canonicalize_route_offset(
+    *, x: float, y: float, delta_x: float, delta_y: float
+) -> tuple[float, float]:
     if abs(delta_x) >= abs(delta_y):
         if delta_x >= 0.0:
             return (-y, x)
@@ -824,7 +826,9 @@ def parse_jump_replay_bytes(
         mode=selected.mode,
         type=selected.jump_type,
         distance=_to_decimal(selected.header.distance),
-        block=selected.header.block_distance if selected.header.block_distance > 0 else None,
+        block=selected.header.block_distance
+        if selected.header.block_distance > 0
+        else None,
         strafes=stats.strafes,
         sync_percent=_to_percent(stats.sync),
         pre_speed=_to_decimal(selected.header.pre_speed),
@@ -902,7 +906,9 @@ def parse_jump_replay_visualization(
         yaw_delta = wrap_angle_delta(tick.angles.y, previous_yaw)
         mouse_index = max(relative_index - 1, 0)
         samples[mouse_index].yaw_delta = float(_to_decimal(yaw_delta))
-        samples[mouse_index].mouse_direction = _mouse_direction_from_yaw_delta(yaw_delta)
+        samples[mouse_index].mouse_direction = _mouse_direction_from_yaw_delta(
+            yaw_delta
+        )
         previous_yaw = tick.angles.y
 
     if samples:

@@ -128,7 +128,9 @@ async def run_map_file_distribution_task(
 
     async with _advisory_lock() as lock_acquired:
         if not lock_acquired:
-            logger.info("Skipping map file distribution because another worker holds the lock")
+            logger.info(
+                "Skipping map file distribution because another worker holds the lock"
+            )
             return None
 
         await _mark_started()

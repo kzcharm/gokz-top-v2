@@ -87,7 +87,9 @@ async def get_jump_replay_eligibility(
     better_count = int(
         (
             await session.exec(
-                select(func.count()).select_from(Jumpstat).where(or_(*better_conditions))
+                select(func.count())
+                .select_from(Jumpstat)
+                .where(or_(*better_conditions))
             )
         ).one()
     )
@@ -149,8 +151,7 @@ async def list_jump_replay_cleanup_candidates(
     older_than: timedelta | None = None,
 ) -> list[uuid.UUID]:
     cutoff = (now or get_datetime_utc()) - (
-        older_than
-        or timedelta(days=settings.JUMP_REPLAY_CLEANUP_GRACE_DAYS)
+        older_than or timedelta(days=settings.JUMP_REPLAY_CLEANUP_GRACE_DAYS)
     )
     ranked_jumpstats = (
         select(

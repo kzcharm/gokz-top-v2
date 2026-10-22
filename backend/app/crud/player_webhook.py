@@ -86,7 +86,9 @@ async def create_player_webhook(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise PlayerWebhookConflictError("Webhook already exists for this player") from exc
+        raise PlayerWebhookConflictError(
+            "Webhook already exists for this player"
+        ) from exc
 
     await session.refresh(webhook)
     return webhook
@@ -110,7 +112,9 @@ async def update_player_webhook(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise PlayerWebhookConflictError("Webhook already exists for this player") from exc
+        raise PlayerWebhookConflictError(
+            "Webhook already exists for this player"
+        ) from exc
 
     await session.refresh(webhook)
     return webhook

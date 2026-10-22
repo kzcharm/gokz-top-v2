@@ -8,12 +8,13 @@ from typing import Any
 import httpx
 from sqlalchemy import String, case, cast, func, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
 from app.models import Ban, BanType, GlobalApiSyncResult, GlobalApiSyncState, Player
+from app.models.utils import get_sqlmodel_table
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,7 @@ async def _upsert_players_for_bans(
     payloads: list[dict[str, Any]],
     synced_at: datetime,
 ) -> None:
-    player_table = Player.__table__  # type: ignore[attr-defined]
+    player_table = get_sqlmodel_table(Player)
     players_by_steamid64: dict[int, dict[str, Any]] = {}
     for payload in payloads:
         row = _player_values_from_globalapi_ban(payload=payload, synced_at=synced_at)
@@ -288,7 +289,7 @@ async def _upsert_ban_payloads(
         return 0, 0, 0, errors, warnings, set()
 
     ban_ids = list(rows_by_id.keys())
-    table = Ban.__table__  # type: ignore[attr-defined]
+    table = get_sqlmodel_table(Ban)
     touched_steamid64s = {int(row["steamid64"]) for row in rows_by_id.values()}
     existing_ids = set(
         (await session.exec(select(table.c.id).where(table.c.id.in_(ban_ids)))).all()
@@ -349,26 +350,26 @@ async def _load_active_ban_ids_for_player(
     external_only: bool = False,
 ) -> set[str]:
     current_time = now or datetime.now(UTC)
-    statement = select(Ban.id).where(
+    statement = select(col(Ban.id)).where(
         Ban.steamid64 == steamid64,
         or_(
-            Ban.expires_at.is_(None),
-            Ban.expires_at >= current_time,
+            col(Ban.expires_at).is_(None),
+            col(Ban.expires_at) >= current_time,
         ),
     )
     if external_only:
-        statement = statement.where(Ban.id.is_not(None))
+        statement = statement.where(col(Ban.id).is_not(None))
         return {str(ban_id) for ban_id in (await session.exec(statement)).all()}
 
     return {
         str(ban_uuid)
         for ban_uuid in (
             await session.exec(
-                select(Ban.uuid).where(
+                select(col(Ban.uuid)).where(
                     Ban.steamid64 == steamid64,
                     or_(
-                        Ban.expires_at.is_(None),
-                        Ban.expires_at >= current_time,
+                        col(Ban.expires_at).is_(None),
+                        col(Ban.expires_at) >= current_time,
                     ),
                 )
             )
@@ -384,7 +385,7 @@ async def sync_bans_from_globalapi(
     created_since: datetime | None = None
     limit = settings.GLOBALAPI_BANS_BACKFILL_LIMIT
     latest_local_created_at = await session.exec(
-        select(func.max(Ban.created_at)).where(Ban.id.is_not(None))
+        select(func.max(col(Ban.created_at))).where(col(Ban.id).is_not(None))
     )
     incremental_anchor = latest_local_created_at.one()
     if (

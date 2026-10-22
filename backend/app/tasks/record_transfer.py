@@ -31,9 +31,7 @@ from app.tasks.build import rating as rating_task
 
 DEFAULT_SOURCE_STEAMID64 = 76561198764013745
 DEFAULT_TARGET_STEAMID64 = 76561199019610922
-DEFAULT_AUDIT_FILENAME = (
-    "2026-06-14_76561198764013745_to_76561199019610922.jsonl"
-)
+DEFAULT_AUDIT_FILENAME = "2026-06-14_76561198764013745_to_76561199019610922.jsonl"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +67,9 @@ def _json_default(value: object) -> str:
     return str(value)
 
 
-def parse_datetime_boundary(value: str | None, *, is_end: bool = False) -> datetime | None:
+def parse_datetime_boundary(
+    value: str | None, *, is_end: bool = False
+) -> datetime | None:
     """Parse an ISO date or datetime as an inclusive UTC boundary."""
     if value is None:
         return None
@@ -182,9 +182,9 @@ async def _count_record_pbs(*, session: AsyncSession, steamid64: int) -> int:
     return int(
         (
             await session.exec(
-                select(func.count()).select_from(RecordPb).where(
-                    col(RecordPb.steamid64) == steamid64
-                )
+                select(func.count())
+                .select_from(RecordPb)
+                .where(col(RecordPb.steamid64) == steamid64)
             )
         ).one()
     )
@@ -427,18 +427,12 @@ async def transfer_records(
         await session.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
             params={
-                "lock_key": (
-                    "record-transfer:"
-                    f"{source_steamid64}:"
-                    f"{target_steamid64}"
-                )
+                "lock_key": (f"record-transfer:{source_steamid64}:{target_steamid64}")
             },
         )
         updated_result = await session.exec(
             update(Record)
-            .where(
-                col(Record.uuid).in_([record.uuid for record in records])
-            )
+            .where(col(Record.uuid).in_([record.uuid for record in records]))
             .values(steamid64=target_steamid64)
         )
         transferred_records = int(updated_result.rowcount or 0)
@@ -459,18 +453,17 @@ async def transfer_records(
             for scope in ModeScope
             for steamid64 in (source_steamid64, target_steamid64)
         ]
-        leaderboard_created, leaderboard_updated = (
-            await crud.rebuild_leaderboard_players_for_keys(
-                session=session,
-                keys=leaderboard_keys,
-            )
+        (
+            leaderboard_created,
+            leaderboard_updated,
+        ) = await crud.rebuild_leaderboard_players_for_keys(
+            session=session,
+            keys=leaderboard_keys,
         )
 
         deleted_stats = await session.exec(
             delete(PlayerStatCache).where(
-                col(PlayerStatCache.steamid64).in_(
-                    [source_steamid64, target_steamid64]
-                )
+                col(PlayerStatCache.steamid64).in_([source_steamid64, target_steamid64])
             )
         )
         player_stats_deleted = int(deleted_stats.rowcount or 0)

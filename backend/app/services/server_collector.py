@@ -25,7 +25,9 @@ SERVER_A2S_POLL_SECONDS = 10
 SERVER_A2S_INFO_TIMEOUT_SECONDS = 10.0
 SERVER_A2S_PLAYERS_TIMEOUT_SECONDS = 10.0
 SERVER_A2S_OFFLINE_SECONDS = 300
-SERVER_A2S_FAILURES_BEFORE_OFFLINE = SERVER_A2S_OFFLINE_SECONDS // SERVER_A2S_POLL_SECONDS
+SERVER_A2S_FAILURES_BEFORE_OFFLINE = (
+    SERVER_A2S_OFFLINE_SECONDS // SERVER_A2S_POLL_SECONDS
+)
 SERVER_COLLECTOR_IDLE_SECONDS = 1.0
 SERVER_STATUS_COLLECTOR_LOCK_ID = 4_465_480
 
@@ -169,7 +171,9 @@ async def _run_probe(
 
 async def _apply_query_outcome(outcome: CollectorQueryOutcome) -> None:
     async with async_session_maker() as session:
-        server = await crud.get_server_by_id(session=session, server_id=outcome.server_id)
+        server = await crud.get_server_by_id(
+            session=session, server_id=outcome.server_id
+        )
         if server is None or server.status == ServerStatus.DISABLED:
             return
 
@@ -230,7 +234,7 @@ async def _wait_for_tick_deadline(
         if remaining <= 0:
             return
 
-        sleep_task = asyncio.create_task(sleep(remaining))
+        sleep_task = asyncio.ensure_future(sleep(remaining))
         outcome_task = asyncio.create_task(completed_queue.get())
         done, pending = await asyncio.wait(
             {sleep_task, outcome_task},
@@ -291,14 +295,18 @@ async def run_server_query_collector(
                 interval_seconds=SERVER_A2S_POLL_SECONDS,
                 ring_size=len(ring),
             )
-            cursor_index = _resume_cursor_index(ring=ring, last_stable_id=last_stable_id)
+            cursor_index = _resume_cursor_index(
+                ring=ring, last_stable_id=last_stable_id
+            )
 
             for _ in range(len(ring)):
                 target = ring[cursor_index]
                 last_stable_id = target.stable_id
                 if target.server_id not in pending_by_id:
                     pending_by_id[target.server_id] = target
-                    task = asyncio.create_task(_run_probe(target=target, query_fn=query_fn))
+                    task = asyncio.create_task(
+                        _run_probe(target=target, query_fn=query_fn)
+                    )
                     live_tasks.add(task)
                     task.add_done_callback(_on_task_done)
 

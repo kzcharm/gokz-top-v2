@@ -56,7 +56,9 @@ async def _load_course_plan(
     statement = (
         select(MapCourse.id, MapCourse.map_id, Map.name, MapCourse.stage)
         .join(Map, col(Map.id) == col(MapCourse.map_id))
-        .order_by(col(Map.name).asc(), col(MapCourse.stage).asc(), col(MapCourse.id).asc())
+        .order_by(
+            col(Map.name).asc(), col(MapCourse.stage).asc(), col(MapCourse.id).asc()
+        )
     )
     if map_names:
         statement = statement.where(col(Map.name).in_(list(map_names)))
@@ -95,13 +97,11 @@ async def _load_course_scope_tiers(
         return {}
 
     course_key_by_id = {
-        course.course_id: (course.map_id, course.stage)
-        for course in courses
+        course.course_id: (course.map_id, course.stage) for course in courses
     }
     unique_course_keys = list(course_key_by_id.values())
     tiers_by_course_id: dict[int, dict[int, int]] = {
-        course.course_id: {}
-        for course in courses
+        course.course_id: {} for course in courses
     }
 
     async with async_session_maker() as session:
@@ -150,7 +150,9 @@ async def rebuild_record_pb_points(
 
     if not courses:
         map_filter = ", ".join(map_name_list) if map_name_list else "*"
-        logger.warning("No courses matched filters: map_name=%s stage=%s", map_filter, stage)
+        logger.warning(
+            "No courses matched filters: map_name=%s stage=%s", map_filter, stage
+        )
         return 0
 
     logger.info(

@@ -47,7 +47,9 @@ TokenDep = Annotated[str, Depends(get_token)]
 
 
 def get_optional_token(
-    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        optional_security_scheme
+    ),
 ) -> str | None:
     if credentials is None:
         return None

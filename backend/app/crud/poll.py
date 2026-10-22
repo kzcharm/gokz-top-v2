@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -159,7 +160,7 @@ async def delete_poll(session: AsyncSession, poll: Poll) -> None:
 async def read_polls(
     session: AsyncSession, query: PollListQuery
 ) -> tuple[list[Poll], int]:
-    filters = [col(Poll.deleted_at).is_(None)]
+    filters: list[ColumnElement[bool]] = [col(Poll.deleted_at).is_(None)]
     if query.status is not None:
         if query.status == PollStatus.ACTIVE:
             filters.extend(

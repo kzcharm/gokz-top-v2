@@ -98,10 +98,7 @@ async def update_player_social_link(
 ) -> PlayerSocialLink:
     if url is not None:
         platform, account_identifier = parse_social_link_or_raise(url)
-        if (
-            link.platform != platform
-            or link.account_identifier != account_identifier
-        ):
+        if link.platform != platform or link.account_identifier != account_identifier:
             link.metadata_json = None
         link.platform = platform
         link.account_identifier = account_identifier
@@ -181,7 +178,9 @@ async def read_admin_player_social_links(
 
     statement = (
         select(PlayerSocialLink, Player)
-        .outerjoin(Player, col(Player.steamid64) == col(PlayerSocialLink.player_steamid64))
+        .outerjoin(
+            Player, col(Player.steamid64) == col(PlayerSocialLink.player_steamid64)
+        )
         .where(*filters)
         .order_by(
             sort_direction,
@@ -195,9 +194,7 @@ async def read_admin_player_social_links(
     return rows, count
 
 
-def to_player_social_link_public(
-    *, link: PlayerSocialLink
-) -> PlayerSocialLinkPublic:
+def to_player_social_link_public(*, link: PlayerSocialLink) -> PlayerSocialLinkPublic:
     return PlayerSocialLinkPublic(
         id=link.id,
         player_steamid64=str(link.player_steamid64),

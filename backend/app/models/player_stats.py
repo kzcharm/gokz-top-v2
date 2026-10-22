@@ -112,9 +112,7 @@ class PlayerMostPlayedServerContentPublic(SQLModel):
     last_365_days: PlayerMostPlayedServerPeriodPublic = Field(
         default_factory=PlayerMostPlayedServerPeriodPublic
     )
-    yearly: dict[str, PlayerMostPlayedServerPeriodPublic] = Field(
-        default_factory=dict
-    )
+    yearly: dict[str, PlayerMostPlayedServerPeriodPublic] = Field(default_factory=dict)
 
 
 class PlayerMostPlayedServerStatPublic(SQLModel):

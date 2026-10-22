@@ -29,7 +29,9 @@ async def read_admin_player_sessions(
     if query.player_steamid64:
         normalized_steamid64 = query.player_steamid64.strip()
         if not normalized_steamid64.isdigit():
-            raise HTTPException(status_code=422, detail="player_steamid64 must be numeric")
+            raise HTTPException(
+                status_code=422, detail="player_steamid64 must be numeric"
+            )
         player_steamid64 = int(normalized_steamid64)
 
     rows, count = await crud.read_admin_player_sessions(

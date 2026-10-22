@@ -458,8 +458,7 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
                     for post in (
                         await session.exec(
                             select(MediaPost).where(
-                                col(MediaPost.platform)
-                                == PlayerSocialPlatform.YOUTUBE,
+                                col(MediaPost.platform) == PlayerSocialPlatform.YOUTUBE,
                                 col(MediaPost.external_video_id).in_(entry_ids),
                             )
                         )
@@ -495,9 +494,7 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
                         else []
                     )
                     title = str(snippet.get("title") or "Untitled video")[:500]
-                    description = (
-                        str(snippet.get("description") or "")[:10000] or None
-                    )
+                    description = str(snippet.get("description") or "")[:10000] or None
                     classification = classify_media_post(
                         title=title, description=description, tags=tags
                     )
@@ -539,7 +536,9 @@ async def sync_youtube_media_once(session: AsyncSession | None = None) -> int:
                         "published_at": published_at,
                         "view_count": _parse_view_count(item.get("view_count")),
                         "discovered_at": now,
-                        "duration_seconds": _parse_duration(item.get("duration_seconds")),
+                        "duration_seconds": _parse_duration(
+                            item.get("duration_seconds")
+                        ),
                         "available": True,
                         "last_checked_at": now,
                         "last_error": (

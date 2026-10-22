@@ -13,7 +13,9 @@ async def list_player_hidden_maps(
     statement = (
         select(PlayerHiddenMap)
         .where(col(PlayerHiddenMap.player_steamid64) == player_steamid64)
-        .order_by(col(PlayerHiddenMap.created_at).desc(), col(PlayerHiddenMap.id).desc())
+        .order_by(
+            col(PlayerHiddenMap.created_at).desc(), col(PlayerHiddenMap.id).desc()
+        )
     )
     return list((await session.exec(statement)).all())
 

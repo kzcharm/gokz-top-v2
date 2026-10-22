@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Text
-from sqlmodel import Column, Field, SQLModel
+from sqlalchemy import Column, DateTime, Text
+from sqlmodel import Field, SQLModel
 
 
 class ScheduledTaskResult(SQLModel):
@@ -13,20 +13,20 @@ class ScheduledTaskResult(SQLModel):
 
 
 class ScheduledTaskState(SQLModel, table=True):
-    __tablename__ = "scheduled_task_state"  # type: ignore[assignment]
+    __tablename__ = "scheduled_task_state"
 
     task_name: str = Field(primary_key=True, max_length=100)
     last_started_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     last_completed_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     last_successful_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[arg-type]
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
     last_error: str | None = Field(
         default=None,

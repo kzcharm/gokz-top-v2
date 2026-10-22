@@ -20,7 +20,9 @@ def load_jump_replay(*, jumpstat_id: uuid.UUID) -> bytes:
 
 
 def save_jump_replay(*, jumpstat_id: uuid.UUID, replay_bytes: bytes) -> Path:
-    return save_replay(namespace="jumps", replay_id=jumpstat_id, replay_bytes=replay_bytes)
+    return save_replay(
+        namespace="jumps", replay_id=jumpstat_id, replay_bytes=replay_bytes
+    )
 
 
 def delete_jump_replay(*, jumpstat_id: uuid.UUID) -> bool:

@@ -18,6 +18,7 @@ from app.models import (
     VideoPlatformFollowerPublic,
     get_datetime_utc,
 )
+from app.models.utils import get_sqlmodel_table
 from app.services.player_social_links import build_player_social_link_url
 
 logger = logging.getLogger(__name__)
@@ -157,7 +158,7 @@ async def _fetch_twitch_user_id(
     first_item = data[0]
     if not isinstance(first_item, dict) or not isinstance(first_item.get("id"), str):
         raise ValueError("Twitch user API returned an invalid payload")
-    return first_item["id"]
+    return str(first_item["id"])
 
 
 async def fetch_twitch_follower_count(*, account_identifier: str) -> int:
@@ -245,7 +246,7 @@ async def _upsert_follower_cache(
     attempted_at: datetime,
     error_message: str | None,
 ) -> None:
-    cache_table = PlayerVideoPlatformFollowerCache.__table__  # type: ignore[attr-defined]
+    cache_table = get_sqlmodel_table(PlayerVideoPlatformFollowerCache)
     insert_statement = pg_insert(cache_table).values(
         {
             "social_link_id": link.id,
@@ -308,7 +309,9 @@ async def refresh_stale_video_platform_follower_caches(
             await _upsert_follower_cache(
                 session=session,
                 link=link,
-                follower_count=previous.follower_count if previous is not None else None,
+                follower_count=previous.follower_count
+                if previous is not None
+                else None,
                 fetched_at=previous.fetched_at if previous is not None else None,
                 attempted_at=current_now,
                 error_message=_truncate_error_message(exc),

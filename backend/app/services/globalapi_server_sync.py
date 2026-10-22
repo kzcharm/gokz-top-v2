@@ -5,11 +5,12 @@ from typing import Any
 import httpx
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models import GlobalApiSyncResult, Player, ServerGlobalapi
+from app.models.utils import get_sqlmodel_table
 
 DEFAULT_SERVER_PORT = 27015
 SERVER_DATETIME_FALLBACK = "2018-01-09T10:45:50"
@@ -195,13 +196,13 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
         server.id: server
         for server in (
             await session.exec(
-                select(ServerGlobalapi).where(ServerGlobalapi.id.in_(server_ids))
+                select(ServerGlobalapi).where(col(ServerGlobalapi.id).in_(server_ids))
             )
         ).all()
     }
     created = sum(1 for server_id in server_ids if server_id not in existing_servers)
 
-    server_table = ServerGlobalapi.__table__
+    server_table = get_sqlmodel_table(ServerGlobalapi)
     rows_to_insert = [
         row
         for server_id, row in rows_by_id.items()
@@ -236,7 +237,7 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                 }
                 for steamid64 in sorted(referenced_steamid64s)
             ]
-            player_table = Player.__table__
+            player_table = get_sqlmodel_table(Player)
             player_insert = pg_insert(player_table).values(player_rows)
             await session.exec(
                 player_insert.on_conflict_do_nothing(
@@ -252,7 +253,7 @@ async def sync_servers_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
     if server_ids_to_promote:
         await session.exec(
             update(ServerGlobalapi)
-            .where(ServerGlobalapi.id.in_(server_ids_to_promote))
+            .where(col(ServerGlobalapi.id).in_(server_ids_to_promote))
             .values(approval_status=1, updated_at=now)
         )
 

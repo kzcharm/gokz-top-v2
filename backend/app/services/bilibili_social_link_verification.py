@@ -64,9 +64,7 @@ class _DescriptionMetaParser(HTMLParser):
         super().__init__()
         self.description: str | None = None
 
-    def handle_starttag(
-        self, tag: str, attrs: list[tuple[str, str | None]]
-    ) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag.lower() != "meta" or self.description is not None:
             return
 

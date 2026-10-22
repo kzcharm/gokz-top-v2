@@ -20,8 +20,10 @@ async def count_player_likes(
     session: AsyncSession,
     target_steamid64: int,
 ) -> int:
-    statement = select(func.count()).select_from(PlayerLike).where(
-        PlayerLike.target_steamid64 == target_steamid64
+    statement = (
+        select(func.count())
+        .select_from(PlayerLike)
+        .where(PlayerLike.target_steamid64 == target_steamid64)
     )
     return int((await session.exec(statement)).one())
 
@@ -35,11 +37,11 @@ async def get_player_likers(
 ) -> tuple[list[tuple[Player, datetime | None]], int]:
     latest_like_subquery = (
         select(
-            PlayerLike.viewer_steamid64,
+            col(PlayerLike.viewer_steamid64),
             func.max(PlayerLike.created_at).label("latest_like_at"),
         )
         .where(PlayerLike.target_steamid64 == target_steamid64)
-        .group_by(PlayerLike.viewer_steamid64)
+        .group_by(col(PlayerLike.viewer_steamid64))
         .subquery()
     )
     count_statement = select(func.count()).select_from(latest_like_subquery)
@@ -83,12 +85,12 @@ async def create_player_like(
         )
         .on_conflict_do_nothing(
             index_elements=[
-                PlayerLike.viewer_steamid64,
-                PlayerLike.target_steamid64,
-                PlayerLike.like_date,
+                col(PlayerLike.viewer_steamid64),
+                col(PlayerLike.target_steamid64),
+                col(PlayerLike.like_date),
             ]
         )
-        .returning(PlayerLike.viewer_steamid64)
+        .returning(col(PlayerLike.viewer_steamid64))
     )
     result = await session.exec(statement)
     await session.commit()

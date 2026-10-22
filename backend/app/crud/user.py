@@ -64,9 +64,7 @@ async def get_or_create_user_from_steam(
     is_bootstrap_superuser = steamid64_int == settings.SUPER_USER_STEAMID64
 
     if not db_user:
-        roles = (
-            [UserRole.SUPERUSER] if is_bootstrap_superuser else []
-        )
+        roles = [UserRole.SUPERUSER] if is_bootstrap_superuser else []
         db_user = User(
             steamid64=steamid64_int,
             is_active=True,

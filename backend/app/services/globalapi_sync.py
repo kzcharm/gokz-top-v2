@@ -14,7 +14,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
-from app.models import GlobalApiSyncResult, GlobalApiSyncState, get_datetime_utc
+from app.models import (
+    GlobalApiSyncResult,
+    GlobalApiSyncState,
+    MapSyncResult,
+    get_datetime_utc,
+)
 from app.services.globalapi_ban_sync import sync_bans_from_globalapi
 from app.services.globalapi_maps_sync import sync_maps_from_globalapi
 from app.services.globalapi_record_filter_sync import sync_record_filters_from_globalapi
@@ -28,7 +33,7 @@ logger = logging.getLogger(__name__)
 class GlobalApiSyncTask:
     task_name: str
     stale_after_seconds: int
-    run: Callable[..., Awaitable[GlobalApiSyncResult]]
+    run: Callable[..., Awaitable[GlobalApiSyncResult | MapSyncResult]]
     schedule_hour_utc: int | None = None
     startup_stale_after_seconds: int | None = None
     failure_retry_after_seconds: int = settings.GLOBALAPI_SYNC_FAILURE_RETRY_SECONDS
@@ -273,7 +278,9 @@ async def run_globalapi_sync_tasks(
 
                         await _mark_task_started(task_name=task.task_name)
                         async with async_session_maker() as session:
-                            result = await task.run(session=session)
+                            result = GlobalApiSyncResult.model_validate(
+                                (await task.run(session=session)).model_dump()
+                            )
                         await _mark_task_finished(
                             task_name=task.task_name,
                             result=result,

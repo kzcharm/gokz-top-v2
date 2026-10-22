@@ -258,7 +258,9 @@ def _iter_copy_rows(
     player_prefix = "COPY public.player ("
     expected_prefix = user_prefix if target == "user" else player_prefix
     required_columns = (
-        _REQUIRED_USER_COPY_COLUMNS if target == "user" else _REQUIRED_PLAYER_COPY_COLUMNS
+        _REQUIRED_USER_COPY_COLUMNS
+        if target == "user"
+        else _REQUIRED_PLAYER_COPY_COLUMNS
     )
 
     with _open_dump(path) as stream:

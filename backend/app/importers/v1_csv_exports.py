@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.core.db import async_session_maker
 from app.crud.map_review import rebuild_map_review_summary
@@ -25,6 +25,7 @@ from app.models import (
     ServerGroupStatus,
     generate_uuid7,
 )
+from app.models.utils import get_sqlmodel_table
 from app.services.language_detection import detect_language_code
 
 logging.basicConfig(level=logging.INFO)
@@ -130,7 +131,9 @@ def _normalize_session_timestamps(
     return disconnect_at, disconnect_at, False
 
 
-def _read_player_session_dependencies(path: Path) -> tuple[set[int], set[uuid.UUID], int]:
+def _read_player_session_dependencies(
+    path: Path,
+) -> tuple[set[int], set[uuid.UUID], int]:
     player_ids: set[int] = set()
     group_ids: set[uuid.UUID] = set()
     row_count = 0
@@ -141,12 +144,16 @@ def _read_player_session_dependencies(path: Path) -> tuple[set[int], set[uuid.UU
             player_ids.add(
                 _normalize_int(row["player_steamid64"], field_name="player_steamid64")
             )
-            group_ids.add(_normalize_uuid(row["server_group_id"], field_name="server_group_id"))
+            group_ids.add(
+                _normalize_uuid(row["server_group_id"], field_name="server_group_id")
+            )
 
     return player_ids, group_ids, row_count
 
 
-def _read_map_review_rows(path: Path) -> tuple[list[dict[str, Any]], set[int], set[int]]:
+def _read_map_review_rows(
+    path: Path,
+) -> tuple[list[dict[str, Any]], set[int], set[int]]:
     rows: list[dict[str, Any]] = []
     player_ids: set[int] = set()
     map_ids: set[int] = set()
@@ -221,7 +228,9 @@ def _normalize_review_content(
     comment_text = _normalize_review_comment_text(payload.get("comment"))
     content_input = MapReviewContentInput(
         overall=_normalize_int(str(payload["overall"]), field_name="overall"),
-        gameplay=_normalize_optional_int(payload.get("gameplay"), field_name="gameplay"),
+        gameplay=_normalize_optional_int(
+            payload.get("gameplay"), field_name="gameplay"
+        ),
         visuals=_normalize_optional_int(payload.get("visuals"), field_name="visuals"),
         comment=MapReviewCommentInput(text=comment_text),
     )
@@ -261,9 +270,11 @@ def _iter_player_session_batches(
                 row["connected_time"],
                 field_name="connected_time",
             )
-            disconnect_at, last_heartbeat_at, was_clamped = _normalize_session_timestamps(
-                connected_at=connected_at,
-                disconnect_at=_normalize_optional_datetime(row["disconnect_time"]),
+            disconnect_at, last_heartbeat_at, was_clamped = (
+                _normalize_session_timestamps(
+                    connected_at=connected_at,
+                    disconnect_at=_normalize_optional_datetime(row["disconnect_time"]),
+                )
             )
             if was_clamped:
                 clamped_in_batch += 1
@@ -282,7 +293,9 @@ def _iter_player_session_batches(
                     "connected_at": connected_at,
                     "disconnect_at": disconnect_at,
                     "last_heartbeat_at": last_heartbeat_at,
-                    "ip_address": _normalize_text(row["ip_address"], field_name="ip_address"),
+                    "ip_address": _normalize_text(
+                        row["ip_address"], field_name="ip_address"
+                    ),
                     "map_name": _normalize_text(row["map_name"], field_name="map_name"),
                 }
             )
@@ -326,7 +339,9 @@ async def _insert_placeholder_players(*, player_ids: set[int]) -> int:
         existing_player_ids = set(
             (
                 await session.exec(
-                    select(Player.steamid64).where(Player.steamid64.in_(player_ids))
+                    select(col(Player.steamid64)).where(
+                        col(Player.steamid64).in_(player_ids)
+                    )
                 )
             ).all()
         )
@@ -336,8 +351,12 @@ async def _insert_placeholder_players(*, player_ids: set[int]) -> int:
 
         rows = _build_placeholder_player_rows(missing_player_ids)
         for chunk in _chunked(rows, size=1_000):
-            statement = pg_insert(Player.__table__).values(list(chunk)).on_conflict_do_nothing(
-                index_elements=[Player.__table__.c.steamid64]
+            statement = (
+                pg_insert(get_sqlmodel_table(Player))
+                .values(list(chunk))
+                .on_conflict_do_nothing(
+                    index_elements=[get_sqlmodel_table(Player).c.steamid64]
+                )
             )
             await session.exec(statement)
         await session.commit()
@@ -350,15 +369,25 @@ async def _insert_placeholder_server_groups(*, group_ids: set[uuid.UUID]) -> int
 
     async with async_session_maker() as session:
         existing_group_ids = set(
-            (await session.exec(select(ServerGroup.id).where(ServerGroup.id.in_(group_ids)))).all()
+            (
+                await session.exec(
+                    select(col(ServerGroup.id)).where(
+                        col(ServerGroup.id).in_(group_ids)
+                    )
+                )
+            ).all()
         )
         missing_group_ids = group_ids - existing_group_ids
         if not missing_group_ids:
             return 0
 
         rows = _build_placeholder_server_group_rows(missing_group_ids)
-        statement = pg_insert(ServerGroup.__table__).values(rows).on_conflict_do_nothing(
-            index_elements=[ServerGroup.__table__.c.id]
+        statement = (
+            pg_insert(get_sqlmodel_table(ServerGroup))
+            .values(rows)
+            .on_conflict_do_nothing(
+                index_elements=[get_sqlmodel_table(ServerGroup).c.id]
+            )
         )
         await session.exec(statement)
         await session.commit()
@@ -370,7 +399,11 @@ async def _assert_review_maps_exist(*, map_ids: set[int]) -> None:
         return
 
     async with async_session_maker() as session:
-        existing_map_ids = set((await session.exec(select(Map.id).where(Map.id.in_(map_ids)))).all())
+        existing_map_ids = set(
+            (
+                await session.exec(select(col(Map.id)).where(col(Map.id).in_(map_ids)))
+            ).all()
+        )
     missing_map_ids = map_ids - existing_map_ids
     if missing_map_ids:
         missing_ids = ", ".join(str(map_id) for map_id in sorted(missing_map_ids))
@@ -381,18 +414,34 @@ async def _import_player_sessions(*, path: Path, batch_size: int) -> tuple[int, 
     inserted_rows = 0
     clamped_rows = 0
     async with async_session_maker() as session:
-        for batch, clamped_in_batch in _iter_player_session_batches(path, batch_size=batch_size):
-            statement = pg_insert(PlayerSession.__table__).values(batch).on_conflict_do_update(
-                index_elements=[PlayerSession.__table__.c.id],
-                set_={
-                    "player_steamid64": statement_excluded(PlayerSession, "player_steamid64"),
-                    "server_group_id": statement_excluded(PlayerSession, "server_group_id"),
-                    "connected_at": statement_excluded(PlayerSession, "connected_at"),
-                    "disconnect_at": statement_excluded(PlayerSession, "disconnect_at"),
-                    "last_heartbeat_at": statement_excluded(PlayerSession, "last_heartbeat_at"),
-                    "ip_address": statement_excluded(PlayerSession, "ip_address"),
-                    "map_name": statement_excluded(PlayerSession, "map_name"),
-                },
+        for batch, clamped_in_batch in _iter_player_session_batches(
+            path, batch_size=batch_size
+        ):
+            statement = (
+                pg_insert(get_sqlmodel_table(PlayerSession))
+                .values(batch)
+                .on_conflict_do_update(
+                    index_elements=[get_sqlmodel_table(PlayerSession).c.id],
+                    set_={
+                        "player_steamid64": statement_excluded(
+                            PlayerSession, "player_steamid64"
+                        ),
+                        "server_group_id": statement_excluded(
+                            PlayerSession, "server_group_id"
+                        ),
+                        "connected_at": statement_excluded(
+                            PlayerSession, "connected_at"
+                        ),
+                        "disconnect_at": statement_excluded(
+                            PlayerSession, "disconnect_at"
+                        ),
+                        "last_heartbeat_at": statement_excluded(
+                            PlayerSession, "last_heartbeat_at"
+                        ),
+                        "ip_address": statement_excluded(PlayerSession, "ip_address"),
+                        "map_name": statement_excluded(PlayerSession, "map_name"),
+                    },
+                )
             )
             await session.exec(statement)
             await session.commit()
@@ -411,13 +460,17 @@ async def _import_map_reviews(*, rows: list[dict[str, Any]]) -> int:
 
     async with async_session_maker() as session:
         for chunk in _chunked(normalized_rows, size=500):
-            statement = pg_insert(MapReview.__table__).values(list(chunk)).on_conflict_do_update(
-                constraint="uq_map_review_context",
-                set_={
-                    "content": statement_excluded(MapReview, "content"),
-                    "created_at": statement_excluded(MapReview, "created_at"),
-                    "updated_at": statement_excluded(MapReview, "updated_at"),
-                },
+            statement = (
+                pg_insert(get_sqlmodel_table(MapReview))
+                .values(list(chunk))
+                .on_conflict_do_update(
+                    constraint="uq_map_review_context",
+                    set_={
+                        "content": statement_excluded(MapReview, "content"),
+                        "created_at": statement_excluded(MapReview, "created_at"),
+                        "updated_at": statement_excluded(MapReview, "updated_at"),
+                    },
+                )
             )
             await session.exec(statement)
 
@@ -444,17 +497,21 @@ async def _main_async(argv: list[str] | None = None) -> None:
     if not map_review_csv.is_file():
         raise FileNotFoundError(map_review_csv)
 
-    session_player_ids, session_group_ids, session_row_count = _read_player_session_dependencies(
-        player_sessions_csv
+    session_player_ids, session_group_ids, session_row_count = (
+        _read_player_session_dependencies(player_sessions_csv)
     )
-    map_review_rows, review_player_ids, review_map_ids = _read_map_review_rows(map_review_csv)
+    map_review_rows, review_player_ids, review_map_ids = _read_map_review_rows(
+        map_review_csv
+    )
 
     async with async_session_maker() as session:
         existing_player_ids = set(
             (
                 await session.exec(
                     select(Player.steamid64).where(
-                        Player.steamid64.in_(session_player_ids | review_player_ids)
+                        col(Player.steamid64).in_(
+                            session_player_ids | review_player_ids
+                        )
                     )
                 )
             ).all()
@@ -462,12 +519,18 @@ async def _main_async(argv: list[str] | None = None) -> None:
         existing_group_ids = set(
             (
                 await session.exec(
-                    select(ServerGroup.id).where(ServerGroup.id.in_(session_group_ids))
+                    select(col(ServerGroup.id)).where(
+                        col(ServerGroup.id).in_(session_group_ids)
+                    )
                 )
             ).all()
         )
         existing_map_ids = set(
-            (await session.exec(select(Map.id).where(Map.id.in_(review_map_ids)))).all()
+            (
+                await session.exec(
+                    select(col(Map.id)).where(col(Map.id).in_(review_map_ids))
+                )
+            ).all()
         )
 
     logger.info("player_sessions.csv rows: %s", session_row_count)
@@ -491,7 +554,9 @@ async def _main_async(argv: list[str] | None = None) -> None:
     placeholder_players = await _insert_placeholder_players(
         player_ids=session_player_ids | review_player_ids
     )
-    placeholder_groups = await _insert_placeholder_server_groups(group_ids=session_group_ids)
+    placeholder_groups = await _insert_placeholder_server_groups(
+        group_ids=session_group_ids
+    )
     await _assert_review_maps_exist(map_ids=review_map_ids)
     imported_sessions, clamped_sessions = await _import_player_sessions(
         path=player_sessions_csv,

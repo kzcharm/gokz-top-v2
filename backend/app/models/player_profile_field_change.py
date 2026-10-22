@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import ConfigDict, field_validator
+from pydantic import field_validator
 from sqlalchemy import BigInteger, Column, DateTime, ForeignKey
 from sqlalchemy import Enum as SqlEnum
 from sqlmodel import Field, SQLModel
@@ -65,7 +65,9 @@ class PlayerActionTimestamp(SQLModel, table=True):
     )
     recorded_at: datetime = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, default=get_datetime_utc
+        ),
     )
 
 
@@ -89,7 +91,7 @@ class PlayerSettingsPublic(SQLModel):
 
 
 class PlayerSettingsUpdate(SQLModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = {"extra": "forbid"}
 
     alias: str | None = Field(default=None, max_length=25)
     custom_id: str | None = Field(default=None, max_length=MAX_PLAYER_CUSTOM_ID_LENGTH)

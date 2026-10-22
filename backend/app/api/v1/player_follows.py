@@ -14,7 +14,9 @@ from app.models import (
 router = APIRouter(prefix="/player-follows", tags=["player-follows"])
 
 
-@router.get("/players/{identifier:path}/summary", response_model=PlayerFollowSummaryPublic)
+@router.get(
+    "/players/{identifier:path}/summary", response_model=PlayerFollowSummaryPublic
+)
 async def read_player_follow_summary(
     identifier: str,
     session: SessionDep,

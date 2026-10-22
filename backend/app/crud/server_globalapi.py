@@ -1,4 +1,6 @@
-from sqlalchemy import or_
+from typing import Any
+
+from sqlalchemy import SQLColumnExpression, or_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -50,7 +52,7 @@ async def read_server_globalapi(
             col(ServerGlobalapi.approval_status) == query.approval_status
         )
 
-    sort_column = col(ServerGlobalapi.id)
+    sort_column: SQLColumnExpression[Any] = col(ServerGlobalapi.id)
     if query.sort_by == "server":
         sort_column = col(ServerGlobalapi.name)
     elif query.sort_by == "synced_at":

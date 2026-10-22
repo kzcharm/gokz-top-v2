@@ -96,7 +96,9 @@ async def load_target_steamid64s(
         )
     if leaderboard_scope is None and stale_before is not None:
         statement = statement.where(
-            or_(col(Player.updated_at).is_(None), col(Player.updated_at) <= stale_before)
+            or_(
+                col(Player.updated_at).is_(None), col(Player.updated_at) <= stale_before
+            )
         )
 
     async with async_session_maker() as session:
@@ -148,7 +150,10 @@ async def rebuild_player_profiles(
                 )
 
                 for steamid64 in steamid64_batch:
-                    player, was_created = await crud.create_or_update_player_from_steam_data_if_fetched(
+                    (
+                        player,
+                        was_created,
+                    ) = await crud.create_or_update_player_from_steam_data_if_fetched(
                         session=session,
                         steamid64=steamid64,
                         steam_data=steam_data_by_steamid64.get(steamid64),

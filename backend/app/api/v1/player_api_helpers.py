@@ -14,6 +14,7 @@ from app.models import (
     Player,
     PlayerSocialLink,
     PlayerSocialPlatform,
+    PlayerWebhook,
     UserRole,
 )
 from app.services.player_social_links import build_player_social_link_url
@@ -171,7 +172,7 @@ async def get_current_user_webhook_or_404(
     session: SessionDep,
     current_user: CurrentUser,
     webhook_id: uuid.UUID,
-):
+) -> PlayerWebhook:
     webhook = await crud.get_player_webhook(session=session, id=webhook_id)
     if webhook is None or webhook.player_steamid64 != current_user.steamid64:
         raise HTTPException(status_code=404, detail="Webhook not found")
@@ -222,7 +223,9 @@ def ensure_link_is_twitch_and_unverified(*, link: PlayerSocialLink) -> None:
 
 def ensure_link_is_bilibili_and_unverified(*, link: PlayerSocialLink) -> None:
     if link.platform != PlayerSocialPlatform.BILIBILI:
-        raise HTTPException(status_code=422, detail="Social link is not a Bilibili link")
+        raise HTTPException(
+            status_code=422, detail="Social link is not a Bilibili link"
+        )
     if link.verified:
         raise HTTPException(status_code=409, detail="Bilibili link is already verified")
 
@@ -241,20 +244,28 @@ async def build_test_webhook_event(
         link
         for link in links
         if link.verified
-        and link.platform in {PlayerSocialPlatform.BILIBILI, PlayerSocialPlatform.TWITCH}
+        and link.platform
+        in {PlayerSocialPlatform.BILIBILI, PlayerSocialPlatform.TWITCH}
     ]
 
     candidates: list[tuple[PlayerSocialLink, LiveStreamState | None]] = []
     for link in live_links:
         candidates.append(
-            (link, await crud.get_live_stream_state(session=session, social_link_id=link.id))
+            (
+                link,
+                await crud.get_live_stream_state(
+                    session=session, social_link_id=link.id
+                ),
+            )
         )
 
     if candidates:
         best_link, best_state = max(
             candidates,
             key=lambda item: (
-                item[1].last_live_seen_at if item[1] else datetime(1970, 1, 1, tzinfo=UTC),
+                item[1].last_live_seen_at
+                if item[1]
+                else datetime(1970, 1, 1, tzinfo=UTC),
                 item[1].last_live_started_at
                 if item[1]
                 else datetime(1970, 1, 1, tzinfo=UTC),

@@ -42,6 +42,7 @@ from app.models import (
     ServerGroup,
     get_datetime_utc,
 )
+from app.models.utils import get_sqlmodel_table, select_row
 
 MOST_PLAYED_MAPS_ENTRY_LIMIT = 10
 
@@ -308,9 +309,7 @@ async def _auto_update_player_favorite_server(
         return
 
     top_entry = (
-        content.all_time.entries[0]
-        if len(content.all_time.entries) > 0
-        else None
+        content.all_time.entries[0] if len(content.all_time.entries) > 0 else None
     )
     favorite_server_id: int | None = None
     favorite_server_group_id: uuid.UUID | None = None
@@ -453,7 +452,7 @@ async def _upsert_player_stat_cache(
     content: dict[str, Any],
     updated_at: datetime,
 ) -> PlayerStatCache:
-    cache_table = PlayerStatCache.__table__  # type: ignore[attr-defined]
+    cache_table = get_sqlmodel_table(PlayerStatCache)
     values = {
         "steamid64": steamid64,
         "type": stat_type,
@@ -585,7 +584,7 @@ async def _load_most_played_server_rows(
     steamid64: int,
 ) -> list[tuple[datetime, Decimal, int, str | None, Any, str | None]]:
     statement = (
-        select(
+        select_row(
             col(Record.created_at),
             col(Record.time),
             col(ServerGlobalapi.id),
@@ -618,7 +617,7 @@ async def _load_most_played_map_rows(
     steamid64: int,
 ) -> list[tuple[datetime, Decimal, int, str, int | None]]:
     statement = (
-        select(
+        select_row(
             col(Record.created_at),
             col(Record.time),
             col(Map.id),
@@ -698,11 +697,17 @@ async def rebuild_player_most_played_server_stat(
     ) in rows:
         record_at = _to_utc_datetime(created_at)
         group_id = str(raw_group_id) if raw_group_id is not None else None
-        bucket_key = f"group:{group_id}" if group_id is not None else f"server:{server_id}"
+        bucket_key = (
+            f"group:{group_id}" if group_id is not None else f"server:{server_id}"
+        )
         label = (
             group_name
             or server_name
-            or (f"Server Group {group_id}" if group_id is not None else f"Server #{server_id}")
+            or (
+                f"Server Group {group_id}"
+                if group_id is not None
+                else f"Server #{server_id}"
+            )
         )
         total_seconds = Decimal(str(record_time))
 

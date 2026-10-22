@@ -114,7 +114,9 @@ def _require_enabled() -> None:
         raise MapFileDistributionError("Cloudflare R2 storage is not configured")
 
 
-def _run_command(args: Sequence[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run_command(
+    args: Sequence[str], *, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     logger.debug("Running map distribution command: %s", " ".join(args))
     return subprocess.run(
         list(args),
@@ -190,7 +192,9 @@ async def sync_map_files(
 
     _ensure_storage_dirs()
     maps = await _load_target_maps(session=session, map_ids=map_ids)
-    distributions = await _load_distributions(session=session, map_ids=[map_obj.id for map_obj in maps])
+    distributions = await _load_distributions(
+        session=session, map_ids=[map_obj.id for map_obj in maps]
+    )
     distribution_by_map_id = {row.map_id: row for row in distributions}
     result = MapFileDistributionSyncResult()
     processed_maps: list[_ProcessedMap] = []
@@ -198,12 +202,16 @@ async def sync_map_files(
     for map_obj in maps:
         result.processed += 1
         distribution = distribution_by_map_id.get(map_obj.id)
-        if not force and _is_distribution_current(map_obj=map_obj, distribution=distribution):
+        if not force and _is_distribution_current(
+            map_obj=map_obj, distribution=distribution
+        ):
             result.skipped += 1
             continue
 
         try:
-            prepared = await _prepare_map_bsp(map_obj=map_obj, distribution=distribution)
+            prepared = await _prepare_map_bsp(
+                map_obj=map_obj, distribution=distribution
+            )
             if prepared.source == "workshop":
                 result.downloaded += 1
 
@@ -216,9 +224,13 @@ async def sync_map_files(
             result.uploaded += 1
             if upload_result.bz2_download_url is not None:
                 result.bz2_uploaded += 1
-            processed_maps.append(_ProcessedMap(map_obj=map_obj, raw_path=prepared.raw_path))
+            processed_maps.append(
+                _ProcessedMap(map_obj=map_obj, raw_path=prepared.raw_path)
+            )
         except Exception as exc:
-            logger.warning("Failed to distribute map file for %s: %s", map_obj.name, exc)
+            logger.warning(
+                "Failed to distribute map file for %s: %s", map_obj.name, exc
+            )
             await _record_map_error(
                 session=session,
                 map_obj=map_obj,
@@ -274,7 +286,9 @@ async def _load_distributions(
     if not map_ids:
         return []
     rows = await session.exec(
-        select(MapFileDistribution).where(col(MapFileDistribution.map_id).in_(list(map_ids)))
+        select(MapFileDistribution).where(
+            col(MapFileDistribution.map_id).in_(list(map_ids))
+        )
     )
     return list(rows.all())
 
@@ -383,7 +397,9 @@ def _extract_workshop_archive_bsp(*, content_dir: Path, map_name: str) -> Path |
     exact_candidates: list[tuple[Path, zipfile.ZipInfo]] = []
     bsp_candidates: list[tuple[Path, zipfile.ZipInfo]] = []
 
-    for archive_path in sorted(path for path in content_dir.rglob("*") if path.is_file()):
+    for archive_path in sorted(
+        path for path in content_dir.rglob("*") if path.is_file()
+    ):
         if archive_path.suffix.casefold() not in {".bin", ".zip"}:
             continue
         if not zipfile.is_zipfile(archive_path):
@@ -512,9 +528,7 @@ async def _sync_full_package(
         existing_entries = await _list_archive_bsp_entries(archive_path)
         stale_entries = sorted(existing_entries - valid_entries)
         changed_entries = sorted(
-            _bsp_filename(name)
-            for name in changed_names
-            if name in raw_paths_by_name
+            _bsp_filename(name) for name in changed_names if name in raw_paths_by_name
         )
         if not stale_entries and not changed_entries:
             return False
@@ -530,7 +544,9 @@ async def _sync_full_package(
                 archive_path=archive_path,
                 entries=changed_entries,
             )
-        await _run_command_async([settings.SEVENZIP_PATH, "t", str(archive_path.resolve())])
+        await _run_command_async(
+            [settings.SEVENZIP_PATH, "t", str(archive_path.resolve())]
+        )
         return True
     except Exception:
         logger.exception("Incremental GlobalMaps.7z update failed; rebuilding archive")
@@ -557,7 +573,9 @@ async def _rebuild_full_package(*, raw_paths: Iterable[Path]) -> None:
     raw_names = sorted(path.name for path in raw_paths)
     if not raw_names:
         return
-    temporary_archive = archive_path.with_name(f".{archive_path.name}.{uuid.uuid4()}.tmp")
+    temporary_archive = archive_path.with_name(
+        f".{archive_path.name}.{uuid.uuid4()}.tmp"
+    )
     list_file = _tmp_dir() / f"7z-list-{uuid.uuid4()}.txt"
     list_file.write_text("\n".join(raw_names) + "\n")
     try:
@@ -618,7 +636,9 @@ async def _upload_release_packages(
 
     uploaded = 0
     for release_date, maps_for_date in maps_by_date.items():
-        package_path = _tmp_dir() / f"maps-release-{release_date.isoformat()}-{uuid.uuid4()}.zip"
+        package_path = (
+            _tmp_dir() / f"maps-release-{release_date.isoformat()}-{uuid.uuid4()}.zip"
+        )
         try:
             await asyncio.to_thread(_write_release_zip, package_path, maps_for_date)
             key = f"packages/map-releases/maps-release-{release_date.isoformat()}.zip"
@@ -650,7 +670,9 @@ async def _upload_release_packages(
     return uploaded
 
 
-def _write_release_zip(package_path: Path, maps_for_date: Sequence[_ProcessedMap]) -> None:
+def _write_release_zip(
+    package_path: Path, maps_for_date: Sequence[_ProcessedMap]
+) -> None:
     with zipfile.ZipFile(
         package_path,
         mode="w",

@@ -341,7 +341,10 @@ async def rebuild_record_pbs(
         logger.info("Loaded %s record_pb buckets to process", f"{len(buckets):,}")
         if buckets:
             total_expected_rows = sum(bucket.expected_rows for bucket in buckets)
-            logger.info("Expected PB rows across selected buckets: %s", f"{total_expected_rows:,}")
+            logger.info(
+                "Expected PB rows across selected buckets: %s",
+                f"{total_expected_rows:,}",
+            )
         courses = _build_course_plan(buckets=buckets)
 
     if limit is not None:

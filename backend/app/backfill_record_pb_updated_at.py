@@ -1,8 +1,10 @@
 import argparse
 import asyncio
 import logging
+from typing import Any, cast
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 
 from app.core.db import async_session_maker
 
@@ -45,12 +47,14 @@ def _build_parser() -> argparse.ArgumentParser:
 async def _main_async(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
     async with async_session_maker() as session:
-        pending_rows = (await session.exec(COUNT_SQL)).one()[0]
+        pending_rows = (await session.execute(COUNT_SQL)).one()[0]
         if args.dry_run:
-            logger.info("record_pb updated_at backfill would update %s rows", pending_rows)
+            logger.info(
+                "record_pb updated_at backfill would update %s rows", pending_rows
+            )
             return
 
-        result = await session.exec(BACKFILL_SQL)
+        result = cast(CursorResult[Any], await session.execute(BACKFILL_SQL))
         await session.commit()
         logger.info(
             "record_pb updated_at backfill updated %s rows",
