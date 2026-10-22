@@ -2167,9 +2167,9 @@ export type TournamentAchievementUpdate = {
 export type TournamentCreate = {
     name: string;
     starts_on: string;
-    ends_on?: (string | null);
     official_url?: (string | null);
     level: TournamentLevel;
+    ends_on?: (string | null);
 };
 
 export type TournamentLevel = 'S' | 'A' | 'B' | 'C';
@@ -2177,9 +2177,9 @@ export type TournamentLevel = 'S' | 'A' | 'B' | 'C';
 export type TournamentPublic = {
     name: string;
     starts_on: string;
-    ends_on: string;
     official_url?: (string | null);
     level: TournamentLevel;
+    ends_on: string;
     id: string;
     created_at: string;
     updated_at: string;

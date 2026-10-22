@@ -10981,18 +10981,6 @@ export const TournamentCreateSchema = {
             format: 'date',
             title: 'Starts On'
         },
-        ends_on: {
-            anyOf: [
-                {
-                    type: 'string',
-                    format: 'date'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Ends On'
-        },
         official_url: {
             anyOf: [
                 {
@@ -11007,6 +10995,18 @@ export const TournamentCreateSchema = {
         },
         level: {
             '$ref': '#/components/schemas/TournamentLevel'
+        },
+        ends_on: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ends On'
         }
     },
     type: 'object',
@@ -11033,11 +11033,6 @@ export const TournamentPublicSchema = {
             format: 'date',
             title: 'Starts On'
         },
-        ends_on: {
-            type: 'string',
-            format: 'date',
-            title: 'Ends On'
-        },
         official_url: {
             anyOf: [
                 {
@@ -11052,6 +11047,11 @@ export const TournamentPublicSchema = {
         },
         level: {
             '$ref': '#/components/schemas/TournamentLevel'
+        },
+        ends_on: {
+            type: 'string',
+            format: 'date',
+            title: 'Ends On'
         },
         id: {
             type: 'string',
@@ -11070,7 +11070,7 @@ export const TournamentPublicSchema = {
         }
     },
     type: 'object',
-    required: ['name', 'starts_on', 'ends_on', 'level', 'id', 'created_at', 'updated_at'],
+    required: ['name', 'starts_on', 'level', 'ends_on', 'id', 'created_at', 'updated_at'],
     title: 'TournamentPublic'
 } as const;
 
