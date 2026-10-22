@@ -276,10 +276,7 @@ export function PlayerCardPage({
               <SkillRadar card ratings={standing.data?.skillRatings ?? null} />
             </section>
           </header>
-          <section
-            className="border-t border-border"
-            aria-label="NUB completion"
-          >
+          <section aria-label="NUB completion">
             <CompletionCard
               card
               title={t("profile.completion.nubTitle")}
