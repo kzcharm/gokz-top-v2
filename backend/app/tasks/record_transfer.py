@@ -13,7 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.db import async_session_maker
-from app.crud.record import recompute_record_pbs_for_keys
+from app.crud.record import rebuild_record_pb_buckets_for_keys
 from app.models import (
     Ban,
     MapCourse,
@@ -446,7 +446,9 @@ async def transfer_records(
             session=session,
             target_steamid64=target_steamid64,
         )
-        await recompute_record_pbs_for_keys(session=session, keys=pb_keys)
+        # Ownership changes can move the WR between players. Rebuild the whole
+        # bucket so old winners are demoted before the new winner is promoted.
+        await rebuild_record_pb_buckets_for_keys(session=session, keys=pb_keys)
 
         leaderboard_keys = [
             (mode_scope_to_id(scope), steamid64)
