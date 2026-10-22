@@ -748,3 +748,75 @@ test("Run milliseconds option also formats WR times and survives reloads", async
   await expect(row.getByText("0:42.123", { exact: true })).toBeVisible()
   await expect(row.getByText("0:40.000", { exact: true })).toBeVisible()
 })
+
+test("Points and rating headings, filters, and badges share column centers", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await installPinnedRecordRoutes(page)
+  await page.goto(`/profile/${steamid64}/runs`)
+  for (const label of ["Show server", "Show date", "Show WR time"]) {
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    await page
+      .getByRole("menuitemcheckbox", { name: label, exact: true })
+      .click()
+  }
+  const badgeBounds: Array<{ x: number; width: number }> = []
+  const row = page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+  await expect(row).toBeVisible()
+  for (const label of ["Points", "Rating"]) {
+    const header = page.getByRole("columnheader", {
+      name: new RegExp(`^${label}(?: |$)`),
+    })
+    const index = await header.evaluate(
+      (element) => (element as HTMLTableCellElement).cellIndex,
+    )
+    const badge = row
+      .getByRole("cell")
+      .nth(index)
+      .locator('[data-slot="badge"]')
+    const filter = page
+      .locator("thead tr")
+      .nth(1)
+      .getByRole("columnheader")
+      .nth(index)
+      .getByRole("button")
+    const headerBox = await header.boundingBox()
+    const headingBox = await header.getByRole("button").boundingBox()
+    const badgeBox = await badge.boundingBox()
+    const filterBox = await filter.boundingBox()
+    badgeBounds.push(badgeBox!)
+    expect(headerBox).not.toBeNull()
+    const center = headerBox!.x + headerBox!.width / 2
+    for (const box of [headingBox, badgeBox, filterBox]) {
+      expect(box).not.toBeNull()
+      expect(Math.abs(box!.x + box!.width / 2 - center)).toBeLessThan(1)
+    }
+  }
+  for (const label of ["Tier", "Mode", "TPs"]) {
+    const header = page.getByRole("columnheader", { name: label, exact: true })
+    const index = await header.evaluate(
+      (element) => (element as HTMLTableCellElement).cellIndex,
+    )
+    const box = (await header.boundingBox())!
+    const badgeBox = (await row
+      .getByRole("cell")
+      .nth(index)
+      .locator('[data-slot="badge"]')
+      .boundingBox())!
+    expect(box.width).toBeLessThanOrEqual(96)
+    expect(badgeBox.x - box.x).toBeLessThanOrEqual(9)
+  }
+  await expect(
+    page.locator("thead tr").first().getByRole("columnheader").nth(1),
+  ).toHaveText("Tier")
+  await expect(
+    page.locator("thead tr").first().getByRole("columnheader").nth(2),
+  ).toHaveText("Mode")
+  const badgeGap = badgeBounds[1].x - (badgeBounds[0].x + badgeBounds[0].width)
+  expect(badgeGap).toBeLessThanOrEqual(56)
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-points-rating.png",
+    fullPage: true,
+  })
+})

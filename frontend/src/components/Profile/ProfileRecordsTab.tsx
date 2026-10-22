@@ -1438,8 +1438,9 @@ export function ProfileRecordsTab({
             records={visibleRecords}
             columns={[
               "map",
+              ...(!isBonus ? ["tier" as const] : []),
               "mode",
-              ...(isBonus ? ["stage" as const] : ["tier" as const]),
+              ...(isBonus ? ["stage" as const] : []),
               "tps",
               ...(showWrTime ? ["wrTime" as const] : []),
               "time",

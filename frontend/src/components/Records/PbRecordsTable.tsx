@@ -207,21 +207,21 @@ function PbRecordTableRow({
           />
         </TableCell>
       ) : null}
-      {visibleColumns.has("mode") ? (
-        <TableCell>
-          <ModeBadge mode={record.mode} />
+      {visibleColumns.has("tier") ? (
+        <TableCell className="px-2">
+          <TierBadge tier={record.map_tier} hideWhenUnknown />
         </TableCell>
       ) : null}
-      {visibleColumns.has("tier") ? (
-        <TableCell>
-          <TierBadge tier={record.map_tier} hideWhenUnknown />
+      {visibleColumns.has("mode") ? (
+        <TableCell className="px-2">
+          <ModeBadge mode={record.mode} />
         </TableCell>
       ) : null}
       {visibleColumns.has("stage") ? (
         <TableCell className="font-medium">{record.stage}</TableCell>
       ) : null}
       {visibleColumns.has("tps") ? (
-        <TableCell>
+        <TableCell className="px-2">
           <TeleportsBadge teleports={record.teleports} />
         </TableCell>
       ) : null}
@@ -252,12 +252,12 @@ function PbRecordTableRow({
         </TableCell>
       ) : null}
       {visibleColumns.has("points") ? (
-        <TableCell>
+        <TableCell className="px-2 text-center">
           <PointsBadge points={record.points} />
         </TableCell>
       ) : null}
       {visibleColumns.has("rating") ? (
-        <TableCell>
+        <TableCell className="px-2">
           <div className="flex justify-center">
             <PointsBadge points={record.raw_rating_contribution ?? 0} />
           </div>
@@ -382,8 +382,8 @@ export function PbRecordsTable({
   columns = [
     "player",
     "map",
-    "mode",
     "tier",
+    "mode",
     "tps",
     "time",
     "points",
@@ -442,22 +442,26 @@ export function PbRecordsTable({
                   />
                 </TableHead>
               ) : null}
-              {visibleColumns.has("mode") ? (
-                <TableHead className={`min-w-14 ${tableHeadClassName}`}>
+              {visibleColumns.has("tier") ? (
+                <TableHead
+                  className={`w-px min-w-20 px-2 ${tableHeadClassName}`}
+                >
                   <SortableHeader
-                    column="mode"
-                    label={t("labels.mode")}
+                    column="tier"
+                    label={t("labels.tier")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
                   />
                 </TableHead>
               ) : null}
-              {visibleColumns.has("tier") ? (
-                <TableHead className={`min-w-14 ${tableHeadClassName}`}>
+              {visibleColumns.has("mode") ? (
+                <TableHead
+                  className={`w-px min-w-20 px-2 ${tableHeadClassName}`}
+                >
                   <SortableHeader
-                    column="tier"
-                    label={t("labels.tier")}
+                    column="mode"
+                    label={t("labels.mode")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -476,7 +480,9 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
               {visibleColumns.has("tps") ? (
-                <TableHead className={`min-w-14 ${tableHeadClassName}`}>
+                <TableHead
+                  className={`w-px min-w-20 px-2 ${tableHeadClassName}`}
+                >
                   <SortableHeader
                     column="tps"
                     label={t("labels.tps")}
@@ -526,19 +532,21 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
               {visibleColumns.has("points") ? (
-                <TableHead className={`min-w-24 ${tableHeadClassName}`}>
+                <TableHead
+                  className={`w-px min-w-24 px-2 text-center ${tableHeadClassName}`}
+                >
                   <SortableHeader
                     column="points"
                     label={t("labels.points")}
                     sort={sort}
                     onSortChange={onSortChange}
-                    className={tableHeadClassName}
+                    className={`ml-0 w-full justify-center px-0 ${tableHeadClassName}`}
                   />
                 </TableHead>
               ) : null}
               {visibleColumns.has("rating") ? (
                 <TableHead
-                  className={`min-w-24 text-center ${tableHeadClassName}`}
+                  className={`w-px min-w-24 px-2 text-center ${tableHeadClassName}`}
                 >
                   <SortableHeader
                     column="rating"
@@ -562,7 +570,7 @@ export function PbRecordsTable({
                     }
                     sort={sort}
                     onSortChange={onSortChange}
-                    className={`ml-0 justify-center ${tableHeadClassName}`}
+                    className={`ml-0 w-full justify-center px-0 ${tableHeadClassName}`}
                   />
                 </TableHead>
               ) : null}
@@ -609,9 +617,16 @@ export function PbRecordsTable({
                   const filterCell = (
                     <TableHead
                       key={`filter-${column}`}
-                      className="h-auto border-t border-border/60 px-3 py-3 align-top"
+                      className={cn(
+                        "h-auto border-t border-border/60 px-3 py-3 align-top",
+                        (column === "tps" ||
+                          column === "mode" ||
+                          column === "tier") &&
+                          "px-2",
+                      )}
                     >
-                      {column === "rating" ||
+                      {column === "points" ||
+                      column === "rating" ||
                       column === "time" ||
                       column === "wrTime" ||
                       column === "wrGap" ? (
