@@ -176,7 +176,8 @@ def _build_placeholder_server_group_rows(
         rows.append(
             {
                 "id": group_id,
-                "name": f"Imported v1 server group {str(group_id)[:8]}",
+                "name": f"Imported v1 server group {group_id}",
+                "custom_id": f"v1-{group_id.hex[-22:]}",
                 "api_key": str(group_id),
                 "status": ServerGroupStatus.PENDING,
                 "created_at": now,
