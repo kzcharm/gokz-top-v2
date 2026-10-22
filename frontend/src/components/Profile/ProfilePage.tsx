@@ -88,18 +88,23 @@ import {
 
 const PROFILE_RUNS_SHOW_WR_TIME_COOKIE = "profile_runs_show_wr_time"
 const PROFILE_RUNS_SHOW_WR_GAP_COOKIE = "profile_runs_show_wr_gap"
+const PROFILE_RUNS_SHOW_SERVER_COOKIE = "profile_runs_show_server"
+const PROFILE_RUNS_SHOW_DATETIME_COOKIE = "profile_runs_show_datetime"
+const PROFILE_RUNS_SHOW_DATE_COOKIE = "profile_runs_show_date"
+const PROFILE_RUNS_SHOW_TIME_COOKIE = "profile_runs_show_time"
+const PROFILE_RUNS_SHOW_MILLISECONDS_COOKIE = "profile_runs_show_milliseconds"
 const PROFILE_RUNS_PREFERENCE_MAX_AGE = 60 * 60 * 24 * 365
 
-function readBooleanCookie(name: string) {
+function readBooleanCookie(name: string, defaultValue = false) {
   if (typeof document === "undefined") {
-    return false
+    return defaultValue
   }
 
   const prefix = `${name}=`
   const cookie = document.cookie
     .split("; ")
     .find((entry) => entry.startsWith(prefix))
-  return cookie?.slice(prefix.length) === "true"
+  return cookie ? cookie.slice(prefix.length) === "true" : defaultValue
 }
 
 function writeBooleanCookie(name: string, value: boolean) {
@@ -155,6 +160,24 @@ export function ProfilePage({
   )
   const [showWrGap, setShowWrGap] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_SHOW_WR_GAP_COOKIE),
+  )
+  const [showServer, setShowServer] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_SHOW_SERVER_COOKIE, true),
+  )
+  const [showDate, setShowDate] = useState(() =>
+    readBooleanCookie(
+      PROFILE_RUNS_SHOW_DATE_COOKIE,
+      readBooleanCookie(PROFILE_RUNS_SHOW_DATETIME_COOKIE, true),
+    ),
+  )
+  const [showTime, setShowTime] = useState(() =>
+    readBooleanCookie(
+      PROFILE_RUNS_SHOW_TIME_COOKIE,
+      readBooleanCookie(PROFILE_RUNS_SHOW_DATETIME_COOKIE, true),
+    ),
+  )
+  const [showMilliseconds, setShowMilliseconds] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_SHOW_MILLISECONDS_COOKIE, true),
   )
   const [recordsViewState, setRecordsViewState] = useState(
     DEFAULT_PROFILE_RECORDS_VIEW_STATE,
@@ -785,6 +808,53 @@ export function ProfilePage({
             >
               {t("profile.records.showWrGap")}
             </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showServer}
+              onCheckedChange={(checked) => {
+                setShowServer(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_SERVER_COOKIE, checked)
+              }}
+            >
+              {t("profile.records.showServer")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showDate}
+              onCheckedChange={(checked) => {
+                setShowDate(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_DATE_COOKIE, checked)
+                if (!checked) {
+                  setShowTime(false)
+                  writeBooleanCookie(PROFILE_RUNS_SHOW_TIME_COOKIE, false)
+                }
+              }}
+            >
+              {t("profile.records.showDate")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showDate && showTime}
+              onCheckedChange={(checked) => {
+                setShowTime(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_TIME_COOKIE, checked)
+                if (checked) {
+                  setShowDate(true)
+                  writeBooleanCookie(PROFILE_RUNS_SHOW_DATE_COOKIE, true)
+                }
+              }}
+            >
+              {t("profile.records.showTime")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showMilliseconds}
+              onCheckedChange={(checked) => {
+                setShowMilliseconds(checked)
+                writeBooleanCookie(
+                  PROFILE_RUNS_SHOW_MILLISECONDS_COOKIE,
+                  checked,
+                )
+              }}
+            >
+              {t("profile.records.showMilliseconds")}
+            </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -995,6 +1065,10 @@ export function ProfilePage({
               showHiddenRecords={showHiddenRecords}
               showWrTime={showWrTime}
               showWrGap={showWrGap}
+              showServer={showServer}
+              showDate={showDate}
+              showTime={showDate && showTime}
+              showMilliseconds={showMilliseconds}
               hiddenMapsMutating={
                 hideMapMutation.isPending || unhideMapMutation.isPending
               }

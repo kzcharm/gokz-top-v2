@@ -165,7 +165,7 @@ export const zhCN = {
     gameplay: "玩法",
     visuals: "视觉",
     stage: "关卡",
-    wrTime: "WR 用时",
+    wrTime: "WR",
     wrGap: "WR 差距",
   },
   language: {
@@ -585,6 +585,11 @@ export const zhCN = {
       ratingLabel: "Rating",
     },
     records: {
+      showMilliseconds: "显示毫秒",
+      showServer: "显示服务器",
+      showDate: "显示日期",
+      showTime: "显示时间",
+      date: "日期",
       showWrTime: "显示 WR 用时",
       showWrGap: "显示 WR 差距",
       ratingContributionInfo: "Rating 贡献说明",

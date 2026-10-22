@@ -175,7 +175,7 @@ export const ru = {
     gameplay: "Геймплей",
     visuals: "Визуал",
     stage: "Этап",
-    wrTime: "WR время",
+    wrTime: "WR",
     wrGap: "Разрыв с WR",
   },
   language: {
@@ -610,6 +610,11 @@ export const ru = {
       ratingLabel: "Рейтинг",
     },
     records: {
+      showMilliseconds: "Показывать миллисекунды",
+      showServer: "Показывать сервер",
+      showDate: "Показывать дату",
+      showTime: "Показывать время",
+      date: "Дата",
       showWrTime: "Показывать время WR",
       showWrGap: "Показывать разрыв с WR",
       ratingContributionInfo: "Информация о вкладе в рейтинг",

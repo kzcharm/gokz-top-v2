@@ -48,6 +48,8 @@ interface PbRecordsTableProps {
   columns?: PbRecordsColumn[]
   columnFilters?: Partial<Record<PbRecordsColumn, ReactNode>>
   emptyMessage?: string
+  showMilliseconds?: boolean
+  dateTimeDateOnly?: boolean
   dateTimeDisplay?: DateTimeDisplay
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
@@ -72,6 +74,8 @@ function isInteractiveRowTarget(target: EventTarget | null) {
 }
 
 function PbRecordTableRow({
+  showMilliseconds,
+  dateTimeDateOnly,
   dateTimeDisplay,
   getMapContextMenu,
   getRowContextMenu,
@@ -82,6 +86,8 @@ function PbRecordTableRow({
   visibleColumns,
   renderAdminActions,
 }: {
+  showMilliseconds: boolean
+  dateTimeDateOnly: boolean
   dateTimeDisplay: DateTimeDisplay
   getMapContextMenu?: (record: RecordPublic) => ReactNode
   getRowContextMenu?: (record: RecordPublic) => ReactNode
@@ -230,12 +236,14 @@ function PbRecordTableRow({
                 : undefined,
           )}
         >
-          {record.wr_time == null ? "-" : formatRecordTime(record.wr_time)}
+          {record.wr_time == null
+            ? "-"
+            : formatRecordTime(record.wr_time, showMilliseconds)}
         </TableCell>
       ) : null}
       {visibleColumns.has("time") ? (
         <TableCell className="text-right font-mono font-medium">
-          {formatRecordTime(record.time)}
+          {formatRecordTime(record.time, showMilliseconds)}
         </TableCell>
       ) : null}
       {visibleColumns.has("wrGap") ? (
@@ -267,7 +275,8 @@ function PbRecordTableRow({
         <TableCell className="text-sm text-muted-foreground">
           <FormattedDateTime
             value={record.created_on}
-            display={dateTimeDisplay}
+            display={dateTimeDateOnly ? "absolute" : dateTimeDisplay}
+            dateOnly={dateTimeDateOnly}
             fallback="-"
           />
         </TableCell>
@@ -384,6 +393,8 @@ export function PbRecordsTable({
   ],
   columnFilters,
   emptyMessage = "No records found.",
+  showMilliseconds = true,
+  dateTimeDateOnly = false,
   dateTimeDisplay = "relative",
   sort,
   onSortChange,
@@ -570,7 +581,11 @@ export function PbRecordsTable({
                 <TableHead className={`min-w-32 ${tableHeadClassName}`}>
                   <SortableHeader
                     column="datetime"
-                    label={t("labels.datetime")}
+                    label={t(
+                      dateTimeDateOnly
+                        ? "profile.records.date"
+                        : "labels.datetime",
+                    )}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={tableHeadClassName}
@@ -617,27 +632,12 @@ export function PbRecordsTable({
                     </TableHead>
                   )
 
-                  if (column === "datetime" && showReplayColumn) {
-                    return [
-                      filterCell,
-                      <TableHead
-                        key="filter-replay"
-                        className="h-auto w-10 border-t border-border/60 px-2 py-3 align-top"
-                      />,
-                      ...(renderAdminActions
-                        ? [
-                            <TableHead
-                              key="filter-actions"
-                              className="h-auto w-14 border-t border-border/60 px-2 py-3 align-top"
-                            />,
-                          ]
-                        : []),
-                    ]
-                  }
-
                   return filterCell
                 })}
-                {!columns.includes("datetime") && renderAdminActions ? (
+                {showReplayColumn ? (
+                  <TableHead className="h-auto w-10 border-t border-border/60 px-2 py-3 align-top" />
+                ) : null}
+                {renderAdminActions ? (
                   <TableHead className="h-auto w-14 border-t border-border/60 px-2 py-3 align-top" />
                 ) : null}
               </TableRow>
@@ -648,6 +648,8 @@ export function PbRecordsTable({
               records.map((record) => (
                 <PbRecordTableRow
                   key={record.uuid}
+                  showMilliseconds={showMilliseconds}
+                  dateTimeDateOnly={dateTimeDateOnly}
                   dateTimeDisplay={dateTimeDisplay}
                   getMapContextMenu={getMapContextMenu}
                   getRowContextMenu={getRowContextMenu}

@@ -1107,10 +1107,10 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByText("Server 1", { exact: true })).toHaveCount(0)
   await expect(page.getByText("Server 2", { exact: true })).toBeVisible()
   await expect(page.getByText("NUB PB")).toBeVisible()
-  await expect(page.getByText("51.888").first()).toBeVisible()
+  await expect(page.getByText("0:51.888").first()).toBeVisible()
   await expect(page.getByText(/11 \/ 12 .*91\.7%/)).toBeVisible()
   await expect(page.getByText("PRO PB")).toBeVisible()
-  await expect(page.getByText("37.586").first()).toBeVisible()
+  await expect(page.getByText("0:37.586").first()).toBeVisible()
   await expect(page.getByText(/[-N/A]+ \/ 6/)).toBeVisible()
 
   await page

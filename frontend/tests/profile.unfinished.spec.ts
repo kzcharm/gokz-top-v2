@@ -451,13 +451,13 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
   await expect(
     page
       .getByTestId("profile-unfinished-column-pro")
-      .getByRole("columnheader", { name: "WR Time" }),
+      .getByRole("columnheader", { name: "WR" }),
   ).toBeVisible()
 
   await expectRowOrder(page, "nub", ["kz_beta", "kz_delta", "kz_gamma"])
   await expectRowOrder(page, "pro", ["kz_delta", "kz_gamma"])
-  await expect(page.getByText("45.111")).toBeVisible()
-  await expect(page.getByText("55.222")).toBeVisible()
+  await expect(page.getByText("0:45.111")).toBeVisible()
+  await expect(page.getByText("0:55.222")).toBeVisible()
   await expect(
     page.locator('[data-testid="profile-unfinished-nub-row-980203"]'),
   ).toContainText("-")
@@ -495,7 +495,7 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
 
   await page
     .getByTestId("profile-unfinished-column-nub")
-    .getByRole("button", { name: "WR Time" })
+    .getByRole("button", { name: "WR" })
     .click()
   await expectRowOrder(page, "nub", ["kz_epsilon", "kz_alpha", "kz_delta"])
   await expectRowOrder(page, "pro", [])

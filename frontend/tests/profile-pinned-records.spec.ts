@@ -503,22 +503,22 @@ test("Own profile can show and filter WR time and WR gap columns", async ({
   await page.reload()
 
   await expect(
-    page.getByRole("columnheader", { name: "WR Time", exact: true }),
+    page.getByRole("columnheader", { name: "WR", exact: true }),
   ).toBeVisible()
   await expect(
     page.getByRole("columnheader", { name: "WR Gap", exact: true }),
   ).toBeVisible()
-  await expect(page.getByText("40.000", { exact: true })).toBeVisible()
+  await expect(page.getByText("0:40.000", { exact: true })).toBeVisible()
   await expect(page.getByText("-4.24", { exact: true })).toBeVisible()
   await expect(
     page
       .getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
-      .getByText("40.000", { exact: true }),
+      .getByText("0:40.000", { exact: true }),
   ).toHaveClass(/text-\[#258ac7\]/)
   await expect(
     page
       .getByTestId(`pb-record-row-${nubRecords[1].uuid}`)
-      .getByText("41.000", { exact: true }),
+      .getByText("0:41.000", { exact: true }),
   ).toHaveClass(/text-\[#d39e00\]/)
 
   await page.getByLabel("Filter by wr time range").click()
@@ -564,7 +564,7 @@ test("WR time and gap preset filters stay active while their columns are hidden"
   await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
 
   await expect(
-    page.getByRole("columnheader", { name: "WR Time", exact: true }),
+    page.getByRole("columnheader", { name: "WR", exact: true }),
   ).toHaveCount(0)
   await expect(
     page.getByRole("columnheader", { name: "WR Gap", exact: true }),
@@ -580,7 +580,7 @@ test("WR time and gap preset filters stay active while their columns are hidden"
   await expect(page.getByText("kz_alpha")).toBeVisible()
   await expect(page.getByText("kz_beta")).toHaveCount(0)
   await expect(
-    page.getByRole("columnheader", { name: "WR Time", exact: true }),
+    page.getByRole("columnheader", { name: "WR", exact: true }),
   ).toHaveCount(0)
   await expect(
     page.getByRole("columnheader", { name: "WR Gap", exact: true }),
@@ -603,4 +603,148 @@ test("Other profiles expose WR column options without hidden records", async ({
   await expect(
     page.getByRole("menuitemcheckbox", { name: "Show hidden records" }),
   ).toHaveCount(0)
+})
+
+for (const ownProfile of [true, false]) {
+  test(`${ownProfile ? "Own" : "Other"} profile remembers server and date column visibility`, async ({
+    page,
+  }) => {
+    await installPinnedRecordRoutes(
+      page,
+      ownProfile ? steamid64 : "76561198000000099",
+    )
+    await page.goto(`/profile/${steamid64}/runs`)
+
+    const serverHeader = page.getByRole("columnheader", {
+      name: "Server",
+      exact: true,
+    })
+    const dateHeader = page.getByRole("columnheader", {
+      name: "Datetime",
+      exact: true,
+    })
+    const row = page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+    await expect(serverHeader).toBeVisible()
+    await expect(dateHeader).toBeVisible()
+    await expect(row).toBeVisible()
+    const initialCellCount = await row.getByRole("cell").count()
+
+    for (const label of ["Show server", "Show date"]) {
+      await page.getByRole("button", { name: "Record page settings" }).click()
+      const option = page.getByRole("menuitemcheckbox", { name: label })
+      await expect(option).toBeChecked()
+      await option.click()
+    }
+    await expect(serverHeader).toHaveCount(0)
+    await expect(dateHeader).toHaveCount(0)
+    await expect(row.getByRole("cell")).toHaveCount(initialCellCount - 2)
+    await expect(
+      page.locator("thead tr").nth(1).getByRole("columnheader"),
+    ).toHaveCount(initialCellCount - 2)
+    await expect(row.getByText("Seed Server", { exact: true })).toHaveCount(0)
+
+    await page.reload()
+    await expect(serverHeader).toHaveCount(0)
+    await expect(dateHeader).toHaveCount(0)
+
+    for (const label of ["Show server", "Show date"]) {
+      await page.getByRole("button", { name: "Record page settings" }).click()
+      const option = page.getByRole("menuitemcheckbox", { name: label })
+      await expect(option).not.toBeChecked()
+      await option.click()
+    }
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    await page
+      .getByRole("menuitemcheckbox", { name: "Show time", exact: true })
+      .click()
+    await page.reload()
+    await expect(serverHeader).toBeVisible()
+    await expect(dateHeader).toBeVisible()
+    await expect(row.getByText("Seed Server", { exact: true })).toBeVisible()
+  })
+}
+
+test("Run time requires date and both preferences survive reloads", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  await page.addInitScript(() => {
+    localStorage.setItem("gokz-datetime-format", "iso")
+    localStorage.setItem("gokz-hour-cycle", "24h")
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  const row = page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+  await expect(row).toBeVisible()
+  await expect(
+    row.getByRole("cell").filter({ hasText: /2026-03-31 \d{2}:\d{2}/ }),
+  ).toBeVisible()
+
+  const toggle = async (label: string) => {
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    await page
+      .getByRole("menuitemcheckbox", { name: label, exact: true })
+      .click()
+  }
+  await toggle("Show time")
+  await page.reload()
+  await expect(
+    page.getByRole("columnheader", { name: "Date", exact: true }),
+  ).toBeVisible()
+  await expect(row.getByText("2026-03-31", { exact: true })).toBeVisible()
+
+  await toggle("Show date")
+  await page.reload()
+  await expect(
+    page.getByRole("columnheader", { name: "Date", exact: true }),
+  ).toHaveCount(0)
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show time", exact: true }),
+  ).not.toBeChecked()
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show time", exact: true })
+    .click()
+  await page.reload()
+  await expect(
+    row.getByRole("cell").filter({ hasText: /2026-03-31 \d{2}:\d{2}/ }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show date", exact: true }),
+  ).toBeChecked()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show time", exact: true }),
+  ).toBeChecked()
+})
+
+test("Run milliseconds option also formats WR times and survives reloads", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  await page.goto(`/profile/${steamid64}/runs`)
+  const row = page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+  await expect(row.getByText("0:42.123", { exact: true })).toBeVisible()
+  const toggle = async (label: string) => {
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    await page
+      .getByRole("menuitemcheckbox", { name: label, exact: true })
+      .click()
+  }
+  await toggle("Show WR time")
+  await expect(row.getByText("0:40.000", { exact: true })).toBeVisible()
+  await toggle("Show milliseconds")
+  await expect(row.getByText("0:42", { exact: true })).toBeVisible()
+  await expect(row.getByText("0:40", { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(row.getByText("0:42", { exact: true })).toBeVisible()
+  await expect(row.getByText("0:40", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  const option = page.getByRole("menuitemcheckbox", {
+    name: "Show milliseconds",
+  })
+  await expect(option).not.toBeChecked()
+  await option.click()
+  await page.reload()
+  await expect(row.getByText("0:42.123", { exact: true })).toBeVisible()
+  await expect(row.getByText("0:40.000", { exact: true })).toBeVisible()
 })

@@ -180,7 +180,7 @@ test("admin confirms cutoff, cancels, retries errors and refreshes after deletio
   await expect(player.locator("tbody tr")).toHaveCount(0)
   await player.locator("summary > svg").click()
   await expect(player.locator("tbody tr")).toHaveCount(2)
-  await expect(player.getByText("30.123", { exact: true })).toBeVisible()
+  await expect(player.getByText("0:30.123", { exact: true })).toBeVisible()
   await expect(player.getByText("NKZ", { exact: true })).toBeVisible()
   await expect(player.locator("tbody tr").first()).toContainText(
     "Preview Server",

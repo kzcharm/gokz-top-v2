@@ -169,7 +169,7 @@ export const en = {
     gameplay: "Gameplay",
     visuals: "Visuals",
     stage: "Stage",
-    wrTime: "WR Time",
+    wrTime: "WR",
     wrGap: "WR Gap",
   },
   language: {
@@ -598,6 +598,11 @@ export const en = {
       ratingLabel: "Rating",
     },
     records: {
+      showMilliseconds: "Show milliseconds",
+      showServer: "Show server",
+      showDate: "Show date",
+      showTime: "Show time",
+      date: "Date",
       showWrTime: "Show WR time",
       showWrGap: "Show WR gap",
       ratingContributionInfo: "Rating contribution info",

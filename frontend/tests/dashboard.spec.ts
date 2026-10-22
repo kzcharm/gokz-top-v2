@@ -436,7 +436,7 @@ test("Public dashboard renders recent records and prepends live updates", async 
   await expect(page.getByText("kz_seed")).toBeVisible()
   await expect(page.getByText("Main")).toBeVisible()
   await expect(page.getByText("Seed Server")).toBeVisible()
-  await expect(page.getByText("42.123")).toBeVisible()
+  await expect(page.getByText("0:42.123")).toBeVisible()
 
   await page.waitForFunction(() => {
     return (
@@ -456,7 +456,7 @@ test("Public dashboard renders recent records and prepends live updates", async 
     page.getByRole("link", { name: "Live Server Group" }),
   ).toHaveAttribute("href", "/servers/group/live-server-group")
   await expect(page.getByText("Live Server", { exact: true })).toHaveCount(0)
-  await expect(page.getByText("38.456")).toBeVisible()
+  await expect(page.getByText("0:38.456")).toBeVisible()
 
   const firstRow = page.locator("tbody tr").first()
   await expect(firstRow).toContainText("Live Runner")

@@ -990,6 +990,10 @@ export function ProfileRecordsTab({
   showHiddenRecords,
   showWrTime,
   showWrGap,
+  showServer,
+  showDate,
+  showTime,
+  showMilliseconds,
   hiddenMapsMutating,
   pinnedRecordKeys,
   pinnedRecordsMutating,
@@ -1009,6 +1013,10 @@ export function ProfileRecordsTab({
   showHiddenRecords: boolean
   showWrTime: boolean
   showWrGap: boolean
+  showServer: boolean
+  showDate: boolean
+  showTime: boolean
+  showMilliseconds: boolean
   hiddenMapsMutating: boolean
   pinnedRecordKeys: Set<string>
   pinnedRecordsMutating: boolean
@@ -1438,8 +1446,8 @@ export function ProfileRecordsTab({
               ...(showWrGap ? ["wrGap" as const] : []),
               "points",
               ...(!isBonus ? ["rating" as const] : []),
-              "server",
-              "datetime",
+              ...(showServer ? ["server" as const] : []),
+              ...(showDate ? ["datetime" as const] : []),
             ]}
             showReplayColumn
             columnFilters={{
@@ -1606,7 +1614,9 @@ export function ProfileRecordsTab({
               ),
             }}
             emptyMessage={emptyMessage}
-            dateTimeDisplay="contextual-relative"
+            dateTimeDisplay="absolute"
+            dateTimeDateOnly={!showTime}
+            showMilliseconds={showMilliseconds}
             sort={sort}
             onSortChange={handleSortChange}
             onRowClick={setHistoryRecord}
