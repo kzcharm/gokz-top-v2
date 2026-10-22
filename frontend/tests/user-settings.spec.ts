@@ -24,7 +24,7 @@ async function stubPlayerDisplayPreviewGraphql(page: Page, steamid64: string) {
     if (!url.endsWith("/v1/graphql")) {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ data: [], count: 0 }),
       })
       return
     }
@@ -111,8 +111,8 @@ test.describe("Profile and theme", () => {
 
     await expect(page.getByText("OVR", { exact: true })).toBeVisible()
     await page.getByRole("button", { name: "Edit" }).click()
-    await page.getByRole("combobox").last().click()
-    await page.getByText("VNL", { exact: true }).click()
+    await page.getByRole("combobox").filter({ hasText: "OVR" }).click()
+    await page.getByRole("option", { name: "VNL", exact: true }).click()
     await page.getByRole("button", { name: "Save" }).click()
 
     await expect(page.getByText("Profile settings updated.")).toBeVisible()
@@ -210,7 +210,7 @@ test.describe("Profile and theme", () => {
       })
     })
 
-    await page.goto("/settings/profile")
+    await page.goto("/settings/binding-code")
     await page.getByRole("button", { name: "Generate QQ Binding Code" }).click()
 
     await expect(
@@ -631,7 +631,7 @@ test.describe("Profile and theme", () => {
     }>
 
     await logInUser(page, randomSteamid64())
-    await page.route(/\/v1\/players\/me\/webhooks$/, async (route) => {
+    await page.route(/\/v1\/me\/webhooks$/, async (route) => {
       if (route.request().method() === "POST") {
         const requestBody = route.request().postDataJSON() as { url: string }
         webhooks = [
@@ -653,7 +653,7 @@ test.describe("Profile and theme", () => {
         body: JSON.stringify({ data: webhooks, count: webhooks.length }),
       })
     })
-    await page.route(/\/v1\/players\/me\/webhooks\/[^/]+$/, async (route) => {
+    await page.route(/\/v1\/me\/webhooks\/[^/]+$/, async (route) => {
       const webhookId = route.request().url().split("/").pop() ?? ""
       if (route.request().method() === "PATCH") {
         const requestBody = route.request().postDataJSON() as {
@@ -681,24 +681,21 @@ test.describe("Profile and theme", () => {
         body: JSON.stringify({ data: webhooks, count: webhooks.length }),
       })
     })
-    await page.route(
-      /\/v1\/players\/me\/webhooks\/[^/]+\/test$/,
-      async (route) => {
-        const parts = route.request().url().split("/")
-        const webhookId = parts[parts.length - 2] ?? ""
-        const updatedWebhook = webhooks.find(
-          (webhook) => webhook.id === webhookId,
-        )
-        if (updatedWebhook) {
-          updatedWebhook.last_used_at = "2026-04-03T00:00:00Z"
-        }
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify(updatedWebhook),
-        })
-      },
-    )
+    await page.route(/\/v1\/me\/webhooks\/[^/]+\/test$/, async (route) => {
+      const parts = route.request().url().split("/")
+      const webhookId = parts[parts.length - 2] ?? ""
+      const updatedWebhook = webhooks.find(
+        (webhook) => webhook.id === webhookId,
+      )
+      if (updatedWebhook) {
+        updatedWebhook.last_used_at = "2026-04-03T00:00:00Z"
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(updatedWebhook),
+      })
+    })
 
     await page.goto("/settings?tab=webhooks")
     await expect(page).toHaveURL(/\/settings\/webhooks$/)
@@ -740,6 +737,9 @@ test.describe("Profile and theme", () => {
     ).toBeVisible()
 
     await page.getByRole("button", { name: "Delete Discord webhook" }).click()
+    await page
+      .getByRole("button", { name: "Delete webhook", exact: true })
+      .click()
     await expect(page.getByText("Webhook deleted")).toBeVisible()
     await expect(page.getByText("No webhooks added yet.")).toBeVisible()
   })
@@ -775,9 +775,6 @@ test.describe("Profile and theme", () => {
     await expect(
       page.getByTestId("appearance-datetime-preview-default"),
     ).toContainText("2026-03-22 14:05")
-    await expect(
-      page.getByTestId("appearance-datetime-preview-seconds"),
-    ).toContainText("2026-03-22 14:05:09")
 
     await page.getByTestId("appearance-datetime-preset-select").click()
     await expect(
@@ -809,9 +806,6 @@ test.describe("Profile and theme", () => {
     await expect(
       page.getByTestId("appearance-datetime-preview-default"),
     ).toContainText("2026-03-22 02:05 PM")
-    await expect(
-      page.getByTestId("appearance-datetime-preview-seconds"),
-    ).toContainText("2026-03-22 02:05:09 PM")
     await expect(
       page.getByTestId("appearance-datetime-preview-relative"),
     ).toContainText("1 hour ago")

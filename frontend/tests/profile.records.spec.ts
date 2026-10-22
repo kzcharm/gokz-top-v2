@@ -441,7 +441,7 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
     .first()
   await expect(alphaMapTile).toHaveAttribute(
     "style",
-    /\/v1\/maps\/preview-image\?map_name=kz_seed_alpha/,
+    /github\.com\/KZGlobalTeam\/map-images\/raw\/public\/webp\/kz_seed_alpha\.webp/,
   )
   await expect(
     page.getByRole("link", { name: "Seed Server Group" }),
@@ -904,6 +904,17 @@ test("Profile records map tiles include API preview fallback URLs", async ({
   page,
 }) => {
   await installProfileShellRoutes(page)
+  await page.route("**/v1/graphql", async (route) => {
+    const body = route.request().postDataJSON() as { query?: string }
+    if (body.query?.includes("query MapImages")) {
+      await route.fulfill({
+        status: 503,
+        json: { errors: [{ message: "Image lookup unavailable" }] },
+      })
+      return
+    }
+    await route.fallback()
+  })
 
   await page.route(/\/v1\/players\/$/, async (route) => {
     await route.fulfill({

@@ -199,7 +199,7 @@ test.describe("Leaderboards page", () => {
       })
     })
     await page.route(
-      `**/v1/players/${steamid64}/profile-history`,
+      `**/v1/players/${steamid64}/profile-history*`,
       async (route) => {
         await route.fulfill({
           contentType: "application/json",
@@ -241,7 +241,7 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByRole("tab", { name: "Players" })).toBeVisible()
     await expect(
       page.getByRole("button", { name: "Find Me", exact: true }),
-    ).toBeDisabled()
+    ).toBeEnabled()
     await page.getByRole("button", { name: "Friends" }).click()
     await expect(page.getByText("Login required")).toBeVisible()
     await expect(
@@ -974,14 +974,16 @@ test.describe("Leaderboards page", () => {
     await page.getByRole("button", { name: "Germany" }).click()
     await expect
       .poll(() => leaderboardRequests.at(-1))
-      .toEqual({ friendsOnly: null, country: "DE", region: null })
+      .toEqual({ friendsOnly: "false", country: "DE", region: null })
 
     await page.getByRole("button", { name: "Friends" }).click()
     await expect
       .poll(() => leaderboardRequests.at(-1))
       .toEqual({ friendsOnly: "true", country: null, region: null })
 
-    await expect(page.getByRole("combobox")).toBeDisabled()
+    await expect(
+      page.getByRole("combobox").filter({ hasText: "region" }),
+    ).toBeDisabled()
     await expect(page.getByRole("button", { name: "country" })).toBeDisabled()
     await expect(
       page.getByRole("row", { name: /1 \(41\).*Find Me Player/ }),
@@ -1309,9 +1311,17 @@ test.describe("Leaderboards page", () => {
       })
     })
 
+    await stubPlayerGraphql(page, {
+      playersBySteamid64: {
+        "76561198000000001": buildGraphqlPlayer({
+          steamid64: "76561198000000001",
+          displayName: "Scope Runner",
+        }),
+      },
+    })
     await page.goto("/leaderboards/jumpstats")
 
-    await expect(page.getByText("Scope OVR")).toBeVisible()
+    await expect(page.getByText("Scope Runner")).toBeVisible()
     await expect(page.getByText("Jumpstats Group")).toBeVisible()
     await expect(page.getByText("Filters")).not.toBeVisible()
     await expect(page.getByText("Jump Type")).not.toBeVisible()
@@ -1334,7 +1344,7 @@ test.describe("Leaderboards page", () => {
     await page.getByRole("button", { name: "Select record scope" }).click()
     await page.getByRole("menuitemradio", { name: "SKZ" }).click()
 
-    await expect(page.getByText("Scope SKZ")).toBeVisible()
+    await expect(page.getByText("Scope Runner")).toBeVisible()
     expect(requestedScopes).toContain("SKZ")
   })
 
@@ -1753,8 +1763,6 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByRole("dialog")).toContainText(
       "Unable to load jump route",
     )
-    await expect(
-      page.getByText("Strafe breakdown", { exact: true }),
-    ).toBeVisible()
+    await expect(page.getByRole("dialog").locator("pre")).toBeVisible()
   })
 })

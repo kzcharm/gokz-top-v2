@@ -17,11 +17,13 @@ export async function logInUser(
     localStorage.setItem("access_token", token)
   }, accessToken)
   await page.goto("/")
-  await expect(page.getByTestId("user-menu")).toBeVisible()
+  await expect(
+    page.getByTestId(/^sidebar-user-(settings|notifications)-link$/),
+  ).toBeVisible()
 }
 
 export async function logOutUser(page: Page) {
-  await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log Out" }).click()
+  await page.goto("/settings/profile")
+  await page.getByTestId("settings-profile-logout-button").click()
   await page.waitForURL(/(\/v1\/login\/steam|steamcommunity\.com\/openid)/)
 }

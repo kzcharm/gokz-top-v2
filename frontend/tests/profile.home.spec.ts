@@ -562,8 +562,12 @@ for (const timezoneId of ["America/Los_Angeles", "Pacific/Kiritimati"]) {
           })
         }
 
+        await page.keyboard.press("Escape")
+        await expect(page.getByRole("tooltip")).toHaveCount(0)
         await page.getByTestId("profile-activity-cell-2026-04-01").hover()
         await expect(tooltip).toHaveText(`0 records on ${emptyDate}`)
+        await page.keyboard.press("Escape")
+        await expect(page.getByRole("tooltip")).toHaveCount(0)
         await page.getByTestId("profile-activity-cell-2026-01-01").hover()
         await expect(tooltip).toContainText("1 record on ")
       })

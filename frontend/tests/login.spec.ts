@@ -5,6 +5,12 @@ import { logInUser, logOutUser } from "./utils/user"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/v1/login/steam", (route) =>
+    route.fulfill({ contentType: "text/html", body: "Steam Login" }),
+  )
+})
+
 async function expectSteamLoginRedirect(page: Page) {
   await expect
     .poll(() => page.url())
@@ -65,7 +71,8 @@ test("Auth callback restores a same-site return path", async ({
 })
 
 test("Redirects to /login when token is wrong", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.goto("/servers")
+  await page.evaluate(() => {
     localStorage.setItem("access_token", "invalid_token")
   })
   await page.goto("/settings")

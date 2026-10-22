@@ -415,19 +415,15 @@ test("Profile stats renders the most played server pie chart with timeline playb
   await expect(
     page.getByTestId("profile-stats-view-last-365-days"),
   ).toBeVisible()
-  await expect(page.getByTestId("profile-stats-view-2024")).toBeVisible()
-  await expect(page.getByTestId("profile-stats-view-2025")).toBeVisible()
-  await expect(page.getByTestId("profile-stats-view-2026")).toBeVisible()
-  await expect(page.getByTestId("profile-stats-view-2024")).toHaveClass(
-    /bg-card/,
-  )
-  expect(
-    await page
-      .locator('[data-testid^="profile-stats-view-"]')
-      .evaluateAll((elements) =>
-        elements.map((element) => element.textContent?.trim() ?? ""),
-      ),
-  ).toEqual(["2024", "2025", "2026", "Recent", "All time"])
+  const yearInput = page.getByTestId("profile-stats-year-input")
+  await expect(yearInput).toHaveValue("2026")
+  await yearInput.fill("2024")
+  await yearInput.press("Enter")
+  await expect(page.getByTestId("profile-stats-previous-year")).toBeDisabled()
+  await page.getByTestId("profile-stats-next-year").click()
+  await expect(yearInput).toHaveValue("2025")
+  await yearInput.fill("2024")
+  await yearInput.press("Enter")
   await expect(
     page.getByTestId("profile-stats-most-played-server-chart"),
   ).toBeVisible()
@@ -444,22 +440,19 @@ test("Profile stats renders the most played server pie chart with timeline playb
   await expect(
     page.getByTestId("profile-stats-playback-button"),
   ).toHaveAttribute("aria-label", "Pause")
-  await page.waitForTimeout(1800)
-
-  await expect(page.getByTestId("profile-stats-view-2024")).toHaveClass(
-    /bg-card/,
-  )
+  await expect(yearInput).toHaveValue("2024")
+  await page.getByTestId("profile-stats-playback-button").click()
   await expect(
     page.getByTestId("profile-stats-most-played-server-chart"),
   ).toHaveAttribute("aria-label", /2024/)
   await expect(
     page.getByTestId("profile-stats-most-played-maps-chart"),
   ).toBeVisible()
-  await expect(
-    page.getByTestId("profile-stats-maps-metric-records"),
-  ).toHaveClass(/bg-card/)
-  await page.getByTestId("profile-stats-maps-metric-hours").click()
   await expect(page.getByTestId("profile-stats-maps-metric-hours")).toHaveClass(
     /bg-card/,
   )
+  await page.getByTestId("profile-stats-maps-metric-records").click()
+  await expect(
+    page.getByTestId("profile-stats-maps-metric-records"),
+  ).toHaveClass(/bg-card/)
 })

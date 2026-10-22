@@ -31,7 +31,7 @@ async function stubCurrentUser(page: Page, steamid64: string) {
 
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ data: [], count: 0 }),
     })
   })
 }

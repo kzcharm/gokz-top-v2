@@ -64,6 +64,7 @@ const seedServers = {
       map_tier: 2,
       created_at: "2026-03-12T10:00:00Z",
       updated_at: "2026-03-12T10:00:00Z",
+      group_id: "019d0000-0000-7000-8000-000000000001",
       group: { id: "019d0000-0000-7000-8000-000000000001", name: "Seed Group" },
       live_status: {
         hostname: "Alpha Seed",
@@ -112,6 +113,7 @@ const snapshotServers = {
       map_tier: 7,
       created_at: "2026-03-12T10:00:00Z",
       updated_at: "2026-03-12T10:00:00Z",
+      group_id: "019d0000-0000-7000-8000-000000000002",
       group: {
         id: "019d0000-0000-7000-8000-000000000002",
         name: "Berlin Group",
@@ -147,6 +149,7 @@ const snapshotServers = {
       map_tier: 8,
       created_at: "2026-03-12T10:00:00Z",
       updated_at: "2026-03-12T10:00:00Z",
+      group_id: "019d0000-0000-7000-8000-000000000002",
       group: {
         id: "019d0000-0000-7000-8000-000000000002",
         name: "Berlin Group",
@@ -211,6 +214,7 @@ const updatedGammaServer = {
     map_tier: 8,
     created_at: "2026-03-12T10:00:00Z",
     updated_at: "2026-03-12T10:05:00Z",
+    group_id: "019d0000-0000-7000-8000-000000000002",
     group: { id: "019d0000-0000-7000-8000-000000000002", name: "Berlin Group" },
     live_status: {
       hostname: "Gamma Live Updated",
@@ -647,7 +651,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
     })
   })
 
-  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -659,7 +663,9 @@ test("Public servers page supports live updates, filters, and route-bound detail
 
   await expect(page).toHaveURL(/\/servers(\?.*)?$/)
   await expect.poll(() => new URL(page.url()).search).toBe("")
-  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
+  await expect(
+    page.getByRole("textbox", { name: "Search servers" }),
+  ).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
   await expect(
     page
@@ -670,11 +676,11 @@ test("Public servers page supports live updates, filters, and route-bound detail
     .getByTestId("server-card-10.0.0.1:27015")
     .getByRole("img", { name: "GlobalAPI records enabled" })
     .hover()
-  await expect(page.getByText("GlobalAPI check")).toBeVisible()
+  await expect(page.getByRole("tooltip")).toBeVisible()
   await expect(page.getByText("Settings enforcer")).toBeVisible()
   await expect(page.getByText("KZT")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: /All/ })).toBeVisible()
+  await expect(page.getByRole("button", { name: /Seed Group/ })).toBeVisible()
   await expect
     .poll(async () =>
       page
@@ -779,9 +785,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await page.getByRole("button", { name: "Online" }).click()
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
 
-  const searchInput = page.getByPlaceholder(
-    "Search IP, hostname, map, city, group...",
-  )
+  const searchInput = page.getByRole("textbox", { name: "Search servers" })
   await searchInput.fill("Gamma Live")
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
@@ -1151,7 +1155,7 @@ test("Public servers page downloads a generic config for the visible sorted serv
     })
   })
 
-  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -1165,9 +1169,7 @@ test("Public servers page downloads a generic config for the visible sorted serv
   await page.goto("/servers")
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
 
-  await page
-    .getByPlaceholder("Search IP, hostname, map, city, group...")
-    .fill("kz_")
+  await page.getByRole("textbox", { name: "Search servers" }).fill("kz_")
 
   const downloadPromise = page.waitForEvent("download")
   await page.getByTestId("download-servers-config-button").click()
@@ -1242,7 +1244,7 @@ test("Add server button prompts for Steam login when logged out", async ({
     })
   })
 
-  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -1297,7 +1299,7 @@ test("Logged-in users can add a server from the servers page", async ({
   })
   await logInUser(page, randomSteamid64())
 
-  await page.route(/\/v1\/servers\/(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, async (route) => {
     if (route.request().method() === "POST") {
       expect(route.request().postDataJSON()).toEqual({
         ip: "10.0.0.4",

@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
+import { issueSessionToken } from "./utils/privateApi"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -13,7 +14,17 @@ async function stubMapImageGraphql(
       query?: string
       variables?: {
         inputs?: Array<{ mapName: string; workshopId?: string | null }>
+        steamid64s?: string[]
       }
+    }
+    if (body.query?.includes("players(")) {
+      // Keep the identities supplied by the record fixtures deterministic.
+      await route.fulfill({
+        json: {
+          data: { players: (body.variables?.steamid64s ?? []).map(() => null) },
+        },
+      })
+      return
     }
     if (!body.query?.includes("query MapImages")) {
       await route.fallback()
@@ -43,6 +54,7 @@ async function stubMapImageGraphql(
 }
 
 async function stubRegions(page: Page) {
+  await stubMapImageGraphql(page)
   await page.route("**/v1/regions", async (route) => {
     await route.fulfill({
       status: 200,
@@ -766,6 +778,14 @@ test("Maps catalog filters maps with collapsible range controls", async ({
 test("Maps catalog supports search, sorting, pagination, and map detail navigation", async ({
   page,
 }) => {
+  const { accessToken } = await issueSessionToken({
+    request: page.request,
+    steamid64: currentUserSteamid64,
+    name: "My Runner",
+  })
+  await page.addInitScript((token) => {
+    localStorage.setItem("access_token", token)
+  }, accessToken)
   let mapsRequestUrl = ""
   const mapImageBatches: Array<
     Array<{ mapName: string; workshopId: string | null }>
@@ -792,33 +812,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   })
 
   await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
-    mapsRequestUrl = route.request().url()
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(seededMaps),
-    })
-  })
-
-  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
-    const name = decodeURIComponent(
-      route.request().url().split("/name/")[1] ?? "",
-    )
-    const map = seededMaps.find((entry) => entry.name === name)
-
-    if (!map) {
-      await route.fulfill({
-        status: 404,
-        contentType: "application/json",
-        body: JSON.stringify({ detail: "Map not found" }),
-      })
-      return
+    if (new URL(route.request().url()).searchParams.has("scope")) {
+      mapsRequestUrl = route.request().url()
     }
-
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(map),
+      body: JSON.stringify(
+        seededMaps.map((map) => ({ ...map, validated: true })),
+      ),
     })
   })
 
@@ -1018,7 +1020,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page.keyboard.press("KeyA")
   await expect(pageInput).toHaveValue("1")
 
-  expect(new URL(mapsRequestUrl).searchParams.get("is_validated")).toBe("true")
+  expect(new URL(mapsRequestUrl).searchParams.get("include_invalid")).toBe(
+    "true",
+  )
   expect(new URL(mapsRequestUrl).searchParams.get("scope")).toBe("OVR")
   expect(new URL(mapsRequestUrl).searchParams.get("difficulty")).toBeNull()
 
@@ -1137,9 +1141,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
       ),
     )
     .toBe(true)
-  await expect(page.getByText("My Runner")).toBeVisible()
+  await expect(page.getByRole("table").getByText("My Runner")).toBeVisible()
 
-  await page.getByRole("switch", { name: "Pro only" }).click()
+  await page.getByRole("button", { name: "NUB", exact: true }).click()
   await expect
     .poll(() =>
       leaderboardRequests.some(
@@ -1172,8 +1176,8 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     )
     .toBe(true)
 
-  await page.getByRole("combobox").first().click()
-  await page.getByRole("option", { name: /^EU$/ }).click()
+  await page.getByRole("combobox").filter({ hasText: "region" }).click()
+  await page.getByRole("option", { name: /EU|Europe/ }).click()
   await expect
     .poll(() =>
       leaderboardRequests.some(
@@ -1192,7 +1196,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
   await expect(
     page.getByText(
-      "No stage 0 pro records found for this map in the selected scope.",
+      "No stage 0 PRO records found for this map in the selected scope.",
     ),
   ).toBeVisible()
 
@@ -1255,11 +1259,11 @@ test("Map top shows grouped server links and ungrouped server names", async ({
 }) => {
   await stubRegions(page)
 
-  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(seededMaps[0]),
+      body: JSON.stringify([seededMaps[0]]),
     })
   })
 
@@ -1322,11 +1326,11 @@ test("Map WR history shows WR events and switches record type", async ({
   const historyRequests: string[] = []
   await stubRegions(page)
 
-  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(seededMaps[0]),
+      body: JSON.stringify([seededMaps[0]]),
     })
   })
   await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, async (route) => {
@@ -1441,7 +1445,9 @@ test("Map WR history shows WR events and switches record type", async ({
   await page.goto("/maps/kz_alpha/wr_history")
 
   await expect(page.getByRole("tab", { name: "WR History" })).toBeVisible()
-  await expect(page.getByText("WR History", { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "WR History", exact: true }),
+  ).toBeVisible()
   await expect(page.getByTestId("map-wr-history-chart")).toBeVisible()
   await expect(page.getByTestId("map-wr-history-legend")).toContainText(
     "Alpha Holder",
@@ -1466,7 +1472,7 @@ test("Map WR history shows WR events and switches record type", async ({
 
 test("Map detail shows not found for an unknown map", async ({ page }) => {
   await stubRegions(page)
-  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 404,
       contentType: "application/json",
@@ -1483,11 +1489,11 @@ test("Map detail shows leaderboard error state when PB loading fails", async ({
   page,
 }) => {
   await stubRegions(page)
-  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(seededMaps[0]),
+      body: JSON.stringify([seededMaps[0]]),
     })
   })
 
@@ -1527,11 +1533,11 @@ test("Map detail opens the replay viewer for an available run replay", async ({
   })
   await stubRegions(page)
 
-  await page.route(/\/v1\/maps\/name\/[^/?]+(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(seededMaps[0]),
+      body: JSON.stringify([seededMaps[0]]),
     })
   })
 

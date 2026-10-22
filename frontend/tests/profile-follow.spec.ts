@@ -1,4 +1,5 @@
 import { expect, type Page, type Route, test } from "@playwright/test"
+import { stubBackgroundApi } from "./utils/backgroundApi"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -97,6 +98,7 @@ async function installProfileRoutes({
   player?: ReturnType<typeof buildPlayer>
   summary: FollowSummary
 }) {
+  await stubBackgroundApi(page)
   const playersBySteamid64 = new Map(
     [player, currentUser, ...followers, ...following, ...likers]
       .filter(
@@ -327,7 +329,7 @@ test("profile history remains open after selecting it from the identity menu", a
     },
   })
   await page.route(
-    `/v1/players/${targetSteamid64}/profile-history`,
+    `**/v1/players/${targetSteamid64}/profile-history*`,
     async (route: Route) => {
       await route.fulfill({
         status: 200,
@@ -339,7 +341,11 @@ test("profile history remains open after selecting it from the identity menu", a
 
   await page.goto(`/profile/${targetSteamid64}`)
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
+  const historyResponse = page.waitForResponse((response) =>
+    response.url().includes(`/v1/players/${targetSteamid64}/profile-history`),
+  )
   await page.getByTestId("profile-history-menu-item").click()
+  expect((await historyResponse).status()).toBe(200)
 
   await expect(page.getByTestId("profile-history-dialog")).toBeVisible()
   await expect(page.getByTestId("profile-history-dialog")).toContainText(
@@ -466,7 +472,7 @@ test("Profile avatar falls back to initials when the Steam image fails", async (
 test("Logged-in user can follow another player and sees state update", async ({
   page,
 }) => {
-  let summary: FollowSummary = {
+  const summary: FollowSummary = {
     follower_count: 2,
     following_count: 7,
     viewer_is_following: false,
@@ -496,11 +502,11 @@ test("Logged-in user can follow another player and sees state update", async ({
     async (route: Route) => {
       if (route.request().method() === "PUT") {
         followRequests += 1
-        summary = {
+        Object.assign(summary, {
           ...summary,
           follower_count: summary.follower_count + 1,
           viewer_is_following: true,
-        }
+        })
       }
 
       await route.fulfill({
@@ -544,7 +550,7 @@ test("Logged-in user can follow another player and sees state update", async ({
 })
 
 test("Logged-in user can unfollow and sees state update", async ({ page }) => {
-  let summary: FollowSummary = {
+  const summary: FollowSummary = {
     follower_count: 5,
     following_count: 9,
     viewer_is_following: true,
@@ -574,11 +580,11 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
     async (route: Route) => {
       if (route.request().method() === "DELETE") {
         unfollowRequests += 1
-        summary = {
+        Object.assign(summary, {
           ...summary,
           follower_count: summary.follower_count - 1,
           viewer_is_following: false,
-        }
+        })
       }
 
       await route.fulfill({
@@ -624,7 +630,7 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
 test("Logged-in user toggles follow from another profile summary card", async ({
   page,
 }) => {
-  let summary: FollowSummary = {
+  const summary: FollowSummary = {
     follower_count: 2,
     following_count: 7,
     viewer_is_following: false,
@@ -652,11 +658,11 @@ test("Logged-in user toggles follow from another profile summary card", async ({
     async (route: Route) => {
       if (route.request().method() === "PUT") {
         followRequests += 1
-        summary = {
+        Object.assign(summary, {
           ...summary,
           follower_count: summary.follower_count + 1,
           viewer_is_following: true,
-        }
+        })
       }
 
       await route.fulfill({
@@ -820,6 +826,7 @@ test("Logged-in user can browse social lists and navigate to another profile", a
   await expect(page.getByText("Following Alias")).toBeVisible()
   await page
     .getByTestId(`profile-social-row-${otherFollowingSteamid64}`)
+    .getByRole("link")
     .click({ button: "right" })
   await expect(page.getByTestId("player-follow-menu-item")).toBeVisible()
   await expect(page.getByTestId("player-follow-menu-item")).toHaveText("Follow")

@@ -553,6 +553,7 @@ test("Superusers can open tournament management", async ({ page }) => {
   await page.goto("/admin/tournaments")
   await expect(page.getByRole("heading", { name: "Tournaments" })).toBeVisible()
   await expect(page.getByText("2026 AXE Major", { exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Achievements", exact: true }).click()
   await expect(
     page.getByRole("button", { name: "Assign Achievement" }),
   ).toBeEnabled()
@@ -789,8 +790,10 @@ test.describe("Server owner access", () => {
     })
 
     await page.goto("/admin")
-    await expect(page).toHaveURL(/\/admin\/servers$/)
-    await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible()
+    await expect(page).toHaveURL(/\/admin\/servers\/globalapi-server$/)
+    await expect(
+      page.getByRole("tab", { name: "GlobalAPI Server", exact: true }),
+    ).toBeVisible()
 
     const adminButton = page.getByRole("button", {
       name: "Admin",
@@ -804,6 +807,7 @@ test.describe("Server owner access", () => {
 test("Superuser sidebar groups admin users and players under admin", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 })
   await page.goto("/")
 
   const adminButton = page.getByRole("button", {
@@ -1105,10 +1109,9 @@ test("Superuser can view player sessions, filter latest sessions, and reveal IPs
   ).toHaveAttribute("aria-checked", "true")
   await expect.poll(() => latestOnly).toBe(true)
 
-  await page.route("**/v1/players/search**", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
+  await page.route("**/v1/players/search**", (route) =>
+    route.fulfill({
+      json: {
         data: [
           adminPlayerSessionPayload({
             latestOnly,
@@ -1116,11 +1119,11 @@ test("Superuser can view player sessions, filter latest sessions, and reveal IPs
           }).player,
         ],
         count: 1,
-      }),
-    })
-  })
+      },
+    }),
+  )
   await page.getByLabel("Filter sessions by player").fill("Session Runner")
-  await page.getByText("Session Runner").last().click()
+  await page.getByRole("button", { name: /Session Runner/ }).click()
   await page.getByLabel("Filter sessions by server").click()
   await page.getByRole("option", { name: "Session Group" }).click()
   await expect.poll(() => playerSteamid64Filter).toBe("76561198012345678")
@@ -1129,13 +1132,13 @@ test("Superuser can view player sessions, filter latest sessions, and reveal IPs
     .toBe("01966858-7280-7000-8000-000000000010")
 })
 
-test("Superuser can manage map validation and 128-tick record filter tiers", async ({
+test("Superuser can manage map validation and course tiers", async ({
   page,
 }) => {
   const mapId = 991020
-  const recordFilterId = 99102002
+  const courseId = 99102002
   let validated = false
-  let tier: number | null = 3
+  let tier = 3
   let requestedSortBy: string | null = null
   let requestedSortOrder: string | null = null
 
@@ -1162,7 +1165,7 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
   })
 
   await page.route(
-    /\/v1\/admin\/maps\/\d+\/record-filters(\?.*)?$/,
+    /\/v1\/admin\/maps\/\d+\/course-tiers(\?.*)?$/,
     async (route) => {
       await route.fulfill({
         contentType: "application/json",
@@ -1171,9 +1174,8 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
           stages: [
             {
               stage: 0,
-              record_filters: [
-                adminRecordFilterPayload({ mapId, recordFilterId, tier }),
-              ],
+              course_id: courseId,
+              course_tiers: [adminCourseTierPayload({ mapId, courseId, tier })],
             },
           ],
         }),
@@ -1181,14 +1183,12 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
     },
   )
 
-  await page.route(/\/v1\/admin\/record-filters\/\d+$/, async (route) => {
-    const body = route.request().postDataJSON() as { tier: number | null }
+  await page.route(/\/v1\/admin\/course-tiers\/\d+\/KZT$/, async (route) => {
+    const body = route.request().postDataJSON() as { tier: number }
     tier = body.tier
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify(
-        adminRecordFilterPayload({ mapId, recordFilterId, tier }),
-      ),
+      body: JSON.stringify(adminCourseTierPayload({ mapId, courseId, tier })),
     })
   })
 
@@ -1210,24 +1210,29 @@ test("Superuser can manage map validation and 128-tick record filter tiers", asy
   ).toHaveAttribute("aria-checked", "true")
 
   await page
-    .getByRole("button", { name: "Show record filters for kz_admin_filters" })
-    .click()
-  await expect(page.getByRole("heading", { name: "Main stage" })).toBeVisible()
-  await expect(page.getByText(`#${recordFilterId}`)).toBeVisible()
-  const recordFilterRow = page.getByRole("row", {
-    name: `#${recordFilterId} KZT PRO`,
-    exact: true,
-  })
-  await expect(recordFilterRow).toBeVisible()
+    .getByRole("row")
+    .filter({ hasText: "kz_admin_filters" })
+    .press("Enter")
+  await expect(
+    page.getByRole("heading", { name: "Course tiers" }),
+  ).toBeVisible()
+  await expect(page.getByRole("cell", { name: "Main stage" })).toBeVisible()
 
   await page
-    .getByRole("combobox", { name: `Tier for record filter ${recordFilterId}` })
+    .getByRole("combobox", { name: `Tier for KZT on course ${courseId}` })
     .click()
   await page.getByRole("option", { name: "T6" }).click()
-  await page.getByRole("button", { name: "Save" }).click()
+  await page.getByRole("button", { name: "Close", exact: true }).click()
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await expect.poll(() => tier).toBe(6)
+  await expect.poll(() => validated).toBe(true)
+  await page
+    .getByRole("row")
+    .filter({ hasText: "kz_admin_filters" })
+    .press("Enter")
   await expect(
     page.getByRole("combobox", {
-      name: `Tier for record filter ${recordFilterId}`,
+      name: `Tier for KZT on course ${courseId}`,
     }),
   ).toContainText("T6")
 })
@@ -1239,7 +1244,7 @@ test("Superuser can edit a user and assign multiple roles", async ({
   let userRoles: string[] = []
   let isActive = true
 
-  await page.route(/\/v1\/users\/(\?.*)?$/, async (route) => {
+  await page.route(/\/v1\/users\/?(\?.*)?$/, async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -1298,14 +1303,14 @@ test("Superuser can edit a user and assign multiple roles", async ({
   await page.getByRole("menuitem", { name: "Edit User" }).click()
 
   await page.getByRole("checkbox", { name: "Superuser role" }).click()
-  await page.getByRole("checkbox", { name: "Admin role" }).click()
+  await page.getByRole("checkbox", { name: "Admin role", exact: true }).click()
   await page.getByRole("checkbox", { name: "Map Admin role" }).click()
   await page.getByRole("checkbox", { name: "Server Owner role" }).click()
   await page.getByRole("button", { name: "Save" }).click()
 
   const roleTargetRow = page.getByRole("row", { name: /Role Target/ })
   await expect(roleTargetRow.getByText("Superuser")).toBeVisible()
-  await expect(roleTargetRow.getByText("Admin")).toBeVisible()
+  await expect(roleTargetRow.getByText("Admin", { exact: true })).toBeVisible()
   await expect(roleTargetRow.getByText("Map Admin")).toBeVisible()
   await expect(roleTargetRow.getByText("Server Owner")).toBeVisible()
 })
@@ -1332,21 +1337,20 @@ function adminMapPayload({
   }
 }
 
-function adminRecordFilterPayload({
+function adminCourseTierPayload({
   mapId,
-  recordFilterId,
+  courseId,
   tier,
 }: {
   mapId: number
-  recordFilterId: number
-  tier: number | null
+  courseId: number
+  tier: number
 }) {
   return {
-    id: recordFilterId,
+    course_id: courseId,
     map_id: mapId,
     stage: 0,
     mode: "KZT",
-    has_teleports: false,
     tier,
     created_on: "2021-01-01T00:00:00Z",
     updated_on: "2021-01-02T00:00:00Z",
@@ -1421,6 +1425,15 @@ test("PlayerDisplay renders alias fallback, avatar, and country tooltip", async 
       country: "DE",
     },
   })
+  const fallbackUpdate = await page.request.put(
+    `${apiUrl}/v1/players/${fallbackPlayer.steamid64}`,
+    {
+      headers: { Authorization: `Bearer ${superUserToken.accessToken}` },
+      data: { country: null },
+    },
+  )
+  expect(fallbackUpdate.ok()).toBe(true)
+  expect((await fallbackUpdate.json()).country).toBeNull()
 
   await logInUser(page, superUserSteamid64, {
     roles: ["superuser"],

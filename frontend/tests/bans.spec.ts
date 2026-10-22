@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
-
 import { COMMUNITY_LINKS } from "../src/lib/community-links"
+import { stubBackgroundApi } from "./utils/backgroundApi"
+import { issueSessionToken } from "./utils/privateApi"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -98,11 +99,16 @@ async function stubAuthedViewer(
   page: Parameters<typeof test>[0]["page"],
   roles: string[],
 ) {
-  await page.addInitScript(() => {
+  await stubBackgroundApi(page)
+  const { accessToken } = await issueSessionToken({
+    request: page.request,
+    roles,
+  })
+  await page.addInitScript((token) => {
     localStorage.clear()
     localStorage.setItem("gokz-datetime-format", "iso")
-    localStorage.setItem("access_token", "test-access-token")
-  })
+    localStorage.setItem("access_token", token)
+  }, accessToken)
 
   await page.route("**/v1/users/me", async (route) => {
     await route.fulfill({
@@ -497,6 +503,8 @@ test("Bans page shows Add Ban flows to admins and refreshes after create", async
   })
 
   await page.goto("/bans")
+
+  await page.getByRole("button", { name: "Admin mode", exact: true }).click()
 
   await expect(page.getByRole("button", { name: "Add Ban" })).toBeVisible()
 
