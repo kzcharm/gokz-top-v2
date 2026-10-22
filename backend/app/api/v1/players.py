@@ -543,9 +543,12 @@ async def read_player(
     identifier: str,
     session: SessionDep,
     background_tasks: BackgroundTasks,
+    refresh_steam_profile: Annotated[bool, Query()] = True,
 ) -> PlayerDetailPublic:
     player = await get_player_or_404(session=session, identifier=identifier)
-    if is_player_steam_profile_sync_due(player=player, now=datetime.now(UTC)):
+    if refresh_steam_profile and is_player_steam_profile_sync_due(
+        player=player, now=datetime.now(UTC)
+    ):
         background_tasks.add_task(
             sync_player_steam_profile_if_due,
             steamid64=player.steamid64,

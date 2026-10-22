@@ -143,6 +143,7 @@ type PlayerDisplaySubline =
     }
 
 interface PlayerDisplayProps {
+  presentation?: "default" | "card"
   player?: PlayerDisplayPlayer | null
   fallbackSteamid64?: string
   showSteamid?: boolean
@@ -465,6 +466,7 @@ export function PlayerFollowContextMenuItem({
 
 export function PlayerDisplay({
   player,
+  presentation = "default",
   fallbackSteamid64,
   showSteamid = false,
   showCountryFlag = true,
@@ -499,21 +501,26 @@ export function PlayerDisplay({
       steamid64,
       effectiveHydrationScope ?? "PRIMARY",
     ],
-    enabled: steamid64Pattern.test(steamid64),
+    enabled: presentation !== "card" && steamid64Pattern.test(steamid64),
     queryFn: () => loadPlayerForDisplay(steamid64, effectiveHydrationScope),
     staleTime: 60_000,
   })
   const resolvedPlayer: PlayerDisplayPlayer | undefined =
-    hydrationQuery.data || player
-      ? {
-          steamid64,
-          ...player,
-          ...hydrationQuery.data,
-        }
-      : undefined
+    presentation === "card"
+      ? (player ?? undefined)
+      : hydrationQuery.data || player
+        ? {
+            steamid64,
+            ...player,
+            ...hydrationQuery.data,
+          }
+        : undefined
   const highestPermission = getHighestPlayerPermission(resolvedPlayer?.roles)
   const showRoleRing = highestPermission !== null
-  const hasProfileLink = !disableProfileLink && steamid64Pattern.test(steamid64)
+  const hasProfileLink =
+    presentation !== "card" &&
+    !disableProfileLink &&
+    steamid64Pattern.test(steamid64)
   const displayName = getPlayerDisplayName(resolvedPlayer, steamid64)
   const truncatedDisplayName = truncateText(displayName, nameMaxLength)
   const authenticated = isLoggedIn()
@@ -527,6 +534,7 @@ export function PlayerDisplay({
   const viewerFriendsQuery = useQuery({
     ...getProfileFriendsQueryOptions(viewerSteamid64, viewerSteamid64),
     enabled:
+      presentation !== "card" &&
       viewerSteamid64 !== null &&
       steamid64Pattern.test(steamid64) &&
       viewerSteamid64 !== steamid64,
@@ -561,8 +569,10 @@ export function PlayerDisplay({
       : countryCode
   const rating = resolvedPlayer?.rating
   const showEffectiveCountryFlag =
-    showCountryFlag && playerDisplayPreferences.showCountryFlag
+    showCountryFlag &&
+    (presentation === "card" || playerDisplayPreferences.showCountryFlag)
   const showRatingBadge =
+    presentation !== "card" &&
     playerDisplayPreferences.showRatingIcon &&
     rating !== undefined &&
     rating !== null
@@ -664,6 +674,7 @@ export function PlayerDisplay({
   const content = (
     <div
       data-drag-scroll-ignore
+      data-player-presentation={presentation}
       data-current-user={isCurrentUser ? "true" : undefined}
       className={cn(
         "flex min-w-0 items-center transition-colors",
@@ -675,7 +686,7 @@ export function PlayerDisplay({
     >
       <div className={cn("flex items-center", compact ? "gap-1.5" : "gap-2")}>
         <div className="flex items-center gap-1">
-          {showEffectiveCountryFlag ? (
+          {showEffectiveCountryFlag && presentation !== "card" ? (
             FlagComponent ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -747,21 +758,32 @@ export function PlayerDisplay({
                 "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
             )}
           >
-            <AvatarImage
-              src={avatarSrc}
-              alt={`${displayName} avatar`}
-              onError={() => {
-                setAvatarLoadFailed(true)
-              }}
-            />
-            <AvatarFallback
-              className={cn(
-                "bg-zinc-600 text-white",
-                compact ? "rounded-md" : "rounded-lg",
-              )}
-            >
-              {getInitials(displayName)}
-            </AvatarFallback>
+            {presentation === "card" ? (
+              <img
+                src={avatarSrc}
+                alt={`${displayName} avatar`}
+                className="aspect-square size-full object-cover"
+                onError={() => setAvatarLoadFailed(true)}
+              />
+            ) : (
+              <AvatarImage
+                src={avatarSrc}
+                alt={`${displayName} avatar`}
+                onError={() => {
+                  setAvatarLoadFailed(true)
+                }}
+              />
+            )}
+            {presentation !== "card" && (
+              <AvatarFallback
+                className={cn(
+                  "bg-zinc-600 text-white",
+                  compact ? "rounded-md" : "rounded-lg",
+                )}
+              >
+                {getInitials(displayName)}
+              </AvatarFallback>
+            )}
           </Avatar>
         ) : null}
       </div>
@@ -806,6 +828,14 @@ export function PlayerDisplay({
             )}
             title={sublineTitle}
           >
+            {presentation === "card" &&
+              showEffectiveCountryFlag &&
+              FlagComponent && (
+                <FlagComponent
+                  className="mr-2 inline-block h-4 w-6 align-middle"
+                  aria-label={countryName ?? undefined}
+                />
+              )}
             {sublineContent}
           </p>
         ) : null}

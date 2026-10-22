@@ -33,6 +33,7 @@ import { Route as MapsMapNameWr_historyRouteImport } from './routes/maps.$mapNam
 import { Route as MapsMapNameStatsRouteImport } from './routes/maps.$mapName.stats'
 import { Route as MapsMapNameReviewsRouteImport } from './routes/maps.$mapName.reviews'
 import { Route as MapsMapNameMaptopRouteImport } from './routes/maps.$mapName.maptop'
+import { Route as CardsPlayerIdentifierRouteImport } from './routes/cards.player.$identifier'
 import { Route as LayoutSettingsWebhooksRouteImport } from './routes/_layout/settings.webhooks'
 import { Route as LayoutSettingsSocialLinksRouteImport } from './routes/_layout/settings.social-links'
 import { Route as LayoutSettingsSetupRouteImport } from './routes/_layout/settings.setup'
@@ -192,6 +193,11 @@ const MapsMapNameMaptopRoute = MapsMapNameMaptopRouteImport.update({
   id: '/maptop',
   path: '/maptop',
   getParentRoute: () => MapsMapNameRoute,
+} as any)
+const CardsPlayerIdentifierRoute = CardsPlayerIdentifierRouteImport.update({
+  id: '/cards/player/$identifier',
+  path: '/cards/player/$identifier',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutSettingsWebhooksRoute = LayoutSettingsWebhooksRouteImport.update({
   id: '/webhooks',
@@ -464,6 +470,7 @@ export interface FileRoutesByFullPath {
   '/settings/setup': typeof LayoutSettingsSetupRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/cards/player/$identifier': typeof CardsPlayerIdentifierRoute
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
@@ -528,6 +535,7 @@ export interface FileRoutesByTo {
   '/settings/setup': typeof LayoutSettingsSetupRoute
   '/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/cards/player/$identifier': typeof CardsPlayerIdentifierRoute
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
@@ -595,6 +603,7 @@ export interface FileRoutesById {
   '/_layout/settings/setup': typeof LayoutSettingsSetupRoute
   '/_layout/settings/social-links': typeof LayoutSettingsSocialLinksRoute
   '/_layout/settings/webhooks': typeof LayoutSettingsWebhooksRoute
+  '/cards/player/$identifier': typeof CardsPlayerIdentifierRoute
   '/maps/$mapName/maptop': typeof MapsMapNameMaptopRoute
   '/maps/$mapName/reviews': typeof MapsMapNameReviewsRoute
   '/maps/$mapName/stats': typeof MapsMapNameStatsRoute
@@ -662,6 +671,7 @@ export interface FileRouteTypes {
     | '/settings/setup'
     | '/settings/social-links'
     | '/settings/webhooks'
+    | '/cards/player/$identifier'
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
@@ -726,6 +736,7 @@ export interface FileRouteTypes {
     | '/settings/setup'
     | '/settings/social-links'
     | '/settings/webhooks'
+    | '/cards/player/$identifier'
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
@@ -792,6 +803,7 @@ export interface FileRouteTypes {
     | '/_layout/settings/setup'
     | '/_layout/settings/social-links'
     | '/_layout/settings/webhooks'
+    | '/cards/player/$identifier'
     | '/maps/$mapName/maptop'
     | '/maps/$mapName/reviews'
     | '/maps/$mapName/stats'
@@ -817,6 +829,7 @@ export interface RootRouteChildren {
   MapsRoute: typeof MapsRouteWithChildren
   ServersRoute: typeof ServersRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
+  CardsPlayerIdentifierRoute: typeof CardsPlayerIdentifierRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -988,6 +1001,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/maps/$mapName/maptop'
       preLoaderRoute: typeof MapsMapNameMaptopRouteImport
       parentRoute: typeof MapsMapNameRoute
+    }
+    '/cards/player/$identifier': {
+      id: '/cards/player/$identifier'
+      path: '/cards/player/$identifier'
+      fullPath: '/cards/player/$identifier'
+      preLoaderRoute: typeof CardsPlayerIdentifierRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_layout/settings/webhooks': {
       id: '/_layout/settings/webhooks'
@@ -1495,6 +1515,7 @@ const rootRouteChildren: RootRouteChildren = {
   MapsRoute: MapsRouteWithChildren,
   ServersRoute: ServersRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
+  CardsPlayerIdentifierRoute: CardsPlayerIdentifierRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

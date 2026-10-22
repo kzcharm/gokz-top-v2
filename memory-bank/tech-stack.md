@@ -4,6 +4,7 @@
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
+- Public `/cards/player/:identifier` is a static portrait capture surface with explicit loading/ready/error states. The official QQ bot captures it with its existing Chromium at 480 CSS pixels and 2× resolution; two concurrent workers, request deduplication, and a 15-minute cache keep rendering bounded. `GOKZ_TOP_WEBSITE_URL` selects the website environment. Card identity reads use the existing player endpoint with `refresh_steam_profile=false` to include favorite-server details without scheduling Steam synchronization; ordinary reads default to refreshing.
 - Monorepo with:
   - FastAPI backend in `backend/`
   - React + TypeScript frontend in `frontend/`

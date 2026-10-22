@@ -257,3 +257,7 @@ Scope model:
 - Setup replacement supports top-level operating_system stored in player_game_settings and positive storage_capacity_gb in player_hardware (including capacity-only storage). Additive migration 98ea05caeefd introduces nullable columns. Profile setup editing is in the card header, product links omit community badges/underlines, setup-related tabs are last, and the gear leaderboard omits search and descriptive participation text.
 
 - Migration 89e9355f393f preserves storage_capacity_unit (GB/TB, existing entries default GB) alongside integer GB capacity. Editor converts using decimal storage units (1 TB = 1000 GB); public setup respects the saved unit. Points distributions render only on profile Stats via ProfileRecordDistributionSection; gear categories appear as wrapping buttons above the leaderboard table, defaulting to Mouse; the title and category dropdown are removed.
+
+## Shareable player cards
+
+- The official QQ bot generates portrait cards from `/cards/player/:identifier`, with player identity/country flag, rating icon/global and regional standings/total points, join and last-played dates, playtime, longest jump, favorite server, NUB completion, and the relative six-skill radar. Cards omit site branding, Steam IDs, and URLs, support OVR/KZT/SKZ/VNL and English/Chinese/Russian, and do not trigger profile-view writes or player synchronization. Images are cached in the bot for 15 minutes; forced image regeneration is separate from player-data refresh.

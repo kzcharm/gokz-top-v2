@@ -3164,6 +3164,7 @@ export type PlayersReadPlayerTournamentAchievementsResponse = (TournamentAchieve
 
 export type PlayersReadPlayerData = {
     identifier: string;
+    refreshSteamProfile?: boolean;
 };
 
 export type PlayersReadPlayerResponse = (PlayerDetailPublic);

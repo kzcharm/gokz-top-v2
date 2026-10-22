@@ -3020,6 +3020,7 @@ export class PlayersService {
      * Read Player
      * @param data The data for the request.
      * @param data.identifier
+     * @param data.refreshSteamProfile
      * @returns PlayerDetailPublic Successful Response
      * @throws ApiError
      */
@@ -3029,6 +3030,9 @@ export class PlayersService {
             url: '/v1/players/{identifier}',
             path: {
                 identifier: data.identifier
+            },
+            query: {
+                refresh_steam_profile: data.refreshSteamProfile
             },
             errors: {
                 422: 'Validation Error'

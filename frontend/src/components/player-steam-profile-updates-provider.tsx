@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useEffect } from "react"
-
 import { OpenAPI } from "@/client"
+import { isPlayerCardPath } from "@/lib/card-route"
 import { invalidateDisplayPlayerCache } from "@/lib/player-graphql"
 
 type PlayerSteamProfileRealtimeEvent = {
@@ -40,6 +40,8 @@ export function PlayerSteamProfileUpdatesProvider({
   const queryClient = useQueryClient()
 
   useEffect(() => {
+    if (isPlayerCardPath(window.location.pathname)) return
+
     let websocket: WebSocket | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
     let attempt = 0
