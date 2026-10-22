@@ -30,6 +30,7 @@ import { normalizeRecordMode } from "@/components/Records/mode"
 import { PbRecordsTable } from "@/components/Records/PbRecordsTable"
 import {
   attachMapWrsToPbRecords,
+  getPbPageRanksQueryOptions,
   type PbRecordsColumn,
   sortPbRecords,
 } from "@/components/Records/pb-records-utils"
@@ -989,8 +990,9 @@ export function ProfileRecordsTab({
   canManageHiddenMaps,
   hiddenMapIds,
   showHiddenRecords,
-  autoLoadMore,
+  autoLoadMore: preferAutoLoadMore,
   showWrTime,
+  showRanks,
   showWrGap,
   showServer,
   showDate,
@@ -1015,6 +1017,7 @@ export function ProfileRecordsTab({
   showHiddenRecords: boolean
   autoLoadMore: boolean
   showWrTime: boolean
+  showRanks: boolean
   showWrGap: boolean
   showServer: boolean
   showDate: boolean
@@ -1064,10 +1067,14 @@ export function ProfileRecordsTab({
   const [historyRecord, setHistoryRecord] = useState<RecordPublic | null>(null)
   const [visibleCount, setVisibleCount] = useState(PROFILE_RECORDS_PAGE_SIZE)
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = usePersistedPageSize({
+  const [preferredPageSize, setPageSize] = usePersistedPageSize({
     storageKey: "profile-runs-page-size",
     defaultPageSize: PROFILE_RECORDS_PAGE_SIZE,
   })
+  const pageSize = showRanks
+    ? Math.min(preferredPageSize, 50)
+    : preferredPageSize
+  const autoLoadMore = preferAutoLoadMore && !showRanks
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const deferredMapSearch = useDeferredValue(mapSearch)
   const deferredServerSearch = useDeferredValue(serverSearch)
@@ -1095,6 +1102,14 @@ export function ProfileRecordsTab({
     () => attachMapWrsToPbRecords(recordsQuery.data ?? [], wrsQuery.data ?? []),
     [recordsQuery.data, wrsQuery.data],
   )
+
+  const pageSortRef = useRef(
+    sort.column === "rank"
+      ? { column: "datetime" as const, direction: "desc" as const }
+      : sort,
+  )
+  if (sort.column !== "rank") pageSortRef.current = sort
+  const pageSort = pageSortRef.current
 
   const sortedRecords = useMemo(() => {
     const normalizedMapSearch = deferredMapSearch.trim().toLocaleLowerCase()
@@ -1252,7 +1267,7 @@ export function ProfileRecordsTab({
       return true
     })
 
-    return sortPbRecords(filteredRecords, sort)
+    return sortPbRecords(filteredRecords, pageSort)
   }, [
     deferredMapSearch,
     deferredServerSearch,
@@ -1277,7 +1292,7 @@ export function ProfileRecordsTab({
     isBonus,
     hiddenMapIds,
     showHiddenRecords,
-    sort,
+    pageSort,
   ])
 
   const pageCount = Math.max(1, Math.ceil(sortedRecords.length / pageSize))
@@ -1291,13 +1306,30 @@ export function ProfileRecordsTab({
         )
   }, [autoLoadMore, sortedRecords, visibleCount, currentPageIndex, pageSize])
 
+  const ranksQuery = useQuery(
+    getPbPageRanksQueryOptions(
+      showRanks ? visibleRecords.map((record) => record.uuid) : [],
+      scope,
+      isProOnly,
+      showRanks,
+    ),
+  )
+  const displayedRecords = useMemo(() => {
+    if (!showRanks) return visibleRecords
+    const ranked = visibleRecords.map((record) => ({
+      ...record,
+      rank: ranksQuery.data?.[record.uuid] ?? null,
+    }))
+    return sort.column === "rank" ? sortPbRecords(ranked, sort) : ranked
+  }, [visibleRecords, showRanks, ranksQuery.data, sort])
+
   // Reset navigation when the player, filters, sort, or browsing mode changes.
   const navigationKey = JSON.stringify([
     steamid64,
     scope,
     isProOnly,
     isBonus,
-    viewState,
+    { ...viewState, sort: pageSort },
     showHiddenRecords,
     autoLoadMore,
     pageSize,
@@ -1352,7 +1384,7 @@ export function ProfileRecordsTab({
           }
         : {
             column,
-            direction: "desc",
+            direction: column === "rank" ? "asc" : "desc",
           },
     )
   }
@@ -1360,8 +1392,8 @@ export function ProfileRecordsTab({
   const filterEmptyMessage = isBonus
     ? "No bonus records found for this player with the current filters."
     : isProOnly
-      ? "No stage 0 pro records found for this player with the current filters."
-      : "No stage 0 records found for this player with the current filters."
+      ? "No main stage pro records found for this player with the current filters."
+      : "No main stage records found for this player with the current filters."
 
   const hasActiveClientFilters =
     deferredMapSearch.trim().length > 0 ||
@@ -1389,8 +1421,8 @@ export function ProfileRecordsTab({
     : isBonus
       ? "No bonus records found for this player in the selected scope."
       : isProOnly
-        ? "No stage 0 pro records found for this player in the selected scope."
-        : "No stage 0 records found for this player in the selected scope."
+        ? "No main stage pro records found for this player in the selected scope."
+        : "No main stage records found for this player in the selected scope."
   const recordType = isProOnly ? "PRO" : "NUB"
   const stageOptions = [
     ...new Set((recordsQuery.data ?? []).map((record) => record.stage)),
@@ -1468,8 +1500,16 @@ export function ProfileRecordsTab({
         <ProfileRecordsTableSkeleton />
       ) : (
         <div className="space-y-4">
+          {showRanks && (ranksQuery.isFetching || ranksQuery.isError) ? (
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              {ranksQuery.isFetching
+                ? ` ${t("profile.records.ranksLoading")}`
+                : ""}
+              {ranksQuery.isError ? ` ${t("profile.records.ranksError")}` : ""}
+            </p>
+          ) : null}
           <PbRecordsTable
-            records={visibleRecords}
+            records={displayedRecords}
             pagination={
               autoLoadMore
                 ? undefined
@@ -1479,6 +1519,7 @@ export function ProfileRecordsTab({
                     pageIndex: currentPageIndex,
                     pageCount,
                     pageSize,
+                    pageSizeOptions: showRanks ? [10, 20, 50] : undefined,
                     onPageIndexChange: setPageIndex,
                     onPageSizeChange: setPageSize,
                   }
@@ -1491,6 +1532,7 @@ export function ProfileRecordsTab({
               "tps",
               ...(showWrTime ? ["wrTime" as const] : []),
               "time",
+              ...(showRanks ? ["rank" as const] : []),
               ...(showWrGap ? ["wrGap" as const] : []),
               "points",
               ...(!isBonus ? ["rating" as const] : []),
@@ -1665,7 +1707,7 @@ export function ProfileRecordsTab({
             dateTimeDisplay="absolute"
             dateTimeDateOnly={!showTime}
             showMilliseconds={showMilliseconds}
-            sort={sort}
+            sort={!showRanks && sort.column === "rank" ? pageSort : sort}
             onSortChange={handleSortChange}
             onRowClick={setHistoryRecord}
             getRowContextMenu={getRowContextMenu}

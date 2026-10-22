@@ -141,6 +141,7 @@ function parseViewState(value: unknown): ProfileRecordsViewState | null {
       "stage",
       "tps",
       "time",
+      "rank",
       "wrTime",
       "wrGap",
       "points",

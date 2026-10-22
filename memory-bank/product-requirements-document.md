@@ -50,6 +50,7 @@ Build the long-term platform for the GOKZ ecosystem:
 - Public country leaderboard is available at `/leaderboards/countries`, backed by `/v1/leaderboards/countries`; it ranks countries with at least 10 eligible players by top-10 average rating and shows the country median rating, ranked and 30-day active-player counts, and the top three players.
 - Global and filtered leaderboards (scope, geography, and period when applicable).
 - Rank lookup support for profile and map contexts.
+  - Profile Runs can display and sort live PB ranks through a Show ranks setting, disabled by default and remembered per browser. Rank calculations are requested only while enabled and only for the visible page, with at most 50 records per request. Ranked views use pagination instead of automatic loading, and rank sorting applies within the current page. Active bans are excluded from competitive ranks, and visible ineligible PBs show a dash. This does not change points or rating refresh schedules.
 - Daily rank maintenance runs as one midnight-UTC pipeline over the previous UTC day's changed `record_pb` rows, rebuilding touched PB point buckets first, then touched leaderboard rows, then touched maps leaderboard rows selected from `Record.updated_at`, then touched Steam-backed player profiles, then attempting KZ-only friends sync for those same players.
 - Player leaderboard rebuilds persist each contributing PB row's raw rating contribution on `record_pb`, and player profile record lists expose it as a `Rating` column beside points.
 - Current leaderboard eligibility rule:

@@ -253,6 +253,21 @@ function PbRecordTableRow({
           {formatRecordTime(record.time, showMilliseconds)}
         </TableCell>
       ) : null}
+      {visibleColumns.has("rank") ? (
+        <TableCell
+          className={cn(
+            "text-right font-mono tabular-nums",
+            record.rank != null && record.rank >= 1 && record.rank <= 20
+              ? "font-semibold text-red-700 dark:text-red-400"
+              : record.rank != null && record.rank > 20 && record.rank <= 100
+                ? "font-semibold text-amber-700 dark:text-amber-400"
+                : undefined,
+          )}
+          data-testid="pb-record-rank"
+        >
+          {record.rank == null ? "—" : `#${record.rank.toLocaleString()}`}
+        </TableCell>
+      ) : null}
       {visibleColumns.has("wrGap") ? (
         <TableCell className="text-right font-mono font-medium">
           {record.wr_gap == null ? "-" : record.wr_gap.toFixed(2)}
@@ -523,6 +538,19 @@ export function PbRecordsTable({
                   <SortableHeader
                     column="time"
                     label={t("labels.time")}
+                    sort={sort}
+                    onSortChange={onSortChange}
+                    className={`justify-end ${tableHeadClassName}`}
+                  />
+                </TableHead>
+              ) : null}
+              {visibleColumns.has("rank") ? (
+                <TableHead
+                  className={`min-w-28 text-right ${tableHeadClassName}`}
+                >
+                  <SortableHeader
+                    column="rank"
+                    label={t("labels.rank")}
                     sort={sort}
                     onSortChange={onSortChange}
                     className={`justify-end ${tableHeadClassName}`}

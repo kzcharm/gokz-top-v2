@@ -30,6 +30,7 @@ export type PbRecordsColumn =
   | "stage"
   | "tps"
   | "time"
+  | "rank"
   | "wrTime"
   | "wrGap"
   | "points"
@@ -107,6 +108,8 @@ function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
       return record.teleports
     case "time":
       return record.time
+    case "rank":
+      return record.rank ?? Number.POSITIVE_INFINITY
     case "wrTime":
       return record.wr_time ?? Number.POSITIVE_INFINITY
     case "wrGap":
@@ -127,6 +130,11 @@ export function sortPbRecords<Record extends RecordPublic>(
   sort: PbRecordsSortState,
 ) {
   return [...records].sort((left, right) => {
+    if (sort.column === "rank" && (left.rank == null || right.rank == null)) {
+      if (left.rank == null && right.rank != null) return 1
+      if (left.rank != null && right.rank == null) return -1
+      return compareStrings(left.uuid, right.uuid)
+    }
     const leftValue = getRecordSortValue(sort.column, left)
     const rightValue = getRecordSortValue(sort.column, right)
 
@@ -270,6 +278,39 @@ export function getRecordRunHistoryQueryOptions({
       return (await response.json()) as RecordRunHistoryPublic
     },
     enabled: enabled && Boolean(identifier) && mapId !== null,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function getPbPageRanksQueryOptions(
+  uuids: string[],
+  scope: AppScope,
+  isProOnly: boolean,
+  enabled: boolean,
+) {
+  const ids = [...uuids].sort()
+  return queryOptions({
+    queryKey: ["pb-page-ranks", scope, isProOnly, ids],
+    queryFn: async ({ signal }) => {
+      if (ids.length > 50)
+        throw new Error("Rank requests support at most 50 records")
+      const params = new URLSearchParams({
+        scope,
+        type: isProOnly ? "PRO" : "NUB",
+      })
+      for (const id of ids) params.append("uuid_list", id)
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/records/pb/ranks?${params}`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+          signal,
+        },
+      )
+      if (!response.ok) throw new Error("Failed to load record ranks")
+      return (await response.json()) as Record<string, number | null>
+    },
+    enabled: enabled && ids.length > 0,
     staleTime: 30_000,
     retry: 1,
   })

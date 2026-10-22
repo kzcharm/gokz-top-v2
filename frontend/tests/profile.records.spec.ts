@@ -347,6 +347,102 @@ test("Profile runs switch between automatic loading and remembered pagination", 
   await expect(currentPage).toHaveCount(0)
 })
 
+test("Profile PB ranks are opt-in, scoped, sortable, and remembered", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  const rankedRequests: URL[] = []
+  const allRequests: URL[] = []
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    allRequests.push(url)
+    expect(url.searchParams.has("include_ranks")).toBe(false)
+    await route.fulfill({
+      json: ovrRecords.slice(0, 2).map((record) => ({
+        ...record,
+        rank: null,
+      })),
+    })
+  })
+
+  await page.route(/\/v1\/records\/pb\/ranks\?/, async (route) => {
+    const url = new URL(route.request().url())
+    rankedRequests.push(url)
+    expect(url.searchParams.getAll("uuid_list")).toHaveLength(2)
+    await route.fulfill({
+      json: { [ovrRecords[0].uuid]: 2, [ovrRecords[1].uuid]: 1 },
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}/runs`)
+  await expect(
+    page.getByTestId(`pb-record-row-${ovrRecords[0].uuid}`),
+  ).toBeVisible()
+  expect(allRequests.length).toBeGreaterThan(0)
+  expect(rankedRequests).toHaveLength(0)
+  await expect(page.getByTestId("pb-record-rank")).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  const toggle = page.getByRole("menuitemcheckbox", {
+    name: "Show ranks",
+    exact: true,
+  })
+  await expect(toggle).not.toBeChecked()
+  await toggle.click()
+  await expect(page.getByTestId("pb-record-rank").first()).toContainText("#1")
+  expect(rankedRequests).toHaveLength(1)
+  expect(rankedRequests[0].searchParams.get("type")).toBe("NUB")
+  await page.screenshot({
+    path: "../.temp/pb-ranks/profile-ranks.png",
+    fullPage: true,
+  })
+  await page.getByRole("button", { name: "Rank", exact: true }).click()
+  await expect(page.getByTestId("pb-record-rank").first()).toContainText("#1")
+  await page.getByRole("button", { name: "Rank", exact: true }).click()
+  await expect(page.getByTestId("pb-record-rank").first()).toContainText("#2")
+
+  await page.reload()
+  await expect(page.getByTestId("pb-record-rank")).toHaveCount(2)
+  expect(rankedRequests).toHaveLength(2)
+  await page.locator("#profile-records-pro-only").click()
+  await expect
+    .poll(() => rankedRequests.at(-1)?.searchParams.get("type"))
+    .toBe("PRO")
+  await expect(page.getByTestId("pb-record-rank")).toHaveCount(2)
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show ranks", exact: true })
+    .click()
+  await expect(page.getByTestId("pb-record-rank")).toHaveCount(0)
+  const requestCount = rankedRequests.length
+  await page.reload()
+  await expect(
+    page.getByTestId(`pb-record-row-${ovrRecords[0].uuid}`),
+  ).toBeVisible()
+  expect(rankedRequests).toHaveLength(requestCount)
+  await expect(page.getByTestId("pb-record-rank")).toHaveCount(0)
+})
+
+test("Profile PB ranks show a dash for unranked records", async ({ page }) => {
+  await installProfileShellRoutes(page)
+  await page.context().addCookies([
+    {
+      name: "profile_runs_show_ranks",
+      value: "true",
+      url: "http://localhost:5173",
+    },
+  ])
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, async (route) => {
+    await route.fulfill({ json: [{ ...ovrRecords[0], rank: null }] })
+  })
+  await page.route(/\/v1\/records\/pb\/ranks\?/, async (route) => {
+    await route.fulfill({ json: { [ovrRecords[0].uuid]: null } })
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  await expect(page.getByTestId("pb-record-rank")).toHaveText("—")
+})
+
 test("Profile sidebar renders calibrated skill ratings and unavailable skills", async ({
   page,
 }) => {
@@ -639,7 +735,7 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
 
   await expect(
     page.getByText(
-      "No stage 0 pro records found for this player in the selected scope.",
+      "No main stage pro records found for this player in the selected scope.",
     ),
   ).toBeVisible()
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(0)
@@ -1263,4 +1359,72 @@ test("Legacy profile records URL redirects to the runs URL", async ({
   await expect(page).toHaveURL(
     new RegExp(`/profile/${steamid64}/runs\\?scope=KZT$`),
   )
+})
+
+test("Profile ranks fetch only the visible page and never more than 50", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  await page.context().addCookies([
+    {
+      name: "profile_runs_show_ranks",
+      value: "true",
+      url: "http://localhost:5173",
+    },
+  ])
+  await page.addInitScript(() =>
+    localStorage.setItem("profile-runs-page-size", "100"),
+  )
+  const records = Array.from({ length: 125 }, (_, index) => ({
+    ...ovrRecords[0],
+    uuid: `019d7777-7777-7777-8777-${String(index).padStart(12, "0")}`,
+    map_id: 980200 + index,
+    map_name: `kz_rank_page_${String(index).padStart(3, "0")}`,
+  }))
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) => {
+    expect(
+      new URL(route.request().url()).searchParams.has("include_ranks"),
+    ).toBe(false)
+    return route.fulfill({ json: records })
+  })
+  const batches: string[][] = []
+  await page.route(/\/v1\/records\/pb\/ranks\?/, async (route) => {
+    const ids = new URL(route.request().url()).searchParams.getAll("uuid_list")
+    batches.push(ids)
+    expect(ids.length).toBeLessThanOrEqual(50)
+    await route.fulfill({
+      json: Object.fromEntries(ids.map((id, index) => [id, index + 1])),
+    })
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  const rows = page.locator('[data-testid^="pb-record-row-"]')
+  await expect(rows).toHaveCount(50)
+  await expect(page.getByTestId("pb-record-rank").first()).toContainText("#")
+  expect(batches).toHaveLength(1)
+  const visibleIds = async () =>
+    rows.evaluateAll((elements) =>
+      elements
+        .map((el) =>
+          el.getAttribute("data-testid")!.replace("pb-record-row-", ""),
+        )
+        .sort(),
+    )
+  expect([...batches[0]].sort()).toEqual(await visibleIds())
+  await page
+    .getByRole("button", { name: "Go to next page", exact: true })
+    .click()
+  await expect.poll(() => batches.length).toBe(2)
+  await expect(page.getByTestId("pb-record-rank").first()).toContainText("#")
+  expect([...batches[1]].sort()).toEqual(await visibleIds())
+  expect(batches[1].some((id) => batches[0].includes(id))).toBe(false)
+  const secondPageIds = await visibleIds()
+  await page.getByRole("button", { name: "Rank", exact: true }).click()
+  expect(await visibleIds()).toEqual(secondPageIds)
+  expect(batches).toHaveLength(2)
+  await page
+    .getByRole("button", { name: "Go to next page", exact: true })
+    .click()
+  await expect(rows).toHaveCount(25)
+  await expect.poll(() => batches.length).toBe(3)
+  expect(batches[2]).toHaveLength(25)
 })

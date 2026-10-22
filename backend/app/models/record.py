@@ -637,6 +637,7 @@ class RecordPbBucketRebuildResult(SQLModel):
 
 class RecordPublic(SQLModel):
     uuid: uuid.UUID
+    rank: int | None = None
     id: int | None = None
     player: PlayerRefPublic
     steam_id: str | None = None

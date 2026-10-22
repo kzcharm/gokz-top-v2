@@ -13,6 +13,7 @@ from app import crud
 from app.api.deps import OptionalCurrentUser, SessionDep, get_current_active_admin
 from app.core.regions import is_valid_region_code
 from app.crud import player as player_crud
+from app.crud import record as record_crud
 from app.crud.recent_wr import (
     read_recent_wrs as read_recent_wrs_from_cache,
 )
@@ -192,6 +193,12 @@ async def read_recent_wrs(
 @router.get("/pb", response_model=list[RecordPublic])
 async def read_pb_records(
     session: SessionDep,
+    include_ranks: Annotated[
+        bool,
+        Query(
+            description="Include live competitive ranks for the selected scope, type, and geography; return at most 50 PBs."
+        ),
+    ] = False,
     scope: ModeScope = ModeScope.OVR,
     type: RecordType = RecordType.NUB,
     exclude_cheaters: bool = True,
@@ -229,6 +236,7 @@ async def read_pb_records(
 
     return await get_pb_record_publics(
         session,
+        include_ranks=include_ranks,
         map_id=map_id,
         map_name=map_name,
         stage=stage,
@@ -249,8 +257,36 @@ async def read_pb_records(
         sort_order=sort_order,
         exclude_cheaters=exclude_cheaters,
         offset=offset,
-        limit=limit,
+        limit=min(limit, 50) if include_ranks else limit,
     )
+
+
+@router.get("/pb/ranks", response_model=dict[uuid.UUID, int | None])
+async def read_pb_page_ranks(
+    session: SessionDep,
+    record_uuids: Annotated[
+        list[uuid.UUID], Query(alias="uuid_list", min_length=1, max_length=50)
+    ],
+    scope: ModeScope = ModeScope.OVR,
+    type: RecordType = RecordType.NUB,
+    country: Annotated[str | None, Query(max_length=2)] = None,
+    region: Annotated[str | None, Query(max_length=3)] = None,
+) -> dict[uuid.UUID, int | None]:
+    """Return competitive ranks for at most 50 visible PBs, without totals."""
+    normalized_country = (
+        country.strip().upper() if country and country.strip() else None
+    )
+    normalized_region = region.strip().upper() if region and region.strip() else None
+    _validate_geography_filters(country=normalized_country, region=normalized_region)
+    ranks = await record_crud.read_pb_ranks(
+        session=session,
+        record_uuids=record_uuids,
+        scope=scope,
+        record_type=type,
+        country=normalized_country,
+        region=normalized_region,
+    )
+    return {record_uuid: ranks.get(record_uuid) for record_uuid in record_uuids}
 
 
 @router.get("/rank", response_model=RecordRanksPublic)

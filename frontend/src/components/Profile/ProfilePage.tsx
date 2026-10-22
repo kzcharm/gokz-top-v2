@@ -92,6 +92,7 @@ import {
 
 const PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE = "profile_runs_auto_load_more"
 const PROFILE_RUNS_SHOW_WR_TIME_COOKIE = "profile_runs_show_wr_time"
+const PROFILE_RUNS_SHOW_RANKS_COOKIE = "profile_runs_show_ranks"
 const PROFILE_RUNS_SHOW_WR_GAP_COOKIE = "profile_runs_show_wr_gap"
 const PROFILE_RUNS_SHOW_SERVER_COOKIE = "profile_runs_show_server"
 const PROFILE_RUNS_SHOW_DATETIME_COOKIE = "profile_runs_show_datetime"
@@ -162,6 +163,9 @@ export function ProfilePage({
   const [showHiddenRecords, setShowHiddenRecords] = useState(false)
   const [autoLoadMore, setAutoLoadMore] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE, true),
+  )
+  const [showRanks, setShowRanks] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_SHOW_RANKS_COOKIE),
   )
   const [showWrTime, setShowWrTime] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_SHOW_WR_TIME_COOKIE),
@@ -821,6 +825,15 @@ export function ProfilePage({
               </DropdownMenuCheckboxItem>
             ) : null}
             <DropdownMenuCheckboxItem
+              checked={showRanks}
+              onCheckedChange={(checked) => {
+                setShowRanks(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_RANKS_COOKIE, checked)
+              }}
+            >
+              {t("profile.records.showRanks")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
               checked={showWrTime}
               onCheckedChange={(checked) => {
                 setShowWrTime(checked)
@@ -1095,6 +1108,7 @@ export function ProfilePage({
               showHiddenRecords={showHiddenRecords}
               autoLoadMore={autoLoadMore}
               showWrTime={showWrTime}
+              showRanks={showRanks}
               showWrGap={showWrGap}
               showServer={showServer}
               showDate={showDate}

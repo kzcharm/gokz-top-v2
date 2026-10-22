@@ -8819,6 +8819,17 @@ export const RecordPublicSchema = {
             format: 'uuid',
             title: 'Uuid'
         },
+        rank: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Rank'
+        },
         id: {
             anyOf: [
                 {

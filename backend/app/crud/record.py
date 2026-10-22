@@ -2855,6 +2855,7 @@ async def get_pb_records(
 async def get_pb_record_publics(
     session: AsyncSession,
     *,
+    include_ranks: bool = False,
     map_id: int | None,
     map_name: str | None,
     stage: int,
@@ -3071,9 +3072,22 @@ async def get_pb_record_publics(
         ],
         scope=scope,
     )
+    ranks_by_uuid = (
+        await read_pb_ranks(
+            session=session,
+            record_uuids=[row[0] for row in rows],
+            scope=scope,
+            record_type=record_type,
+            country=country,
+            region=region,
+        )
+        if include_ranks
+        else {}
+    )
     return [
         RecordPublic(
             uuid=record_uuid,
+            rank=ranks_by_uuid.get(record_uuid),
             id=record_id,
             player={
                 "steamid64": str(record_steamid64),
@@ -3486,6 +3500,62 @@ async def read_map_pb_leaderboard(
         if viewer_steamid64 is not None
         else None,
     )
+
+
+async def read_pb_ranks(
+    *,
+    session: AsyncSession,
+    record_uuids: Sequence[uuid.UUID],
+    scope: ModeScope,
+    record_type: RecordType,
+    country: str | None = None,
+    region: str | None = None,
+) -> dict[uuid.UUID, int]:
+    """Rank only requested PBs using the bucket's covering time/UUID index.
+
+    Count strictly earlier entries, including the UUID tie-breaker, rather than
+    sorting every competitor on every returned course. Active bans are excluded
+    even when a profile includes banned players' records for inspection.
+    """
+    if not record_uuids:
+        return {}
+
+    country_codes = (
+        (country,) if country is not None else get_region_country_codes(region)
+    )
+    eligible = [
+        col(RecordPb.scope) == scope,
+        col(RecordPb.type) == record_type,
+        _not_active_ban_exists_split_clause(steamid64_column=col(RecordPb.steamid64)),
+    ]
+    if country_codes is not None:
+        eligible.append(
+            col(RecordPb.steamid64).in_(
+                select(col(Player.steamid64)).where(
+                    col(Player.country).in_(list(country_codes))
+                )
+            )
+        )
+    targets = (
+        select(col(RecordPb.record_uuid), col(RecordPb.course_id), col(RecordPb.time))
+        .where(*eligible, col(RecordPb.record_uuid).in_(record_uuids))
+        .cte("rank_targets")
+        .prefix_with("MATERIALIZED")
+    )
+    rank = (
+        select(func.count() + 1)
+        .select_from(RecordPb)
+        .where(
+            *eligible,
+            col(RecordPb.course_id) == targets.c.course_id,
+            tuple_(col(RecordPb.time), col(RecordPb.record_uuid))
+            < tuple_(targets.c.time, targets.c.record_uuid),
+        )
+        .correlate(targets)
+        .scalar_subquery()
+    )
+    rows = (await session.exec(select(targets.c.record_uuid, rank))).all()
+    return {record_uuid: int(position) for record_uuid, position in rows}
 
 
 async def read_record_ranks(

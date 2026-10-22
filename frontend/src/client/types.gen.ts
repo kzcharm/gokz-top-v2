@@ -1793,6 +1793,7 @@ export type RecordPbBucketRebuildResult = {
 
 export type RecordPublic = {
     uuid: string;
+    rank?: (number | null);
     id?: (number | null);
     player: PlayerRefPublic;
     steam_id?: (string | null);
@@ -3457,6 +3458,10 @@ export type RecordsReadPbRecordsData = {
     country?: (string | null);
     excludeCheaters?: boolean;
     identifier?: (string | null);
+    /**
+     * Include live competitive ranks for the selected scope, type, and geography; return at most 50 PBs.
+     */
+    includeRanks?: boolean;
     isBonus?: boolean;
     limit?: number;
     mapId?: (number | null);
@@ -3471,6 +3476,18 @@ export type RecordsReadPbRecordsData = {
 };
 
 export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);
+
+export type RecordsReadPbPageRanksData = {
+    country?: (string | null);
+    region?: (string | null);
+    scope?: ModeScope;
+    type?: RecordType;
+    uuidList: Array<(string)>;
+};
+
+export type RecordsReadPbPageRanksResponse = ({
+    [key: string]: (number | null);
+});
 
 export type RecordsReadRecordRanksData = {
     country?: (string | null);
