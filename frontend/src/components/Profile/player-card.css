@@ -71,7 +71,6 @@
 }
 @media (max-width: 400px) {
   .player-card header,
-  .player-card section:last-child,
   .player-card [data-slot="card-content"] {
     padding-left: 16px;
     padding-right: 16px;
@@ -96,13 +95,32 @@
 
 .player-card .card-header {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 176px minmax(0, 1fr);
+  grid-template-areas: "identity radar" "summary radar";
+  column-gap: 4px;
+  row-gap: 16px;
+  padding: 20px 16px;
+}
+.player-card .card-identity {
+  grid-area: identity;
+}
+.player-card .card-summary {
+  grid-area: summary;
+}
+.player-card .card-radar {
+  grid-area: radar;
+  min-width: 0;
+}
+.player-card .card-radar > div:last-child {
+  margin-top: 32px;
+}
+.player-card .card-summary .text-xl {
+  font-size: 18px;
 }
 .player-card [data-player-presentation="card"] {
   flex-direction: column;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
 }
 .player-card [data-player-presentation="card"] > div:last-child {
   width: 100%;
@@ -112,10 +130,18 @@
 }
 @media (max-width: 400px) {
   .player-card .card-header {
-    grid-template-columns: 128px minmax(0, 1fr);
-    gap: 12px;
+    grid-template-columns: 140px minmax(0, 1fr);
+    column-gap: 0;
   }
   .player-card .card-summary .text-xl {
-    font-size: 17px;
+    font-size: 16px;
   }
+  .player-card .card-radar svg text {
+    font-size: 30px;
+  }
+}
+
+.player-card .card-summary .grid > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

@@ -190,37 +190,29 @@ export function PlayerCardPage({
                 className="min-w-0 flex-1"
               />
             </div>
-            <div className="card-summary space-y-4">
-              <div className="flex justify-end">
-                <span
-                  data-testid="card-scope"
-                  className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${getScopeTone(scope)}`}
-                >
-                  {scope}
-                </span>
-              </div>
+            <div className="card-summary space-y-3">
               <div
-                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 ${rating === null ? "border-border text-muted-foreground" : ratingRankBadgeClasses[getRatingRankLevel(rating)]}`}
+                className={`card-rating inline-flex items-center gap-1.5 rounded-lg border px-2 py-1.5 ${rating === null ? "border-border text-muted-foreground" : ratingRankBadgeClasses[getRatingRankLevel(rating)]}`}
               >
                 {rating !== null && (
                   <img
                     src={getPlayerRatingBadgeIcon(getRatingRankLevel(rating))}
                     alt={getRatingRankLabel(rating)}
-                    className="size-9 object-contain"
+                    className="size-7 object-contain"
                   />
                 )}
-                <span className="text-lg font-semibold">
+                <span className="text-sm font-semibold">
                   {rating === null
                     ? t("profile.unranked")
                     : getRatingRankLabel(rating)}
                 </span>
                 {rating !== null && (
-                  <span className="font-mono text-2xl font-semibold">
+                  <span className="font-mono text-xl font-semibold">
                     {formatRating(rating)}
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                 <div>
                   <p className="text-sm text-muted-foreground">
                     {t("profile.summary.global")}
@@ -269,6 +261,20 @@ export function PlayerCardPage({
                 </div>
               </div>
             </div>
+            <section
+              className="card-radar"
+              aria-label={t("profile.skillRadar.relativeAriaLabel")}
+            >
+              <div className="flex justify-end">
+                <span
+                  data-testid="card-scope"
+                  className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${getScopeTone(scope)}`}
+                >
+                  {scope}
+                </span>
+              </div>
+              <SkillRadar card ratings={standing.data?.skillRatings ?? null} />
+            </section>
           </header>
           <section
             className="border-t border-border"
@@ -282,12 +288,6 @@ export function PlayerCardPage({
               tiers={completion.tiers}
               trophies={buildProfileTrophyCounts(nub.data ?? [])}
             />
-          </section>
-          <section
-            className="border-t border-border px-6 py-4"
-            aria-label={t("profile.skillRadar.relativeAriaLabel")}
-          >
-            <SkillRadar card ratings={standing.data?.skillRatings ?? null} />
           </section>
         </>
       )}

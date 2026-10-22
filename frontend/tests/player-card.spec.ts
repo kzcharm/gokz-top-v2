@@ -112,6 +112,8 @@ for (const lang of ["en", "zh-CN", "ru"]) {
       await expect(card).toContainText("3 / 8")
       await expect(card).toContainText("#42")
       await expect(card).toContainText("#12")
+      await expect(card.locator("header .card-radar svg")).toHaveCount(1)
+      await expect(card.locator("header .card-summary")).toContainText("#42")
       await expect(card).not.toContainText("AXE GOKZ")
       await expect(card).toContainText(lang === "ru" ? "275,79" : "275.79")
       await expect(card).not.toContainText("相对技能优势")
