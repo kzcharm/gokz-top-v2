@@ -71,7 +71,7 @@ export function SkillRadar({
   const { t } = useTranslation()
   const size = card ? 400 : 220
   const center = size / 2
-  const radius = card ? 94 : 74
+  const radius = card ? 116 : 74
   const labels = SKILL_KEYS.map((skill) => ({
     value: ratings?.[skill]?.rating ?? null,
     label: t(
@@ -162,7 +162,7 @@ export function SkillRadar({
             const pointRadius = plotValues[index] * radius
             const x = center + Math.cos(angle) * pointRadius
             const y = center + Math.sin(angle) * pointRadius
-            const labelRadius = radius + (card ? 34 : 26)
+            const labelRadius = radius + (card ? 52 : 26)
             const lx = center + Math.cos(angle) * labelRadius
             const ly = center + Math.sin(angle) * labelRadius
             return (
@@ -184,10 +184,10 @@ export function SkillRadar({
                 >
                   {card ? (
                     <>
-                      <tspan x={lx} dy="-0.4em">
+                      <tspan x={lx} dy="-0.4em" fontSize="20">
                         {skill.label}
                       </tspan>
-                      <tspan x={lx} dy="1.3em">
+                      <tspan x={lx} dy="1.2em" fontSize="28">
                         {skill.value === null ? "—" : formatRating(skill.value)}
                       </tspan>
                     </>

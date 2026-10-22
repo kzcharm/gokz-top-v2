@@ -235,19 +235,6 @@ export function PlayerCardPage({
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {t("labels.points")}
-                  </p>
-                  <p className="mt-1 text-xl font-semibold tabular-nums">
-                    {formatNumber(
-                      buildProfileTotalPoints({
-                        nubRecords: nub.data ?? [],
-                        proRecords: pro.data ?? [],
-                      }),
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
                     {t("profile.summary.ljPb")}
                   </p>
                   <p className="mt-1 text-xl font-semibold tabular-nums">
@@ -257,6 +244,19 @@ export function PlayerCardPage({
                           maximumFractionDigits: 2,
                         }).format(longJump.data.data[0].distance)
                       : "—"}
+                  </p>
+                </div>
+                <div className="card-points">
+                  <p className="text-sm text-muted-foreground">
+                    {t("labels.points")}
+                  </p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums">
+                    {formatNumber(
+                      buildProfileTotalPoints({
+                        nubRecords: nub.data ?? [],
+                        proRecords: pro.data ?? [],
+                      }),
+                    )}
                   </p>
                 </div>
               </div>

@@ -95,10 +95,10 @@
 
 .player-card .card-header {
   display: grid;
-  grid-template-columns: 176px minmax(0, 1fr);
+  grid-template-columns: 160px minmax(0, 1fr);
   grid-template-areas: "identity radar" "summary radar";
-  column-gap: 4px;
-  row-gap: 16px;
+  column-gap: 0;
+  row-gap: 14px;
   padding: 20px 16px;
 }
 .player-card .card-identity {
@@ -110,9 +110,12 @@
 .player-card .card-radar {
   grid-area: radar;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .player-card .card-radar > div:last-child {
-  margin-top: 32px;
+  margin-top: 0;
 }
 .player-card .card-summary .text-xl {
   font-size: 18px;
@@ -144,4 +147,20 @@
 .player-card .card-summary .grid > div {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.player-card .card-radar > div:first-child {
+  align-self: flex-end;
+}
+.player-card .card-radar svg {
+  max-width: none;
+}
+.player-card .card-summary .grid {
+  gap: 10px 8px;
+}
+.player-card [data-player-presentation="card"] p:first-child {
+  font-size: 21px;
+}
+.player-card .card-points > p:last-child {
+  white-space: nowrap;
 }

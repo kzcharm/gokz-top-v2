@@ -16,6 +16,7 @@ async function mockCard(
     longName?: boolean
     partial?: boolean
     slow?: boolean
+    largePoints?: boolean
     brokenAvatar?: boolean
   } = {},
 ) {
@@ -77,7 +78,7 @@ async function mockCard(
       body = options.empty
         ? []
         : url.searchParams.get("type") === "PRO"
-          ? [{ map_id: 1, points: 500 }]
+          ? [{ map_id: 1, points: options.largePoints ? 123456789 : 500 }]
           : [
               { map_id: 1, points: 1000 },
               { map_id: 2, points: 950 },
@@ -216,4 +217,33 @@ test("a fuzzy name match is not accepted as an identifier", async ({
     "data-render-state",
     "error",
   )
+})
+
+test("large points extend right and radar values are larger than labels", async ({
+  page,
+}) => {
+  await mockCard(page, { largePoints: true })
+  await page.goto(`/cards/player/${steamid64}?scope=OVR&lang=zh-CN`)
+  const card = page.getByTestId("player-card")
+  await expect(card).toHaveAttribute("data-render-state", "ready")
+  const points = card.locator(".card-points")
+  await expect(points).toContainText("123,459,589")
+  const metrics = await points.evaluate((el) => {
+    const value = el.lastElementChild!
+    const range = document.createRange()
+    range.selectNodeContents(value)
+    return {
+      right: range.getBoundingClientRect().right,
+      cardRight: el.closest("main")!.getBoundingClientRect().right,
+      previous: el.previousElementSibling!.textContent,
+    }
+  })
+  expect(metrics.previous).toContain("LJ PB")
+  expect(metrics.right).toBeLessThan(metrics.cardRight)
+  const sizes = await card
+    .locator('[data-skill-label="slide"] tspan')
+    .evaluateAll((spans) =>
+      spans.map((span) => parseFloat(getComputedStyle(span).fontSize)),
+    )
+  expect(sizes[1]).toBeGreaterThan(sizes[0])
 })
