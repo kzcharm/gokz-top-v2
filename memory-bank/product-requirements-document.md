@@ -260,4 +260,4 @@ Scope model:
 
 ## Shareable player cards
 
-- The official QQ bot generates portrait cards from `/cards/player/:identifier`, with player identity/country flag, rating icon/global and regional standings/total points, join and last-played dates, playtime, longest jump, favorite server, NUB completion, and the relative six-skill radar. Cards omit site branding, Steam IDs, and URLs, support OVR/KZT/SKZ/VNL and English/Chinese/Russian, and do not trigger profile-view writes or player synchronization. Images are cached in the bot for 15 minutes; forced image regeneration is separate from player-data refresh.
+- The official QQ bot generates portrait cards from `/cards/player/:identifier`, with player identity/country flag, rating icon/global and regional standings/total points, long-jump personal best, NUB completion, and the relative six-skill radar. Cards omit site branding, Steam IDs, and URLs, support OVR/KZT/SKZ/VNL and English/Chinese/Russian, and do not trigger profile-view writes or player synchronization. Images are cached in the bot for 15 minutes; forced image regeneration is separate from player-data refresh.

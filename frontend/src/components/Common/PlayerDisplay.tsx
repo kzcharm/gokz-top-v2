@@ -797,6 +797,14 @@ export function PlayerDisplay({
           )}
           title={fullDisplayLabel}
         >
+          {presentation === "card" &&
+            showEffectiveCountryFlag &&
+            FlagComponent && (
+              <FlagComponent
+                className="mr-2 inline-block h-4 w-6 align-middle"
+                aria-label={countryName ?? undefined}
+              />
+            )}
           {clanTag ? (
             <span className="shrink-0 whitespace-pre text-muted-foreground">
               {clanTag}
@@ -828,14 +836,6 @@ export function PlayerDisplay({
             )}
             title={sublineTitle}
           >
-            {presentation === "card" &&
-              showEffectiveCountryFlag &&
-              FlagComponent && (
-                <FlagComponent
-                  className="mr-2 inline-block h-4 w-6 align-middle"
-                  aria-label={countryName ?? undefined}
-                />
-              )}
             {sublineContent}
           </p>
         ) : null}

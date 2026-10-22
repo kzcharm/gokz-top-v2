@@ -21,8 +21,8 @@
   display: none;
 }
 .player-card [data-slot="avatar"] {
-  width: 88px;
-  height: 88px;
+  width: 128px;
+  height: 128px;
   border-radius: 14px;
   flex-shrink: 0;
 }
@@ -32,7 +32,10 @@
 .player-card [data-player-presentation="card"] p:first-child {
   font-size: 22px;
   line-height: 1.25;
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   overflow-wrap: anywhere;
 }
 .player-card [data-player-presentation="card"] p:first-child > span {
@@ -89,4 +92,30 @@
 }
 .player-card [data-completion-tier] > div {
   background: rgb(255 255 255 / 10%);
+}
+
+.player-card .card-header {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 20px;
+}
+.player-card [data-player-presentation="card"] {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.player-card [data-player-presentation="card"] > div:last-child {
+  width: 100%;
+}
+.player-card [data-player-presentation="card"] p:first-child > span.truncate {
+  display: inline;
+}
+@media (max-width: 400px) {
+  .player-card .card-header {
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .player-card .card-summary .text-xl {
+    font-size: 17px;
+  }
 }
