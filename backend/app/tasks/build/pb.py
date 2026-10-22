@@ -199,7 +199,7 @@ async def _load_bucket_plan(*, force_all: bool) -> list[RecordPbBucket]:
 
     return [
         RecordPbBucket(
-            scope=scope,
+            scope=ModeScope(scope),
             course_id=course_id,
             map_id=map_id,
             stage=stage,
