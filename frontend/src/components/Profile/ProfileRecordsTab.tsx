@@ -46,6 +46,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import useAuth from "@/hooks/useAuth"
+import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { type DateTimePreset, getBrowserLocale } from "@/lib/date-time"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
@@ -988,6 +989,7 @@ export function ProfileRecordsTab({
   canManageHiddenMaps,
   hiddenMapIds,
   showHiddenRecords,
+  autoLoadMore,
   showWrTime,
   showWrGap,
   showServer,
@@ -1011,6 +1013,7 @@ export function ProfileRecordsTab({
   canManageHiddenMaps: boolean
   hiddenMapIds: Set<number>
   showHiddenRecords: boolean
+  autoLoadMore: boolean
   showWrTime: boolean
   showWrGap: boolean
   showServer: boolean
@@ -1060,6 +1063,11 @@ export function ProfileRecordsTab({
   }
   const [historyRecord, setHistoryRecord] = useState<RecordPublic | null>(null)
   const [visibleCount, setVisibleCount] = useState(PROFILE_RECORDS_PAGE_SIZE)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = usePersistedPageSize({
+    storageKey: "profile-runs-page-size",
+    defaultPageSize: PROFILE_RECORDS_PAGE_SIZE,
+  })
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const deferredMapSearch = useDeferredValue(mapSearch)
   const deferredServerSearch = useDeferredValue(serverSearch)
@@ -1272,17 +1280,43 @@ export function ProfileRecordsTab({
     sort,
   ])
 
+  const pageCount = Math.max(1, Math.ceil(sortedRecords.length / pageSize))
+  const currentPageIndex = Math.min(pageIndex, pageCount - 1)
   const visibleRecords = useMemo(() => {
-    return sortedRecords.slice(0, visibleCount)
-  }, [sortedRecords, visibleCount])
+    return autoLoadMore
+      ? sortedRecords.slice(0, visibleCount)
+      : sortedRecords.slice(
+          currentPageIndex * pageSize,
+          (currentPageIndex + 1) * pageSize,
+        )
+  }, [autoLoadMore, sortedRecords, visibleCount, currentPageIndex, pageSize])
+
+  // Reset navigation when the player, filters, sort, or browsing mode changes.
+  const navigationKey = JSON.stringify([
+    steamid64,
+    scope,
+    isProOnly,
+    isBonus,
+    viewState,
+    showHiddenRecords,
+    autoLoadMore,
+    pageSize,
+  ])
+  const [previousNavigationKey, setPreviousNavigationKey] =
+    useState(navigationKey)
+  if (previousNavigationKey !== navigationKey) {
+    setPreviousNavigationKey(navigationKey)
+    setPageIndex(0)
+    setVisibleCount(PROFILE_RECORDS_PAGE_SIZE)
+  }
 
   useEffect(() => {
-    setVisibleCount(PROFILE_RECORDS_PAGE_SIZE)
-  }, [])
+    setPageIndex((current) => Math.min(current, pageCount - 1))
+  }, [pageCount])
 
   useEffect(() => {
     const target = loadMoreRef.current
-    if (!target || visibleCount >= sortedRecords.length) {
+    if (!autoLoadMore || !target || visibleCount >= sortedRecords.length) {
       return
     }
 
@@ -1306,7 +1340,7 @@ export function ProfileRecordsTab({
 
     observer.observe(target)
     return () => observer.disconnect()
-  }, [sortedRecords.length, visibleCount])
+  }, [autoLoadMore, sortedRecords.length, visibleCount])
 
   const handleSortChange = (column: PbRecordsColumn) => {
     updateViewState(
@@ -1436,6 +1470,19 @@ export function ProfileRecordsTab({
         <div className="space-y-4">
           <PbRecordsTable
             records={visibleRecords}
+            pagination={
+              autoLoadMore
+                ? undefined
+                : {
+                    totalLabel: t("profile.records.totalLabel"),
+                    totalCount: sortedRecords.length,
+                    pageIndex: currentPageIndex,
+                    pageCount,
+                    pageSize,
+                    onPageIndexChange: setPageIndex,
+                    onPageSizeChange: setPageSize,
+                  }
+            }
             columns={[
               "map",
               ...(!isBonus ? ["tier" as const] : []),
@@ -1631,7 +1678,7 @@ export function ProfileRecordsTab({
               adminModeForRecords ? renderAdminActions : undefined
             }
           />
-          {visibleCount < sortedRecords.length ? (
+          {autoLoadMore && visibleCount < sortedRecords.length ? (
             <div
               ref={loadMoreRef}
               className="flex h-14 items-center justify-center text-sm text-muted-foreground"

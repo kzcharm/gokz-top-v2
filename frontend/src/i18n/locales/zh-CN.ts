@@ -585,6 +585,10 @@ export const zhCN = {
       ratingLabel: "Rating",
     },
     records: {
+      navigation: "浏览方式",
+      autoLoadMore: "自动加载更多",
+      pagination: "分页",
+      totalLabel: "条记录",
       showMilliseconds: "显示毫秒",
       showServer: "显示服务器",
       showDate: "显示日期",

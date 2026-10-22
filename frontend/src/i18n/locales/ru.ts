@@ -610,6 +610,10 @@ export const ru = {
       ratingLabel: "Рейтинг",
     },
     records: {
+      navigation: "Навигация",
+      autoLoadMore: "Автоматически загружать ещё",
+      pagination: "По страницам",
+      totalLabel: "рекордов",
       showMilliseconds: "Показывать миллисекунды",
       showServer: "Показывать сервер",
       showDate: "Показывать дату",

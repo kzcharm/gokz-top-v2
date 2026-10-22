@@ -231,6 +231,122 @@ const ovrRecords = [
   },
 ]
 
+test("Development profile routes use regular modules instead of virtual split imports", async ({
+  request,
+}) => {
+  for (const route of ["index", "runs"]) {
+    const response = await request.get(
+      `/src/routes/_layout/profile.$identifier.${route}.tsx`,
+    )
+    expect(response.ok()).toBeTruthy()
+    const source = await response.text()
+    expect(source).toContain("ProfilePage")
+    expect(source).not.toContain("tsr-split=")
+    expect(source).not.toContain("lazyRouteComponent")
+  }
+})
+
+test("Profile runs switch between automatic loading and remembered pagination", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  const records = Array.from({ length: 125 }, (_, index) => ({
+    ...ovrRecords[0],
+    uuid: `019d7777-7777-7777-8777-${String(index).padStart(12, "0")}`,
+    map_id: 980200 + index,
+    map_name: `kz_pagination_${String(index).padStart(3, "0")}`,
+    time: index + 1,
+  }))
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+    route.fulfill({ json: records }),
+  )
+  await page.goto(`/profile/${steamid64}/runs`)
+  const rows = page.locator('[data-testid^="pb-record-row-"]')
+  await expect(rows).toHaveCount(50)
+  await page
+    .getByText("Loading more records...", { exact: true })
+    .scrollIntoViewIfNeeded()
+  await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(100)
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await expect(
+    page.getByRole("menuitemradio", { name: "Auto-load more", exact: true }),
+  ).toBeChecked()
+  await page
+    .getByRole("menuitemradio", { name: "Pagination", exact: true })
+    .click()
+  await expect(rows).toHaveCount(50)
+  const recordsTable = page.getByTestId("pb-records-table")
+  const currentPage = recordsTable.getByRole("spinbutton", {
+    name: /Current page/,
+  })
+  await expect(
+    recordsTable.getByRole("button", { name: "Go to next page", exact: true }),
+  ).toBeVisible()
+  await expect(currentPage).toHaveValue("1")
+  await expect(
+    page.getByText("Loading more records...", { exact: true }),
+  ).toHaveCount(0)
+  const firstMap = await rows.first().textContent()
+  await page
+    .getByRole("button", { name: "Go to next page", exact: true })
+    .click()
+  await expect(currentPage).toHaveValue("2")
+  await expect(rows).toHaveCount(50)
+  expect(await rows.first().textContent()).not.toBe(firstMap)
+  await page
+    .getByRole("button", { name: "Go to last page", exact: true })
+    .click()
+  await expect(currentPage).toHaveValue("3")
+  await expect(rows).toHaveCount(25)
+  await currentPage.fill("2")
+  await currentPage.press("Enter")
+  await expect(rows).toHaveCount(50)
+
+  await page.getByRole("combobox").filter({ hasText: "50" }).click()
+  await page.getByRole("option", { name: "20", exact: true }).click()
+  await expect(currentPage).toHaveValue("1")
+  await expect(rows).toHaveCount(20)
+  await page.reload()
+  await expect(rows).toHaveCount(20)
+  await expect(
+    page.getByRole("combobox").filter({ hasText: "20" }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "Go to last page", exact: true })
+    .click()
+  await expect(rows).toHaveCount(5)
+  await page
+    .getByRole("textbox", { name: "Search map name" })
+    .fill("kz_pagination_000")
+  await expect(rows).toHaveCount(1)
+  await expect(currentPage).toHaveValue("1")
+  await page
+    .getByRole("textbox", { name: "Search map name" })
+    .fill("no-such-map")
+  await expect(rows).toHaveCount(0)
+  await expect(currentPage).toHaveValue("1")
+  await expect(
+    page.getByRole("button", { name: "Go to next page", exact: true }),
+  ).toBeDisabled()
+  await page.getByRole("textbox", { name: "Search map name" }).clear()
+  await expect(rows).toHaveCount(20)
+  await page.screenshot({
+    path: "../.temp/profile-runs/pagination.png",
+    fullPage: true,
+  })
+
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemradio", { name: "Auto-load more", exact: true })
+    .click()
+  await expect(rows).toHaveCount(50)
+  await expect(currentPage).toHaveCount(0)
+  await page.reload()
+  await expect(rows).toHaveCount(50)
+  await expect(currentPage).toHaveCount(0)
+})
+
 test("Profile sidebar renders calibrated skill ratings and unavailable skills", async ({
   page,
 }) => {

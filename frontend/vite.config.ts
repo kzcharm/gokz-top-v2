@@ -41,7 +41,7 @@ function localDevFavicon(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(getAppVersion()),
   },
@@ -54,9 +54,11 @@ export default defineConfig({
     localDevFavicon(),
     tanstackRouter({
       target: "react",
-      autoCodeSplitting: true,
+      // Virtual split-route imports can remain failed in a browser module map
+      // during development. Use regular modules for HMR and split production builds.
+      autoCodeSplitting: command === "build",
     }),
     react(),
     tailwindcss(),
   ],
-})
+}))

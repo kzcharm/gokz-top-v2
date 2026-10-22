@@ -137,6 +137,7 @@
 - React 19
 - TypeScript 5.9
 - Vite 7 + `@vitejs/plugin-react-swc`
+- TanStack Router automatic code splitting runs only for production builds. Development serves regular route modules for HMR, avoiding persistent failures of virtual `?tsr-split=component` imports.
 - Tailwind CSS 4 + `@tailwindcss/vite`
 - Radix UI primitives
 - TanStack:

@@ -1,5 +1,10 @@
 import { ArrowDown, ArrowUp, Flag, Info } from "lucide-react"
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
+import type {
+  ComponentProps,
+  KeyboardEvent,
+  MouseEvent,
+  ReactNode,
+} from "react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -12,6 +17,7 @@ import {
   RowContextMenuItem,
   RowContextMenuSeparator,
 } from "@/components/Common/RowContextMenu"
+import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,6 +65,7 @@ interface PbRecordsTableProps {
   onRowClick?: (record: RecordPublic) => void
   showReplayColumn?: boolean
   renderAdminActions?: (record: RecordPublic) => ReactNode
+  pagination?: ComponentProps<typeof TablePaginationFooter>
 }
 
 function isInteractiveRowTarget(target: EventTarget | null) {
@@ -404,6 +411,7 @@ export function PbRecordsTable({
   onRowClick,
   showReplayColumn = false,
   renderAdminActions,
+  pagination,
 }: PbRecordsTableProps) {
   const { t } = useTranslation()
   const visibleColumns = new Set(columns)
@@ -415,7 +423,10 @@ export function PbRecordsTable({
   )
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+    <div
+      data-testid="pb-records-table"
+      className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
+    >
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -689,6 +700,7 @@ export function PbRecordsTable({
           </TableBody>
         </Table>
       </div>
+      {pagination ? <TablePaginationFooter {...pagination} /> : null}
     </div>
   )
 }

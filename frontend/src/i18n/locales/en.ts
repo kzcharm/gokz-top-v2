@@ -598,6 +598,10 @@ export const en = {
       ratingLabel: "Rating",
     },
     records: {
+      navigation: "Navigation",
+      autoLoadMore: "Auto-load more",
+      pagination: "Pagination",
+      totalLabel: "records",
       showMilliseconds: "Show milliseconds",
       showServer: "Show server",
       showDate: "Show date",

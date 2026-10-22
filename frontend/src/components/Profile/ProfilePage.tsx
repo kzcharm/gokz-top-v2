@@ -24,6 +24,10 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
@@ -86,6 +90,7 @@ import {
   unpinProfileRecord,
 } from "./profile-utils"
 
+const PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE = "profile_runs_auto_load_more"
 const PROFILE_RUNS_SHOW_WR_TIME_COOKIE = "profile_runs_show_wr_time"
 const PROFILE_RUNS_SHOW_WR_GAP_COOKIE = "profile_runs_show_wr_gap"
 const PROFILE_RUNS_SHOW_SERVER_COOKIE = "profile_runs_show_server"
@@ -155,6 +160,9 @@ export function ProfilePage({
   const [isProOnly, setIsProOnly] = useState(false)
   const [isBonus, setIsBonus] = useState(false)
   const [showHiddenRecords, setShowHiddenRecords] = useState(false)
+  const [autoLoadMore, setAutoLoadMore] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE, true),
+  )
   const [showWrTime, setShowWrTime] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_SHOW_WR_TIME_COOKIE),
   )
@@ -782,6 +790,28 @@ export function ProfilePage({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuLabel>
+              {t("profile.records.navigation")}
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={autoLoadMore ? "automatic" : "pagination"}
+              onValueChange={(value) => {
+                const automatic = value === "automatic"
+                setAutoLoadMore(automatic)
+                writeBooleanCookie(
+                  PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE,
+                  automatic,
+                )
+              }}
+            >
+              <DropdownMenuRadioItem value="automatic">
+                {t("profile.records.autoLoadMore")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="pagination">
+                {t("profile.records.pagination")}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
             {isOwnProfile ? (
               <DropdownMenuCheckboxItem
                 checked={showHiddenRecords}
@@ -1063,6 +1093,7 @@ export function ProfilePage({
               canManageHiddenMaps={isOwnProfile}
               hiddenMapIds={hiddenMapIds}
               showHiddenRecords={showHiddenRecords}
+              autoLoadMore={autoLoadMore}
               showWrTime={showWrTime}
               showWrGap={showWrGap}
               showServer={showServer}
