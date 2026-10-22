@@ -3,6 +3,8 @@
 set -e
 set -x
 
-coverage run -m pytest tests/
+test_status=0
+coverage run -m pytest tests/ || test_status=$?
+coverage html --fail-under=0 --title "${*:-coverage}"
 coverage report
-coverage html --title "${@-coverage}"
+exit "$test_status"

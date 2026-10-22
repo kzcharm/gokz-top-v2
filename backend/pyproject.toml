@@ -79,12 +79,16 @@ keep-runtime-typing = true
 
 [tool.coverage.run]
 source = ["app"]
+data_file = "../.temp/backend/.coverage"
 concurrency = ["greenlet"]
 dynamic_context = "test_function"
 
 [tool.coverage.report]
 show_missing = true
 sort = "-Cover"
+fail_under = 90
+precision = 2
 
 [tool.coverage.html]
+directory = "../.temp/backend/htmlcov"
 show_contexts = true

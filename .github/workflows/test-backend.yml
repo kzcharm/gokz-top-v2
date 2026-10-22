@@ -33,11 +33,12 @@ jobs:
         working-directory: backend
       - run: docker compose down -v --remove-orphans
       - name: Store coverage files
+        if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v6
         with:
           name: coverage-html
-          path: backend/htmlcov
+          path: .temp/backend/htmlcov
           include-hidden-files: true
       - name: Coverage report
         run: uv run coverage report

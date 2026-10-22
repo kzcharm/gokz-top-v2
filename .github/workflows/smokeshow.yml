@@ -25,12 +25,12 @@ jobs:
         continue-on-error: true
         with:
           name: coverage-html
-          path: backend/htmlcov
+          path: .temp/backend/htmlcov
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
       - run: |
-          if test -f backend/htmlcov/index.html; then
-            smokeshow upload backend/htmlcov
+          if test -f .temp/backend/htmlcov/index.html; then
+            smokeshow upload .temp/backend/htmlcov
           else
             echo "Coverage artifact unavailable; skipping Smokeshow upload."
           fi

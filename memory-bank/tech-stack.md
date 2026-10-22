@@ -131,7 +131,7 @@
 - Ruff for linting
 - mypy (strict mode)
 - pytest + pytest-asyncio
-- coverage (CI threshold target >= 90%)
+- coverage (90% minimum enforced by the backend report configuration; data and HTML reports live under `.temp/backend/`, including CI and Docker runs)
 
 ## Frontend Runtime and Libraries
 - React 19
