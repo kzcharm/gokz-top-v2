@@ -8,6 +8,7 @@
   - FastAPI backend in `backend/`
   - React + TypeScript frontend in `frontend/`
   - SourceMod plugin code tracked in the `sourcemod/` git submodule (`kzcharm/gokz-top-plugins`)
+  - Official QQ API bot tracked in the `qqbot/` git submodule (`kzcharm/qqbot-saki-chan`), with its own deployment on E
   - GOKZ replay viewer tracked in the `replay-viewer/` git submodule (`kzcharm/replay-viewer`) and deployed as a separate Traefik-routed frontend service
 - API surfaces:
   - `/v0` for GlobalAPI v2.0 compatibility behavior

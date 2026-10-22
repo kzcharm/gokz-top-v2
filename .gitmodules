@@ -7,3 +7,6 @@
 [submodule "replay-viewer"]
 	path = replay-viewer
 	url = git@github.com:kzcharm/replay-viewer.git
+[submodule "qqbot"]
+	path = qqbot
+	url = git@github.com:kzcharm/qqbot-saki-chan.git

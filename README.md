@@ -7,10 +7,13 @@ GOKZ.TOP v2 is the FastAPI, React, and SourceMod-backed platform for GOKZ record
 - `backend/`: FastAPI service, SQLModel models, Alembic migrations, background tasks, and pytest suites.
 - `frontend/`: React + TypeScript app with TanStack Router, TanStack Query, Tailwind CSS, and generated API client code.
 - `sourcemod/`: SourceMod plugin submodule for `kzcharm/gokz-top-plugins`.
+- `qqbot/`: official QQ API bot submodule for `kzcharm/qqbot-saki-chan`, deployed independently on E.
 - `memory-bank/`: product and architecture notes that guide implementation.
 - `notes/`: public documentation submodule.
 
 ## Local Development
+
+Initialize submodules after cloning with `git submodule update --init --recursive`. Work on the official QQ bot directly in `qqbot/`; commit bot changes in that repository, then update the submodule pointer here.
 
 Start the full stack with Docker Compose:
 
