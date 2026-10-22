@@ -992,6 +992,8 @@ export function ProfileRecordsTab({
   showHiddenRecords,
   autoLoadMore: preferAutoLoadMore,
   showWrTime,
+  showMode,
+  showRating,
   showRanks,
   showWrGap,
   showServer,
@@ -1017,6 +1019,8 @@ export function ProfileRecordsTab({
   showHiddenRecords: boolean
   autoLoadMore: boolean
   showWrTime: boolean
+  showMode: boolean
+  showRating: boolean
   showRanks: boolean
   showWrGap: boolean
   showServer: boolean
@@ -1527,7 +1531,7 @@ export function ProfileRecordsTab({
             columns={[
               "map",
               ...(!isBonus ? ["tier" as const] : []),
-              "mode",
+              ...(showMode ? ["mode" as const] : []),
               ...(isBonus ? ["stage" as const] : []),
               "tps",
               ...(showWrTime ? ["wrTime" as const] : []),
@@ -1535,7 +1539,7 @@ export function ProfileRecordsTab({
               ...(showRanks ? ["rank" as const] : []),
               ...(showWrGap ? ["wrGap" as const] : []),
               "points",
-              ...(!isBonus ? ["rating" as const] : []),
+              ...(!isBonus && showRating ? ["rating" as const] : []),
               ...(showServer ? ["server" as const] : []),
               ...(showDate ? ["datetime" as const] : []),
             ]}

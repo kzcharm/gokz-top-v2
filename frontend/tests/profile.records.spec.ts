@@ -347,6 +347,58 @@ test("Profile runs switch between automatic loading and remembered pagination", 
   await expect(currentPage).toHaveCount(0)
 })
 
+test("Profile runs remember mode and rating column visibility", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+    route.fulfill({ json: ovrRecords }),
+  )
+  await page.goto(`/profile/${steamid64}/runs`)
+  const table = page.getByTestId("pb-records-table")
+  const mode = table.getByRole("columnheader", { name: "Mode", exact: true })
+  const rating = table.getByRole("columnheader", { name: /Rating/ })
+  await expect(mode).toBeVisible()
+  await expect(rating).toBeVisible()
+
+  for (const label of ["Show mode", "Show rating"]) {
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    const toggle = page.getByRole("menuitemcheckbox", {
+      name: label,
+      exact: true,
+    })
+    await expect(toggle).toBeChecked()
+    await toggle.click()
+  }
+  await expect(mode).toHaveCount(0)
+  await expect(rating).toHaveCount(0)
+  await expect(
+    table.getByRole("columnheader", { name: "Points", exact: true }),
+  ).toBeVisible()
+  await page.reload()
+  await expect(
+    page.getByTestId(`pb-record-row-${ovrRecords[0].uuid}`),
+  ).toBeVisible()
+  await expect(mode).toHaveCount(0)
+  await expect(rating).toHaveCount(0)
+
+  for (const label of ["Show mode", "Show rating"]) {
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    const toggle = page.getByRole("menuitemcheckbox", {
+      name: label,
+      exact: true,
+    })
+    await expect(toggle).not.toBeChecked()
+    await toggle.click()
+  }
+  await expect(mode).toBeVisible()
+  await expect(rating).toBeVisible()
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-runs-columns.png",
+    fullPage: true,
+  })
+})
+
 test("Profile PB ranks are opt-in, scoped, sortable, and remembered", async ({
   page,
 }) => {

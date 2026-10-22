@@ -619,6 +619,8 @@ export const ru = {
       showDate: "Показывать дату",
       showTime: "Показывать время",
       date: "Дата",
+      showMode: "Показывать режим",
+      showRating: "Показывать рейтинг",
       showRanks: "Показывать места",
       ranksLoading: "Загрузка рангов…",
       ranksError: "Не удалось загрузить ранги.",

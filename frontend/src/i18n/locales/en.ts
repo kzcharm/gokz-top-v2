@@ -607,6 +607,8 @@ export const en = {
       showDate: "Show date",
       showTime: "Show time",
       date: "Date",
+      showMode: "Show mode",
+      showRating: "Show rating",
       showRanks: "Show ranks",
       ranksLoading: "Loading ranks…",
       ranksError: "Ranks could not be loaded.",

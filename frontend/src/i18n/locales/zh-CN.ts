@@ -594,6 +594,8 @@ export const zhCN = {
       showDate: "显示日期",
       showTime: "显示时间",
       date: "日期",
+      showMode: "显示模式",
+      showRating: "显示 Rating",
       showRanks: "显示排名",
       ranksLoading: "正在加载排名…",
       ranksError: "无法加载排名。",

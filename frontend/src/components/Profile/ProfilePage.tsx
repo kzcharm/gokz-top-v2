@@ -92,6 +92,8 @@ import {
 
 const PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE = "profile_runs_auto_load_more"
 const PROFILE_RUNS_SHOW_WR_TIME_COOKIE = "profile_runs_show_wr_time"
+const PROFILE_RUNS_SHOW_MODE_COOKIE = "profile_runs_show_mode"
+const PROFILE_RUNS_SHOW_RATING_COOKIE = "profile_runs_show_rating"
 const PROFILE_RUNS_SHOW_RANKS_COOKIE = "profile_runs_show_ranks"
 const PROFILE_RUNS_SHOW_WR_GAP_COOKIE = "profile_runs_show_wr_gap"
 const PROFILE_RUNS_SHOW_SERVER_COOKIE = "profile_runs_show_server"
@@ -163,6 +165,12 @@ export function ProfilePage({
   const [showHiddenRecords, setShowHiddenRecords] = useState(false)
   const [autoLoadMore, setAutoLoadMore] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE, true),
+  )
+  const [showMode, setShowMode] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_SHOW_MODE_COOKIE, true),
+  )
+  const [showRating, setShowRating] = useState(() =>
+    readBooleanCookie(PROFILE_RUNS_SHOW_RATING_COOKIE, true),
   )
   const [showRanks, setShowRanks] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_SHOW_RANKS_COOKIE),
@@ -825,6 +833,24 @@ export function ProfilePage({
               </DropdownMenuCheckboxItem>
             ) : null}
             <DropdownMenuCheckboxItem
+              checked={showMode}
+              onCheckedChange={(checked) => {
+                setShowMode(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_MODE_COOKIE, checked)
+              }}
+            >
+              {t("profile.records.showMode")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showRating}
+              onCheckedChange={(checked) => {
+                setShowRating(checked)
+                writeBooleanCookie(PROFILE_RUNS_SHOW_RATING_COOKIE, checked)
+              }}
+            >
+              {t("profile.records.showRating")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
               checked={showRanks}
               onCheckedChange={(checked) => {
                 setShowRanks(checked)
@@ -1108,6 +1134,8 @@ export function ProfilePage({
               showHiddenRecords={showHiddenRecords}
               autoLoadMore={autoLoadMore}
               showWrTime={showWrTime}
+              showMode={showMode}
+              showRating={showRating}
               showRanks={showRanks}
               showWrGap={showWrGap}
               showServer={showServer}
