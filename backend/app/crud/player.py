@@ -108,7 +108,7 @@ def _extract_custom_id(profile_url: str | None) -> str | None:
 def _extract_avatar_hash_from_url(avatar_url: str | None) -> str | None:
     if not avatar_url:
         return None
-    match = re.search(r"/([a-f0-9]{40})(?:_(?:full|medium|small))?\\.jpg", avatar_url)
+    match = re.search(r"/([a-f0-9]{40})(?:_(?:full|medium|small))?\.jpg", avatar_url)
     if not match:
         return None
     return match.group(1)
