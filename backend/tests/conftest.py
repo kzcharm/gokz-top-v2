@@ -44,7 +44,7 @@ async def _maintain_test_server_heartbeat_partitions() -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def ensure_safe_test_database() -> None:
+def _ensure_safe_test_database() -> None:
     """
     Block test runs against non-local environments/databases.
     This prevents accidental writes to staging/production databases.
@@ -65,8 +65,15 @@ def ensure_safe_test_database() -> None:
         )
 
 
+@pytest.fixture(autouse=True)
+def disable_live_steam_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Local credentials must not turn fixture creation into live Steam requests.
+    # Tests of Steam integration can supply their own key and mocked responses.
+    monkeypatch.setattr(settings, "STEAM_API_KEY", None)
+
+
 @pytest.fixture(scope="session", autouse=True)
-def setup_db() -> Generator[None]:
+def setup_db(_ensure_safe_test_database: None) -> Generator[None]:
     _upgrade_test_database()
     asyncio.run(_maintain_test_server_heartbeat_partitions())
     with Session(engine) as session:

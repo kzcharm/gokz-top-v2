@@ -132,3 +132,87 @@ async def test_import_lj_rooms_upserts_matches_and_retains_omitted_rows(
     await db.refresh(updated_row)
     assert updated_row.data["rooms"][0]["spots"][0]["distance"] == 275
     assert await db.get(MapLJRoom, 990212) is not None
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("map_name", ""), ("api_map_id", True), ("filesize", -1), ("rooms", None)],
+)
+def test_lj_export_rejects_invalid_map_fields(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    entry = _map_entry(990301, "kz_validation")
+    entry[field] = value
+    with pytest.raises(ValueError):
+        parse_export(_export(tmp_path / "invalid.json", [entry]))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("rank", -1), ("score", float("inf")), ("spots", None)],
+)
+def test_lj_export_rejects_invalid_rooms(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    entry = _map_entry(990301, "kz_validation")
+    entry["rooms"][0][field] = value
+    with pytest.raises(ValueError):
+        parse_export(_export(tmp_path / "invalid.json", [entry]))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("distance", 0),
+        ("raw_distance", float("nan")),
+        ("origin", [1, 2, float("inf")]),
+        ("angles", [True, 0]),
+    ],
+)
+def test_lj_export_rejects_invalid_spots(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    entry = _map_entry(990301, "kz_validation")
+    entry["rooms"][0]["spots"][0][field] = value
+    with pytest.raises(ValueError):
+        parse_export(_export(tmp_path / "invalid.json", [entry]))
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        {"schema_version": 2},
+        {"schema_version": 1},
+        {"schema_version": 1, "detector_version": 1, "generated_at": 0},
+        {
+            "schema_version": 1,
+            "detector_version": 1,
+            "generated_at": "now",
+            "maps": None,
+        },
+    ],
+)
+def test_lj_export_rejects_invalid_headers(tmp_path: Path, payload: object) -> None:
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError):
+        parse_export(path)
+
+
+def test_lj_export_reports_read_errors(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Cannot read"):
+        parse_export(tmp_path / "missing.json")
+    for value in [
+        None,
+        {},
+        {"map_name": "kz_bad", "api_map_id": 1, "filesize": 1, "rooms": [None]},
+        {
+            "map_name": "kz_bad",
+            "api_map_id": 1,
+            "filesize": 1,
+            "rooms": [{"rank": 0, "score": 1, "spots": [None]}],
+        },
+    ]:
+        with pytest.raises(ValueError):
+            parse_export(_export(tmp_path / "bad.json", [value]))

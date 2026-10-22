@@ -103,3 +103,44 @@ async def test_import_map_skills_upserts_segments_and_retains_omitted_rows(
             .where(col(MapSkill.map_id).in_([m.id for m in maps]))
         )
     ).one() == 3
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        {"format_version": 2},
+        {"format_version": 3, "maps": None},
+        {"format_version": 3, "maps": [None]},
+        {"format_version": 3, "maps": [{"map_name": ""}]},
+    ],
+)
+def test_skill_index_rejects_invalid_headers_and_maps(
+    tmp_path: Path, payload: object
+) -> None:
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError):
+        parse_index(path)
+
+
+@pytest.mark.parametrize("value", [True, "0.1", float("nan"), 0.12345])
+def test_skill_index_rejects_invalid_fractions(tmp_path: Path, value: object) -> None:
+    entry = _entry("kz_validation")
+    entry["skills"]["bhop"] = value
+    with pytest.raises(ValueError):
+        parse_index(_index(tmp_path / "invalid.json", [entry]))
+
+
+def test_skill_index_reports_unreadable_and_incomplete_inputs(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Cannot read"):
+        parse_index(tmp_path / "missing.json")
+    for field, value in [
+        ("skills", {}),
+        ("segments", None),
+        ("segments", [{"skill": "unknown", "tick_count": 0}]),
+    ]:
+        entry = _entry("kz_validation")
+        entry[field] = value
+        with pytest.raises(ValueError):
+            parse_index(_index(tmp_path / "invalid.json", [entry]))
