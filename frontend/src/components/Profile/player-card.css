@@ -58,7 +58,7 @@
   background: transparent;
   box-shadow: none;
 }
-.player-card [data-completion-card] .grid:not([data-completion-tier]) {
+.player-card [data-completion-summary] {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
 }
@@ -86,9 +86,8 @@
   padding-left: 16px;
   padding-right: 16px;
 }
-.player-card [data-completion-tier] {
-  grid-template-columns: 108px minmax(0, 1fr) 60px;
-  gap: 6px;
+.player-card [data-completion-tiers] {
+  column-gap: 8px;
 }
 .player-card [data-completion-tier] > div {
   background: rgb(255 255 255 / 10%);

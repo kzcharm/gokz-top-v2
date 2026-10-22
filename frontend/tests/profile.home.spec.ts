@@ -908,3 +908,46 @@ test("Points distributions are shown on Stats rather than Home", async ({
     fullPage: true,
   })
 })
+
+test("Profile completion uses the full row width and retains completion marks", async ({
+  page,
+}) => {
+  await installProfileHomeRoutes(page)
+  await page.route(/\/v1\/maps(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: nubRecords.map((record) => ({
+        id: record.map_id,
+        name: `kz_completion_${record.map_id}`,
+        tiers: { OVR: 1, KZT: 1, SKZ: 1, VNL: 1 },
+      })),
+    })
+  })
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, async (route) => {
+    await route.fulfill({ json: [] })
+  })
+  await page.setViewportSize({ width: 1440, height: 1100 })
+  await page.goto(`/profile/${steamid64}`)
+  const tiers = page.locator("[data-completion-tiers]").first()
+  await expect(tiers.locator("[data-completion-tier]").first()).toContainText(
+    "7/7",
+  )
+  await expect(tiers.locator("svg")).toHaveCount(1)
+  const layout = await tiers
+    .locator("[data-completion-tier]")
+    .first()
+    .evaluate((row) => {
+      const [label, bar, count] = Array.from(row.children).map((child) =>
+        child.getBoundingClientRect(),
+      )
+      const heading = row
+        .closest('[data-slot="card"]')!
+        .querySelector("[data-completion-summary]")!
+        .getBoundingClientRect()
+      return { inset: label.left - heading.left, gap: count.left - bar.right }
+    })
+  expect(Math.abs(layout.inset)).toBeLessThan(1)
+  expect(layout.gap).toBeGreaterThanOrEqual(7)
+  await tiers
+    .locator("..")
+    .screenshot({ path: test.info().outputPath("profile-completion.png") })
+})

@@ -39,8 +39,11 @@ export function CompletionCard({
       className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0"
     >
       <CardContent className="p-6">
-        <div className="mx-auto w-full max-w-[36rem] space-y-5">
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <div className="w-full space-y-5">
+          <div
+            data-completion-summary=""
+            className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
+          >
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 {title}
@@ -66,7 +69,10 @@ export function CompletionCard({
               {formatNumber(completed)} / {formatNumber(total)}
             </p>
           </div>
-          <div className="space-y-1.5">
+          <div
+            data-completion-tiers=""
+            className="grid grid-cols-[max-content_minmax(0,1fr)_max-content] gap-x-2 gap-y-1.5 sm:gap-x-3"
+          >
             {tiers.map((tier) => {
               const width = `${tier.total === 0 ? 0 : (tier.complete / tier.total) * 100}%`
               const isTierComplete =
@@ -75,9 +81,9 @@ export function CompletionCard({
                 <div
                   key={tier.label}
                   data-completion-tier=""
-                  className="grid grid-cols-[88px_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[96px_minmax(0,1fr)_58px] sm:gap-3"
+                  className="col-span-3 grid grid-cols-subgrid items-center"
                 >
-                  <span className="whitespace-nowrap text-right text-[11px] font-semibold leading-4 text-muted-foreground sm:text-xs">
+                  <span className="whitespace-nowrap text-left text-[11px] font-semibold leading-4 text-muted-foreground sm:text-xs">
                     {tier.label} ({t("profile.completion.averageShort")}{" "}
                     <PaddedAverageNumber value={tier.averagePoints} />)
                   </span>
@@ -89,7 +95,7 @@ export function CompletionCard({
                   </div>
                   <span className="flex items-center justify-end gap-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground sm:justify-start sm:text-left sm:text-xs">
                     {tier.complete}/{tier.total}
-                    {isTierComplete ? (
+                    {isTierComplete && !card ? (
                       <CheckCircle2
                         aria-hidden="true"
                         className="size-3 shrink-0"

@@ -16,10 +16,20 @@ async function mockCard(
     longName?: boolean
     partial?: boolean
     slow?: boolean
+    denseCompletion?: boolean
     largePoints?: boolean
     brokenAvatar?: boolean
   } = {},
 ) {
+  const tierTotals = [118, 290, 240, 152, 70, 68, 29, 3]
+  const tierCompleted = [118, 290, 240, 152, 54, 3, 0, 0]
+  const denseMaps = tierTotals.flatMap((total, tier) =>
+    Array.from({ length: total }, (_, index) => ({
+      id: tier * 1000 + index + 1,
+      name: `kz_map_${tier}_${index}`,
+      tiers: { OVR: tier + 1, KZT: tier + 1, SKZ: tier + 1, VNL: tier + 1 },
+    })),
+  )
   const requests: string[] = []
   page.on("websocket", (socket) => {
     if (socket.url().includes("/v1/")) requests.push("websocket")
@@ -55,16 +65,18 @@ async function mockCard(
         favorite_server: options.empty ? null : { label: "AXE GOKZ" },
       }
     } else if (url.pathname === "/v1/maps") {
-      body = Array.from({ length: 8 }, (_, index) => ({
-        id: index + 1,
-        name: `kz_map_${index}`,
-        tiers: {
-          OVR: index + 1,
-          KZT: index + 1,
-          SKZ: index + 1,
-          VNL: index + 1,
-        },
-      }))
+      body = options.denseCompletion
+        ? denseMaps
+        : Array.from({ length: 8 }, (_, index) => ({
+            id: index + 1,
+            name: `kz_map_${index}`,
+            tiers: {
+              OVR: index + 1,
+              KZT: index + 1,
+              SKZ: index + 1,
+              VNL: index + 1,
+            },
+          }))
     } else if (url.pathname.endsWith("/stats")) {
       expect(url.searchParams.get("type")).toBe("playtime")
       body = { playtime: { total_seconds: options.empty ? 0 : 2645280 } }
@@ -75,15 +87,23 @@ async function mockCard(
       }
     } else if (url.pathname === "/v1/records/pb") {
       if (options.slow) await new Promise((resolve) => setTimeout(resolve, 500))
-      body = options.empty
-        ? []
-        : url.searchParams.get("type") === "PRO"
-          ? [{ map_id: 1, points: options.largePoints ? 123456789 : 500 }]
-          : [
-              { map_id: 1, points: 1000 },
-              { map_id: 2, points: 950 },
-              { map_id: 3, points: 850 },
-            ]
+      body = options.denseCompletion
+        ? url.searchParams.get("type") === "PRO"
+          ? []
+          : denseMaps
+              .filter(
+                (map) => (map.id - 1) % 1000 < tierCompleted[map.tiers.KZT - 1],
+              )
+              .map((map) => ({ map_id: map.id, points: 682 }))
+        : options.empty
+          ? []
+          : url.searchParams.get("type") === "PRO"
+            ? [{ map_id: 1, points: options.largePoints ? 123456789 : 500 }]
+            : [
+                { map_id: 1, points: 1000 },
+                { map_id: 2, points: 950 },
+                { map_id: 3, points: 850 },
+              ]
     } else if (url.pathname.startsWith("/v1/leaderboards/players/")) {
       body = options.empty
         ? { rating: null, rank: null, skill_ratings: null }
@@ -259,3 +279,43 @@ test("large points extend right and radar values are larger than labels", async 
     )
   expect(sizes[1]).toBeGreaterThan(sizes[0])
 })
+
+for (const width of [360, 480]) {
+  test(`dense tier counts stay clear of completion bars at ${width}px`, async ({
+    page,
+  }) => {
+    await mockCard(page, { denseCompletion: true })
+    await page.setViewportSize({ width, height: 1200 })
+    await page.goto(`/cards/player/${steamid64}?scope=KZT&lang=zh-CN`)
+    const card = page.getByTestId("player-card")
+    await expect(card).toHaveAttribute("data-render-state", "ready")
+    await expect(card.locator("[data-completion-tier]").first()).toContainText(
+      "118/118",
+    )
+    await expect(card.locator("[data-completion-tier] svg")).toHaveCount(0)
+    const spacing = await card
+      .locator("[data-completion-tier]")
+      .evaluateAll((rows) =>
+        rows.map((row) => {
+          const [label, bar, count] = Array.from(row.children).map((child) =>
+            child.getBoundingClientRect(),
+          )
+          const heading = row
+            .closest("[data-completion-card]")!
+            .querySelector("[data-completion-summary]")!
+            .getBoundingClientRect()
+          return {
+            labelInset: label.left - heading.left,
+            gap: count.left - bar.right,
+            barWidth: bar.width,
+          }
+        }),
+      )
+    for (const row of spacing) {
+      expect(Math.abs(row.labelInset)).toBeLessThan(1)
+      expect(row.gap).toBeGreaterThanOrEqual(7)
+      expect(row.barWidth).toBeGreaterThan(90)
+    }
+    await card.screenshot({ path: `../.temp/player-card/dense-${width}.png` })
+  })
+}
