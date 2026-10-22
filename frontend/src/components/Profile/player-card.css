@@ -116,6 +116,7 @@
 }
 .player-card .card-radar > div:last-child {
   margin-top: 0;
+  transform: translateY(-16px);
 }
 .player-card .card-summary .text-xl {
   font-size: 18px;

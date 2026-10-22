@@ -103,10 +103,10 @@ export function SkillRadar({
     <div className="w-full">
       <div className="flex w-full justify-center">
         <svg
-          viewBox={`0 0 ${size} ${size}`}
+          viewBox={card ? "0 -16 400 432" : `0 0 ${size} ${size}`}
           className={
             card
-              ? "aspect-square w-full max-w-[320px]"
+              ? "aspect-[400/432] w-full max-w-[320px]"
               : "h-[220px] w-[220px] overflow-visible"
           }
           role="img"

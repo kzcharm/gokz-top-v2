@@ -114,6 +114,18 @@ for (const lang of ["en", "zh-CN", "ru"]) {
       await expect(card).toContainText("#42")
       await expect(card).toContainText("#12")
       await expect(card.locator("header .card-radar svg")).toHaveCount(1)
+      const radarLabelsFit = await card
+        .locator(".card-radar svg")
+        .evaluate((element) => {
+          const svg = element as SVGSVGElement
+          const view = svg.viewBox.baseVal
+          return Array.from(svg.querySelectorAll("text")).every((label) => {
+            const box = label.getBBox()
+            return box.y >= view.y && box.y + box.height <= view.y + view.height
+          })
+        })
+      expect(radarLabelsFit).toBeTruthy()
+
       await expect(card.locator("header .card-summary")).toContainText("#42")
       await expect(card).not.toContainText("AXE GOKZ")
       await expect(card).toContainText(lang === "ru" ? "275,79" : "275.79")
