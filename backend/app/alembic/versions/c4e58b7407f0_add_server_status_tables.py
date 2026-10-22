@@ -127,4 +127,6 @@ def downgrade() -> None:
     op.drop_table('server')
     op.drop_index('uq_server_group_name', table_name='server_group')
     op.drop_table('server_group')
+    sa.Enum(name='server_heartbeat_source').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='server_source').drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###
