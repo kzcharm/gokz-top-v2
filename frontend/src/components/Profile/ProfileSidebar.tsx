@@ -763,7 +763,7 @@ function SummaryMiniCard({
     <Comp
       aria-label={label}
       className={cn(
-        "rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5 text-left transition-colors",
+        "min-w-0 rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5 text-left transition-colors",
         onClick
           ? "cursor-pointer hover:bg-background/90 focus-visible:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-default disabled:hover:bg-background/65 disabled:opacity-70"
           : "",
@@ -777,7 +777,7 @@ function SummaryMiniCard({
         <div className="flex items-center gap-2.5">
           <span
             className={cn(
-              "inline-flex items-center justify-center text-muted-foreground",
+              "inline-flex shrink-0 items-center justify-center text-muted-foreground",
               iconClassName,
             )}
           >
@@ -791,7 +791,7 @@ function SummaryMiniCard({
           >
             {label}
           </p>
-          <div className="ml-auto text-lg font-semibold tracking-tight">
+          <div className="ml-auto min-h-7 min-w-0 flex-1 truncate text-right text-lg font-semibold tracking-tight">
             {value}
           </div>
         </div>
@@ -1361,7 +1361,7 @@ export function ProfileSidebar({
                 label={t("profile.summary.profileViews")}
                 value={
                   profileViewsLoading ? (
-                    <Skeleton className="h-4 w-14" />
+                    <Skeleton className="inline-block h-4 w-6 max-w-full align-middle" />
                   ) : profileViewsError ? (
                     t("profile.unavailable")
                   ) : (
@@ -1379,7 +1379,7 @@ export function ProfileSidebar({
                 onClick={handleLikeClick}
                 value={
                   playerLikesLoading ? (
-                    <Skeleton className="h-4 w-14" />
+                    <Skeleton className="inline-block h-4 w-6 max-w-full align-middle" />
                   ) : playerLikesError ? (
                     t("profile.unavailable")
                   ) : (

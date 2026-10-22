@@ -820,3 +820,47 @@ test("Points and rating headings, filters, and badges share column centers", asy
     fullPage: true,
   })
 })
+
+test("Views and likes loading placeholders fit their cards without layout shifts", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  let finishLoading!: () => void
+  const pending = new Promise<void>((resolve) => {
+    finishLoading = resolve
+  })
+  await page.route(/\/v1\/players\/[^/]+\/(views|likes)$/, async (route) => {
+    await pending
+    await route.fulfill({
+      json: route.request().url().endsWith("/views")
+        ? { profile_views: 7 }
+        : { player_likes: 12 },
+    })
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  const cards = [
+    page.getByTestId("profile-profile-views-card"),
+    page.getByTestId("profile-player-likes-card"),
+  ]
+  const heights: number[] = []
+  for (const card of cards) {
+    const placeholder = card.locator('[data-slot="skeleton"]')
+    await expect(placeholder).toBeVisible()
+    const bounds = await card.boundingBox()
+    const loadingBounds = await placeholder.boundingBox()
+    expect(loadingBounds!.x).toBeGreaterThan(bounds!.x)
+    expect(loadingBounds!.x + loadingBounds!.width).toBeLessThan(
+      bounds!.x + bounds!.width,
+    )
+    heights.push(bounds!.height)
+  }
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-counts-loading.png",
+    fullPage: true,
+  })
+  finishLoading()
+  for (const [index, card] of cards.entries()) {
+    await expect(card.locator('[data-slot="skeleton"]')).toHaveCount(0)
+    expect((await card.boundingBox())!.height).toBe(heights[index])
+  }
+})
