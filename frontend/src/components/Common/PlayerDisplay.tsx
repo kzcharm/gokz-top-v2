@@ -131,6 +131,7 @@ type PlayerDisplaySubline =
       mode: string
       recordType: RecordType
       showRecordType?: boolean
+      showMilliseconds?: boolean
       time: number
     }
   | {
@@ -630,7 +631,10 @@ export function PlayerDisplay({
     sublineContent = effectiveSubline.value?.trim() || null
     sublineTitle = effectiveSubline.value?.trim() || undefined
   } else if (effectiveSubline?.type === "record") {
-    const formattedTime = formatRecordTime(effectiveSubline.time)
+    const formattedTime = formatRecordTime(
+      effectiveSubline.time,
+      effectiveSubline.showMilliseconds,
+    )
     const recordTypeLabel =
       effectiveSubline.showRecordType === false
         ? ""

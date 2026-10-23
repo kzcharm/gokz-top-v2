@@ -61,8 +61,9 @@ export function useOwnProfileRecordsRealtime({
       )
 
       websocket.onopen = () => {
+        const isReconnection = attempt > 0
         attempt = 0
-        invalidateProfileRecords()
+        if (isReconnection) invalidateProfileRecords()
       }
 
       websocket.onmessage = (message) => {

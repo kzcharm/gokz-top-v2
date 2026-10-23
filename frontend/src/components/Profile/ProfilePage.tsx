@@ -17,6 +17,8 @@ import {
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
+import { RecordTypeToggle } from "@/components/Common/RecordTypeToggle"
+import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -73,7 +75,6 @@ import {
   getProfileHiddenMapsQueryOptions,
   getProfileLikesQueryOptions,
   getProfileMapWrsQueryOptions,
-  getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
   getProfilePinnedRecordsQueryOptions,
   getProfilePointsStandingQueryOptions,
@@ -753,18 +754,11 @@ export function ProfilePage({
   const profileTabsTrailingContent =
     activeTab === "records" ? (
       <div className="flex flex-wrap items-center gap-2">
-        <Label
-          htmlFor="profile-records-pro-only"
-          className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
-        >
-          <Switch
-            id="profile-records-pro-only"
-            checked={isProOnly}
-            onCheckedChange={setIsProOnly}
-            className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
-          />
-          <span>{isProOnly ? "PRO" : "NUB"}</span>
-        </Label>
+        <RecordTypeToggle
+          id="profile-records-pro-only"
+          isProOnly={isProOnly}
+          onCheckedChange={setIsProOnly}
+        />
         <Label
           htmlFor="profile-records-bonus"
           className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"

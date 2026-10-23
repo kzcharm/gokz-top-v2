@@ -31,6 +31,7 @@ import { PbRecordsTable } from "@/components/Records/PbRecordsTable"
 import {
   attachMapWrsToPbRecords,
   getPbPageRanksQueryOptions,
+  getProfilePbRecordsQueryOptions,
   type PbRecordsColumn,
   sortPbRecords,
 } from "@/components/Records/pb-records-utils"
@@ -59,7 +60,6 @@ import {
 import type { ProfileRecordsViewState } from "./ProfileRecordsPresetMenu"
 import {
   getProfileMapWrsQueryOptions,
-  getProfilePbRecordsQueryOptions,
   getProfilePinnedRecordKey,
 } from "./profile-utils"
 

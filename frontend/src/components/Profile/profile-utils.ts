@@ -20,7 +20,6 @@ import {
   RecordsService,
 } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
-import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { getTierColor, normalizeTierValue } from "@/components/Servers/tier"
 import type { AppScope } from "@/components/scope-provider"
 import { formatFlooredDecimal } from "@/lib/number-format"
@@ -564,8 +563,6 @@ export function getProfileMapWrsQueryOptions({
     retry: 1,
   })
 }
-
-export { getProfilePbRecordsQueryOptions }
 
 type ProfileCompletionTier = {
   label: string

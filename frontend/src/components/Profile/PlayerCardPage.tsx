@@ -5,6 +5,7 @@ import { PlayersService } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { getPlayerRatingBadgeIcon } from "@/components/Common/player-rating"
 import { getScopeTone } from "@/components/Common/ScopeSelector"
+import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import type { AppScope } from "@/components/scope-provider"
 import i18n, { type SupportedLocale } from "@/i18n"
 import { CompletionCard } from "./ProfileCompletionCard"
@@ -20,7 +21,6 @@ import {
   buildProfileTrophyCounts,
   formatNumber,
   formatRating,
-  getProfilePbRecordsQueryOptions,
   getProfilePointsStandingQueryOptions,
   getProfileValidatedMapsQueryOptions,
 } from "./profile-utils"

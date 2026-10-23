@@ -8,6 +8,7 @@ import {
 } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { getPlayerDisplayName } from "@/components/Common/PlayerDisplay"
+import { getWrGap } from "@/components/Records/wr-gap"
 import type { AppScope } from "@/components/scope-provider"
 
 export const PB_RECORDS_QUERY_LIMIT = 10_000
@@ -49,18 +50,8 @@ export type PbRecordWithWr = RecordPublic & {
   wr_teleports?: number | null
 }
 
-function getWrGap(recordTime: number, wrTime: number) {
-  if (
-    !Number.isFinite(recordTime) ||
-    !Number.isFinite(wrTime) ||
-    wrTime <= 0 ||
-    recordTime <= wrTime
-  ) {
-    return null
-  }
-
-  const gap = Math.log2(recordTime / wrTime - 1)
-  return Number.isFinite(gap) ? Math.round(gap * 1000) / 1000 : null
+function roundWrGap(gap: number | null) {
+  return gap === null ? null : Math.round(gap * 1000) / 1000
 }
 
 export function attachMapWrsToPbRecords(
@@ -79,7 +70,8 @@ export function attachMapWrsToPbRecords(
     return {
       ...record,
       wr_time: wr?.time ?? null,
-      wr_gap: wr === undefined ? null : getWrGap(record.time, wr.time),
+      wr_gap:
+        wr === undefined ? null : roundWrGap(getWrGap(record.time, wr.time)),
       wr_teleports: wr?.teleports ?? null,
     }
   })
@@ -167,7 +159,14 @@ export function getProfilePbRecordsQueryOptions({
   stage: number | null
 }) {
   return queryOptions({
-    queryKey: ["profile-records", identifier, scope, isProOnly, isBonus, stage],
+    queryKey: [
+      "profile-records",
+      identifier,
+      scope,
+      isProOnly,
+      isBonus,
+      stage ?? 0,
+    ],
     queryFn: async () => {
       if (!identifier) {
         return []
