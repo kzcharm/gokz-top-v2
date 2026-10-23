@@ -368,7 +368,7 @@ test("Profile runs remember mode and rating column visibility", async ({
       exact: true,
     })
     await expect(toggle).toBeChecked()
-    await toggle.click()
+    await toggle.press("Space")
   }
   await expect(mode).toHaveCount(0)
   await expect(rating).toHaveCount(0)
@@ -389,7 +389,7 @@ test("Profile runs remember mode and rating column visibility", async ({
       exact: true,
     })
     await expect(toggle).not.toBeChecked()
-    await toggle.click()
+    await toggle.press("Space")
   }
   await expect(mode).toBeVisible()
   await expect(rating).toBeVisible()
