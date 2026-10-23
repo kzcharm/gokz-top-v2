@@ -1141,6 +1141,7 @@ export const en = {
     downloadMenu: "Downloads",
     metricExplanation: "Explain {{metric}}",
     options: {
+      points: "Show points",
       milliseconds: "Show milliseconds",
       title: "Options",
       reviews: "Reviews",

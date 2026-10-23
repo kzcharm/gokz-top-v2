@@ -1162,6 +1162,7 @@ export const ru = {
     downloadMenu: "Загрузки",
     metricExplanation: "Объяснение: {{metric}}",
     options: {
+      points: "Показывать очки",
       milliseconds: "Показывать миллисекунды",
       title: "Параметры",
       reviews: "Отзывы",

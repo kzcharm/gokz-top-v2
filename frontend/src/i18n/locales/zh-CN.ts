@@ -1110,6 +1110,7 @@ export const zhCN = {
     downloadMenu: "下载",
     metricExplanation: "解释{{metric}}",
     options: {
+      points: "显示分数",
       milliseconds: "显示毫秒",
       title: "显示选项",
       reviews: "评价",

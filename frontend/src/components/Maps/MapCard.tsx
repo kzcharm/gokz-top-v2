@@ -288,7 +288,8 @@ export function MapCard({
             />
           </h2>
 
-          {personalBest &&
+          {displayOptions.points &&
+          personalBest &&
           (personalBest.record ||
             personalBest.loading ||
             personalBest.error) ? (
@@ -378,7 +379,7 @@ export function MapCard({
       </div>
 
       {Object.entries(displayOptions).some(
-        ([key, value]) => key !== "milliseconds" && value,
+        ([key, value]) => key !== "milliseconds" && key !== "points" && value,
       ) ? (
         <CardContent className="space-y-4 px-5 py-5">
           {displayOptions.wr ? (

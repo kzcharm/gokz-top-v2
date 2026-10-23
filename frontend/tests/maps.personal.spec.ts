@@ -420,6 +420,13 @@ test("card controls toggle milliseconds and clear completion selections", async 
   }
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.getByRole("button", { name: "Options", exact: true }).click()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Show points", exact: true }),
+  ).toBeChecked()
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show points", exact: true })
+    .click()
+  await expect(page.getByTestId("map-points-1")).toHaveCount(0)
   await page
     .getByRole("menuitemcheckbox", { name: "Show milliseconds", exact: true })
     .click()
@@ -453,6 +460,7 @@ test("card controls toggle milliseconds and clear completion selections", async 
   ).toBeVisible()
   await page.reload()
   await expect(page.getByTestId("map-pb-1")).toHaveText("PB: 0:30")
+  await expect(page.getByTestId("map-points-1")).toHaveCount(0)
 })
 
 test("every personal sort orders all PBs before missing values in both directions", async ({

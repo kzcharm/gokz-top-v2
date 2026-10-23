@@ -65,6 +65,7 @@ export function getPersonalSortValue(
 
 export const DEFAULT_MAP_CARD_OPTIONS = {
   milliseconds: true,
+  points: true,
   reviews: true,
   wr: true,
   dates: true,
