@@ -27,6 +27,10 @@ class BinaryReader:
         self._data = data
         self._pos = 0
 
+    @property
+    def remaining(self) -> int:
+        return len(self._data) - self._pos
+
     def read_u8(self) -> int:
         value = self._data[self._pos]
         self._pos += 1

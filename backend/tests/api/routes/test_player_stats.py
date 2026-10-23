@@ -56,13 +56,10 @@ async def _create_server(
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
     for steamid64 in (76561198000000010, 76561198000000020):
-
         if await db.get(Player, steamid64) is None:
-
             db.add(Player(steamid64=steamid64, name=str(steamid64)))
 
     db.add(
-
         ServerGlobalapi(
             id=id,
             port=27015,
@@ -257,6 +254,7 @@ async def test_read_player_stats_builds_cache_on_first_read(
                         "total_seconds": 30.0,
                         "server_count": 1,
                         "server_ids": [982100],
+                        "native_server_ids": [],
                     }
                 ],
             },
@@ -269,6 +267,7 @@ async def test_read_player_stats_builds_cache_on_first_read(
                         "total_seconds": 30.0,
                         "server_count": 1,
                         "server_ids": [982100],
+                        "native_server_ids": [],
                     }
                 ],
             },
@@ -282,6 +281,7 @@ async def test_read_player_stats_builds_cache_on_first_read(
                             "total_seconds": 30.0,
                             "server_count": 1,
                             "server_ids": [982100],
+                            "native_server_ids": [],
                         }
                     ],
                 }
@@ -405,6 +405,7 @@ async def test_read_player_stats_supports_most_played_server_type_filter(
                         "total_seconds": 25.0,
                         "server_count": 2,
                         "server_ids": [982130, 982131],
+                        "native_server_ids": [],
                         "group_id": str(server_group.id),
                     }
                 ],
@@ -418,6 +419,7 @@ async def test_read_player_stats_supports_most_played_server_type_filter(
                         "total_seconds": 25.0,
                         "server_count": 2,
                         "server_ids": [982130, 982131],
+                        "native_server_ids": [],
                         "group_id": str(server_group.id),
                     }
                 ],
@@ -432,6 +434,7 @@ async def test_read_player_stats_supports_most_played_server_type_filter(
                             "total_seconds": 10.0,
                             "server_count": 1,
                             "server_ids": [982130],
+                            "native_server_ids": [],
                             "group_id": str(server_group.id),
                         }
                     ],
@@ -445,6 +448,7 @@ async def test_read_player_stats_supports_most_played_server_type_filter(
                             "total_seconds": 15.0,
                             "server_count": 1,
                             "server_ids": [982131],
+                            "native_server_ids": [],
                             "group_id": str(server_group.id),
                         }
                     ],
@@ -633,6 +637,7 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
                         "total_seconds": 36.0,
                         "server_count": 1,
                         "server_ids": [982100],
+                        "native_server_ids": [],
                     }
                 ],
             },
@@ -645,6 +650,7 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
                         "total_seconds": 36.0,
                         "server_count": 1,
                         "server_ids": [982100],
+                        "native_server_ids": [],
                     }
                 ],
             },
@@ -658,6 +664,7 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
                             "total_seconds": 36.0,
                             "server_count": 1,
                             "server_ids": [982100],
+                            "native_server_ids": [],
                         }
                     ],
                 }

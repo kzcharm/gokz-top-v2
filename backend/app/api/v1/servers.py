@@ -68,8 +68,11 @@ async def _read_recent_record_playtime(
     window_seconds = Decimal("0")
     on_server_seconds = Decimal("0")
     statement = (
-        select(col(Record.time), col(ServerGlobalapi.group_id))
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        select(
+            col(Record.time),
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id),
+        )
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .where(col(Record.steamid64) == steamid64)
         .order_by(
             col(Record.created_at).desc(),
@@ -113,7 +116,10 @@ async def _read_player_server_activity_summary(
         "day",
         func.timezone("UTC", Record.created_at),
     )
-    target_server_filter = col(ServerGlobalapi.group_id) == server_group.id
+    target_server_filter = (
+        func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id)
+        == server_group.id
+    )
     active_day_filter = target_server_filter
     if recent_days is not None:
         active_day_filter = active_day_filter & (
@@ -126,7 +132,7 @@ async def _read_player_server_activity_summary(
             func.count(func.distinct(record_day)).filter(active_day_filter),
             func.coalesce(func.sum(Record.time), Decimal("0")),
         )
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .where(col(Record.steamid64) == player.steamid64)
     )
     first_seen_at, first_server_record_at, active_days, total_playtime_seconds = (

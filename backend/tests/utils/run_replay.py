@@ -61,7 +61,7 @@ def build_synthetic_run_replay(
     header.extend(struct.pack("<i", 0))
     header.extend(struct.pack("<i", 0))
     header.extend(_pack_float_as_i32(time_seconds))
-    header.extend(struct.pack("<i", course))
+    header.extend(struct.pack("<B", course))
     header.extend(struct.pack("<i", teleports_used))
 
     return SyntheticRunReplay(
@@ -74,3 +74,14 @@ def build_synthetic_run_replay(
 
 def expected_time(value: float = 35.289) -> str:
     return str(normalize_run_replay_time(value))
+
+
+async def save_catalog_replay(db, *, map_name, replay_id, replay_bytes):
+    from app.services.run_replay_storage import save_run_replay
+    from app.services.record_replay_catalog import register_disk_replay
+
+    path = save_run_replay(
+        map_name=map_name, replay_id=replay_id, replay_bytes=replay_bytes
+    )
+    await register_disk_replay(db, replay_id, path)
+    await db.commit()

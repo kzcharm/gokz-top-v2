@@ -2028,6 +2028,20 @@ export const GitHubReleasesPublicSchema = {
     title: 'GitHubReleasesPublic'
 } as const;
 
+export const GlobalApiClaimSchema = {
+    properties: {
+        globalapi_id: {
+            type: 'integer',
+            exclusiveMinimum: 0,
+            title: 'Globalapi Id'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['globalapi_id'],
+    title: 'GlobalApiClaim'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -4106,8 +4120,27 @@ export const MapWrHistoryEntryPublicSchema = {
             '$ref': '#/components/schemas/PlayerRefPublic'
         },
         server_id: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Server Id'
+        },
+        native_server_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Native Server Id'
         },
         server_name: {
             type: 'string',
@@ -4135,7 +4168,7 @@ export const MapWrHistoryEntryPublicSchema = {
         }
     },
     type: 'object',
-    required: ['record_uuid', 'player', 'server_id', 'server_name', 'mode_id', 'mode', 'teleports', 'time', 'created_on'],
+    required: ['record_uuid', 'player', 'server_name', 'mode_id', 'mode', 'teleports', 'time', 'created_on'],
     title: 'MapWrHistoryEntryPublic'
 } as const;
 
@@ -5832,6 +5865,14 @@ export const PlayerMostPlayedServerEntryPublicSchema = {
             },
             type: 'array',
             title: 'Server Ids'
+        },
+        native_server_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Native Server Ids'
         },
         group_id: {
             anyOf: [
@@ -8477,8 +8518,27 @@ export const RecentRecordPublicSchema = {
 
 export const RecentRecordServerPublicSchema = {
     properties: {
+        native_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Native Id'
+        },
         id: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Id'
         },
         name: {
@@ -8777,6 +8837,204 @@ export const RecordBulkDeleteResultSchema = {
     title: 'RecordBulkDeleteResult'
 } as const;
 
+export const RecordCheckSchema = {
+    properties: {
+        server_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Id'
+        },
+        map_name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Map Name'
+        },
+        bsp_size: {
+            type: 'integer',
+            exclusiveMinimum: 0,
+            title: 'Bsp Size'
+        },
+        stage: {
+            type: 'integer',
+            maximum: 255,
+            minimum: 0,
+            title: 'Stage',
+            default: 0
+        },
+        mode: {
+            '$ref': '#/components/schemas/KZMode'
+        },
+        mode_version: {
+            type: 'integer',
+            exclusiveMinimum: 0,
+            title: 'Mode Version'
+        },
+        steamid64: {
+            type: 'integer',
+            maximum: 76561202255233020,
+            minimum: 76561197960265730,
+            title: 'Steamid64'
+        },
+        style: {
+            type: 'integer',
+            maximum: 0,
+            minimum: 0,
+            title: 'Style',
+            default: 0
+        },
+        tickrate: {
+            type: 'integer',
+            maximum: 128,
+            minimum: 128,
+            title: 'Tickrate',
+            default: 128
+        },
+        integrity: {
+            '$ref': '#/components/schemas/RecordIntegrity'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['server_id', 'map_name', 'bsp_size', 'mode', 'mode_version', 'steamid64', 'integrity'],
+    title: 'RecordCheck'
+} as const;
+
+export const RecordFinishSchema = {
+    properties: {
+        server_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Server Id'
+        },
+        map_name: {
+            type: 'string',
+            maxLength: 255,
+            minLength: 1,
+            title: 'Map Name'
+        },
+        bsp_size: {
+            type: 'integer',
+            exclusiveMinimum: 0,
+            title: 'Bsp Size'
+        },
+        stage: {
+            type: 'integer',
+            maximum: 255,
+            minimum: 0,
+            title: 'Stage',
+            default: 0
+        },
+        mode: {
+            '$ref': '#/components/schemas/KZMode'
+        },
+        mode_version: {
+            type: 'integer',
+            exclusiveMinimum: 0,
+            title: 'Mode Version'
+        },
+        steamid64: {
+            type: 'integer',
+            maximum: 76561202255233020,
+            minimum: 76561197960265730,
+            title: 'Steamid64'
+        },
+        style: {
+            type: 'integer',
+            maximum: 0,
+            minimum: 0,
+            title: 'Style',
+            default: 0
+        },
+        tickrate: {
+            type: 'integer',
+            maximum: 128,
+            minimum: 128,
+            title: 'Tickrate',
+            default: 128
+        },
+        integrity: {
+            '$ref': '#/components/schemas/RecordIntegrity'
+        },
+        record_uuid: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid7'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Record Uuid'
+        },
+        time: {
+            anyOf: [
+                {
+                    type: 'number',
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,13}0*$)\\d{0,9}\\.\\d{0,3}0*$)'
+                }
+            ],
+            title: 'Time'
+        },
+        teleports: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Teleports'
+        },
+        finished_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Finished At'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['server_id', 'map_name', 'bsp_size', 'mode', 'mode_version', 'steamid64', 'integrity', 'time', 'teleports', 'finished_at'],
+    title: 'RecordFinish'
+} as const;
+
+export const RecordIntegritySchema = {
+    properties: {
+        fresh_map: {
+            type: 'boolean',
+            title: 'Fresh Map'
+        },
+        server_settings: {
+            type: 'boolean',
+            title: 'Server Settings'
+        },
+        client_settings: {
+            type: 'boolean',
+            title: 'Client Settings'
+        },
+        required_plugins: {
+            type: 'boolean',
+            title: 'Required Plugins'
+        },
+        timer_valid: {
+            type: 'boolean',
+            title: 'Timer Valid'
+        },
+        mode_stable: {
+            type: 'boolean',
+            title: 'Mode Stable'
+        },
+        anticheat_clear: {
+            type: 'boolean',
+            title: 'Anticheat Clear'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['fresh_map', 'server_settings', 'client_settings', 'required_plugins', 'timer_valid', 'mode_stable', 'anticheat_clear'],
+    title: 'RecordIntegrity'
+} as const;
+
 export const RecordPatchSchema = {
     properties: {
         is_valid: {
@@ -8856,8 +9114,27 @@ export const RecordPublicSchema = {
             title: 'Steam Id'
         },
         server_id: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Server Id'
+        },
+        native_server_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Native Server Id'
         },
         server_name: {
             type: 'string',
@@ -8987,7 +9264,7 @@ export const RecordPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'player', 'server_id', 'server_name', 'map_id', 'map_name', 'map_tier', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_replay_available', 'is_valid'],
+    required: ['uuid', 'player', 'server_name', 'map_id', 'map_name', 'map_tier', 'mode_id', 'mode', 'stage', 'time', 'teleports', 'points', 'created_on', 'updated_on', 'updated_by', 'is_replay_available', 'is_valid'],
     title: 'RecordPublic'
 } as const;
 
@@ -9064,8 +9341,27 @@ export const RecordRunHistoryEntryPublicSchema = {
             title: 'Id'
         },
         server_id: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Server Id'
+        },
+        native_server_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Native Server Id'
         },
         server_name: {
             type: 'string',
@@ -9113,7 +9409,7 @@ export const RecordRunHistoryEntryPublicSchema = {
         }
     },
     type: 'object',
-    required: ['uuid', 'server_id', 'server_name', 'mode_id', 'mode', 'time', 'teleports', 'is_pb', 'created_on', 'is_replay_available'],
+    required: ['uuid', 'server_name', 'mode_id', 'mode', 'time', 'teleports', 'is_pb', 'created_on', 'is_replay_available'],
     title: 'RecordRunHistoryEntryPublic'
 } as const;
 

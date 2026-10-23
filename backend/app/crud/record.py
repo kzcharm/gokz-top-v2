@@ -90,7 +90,7 @@ from app.services.course_points import (
     calculate_course_pb_points,
     calculate_estimated_pb_points,
 )
-from app.services.run_replay_storage import has_run_replay
+from app.services.record_replay_catalog import available_record_uuids
 
 from .ban import active_ban_exists_clause, not_active_ban_exists_clause
 from .map import get_map_by_name
@@ -1427,6 +1427,8 @@ async def read_map_wr_history(
             col(Record.uuid).label("record_uuid"),
             col(Record.steamid64),
             col(Record.server_id),
+            col(Record.native_server_id),
+            col(Record.native_server_name).label("native_server_name"),
             col(Record.mode),
             col(Record.teleports),
             col(Record.time),
@@ -1465,14 +1467,18 @@ async def read_map_wr_history(
                 events_cte.c.record_uuid,
                 Player,
                 events_cte.c.server_id,
-                col(ServerGlobalapi.name),
+                func.coalesce(
+                    col(ServerGlobalapi.name), events_cte.c.native_server_name
+                ),
                 Mode,
                 events_cte.c.teleports,
                 events_cte.c.time,
                 events_cte.c.created_at,
             )
             .join(Player, col(Player.steamid64) == events_cte.c.steamid64)
-            .join(ServerGlobalapi, col(ServerGlobalapi.id) == events_cte.c.server_id)
+            .outerjoin(
+                ServerGlobalapi, col(ServerGlobalapi.id) == events_cte.c.server_id
+            )
             .join(Mode, col(Mode.name_short) == events_cte.c.mode)
             .order_by(
                 events_cte.c.created_at.asc(),
@@ -1495,11 +1501,21 @@ async def read_map_wr_history(
             *(row for row in rows if row[7] >= stabilization_end),
         ]
 
+    native_ids = dict(
+        (
+            await session.exec(
+                select(Record.uuid, Record.native_server_id).where(
+                    col(Record.uuid).in_([row[0] for row in rows])
+                )
+            )
+        ).all()
+    )
     entries = [
         MapWrHistoryEntryPublic(
             record_uuid=record_uuid,
             player=to_player_ref_public(player=player),
             server_id=server_id,
+            native_server_id=native_ids.get(record_uuid),
             server_name=server_name or "",
             mode_id=mode.name_short.mode_id,
             mode=mode.name_short,
@@ -1888,7 +1904,7 @@ def to_record_public(
     *,
     record: Record,
     player: Player,
-    server: ServerGlobalapi,
+    server: ServerGlobalapi | None,
     server_group: ServerGroup | None = None,
     map_obj: Map,
     mode: Mode,
@@ -1901,7 +1917,8 @@ def to_record_public(
         player=to_player_ref_public(player=player),
         steam_id=None,
         server_id=record.server_id,
-        server_name=server.name or "",
+        native_server_id=record.native_server_id,
+        server_name=(server.name if server else record.native_server_name) or "",
         server_group=_to_server_group_summary(group=server_group),
         map_id=record.map_id,
         map_name=map_obj.name,
@@ -1918,10 +1935,7 @@ def to_record_public(
         updated_on=record.updated_at,
         updated_by=str(record.updated_by),
         replay_id=record.replay_id,
-        is_replay_available=has_run_replay(
-            map_name=map_obj.name,
-            replay_id=record.uuid,
-        ),
+        is_replay_available=record.replay_available,
         is_valid=record.is_valid,
     )
 
@@ -1930,7 +1944,7 @@ def to_recent_record_public(
     *,
     record: Record,
     player: Player,
-    server: ServerGlobalapi,
+    server: ServerGlobalapi | None,
     server_group: ServerGroup | None = None,
     map_obj: Map,
     mode: Mode,
@@ -1947,8 +1961,9 @@ def to_recent_record_public(
             tier=map_tier,
         ),
         server=RecentRecordServerPublic(
-            id=server.id,
-            name=server.name or "",
+            id=server.id if server else None,
+            native_id=record.native_server_id,
+            name=(server.name if server else record.native_server_name) or "",
             group=_to_server_group_summary(group=server_group),
         ),
         mode=RecentRecordModePublic(
@@ -1961,10 +1976,7 @@ def to_recent_record_public(
         points=points,
         created_on=record.created_at,
         updated_on=record.updated_at,
-        is_replay_available=has_run_replay(
-            map_name=map_obj.name,
-            replay_id=record.uuid,
-        ),
+        is_replay_available=record.replay_available,
     )
 
 
@@ -2072,8 +2084,12 @@ async def read_records_with_replays(
     statement = (
         select_row(Record, Player, ServerGlobalapi, ServerGroup, Map, Mode)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
-        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(
+            ServerGroup,
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id)
+            == col(ServerGroup.id),
+        )
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(col(Record.uuid).in_(unique_record_uuids))
@@ -2192,8 +2208,12 @@ async def read_recent_records(
             public_scoped_points.label("points"),
         )
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
-        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(
+            ServerGroup,
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id)
+            == col(ServerGroup.id),
+        )
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .outerjoin(
@@ -2298,8 +2318,12 @@ async def read_record_run_history(
     wr_time = (await session.exec(wr_time_statement)).one()
 
     statement = (
-        select(Record, col(ServerGlobalapi.name), col(Map.name))
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        select(
+            Record,
+            func.coalesce(col(ServerGlobalapi.name), Record.native_server_name),
+            col(Map.name),
+        )
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .where(
             col(Record.is_valid).is_(True),
@@ -2320,7 +2344,7 @@ async def read_record_run_history(
     rows = (await session.exec(statement)).all()
     best_time_ms: int | None = None
     entries: list[RecordRunHistoryEntryPublic] = []
-    for record, server_name, map_name in rows:
+    for record, server_name, _map_name in rows:
         record_time_ms = seconds_to_time_ms(record.time)
         is_pb = best_time_ms is None or record_time_ms < best_time_ms
         if is_pb:
@@ -2331,6 +2355,7 @@ async def read_record_run_history(
                 uuid=record.uuid,
                 id=record.id,
                 server_id=record.server_id,
+                native_server_id=record.native_server_id,
                 server_name=server_name or "",
                 mode_id=record.mode.mode_id,
                 mode=record.mode.value,
@@ -2343,10 +2368,7 @@ async def read_record_run_history(
                 ),
                 is_pb=is_pb,
                 created_on=record.created_at,
-                is_replay_available=has_run_replay(
-                    map_name=map_name,
-                    replay_id=record.uuid,
-                ),
+                is_replay_available=record.replay_available,
             )
         )
 
@@ -2362,7 +2384,10 @@ async def get_record_by_uuid(
     session: AsyncSession,
     record_uuid: uuid.UUID,
 ) -> Record | None:
-    return await session.get(Record, record_uuid)
+    from app.models import RecordUuidAlias
+
+    alias = await session.get(RecordUuidAlias, record_uuid)
+    return await session.get(Record, alias.record_uuid if alias else record_uuid)
 
 
 async def get_record_by_id(
@@ -2383,8 +2408,12 @@ async def get_recent_record_public_by_uuid(
     statement = (
         select_row(Record, Player, ServerGlobalapi, ServerGroup, Map, Mode)
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
-        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(
+            ServerGroup,
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id)
+            == col(ServerGroup.id),
+        )
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(col(Record.uuid) == record_uuid)
@@ -2439,7 +2468,8 @@ async def upsert_record(
     record_id: int | None,
     record_uuid: uuid.UUID | None,
     steamid64: int,
-    server_id: int,
+    server_id: int | None,
+    native_server_id: uuid.UUID | None = None,
     mode_id: int,
     map_id: int,
     stage: int,
@@ -2464,6 +2494,7 @@ async def upsert_record(
             id=record_id,
             steamid64=steamid64,
             server_id=server_id,
+            native_server_id=native_server_id,
             mode=legacy_mode_id_to_kz_mode(mode_id),
             map_id=map_id,
             stage=stage,
@@ -2485,6 +2516,13 @@ async def upsert_record(
         )
         return record, True, False
 
+    if existing_record.native_server_id is not None:
+        # The signed direct snapshot and local moderation are authoritative.
+        # Repeated mirror sync must not emit another run or rewrite its timestamp.
+        existing_record.replay_id = replay_id
+        session.add(existing_record)
+        return existing_record, False, False
+
     before_record = existing_record.model_copy(deep=True)
     existing_record.steamid64 = steamid64
     existing_record.server_id = server_id
@@ -2498,7 +2536,7 @@ async def upsert_record(
     existing_record.updated_at = updated_on
     existing_record.updated_by = updated_by
     existing_record.replay_id = replay_id
-    existing_record.is_valid = is_valid
+    existing_record.is_valid = existing_record.is_valid and is_valid
     session.add(existing_record)
     await _refresh_record_read_models_for_change(
         session=session,
@@ -2933,7 +2971,9 @@ async def get_pb_record_publics(
             col(Player.name),
             col(Player.avatar_hash),
             col(Record.server_id),
-            col(ServerGlobalapi.name).label("server_name"),
+            func.coalesce(col(ServerGlobalapi.name), Record.native_server_name).label(
+                "server_name"
+            ),
             col(ServerGroup.id).label("server_group_id"),
             col(ServerGroup.name).label("server_group_name"),
             col(ServerGroup.custom_id).label("server_group_custom_id"),
@@ -2957,8 +2997,12 @@ async def get_pb_record_publics(
         .select_from(anchor_pb)
         .join(Record, col(Record.uuid) == col(anchor_pb.record_uuid))
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
-        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(
+            ServerGroup,
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id)
+            == col(ServerGroup.id),
+        )
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(col(Map.validated).is_(True))
@@ -3084,6 +3128,16 @@ async def get_pb_record_publics(
         if include_ranks
         else {}
     )
+    replay_uuids = await available_record_uuids(session, [row[0] for row in rows])
+    native_ids = dict(
+        (
+            await session.exec(
+                select(Record.uuid, Record.native_server_id).where(
+                    col(Record.uuid).in_([row[0] for row in rows])
+                )
+            )
+        ).all()
+    )
     return [
         RecordPublic(
             uuid=record_uuid,
@@ -3095,6 +3149,7 @@ async def get_pb_record_publics(
             },
             steam_id=None,
             server_id=server_id,
+            native_server_id=native_ids.get(record_uuid),
             server_name=server_name or "",
             server_group=_to_server_group_summary_from_values(
                 group_id=server_group_id,
@@ -3117,10 +3172,7 @@ async def get_pb_record_publics(
             updated_on=updated_on,
             updated_by=str(updated_by),
             replay_id=replay_id,
-            is_replay_available=has_run_replay(
-                map_name=map_name,
-                replay_id=record_uuid,
-            ),
+            is_replay_available=record_uuid in replay_uuids,
             is_valid=is_valid,
         )
         for (
@@ -3253,7 +3305,9 @@ async def read_map_pb_leaderboard(
             col(Player.name),
             col(Player.avatar_hash),
             col(Record.server_id),
-            col(ServerGlobalapi.name).label("server_name"),
+            func.coalesce(col(ServerGlobalapi.name), Record.native_server_name).label(
+                "server_name"
+            ),
             col(ServerGroup.id).label("server_group_id"),
             col(ServerGroup.name).label("server_group_name"),
             col(ServerGroup.custom_id).label("server_group_custom_id"),
@@ -3277,8 +3331,12 @@ async def read_map_pb_leaderboard(
         .select_from(anchor_pb)
         .join(Record, col(Record.uuid) == col(anchor_pb.record_uuid))
         .join(Player, col(Record.steamid64) == col(Player.steamid64))
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
-        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(
+            ServerGroup,
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id)
+            == col(ServerGroup.id),
+        )
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .outerjoin(
@@ -3364,6 +3422,16 @@ async def read_map_pb_leaderboard(
         scope=scope,
         record_type=record_type,
     )
+    replay_uuids = await available_record_uuids(session, [row[0] for row in rows])
+    native_ids = dict(
+        (
+            await session.exec(
+                select(Record.uuid, Record.native_server_id).where(
+                    col(Record.uuid).in_([row[0] for row in rows])
+                )
+            )
+        ).all()
+    )
     data = [
         RecordPublic(
             uuid=record_uuid,
@@ -3374,6 +3442,7 @@ async def read_map_pb_leaderboard(
             },
             steam_id=None,
             server_id=server_id,
+            native_server_id=native_ids.get(record_uuid),
             server_name=server_name or "",
             server_group=_to_server_group_summary_from_values(
                 group_id=server_group_id,
@@ -3409,10 +3478,7 @@ async def read_map_pb_leaderboard(
             updated_on=updated_on,
             updated_by=str(updated_by),
             replay_id=replay_id,
-            is_replay_available=has_run_replay(
-                map_name=map_name,
-                replay_id=record_uuid,
-            ),
+            is_replay_available=record_uuid in replay_uuids,
             is_valid=is_valid,
         )
         for (

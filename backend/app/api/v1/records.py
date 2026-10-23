@@ -51,6 +51,7 @@ from app.models import (
     RecordRunHistoryPublic,
     RecordsPublic,
     RecordType,
+    Server,
     ServerGlobalapi,
     ServerGroup,
     User,
@@ -92,15 +93,30 @@ async def _to_record_public(
     points: int,
 ) -> RecordPublic:
     player = await session.get(Player, record.steamid64)
-    server = await session.get(ServerGlobalapi, record.server_id)
+    server = (
+        await session.get(ServerGlobalapi, record.server_id)
+        if record.server_id is not None
+        else None
+    )
+    native_server = (
+        await session.get(Server, record.native_server_id)
+        if record.native_server_id
+        else None
+    )
     map_obj = await session.get(Map, record.map_id)
     mode = await crud.get_mode_by_short_name(session=session, short_name=record.mode)
-    if player is None or server is None or map_obj is None or mode is None:
+    if (
+        player is None
+        or (server is None and native_server is None)
+        or map_obj is None
+        or mode is None
+    ):
         raise HTTPException(status_code=500, detail="Record relations are inconsistent")
+    group_id = (
+        native_server.group_id if native_server else server.group_id if server else None
+    )
     server_group = (
-        await session.get(ServerGroup, server.group_id)
-        if server.group_id is not None
-        else None
+        await session.get(ServerGroup, group_id) if group_id is not None else None
     )
     return crud.to_record_public(
         record=record,

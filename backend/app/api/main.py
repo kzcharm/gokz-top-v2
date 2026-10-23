@@ -37,6 +37,7 @@ from app.api.v1 import (
     private,
     products,
     reactions,
+    record_uploads,
     record_ws,
     records,
     regions,
@@ -80,6 +81,7 @@ api_router.include_router(misc.router)
 api_router.include_router(modes.router)
 api_router.include_router(player_sessions.router)
 api_router.include_router(player_ws.router)
+api_router.include_router(record_uploads.router)
 api_router.include_router(records.router)
 api_router.include_router(reactions.router)
 api_router.include_router(releases.router)

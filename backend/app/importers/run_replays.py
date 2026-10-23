@@ -14,9 +14,14 @@ import py7zr
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.db import async_session_maker
+from app.services.record_replay_catalog import register_disk_replay
 from app.services.run_replay_matcher import match_record_for_run_replay
 from app.services.run_replay_parser import RunReplayParseError, parse_run_replay_bytes
-from app.services.run_replay_storage import has_run_replay, save_run_replay
+from app.services.run_replay_storage import (
+    get_run_replay_path,
+    has_run_replay,
+    save_run_replay,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -193,14 +198,24 @@ async def import_run_replays_from_paths(
 
                     record = match_result.match.record
                     if has_run_replay(map_name=replay.map_name, replay_id=record.uuid):
+                        await register_disk_replay(
+                            session,
+                            record.uuid,
+                            get_run_replay_path(
+                                map_name=replay.map_name, replay_id=record.uuid
+                            ),
+                        )
+                        await session.commit()
                         already_available += 1
                         continue
 
-                    save_run_replay(
+                    replay_path = save_run_replay(
                         map_name=replay.map_name,
                         replay_id=record.uuid,
                         replay_bytes=source.replay_bytes,
                     )
+                    await register_disk_replay(session, record.uuid, replay_path)
+                    await session.commit()
                     imported += 1
                 except (
                     FileNotFoundError,

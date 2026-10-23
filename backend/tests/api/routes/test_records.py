@@ -36,7 +36,7 @@ from app.models import (
     ServerGlobalapi,
     legacy_mode_id_to_kz_mode,
 )
-from app.services.run_replay_storage import save_run_replay
+from tests.utils.run_replay import save_catalog_replay
 from tests.utils.server import create_server_group
 from tests.utils.utils import random_steamid64
 
@@ -323,8 +323,8 @@ async def test_read_records_v1_list_and_detail(
         points=420,
         replay_id=123,
     )
-    save_run_replay(
-        map_name="kz_record_test", replay_id=record.uuid, replay_bytes=b"run"
+    await save_catalog_replay(
+        db, map_name="kz_record_test", replay_id=record.uuid, replay_bytes=b"run"
     )
 
     list_response = await client.get(
@@ -480,6 +480,7 @@ async def test_read_recent_records_v1_returns_nested_public_feed(
         "tier": 0,
     }
     assert first_row["server"] == {
+        "native_id": None,
         "id": 980300,
         "name": "Record Test Server",
         "group": {
@@ -687,10 +688,7 @@ async def test_read_recent_wrs_combines_nub_and_pro_improvements(
     assert banned_response.status_code == 200
     banned_payload = banned_response.json()
     assert banned_payload["count"] == 1
-    assert (
-        banned_payload["data"][0]["record"]["player"]["display_name"]
-        == "First WR"
-    )
+    assert banned_payload["data"][0]["record"]["player"]["display_name"] == "First WR"
 
 
 async def test_new_wr_preserves_previous_wr_event(
@@ -1295,8 +1293,8 @@ async def test_read_pb_records_v1_map_anchor_returns_fastest_per_player_across_m
         teleports=0,
         is_valid=False,
     )
-    save_run_replay(
-        map_name="kz_record_test", replay_id=winning.uuid, replay_bytes=b"pb"
+    await save_catalog_replay(
+        db, map_name="kz_record_test", replay_id=winning.uuid, replay_bytes=b"pb"
     )
 
     response = await client.get(
@@ -1385,7 +1383,8 @@ async def test_read_record_run_history_v1_marks_pbs_and_wr_gap(
         teleports=0,
         created_on=datetime(2026, 1, 3, tzinfo=UTC),
     )
-    save_run_replay(
+    await save_catalog_replay(
+        db,
         map_name="kz_record_test",
         replay_id=improved.uuid,
         replay_bytes=b"run",

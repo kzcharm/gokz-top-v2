@@ -5,7 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import Date, cast, func
+from sqlalchemy import Date, String, cast, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -177,7 +177,7 @@ class _MostPlayedServerBucket:
     key: str
     label: str
     group_id: str | None
-    server_ids: set[int]
+    server_ids: set[int | uuid.UUID]
     total_seconds: Decimal
 
 
@@ -224,7 +224,13 @@ def _build_most_played_server_entry(
         label=bucket.label,
         total_seconds=_quantize_seconds(bucket.total_seconds),
         server_count=len(bucket.server_ids),
-        server_ids=sorted(bucket.server_ids),
+        server_ids=sorted(
+            value for value in bucket.server_ids if isinstance(value, int)
+        ),
+        native_server_ids=sorted(
+            (value for value in bucket.server_ids if isinstance(value, uuid.UUID)),
+            key=str,
+        ),
         group_id=bucket.group_id,
     )
 
@@ -582,18 +588,25 @@ async def _load_most_played_server_rows(
     *,
     session: AsyncSession,
     steamid64: int,
-) -> list[tuple[datetime, Decimal, int, str | None, Any, str | None]]:
+) -> list[tuple[datetime, Decimal, int | uuid.UUID, str | None, Any, str | None]]:
     statement = (
         select_row(
             col(Record.created_at),
             col(Record.time),
-            col(ServerGlobalapi.id),
-            col(ServerGlobalapi.name),
-            col(ServerGlobalapi.group_id),
+            func.coalesce(
+                cast(col(Record.server_id), String),
+                cast(col(Record.native_server_id), String),
+            ),
+            func.coalesce(col(ServerGlobalapi.name), Record.native_server_name),
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id),
             col(ServerGroup.name),
         )
-        .join(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
-        .outerjoin(ServerGroup, col(ServerGlobalapi.group_id) == col(ServerGroup.id))
+        .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
+        .outerjoin(
+            ServerGroup,
+            func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id)
+            == col(ServerGroup.id),
+        )
         .where(col(Record.steamid64) == steamid64)
         .order_by(col(Record.created_at).asc(), col(Record.id).asc())
     )
@@ -602,7 +615,7 @@ async def _load_most_played_server_rows(
         (
             row[0],
             Decimal(row[1]),
-            int(row[2]),
+            uuid.UUID(row[2]) if "-" in row[2] else int(row[2]),
             row[3],
             row[4],
             row[5],
@@ -670,7 +683,7 @@ async def rebuild_player_most_played_server_stat(
         bucket_key: str,
         label: str,
         group_id: str | None,
-        server_id: int,
+        server_id: int | uuid.UUID,
         total_seconds: Decimal,
     ) -> None:
         bucket = bucket_map.get(bucket_key)

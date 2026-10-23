@@ -504,9 +504,13 @@ async def read_recent_wrs(
             )
             .join(page, page.c.record_uuid == col(Record.uuid))
             .join(Player, col(Player.steamid64) == col(Record.steamid64))
-            .join(ServerGlobalapi, col(ServerGlobalapi.id) == col(Record.server_id))
             .outerjoin(
-                ServerGroup, col(ServerGroup.id) == col(ServerGlobalapi.group_id)
+                ServerGlobalapi, col(ServerGlobalapi.id) == col(Record.server_id)
+            )
+            .outerjoin(
+                ServerGroup,
+                col(ServerGroup.id)
+                == func.coalesce(col(ServerGlobalapi.group_id), Record.native_group_id),
             )
             .join(Map, col(Map.id) == col(Record.map_id))
             .join(Mode, col(Mode.name_short) == col(Record.mode))

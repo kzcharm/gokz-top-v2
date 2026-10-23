@@ -24,7 +24,7 @@ from app.models import (
     legacy_mode_id_to_kz_mode,
 )
 from app.services.jump_replay_storage import save_jump_replay
-from app.services.run_replay_storage import save_run_replay
+from tests.utils.run_replay import save_catalog_replay
 from tests.utils.run_replay import build_synthetic_run_replay
 from tests.utils.server import create_server_group as create_test_server_group
 from tests.utils.utils import random_steamid64
@@ -79,9 +79,7 @@ async def _create_server_globalapi(
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
     for steamid64 in (76561198000000010, 76561198000000020):
-
         if await db.get(Player, steamid64) is None:
-
             db.add(Player(steamid64=steamid64, name=str(steamid64)))
 
     server = ServerGlobalapi(
@@ -260,7 +258,8 @@ def _mode_to_index(mode: KZMode) -> int:
     }[mode]
 
 
-def _save_synthetic_run_replay(
+async def _save_synthetic_run_replay(
+    db,
     *,
     record: Record,
     map_name: str,
@@ -278,7 +277,8 @@ def _save_synthetic_run_replay(
         course=record.stage,
         teleports_used=record.teleports,
     )
-    save_run_replay(
+    await save_catalog_replay(
+        db,
         map_name=map_name,
         replay_id=record.uuid,
         replay_bytes=synthetic.replay_bytes,
@@ -345,7 +345,8 @@ async def test_read_run_replay_returns_replay_bytes(
         time="34.000",
         teleports=0,
     )
-    save_run_replay(
+    await save_catalog_replay(
+        db,
         map_name="kz_has_run_replay",
         replay_id=record.uuid,
         replay_bytes=b"run-replay",
@@ -379,7 +380,9 @@ async def test_read_replays_returns_only_replay_backed_records_and_respects_filt
     await _create_map(db, id=980210, name="kz_replay_filter_map", difficulty=6)
     await _create_map(db, id=980211, name="kz_other_map", difficulty=3)
     await _create_server_globalapi(db, id=980310, name="Replay Server")
-    await _create_record_filter(db, id=981710, map_id=980210, stage=0, mode_id=201, tier=2)
+    await _create_record_filter(
+        db, id=981710, map_id=980210, stage=0, mode_id=201, tier=2
+    )
 
     slower_record = await _create_record(
         db,
@@ -441,25 +444,29 @@ async def test_read_replays_returns_only_replay_backed_records_and_respects_filt
         teleports=0,
         created_on=datetime(2026, 1, 1, tzinfo=UTC),
     )
-    _save_synthetic_run_replay(
+    await _save_synthetic_run_replay(
+        db,
         record=slower_record,
         map_name="kz_replay_filter_map",
         steamid64=matching_player.steamid64,
         mode=KZMode.SKZ,
     )
-    _save_synthetic_run_replay(
+    await _save_synthetic_run_replay(
+        db,
         record=faster_record,
         map_name="kz_replay_filter_map",
         steamid64=matching_player.steamid64,
         mode=KZMode.SKZ,
     )
-    _save_synthetic_run_replay(
+    await _save_synthetic_run_replay(
+        db,
         record=other_replay_record,
         map_name="kz_other_map",
         steamid64=other_player.steamid64,
         mode=KZMode.SKZ,
     )
-    _save_synthetic_run_replay(
+    await _save_synthetic_run_replay(
+        db,
         record=bonus_record,
         map_name="kz_replay_filter_map",
         steamid64=matching_player.steamid64,
@@ -541,13 +548,15 @@ async def test_read_replays_without_map_name_scans_all_replay_folders(
         time="25.000",
         teleports=0,
     )
-    _save_synthetic_run_replay(
+    await _save_synthetic_run_replay(
+        db,
         record=first_record,
         map_name="kz_global_one",
         steamid64=player.steamid64,
         mode=KZMode.KZT,
     )
-    _save_synthetic_run_replay(
+    await _save_synthetic_run_replay(
+        db,
         record=second_record,
         map_name="kz_global_two",
         steamid64=player.steamid64,

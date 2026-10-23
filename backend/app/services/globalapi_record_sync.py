@@ -603,6 +603,33 @@ async def _upsert_record(
         server_name=_parse_string(payload.get("server_name")),
     )
 
+    from app.models import Record
+    from app.services.record_ingestion import identity_lock
+    from app.services.record_reconciliation import resolve_before_sync
+
+    await identity_lock(session, f"globalapi:{record_id}")
+    await identity_lock(session, f"course:{map_id}:{stage}")
+
+    canonical = await resolve_before_sync(
+        session,
+        Record(
+            id=record_id,
+            steamid64=steamid64,
+            server_id=server_id,
+            mode=mode.name_short,
+            map_id=map_id,
+            stage=stage,
+            time=record_time,
+            teleports=teleports,
+            points=points,
+            created_at=created_on,
+            updated_at=updated_on,
+            replay_id=replay_id,
+        ),
+    )
+    if canonical:
+        return canonical, False, False
+
     record, created, updated = await crud.upsert_record(
         session=session,
         record_id=record_id,
@@ -622,7 +649,10 @@ async def _upsert_record(
         is_valid=True,
         emit_wr_notifications=emit_wr_notifications,
     )
-    return record.uuid, created, updated
+    from app.services.record_reconciliation import reconcile_upstream
+
+    canonical = await reconcile_upstream(session, record_id)
+    return canonical or record.uuid, created and canonical is None, updated
 
 
 async def _backfill_missing_records_in_db_range(

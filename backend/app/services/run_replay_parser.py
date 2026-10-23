@@ -36,6 +36,9 @@ class ParsedRunReplay:
     course: int
     time: Decimal
     teleports_used: int
+    map_file_size: int
+    tick_count: int
+    tickrate: float
 
 
 def normalize_run_replay_time(value: float) -> Decimal:
@@ -45,7 +48,9 @@ def normalize_run_replay_time(value: float) -> Decimal:
     )
 
 
-def parse_run_replay_bytes(*, data: bytes, source_name: str) -> ParsedRunReplay:
+def parse_run_replay_bytes(
+    *, data: bytes, source_name: str, validate_ticks: bool = False
+) -> ParsedRunReplay:
     try:
         reader = BinaryReader(data)
 
@@ -90,7 +95,7 @@ def parse_run_replay_bytes(*, data: bytes, source_name: str) -> ParsedRunReplay:
             source_name=source_name,
             error_type=RunReplayParseError,
         )
-        course = reader.read_i32()
+        course = reader.read_u8()
         teleports_used = reader.read_i32()
 
         if not map_name:
@@ -117,7 +122,43 @@ def parse_run_replay_bytes(*, data: bytes, source_name: str) -> ParsedRunReplay:
         if time_seconds <= 0.0:
             raise RunReplayParseError(f"{source_name}: replay time must be positive")
 
+        if validate_ticks:
+            if _tickrate != 128.0 or _tick_count < 1 or _tick_count > len(data) // 4:
+                raise RunReplayParseError(
+                    f"{source_name}: invalid tick count or tickrate"
+                )
+            full_mask = (1 << 20) - 1
+            for tick in range(_tick_count):
+                flags = reader.read_u32()
+                if (
+                    not flags & 1
+                    or flags & ~full_mask
+                    or (tick == 0 and flags != full_mask)
+                ):
+                    raise RunReplayParseError(
+                        f"{source_name}: invalid tick delta flags"
+                    )
+                for field in range(1, 20):
+                    if flags & (1 << field):
+                        value = reader.read_i32()
+                        if field in {2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 18}:
+                            ensure_finite(
+                                value=float_from_i32(value),
+                                label="tick data",
+                                source_name=source_name,
+                                error_type=RunReplayParseError,
+                            )
+            if reader.remaining:
+                raise RunReplayParseError(f"{source_name}: trailing replay data")
+            if _tick_count < int(time_seconds * _tickrate) - 1:
+                raise RunReplayParseError(
+                    f"{source_name}: replay is shorter than the recorded run"
+                )
+
         return ParsedRunReplay(
+            map_file_size=_map_file_size,
+            tick_count=_tick_count,
+            tickrate=_tickrate,
             source_name=source_name,
             map_name=map_name,
             recorded_at=datetime.fromtimestamp(timestamp, UTC),
@@ -131,7 +172,7 @@ def parse_run_replay_bytes(*, data: bytes, source_name: str) -> ParsedRunReplay:
             time=normalize_run_replay_time(time_seconds),
             teleports_used=teleports_used,
         )
-    except struct.error as exc:
+    except (struct.error, IndexError) as exc:
         raise RunReplayParseError(
             f"{source_name}: truncated or malformed replay"
         ) from exc

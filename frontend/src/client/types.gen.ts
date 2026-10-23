@@ -398,6 +398,10 @@ export type GitHubReleasesPublic = {
     data: Array<GitHubReleasePublic>;
 };
 
+export type GlobalApiClaim = {
+    globalapi_id: number;
+};
+
 export type HardwareInput = {
     category: ProductCategory;
     product_id?: (string | null);
@@ -821,7 +825,8 @@ export type MapWrGapDistributionContentPublic = {
 export type MapWrHistoryEntryPublic = {
     record_uuid: string;
     player: PlayerRefPublic;
-    server_id: number;
+    server_id?: (number | null);
+    native_server_id?: (string | null);
     server_name: string;
     mode_id: number;
     mode: KZMode;
@@ -1160,6 +1165,7 @@ export type PlayerMostPlayedServerEntryPublic = {
     total_seconds?: number;
     server_count?: number;
     server_ids?: Array<(number)>;
+    native_server_ids?: Array<(string)>;
     group_id?: (string | null);
 };
 
@@ -1709,7 +1715,8 @@ export type RecentRecordPublic = {
 };
 
 export type RecentRecordServerPublic = {
-    id: number;
+    native_id?: (string | null);
+    id: (number | null);
     name: string;
     group?: (ServerGroupSummary | null);
 };
@@ -1780,6 +1787,46 @@ export type RecordBulkDeleteResult = {
     count: number;
 };
 
+export type RecordCheck = {
+    server_id: string;
+    map_name: string;
+    bsp_size: number;
+    stage?: number;
+    mode: KZMode;
+    mode_version: number;
+    steamid64: number;
+    style?: number;
+    tickrate?: number;
+    integrity: RecordIntegrity;
+};
+
+export type RecordFinish = {
+    server_id: string;
+    map_name: string;
+    bsp_size: number;
+    stage?: number;
+    mode: KZMode;
+    mode_version: number;
+    steamid64: number;
+    style?: number;
+    tickrate?: number;
+    integrity: RecordIntegrity;
+    record_uuid?: (string | null);
+    time: (number | string);
+    teleports: number;
+    finished_at: string;
+};
+
+export type RecordIntegrity = {
+    fresh_map: boolean;
+    server_settings: boolean;
+    client_settings: boolean;
+    required_plugins: boolean;
+    timer_valid: boolean;
+    mode_stable: boolean;
+    anticheat_clear: boolean;
+};
+
 export type RecordPatch = {
     is_valid: boolean;
 };
@@ -1797,7 +1844,8 @@ export type RecordPublic = {
     id?: (number | null);
     player: PlayerRefPublic;
     steam_id?: (string | null);
-    server_id: number;
+    server_id?: (number | null);
+    native_server_id?: (string | null);
     server_name: string;
     server_group?: (ServerGroupSummary | null);
     map_id: number;
@@ -1836,7 +1884,8 @@ export type RecordRanksPublic = {
 export type RecordRunHistoryEntryPublic = {
     uuid: string;
     id?: (number | null);
-    server_id: number;
+    server_id?: (number | null);
+    native_server_id?: (string | null);
     server_name: string;
     mode_id: number;
     mode: string;
@@ -3404,6 +3453,27 @@ export type ReactionsReadReactorsData = {
 
 export type ReactionsReadReactorsResponse = (ReactionUsersPublic);
 
+export type RecordsCheckData = {
+    authorization?: (string | null);
+    requestBody: RecordCheck;
+    xServerGroupKey?: (string | null);
+};
+
+export type RecordsCheckResponse = ({
+    [key: string]: unknown;
+});
+
+export type RecordsCreateData = {
+    authorization?: (string | null);
+    idempotencyKey: string;
+    requestBody: RecordFinish;
+    xServerGroupKey?: (string | null);
+};
+
+export type RecordsCreateResponse = ({
+    [key: string]: unknown;
+});
+
 export type RecordsReadRecordsData = {
     createdSince?: (string | null);
     excludeCheaters?: boolean;
@@ -3424,6 +3494,27 @@ export type RecordsReadRecordsData = {
 };
 
 export type RecordsReadRecordsResponse = (RecordsPublic);
+
+export type RecordsAttachGlobalapiData = {
+    authorization?: (string | null);
+    recordUuid: string;
+    requestBody: GlobalApiClaim;
+    xServerGroupKey?: (string | null);
+};
+
+export type RecordsAttachGlobalapiResponse = ({
+    [key: string]: unknown;
+});
+
+export type RecordsUploadReplayData = {
+    authorization?: (string | null);
+    recordUuid: string;
+    xServerGroupKey?: (string | null);
+};
+
+export type RecordsUploadReplayResponse = ({
+    [key: string]: unknown;
+});
 
 export type RecordsReadRecentRecordsData = {
     isBonus?: (boolean | null);

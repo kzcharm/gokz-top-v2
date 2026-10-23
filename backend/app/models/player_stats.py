@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import BigInteger, Column, DateTime
 from sqlalchemy import Enum as SQLAlchemyEnum
@@ -94,6 +95,7 @@ class PlayerMostPlayedServerEntryPublic(SQLModel):
     total_seconds: float = Field(default=0, ge=0)
     server_count: int = Field(default=0, ge=0)
     server_ids: list[int] = Field(default_factory=list)
+    native_server_ids: list[UUID] = Field(default_factory=list)
     group_id: str | None = None
 
 

@@ -516,6 +516,10 @@ from .video_platform_followers import (
 from .workshop_preview_url import WorkshopPreviewUrlCache
 
 __all__ = [
+    "RecordUploadReceipt",
+    "RecordUuidAlias",
+    "RecordSourceClaim",
+    "RecordReplay",
     "AdminServerAccessPublic",
     "AdminServerGroupPublic",
     "AdminServerGroupsPublic",
@@ -972,4 +976,10 @@ from .product import (  # noqa: F401
     Product,
     ProductAlias,
     ProductAudit,
+)
+from .record_upload import (  # noqa: F401
+    RecordReplay,
+    RecordSourceClaim,
+    RecordUploadReceipt,
+    RecordUuidAlias,
 )

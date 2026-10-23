@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
-from typing import Literal
+from typing import ClassVar, Literal
+from uuid import UUID
 
 from pydantic import field_validator, model_validator
 from sqlalchemy import (
@@ -226,9 +227,9 @@ class RecordBase(LegacyDatetimeNamesMixin):
         nullable=False,
         sa_type=BigInteger,
     )
-    server_id: int = Field(
-        foreign_key="server_globalapi.id",
-        nullable=False,
+    server_id: int | None = Field(default=None, foreign_key="server_globalapi.id")
+    native_server_id: UUID | None = Field(
+        default=None, foreign_key="server.id", index=True
     )
     mode: KZMode = Field(
         sa_column=Column(
@@ -284,6 +285,10 @@ class RecordBase(LegacyDatetimeNamesMixin):
 
 
 class Record(RecordBase, table=True):
+    replay_available: ClassVar[bool]
+    native_server_name: ClassVar[str | None]
+    native_group_id: ClassVar[uuid.UUID | None]
+
     __table_args__ = (
         CheckConstraint(
             "points >= 0 AND points <= 1000", name="ck_record_points_range"
@@ -641,7 +646,8 @@ class RecordPublic(SQLModel):
     id: int | None = None
     player: PlayerRefPublic
     steam_id: str | None = None
-    server_id: int
+    server_id: int | None = None
+    native_server_id: UUID | None = None
     server_name: str
     server_group: ServerGroupSummary | None = None
     map_id: int
@@ -685,7 +691,8 @@ class RecordRanksPublic(SQLModel):
 class RecordRunHistoryEntryPublic(SQLModel):
     uuid: uuid.UUID
     id: int | None = None
-    server_id: int
+    server_id: int | None = None
+    native_server_id: UUID | None = None
     server_name: str
     mode_id: int
     mode: str
@@ -727,7 +734,8 @@ class MapWrPublic(SQLModel):
 class MapWrHistoryEntryPublic(SQLModel):
     record_uuid: uuid.UUID
     player: PlayerRefPublic
-    server_id: int
+    server_id: int | None = None
+    native_server_id: UUID | None = None
     server_name: str
     mode_id: int
     mode: KZMode
@@ -748,7 +756,8 @@ class RecentRecordMapPublic(SQLModel):
 
 
 class RecentRecordServerPublic(SQLModel):
-    id: int
+    native_id: uuid.UUID | None = None
+    id: int | None
     name: str
     group: ServerGroupSummary | None = None
 
