@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
 from typing import Any, Literal, NamedTuple
 
-from sqlalchemy import exists, func, or_, update
+from sqlalchemy import bindparam, exists, func, or_, update
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -40,7 +40,7 @@ from app.models import (
     mode_scope_to_id,
 )
 from app.models.leaderboard_player import LeaderboardPlayerSortBy
-from app.models.utils import get_datetime_utc, select_row
+from app.models.utils import get_datetime_utc, get_sqlmodel_table, select_row
 from app.services.skill_rating import SKILLS, calculate_skill_rating
 from app.services.skill_rating_converter import convert_skill_rating
 
@@ -710,6 +710,159 @@ async def rebuild_leaderboard_players_for_keys(
         session=session,
         scope_ids=[scope_id for scope_id, _steamid64 in keys],
     )
+    return created, updated
+
+
+async def rebuild_leaderboard_players_batch(
+    *, session: AsyncSession, scope_id: int, steamid64s: Sequence[int]
+) -> tuple[int, int]:
+    """Rebuild a bounded single-scope batch using the live rating calculators."""
+    if not steamid64s:
+        return 0, 0
+    scope = mode_scope_from_id(scope_id)
+    existing = {
+        row.steamid64: row
+        for row in (
+            await session.exec(
+                select(LeaderboardPlayer).where(
+                    col(LeaderboardPlayer.scope) == scope,
+                    col(LeaderboardPlayer.steamid64).in_(steamid64s),
+                )
+            )
+        ).all()
+    }
+    banned = set(
+        (
+            await session.exec(
+                select(col(Ban.steamid64)).where(
+                    col(Ban.steamid64).in_(steamid64s),
+                    or_(
+                        col(Ban.expires_at).is_(None),
+                        col(Ban.expires_at) >= get_datetime_utc(),
+                    ),
+                )
+            )
+        ).all()
+    )
+    source = (
+        await session.exec(
+            select_row(
+                col(RecordPb.steamid64),
+                col(RecordPb.course_id),
+                col(MapCourse.map_id),
+                col(RecordPb.type),
+                col(RecordPb.record_uuid),
+                col(RecordPb.points),
+                col(RecordPb.raw_rating_contribution),
+                col(MapCourse.stage),
+                col(Map.validated),
+            )
+            .join(MapCourse, col(RecordPb.course_id) == col(MapCourse.id))
+            .join(Map, col(MapCourse.map_id) == col(Map.id))
+            .where(
+                col(RecordPb.scope) == scope, col(RecordPb.steamid64).in_(steamid64s)
+            )
+        )
+    ).all()
+    rows_by_player: dict[int, list[PlayerPbRow]] = defaultdict(list)
+    old_contributions: dict[int, dict[tuple[int, RecordType], int]] = defaultdict(dict)
+    for (
+        player,
+        course,
+        map_id,
+        kind,
+        record_uuid,
+        points,
+        contribution,
+        stage,
+        validated,
+    ) in source:
+        if contribution:
+            old_contributions[player][course, kind] = contribution
+        if stage == 0 and validated:
+            rows_by_player[player].append(
+                PlayerPbRow(course, map_id, kind, record_uuid, points)
+            )
+    map_ids = {row.map_id for rows in rows_by_player.values() for row in rows}
+    tiers = await load_scoped_course_tiers(
+        session=session, course_keys=[(map_id, 0) for map_id in map_ids], scope=scope
+    )
+    skills = {
+        row.map_id: row
+        for row in (
+            await session.exec(
+                select(MapSkill).where(col(MapSkill.map_id).in_(map_ids))
+            )
+        ).all()
+    }
+    changed_contributions: list[dict[str, Any]] = []
+    created = updated = 0
+    for player in sorted(set(steamid64s)):
+        rows = rows_by_player[player]
+        eligible = (
+            player not in banned
+            and len({row.course_id for row in rows}) >= ELIGIBLE_UNIQUE_MAP_FINISHES
+        )
+        expected = (
+            {
+                key: value
+                for key, value in _build_raw_rating_contributions(rows=rows).items()
+                if value > 0
+            }
+            if eligible
+            else {}
+        )
+        old = old_contributions[player]
+        contributions_changed = old != expected
+        for course, kind in sorted(old.keys() | expected.keys()):
+            value = expected.get((course, kind), 0)
+            if old.get((course, kind), 0) != value:
+                changed_contributions.append(
+                    {
+                        "p_scope": scope,
+                        "p_player": player,
+                        "p_course": course,
+                        "p_kind": kind,
+                        "p_value": value,
+                    }
+                )
+        current = existing.get(player)
+        if not eligible:
+            if current is not None:
+                await session.delete(current)
+            updated += int(current is not None or contributions_changed)
+            continue
+        values = _build_leaderboard_values(
+            rows=rows,
+            tiers_by_course_id={row.course_id: tiers[(row.map_id, 0)] for row in rows},
+            skills_by_map_id=skills,
+        )
+        if current is None:
+            session.add(LeaderboardPlayer(scope=scope, steamid64=player, **values))
+            created += 1
+        elif any(getattr(current, name) != value for name, value in values.items()):
+            for name, value in values.items():
+                setattr(current, name, value)
+            current.updated_at = get_datetime_utc()
+            updated += 1
+        else:
+            updated += int(contributions_changed)
+    if changed_contributions:
+        table = get_sqlmodel_table(RecordPb)
+        connection = await session.connection()
+        await connection.execute(
+            table.update()
+            .where(
+                table.c.scope == bindparam("p_scope"),
+                table.c.steamid64 == bindparam("p_player"),
+                table.c.course_id == bindparam("p_course"),
+                table.c.type == bindparam("p_kind"),
+            )
+            .values(raw_rating_contribution=bindparam("p_value")),
+            changed_contributions,
+        )
+    await session.flush()
+    await rebuild_leaderboard_player_counts(session=session, scope_ids=[scope_id])
     return created, updated
 
 

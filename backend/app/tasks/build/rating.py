@@ -1,16 +1,23 @@
+import asyncio
 import logging
 import platform
+import random
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy.exc import DBAPIError
+
 from app import crud
 from app.core.db import async_session_maker
+from app.crud.leaderboard_player import rebuild_leaderboard_players_batch
 from app.models import ModeScope, ModeScopeId
 from app.tasks.build.points import rebuild_record_pb_points
 
 logger = logging.getLogger(__name__)
+
+RATING_BATCH_SIZE = 500
 
 _MACOS_FINISHED_SOUND = "/System/Library/Sounds/Glass.aiff"
 
@@ -68,6 +75,39 @@ def _play_completion_sound() -> None:
         )
 
 
+async def _rebuild_batch_with_retry(
+    *, scope_id: int, steamid64s: Sequence[int]
+) -> tuple[int, int]:
+    """Retry the entire transaction, including commit, with freshly read inputs."""
+    for attempt in range(5):
+        try:
+            async with async_session_maker() as session:
+                result = await rebuild_leaderboard_players_batch(
+                    session=session,
+                    scope_id=scope_id,
+                    steamid64s=steamid64s,
+                )
+                await session.commit()
+            return result
+        except DBAPIError as exc:
+            sqlstate = getattr(exc.orig, "sqlstate", None)
+            if sqlstate not in {"40P01", "40001"} or attempt == 4:
+                raise
+            # The failed session has been closed/rolled back before waiting.
+            delay = 0.5 * (2**attempt) + random.uniform(0, 0.5)
+            logger.warning(
+                "Retrying rating batch after PostgreSQL conflict: scope=%s "
+                "players=%s sqlstate=%s attempt=%s/5 delay=%.2fs",
+                ModeScopeId(scope_id).name,
+                len(steamid64s),
+                sqlstate,
+                attempt + 1,
+                delay,
+            )
+            await asyncio.sleep(delay)
+    raise AssertionError("Unreachable retry state")
+
+
 async def rebuild_leaderboard_rows(
     *,
     scope_ids: Sequence[int] | None,
@@ -96,19 +136,20 @@ async def rebuild_leaderboard_rows(
     tqdm = _get_tqdm()
     total_created = 0
     total_updated = 0
-    progress = tqdm(keys, total=len(keys), desc="leaderboard rows", unit="row")
-    for scope_id, steamid64 in progress:
-        async with async_session_maker() as session:
-            created, updated = await crud.rebuild_leaderboard_players_for_keys(
-                session=session,
-                keys=[(scope_id, steamid64)],
-            )
-            await session.commit()
-        total_created += created
-        total_updated += updated
-        progress.set_postfix_str(
-            f"scope={ModeScopeId(scope_id).name} steamid64={steamid64}"
-        )
+    # Bound transaction size and memory; never mix scopes in a batch.
+    with tqdm(total=len(keys), desc="leaderboard rows", unit="row") as progress:
+        for scope_id in dict.fromkeys(scope_id for scope_id, _ in keys):
+            players = [player for key_scope, player in keys if key_scope == scope_id]
+            for start in range(0, len(players), RATING_BATCH_SIZE):
+                batch = players[start : start + RATING_BATCH_SIZE]
+                created, updated = await _rebuild_batch_with_retry(
+                    scope_id=scope_id,
+                    steamid64s=batch,
+                )
+                total_created += created
+                total_updated += updated
+                progress.update(len(batch))
+                progress.set_postfix_str(f"scope={ModeScopeId(scope_id).name}")
 
     logger.info(
         "Finished rebuilding leaderboard_player rows=%s created=%s updated=%s",
