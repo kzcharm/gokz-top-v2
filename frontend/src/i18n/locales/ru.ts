@@ -217,13 +217,14 @@ export const ru = {
     playerSessions: "Сессии игроков",
   },
   serverGlobalStatus: {
+    settings: "Настройки",
     title: "Проверка GlobalAPI",
     apiKey: "Ключ API",
     plugins: "Плагины",
     settingsEnforcer: "Проверка настроек",
     map: "Карта",
-    eligibleAria: "Записи GlobalAPI включены",
-    ineligibleAria: "Записи GlobalAPI недоступны или не проверены",
+    eligibleAria: "Записи включены через GlobalAPI или gokz.top",
+    ineligibleAria: "Записи GlobalAPI и gokz.top недоступны или не проверены",
   },
   footer: {
     joinDiscord: "Присоединяйтесь к нам в Discord",

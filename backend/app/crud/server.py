@@ -185,6 +185,12 @@ def _build_server_live_status_public(
         players=_build_server_player_public_list(status.players),
         is_online=status.is_online,
         global_status=global_status,
+        gokz_top_status=_build_server_global_status_public(
+            status.global_status.get("gokz_top")
+            if isinstance(status.global_status, dict)
+            else None,
+            include_nkz=True,
+        ),
         state=state,
         updated_at=status.updated_at,
     )
@@ -195,15 +201,21 @@ SUPPORTED_GLOBAL_MODES = ("KZT", "SKZ", "VNL")
 
 def _build_server_global_status_public(
     raw_status: dict[str, Any] | None,
+    *,
+    include_nkz: bool = False,
 ) -> ServerGlobalStatusPublic | None:
     if not isinstance(raw_status, dict):
         return None
     try:
-        status = ServerGlobalStatusPut.model_validate(raw_status)
+        status = ServerGlobalStatusPut.model_validate(
+            {k: v for k, v in raw_status.items() if k != "gokz_top"}
+        )
     except ValidationError:
         return None
     modes = {
-        mode: bool(status.modes.get(mode, False)) for mode in SUPPORTED_GLOBAL_MODES
+        mode: bool(status.modes.get(mode, False))
+        for mode in (*SUPPORTED_GLOBAL_MODES, "NKZ")
+        if include_nkz or mode != "NKZ"
     }
     public_data = status.model_dump()
     public_data["modes"] = modes
@@ -1174,6 +1186,15 @@ async def record_plugin_heartbeat(
     payload: ServerStatusPut,
     notify: bool = True,
 ) -> Server:
+    from app.services.server_records_status import build_records_status
+
+    combined_status = (
+        payload.global_status.model_dump(mode="json") if payload.global_status else {}
+    )
+    if payload.gokz_top_status is not None:
+        combined_status["gokz_top"] = await build_records_status(
+            session, group, server, payload
+        )
     await _record_server_status(
         session=session,
         server=server,
@@ -1187,11 +1208,7 @@ async def record_plugin_heartbeat(
         is_online=True,
         sv_ms=payload.sv_ms,
         var_ms=payload.var_ms,
-        global_status=(
-            payload.global_status.model_dump(mode="json")
-            if payload.global_status is not None
-            else None
-        ),
+        global_status=combined_status or None,
     )
     if (
         _should_auto_validate_server_group(group=group, server=server)

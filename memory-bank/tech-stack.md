@@ -259,3 +259,5 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - Replay header time validation accepts rounding or SourcePawn truncation of the exact stored float to milliseconds; this preserves queued payloads without admitting arbitrary time tolerances.
 
 - Server plugins automatically identify instances using authenticated server SteamID64, following AXEKZ. Group-key heartbeats register identity and track address changes, with unique ownership and preserved internal UUID/history. Records accept SteamIDs or legacy UUIDs and retry pending registration. No operator-set instance ID or per-instance verification is required; group validation and moderation remain enforced.
+
+- `/servers` presents independent GlobalAPI/gokz.top readiness sections; online badges turn green for either eligible service. Authenticated heartbeat `gokz_top_status` carries records-plugin evidence and mode versions, validated by the backend and persisted inside the existing status JSON (no schema migration). Public live status exposes a separate direct status including NKZ/KZT filter sharing. Missing evidence clears readiness.

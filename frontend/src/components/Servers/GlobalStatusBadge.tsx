@@ -26,12 +26,17 @@ function CheckItem({ label, value }: { label: string; value: boolean }) {
 
 function GlobalStatusDetails({
   status,
+  title,
+  includeNkz = false,
 }: {
   status: ServerGlobalStatusPublic | null
+  title: string
+  includeNkz?: boolean
 }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-1 text-xs">
+      <div className="font-semibold">{title}</div>
       <div className="flex items-center gap-1">
         <CheckItem
           label={t("serverGlobalStatus.apiKey")}
@@ -44,7 +49,11 @@ function GlobalStatusDetails({
         />
         <span>|</span>
         <CheckItem
-          label={t("serverGlobalStatus.settingsEnforcer")}
+          label={t(
+            includeNkz
+              ? "serverGlobalStatus.settings"
+              : "serverGlobalStatus.settingsEnforcer",
+          )}
           value={status?.settings_enforcer_valid ?? false}
         />
         <span>|</span>
@@ -54,12 +63,14 @@ function GlobalStatusDetails({
         />
       </div>
       <div className="flex items-center gap-1">
-        {GLOBAL_MODES.map((mode, index) => (
-          <span className="inline-flex items-center gap-1" key={mode}>
-            {index > 0 && <span>|</span>}
-            <CheckItem label={mode} value={status?.modes?.[mode] ?? false} />
-          </span>
-        ))}
+        {[...GLOBAL_MODES, ...(includeNkz ? ["NKZ"] : [])].map(
+          (mode, index) => (
+            <span className="inline-flex items-center gap-1" key={mode}>
+              {index > 0 && <span>|</span>}
+              <CheckItem label={mode} value={status?.modes?.[mode] ?? false} />
+            </span>
+          ),
+        )}
       </div>
     </div>
   )
@@ -69,10 +80,13 @@ export function GlobalStatusBadge({ server }: { server: ServerPublic }) {
   const { t } = useTranslation()
   const liveStatus = server.live_status
   const status = liveStatus?.global_status ?? null
-  if (!liveStatus?.state?.last_plugin_seen_at || !status) {
+  const topStatus = liveStatus?.gokz_top_status ?? null
+  if (!liveStatus?.state?.last_plugin_seen_at || (!status && !topStatus)) {
     return null
   }
-  const eligible = Boolean(liveStatus?.is_online && status?.eligible)
+  const eligible = Boolean(
+    liveStatus?.is_online && (status?.eligible || topStatus?.eligible),
+  )
 
   return (
     <Tooltip delayDuration={150}>
@@ -93,7 +107,10 @@ export function GlobalStatusBadge({ server }: { server: ServerPublic }) {
         </span>
       </TooltipTrigger>
       <TooltipContent sideOffset={6} className="max-w-none">
-        <GlobalStatusDetails status={status} />
+        <div className="space-y-3">
+          <GlobalStatusDetails title="GlobalAPI" status={status} />
+          <GlobalStatusDetails title="gokz.top" status={topStatus} includeNkz />
+        </div>
       </TooltipContent>
     </Tooltip>
   )

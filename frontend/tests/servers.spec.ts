@@ -621,6 +621,8 @@ test("Public servers page supports live updates, filters, and route-bound detail
         queueMicrotask(() => {
           this.readyState = MockWebSocket.OPEN
           this.onopen?.(new Event("open"))
+          const snapshot = (window as any).__latestServerSnapshot
+          if (snapshot) this.dispatchMessage(snapshot)
         })
       }
 
@@ -644,6 +646,8 @@ test("Public servers page supports live updates, filters, and route-bound detail
     Object.assign(window, {
       __mockServerSockets: sockets,
       __dispatchServerMessage: (payload: unknown) => {
+        if ((payload as any)?.type === "server.snapshot")
+          (window as any).__latestServerSnapshot = payload
         for (const socket of sockets) {
           socket.dispatchMessage(payload)
         }
@@ -668,17 +672,17 @@ test("Public servers page supports live updates, filters, and route-bound detail
   ).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
   await expect(
-    page
-      .getByTestId("server-card-10.0.0.1:27015")
-      .getByRole("img", { name: "GlobalAPI records enabled" }),
+    page.getByTestId("server-card-10.0.0.1:27015").getByRole("img", {
+      name: "Records enabled through GlobalAPI or gokz.top",
+    }),
   ).toBeVisible()
   await page
     .getByTestId("server-card-10.0.0.1:27015")
-    .getByRole("img", { name: "GlobalAPI records enabled" })
+    .getByRole("img", { name: "Records enabled through GlobalAPI or gokz.top" })
     .hover()
   await expect(page.getByRole("tooltip")).toBeVisible()
-  await expect(page.getByText("Settings enforcer")).toBeVisible()
-  await expect(page.getByText("KZT")).toBeVisible()
+  await expect(page.getByText("Settings enforcer").first()).toBeVisible()
+  await expect(page.getByText("KZT").first()).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
   await expect(page.getByRole("button", { name: /Seed Group/ })).toBeVisible()
   await expect
@@ -1386,3 +1390,57 @@ test("Russian servers have an RU filter separate from other CIS servers", async 
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
   await expect(page.getByTestId("server-card-10.0.0.4:27015")).toBeVisible()
 })
+
+for (const scenario of [
+  { global: true, top: false, online: true, green: true },
+  { global: false, top: true, online: true, green: true },
+  { global: false, top: false, online: true, green: false },
+  { global: true, top: true, online: false, green: false },
+]) {
+  test(`records globe: GlobalAPI=${scenario.global} gokz.top=${scenario.top} online=${scenario.online}`, async ({
+    page,
+  }) => {
+    await stubMapImageGraphql(page)
+    const server = structuredClone(seedServers.data[0])
+    const status = server.live_status.global_status
+    server.live_status.is_online = scenario.online
+    server.live_status.global_status = {
+      ...status,
+      api_key_valid: scenario.global,
+      eligible: scenario.global,
+    }
+    const response = {
+      ...server,
+      live_status: {
+        ...server.live_status,
+        gokz_top_status: {
+          ...status,
+          api_key_valid: scenario.top,
+          eligible: scenario.top,
+          modes: { KZT: false, SKZ: false, VNL: false, NKZ: scenario.top },
+        },
+      },
+    }
+    await page.route(/\/v1\/servers\/?(\?.*)?$/, (route) =>
+      route.fulfill({ json: { data: [response], count: 1 } }),
+    )
+    await page.goto("/servers")
+    if (!scenario.online)
+      await page.getByRole("button", { name: "Online", exact: true }).click()
+    const badge = page
+      .getByTestId("server-card-10.0.0.1:27015")
+      .getByRole("img", {
+        name: scenario.green
+          ? "Records enabled through GlobalAPI or gokz.top"
+          : "GlobalAPI and gokz.top records unavailable or unchecked",
+      })
+    await expect(badge).toHaveClass(
+      scenario.green ? /bg-emerald-500/ : /bg-red-500/,
+    )
+    await badge.hover()
+    const tooltip = page.getByRole("tooltip")
+    await expect(tooltip.getByText("GlobalAPI", { exact: true })).toBeVisible()
+    await expect(tooltip.getByText("gokz.top", { exact: true })).toBeVisible()
+    await expect(tooltip.getByText("NKZ", { exact: true })).toBeVisible()
+  })
+}

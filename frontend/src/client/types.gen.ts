@@ -2068,6 +2068,7 @@ export type ServerLiveStatusPublic = {
     players?: Array<ServerPlayerPublic>;
     is_online?: boolean;
     global_status?: (ServerGlobalStatusPublic | null);
+    gokz_top_status?: (ServerGlobalStatusPublic | null);
     state?: ServerLiveStatusStatePublic;
     updated_at: string;
 };
@@ -2123,6 +2124,15 @@ export type ServerPublic = {
     live_status?: (ServerLiveStatusPublic | null);
 };
 
+export type ServerRecordsStatusPut = {
+    plugins_valid: boolean;
+    settings_enforcer_valid: boolean;
+    bsp_size: number;
+    mode_versions?: {
+        [key: string]: (number);
+    };
+};
+
 export type ServerSource = 'manual' | 'steam_master';
 
 export type ServersPublic = {
@@ -2160,6 +2170,7 @@ export type ServerStatusPut = {
     var_ms?: (number | null);
     players?: Array<ServerStatusPlayerPut>;
     global_status?: (ServerGlobalStatusPut | null);
+    gokz_top_status?: (ServerRecordsStatusPut | null);
 };
 
 export type ServerUpdate = {

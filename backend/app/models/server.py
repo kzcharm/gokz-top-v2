@@ -465,6 +465,7 @@ class ServerLiveStatusPublic(SQLModel):
     players: list[ServerPlayerPublic] = Field(default_factory=list)
     is_online: bool = False
     global_status: ServerGlobalStatusPublic | None = None
+    gokz_top_status: ServerGlobalStatusPublic | None = None
     state: ServerLiveStatusStatePublic = Field(
         default_factory=ServerLiveStatusStatePublic
     )
@@ -659,6 +660,14 @@ class ServerDiscoveryRunPublic(SQLModel):
     upserted_count: int
 
 
+class ServerRecordsStatusPut(SQLModel):
+    model_config = {"extra": "forbid"}
+    plugins_valid: bool
+    settings_enforcer_valid: bool
+    bsp_size: int = Field(ge=0)
+    mode_versions: dict[str, int] = Field(default_factory=dict)
+
+
 class ServerStatusPut(SQLModel):
     server_steamid64: ServerSteamID | None = None
     ip: str = Field(min_length=1, max_length=64)
@@ -672,6 +681,7 @@ class ServerStatusPut(SQLModel):
     var_ms: float | None = Field(default=None, ge=0)
     players: list[ServerStatusPlayerPut] = Field(default_factory=list)
     global_status: ServerGlobalStatusPut | None = None
+    gokz_top_status: ServerRecordsStatusPut | None = None
 
 
 class ServerUpdateEvent(BaseModel):

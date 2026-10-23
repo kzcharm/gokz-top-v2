@@ -206,13 +206,14 @@ export const zhCN = {
     playerSessions: "玩家会话",
   },
   serverGlobalStatus: {
+    settings: "设置",
     title: "GlobalAPI 检查",
     apiKey: "API 密钥",
     plugins: "插件",
     settingsEnforcer: "Settings Enforcer",
     map: "地图",
-    eligibleAria: "GlobalAPI 记录已启用",
-    ineligibleAria: "GlobalAPI 记录不可用或尚未检查",
+    eligibleAria: "GlobalAPI 或 gokz.top 记录已启用",
+    ineligibleAria: "GlobalAPI 和 gokz.top 记录不可用或尚未检查",
   },
   footer: {
     joinDiscord: "加入我们的 Discord",

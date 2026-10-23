@@ -578,3 +578,52 @@ def test_invalid_server_steam_identity_rejected(identity):
 
     with pytest.raises(ValidationError):
         TypeAdapter(ServerSteamID).validate_python(identity)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_version,bad_settings", [(False, False), (True, False), (False, True)]
+)
+async def test_direct_server_status_is_independent_of_globalapi(
+    db, bad_version, bad_settings
+):
+    from app.crud.server import (
+        record_plugin_heartbeat,
+        _build_server_live_status_public,
+    )
+    from app.models import ServerStatusPut
+    from app.models.server import ServerRecordsStatusPut
+
+    group, server, run = await setup_finish(db, KZMode.NKZ)
+    evidence = ServerRecordsStatusPut(
+        plugins_valid=True,
+        settings_enforcer_valid=not bad_settings,
+        bsp_size=run.bsp_size,
+        mode_versions={"NKZ": run.mode_version + int(bad_version)},
+    )
+    payload = ServerStatusPut(
+        ip=server.ip,
+        port=server.port,
+        observed_at=get_datetime_utc(),
+        hostname="Direct server",
+        map=run.map_name,
+        player_count=0,
+        max_players=32,
+        gokz_top_status=evidence,
+    )
+    result = await record_plugin_heartbeat(
+        session=db, group=group, server=server, payload=payload, notify=False
+    )
+    public = _build_server_live_status_public(result.live_status)
+    assert public.global_status is None
+    direct = public.gokz_top_status
+    assert direct is not None
+    assert direct.modes["NKZ"] is (not bad_version)
+    assert direct.modes["KZT"] is False
+    assert direct.eligible is (not bad_version and not bad_settings)
+    # Older heartbeats must clear readiness rather than retaining stale green state.
+    payload.gokz_top_status = None
+    result = await record_plugin_heartbeat(
+        session=db, group=group, server=server, payload=payload, notify=False
+    )
+    assert _build_server_live_status_public(result.live_status).gokz_top_status is None

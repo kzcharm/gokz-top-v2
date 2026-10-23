@@ -210,13 +210,14 @@ export const en = {
     playerSessions: "Player Sessions",
   },
   serverGlobalStatus: {
+    settings: "Settings",
     title: "GlobalAPI check",
     apiKey: "API key",
     plugins: "Plugins",
     settingsEnforcer: "Settings enforcer",
     map: "Map",
-    eligibleAria: "GlobalAPI records enabled",
-    ineligibleAria: "GlobalAPI records unavailable or unchecked",
+    eligibleAria: "Records enabled through GlobalAPI or gokz.top",
+    ineligibleAria: "GlobalAPI and gokz.top records unavailable or unchecked",
   },
   footer: {
     joinDiscord: "Join us on Discord",

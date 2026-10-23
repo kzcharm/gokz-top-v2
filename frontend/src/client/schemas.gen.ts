@@ -10359,6 +10359,16 @@ export const ServerLiveStatusPublicSchema = {
                 }
             ]
         },
+        gokz_top_status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerGlobalStatusPublic'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
         state: {
             '$ref': '#/components/schemas/ServerLiveStatusStatePublic'
         },
@@ -10769,6 +10779,35 @@ export const ServerPublicSchema = {
     title: 'ServerPublic'
 } as const;
 
+export const ServerRecordsStatusPutSchema = {
+    properties: {
+        plugins_valid: {
+            type: 'boolean',
+            title: 'Plugins Valid'
+        },
+        settings_enforcer_valid: {
+            type: 'boolean',
+            title: 'Settings Enforcer Valid'
+        },
+        bsp_size: {
+            type: 'integer',
+            minimum: 0,
+            title: 'Bsp Size'
+        },
+        mode_versions: {
+            additionalProperties: {
+                type: 'integer'
+            },
+            type: 'object',
+            title: 'Mode Versions'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['plugins_valid', 'settings_enforcer_valid', 'bsp_size'],
+    title: 'ServerRecordsStatusPut'
+} as const;
+
 export const ServerSourceSchema = {
     type: 'string',
     enum: ['manual', 'steam_master'],
@@ -10971,6 +11010,16 @@ export const ServerStatusPutSchema = {
             anyOf: [
                 {
                     '$ref': '#/components/schemas/ServerGlobalStatusPut'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        gokz_top_status: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/ServerRecordsStatusPut'
                 },
                 {
                     type: 'null'
