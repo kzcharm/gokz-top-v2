@@ -951,3 +951,76 @@ test("Profile completion uses the full row width and retains completion marks", 
     .locator("..")
     .screenshot({ path: test.info().outputPath("profile-completion.png") })
 })
+
+for (const regional of [false, true]) {
+  test(`Profile ${regional ? "regional" : "global"} rank link locates the player on the leaderboard`, async ({
+    page,
+  }) => {
+    await installProfileHomeRoutes(page)
+    await page.addInitScript(() => {
+      localStorage.setItem("gokz-page-size-leaderboards-players", "20")
+    })
+    await page.goto(`/profile/${steamid64}`)
+    const link = page.getByRole("link", {
+      name: regional ? "EU #7" : "Global #42",
+      exact: true,
+    })
+    await expect(link).toBeVisible()
+    await expect(link).toHaveAttribute(
+      "href",
+      `/leaderboards/players?player=%22${steamid64}%22${regional ? "&region=EU" : ""}`,
+    )
+    const rankRequests: Array<string | null> = []
+    await page.route(
+      /\/v1\/leaderboards\/players\/[^?]+(\?.*)?$/,
+      async (route) => {
+        rankRequests.push(
+          new URL(route.request().url()).searchParams.get("region"),
+        )
+        await route.fulfill({ json: { rank: regional ? 7 : 42 } })
+      },
+    )
+    const listRequests: Array<{
+      offset: string | null
+      region: string | null
+    }> = []
+    await page.route(/\/v1\/leaderboards\/players\?/, async (route) => {
+      const params = new URL(route.request().url()).searchParams
+      listRequests.push({
+        offset: params.get("offset"),
+        region: params.get("region"),
+      })
+      await route.fulfill({
+        json: {
+          count: 100,
+          data: [
+            {
+              rank: regional ? 7 : 42,
+              player: { steamid64, display_name: "Pinned Alias" },
+              rating: 8,
+              rating_easy: 7,
+              rating_hard: 6,
+              points: 1000,
+              wrs_nub: 0,
+              wrs_pro: 0,
+              records_900_plus: 0,
+              records_800_plus: 0,
+              unique_map_finishes: 30,
+            },
+          ],
+        },
+      })
+    })
+    await link.click()
+    await expect.poll(() => rankRequests.at(-1)).toBe(regional ? "EU" : null)
+    await expect
+      .poll(() => listRequests.at(-1))
+      .toEqual({
+        offset: regional ? "0" : "40",
+        region: regional ? "EU" : null,
+      })
+    await expect(
+      page.locator(`[data-player-steamid64="${steamid64}"]`),
+    ).toHaveClass(/bg-primary/)
+  })
+}

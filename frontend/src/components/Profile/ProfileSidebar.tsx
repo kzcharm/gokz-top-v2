@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   Copy,
   Eye,
@@ -508,19 +508,54 @@ function ProfileIdentityCard({
                   ? `${t("labels.points")} ...`
                   : `${formatNumber(profileSummary.totalPoints)} Pts`}
               </span>
-              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                {t("profile.summary.global")}{" "}
-                {profileSummaryLoading
-                  ? "..."
-                  : profileSummary.globalStanding === null
-                    ? t("profile.unranked")
-                    : `#${formatNumber(profileSummary.globalStanding)}`}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
-                {profileSummaryLoading
-                  ? `${t("profile.summary.regional")} ...`
-                  : regionalStandingLabel}
-              </span>
+              {[
+                {
+                  label: (
+                    <>
+                      {t("profile.summary.global")}{" "}
+                      {profileSummaryLoading
+                        ? "..."
+                        : profileSummary.globalStanding === null
+                          ? t("profile.unranked")
+                          : `#${formatNumber(profileSummary.globalStanding)}`}
+                    </>
+                  ),
+                  rank: profileSummary.globalStanding,
+                  region: undefined,
+                },
+                {
+                  label: profileSummaryLoading
+                    ? `${t("profile.summary.regional")} ...`
+                    : regionalStandingLabel,
+                  rank: profileSummary.regionalStanding,
+                  region: profileSummary.region ?? undefined,
+                },
+              ].map(({ label, rank, region }, index) => {
+                const className =
+                  "inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground"
+                return !profileSummaryLoading &&
+                  rank !== null &&
+                  (index === 0 || region) ? (
+                  <Link
+                    key={index === 0 ? "global" : "regional"}
+                    to="/leaderboards/players"
+                    search={{ player: player.steamid64, region }}
+                    className={cn(
+                      className,
+                      "transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    )}
+                  >
+                    {label}
+                  </Link>
+                ) : (
+                  <span
+                    key={index === 0 ? "global" : "regional"}
+                    className={className}
+                  >
+                    {label}
+                  </span>
+                )
+              })}
               <ProfileTournamentAchievements steamid64={player.steamid64} />
             </div>
           </div>

@@ -5,7 +5,14 @@ import {
   type SortingState,
 } from "@tanstack/react-table"
 import { LocateFixed, Search, Users } from "lucide-react"
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -114,7 +121,13 @@ async function fetchLeaderboardPage(
   return (await response.json()) as PlayerLeaderboardsPublic
 }
 
-export function PlayersLeaderboardTab() {
+export function PlayersLeaderboardTab({
+  targetPlayer,
+  initialRegion,
+}: {
+  targetPlayer?: string
+  initialRegion?: string
+}) {
   const { t } = useTranslation()
   const { scope } = useScope()
   const { user: currentUser } = useAuth()
@@ -142,7 +155,10 @@ export function PlayersLeaderboardTab() {
   const searchBlurTimeoutRef = useRef<number | null>(null)
   const playerSearchQuery = deferredSearchInput.trim()
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(
+    initialRegion ?? null,
+  )
+  const locatedTargetRef = useRef<string | null>(null)
   const [isFriendsOnly, setIsFriendsOnly] = useState(false)
 
   const sortBy =
@@ -380,57 +396,75 @@ export function PlayersLeaderboardTab() {
     setPendingSpotlightSteamid64(null)
   }, [pendingSpotlightSteamid64, tableData])
 
-  const locatePlayer = async ({
-    identifier,
-    spotlightSteamid64,
-    onNotRanked,
-  }: {
-    identifier: string
-    spotlightSteamid64: string
-    onNotRanked: () => void
-  }) => {
-    setIsLocatingPlayer(true)
-    try {
-      const token = localStorage.getItem("access_token")
-      const params = new URLSearchParams({ scope })
-      if (selectedCountry) {
-        params.set("country", selectedCountry)
-      }
-      if (selectedRegion) {
-        params.set("region", selectedRegion)
-      }
-      if (isFriendsOnly) {
-        params.set("friends_only", "true")
-      }
-      const response = await fetch(
-        `${OpenAPI.BASE}/v1/leaderboards/players/${encodeURIComponent(identifier)}?${params.toString()}`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        },
-      )
+  const locatePlayer = useCallback(
+    async ({
+      identifier,
+      spotlightSteamid64,
+      onNotRanked,
+    }: {
+      identifier: string
+      spotlightSteamid64: string
+      onNotRanked: () => void
+    }) => {
+      setIsLocatingPlayer(true)
+      try {
+        const token = localStorage.getItem("access_token")
+        const params = new URLSearchParams({ scope })
+        if (selectedCountry) {
+          params.set("country", selectedCountry)
+        }
+        if (selectedRegion) {
+          params.set("region", selectedRegion)
+        }
+        if (isFriendsOnly) {
+          params.set("friends_only", "true")
+        }
+        const response = await fetch(
+          `${OpenAPI.BASE}/v1/leaderboards/players/${encodeURIComponent(identifier)}?${params.toString()}`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          },
+        )
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch leaderboard rank")
-      }
+        if (!response.ok) {
+          throw new Error("Failed to fetch leaderboard rank")
+        }
 
-      const data = (await response.json()) as { rank?: number | null }
-      if (!data.rank) {
-        onNotRanked()
-        return
-      }
+        const data = (await response.json()) as { rank?: number | null }
+        if (!data.rank) {
+          onNotRanked()
+          return
+        }
 
-      setSorting([{ id: "rating", desc: true }])
-      setHighlightedSteamid64(spotlightSteamid64)
-      setPendingSpotlightSteamid64(spotlightSteamid64)
-      setPageIndex(Math.floor((data.rank - 1) / pageSize))
-    } catch {
-      toast.error("Could not locate player on the leaderboard", {
-        description: "Try again in a moment.",
-      })
-    } finally {
-      setIsLocatingPlayer(false)
-    }
-  }
+        setSorting([{ id: "rating", desc: true }])
+        setHighlightedSteamid64(spotlightSteamid64)
+        setPendingSpotlightSteamid64(spotlightSteamid64)
+        setPageIndex(Math.floor((data.rank - 1) / pageSize))
+      } catch {
+        toast.error("Could not locate player on the leaderboard", {
+          description: "Try again in a moment.",
+        })
+      } finally {
+        setIsLocatingPlayer(false)
+      }
+    },
+    [scope, selectedCountry, selectedRegion, isFriendsOnly, pageSize],
+  )
+
+  useEffect(() => {
+    if (!targetPlayer) return
+    const key = `${targetPlayer}:${scope}:${pageSize}`
+    if (locatedTargetRef.current === key) return
+    locatedTargetRef.current = key
+    void locatePlayer({
+      identifier: targetPlayer,
+      spotlightSteamid64: targetPlayer,
+      onNotRanked: () =>
+        toast.error("Player is not ranked yet", {
+          description: "Select another player or scope.",
+        }),
+    })
+  }, [targetPlayer, scope, pageSize, locatePlayer])
 
   const handleFindMe = async () => {
     if (!currentUser?.steamid64) {
