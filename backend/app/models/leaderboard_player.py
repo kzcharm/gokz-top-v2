@@ -409,7 +409,7 @@ class PlayerLeaderboardEntryPublic(SQLModel):
     records_800_plus: int
     unique_map_finishes: int
 
-    @field_serializer("rating", "rating_easy", "rating_hard")
+    @field_serializer("rating")
     def serialize_rating(self, value: float | None) -> float | None:
         return scale_public_rating(value)
 
@@ -432,7 +432,7 @@ class PlayerLeaderboardRankPublic(SQLModel):
     records_800_plus: int
     unique_map_finishes: int
 
-    @field_serializer("rating", "rating_easy", "rating_hard")
+    @field_serializer("rating")
     def serialize_rating(self, value: float | None) -> float | None:
         return scale_public_rating(value) or 0
 

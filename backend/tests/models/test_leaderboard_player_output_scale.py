@@ -67,9 +67,7 @@ def test_scale_public_rating_composes_linear_scale_and_redistribution() -> None:
     assert scale_public_rating(40_000) == pytest.approx(11.0)
     assert scale_public_rating(37_993) == pytest.approx(10.0)
     assert scale_public_rating(36_775) < 10.0
-    assert scale_public_rating(4_000) == pytest.approx(
-        redistribute_display_rating(2.0)
-    )
+    assert scale_public_rating(4_000) == pytest.approx(redistribute_display_rating(2.0))
 
 
 @pytest.mark.parametrize("target_rating", [1, 6, 7, 8, 9, 10, 11])
@@ -90,3 +88,25 @@ def test_min_raw_rating_for_public_rating_is_monotonic() -> None:
     ]
 
     assert all(left <= right for left, right in pairwise(thresholds))
+
+
+def test_difficulty_display_ratings_are_not_scaled_twice() -> None:
+    from app.models import ModeScope, PlayerLeaderboardRankPublic, PlayerRefPublic
+
+    row = PlayerLeaderboardRankPublic(
+        scope=ModeScope.OVR,
+        player=PlayerRefPublic(steamid64="76561198000000000", display_name="Test"),
+        rating=40000,
+        rating_easy=7.25,
+        rating_hard=None,
+        points=0,
+        wrs_nub=0,
+        wrs_pro=0,
+        records_900_plus=0,
+        records_800_plus=0,
+        unique_map_finishes=10,
+    )
+    payload = row.model_dump(mode="json")
+    assert payload["rating"] == 11
+    assert payload["rating_easy"] == 7.25
+    assert payload["rating_hard"] is None

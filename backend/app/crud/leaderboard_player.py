@@ -311,8 +311,12 @@ def _build_player_leaderboard_entry_public(
         rating=leaderboard_row.rating,
         raw_rating=leaderboard_row.rating,
         skill_ratings=_public_skill_ratings(leaderboard_row, converters),
-        rating_easy=leaderboard_row.rating_easy,
-        rating_hard=leaderboard_row.rating_hard,
+        rating_easy=convert_skill_rating(
+            leaderboard_row.rating_easy, converters.get("easy")
+        ),
+        rating_hard=convert_skill_rating(
+            leaderboard_row.rating_hard, converters.get("hard")
+        ),
         points=leaderboard_row.points,
         wrs_nub=leaderboard_row.wrs_nub,
         wrs_pro=leaderboard_row.wrs_pro,
@@ -437,8 +441,16 @@ def _build_leaderboard_values(
 
     if unique_map_finishes >= ELIGIBLE_UNIQUE_MAP_FINISHES:
         rating = calculate_weighted_rating(map_best_points)
-        rating_easy = calculate_weighted_rating(easy_points)
-        rating_hard = calculate_weighted_rating(hard_points)
+        rating_easy = calculate_weighted_rating(
+            sorted(easy_points, reverse=True)[
+                : get_rank_system_settings().rating.easy_top_maps
+            ]
+        )
+        rating_hard = calculate_weighted_rating(
+            sorted(hard_points, reverse=True)[
+                : get_rank_system_settings().rating.hard_top_maps
+            ]
+        )
     else:
         rating = 0
         rating_easy = 0
@@ -1138,8 +1150,16 @@ async def read_player_leaderboard_rank(
         region=home_region,
         player=to_player_ref_public(player=player),
         rating=leaderboard_row.rating if leaderboard_row is not None else 0,
-        rating_easy=leaderboard_row.rating_easy if leaderboard_row is not None else 0,
-        rating_hard=leaderboard_row.rating_hard if leaderboard_row is not None else 0,
+        rating_easy=convert_skill_rating(
+            leaderboard_row.rating_easy, converters.get("easy")
+        )
+        if leaderboard_row is not None
+        else None,
+        rating_hard=convert_skill_rating(
+            leaderboard_row.rating_hard, converters.get("hard")
+        )
+        if leaderboard_row is not None
+        else None,
         skill_ratings=_public_skill_ratings(leaderboard_row, converters)
         if leaderboard_row is not None
         else {skill: SkillRatingPublic(raw_rating=0, rating=None) for skill in SKILLS},

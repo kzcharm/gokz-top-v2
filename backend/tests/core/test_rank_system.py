@@ -7,6 +7,8 @@ from app.core.rank_system import load_rank_system_settings
 def test_load_rank_system_settings_parses_current_config() -> None:
     settings = load_rank_system_settings()
 
+    assert settings.rating.easy_top_maps == 100
+    assert settings.rating.hard_top_maps == 50
     assert settings.rating.decay == Decimal("0.975")
     assert settings.rating.skill_full_portion_decay == Decimal("0.9")
     assert settings.rating.skill_top_map_equivalents == 50

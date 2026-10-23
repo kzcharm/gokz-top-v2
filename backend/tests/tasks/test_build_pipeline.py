@@ -19,6 +19,7 @@ from app.models import (
     Record,
     RecordPb,
     ServerGlobalapi,
+    SkillRatingConverter,
 )
 from app.tasks.build import pb, points, rating, skill_rating_converters, skill_ratings
 from tests.utils.utils import random_steamid64
@@ -188,6 +189,23 @@ async def test_pb_points_leaderboard_and_skill_builds_are_repeatable(
     assert any(result.calibration is not None for result in saved)
     await skill_rating_converters.calibrate_skill_converters(
         scopes=(ModeScope.OVR,), save=True
+    )
+    difficulty_preview = await skill_rating_converters.calibrate_difficulty_converters(
+        scopes=(ModeScope.OVR,), save=False
+    )
+    assert [item.skill for item in difficulty_preview] == ["easy", "hard"]
+    assert await db.get(SkillRatingConverter, (ModeScope.OVR, "easy")) is None
+    await skill_rating_converters.calibrate_difficulty_converters(
+        scopes=(ModeScope.OVR,), save=True
+    )
+    assert await db.get(SkillRatingConverter, (ModeScope.OVR, "easy")) is not None
+    assert (
+        len(
+            await skill_rating_converters.calibrate_skill_converters(
+                scopes=(ModeScope.OVR,)
+            )
+        )
+        == 6
     )
     with pytest.raises(ValueError, match="at least one scope"):
         await rating.rebuild_ratings(

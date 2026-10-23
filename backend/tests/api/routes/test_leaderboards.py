@@ -623,6 +623,51 @@ async def test_read_player_leaderboard_exposes_calibrated_skill_rating(
     }
 
 
+async def test_difficulty_ratings_use_independent_curves(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    players = await _seed_leaderboard_data(db)
+    row = await _get_kzt_leaderboard_row(db, steamid64=players["alpha"])
+    row.rating_easy = row.rating_hard = 100
+    for scope, category, level in [
+        (ModeScope.KZT, "easy", 3),
+        (ModeScope.KZT, "hard", 6),
+        (ModeScope.OVR, "easy", 8),
+    ]:
+        db.add(
+            SkillRatingConverter(
+                scope=scope,
+                skill=category,
+                anchors=[[0, 0], [100, level]],
+                sample_size=100,
+            )
+        )
+    await db.flush()
+    detail = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players/alpha", params={"scope": "KZT"}
+    )
+    assert detail.json()["rating_easy"] == 3
+    assert detail.json()["rating_hard"] == 6
+    listing = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/players", params={"scope": "KZT"}
+    )
+    alpha = next(
+        item
+        for item in listing.json()["data"]
+        if item["player"]["steamid64"] == str(players["alpha"])
+    )
+    assert alpha["rating_easy"] == 3
+    assert alpha["rating_hard"] == 6
+    assert set(alpha["skill_ratings"]) == {
+        "boxtech",
+        "strafe",
+        "bhop",
+        "climb",
+        "ladder",
+        "slide",
+    }
+
+
 async def test_read_player_leaderboard_filters_by_country(
     client: AsyncClient,
     db: AsyncSession,
@@ -805,12 +850,8 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert "rating_rank" not in payload
     assert payload["points"] > payload["rating"]
     assert payload["rating"] == pytest.approx(_public_rating(alpha_row.rating))
-    assert payload["rating_easy"] == pytest.approx(
-        _public_rating(alpha_row.rating_easy)
-    )
-    assert payload["rating_hard"] == pytest.approx(
-        _public_rating(alpha_row.rating_hard)
-    )
+    assert payload["rating_easy"] is None
+    assert payload["rating_hard"] is None
 
 
 async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_ineligible(
@@ -833,8 +874,8 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_inelig
     assert "rating_rank" not in payload
     assert payload["points"] == 0
     assert payload["rating"] == 0
-    assert payload["rating_easy"] == 0
-    assert payload["rating_hard"] == 0
+    assert payload["rating_easy"] is None
+    assert payload["rating_hard"] is None
     assert payload["unique_map_finishes"] == 0
 
 
@@ -858,8 +899,8 @@ async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_missin
     assert "rating_rank" not in payload
     assert payload["points"] == 0
     assert payload["rating"] == 0
-    assert payload["rating_easy"] == 0
-    assert payload["rating_hard"] == 0
+    assert payload["rating_easy"] is None
+    assert payload["rating_hard"] is None
     assert payload["unique_map_finishes"] == 0
 
 
@@ -889,8 +930,8 @@ async def test_read_player_leaderboard_rank_zeroes_active_banned_player(
     assert payload["rank_regional"] is None
     assert payload["points"] == 0
     assert payload["rating"] == 0
-    assert payload["rating_easy"] == 0
-    assert payload["rating_hard"] == 0
+    assert payload["rating_easy"] is None
+    assert payload["rating_hard"] is None
     assert payload["unique_map_finishes"] == 0
 
 

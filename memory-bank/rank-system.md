@@ -204,7 +204,7 @@ MapBlock_i = 40 * P_i * D^C_i * (1 - D^w_i)
 RawSkillRating = min(40000, trunc(sum(MapBlock_i)))
 ```
 
-The final factor is evaluated with a numerically stable exponential form. The current OVR tune uses `D = 0.90`, which gives about 6.58 full skill-portions of half-life and makes early, higher-point entries dominate completion breadth. Raising `D` gives completion breadth more influence. Overall, easy, and hard ratings keep their existing formula and settings.
+The final factor is evaluated with a numerically stable exponential form. The current OVR tune uses `D = 0.90`, which gives about 6.58 full skill-portions of half-life and makes early, higher-point entries dominate completion breadth. Raising `D` gives completion breadth more influence. Overall rating keeps its existing formula and settings. Easy and hard ratings retain their weighted formula with the category caps described below.
 
 Six nonnegative raw ratings are stored per player and scope. Their display values use 24 persisted, manually calibrated converters (six skills × four scopes). Each converter samples all eligible, unbanned ranked players in its scope, including zero skill ratings. Level `L` from 2 through 10 requires a raw rating strictly above at least `1 - 2^(1-L)` of that population; tied raw values must never be split. When level 10 is attainable and the best observed raw value is unique, it anchors at `10.99999`, while a tie at the best raw value anchors at `10.99`. Competitive decimal ratings are floored at two displayed decimal places, so both values display as `10.99` and exact level 11 remains unattainable. The distinct underlying unique-leader anchor preserves ordering without displaying a value above the stored converter result. This population-best anchor is added only when level 10 is attainable, preserving the rule that sparse upper tails are not extrapolated. A monotone smooth interpolation between attainable anchors gives fractional display values. Unreachable levels remain unreachable until the next explicit recalibration. Zero raw ratings or missing converters have no skill display rating. These curves do not affect overall, easy, or hard rating conversion; nightly rebuilds do not refresh them.
 
@@ -226,3 +226,8 @@ If a player has no qualifying PB points, both `total points` and `rating` are `0
 - It intentionally uses `NUB` instead of the old public-facing `Overall` terminology.
 - It intentionally does not introduce an `unranked` / `pending` / `ranked` state model for courses or filters.
 - Ranked eligibility is determined by the validated main course only.
+
+
+Rating.E uses the best 100 validated main-course maps in tiers 1–4; Rating.H uses the best 50 in tiers 5–8. Each map contributes its higher NUB/PRO PB-point value, with the existing 0.975 weighted decay and ten-map player eligibility. Each category has an independent population-calibrated display curve per scope, using the same percentile and tie rules as skill ratings (maximum displayed value 10.99). Eligible unbanned players with zero category rating remain in the calibration population. Missing curves and zero raw ratings return null.
+
+After changing these limits or the formula, run `kztop build rating` across all scopes, preview `kztop build difficulty-converters`, then explicitly save with `kztop build difficulty-converters --save`. Use `--scope` to select a scope. Reads and nightly rebuilds never refresh these curves automatically. Overall rating, total points, and six-skill ratings are unchanged.

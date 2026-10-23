@@ -29,11 +29,25 @@ class CalibrationResult:
 async def calibrate_skill_converters(
     *, scopes: tuple[ModeScope, ...], save: bool = False
 ) -> list[CalibrationResult]:
+    return await _calibrate_converters(scopes=scopes, save=save, metrics=SKILLS)
+
+
+async def calibrate_difficulty_converters(
+    *, scopes: tuple[ModeScope, ...], save: bool = False
+) -> list[CalibrationResult]:
+    return await _calibrate_converters(
+        scopes=scopes, save=save, metrics=("easy", "hard")
+    )
+
+
+async def _calibrate_converters(
+    *, scopes: tuple[ModeScope, ...], save: bool, metrics: tuple[str, ...]
+) -> list[CalibrationResult]:
     results: list[CalibrationResult] = []
     max_raw_rating = get_rank_system_settings().rating.target_max_raw_rating
     async with async_session_maker() as session:
         for scope in scopes:
-            for skill in SKILLS:
+            for skill in metrics:
                 column = getattr(LeaderboardPlayer, f"rating_{skill}")
                 histogram = (
                     await session.exec(

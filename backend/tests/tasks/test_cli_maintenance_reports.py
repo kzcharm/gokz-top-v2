@@ -189,3 +189,19 @@ def test_cli_interruptions_exit_130_and_show_partial_progress(monkeypatch) -> No
     result = CliRunner().invoke(cli.app, ["sync", "friends", "--steamid64", "123"])
     assert result.exit_code == 130, result.output
     assert "Friends Sync Interrupted" in result.output
+
+
+def test_difficulty_converter_preview_and_save(monkeypatch) -> None:
+    operation = AsyncMock(return_value=[])
+    monkeypatch.setattr(
+        cli.skill_converter_task, "calibrate_difficulty_converters", operation
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["build", "difficulty-converters"])
+    assert result.exit_code == 0, result.output
+    assert operation.await_args.kwargs == {"scopes": tuple(ModeScope), "save": False}
+    result = runner.invoke(
+        cli.app, ["build", "difficulty-converters", "--scope", "KZT", "--save"]
+    )
+    assert result.exit_code == 0, result.output
+    assert operation.await_args.kwargs == {"scopes": (ModeScope.KZT,), "save": True}

@@ -262,3 +262,8 @@ Scope model:
 ## Shareable player cards
 
 - The official QQ bot generates portrait cards from `/cards/player/:identifier`, with player identity/country flag, rating icon/global and regional standings/total points, long-jump personal best, NUB completion, and the relative six-skill radar. Cards omit site branding, Steam IDs, and URLs, support OVR/KZT/SKZ/VNL and English/Chinese/Russian, and do not trigger profile-view writes or player synchronization. Images are cached in the bot for 15 minutes; forced image regeneration is separate from player-data refresh.
+
+
+Rating.E uses the best 100 validated main-course maps in tiers 1–4; Rating.H uses the best 50 in tiers 5–8. Each map contributes its higher NUB/PRO PB-point value, with the existing 0.975 weighted decay and ten-map player eligibility. Each category has an independent population-calibrated display curve per scope, using the same percentile and tie rules as skill ratings (maximum displayed value 10.99). Eligible unbanned players with zero category rating remain in the calibration population. Missing curves and zero raw ratings return null.
+
+After changing these limits or the formula, run `kztop build rating` across all scopes, preview `kztop build difficulty-converters`, then explicitly save with `kztop build difficulty-converters --save`. Use `--scope` to select a scope. Reads and nightly rebuilds never refresh these curves automatically. Overall rating, total points, and six-skill ratings are unchanged.

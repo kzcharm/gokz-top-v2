@@ -485,6 +485,60 @@ def build_skill_converters(
     console.print(table)
 
 
+@build_app.command("difficulty-converters")
+def build_difficulty_converters(
+    scope_names: ScopeOption = None,
+    save: Annotated[
+        bool,
+        typer.Option("--save", help="Persist calibrated curves (preview by default)."),
+    ] = False,
+) -> None:
+    """Inspect or save eight independently calibrated difficulty rating curves."""
+
+    def threshold_label(raw: int, level: int | float) -> str:
+        if level == TOP_DISPLAY_RATING:
+            return f"10.99999 (unique):{raw}"
+        if level == TIED_TOP_DISPLAY_RATING:
+            return f"10.99 (tie):{raw}"
+        return f"{level}:{raw}"
+
+    scopes = _parse_scopes(scope_names) or tuple(ModeScope)
+    results = _run_async(
+        skill_converter_task.calibrate_difficulty_converters(scopes=scopes, save=save)
+    )
+    table = Table(
+        title="Difficulty converter calibration"
+        + (" (saved)" if save else " (preview)")
+    )
+    for heading in (
+        "Scope",
+        "Category",
+        "Players",
+        "Zero",
+        "Positive",
+        "Ties",
+        "Level thresholds",
+    ):
+        table.add_column(heading)
+    for result in results:
+        calibration = result.calibration
+        table.add_row(
+            result.scope.value,
+            result.skill,
+            str(result.population),
+            str(result.population - result.positive),
+            str(result.positive),
+            str(result.ties),
+            ", ".join(
+                threshold_label(int(raw), level)
+                for raw, level in calibration.anchors[1:]
+            )
+            if calibration
+            else "No positive results; skipped",
+        )
+    console.print(table)
+
+
 @build_app.command("skill-ratings")
 def build_skill_ratings(
     scope_names: ScopeOption = None,

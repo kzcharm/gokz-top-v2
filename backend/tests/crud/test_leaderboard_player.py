@@ -622,3 +622,35 @@ async def test_load_leaderboard_player_keys_filters_source_keys_to_eligible_unba
             (scope_id, stale_existing_player),
         ]
     )
+
+
+@pytest.mark.parametrize(
+    ("tier", "cap", "field"), [(4, 100, "rating_easy"), (5, 50, "rating_hard")]
+)
+async def test_difficulty_rating_caps_best_unique_maps(
+    tier: int, cap: int, field: str
+) -> None:
+    def values(points: list[int]) -> dict[str, int]:
+        rows = [
+            PlayerPbRow(
+                course_id=i,
+                map_id=i,
+                record_type=kind,
+                record_uuid=UUID(int=i * 2 + j + 1),
+                points=point - j,
+            )
+            for i, point in enumerate(points)
+            for j, kind in enumerate((RecordType.NUB, RecordType.PRO))
+        ]
+        return _build_leaderboard_values(
+            rows=rows, tiers_by_course_id=dict.fromkeys(range(len(points)), tier)
+        )
+
+    baseline = values([800] * cap)
+    assert baseline[field] == crud.calculate_weighted_rating([800] * cap)
+    assert values([800] * cap + [100])[field] == baseline[field]
+    assert values([800] * cap + [900])[field] == crud.calculate_weighted_rating(
+        [900] + [800] * (cap - 1)
+    )
+    assert values([800] * cap + [900])[field] > baseline[field]
+    assert baseline["rating"] == crud.calculate_weighted_rating([800] * cap)
