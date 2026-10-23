@@ -245,7 +245,7 @@ Rating rebuilds process up to 500 players from one scope per transaction. PBs, t
 
 If a rating batch encounters a PostgreSQL deadlock or serialization conflict, the rebuild rolls back that batch and retries it in a fresh transaction, up to five attempts with exponential backoff and jitter. PB contribution writes use a deterministic player/course/type order. Other database errors and exhausted retries stop the command; already committed batches remain intact.
 
-- `/maps` shares canonical main-course PB query keys with profiles (null stage normalizes to zero), keeps session-long PB caching, and uses the shared NUB/PRO toggle. Initial Runs WebSocket connection does not invalidate cached PBs; record events and recovery after disconnect still do. Map Metrics includes a frontend-derived median-best-time WR gap without new API fields.
+- `/maps` shares canonical main-course PB query keys with profiles (null stage normalizes to zero), keeps session-long PB caching, and uses the shared NUB/PRO toggle. The Runs WebSocket refreshes profile PBs on every connection, including the initial connection, to reconcile records missed while navigating away. Player-filtered subscriptions serve all profile viewers, including anonymous visitors; record events also invalidate PBs. Map Metrics includes a frontend-derived median-best-time WR gap without new API fields.
 
 ## Direct records and replay catalog
 

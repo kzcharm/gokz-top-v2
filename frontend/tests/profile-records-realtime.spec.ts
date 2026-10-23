@@ -329,7 +329,7 @@ test("own runs page subscribes to player-filtered live records", async ({
 })
 
 for (const visitor of [null, otherSteamid64]) {
-  test(`${visitor ? "another player" : "an anonymous visitor"} does not subscribe to profile records`, async ({
+  test(`${visitor ? "another player" : "an anonymous visitor"} receives live profile records`, async ({
     page,
   }) => {
     await installWebSocketMock(page)
@@ -341,6 +341,27 @@ for (const visitor of [null, otherSteamid64]) {
 
     await page.goto(`/profile/${profileSteamid64}/runs`)
     await expect(page.getByText("kz_live_initial")).toBeVisible()
-    await expect.poll(() => recentRecordSocketUrls(page)).toEqual([])
+    await expect.poll(() => recentRecordSocketUrls(page)).toHaveLength(1)
   })
 }
+
+test("returning to runs refreshes cached PBs without another event", async ({
+  page,
+}) => {
+  let includeLiveRecord = false
+  await installWebSocketMock(page)
+  await installProfileRoutes({
+    currentUserSteamid64: profileSteamid64,
+    page,
+    records: () =>
+      includeLiveRecord ? [initialRecord, liveRecord] : [initialRecord],
+  })
+  await page.goto(`/profile/${profileSteamid64}/runs`)
+  await expect(page.getByText("kz_live_initial")).toBeVisible()
+  await expect.poll(() => recentRecordSocketUrls(page)).toHaveLength(1)
+  await page.getByRole("link", { name: "Maps", exact: true }).first().click()
+  await expect(page).toHaveURL(/\/maps/)
+  includeLiveRecord = true
+  await page.goBack()
+  await expect(page.getByText("kz_live_arrival")).toBeVisible()
+})

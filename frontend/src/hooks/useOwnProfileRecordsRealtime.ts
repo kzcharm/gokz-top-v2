@@ -61,9 +61,9 @@ export function useOwnProfileRecordsRealtime({
       )
 
       websocket.onopen = () => {
-        const isReconnection = attempt > 0
         attempt = 0
-        if (isReconnection) invalidateProfileRecords()
+        // Reconcile records missed while this page had no subscription.
+        invalidateProfileRecords()
       }
 
       websocket.onmessage = (message) => {
