@@ -1138,6 +1138,51 @@ export const en = {
     },
   },
   maps: {
+    downloadMenu: "Downloads",
+    metricExplanation: "Explain {{metric}}",
+    options: {
+      milliseconds: "Show milliseconds",
+      title: "Options",
+      reviews: "Reviews",
+      wr: "World record",
+      dates: "Created and updated",
+      authors: "Authors",
+      skills: "Skill breakdown",
+    },
+    personal: {
+      sort: "My Runs",
+      type: "Use PRO personal bests",
+      completion: "Filter maps by completion",
+      all: "All maps",
+      finished: "Finished",
+      unfinished: "Unfinished",
+      loading: "Loading PBs…",
+      unavailable: "Unavailable",
+      failed: "Unable to load your map completion data.",
+      pbTime: "PB Time",
+      pbTeleports: "TPs",
+      pbPoints: "Points",
+      pbRating: "Rating Contribution",
+      pbDate: "PB Date",
+      pbWrGap: "WR Gap",
+    },
+    metricHelp: {
+      playtime:
+        "Sum of valid main-course completion times in the selected scope. This counts recorded runs, not time spent on failed attempts.",
+      avgPlaytime:
+        "Average cumulative valid main-course completion time per player in the selected scope. Repeat finishes are included.",
+      nub: "Unique players with a valid main-course finish in the selected scope, including PRO finishes.",
+      pro: "Unique players with a valid main-course finish using zero teleports in the selected scope.",
+      proRatio:
+        "Percentage of main-course finishers who have a PRO finish in the selected scope: PRO players ÷ NUB players × 100%.",
+      finishes:
+        "Total valid main-course finishes in the selected scope, including repeat finishes by the same player.",
+      firstMed:
+        "Median of each player’s fastest valid main-course time in the selected scope. This uses player bests, not their first chronological finishes.",
+      firstMedWrGap:
+        "Gap between 1st Med and the selected scope’s NUB WR: log2(1st Med / WR − 1). Higher values mean a wider gap and can help indicate map difficulty. Shown as — when either time is unavailable or nonpositive, or 1st Med is at or below WR.",
+      bonus: "Number of bonus courses on the map.",
+    },
     title: "Maps",
     loaded: "{{count}} maps loaded",
     visible: "{{count}} maps visible",
@@ -1251,6 +1296,7 @@ export const en = {
     pagesAria: "Maps pages",
     goToPage: "Go to page {{page}}",
     sortOptions: {
+      firstMedWrGap: "1st Med WR Gap",
       name: "Name",
       tier: "Tier",
       created: "Created",
@@ -1268,10 +1314,10 @@ export const en = {
       commentsCount: "Comments Count",
       playtime: "Playtime",
       avgPlaytime: "Avg Playtime",
-      nub: "NUB",
-      pro: "PRO",
+      nub: "Finishers",
+      pro: "PRO Finishers",
       proRatio: "PRO Ratio",
-      finishes: "Finishes",
+      finishes: "Total Runs",
       firstMed: "1st Med",
       metrics: "Metrics",
       adjustedRating: "Rating:",

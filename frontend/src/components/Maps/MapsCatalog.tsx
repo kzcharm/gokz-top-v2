@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search,
   SearchX,
+  Settings2,
 } from "lucide-react"
 import {
   startTransition,
@@ -30,15 +31,32 @@ import {
   type MapPublic,
   MapsService,
   type MapWrPublic,
+  MeService,
+  type RecordPublic,
 } from "@/client"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
+import { RecordTypeToggle } from "@/components/Common/RecordTypeToggle"
 import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
 import { ValidationStatusIconButton } from "@/components/Common/ValidationStatusIconButton"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
+import {
+  getFirstMedianWrGap,
+  getPersonalSortValue,
+  isMapMetric,
+  isPersonalSort,
+  MAP_CARD_OPTIONS_STORAGE_KEY,
+  MAP_METRICS,
+  type MapCardOptions,
+  type MapMetric,
+  PERSONAL_SORTS,
+  type PersonalSort,
+  readMapCardOptions,
+} from "@/components/Maps/catalog-metrics"
 import { MapCard } from "@/components/Maps/MapCard"
+import { MapMetricTooltip } from "@/components/Maps/MapMetricTooltip"
 import {
   getMapSkillPercentage,
   getMapTierForScope,
@@ -46,6 +64,11 @@ import {
   type MapSkillKey,
 } from "@/components/Maps/map-utils"
 import { PendingMaps } from "@/components/Maps/PendingMaps"
+import {
+  buildProfileUnfinishedRows,
+  getProfileMapWrsQueryOptions,
+} from "@/components/Profile/profile-utils"
+import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { normalizeTierValue } from "@/components/Servers/tier"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -58,8 +81,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
+import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { compareLocaleText, formatNumber } from "@/i18n/locale"
 import { getMapPackageDownloadUrl } from "@/lib/map-downloads"
@@ -91,19 +128,14 @@ const MAP_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.wrDate", value: "wrDate" },
   { labelKey: "maps.sortOptions.review", value: "review" },
   { labelKey: "maps.sortOptions.metrics", value: "metrics" },
-  { labelKey: "maps.sortOptions.bonus", value: "bonus" },
+  { labelKey: "maps.personal.sort", value: "personal" },
   { labelKey: "maps.sortOptions.skill", value: "skill" },
 ] as const
 
-const METRIC_SORT_OPTIONS = [
-  { labelKey: "maps.sortOptions.playtime", value: "playtime" },
-  { labelKey: "maps.sortOptions.avgPlaytime", value: "avgPlaytime" },
-  { labelKey: "maps.sortOptions.nub", value: "nub" },
-  { labelKey: "maps.sortOptions.pro", value: "pro" },
-  { labelKey: "maps.sortOptions.proRatio", value: "proRatio" },
-  { labelKey: "maps.sortOptions.finishes", value: "finishes" },
-  { labelKey: "maps.sortOptions.firstMed", value: "firstMed" },
-] as const
+const METRIC_SORT_OPTIONS = MAP_METRICS.map((value) => ({
+  labelKey: `maps.sortOptions.${value}` as const,
+  value,
+}))
 
 const REVIEW_SORT_OPTIONS = [
   { labelKey: "maps.sortOptions.overall", value: "overall" },
@@ -120,6 +152,7 @@ type MapsSortField =
   | Exclude<MapsSortOption, "review">
   | ReviewSortField
   | MetricSortField
+  | PersonalSort
 type MapsSortDirection = "asc" | "desc"
 type SortableSkillKey = Exclude<MapSkillKey, "unknown">
 type MapValidationStatus = "validated" | "invalid"
@@ -171,6 +204,8 @@ type PersistedMapsCatalogState = {
   validationStatus: MapValidationStatus
   mapFilters: MapFilterValues
   page: number
+  isProOnly: boolean
+  completion: "all" | "finished" | "unfinished"
 }
 
 function readPersistedMapsCatalogState(): Partial<PersistedMapsCatalogState> {
@@ -197,7 +232,8 @@ function isMapsSortField(value: unknown): value is MapsSortField {
     typeof value === "string" &&
     (MAP_SORT_OPTIONS.some((option) => option.value === value) ||
       REVIEW_SORT_OPTIONS.some((option) => option.value === value) ||
-      METRIC_SORT_OPTIONS.some((option) => option.value === value))
+      METRIC_SORT_OPTIONS.some((option) => option.value === value) ||
+      isPersonalSort(value))
   )
 }
 
@@ -346,27 +382,33 @@ function SortableMapOption({
   direction,
   label,
   tooltip,
+  grouped = false,
   onClick,
 }: {
   active: boolean
   direction?: MapsSortDirection
   label: string
   tooltip?: string
+  grouped?: boolean
   onClick: () => void
 }) {
-  return (
+  const button = (
     <Button
       type="button"
       variant="ghost"
       className={cn(
         "-ml-3 h-8 px-3 text-left text-sm",
-        active ? "text-foreground" : "text-muted-foreground",
+        active
+          ? grouped
+            ? "text-primary"
+            : "text-foreground"
+          : "text-muted-foreground",
       )}
       aria-pressed={active}
       onClick={onClick}
     >
-      <span title={tooltip}>{label}</span>
-      {active ? (
+      <span>{label}</span>
+      {active && !grouped ? (
         direction === "asc" ? (
           <ArrowUp className="ml-2 size-4" />
         ) : (
@@ -374,6 +416,13 @@ function SortableMapOption({
         )
       ) : null}
     </Button>
+  )
+  return tooltip ? (
+    <MapMetricTooltip explanation={tooltip} label={label}>
+      {button}
+    </MapMetricTooltip>
+  ) : (
+    button
   )
 }
 
@@ -408,6 +457,8 @@ function sortMaps(
   wrTimeByMapId: ReadonlyMap<number, number>,
   wrDateByMapId: ReadonlyMap<number, number>,
   leaderboardByMapId: ReadonlyMap<number, MapLeaderboardEntryPublic>,
+  pbByMapId: ReadonlyMap<number, RecordPublic>,
+  personalWrByMapId: ReadonlyMap<number, number>,
 ) {
   return [...maps].sort((left, right) => {
     const leftTier = getMapTierForScope(left, scope)
@@ -417,6 +468,23 @@ function sortMaps(
 
     let comparison = 0
 
+    if (isPersonalSort(sortField)) {
+      return (
+        compareNullableNumbers(
+          getPersonalSortValue(
+            pbByMapId.get(left.id),
+            sortField,
+            personalWrByMapId.get(left.id),
+          ),
+          getPersonalSortValue(
+            pbByMapId.get(right.id),
+            sortField,
+            personalWrByMapId.get(right.id),
+          ),
+          sortDirection,
+        ) || compareLocaleText(left.name, right.name)
+      )
+    }
     switch (sortField) {
       case "tier":
         comparison = compareNullableNumbers(leftTier, rightTier, "asc")
@@ -467,6 +535,19 @@ function sortMaps(
         comparison = compareNullableNumbers(
           leaderboardByMapId.get(left.id)?.median_first_completion_time,
           leaderboardByMapId.get(right.id)?.median_first_completion_time,
+          sortDirection,
+        )
+        break
+      case "firstMedWrGap":
+        comparison = compareNullableNumbers(
+          getFirstMedianWrGap(
+            leaderboardByMapId.get(left.id),
+            wrTimeByMapId.get(left.id),
+          ),
+          getFirstMedianWrGap(
+            leaderboardByMapId.get(right.id),
+            wrTimeByMapId.get(right.id),
+          ),
           sortDirection,
         )
         break
@@ -601,7 +682,8 @@ function sortMaps(
       sortField === "pro" ||
       sortField === "proRatio" ||
       sortField === "finishes" ||
-      sortField === "firstMed"
+      sortField === "firstMed" ||
+      sortField === "firstMedWrGap"
     ) {
       return comparison
     }
@@ -975,7 +1057,28 @@ function MapValidationButton({
 export function MapsCatalog() {
   const { t } = useTranslation()
   const { scope } = useScope()
+  const { user } = useAuth()
   const [persistedState] = useState(readPersistedMapsCatalogState)
+  const [isProOnly, setIsProOnly] = useState(persistedState.isProOnly === true)
+  const [completion, setCompletion] = useState<
+    "all" | "finished" | "unfinished"
+  >(
+    persistedState.completion === "finished" ||
+      persistedState.completion === "unfinished"
+      ? persistedState.completion
+      : "all",
+  )
+  const [displayOptions, setDisplayOptions] = useState(readMapCardOptions)
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        MAP_CARD_OPTIONS_STORAGE_KEY,
+        JSON.stringify(displayOptions),
+      )
+    } catch {
+      /* Storage may be unavailable. */
+    }
+  }, [displayOptions])
   const [searchInput, setSearchInput] = useState(
     typeof persistedState.searchInput === "string"
       ? persistedState.searchInput
@@ -1062,12 +1165,16 @@ export function MapsCatalog() {
           validationStatus,
           mapFilters,
           page,
+          isProOnly,
+          completion,
         } satisfies PersistedMapsCatalogState),
       )
     } catch {
       // Session storage can be unavailable in private browsing or restricted contexts.
     }
   }, [
+    isProOnly,
+    completion,
     mapFilters,
     maximumTier,
     minimumTier,
@@ -1145,17 +1252,91 @@ export function MapsCatalog() {
       validatedMaps,
     ],
   )
-  const wrsQuery = useQuery({
-    queryKey: ["maps", "catalog", "wrs", scope, "NUB"],
-    queryFn: () =>
-      MapsService.readMapWrs({
-        scope,
-        type: "NUB",
-      }),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    retry: 1,
+  const wrsQuery = useQuery(
+    getProfileMapWrsQueryOptions({ scope, isProOnly: false }),
+  )
+  const proWrsQuery = useQuery({
+    ...getProfileMapWrsQueryOptions({ scope, isProOnly: true }),
+    enabled: Boolean(user) && isProOnly,
   })
+  const settingsQuery = useQuery({
+    queryKey: ["player-settings"],
+    queryFn: () => MeService.readCurrentPlayerSettings(),
+    enabled: Boolean(user),
+    staleTime: 60_000,
+  })
+  const nubPbsQuery = useQuery({
+    ...getProfilePbRecordsQueryOptions({
+      identifier: user?.steamid64 ?? null,
+      scope,
+      isProOnly: false,
+      isBonus: false,
+      stage: 0,
+    }),
+    enabled: Boolean(user?.steamid64),
+  })
+  const proPbsQuery = useQuery({
+    ...getProfilePbRecordsQueryOptions({
+      identifier: user?.steamid64 ?? null,
+      scope,
+      isProOnly: true,
+      isBonus: false,
+      stage: 0,
+    }),
+    enabled: Boolean(user?.steamid64),
+  })
+  const selectedPbsQuery = isProOnly ? proPbsQuery : nubPbsQuery
+  const selectedWrsQuery = isProOnly ? proWrsQuery : wrsQuery
+  const pbByMapId = useMemo(
+    () =>
+      new Map(
+        (selectedPbsQuery.data ?? []).map((record) => [record.map_id, record]),
+      ),
+    [selectedPbsQuery.data],
+  )
+  const personalWrByMapId = useMemo(
+    () =>
+      new Map(
+        (selectedWrsQuery.data ?? []).map((record) => [
+          record.map_id,
+          record.time,
+        ]),
+      ),
+    [selectedWrsQuery.data],
+  )
+  const requiresProWr =
+    isProOnly && (settingsQuery.data?.use_wr_based_pro_completion ?? true)
+  const personalFilterLoading =
+    Boolean(user) &&
+    completion !== "all" &&
+    (selectedPbsQuery.isPending ||
+      settingsQuery.isPending ||
+      (requiresProWr && proWrsQuery.isPending))
+  const personalFilterError =
+    Boolean(user) &&
+    completion !== "all" &&
+    (selectedPbsQuery.isError ||
+      settingsQuery.isError ||
+      (requiresProWr && proWrsQuery.isError))
+  const unfinishedMapIds = useMemo(
+    () =>
+      new Set(
+        buildProfileUnfinishedRows({
+          maps: activeMaps.filter((map) => map.validated),
+          records: selectedPbsQuery.data ?? [],
+          wrs: selectedWrsQuery.data ?? [],
+          scope,
+          requireWrAvailability: requiresProWr,
+        }).map((row) => row.mapId),
+      ),
+    [
+      activeMaps,
+      selectedPbsQuery.data,
+      selectedWrsQuery.data,
+      scope,
+      requiresProWr,
+    ],
+  )
   const mapLeaderboardQuery = useQuery({
     queryKey: ["leaderboards", "maps", "catalog", scope],
     queryFn: () => LeaderboardsService.readMapLeaderboard({ scope }),
@@ -1483,24 +1664,56 @@ export function MapsCatalog() {
     })
   }
 
+  const personalFilteredMaps = useMemo(() => {
+    if (!user || completion === "all") return filteredMaps
+    if (personalFilterLoading || personalFilterError) return []
+    return filteredMaps.filter((map) =>
+      completion === "finished"
+        ? map.validated &&
+          (normalizeTierValue(getMapTierForScope(map, scope)) ?? 0) > 0 &&
+          pbByMapId.has(map.id) &&
+          (!requiresProWr || personalWrByMapId.has(map.id))
+        : unfinishedMapIds.has(map.id),
+    )
+  }, [
+    user,
+    completion,
+    filteredMaps,
+    personalFilterLoading,
+    personalFilterError,
+    pbByMapId,
+    unfinishedMapIds,
+    scope,
+    requiresProWr,
+    personalWrByMapId,
+  ])
+  const effectiveSortField =
+    !user && (isPersonalSort(sortField) || sortField === "personal")
+      ? "bestRated"
+      : sortField
+
   const sortedMaps = useMemo(
     () =>
       sortMaps(
-        filteredMaps,
-        sortField,
+        personalFilteredMaps,
+        effectiveSortField,
         sortDirection,
         scope,
         selectedSkill,
         wrTimeByMapId,
         wrDateByMapId,
         leaderboardByMapId,
+        pbByMapId,
+        personalWrByMapId,
       ),
     [
-      filteredMaps,
+      personalFilteredMaps,
+      effectiveSortField,
+      pbByMapId,
+      personalWrByMapId,
       scope,
       selectedSkill,
       sortDirection,
-      sortField,
       wrTimeByMapId,
       wrDateByMapId,
       leaderboardByMapId,
@@ -1568,7 +1781,7 @@ export function MapsCatalog() {
   function handleSortChange(nextSortField: MapsSortOption) {
     startTransition(() => {
       setPage(1)
-      if (nextSortField === "skill" || nextSortField === "bonus") {
+      if (nextSortField === "skill") {
         setSortField(nextSortField)
         setSortDirection("desc")
         return
@@ -1613,6 +1826,15 @@ export function MapsCatalog() {
         return
       }
 
+      if (nextSortField === "personal") {
+        setSortField(isPersonalSort(sortField) ? sortField : "pbDate")
+        setSortDirection(
+          isPersonalSort(sortField) && sortDirection === "desc"
+            ? "asc"
+            : "desc",
+        )
+        return
+      }
       if (nextSortField === "metrics") {
         if (METRIC_SORT_OPTIONS.some((option) => option.value === sortField)) {
           setSortDirection((currentDirection) =>
@@ -1646,7 +1868,7 @@ export function MapsCatalog() {
     })
   }
 
-  function handleMetricSortSelection(nextMetric: MetricSortField) {
+  function handleMetricSortSelection(nextMetric: MapMetric) {
     startTransition(() => {
       setPage(1)
       if (sortField === nextMetric) {
@@ -1713,6 +1935,7 @@ export function MapsCatalog() {
                   })
                 }}
                 triggerClassName="w-auto"
+                showAllLabelInTrigger
                 ariaLabel={t("maps.filterTier")}
               />
               <MapValidationButton
@@ -1750,24 +1973,111 @@ export function MapsCatalog() {
                   </span>
                 ) : null}
               </Button>
+              {user ? (
+                <RecordTypeToggle
+                  id="maps-pro-only"
+                  variant="button"
+                  isProOnly={isProOnly}
+                  ariaLabel={t("maps.personal.type")}
+                  onCheckedChange={(checked) => {
+                    setIsProOnly(checked)
+                    setPage(1)
+                  }}
+                />
+              ) : null}
+              {user ? (
+                <>
+                  {" "}
+                  {(["finished", "unfinished"] as const).map((value) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        "h-9 px-3",
+                        completion === value
+                          ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                          : "text-muted-foreground",
+                      )}
+                      aria-pressed={completion === value}
+                      onClick={() => {
+                        setCompletion(completion === value ? "all" : value)
+                        setPage(1)
+                      }}
+                    >
+                      {t(`maps.personal.${value}`)}
+                    </Button>
+                  ))}
+                </>
+              ) : null}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <MapsAutoUpdateDialog />
-              <MapsDownloadDialog />
-              {packageDownloadUrl ? (
-                <Button asChild variant="outline" className="gap-2">
-                  <a href={packageDownloadUrl}>
-                    <Download className="size-4" aria-hidden="true" />
-                    {t("maps.downloadDialog.packageButton")}
-                  </a>
-                </Button>
-              ) : (
-                <Button variant="outline" className="gap-2" disabled>
-                  <Download className="size-4" aria-hidden="true" />
-                  {t("maps.downloadDialog.packageButton")}
-                </Button>
-              )}
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={t("maps.options.title")}
+                  >
+                    <Settings2 />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    {(
+                      Object.keys(displayOptions) as (keyof MapCardOptions)[]
+                    ).map((key) => (
+                      <DropdownMenuCheckboxItem
+                        key={key}
+                        checked={displayOptions[key]}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) =>
+                          setDisplayOptions((current) => ({
+                            ...current,
+                            [key]: checked,
+                          }))
+                        }
+                      >
+                        {t(`maps.options.${key}`)}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={t("maps.downloadMenu")}
+                  >
+                    <Download />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="flex w-fit flex-col gap-2"
+                >
+                  <MapsAutoUpdateDialog />
+                  <MapsDownloadDialog />
+                  {packageDownloadUrl ? (
+                    <Button asChild variant="outline" className="gap-2">
+                      <a href={packageDownloadUrl}>
+                        <Download className="size-4" aria-hidden="true" />
+                        {t("maps.downloadDialog.packageButton")}
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button variant="outline" className="gap-2" disabled>
+                      <Download className="size-4" aria-hidden="true" />
+                      {t("maps.downloadDialog.packageButton")}
+                    </Button>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -1947,13 +2257,19 @@ export function MapsCatalog() {
             <fieldset className="min-w-0 border-0 p-0">
               <legend className="sr-only">{t("maps.sortMaps")}</legend>
               <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
-                {MAP_SORT_OPTIONS.map((option) => {
-                  const isReviewOption = option.value === "review"
-                  const isActive = isReviewOption
-                    ? isReviewSortField(sortField)
-                    : option.value === sortField
+                {MAP_SORT_OPTIONS.filter(
+                  (option) => user || option.value !== "personal",
+                ).map((option) => {
+                  const isActive =
+                    option.value === "review"
+                      ? isReviewSortField(effectiveSortField)
+                      : option.value === "metrics"
+                        ? isMapMetric(effectiveSortField)
+                        : option.value === "personal"
+                          ? isPersonalSort(effectiveSortField)
+                          : option.value === effectiveSortField
                   const activeDirection =
-                    option.value === "skill" || option.value === "bonus"
+                    option.value === "skill"
                       ? "desc"
                       : isActive
                         ? sortDirection
@@ -1962,6 +2278,12 @@ export function MapsCatalog() {
                   return (
                     <SortableMapOption
                       key={option.value}
+                      grouped={[
+                        "review",
+                        "metrics",
+                        "personal",
+                        "skill",
+                      ].includes(option.value)}
                       active={isActive}
                       direction={isActive ? activeDirection : undefined}
                       label={t(option.labelKey)}
@@ -2021,15 +2343,38 @@ export function MapsCatalog() {
                       sortField === option.value ? sortDirection : undefined
                     }
                     label={t(option.labelKey)}
-                    tooltip={
-                      option.value === "nub"
-                        ? t("maps.sortOptions.nubTooltip")
-                        : option.value === "pro"
-                          ? t("maps.sortOptions.proTooltip")
-                          : undefined
-                    }
+                    tooltip={t(`maps.metricHelp.${option.value}`)}
                     onClick={() => {
                       handleMetricSortSelection(option.value)
+                    }}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
+          {user && isPersonalSort(sortField) ? (
+            <fieldset className="min-w-0 border-0 p-0">
+              <legend className="sr-only">{t("maps.personal.sort")}</legend>
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+                {PERSONAL_SORTS.map((field) => (
+                  <SortableMapOption
+                    key={field}
+                    active={sortField === field}
+                    direction={sortField === field ? sortDirection : undefined}
+                    label={t(`maps.personal.${field}`)}
+                    onClick={() => {
+                      setPage(1)
+                      setSortField(field)
+                      setSortDirection(
+                        sortField === field
+                          ? sortDirection === "asc"
+                            ? "desc"
+                            : "asc"
+                          : ["pbTime", "pbTeleports", "pbWrGap"].includes(field)
+                            ? "asc"
+                            : "desc",
+                      )
                     }}
                   />
                 ))}
@@ -2073,7 +2418,25 @@ export function MapsCatalog() {
         </div>
       </section>
 
-      {visibleMaps.length === 0 ? (
+      {personalFilterError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t("maps.personal.failed")}</AlertTitle>
+          <AlertDescription>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void selectedPbsQuery.refetch()
+                void settingsQuery.refetch()
+                if (requiresProWr) void proWrsQuery.refetch()
+              }}
+            >
+              {t("common.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : personalFilterLoading ? (
+        <output>{t("maps.personal.loading")}</output>
+      ) : visibleMaps.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
           <h2 className="text-lg font-semibold">{t("maps.noResultsTitle")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -2090,7 +2453,20 @@ export function MapsCatalog() {
               wrRecord={wrByMapId.get(map.id) ?? null}
               wrLoading={wrsQuery.isLoading}
               leaderboardEntry={leaderboardByMapId.get(map.id) ?? null}
-              sortField={sortField}
+              sortField={effectiveSortField}
+              displayOptions={displayOptions}
+              showBonusBadge={false}
+              personalBest={
+                user
+                  ? {
+                      type: isProOnly ? "PRO" : "NUB",
+                      wrTime: personalWrByMapId.get(map.id),
+                      record: pbByMapId.get(map.id),
+                      loading: selectedPbsQuery.isPending,
+                      error: selectedPbsQuery.isError,
+                    }
+                  : undefined
+              }
             />
           ))}
         </section>

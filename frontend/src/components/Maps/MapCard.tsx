@@ -1,17 +1,19 @@
 import { Link } from "@tanstack/react-router"
 import { Star } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import type {
   MapLeaderboardEntryPublic,
   MapPublic,
   MapWrPublic,
+  RecordPublic,
 } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapNameContextMenu } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { getRecordModeLabelById } from "@/components/Records/mode"
+import { PointsBadge } from "@/components/Records/PointsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
@@ -22,10 +24,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useMapImageUrls } from "@/hooks/useMapImageUrls"
+import { formatNumber } from "@/i18n/locale"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { formatFlooredDecimal } from "@/lib/number-format"
 import { cn } from "@/lib/utils"
+import {
+  DEFAULT_MAP_CARD_OPTIONS,
+  getFirstMedianWrGap,
+  getPersonalSortValue,
+  isMapMetric,
+  isPersonalSort,
+  type MapCardOptions,
+} from "./catalog-metrics"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
+import { MapMetricTooltip } from "./MapMetricTooltip"
 
 interface MapCardProps {
   activeTier: number | null
@@ -34,6 +46,15 @@ interface MapCardProps {
   wrLoading?: boolean
   leaderboardEntry?: MapLeaderboardEntryPublic | null
   sortField?: string
+  displayOptions?: MapCardOptions
+  showBonusBadge?: boolean
+  personalBest?: {
+    type: "NUB" | "PRO"
+    record?: RecordPublic
+    loading: boolean
+    error: boolean
+    wrTime?: number
+  }
 }
 
 function formatReviewAverage(value: number | null | undefined) {
@@ -120,8 +141,12 @@ export function MapCard({
   wrLoading = false,
   leaderboardEntry = null,
   sortField = "name",
+  displayOptions = DEFAULT_MAP_CARD_OPTIONS,
+  showBonusBadge = true,
+  personalBest,
 }: MapCardProps) {
   const { t } = useTranslation()
+  const { formatDateTime } = useDateTimeFormat()
   const imageUrls = useMapImageUrls(map.name, map.workshop_id)
   const downloadUrl = getMapDownloadUrl(map)
   const reviewSummary = map.review_summary
@@ -164,11 +189,49 @@ export function MapCard({
       firstMed: "1st Med",
     } as Record<string, string>
   )[sortField]
+  const firstMedWrGap = getFirstMedianWrGap(leaderboardEntry, wrRecord?.time)
+  const metricValue =
+    sortField === "bonus"
+      ? formatNumber(bonusCount)
+      : sortField === "firstMedWrGap"
+        ? firstMedWrGap === null
+          ? "—"
+          : formatNumber(firstMedWrGap, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+        : leaderboardMetric
+  const metricLabel = isMapMetric(sortField)
+    ? t(`maps.sortOptions.${sortField}`)
+    : leaderboardMetricLabel
   const adjustedRating =
     sortField === "bestRated" ? reviewSummary?.overall_adjusted : undefined
+  const personalMetric =
+    isPersonalSort(sortField) &&
+    sortField !== "pbTime" &&
+    sortField !== "pbPoints"
+  const personalValue =
+    personalMetric && isPersonalSort(sortField)
+      ? getPersonalSortValue(
+          personalBest?.record,
+          sortField,
+          personalBest?.wrTime,
+        )
+      : null
+  const personalLabel = personalMetric ? t(`maps.personal.${sortField}`) : ""
+  const personalDisplay =
+    personalValue === null
+      ? "—"
+      : sortField === "pbDate"
+        ? formatDateTime(personalBest?.record?.created_on ?? "", {
+            dateOnly: true,
+          })
+        : formatNumber(personalValue, {
+            maximumFractionDigits: sortField === "pbWrGap" ? 2 : 3,
+          })
   const cardMetric =
     adjustedRating === undefined
-      ? leaderboardMetric
+      ? metricValue
       : formatFlooredDecimal(adjustedRating, 2)
 
   return (
@@ -196,8 +259,8 @@ export function MapCard({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/85" />
         </Link>
 
-        <div className="absolute left-2 top-2 right-16 z-10 min-w-0">
-          <h2 className="min-w-0 select-text text-sm font-semibold text-white">
+        <div className="absolute left-2 top-2 right-28 z-10 min-w-0">
+          <h2 className="flex min-w-0 items-center gap-1 select-text text-sm font-semibold text-white">
             <MapNameContextMenu
               mapName={map.name}
               mapId={map.id}
@@ -219,173 +282,232 @@ export function MapCard({
                 </Link>
               )}
             </MapNameContextMenu>
+            <TierBadge
+              tier={activeTier}
+              className="shrink-0 bg-black/55 text-white backdrop-blur-sm"
+            />
           </h2>
         </div>
 
-        <div className="pointer-events-none absolute right-2 top-2 z-10 shrink-0">
-          <TierBadge
-            tier={activeTier}
-            className="bg-black/55 text-white backdrop-blur-sm"
-          />
-        </div>
+        {personalBest &&
+        (personalBest.record || personalBest.loading || personalBest.error) ? (
+          <span
+            className="pointer-events-none absolute right-2 top-2 z-10 text-xs text-white"
+            data-testid={`map-points-${map.id}`}
+          >
+            {personalBest.record &&
+            !personalBest.loading &&
+            !personalBest.error ? (
+              <PointsBadge
+                points={personalBest.record.points}
+                label={formatFlooredDecimal(personalBest.record.points, 0)}
+              />
+            ) : personalBest.loading ? (
+              "…"
+            ) : (
+              "—"
+            )}
+          </span>
+        ) : null}
 
-        {bonusCount > 0 ? (
+        {showBonusBadge && !personalBest && bonusCount > 0 ? (
           <Badge className="pointer-events-none absolute right-2 bottom-2 z-10 border-transparent bg-amber-100/95 font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 backdrop-blur-sm">
             {t("maps.bonusCount", { count: bonusCount })}
           </Badge>
         ) : null}
-        {cardMetric ? (
-          <Tooltip delayDuration={sortField === "bestRated" ? 500 : 0}>
-            <TooltipTrigger asChild>
-              <span className="pointer-events-auto absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm">
-                {adjustedRating === undefined ? (
-                  <>
-                    {leaderboardMetricLabel}: {cardMetric}
-                  </>
-                ) : (
-                  <>
-                    {t("maps.sortOptions.adjustedRating")} {cardMetric}
-                    <Star className="size-3 fill-current" aria-hidden="true" />
-                  </>
-                )}
-              </span>
-            </TooltipTrigger>
-            {sortField === "bestRated" ? (
+        {personalBest ? (
+          <span
+            className="pointer-events-none absolute bottom-2 right-2 z-10 rounded-md bg-black/75 px-2 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm"
+            data-testid={`map-pb-${map.id}`}
+          >
+            {personalBest.record || personalBest.loading || personalBest.error
+              ? "PB: "
+              : ""}
+            {personalBest.loading
+              ? t("maps.personal.loading")
+              : personalBest.error
+                ? t("maps.personal.unavailable")
+                : personalBest.record
+                  ? formatRecordTime(
+                      personalBest.record.time,
+                      displayOptions.milliseconds,
+                    )
+                  : t("maps.personal.unfinished")}
+          </span>
+        ) : null}
+        {personalMetric && personalBest?.record ? (
+          <span className="absolute bottom-2 left-2 z-10 max-w-[52%] truncate rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white">
+            {personalLabel}: {personalDisplay}
+          </span>
+        ) : null}
+        {cardMetric != null && !personalMetric ? (
+          isMapMetric(sortField) ? (
+            <div className="absolute bottom-2 left-2 z-10 max-w-[52%]">
+              <MapMetricTooltip
+                explanation={t(`maps.metricHelp.${sortField}`)}
+                label={metricLabel}
+              >
+                <button
+                  type="button"
+                  className="truncate rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm"
+                  aria-label={`${metricLabel}: ${cardMetric}`}
+                >
+                  {metricLabel}: {cardMetric}
+                </button>
+              </MapMetricTooltip>
+            </div>
+          ) : (
+            <Tooltip delayDuration={500}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm"
+                >
+                  {t("maps.sortOptions.adjustedRating")} {cardMetric}
+                  <Star className="size-3 fill-current" aria-hidden="true" />
+                </button>
+              </TooltipTrigger>
               <TooltipContent className="max-w-[calc(100vw-1rem)] sm:max-w-sm">
                 {t("maps.sortOptions.adjustedRatingTooltip")}
               </TooltipContent>
-            ) : sortField === "nub" || sortField === "pro" ? (
-              <TooltipContent>
-                {t(
-                  sortField === "nub"
-                    ? "maps.sortOptions.nubTooltip"
-                    : "maps.sortOptions.proTooltip",
-                )}
-              </TooltipContent>
-            ) : null}
-          </Tooltip>
+            </Tooltip>
+          )
         ) : null}
       </div>
 
-      <CardContent className="space-y-4 px-5 py-5">
-        <section
-          className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3"
-          aria-label="World record summary"
-        >
-          {wrRecord ? (
-            <div className="flex items-center gap-3">
-              <span className="shrink-0 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                WR
-              </span>
-              <PlayerDisplay
-                player={wrRecord.player}
-                className="min-w-0 flex-1"
-                nameMaxLength={22}
-                subline={{
-                  type: "record",
-                  mode: getRecordModeLabelById(wrRecord.mode_id) ?? "Unknown",
-                  recordType: wrRecord.type,
-                  showRecordType: false,
-                  time: wrRecord.time,
-                }}
-              />
-            </div>
-          ) : wrLoading ? (
-            <div className="text-sm text-muted-foreground">Loading WR...</div>
-          ) : (
-            <div className="text-sm text-muted-foreground">
-              No WR found for this scope.
-            </div>
-          )}
-        </section>
-
-        <section
-          className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3"
-          aria-label="Review summary"
-        >
-          <div className="flex flex-col gap-1 whitespace-normal">
-            <ReviewSummaryRow
-              label="Overall"
-              value={reviewSummary?.overall_avg ?? null}
-              suffix={`(${commentsCount} / ${reviewsCount})`}
-            />
-            <ReviewSummaryRow
-              label="Gameplay"
-              value={reviewSummary?.gameplay_avg ?? null}
-              count={reviewSummary?.gameplay_count ?? 0}
-            />
-            <ReviewSummaryRow
-              label="Visuals"
-              value={reviewSummary?.visuals_avg ?? null}
-              count={reviewSummary?.visuals_count ?? 0}
-            />
-          </div>
-        </section>
-
-        <section className="space-y-3" aria-label="Skill breakdown">
-          <div
-            className="flex h-2.5 overflow-hidden rounded-full bg-muted"
-            aria-hidden="true"
-          >
-            {skillPortions.map((portion) => (
-              <div
-                key={portion.label}
-                className="h-full"
-                style={{
-                  backgroundColor: portion.color,
-                  width: `${portion.percentage}%`,
-                }}
-              />
-            ))}
-          </div>
-
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
-            {skillPortions.map((portion) => (
-              <li
-                key={portion.label}
-                className="flex items-center justify-between gap-2 text-xs"
-              >
-                <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: portion.color }}
+      {Object.entries(displayOptions).some(
+        ([key, value]) => key !== "milliseconds" && value,
+      ) ? (
+        <CardContent className="space-y-4 px-5 py-5">
+          {displayOptions.wr ? (
+            <section
+              className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3"
+              aria-label="World record summary"
+            >
+              {wrRecord ? (
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    WR
+                  </span>
+                  <PlayerDisplay
+                    player={wrRecord.player}
+                    className="min-w-0 flex-1"
+                    nameMaxLength={22}
+                    subline={{
+                      type: "record",
+                      mode:
+                        getRecordModeLabelById(wrRecord.mode_id) ?? "Unknown",
+                      recordType: wrRecord.type,
+                      showRecordType: false,
+                      time: wrRecord.time,
+                      showMilliseconds: displayOptions.milliseconds,
+                    }}
                   />
-                  <span className="truncate">{portion.label}</span>
-                </span>
-                <span className="font-medium tabular-nums text-foreground">
-                  {portion.percentage}%
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+                </div>
+              ) : wrLoading ? (
+                <div className="text-sm text-muted-foreground">
+                  Loading WR...
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  No WR found for this scope.
+                </div>
+              )}
+            </section>
+          ) : null}
+          {displayOptions.reviews ? (
+            <section
+              className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3"
+              aria-label="Review summary"
+            >
+              <div className="flex flex-col gap-1 whitespace-normal">
+                <ReviewSummaryRow
+                  label="Overall"
+                  value={reviewSummary?.overall_avg ?? null}
+                  suffix={`(${commentsCount} / ${reviewsCount})`}
+                />
+                <ReviewSummaryRow
+                  label="Gameplay"
+                  value={reviewSummary?.gameplay_avg ?? null}
+                  count={reviewSummary?.gameplay_count ?? 0}
+                />
+                <ReviewSummaryRow
+                  label="Visuals"
+                  value={reviewSummary?.visuals_avg ?? null}
+                  count={reviewSummary?.visuals_count ?? 0}
+                />
+              </div>
+            </section>
+          ) : null}
+          {displayOptions.skills ? (
+            <section className="space-y-3" aria-label="Skill breakdown">
+              <div
+                className="flex h-2.5 overflow-hidden rounded-full bg-muted"
+                aria-hidden="true"
+              >
+                {skillPortions.map((portion) => (
+                  <div
+                    key={portion.label}
+                    className="h-full"
+                    style={{
+                      backgroundColor: portion.color,
+                      width: `${portion.percentage}%`,
+                    }}
+                  />
+                ))}
+              </div>
 
-        <dl className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Created
-            </dt>
-            <dd className="text-sm font-medium text-foreground">
-              <FormattedDateTime value={map.created_on} fallback="-" />
-            </dd>
-          </div>
-          <div className="space-y-1">
-            <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Updated
-            </dt>
-            <dd className="text-sm font-medium text-foreground">
-              <FormattedDateTime value={map.updated_on} fallback="-" />
-            </dd>
-          </div>
-        </dl>
-
-        <MapAuthorsDisplay
-          authors={map.authors}
-          noSteamidNames={map.no_steamid_names}
-          compact
-          variant="avatar-group"
-        />
-      </CardContent>
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {skillPortions.map((portion) => (
+                  <li
+                    key={portion.label}
+                    className="flex items-center justify-between gap-2 text-xs"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: portion.color }}
+                      />
+                      <span className="truncate">{portion.label}</span>
+                    </span>
+                    <span className="font-medium tabular-nums text-foreground">
+                      {portion.percentage}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {displayOptions.dates ? (
+            <dl className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Created
+                </dt>
+                <dd className="text-sm font-medium text-foreground">
+                  <FormattedDateTime value={map.created_on} fallback="-" />
+                </dd>
+              </div>
+              <div className="space-y-1">
+                <dt className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Updated
+                </dt>
+                <dd className="text-sm font-medium text-foreground">
+                  <FormattedDateTime value={map.updated_on} fallback="-" />
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+          {displayOptions.authors ? (
+            <MapAuthorsDisplay
+              authors={map.authors}
+              noSteamidNames={map.no_steamid_names}
+              compact
+              variant="avatar-group"
+            />
+          ) : null}
+        </CardContent>
+      ) : null}
     </Card>
   )
 }

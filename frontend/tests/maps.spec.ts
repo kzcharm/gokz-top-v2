@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
-import { issueSessionToken } from "./utils/privateApi"
+import { stubBackgroundApi } from "./utils/backgroundApi"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -343,6 +343,7 @@ test("Maps catalog shows manual and automatic map updater commands", async ({
   await page.goto("/maps")
 
   await expect(page.getByText("15 / 15")).toBeVisible()
+  await page.getByRole("button", { name: "Downloads", exact: true }).click()
   await expect(
     page.getByRole("link", { name: "Package", exact: true }),
   ).toHaveAttribute("href", "https://maps.example/packages/GlobalMaps.7z")
@@ -778,14 +779,38 @@ test("Maps catalog filters maps with collapsible range controls", async ({
 test("Maps catalog supports search, sorting, pagination, and map detail navigation", async ({
   page,
 }) => {
-  const { accessToken } = await issueSessionToken({
-    request: page.request,
-    steamid64: currentUserSteamid64,
-    name: "My Runner",
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "mock-session-token")
   })
-  await page.addInitScript((token) => {
-    localStorage.setItem("access_token", token)
-  }, accessToken)
+  await page.route("**/v1/**", (route) =>
+    route.fulfill({ json: { data: [], count: 0 } }),
+  )
+  await page.route("**/v1/maps/wrs?**", (route) => route.fulfill({ json: [] }))
+  await stubBackgroundApi(page)
+  await page.route("**/v1/users/me", (route) =>
+    route.fulfill({
+      json: {
+        steamid64: currentUserSteamid64,
+        roles: [],
+        player: null,
+      },
+    }),
+  )
+  await page.route(`**/v1/players/${currentUserSteamid64}`, (route) =>
+    route.fulfill({
+      json: {
+        steamid64: currentUserSteamid64,
+        name: "My Runner",
+        alias: null,
+        custom_id: null,
+        avatar_hash: null,
+        country: "US",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+        last_played_at: null,
+      },
+    }),
+  )
   let mapsRequestUrl = ""
   const mapImageBatches: Array<
     Array<{ mapName: string; workshopId: string | null }>
@@ -981,7 +1006,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(pageInput).toHaveValue("1")
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
   await expect(page.getByTestId("map-card-kz_omega")).toHaveCount(0)
-  await expect(page.getByTestId("map-card-kz_alpha")).toContainText("3 Bonuses")
+  await expect(page.getByTestId("map-card-kz_alpha")).not.toContainText(
+    "3 Bonuses",
+  )
   await expect(page.getByTestId("map-card-kz_alpha")).toContainText(
     "Boxtech40%",
   )
@@ -1028,9 +1055,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
 
   await searchBox.fill("special")
   await expect(page.getByTestId("map-card-kz_special_search")).toBeVisible()
-  await expect(page.getByTestId("map-card-kz_special_search")).toContainText(
-    "1 Bonus",
-  )
+  await expect(
+    page.getByTestId("map-card-kz_special_search"),
+  ).not.toContainText("1 Bonus")
   await expect(page.getByTestId("map-card-kz_alpha")).toHaveCount(0)
 
   await page.getByRole("textbox", { name: "Search maps by name" }).fill("")
@@ -1047,7 +1074,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     .getByRole("button", { name: "Show only maps with bonuses" })
     .click()
   await expect(page.getByText("30 / 30")).toBeVisible()
+  await page.getByRole("button", { name: "Metrics", exact: true }).click()
   await page.getByRole("button", { name: "Bonus", exact: true }).click()
+  await expect(page.getByTestId("map-card-kz_omega")).toContainText("Bonus: 5")
   const firstCard = page.locator('[data-testid^="map-card-"]').first()
   await expect(firstCard).toHaveAttribute("data-testid", "map-card-kz_omega")
 
@@ -1460,7 +1489,9 @@ test("Map WR history shows WR events and switches record type", async ({
   await expect(historyTable.locator("tbody tr")).toHaveCount(3)
   await expect(historyTable.locator("tbody tr").first()).toContainText("#3")
   await expect(historyTable.locator("tbody tr").first()).toContainText("45.000")
-  await expect(historyTable.locator("tbody tr").first()).toContainText("-2.500")
+  await expect(historyTable.locator("tbody tr").first()).toContainText(
+    "-0:02.500",
+  )
   await expect(historyTable.locator("tbody tr").last()).toContainText("#1")
 
   await page.getByRole("button", { name: "NUB", exact: true }).click()
