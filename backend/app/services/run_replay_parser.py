@@ -3,7 +3,7 @@ from __future__ import annotations
 import struct
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 
 from app.models import KZMode
 from app.services.replay_parser_common import (
@@ -35,6 +35,7 @@ class ParsedRunReplay:
     mode: KZMode
     course: int
     time: Decimal
+    truncated_time: Decimal
     teleports_used: int
     map_file_size: int
     tick_count: int
@@ -170,6 +171,9 @@ def parse_run_replay_bytes(
             mode=mode,
             course=course,
             time=normalize_run_replay_time(time_seconds),
+            truncated_time=Decimal(str(time_seconds)).quantize(
+                DECIMAL_THREE_PLACES, rounding=ROUND_DOWN
+            ),
             teleports_used=teleports_used,
         )
     except (struct.error, IndexError) as exc:

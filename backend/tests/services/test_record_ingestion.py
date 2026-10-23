@@ -447,3 +447,44 @@ async def test_replay_storage_failure_keeps_record_and_retries(db, monkeypatch):
     assert await db.get(RecordReplay, payload.record_uuid) is None
     assert (await accept_replay(db, group, payload.record_uuid, data))["available"]
     assert put.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "submitted_time,accepted",
+    [("16.265", True), ("16.266", True), ("16.264", False), ("16.267", False)],
+)
+async def test_replay_matches_sourcepawn_truncation_or_rounding(
+    db, monkeypatch, submitted_time, accepted
+):
+    import struct
+    from unittest.mock import AsyncMock
+    from app.services import r2_storage
+    from app.services.record_replay_upload import accept_replay
+    from tests.utils.run_replay import build_synthetic_run_replay
+
+    group, _, payload = await setup_finish(db, KZMode.KZT)
+    payload.time = Decimal(submitted_time)
+    await accept_record(db, group, payload, "sourcepawn-time")
+    replay = build_synthetic_run_replay(
+        map_name=payload.map_name,
+        time_seconds=16.265625,
+        tick_count=2082,
+        timestamp=int(payload.finished_at.timestamp()),
+    )
+    data = (
+        replay.replay_bytes
+        + struct.pack("<I", (1 << 20) - 1)
+        + bytes(76)
+        + struct.pack("<I", 1) * 2081
+    )
+    put = AsyncMock()
+    monkeypatch.setattr(r2_storage, "put_object", put)
+    if accepted:
+        assert (await accept_replay(db, group, payload.record_uuid, data))["available"]
+        put.assert_awaited_once()
+    else:
+        with pytest.raises(HTTPException) as error:
+            await accept_replay(db, group, payload.record_uuid, data)
+        assert error.value.status_code == 422
+        put.assert_not_awaited()

@@ -61,7 +61,6 @@ async def accept_replay(
         replay.steamid64,
         replay.mode,
         replay.course,
-        replay.time,
         replay.teleports_used,
     ) != (
         map_obj.name,
@@ -69,10 +68,13 @@ async def accept_replay(
         record.steamid64,
         record.mode,
         record.stage,
-        record.time,
         record.teleports,
     ):
         raise HTTPException(422, "Replay header does not match the accepted record")
+    # SourcePawn's %.3f truncates, while other submitters round to milliseconds.
+    # Match either representation of this exact float, not an arbitrary tolerance.
+    if record.time not in {replay.time, replay.truncated_time}:
+        raise HTTPException(422, "Replay time does not match the accepted record")
     key = f"replays/runs/{record.uuid}/{checksum}.replay"
     try:
         await r2_storage.put_object(
