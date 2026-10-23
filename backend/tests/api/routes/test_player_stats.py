@@ -530,13 +530,22 @@ async def test_read_player_stats_refreshes_same_day_daily_activity_on_record_syn
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
-    assert second_response.json() == {
-        **first_response.json(),
-        "daily_activity": {
-            "updated_at": _json_datetime(first_now),
-            "days": [{"date": "2026-04-02", "count": 2}],
-        },
+    refreshed = second_response.json()
+    assert refreshed["daily_activity"] == {
+        "updated_at": _json_datetime(first_now),
+        "days": [{"date": "2026-04-02", "count": 2}],
     }
+    assert refreshed["playtime"] == {
+        "updated_at": _json_datetime(second_now),
+        "total_seconds": 10.0,
+    }
+    assert refreshed["most_played_maps"] == _single_map_stats_payload(
+        updated_at=second_now,
+        total_seconds=10.0,
+        record_count=2,
+    )
+    assert refreshed["most_played_server"]["updated_at"] == _json_datetime(second_now)
+    assert refreshed["most_played_server"]["all_time"]["total_seconds"] == 10.0
 
     daily_activity_cache = await db.get(
         PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
@@ -549,8 +558,8 @@ async def test_read_player_stats_refreshes_same_day_daily_activity_on_record_syn
     assert playtime_cache is not None
     assert maps_cache is not None
     assert daily_activity_cache.updated_at == first_now
-    assert playtime_cache.updated_at == first_now
-    assert maps_cache.updated_at == first_now
+    assert playtime_cache.updated_at == second_now
+    assert maps_cache.updated_at == second_now
 
 
 @pytest.mark.asyncio

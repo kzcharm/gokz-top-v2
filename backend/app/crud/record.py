@@ -49,6 +49,8 @@ from app.models import (
     ModeScope,
     Player,
     PlayerFriend,
+    PlayerStatCache,
+    PlayerStatType,
     RecentRecordCompatPublicV0,
     RecentRecordListQuery,
     RecentRecordMapPublic,
@@ -1757,6 +1759,15 @@ async def _refresh_record_read_models_for_change(
         )
         activity_cache_dates_by_player[record.steamid64].add(created_at.date())
 
+    # These aggregates are otherwise cached until midnight. Drop their cursors
+    # too: an offline upload can insert a run before an incremental cursor.
+    if activity_cache_dates_by_player:
+        await session.exec(
+            delete(PlayerStatCache).where(
+                col(PlayerStatCache.steamid64).in_(activity_cache_dates_by_player),
+                col(PlayerStatCache.type) != PlayerStatType.DAILY_ACTIVITY,
+            )
+        )
     for steamid64, dates in activity_cache_dates_by_player.items():
         await refresh_player_daily_activity_cache_dates(
             session=session,

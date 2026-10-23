@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -12,10 +13,16 @@ from app.models import (
     MapCourse,
     MapCourseTier,
     Mode,
+    ModeScope,
+    Player,
+    PlayerStatCache,
+    PlayerStatType,
     Record,
+    RecordPb,
     ServerGroupStatus,
     generate_uuid7,
     get_datetime_utc,
+    mode_scope_modes,
 )
 from app.models.record_upload import RecordFinish, RecordIntegrity
 from app.services.record_ingestion import accept_record, check_record
@@ -70,6 +77,16 @@ async def test_accept_all_modes_and_retry(db: AsyncSession, mode: KZMode):
     assert record.native_server_id == server.id
     assert record.server_id is None
     assert record.mode == mode
+    player = await db.get(Player, payload.steamid64)
+    assert player.last_played_at == payload.finished_at
+    assert player.created_at == payload.finished_at
+    pbs = (
+        await db.exec(select(RecordPb).where(RecordPb.record_uuid == record.uuid))
+    ).all()
+    assert {row.scope for row in pbs} == {
+        scope for scope in ModeScope if mode in mode_scope_modes(scope)
+    }
+    assert {row.points for row in pbs} == {1000}
     with pytest.raises(HTTPException) as error:
         await accept_record(
             db,
@@ -107,7 +124,7 @@ async def test_verified_reconciliation_preserves_native_uuid_and_alias(
     db: AsyncSession,
 ):
     from app.crud.record import get_record_by_uuid, upsert_record
-    from app.models import ServerGlobalapi, RecordUuidAlias
+    from app.models import RecordUuidAlias, ServerGlobalapi
     from app.services.record_reconciliation import submit_claim
 
     group, server, payload = await setup_finish(db, KZMode.KZT)
@@ -160,6 +177,7 @@ async def test_replay_upload_is_idempotent_and_listing_uses_catalog(
 ):
     import struct
     from unittest.mock import AsyncMock
+
     from app.models import RecordReplay, ReplayListQuery
     from app.services import r2_storage
     from app.services.record_replay_catalog import list_replays
@@ -189,7 +207,7 @@ async def test_replay_upload_is_idempotent_and_listing_uses_catalog(
         await accept_replay(db, group, record_id, data + b"x")
     assert error.value.status_code == 409
 
-    def forbidden(*args, **kwargs):
+    def forbidden(*_args, **_kwargs):
         raise AssertionError("Normal catalog reads must not query object storage")
 
     monkeypatch.setattr(r2_storage, "list_objects", forbidden)
@@ -271,7 +289,7 @@ async def test_bans_integrity_and_group_eligibility(db):
 @pytest.mark.asyncio
 async def test_verification_outage_and_exact_statistics(db):
     from app.models import RecordSourceClaim, ServerGlobalapi
-    from app.services.record_reconciliation import submit_claim, resolve_before_sync
+    from app.services.record_reconciliation import resolve_before_sync, submit_claim
 
     group, server, payload = await setup_finish(db, KZMode.KZT)
     result = await accept_record(db, group, payload, "pending")
@@ -417,8 +435,10 @@ async def test_sync_first_restores_replay_eligibility_and_preserves_moderation(d
 @pytest.mark.asyncio
 async def test_replay_storage_failure_keeps_record_and_retries(db, monkeypatch):
     import struct
-    import httpx
     from unittest.mock import AsyncMock
+
+    import httpx
+
     from app.models import RecordReplay
     from app.services import r2_storage
     from app.services.record_replay_upload import accept_replay
@@ -459,6 +479,7 @@ async def test_replay_matches_sourcepawn_truncation_or_rounding(
 ):
     import struct
     from unittest.mock import AsyncMock
+
     from app.services import r2_storage
     from app.services.record_replay_upload import accept_replay
     from tests.utils.run_replay import build_synthetic_run_replay
@@ -517,6 +538,7 @@ async def test_heartbeat_registers_steam_identity_and_tracks_address(
     db, monkeypatch, existing
 ):
     from unittest.mock import AsyncMock
+
     from app.crud.server import upsert_server_from_plugin_heartbeat
     from app.models import ServerStatusPut
 
@@ -574,6 +596,7 @@ async def test_heartbeat_registers_steam_identity_and_tracks_address(
 )
 def test_invalid_server_steam_identity_rejected(identity):
     from pydantic import TypeAdapter, ValidationError
+
     from app.models.server_identity import ServerSteamID
 
     with pytest.raises(ValidationError):
@@ -588,8 +611,8 @@ async def test_direct_server_status_is_independent_of_globalapi(
     db, bad_version, bad_settings
 ):
     from app.crud.server import (
-        record_plugin_heartbeat,
         _build_server_live_status_public,
+        record_plugin_heartbeat,
     )
     from app.models import ServerStatusPut
     from app.models.server import ServerRecordsStatusPut
@@ -627,3 +650,168 @@ async def test_direct_server_status_is_independent_of_globalapi(
         session=db, group=group, server=server, payload=payload, notify=False
     )
     assert _build_server_live_status_public(result.live_status).gokz_top_status is None
+
+
+@pytest.mark.asyncio
+async def test_direct_finish_refreshes_metadata_and_cached_stats(db: AsyncSession):
+    group, _, payload = await setup_finish(db)
+    first_at = payload.finished_at - timedelta(days=2)
+    player = Player(
+        steamid64=payload.steamid64,
+        name="Runner",
+        alias="Alias",
+        country="DE",
+        created_at=first_at,
+        last_played_at=first_at,
+    )
+    db.add(player)
+    await db.flush()
+    for stat_type in PlayerStatType:
+        db.add(PlayerStatCache(steamid64=player.steamid64, type=stat_type, content={}))
+    await db.flush()
+    await accept_record(db, group, payload, "metadata")
+    await db.refresh(player)
+    assert player.created_at == first_at
+    assert player.last_played_at == payload.finished_at
+    assert (player.name, player.alias, player.country) == ("Runner", "Alias", "DE")
+    caches = (
+        await db.exec(
+            select(PlayerStatCache).where(PlayerStatCache.steamid64 == player.steamid64)
+        )
+    ).all()
+    assert [row.type for row in caches] == [PlayerStatType.DAILY_ACTIVITY]
+    assert caches[0].content["days"][0]["count"] == 1
+    # Older queued non-PBs update historical activity without moving Last Played backwards.
+    old_at = first_at - timedelta(days=1)
+    old = payload.model_copy(
+        update={
+            "record_uuid": generate_uuid7(),
+            "finished_at": old_at,
+            "time": Decimal("50.000"),
+        }
+    )
+    result = await accept_record(db, group, old, "old-offline-run")
+    await db.refresh(player)
+    assert player.created_at == old_at
+    assert player.last_played_at == payload.finished_at
+    record = await db.get(Record, uuid.UUID(result["record_uuid"]))
+    assert record.created_at == old_at
+    assert record.updated_at > payload.finished_at
+    await accept_record(db, group, old, "old-offline-run")
+    await db.refresh(caches[0])
+    assert sum(day["count"] for day in caches[0].content["days"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_rejected_finish_does_not_change_player_dates(db: AsyncSession):
+    group, _, payload = await setup_finish(db)
+    previous = payload.finished_at - timedelta(hours=6)
+    player = Player(steamid64=payload.steamid64, name="Runner", last_played_at=previous)
+    db.add(player)
+    await db.flush()
+    with pytest.raises(HTTPException):
+        await accept_record(
+            db, group, payload.model_copy(update={"bsp_size": 999}), "rejected"
+        )
+    await db.refresh(player)
+    assert player.last_played_at == previous
+
+
+@pytest.mark.asyncio
+async def test_direct_finish_updates_eligible_player_totals(db: AsyncSession):
+    from app.models import LeaderboardPlayer
+
+    group, _, payload = await setup_finish(db, KZMode.KZT)
+    for index in range(10):
+        if index:
+            map_obj = Map(
+                id=982345 + index,
+                name=f"kz_direct_totals_{index}",
+                filesize=123,
+                validated=True,
+            )
+            db.add(map_obj)
+            await db.flush()
+            course = MapCourse(map_id=map_obj.id, stage=0)
+            db.add(course)
+            await db.flush()
+            db.add(MapCourseTier(course_id=course.id, mode=KZMode.KZT, tier=1))
+            await db.flush()
+            payload = payload.model_copy(
+                update={"map_name": map_obj.name, "record_uuid": generate_uuid7()}
+            )
+        await accept_record(db, group, payload, f"totals-{index}")
+    totals = (
+        await db.exec(
+            select(LeaderboardPlayer).where(
+                LeaderboardPlayer.steamid64 == payload.steamid64
+            )
+        )
+    ).all()
+    assert {row.scope for row in totals} == {ModeScope.KZT, ModeScope.OVR}
+    for row in totals:
+        assert row.unique_map_finishes == 10
+        assert row.points == 20000
+        assert row.wrs_nub == 10
+        assert row.wrs_pro == 10
+        assert row.rating > 0
+
+
+@pytest.mark.asyncio
+async def test_repair_existing_native_player_dates(db: AsyncSession):
+    from app.record_player_metadata import repair_player_dates
+
+    group, _, payload = await setup_finish(db)
+    await accept_record(db, group, payload, "repair")
+    player = await db.get(Player, payload.steamid64)
+    stale = payload.finished_at - timedelta(hours=6)
+    player.last_played_at = stale
+    await db.flush()
+    selected = await repair_player_dates(db, limit=1, after=0, apply=False)
+    assert selected == [player.steamid64]
+    await db.refresh(player)
+    assert player.last_played_at == stale
+    await repair_player_dates(db, limit=1, after=0, apply=True)
+    await db.refresh(player)
+    assert player.last_played_at == payload.finished_at
+    assert (
+        await repair_player_dates(db, limit=1, after=player.steamid64, apply=True) == []
+    )
+
+
+@pytest.mark.asyncio
+async def test_mirror_identity_refresh_preserves_newer_direct_last_played(
+    db: AsyncSession, monkeypatch
+):
+    from sqlalchemy import text
+
+    from app.services import globalapi_record_sync
+
+    now = get_datetime_utc()
+    player = Player(
+        steamid64=76561197960278073,
+        name="Runner",
+        last_played_at=now - timedelta(hours=6),
+    )
+    db.add(player)
+    await db.flush()
+
+    async def steam_lookup(_steamid64):
+        # Simulate a direct upload advancing the database while mirror sync is
+        # awaiting Steam, leaving its already-loaded Player object stale.
+        await db.execute(
+            text("UPDATE player SET last_played_at=:now WHERE steamid64=:steam"),
+            {"now": now, "steam": player.steamid64},
+        )
+        return {}
+
+    monkeypatch.setattr(
+        globalapi_record_sync.crud, "_fetch_player_from_steam_api", steam_lookup
+    )
+    result = await globalapi_record_sync._ensure_player(
+        session=db,
+        steamid64=player.steamid64,
+        player_name="Runner",
+        created_on=now - timedelta(hours=3),
+    )
+    assert result.last_played_at == now

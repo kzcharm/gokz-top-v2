@@ -7,7 +7,8 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 import httpx
-from sqlalchemy import text
+from sqlalchemy import func, text, update
+from sqlmodel import col
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
@@ -491,11 +492,18 @@ async def _ensure_player(
         country=resolved_country,
         now=now,
     )
-    if player.created_at is None or created_on < player.created_at:
-        player.created_at = created_on
-    if player.last_played_at is None or created_on > player.last_played_at:
-        player.last_played_at = created_on
-    session.add(player)
+    # A direct finish may have committed while Steam identity was being fetched.
+    # Merge bounds in SQL rather than overwriting them from this older ORM copy.
+    await session.execute(
+        update(Player)
+        .where(col(Player.steamid64) == steamid64)
+        .values(
+            created_at=func.least(Player.created_at, created_on),
+            last_played_at=func.greatest(Player.last_played_at, created_on),
+        )
+        .execution_options(synchronize_session=False)
+    )
+    await session.refresh(player, attribute_names=["created_at", "last_played_at"])
     return player
 
 

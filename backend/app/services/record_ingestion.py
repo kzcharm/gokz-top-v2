@@ -13,6 +13,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.crud.ban import get_newest_active_ban_for_player, not_active_ban_exists_clause
+from app.crud.leaderboard_player import rebuild_leaderboard_players_for_keys
 from app.crud.record import notify_recent_record_updated, upsert_record
 from app.models import (
     Map,
@@ -251,12 +252,28 @@ async def accept_record(
     if alternatives:
         body["_reconciliation_replay_eligibility"] = alternatives
 
-    if await session.get(Player, payload.steamid64) is None:
-        await session.execute(
-            pg_insert(Player)
-            .values(steamid64=payload.steamid64, name=str(payload.steamid64))
-            .on_conflict_do_nothing(index_elements=["steamid64"])
+    # Atomic bounds also handle concurrent courses and delayed/offline uploads.
+    player_insert = pg_insert(Player).values(
+        steamid64=payload.steamid64,
+        name=str(payload.steamid64),
+        created_at=payload.finished_at,
+        last_played_at=payload.finished_at,
+    )
+    await session.execute(
+        player_insert.on_conflict_do_update(
+            index_elements=["steamid64"],
+            set_={
+                "created_at": func.least(Player.created_at, payload.finished_at),
+                "last_played_at": func.greatest(
+                    Player.last_played_at, payload.finished_at
+                ),
+            },
         )
+    )
+    # Refresh any identity-map copy without touching user-managed identity fields.
+    player = await session.get(Player, payload.steamid64)
+    if player is not None:
+        await session.refresh(player)
     record, _, _ = await upsert_record(
         session=session,
         record_id=None,
@@ -271,12 +288,23 @@ async def accept_record(
         teleports=payload.teleports,
         points=0,
         created_on=payload.finished_at,
-        updated_on=payload.finished_at,
+        updated_on=get_datetime_utc(),
         updated_by=0,
         replay_id=None,
         is_valid=True,
         emit_wr_notifications=True,
     )
+    # Only changed main-course PBs can affect player ranking totals.
+    changed_scopes = {
+        bucket.scope.scope_id
+        for bucket in buckets
+        if bucket.previous_pb is None or payload.time < bucket.previous_pb
+    }
+    if payload.stage == 0 and changed_scopes:
+        await rebuild_leaderboard_players_for_keys(
+            session=session,
+            keys=[(scope_id, payload.steamid64) for scope_id in sorted(changed_scopes)],
+        )
     result = {
         "record_uuid": str(canonical),
         "replay_eligible": eligible,
