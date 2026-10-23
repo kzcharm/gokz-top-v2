@@ -259,8 +259,8 @@ export function MapCard({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/85" />
         </Link>
 
-        <div className="absolute left-2 top-2 right-28 z-10 min-w-0">
-          <h2 className="flex min-w-0 items-center gap-1 select-text text-sm font-semibold text-white">
+        <div className="absolute inset-x-2 top-2 z-10 flex min-w-0 items-center gap-2">
+          <h2 className="flex min-w-0 flex-1 items-center gap-1 select-text text-sm font-semibold text-white">
             <MapNameContextMenu
               mapName={map.name}
               mapId={map.id}
@@ -270,7 +270,7 @@ export function MapCard({
                 <Link
                   to="/maps/$mapName/maptop"
                   params={{ mapName: map.name }}
-                  className="inline-block max-w-full truncate rounded-md bg-black/45 px-2 py-1 whitespace-nowrap"
+                  className="block max-w-full truncate rounded-md bg-black/45 px-2 py-1 whitespace-nowrap"
                   title={map.name}
                   onClick={(event) => {
                     event.stopPropagation()
@@ -287,28 +287,30 @@ export function MapCard({
               className="shrink-0 bg-black/55 text-white backdrop-blur-sm"
             />
           </h2>
-        </div>
 
-        {personalBest &&
-        (personalBest.record || personalBest.loading || personalBest.error) ? (
-          <span
-            className="pointer-events-none absolute right-2 top-2 z-10 text-xs text-white"
-            data-testid={`map-points-${map.id}`}
-          >
-            {personalBest.record &&
-            !personalBest.loading &&
-            !personalBest.error ? (
-              <PointsBadge
-                points={personalBest.record.points}
-                label={formatFlooredDecimal(personalBest.record.points, 0)}
-              />
-            ) : personalBest.loading ? (
-              "…"
-            ) : (
-              "—"
-            )}
-          </span>
-        ) : null}
+          {personalBest &&
+          (personalBest.record ||
+            personalBest.loading ||
+            personalBest.error) ? (
+            <span
+              className="pointer-events-none flex shrink-0 items-center text-xs text-white"
+              data-testid={`map-points-${map.id}`}
+            >
+              {personalBest.record &&
+              !personalBest.loading &&
+              !personalBest.error ? (
+                <PointsBadge
+                  points={personalBest.record.points}
+                  label={formatFlooredDecimal(personalBest.record.points, 0)}
+                />
+              ) : personalBest.loading ? (
+                "…"
+              ) : (
+                "—"
+              )}
+            </span>
+          ) : null}
+        </div>
 
         {showBonusBadge && !personalBest && bonusCount > 0 ? (
           <Badge className="pointer-events-none absolute right-2 bottom-2 z-10 border-transparent bg-amber-100/95 font-semibold text-amber-900 shadow-sm ring-1 ring-amber-200 backdrop-blur-sm">

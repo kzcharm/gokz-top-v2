@@ -402,6 +402,23 @@ test("card controls toggle milliseconds and clear completion selections", async 
   await page.goto("/maps")
   await expect(page.getByTestId("map-pb-1")).toHaveText("PB: 0:30.000")
   await expect(page.getByTestId("map-points-1")).toHaveText("970")
+  const firstCard = page.getByTestId("map-card-kz_pick_00")
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    const name = await firstCard.locator("h2 a").boundingBox()
+    const tier = await firstCard.locator('h2 [data-slot="badge"]').boundingBox()
+    const points = await page.getByTestId("map-points-1").boundingBox()
+    expect(name).not.toBeNull()
+    expect(tier).not.toBeNull()
+    expect(points).not.toBeNull()
+    if (!name || !tier || !points) throw new Error("Missing map header element")
+    const center = name.y + name.height / 2
+    expect(Math.abs(tier.y + tier.height / 2 - center)).toBeLessThan(1)
+    expect(Math.abs(points.y + points.height / 2 - center)).toBeLessThan(1)
+    expect(name.x + name.width).toBeLessThanOrEqual(tier.x)
+    expect(tier.x + tier.width).toBeLessThanOrEqual(points.x)
+  }
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.getByRole("button", { name: "Options", exact: true }).click()
   await page
     .getByRole("menuitemcheckbox", { name: "Show milliseconds", exact: true })
