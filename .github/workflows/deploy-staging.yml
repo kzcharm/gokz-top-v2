@@ -111,6 +111,7 @@ jobs:
           set -euo pipefail
 
           mkdir -p "${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}"
+          mkdir -p "${RUNNER_WORKSPACE}/../_replays/${STACK_NAME}"
           base_domain="${BASE_DOMAIN_STAGING:-gokz.top}"
           frontend_hostname="${FRONTEND_HOSTNAME_STAGING:-staging.${base_domain}}"
           api_host="${API_HOST_STAGING:-staging-api.${base_domain}}"
@@ -153,6 +154,7 @@ jobs:
           POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
           SENTRY_DSN=${SENTRY_DSN}
           GEOIP_DATA_DIR=${RUNNER_WORKSPACE}/../_geoip/${STACK_NAME}
+          REPLAY_DATA_DIR=${RUNNER_WORKSPACE}/../_replays/${STACK_NAME}
           GEOIPUPDATE_ACCOUNT_ID=${GEOIPUPDATE_ACCOUNT_ID}
           GEOIPUPDATE_LICENSE_KEY=${GEOIPUPDATE_LICENSE_KEY}
           DOCKER_IMAGE_BACKEND=${STACK_NAME}-backend
