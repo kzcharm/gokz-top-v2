@@ -8840,8 +8840,16 @@ export const RecordBulkDeleteResultSchema = {
 export const RecordCheckSchema = {
     properties: {
         server_id: {
-            type: 'string',
-            format: 'uuid',
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'string',
+                    pattern: '^[1-9][0-9]{16,19}$'
+                }
+            ],
             title: 'Server Id'
         },
         map_name: {
@@ -8903,8 +8911,16 @@ export const RecordCheckSchema = {
 export const RecordFinishSchema = {
     properties: {
         server_id: {
-            type: 'string',
-            format: 'uuid',
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'string',
+                    pattern: '^[1-9][0-9]{16,19}$'
+                }
+            ],
             title: 'Server Id'
         },
         map_name: {
@@ -10869,6 +10885,18 @@ export const ServerStatusPlayerPutSchema = {
 
 export const ServerStatusPutSchema = {
     properties: {
+        server_steamid64: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^[1-9][0-9]{16,19}$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Server Steamid64'
+        },
         ip: {
             type: 'string',
             maxLength: 64,

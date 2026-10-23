@@ -937,6 +937,46 @@ async def upsert_server_from_plugin_heartbeat(
     group: ServerGroup,
     payload: ServerStatusPut,
 ) -> Server:
+    if payload.server_steamid64 is not None:
+        # Serialize automatic registration and address changes across workers.
+        from app.services.record_ingestion import identity_lock
+
+        await identity_lock(session, f"server-steam:{payload.server_steamid64}")
+        await identity_lock(session, f"server-endpoint:{payload.ip}:{payload.port}")
+        known = (
+            await session.exec(
+                select(Server).where(Server.steamid64 == payload.server_steamid64)
+            )
+        ).first()
+        endpoint = await get_server_by_endpoint(
+            session=session, ip=payload.ip, port=payload.port
+        )
+        if known is not None:
+            if known.group_id != group.id:
+                raise ValueError("Server does not belong to this server group")
+            if endpoint is not None and endpoint.id != known.id:
+                raise ValueError(
+                    "Server address is already assigned to another instance"
+                )
+            if known.status == ServerStatus.DISABLED:
+                raise ValueError("Server is disabled")
+            known.ip, known.port = payload.ip, payload.port
+            known.updated_at = get_datetime_utc()
+            session.add(known)
+            await session.flush()
+        elif endpoint is not None:
+            if (
+                endpoint.group_id not in {None, group.id}
+                or endpoint.steamid64 is not None
+            ):
+                raise ValueError(
+                    "Server address is already assigned to another instance"
+                )
+            if endpoint.status == ServerStatus.DISABLED:
+                raise ValueError("Server is disabled")
+            endpoint.steamid64 = payload.server_steamid64
+            session.add(endpoint)
+
     server = await get_server_by_endpoint(
         session=session,
         ip=payload.ip,
@@ -958,6 +998,7 @@ async def upsert_server_from_plugin_heartbeat(
             longitude=None,
         )
         server = Server(
+            steamid64=payload.server_steamid64,
             group_id=group.id,
             ip=payload.ip,
             port=payload.port,

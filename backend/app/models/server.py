@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from .server_globalapi import ServerGlobalapi
 
 from .player import MAX_PLAYER_CUSTOM_ID_LENGTH, validate_player_custom_id
+from .server_identity import ServerSteamID
 from .utils import generate_uuid7, get_datetime_utc
 
 
@@ -210,6 +211,7 @@ class Server(ServerBase, table=True):
         Index("uq_server_ip_port", "ip", "port", unique=True),
     )
 
+    steamid64: str | None = Field(default=None, max_length=20, unique=True, index=True)
     id: uuid.UUID = Field(default_factory=generate_uuid7, primary_key=True)
     group_id: uuid.UUID | None = Field(
         default=None,
@@ -658,6 +660,7 @@ class ServerDiscoveryRunPublic(SQLModel):
 
 
 class ServerStatusPut(SQLModel):
+    server_steamid64: ServerSteamID | None = None
     ip: str = Field(min_length=1, max_length=64)
     port: int = Field(ge=1, le=65535)
     observed_at: datetime

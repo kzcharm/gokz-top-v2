@@ -1788,7 +1788,7 @@ export type RecordBulkDeleteResult = {
 };
 
 export type RecordCheck = {
-    server_id: string;
+    server_id: (string);
     map_name: string;
     bsp_size: number;
     stage?: number;
@@ -1801,7 +1801,7 @@ export type RecordCheck = {
 };
 
 export type RecordFinish = {
-    server_id: string;
+    server_id: (string);
     map_name: string;
     bsp_size: number;
     stage?: number;
@@ -2148,6 +2148,7 @@ export type ServerStatusPlayerPut = {
 };
 
 export type ServerStatusPut = {
+    server_steamid64?: (string | null);
     ip: string;
     port: number;
     observed_at: string;

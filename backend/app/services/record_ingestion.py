@@ -50,12 +50,30 @@ async def identity_lock(session: AsyncSession, identity: str) -> None:
     await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
 
 
+async def resolve_upload_server(
+    session: AsyncSession, group: ServerGroup, identity: uuid.UUID | str
+) -> Server:
+    if isinstance(identity, uuid.UUID):
+        server = await session.get(Server, identity)
+    else:
+        server = (
+            await session.exec(select(Server).where(Server.steamid64 == identity))
+        ).first()
+        if server is None:
+            raise HTTPException(
+                503,
+                "Waiting for the authenticated server heartbeat",
+                headers={"Retry-After": "5"},
+            )
+    if server is None or server.group_id != group.id:
+        raise HTTPException(403, "Server does not belong to this server group")
+    return server
+
+
 async def check_record(
     session: AsyncSession, group: ServerGroup, payload: RecordCheck
 ) -> tuple[dict[str, Any], Map | None]:
-    server = await session.get(Server, payload.server_id)
-    if server is None or server.group_id != group.id:
-        raise HTTPException(403, "Server does not belong to this server group")
+    server = await resolve_upload_server(session, group, payload.server_id)
     map_obj = (
         await session.exec(select(Map).where(Map.name == payload.map_name))
     ).first()
@@ -155,18 +173,16 @@ async def accept_record(
     if not key or len(key) > 128:
         raise HTTPException(422, "Idempotency-Key must contain 1 to 128 characters")
     # Authenticate ownership before returning any existing receipt, even after key rotation.
-    server = await session.get(Server, payload.server_id)
-    if server is None or server.group_id != group.id:
-        raise HTTPException(403, "Server does not belong to this server group")
+    server = await resolve_upload_server(session, group, payload.server_id)
     body = payload.model_dump(mode="json")
     digest = hashlib.sha256(
         json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
-    await identity_lock(session, f"receipt:{payload.server_id}:{key}")
+    await identity_lock(session, f"receipt:{server.id}:{key}")
     receipt = (
         await session.exec(
             select(RecordUploadReceipt).where(
-                RecordUploadReceipt.server_id == payload.server_id,
+                RecordUploadReceipt.server_id == server.id,
                 RecordUploadReceipt.idempotency_key == key,
             )
         )
@@ -247,7 +263,7 @@ async def accept_record(
         record_uuid=canonical,
         steamid64=payload.steamid64,
         server_id=None,
-        native_server_id=payload.server_id,
+        native_server_id=server.id,
         mode_id=payload.mode.mode_id,
         map_id=map_obj.id,
         stage=payload.stage,
@@ -277,7 +293,7 @@ async def accept_record(
     }
     session.add(
         RecordUploadReceipt(
-            server_id=payload.server_id,
+            server_id=server.id,
             idempotency_key=key,
             record_uuid=canonical,
             payload_hash=digest,

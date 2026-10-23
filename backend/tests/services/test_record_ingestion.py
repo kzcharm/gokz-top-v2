@@ -488,3 +488,93 @@ async def test_replay_matches_sourcepawn_truncation_or_rounding(
             await accept_replay(db, group, payload.record_uuid, data)
         assert error.value.status_code == 422
         put.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_steam_server_identity_uses_existing_server_and_receipt(db):
+    group, server, payload = await setup_finish(db, KZMode.KZT)
+    server.steamid64 = str((1 << 56) | (3 << 52) | 12345)
+    db.add(server)
+    await db.flush()
+    steam_payload = payload.model_copy(update={"server_id": server.steamid64})
+    parsed = RecordFinish.model_validate(steam_payload.model_dump())
+    result = await accept_record(db, group, parsed, "steam-finish")
+    assert await accept_record(db, group, parsed, "steam-finish") == result
+    assert (await db.get(Record, payload.record_uuid)).native_server_id == server.id
+    other, _ = await create_server_group(db)
+    with pytest.raises(HTTPException) as error:
+        await check_record(db, other, parsed)
+    assert error.value.status_code == 403
+    parsed.server_id = str((1 << 56) | (3 << 52) | 12346)
+    with pytest.raises(HTTPException) as error:
+        await check_record(db, group, parsed)
+    assert error.value.status_code == 503
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("existing", [False, True])
+async def test_heartbeat_registers_steam_identity_and_tracks_address(
+    db, monkeypatch, existing
+):
+    from unittest.mock import AsyncMock
+    from app.crud.server import upsert_server_from_plugin_heartbeat
+    from app.models import ServerStatusPut
+
+    monkeypatch.setattr(
+        "app.crud.server._resolve_server_location",
+        AsyncMock(return_value=(None, None, None, None)),
+    )
+    monkeypatch.setattr("app.crud.server._refresh_server_location", AsyncMock())
+    group, _ = await create_server_group(db, status=ServerGroupStatus.VALIDATED)
+    steamid = str((1 << 56) | (3 << 52) | 13579)
+    heartbeat = ServerStatusPut(
+        server_steamid64=steamid,
+        ip="192.0.2.51",
+        port=27015,
+        observed_at=get_datetime_utc(),
+        hostname="Steam server",
+        map="kz_test",
+        player_count=0,
+        max_players=32,
+    )
+    previous = (
+        await create_server(db, group_id=group.id, ip=heartbeat.ip, port=heartbeat.port)
+        if existing
+        else None
+    )
+    server = await upsert_server_from_plugin_heartbeat(
+        session=db, group=group, payload=heartbeat
+    )
+    if previous is not None:
+        assert server.id == previous.id
+    original = server.id
+    assert server.steamid64 == steamid
+    heartbeat.ip = "192.0.2.52"
+    moved = await upsert_server_from_plugin_heartbeat(
+        session=db, group=group, payload=heartbeat
+    )
+    assert moved.id == original and moved.ip == heartbeat.ip
+    other, _ = await create_server_group(db)
+    with pytest.raises(ValueError, match="does not belong"):
+        await upsert_server_from_plugin_heartbeat(
+            session=db, group=other, payload=heartbeat
+        )
+    from app.models import ServerStatus
+
+    moved.status = ServerStatus.DISABLED
+    db.add(moved)
+    with pytest.raises(ValueError, match="disabled"):
+        await upsert_server_from_plugin_heartbeat(
+            session=db, group=group, payload=heartbeat
+        )
+
+
+@pytest.mark.parametrize(
+    "identity", ["0", "1", "[I:0:1]", "76561199022242128", "99999999999999999999"]
+)
+def test_invalid_server_steam_identity_rejected(identity):
+    from pydantic import TypeAdapter, ValidationError
+    from app.models.server_identity import ServerSteamID
+
+    with pytest.raises(ValidationError):
+        TypeAdapter(ServerSteamID).validate_python(identity)

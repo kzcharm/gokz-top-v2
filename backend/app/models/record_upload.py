@@ -19,6 +19,7 @@ from sqlalchemy import (
 from sqlmodel import Field, SQLModel, col
 
 from .record import KZMode
+from .server_identity import ServerSteamID
 from .utils import generate_uuid7, get_datetime_utc
 
 
@@ -110,7 +111,7 @@ class RecordIntegrity(BaseModel):
 
 class RecordCheck(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    server_id: uuid.UUID
+    server_id: uuid.UUID | ServerSteamID
     map_name: str = Field(min_length=1, max_length=255)
     bsp_size: int = Field(gt=0)
     stage: int = Field(default=0, ge=0, le=255)

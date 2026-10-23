@@ -257,3 +257,5 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - Staging replay disk storage uses the runner's persistent `_replays/<stack>` directory, outside per-run deployment checkouts. This keeps imported disk replays and catalog paths valid across staging redeployments; the container path remains `/app/.replays`.
 
 - Replay header time validation accepts rounding or SourcePawn truncation of the exact stored float to milliseconds; this preserves queued payloads without admitting arbitrary time tolerances.
+
+- Server plugins automatically identify instances using authenticated server SteamID64, following AXEKZ. Group-key heartbeats register identity and track address changes, with unique ownership and preserved internal UUID/history. Records accept SteamIDs or legacy UUIDs and retry pending registration. No operator-set instance ID or per-instance verification is required; group validation and moderation remain enforced.
