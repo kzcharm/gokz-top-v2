@@ -29,9 +29,13 @@ export function useOwnProfileRecordsRealtime({
   enabled,
   scope,
   steamid64,
+  identifier,
+  canonicalIdentifier,
 }: {
   enabled: boolean
   scope: AppScope
+  identifier: string
+  canonicalIdentifier: string | null
   steamid64: string | null
 }) {
   const queryClient = useQueryClient()
@@ -47,9 +51,18 @@ export function useOwnProfileRecordsRealtime({
     let shouldReconnect = true
 
     const invalidateProfileRecords = () => {
-      void queryClient.invalidateQueries({
-        queryKey: ["profile-records", steamid64],
-      })
+      for (const queryKey of [
+        ["profile-records", steamid64],
+        ["profile-player", identifier],
+        ["profile-stats", canonicalIdentifier],
+        ["profile-points-standing", canonicalIdentifier],
+        ["profile-pinned-records", steamid64],
+        ["profile-record-ranks"],
+        ["player-leaderboard"],
+        ["graphql", "players"],
+      ]) {
+        void queryClient.invalidateQueries({ queryKey })
+      }
       void queryClient.invalidateQueries({
         queryKey: ["profile-map-wrs", scope],
       })
@@ -57,7 +70,7 @@ export function useOwnProfileRecordsRealtime({
 
     const connect = () => {
       websocket = new WebSocket(
-        buildRecentRecordsWebSocketUrl(scope, steamid64),
+        buildRecentRecordsWebSocketUrl("OVR", steamid64),
       )
 
       websocket.onopen = () => {
@@ -105,5 +118,5 @@ export function useOwnProfileRecordsRealtime({
       }
       websocket?.close()
     }
-  }, [enabled, queryClient, scope, steamid64])
+  }, [canonicalIdentifier, enabled, identifier, queryClient, scope, steamid64])
 }

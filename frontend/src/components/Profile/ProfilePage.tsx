@@ -385,7 +385,9 @@ export function ProfilePage({
   }, [pinnedRecordCandidates, pinnedRecordRanksQuery.data])
   const isOwnProfile = currentUser?.steamid64 === playerSteamid64
   useOwnProfileRecordsRealtime({
-    enabled: activeTab === "records",
+    enabled: playerSteamid64 !== null,
+    identifier,
+    canonicalIdentifier,
     scope,
     steamid64: playerSteamid64,
   })

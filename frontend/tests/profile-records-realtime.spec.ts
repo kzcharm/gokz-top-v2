@@ -311,7 +311,8 @@ test("own runs page subscribes to player-filtered live records", async ({
     )
   })
   expect(scopeSocketState[0].closed).toBe(true)
-  expect(new URL(scopeSocketState[1].url).searchParams.get("scope")).toBe("SKZ")
+  // Player-wide metadata must also receive finishes outside the selected scope.
+  expect(new URL(scopeSocketState[1].url).searchParams.get("scope")).toBe("OVR")
 
   await page.goto("/maps")
   await expect
@@ -364,4 +365,61 @@ test("returning to runs refreshes cached PBs without another event", async ({
   includeLiveRecord = true
   await page.goBack()
   await expect(page.getByText("kz_live_arrival")).toBeVisible()
+})
+
+test("record events refresh profile identity and stats on the Home tab", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2026-10-24T00:00:00Z"))
+  let lastPlayed = "2026-10-23T18:00:00Z"
+  let identityReads = 0
+  let statsReads = 0
+  await installWebSocketMock(page)
+  await installProfileRoutes({
+    currentUserSteamid64: null,
+    page,
+    records: () => [initialRecord],
+  })
+  await page.route(`**/v1/players/${profileSteamid64}`, async (route) => {
+    identityReads++
+    await route.fulfill({ json: { ...player, last_played_at: lastPlayed } })
+  })
+  await page.route(
+    `**/v1/players/${profileSteamid64}/stats**`,
+    async (route) => {
+      statsReads++
+      await route.fulfill({
+        json: {
+          steamid64: profileSteamid64,
+          daily_activity: null,
+          playtime: { updated_at: lastPlayed, total_seconds: statsReads },
+        },
+      })
+    },
+  )
+  await page.goto(`/profile/${profileSteamid64}`)
+  await expect.poll(() => recentRecordSocketUrls(page)).toHaveLength(1)
+  await expect.poll(() => identityReads).toBeGreaterThan(0)
+  await expect.poll(() => statsReads).toBeGreaterThan(0)
+  // Wait for initial connection invalidations to finish before testing an event.
+  await page.waitForLoadState("networkidle")
+  const initialIdentityReads = identityReads
+  const initialStatsReads = statsReads
+  const lastPlayedRow = page
+    .getByText("Last Played", { exact: true })
+    .locator("..")
+  await expect(lastPlayedRow).toContainText("6 hours ago")
+  lastPlayed = "2026-10-23T23:59:00Z"
+  await page.evaluate((steamid64) => {
+    const state = window as typeof window & {
+      __dispatchRecordMessage: (payload: unknown) => void
+    }
+    state.__dispatchRecordMessage({
+      type: "record.upserted",
+      record: { player: { steamid64 } },
+    })
+  }, profileSteamid64)
+  await expect.poll(() => identityReads).toBeGreaterThan(initialIdentityReads)
+  await expect.poll(() => statsReads).toBeGreaterThan(initialStatsReads)
+  await expect(lastPlayedRow).toContainText("1 min ago")
 })
