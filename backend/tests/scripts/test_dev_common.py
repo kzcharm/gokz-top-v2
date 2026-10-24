@@ -107,5 +107,97 @@ class DevCommonTests(unittest.TestCase):
         self.assertNotIn("STOPPED:", result.stderr)
 
 
+MOCK_MIGRATIONS = r"""
+set -euo pipefail
+source "$ROOT_DIR/scripts/dev-common.sh"
+worker_running=yes
+ps() {
+  printf '%s\n' \
+    '101 1 /project/.venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main() --multiprocessing-fork' \
+    '102 50 /project/.venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main() --multiprocessing-fork' \
+    '103 1 /other/.venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main() --multiprocessing-fork' \
+    '104 1 /project/.venv/bin/python3 unrelated.py'
+}
+lsof() {
+  if [[ "$*" == *'-p 103 '* ]]; then
+    echo n/other/backend
+  else
+    echo "n$ROOT_DIR/backend"
+  fi
+}
+sleep() { :; }
+kill() {
+  if [[ "${1-}" == '-0' ]]; then
+    [[ "$worker_running" == yes ]]
+    return
+  fi
+  echo "SIGNAL:$*"
+  if [[ "$STUBBORN" != yes || "${1-}" == '-KILL' ]]; then
+    worker_running=no
+  fi
+}
+uv() {
+  case "$*" in
+    'run alembic current --check-heads') [[ "$UP_TO_DATE" == yes ]] ;;
+    'run alembic upgrade head') echo UPGRADED ;;
+    *) return 1 ;;
+  esac
+}
+check_backend_migrations
+echo STARTUP_COMPLETE
+"""
+
+
+class MigrationStartupTests(unittest.TestCase):
+    def run_migrations(
+        self, answers: str, *, stubborn: bool = False, up_to_date: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", "-c", MOCK_MIGRATIONS],
+            input=answers,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env={
+                **os.environ,
+                "ROOT_DIR": str(ROOT_DIR),
+                "STUBBORN": "yes" if stubborn else "no",
+                "UP_TO_DATE": "yes" if up_to_date else "no",
+            },
+        )
+
+    def test_stops_only_this_projects_orphan_before_upgrade(self) -> None:
+        result = self.run_migrations("y\ny\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("SIGNAL:101", result.stdout)
+        for pid in (102, 103, 104):
+            self.assertNotIn(f"SIGNAL:{pid}", result.stdout)
+        self.assertLess(
+            result.stdout.index("SIGNAL:101"), result.stdout.index("UPGRADED")
+        )
+
+    def test_force_stops_unresponsive_orphan(self) -> None:
+        result = self.run_migrations("y\ny\n", stubborn=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("SIGNAL:-KILL 101", result.stdout)
+        self.assertIn("UPGRADED", result.stdout)
+
+    def test_declining_or_eof_aborts_before_upgrade_or_startup(self) -> None:
+        for answers in ("n\n", "", "y\nn\n", "y\n"):
+            with self.subTest(answers=answers):
+                result = self.run_migrations(answers)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("SIGNAL:", result.stdout)
+                self.assertNotIn("UPGRADED", result.stdout)
+                self.assertNotIn("STARTUP_COMPLETE", result.stdout)
+
+    def test_current_database_needs_no_worker_cleanup(self) -> None:
+        result = self.run_migrations("", up_to_date=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("SIGNAL:", result.stdout)
+        self.assertNotIn("UPGRADED", result.stdout)
+        self.assertIn("STARTUP_COMPLETE", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

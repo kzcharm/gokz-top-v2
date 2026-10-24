@@ -377,6 +377,44 @@ run_backend_devserver() {
   exec uv run fastapi dev --port "$DEV_BACKEND_PORT" app/main.py
 }
 
+stop_orphaned_backend_workers() {
+  local pid="" parent_pid="" command="" process_cwd="" attempt=""
+
+  # An interrupted FastAPI reloader can leave a worker holding DB locks
+  # after its listening socket has closed. Port checks cannot find it.
+  if ! command -v lsof >/dev/null 2>&1; then
+    return 0
+  fi
+
+  while read -r pid parent_pid command <&3; do
+    [[ "$parent_pid" == "1" ]] || continue
+    [[ "$command" == *"/.venv/bin/python"* ]] || continue
+    [[ "$command" == *"from multiprocessing.spawn import spawn_main;"* ]] || continue
+    [[ "$command" == *"--multiprocessing-fork"* ]] || continue
+    process_cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' || true)"
+    [[ "$process_cwd" -ef "$ROOT_DIR/backend" ]] || continue
+
+    echo "Orphaned backend worker PID $pid may still hold database locks."
+    if ! confirm_action "Stop this orphaned worker before migrating (force if needed)?" yes; then
+      echo "Aborting migration while the orphaned backend worker is running."
+      return 1
+    fi
+    kill "$pid" 2>/dev/null || true
+    for attempt in {1..5}; do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -KILL "$pid" 2>/dev/null || true
+      sleep 1
+    fi
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "Error: backend worker PID $pid is still running; migration aborted."
+      return 1
+    fi
+  done 3< <(ps -axo pid=,ppid=,command=)
+}
+
 check_backend_migrations() {
   if (cd "$ROOT_DIR/backend" && uv run alembic current --check-heads >/dev/null 2>&1); then
     echo "Database migrations are up to date."
@@ -385,10 +423,11 @@ check_backend_migrations() {
 
   echo "New database migrations are available."
   if ! confirm_action "Upgrade the local database to the latest migration?" yes; then
-    echo "Skipping database migration upgrade."
-    return 0
+    echo "Aborting startup because the backend requires the latest database migrations."
+    return 1
   fi
 
+  stop_orphaned_backend_workers || return 1
   (cd "$ROOT_DIR/backend" && uv run alembic upgrade head)
 }
 
