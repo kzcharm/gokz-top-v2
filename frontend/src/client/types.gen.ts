@@ -1923,6 +1923,10 @@ export type RegionsPublic = {
     count: number;
 };
 
+export type ReplayDownloadUrl = {
+    url: string;
+};
+
 export type ServerCreate = {
     group_id?: (string | null);
     ip: string;
@@ -3680,6 +3684,12 @@ export type ReplaysReadJumpReplayData = {
 };
 
 export type ReplaysReadJumpReplayResponse = (unknown);
+
+export type ReplaysReadRunReplayUrlData = {
+    recordUuid: string;
+};
+
+export type ReplaysReadRunReplayUrlResponse = (ReplayDownloadUrl);
 
 export type ReplaysReadRunReplayData = {
     recordUuid: string;

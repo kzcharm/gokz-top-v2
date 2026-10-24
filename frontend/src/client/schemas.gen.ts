@@ -9531,6 +9531,18 @@ export const RegionsPublicSchema = {
     title: 'RegionsPublic'
 } as const;
 
+export const ReplayDownloadUrlSchema = {
+    properties: {
+        url: {
+            type: 'string',
+            title: 'Url'
+        }
+    },
+    type: 'object',
+    required: ['url'],
+    title: 'ReplayDownloadUrl'
+} as const;
+
 export const ServerCreateSchema = {
     properties: {
         group_id: {

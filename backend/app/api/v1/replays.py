@@ -2,8 +2,9 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse
+from pydantic import BaseModel
 
 from app import crud
 from app.api.deps import SessionDep
@@ -57,6 +58,30 @@ async def read_jump_replay(
     return _build_replay_file_response(
         path=replay_path,
         filename=f"{jumpstat.id}.replay",
+    )
+
+
+class ReplayDownloadUrl(BaseModel):
+    url: str
+
+
+@router.get("/{record_uuid}/url", response_model=ReplayDownloadUrl)
+async def read_run_replay_url(
+    session: SessionDep, request: Request, record_uuid: uuid.UUID
+) -> ReplayDownloadUrl:
+    """Resolve public storage directly to avoid CORS-tainted cross-origin redirects."""
+    record = await crud.get_record_by_uuid(session=session, record_uuid=record_uuid)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    replay = await session.get(RecordReplay, record.uuid)
+    if replay is None or not replay.available:
+        raise HTTPException(status_code=404, detail="Replay not found")
+    return ReplayDownloadUrl(
+        url=(
+            r2_storage.build_public_url(replay.key)
+            if replay.storage == "r2"
+            else str(request.url_for("read_run_replay", record_uuid=record.uuid))
+        )
     )
 
 
