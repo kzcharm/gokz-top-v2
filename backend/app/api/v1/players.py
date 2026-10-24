@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 
 from app import crud
@@ -47,6 +47,8 @@ from app.models import (
     PlayerProfileHistoryListQuery,
     PlayerProfileHistoryPublic,
     PlayerProfileViewsPublic,
+    PlayerPronunciation,
+    PlayerPronunciationPublic,
     PlayerPublic,
     PlayersBatchPublic,
     PlayersBatchRead,
@@ -61,10 +63,15 @@ from app.models import (
     UserRole,
 )
 from app.services.player_friends import read_player_friends_public
+from app.services.player_pronunciation import (
+    read_player_pronunciation as read_pronunciation,
+)
+from app.services.player_pronunciation import request_player_pronunciation
 from app.services.player_steam_profile import (
     is_player_steam_profile_sync_due,
     sync_player_steam_profile_if_due,
 )
+from app.services.pronunciation import is_configured
 
 router = APIRouter(prefix="/players", tags=["players"])
 CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
@@ -533,6 +540,36 @@ async def read_player_tournament_achievements(
         ],
         count=len(rows),
     )
+
+
+@router.get("/{identifier}/pronunciation", response_model=PlayerPronunciationPublic)
+async def read_player_pronunciation(
+    session: SessionDep, identifier: str
+) -> PlayerPronunciationPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Pronunciation is unavailable")
+    row = await session.get(PlayerPronunciation, player.steamid64)
+    return await read_pronunciation(session=session, player=player, row=row)
+
+
+@router.post(
+    "/{identifier}/pronunciation",
+    response_model=PlayerPronunciationPublic,
+    responses={202: {"model": PlayerPronunciationPublic}},
+)
+async def create_player_pronunciation(
+    session: SessionDep, identifier: str, response: Response
+) -> PlayerPronunciationPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Pronunciation is unavailable")
+    row = await request_player_pronunciation(session=session, player=player)
+    result = await read_pronunciation(session=session, player=player, row=row)
+    await session.commit()
+    if result.status in {"pending", "generating"}:
+        response.status_code = 202
+    return result
 
 
 @router.get("/{identifier:path}", response_model=PlayerDetailPublic)

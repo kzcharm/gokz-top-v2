@@ -38,6 +38,10 @@ from app.services.map_file_distribution_worker import (
     run_map_file_distribution_runner,
     stop_map_file_distribution_runner,
 )
+from app.services.map_pronunciation_worker import (
+    run_map_pronunciation_runner,
+    stop_map_pronunciation_runner,
+)
 from app.services.player_session_timeout import (
     run_player_session_timeout_runner_in_app,
     stop_player_session_timeout_runner,
@@ -94,6 +98,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     media_sync_task: asyncio.Task[None] | None = None
     jump_replay_cleanup_task: asyncio.Task[None] | None = None
     map_file_distribution_task: asyncio.Task[None] | None = None
+    map_pronunciation_task: asyncio.Task[None] | None = None
+    if settings.RUN_MAP_PRONUNCIATION_RUNNER_IN_APP:
+        map_pronunciation_task = asyncio.create_task(run_map_pronunciation_runner())
     if settings.RUN_SERVER_STATUS_COLLECTOR_IN_APP:
         collector_task = asyncio.create_task(run_server_query_collector_in_app())
     if settings.RUN_GLOBALAPI_SYNC_RUNNER_IN_APP:
@@ -132,6 +139,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await stop_media_sync_runner(media_sync_task)
         await stop_jump_replay_cleanup_runner(jump_replay_cleanup_task)
         await stop_map_file_distribution_runner(map_file_distribution_task)
+        await stop_map_pronunciation_runner(map_pronunciation_task)
 
 
 class VersionedOpenAPIFastAPI(FastAPI):

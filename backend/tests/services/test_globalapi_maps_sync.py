@@ -5,7 +5,7 @@ import pytest_asyncio
 from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import KZMode, Map, MapCourse, MapCourseTier, Player
+from app.models import KZMode, Map, MapCourse, MapCourseTier, MapPronunciation, Player
 from app.services.globalapi_maps_sync import (
     MAP_DATETIME_FALLBACK,
     _normalize_datetime,
@@ -104,6 +104,10 @@ async def test_sync_maps_from_globalapi_upserts_and_normalizes_datetime(
     assert result.created == 1
     assert result.updated == 1
     assert result.errors == 0
+    # Existing catalog entries stay lazy; newly imported maps are queued atomically.
+    assert await db.get(MapPronunciation, existing_id) is None
+    new_pronunciation = await db.get(MapPronunciation, created_id)
+    assert new_pronunciation is not None and new_pronunciation.status == "pending"
 
     refreshed_200 = await db.get(Map, existing_id)
     assert refreshed_200 is not None

@@ -3,7 +3,6 @@ import { Copy, Download, MapIcon, MessageSquarePlus } from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useState } from "react"
 import { toast } from "sonner"
-
 import { MapsService } from "@/client"
 import {
   DropdownMenu,
@@ -24,6 +23,7 @@ import {
 } from "@/lib/map-images"
 import { cn } from "@/lib/utils"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
+import { PronunciationMenuItems } from "./PronunciationControls"
 
 export { getMapImageUrl, getMapPreviewImageUrl, getWorkshopPreviewImageUrl }
 
@@ -175,6 +175,10 @@ export function MapNameContextMenu({
           onClick={stopMenuPropagation}
           onKeyDown={stopMenuPropagation}
         >
+          <PronunciationMenuItems
+            target={{ kind: "map", name: mapName, id: mapId }}
+            closeMenu={() => setMenuOpen(false)}
+          />
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
@@ -398,6 +402,10 @@ export function MapDisplay({
           onClick={stopMenuPropagation}
           onKeyDown={stopMenuPropagation}
         >
+          <PronunciationMenuItems
+            target={{ kind: "map", name: mapName, id: mapId }}
+            closeMenu={() => setMenuOpen(false)}
+          />
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()

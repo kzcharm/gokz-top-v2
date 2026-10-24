@@ -690,6 +690,14 @@ export type MapPbLeaderboardPublic = {
     current_user_steamid64?: (string | null);
 };
 
+export type MapPronunciationPublic = {
+    status: 'missing' | 'pending' | 'generating' | 'ready' | 'failed';
+    spoken_text: string;
+    audio_url?: (string | null);
+};
+
+export type status = 'missing' | 'pending' | 'generating' | 'ready' | 'failed';
+
 export type MapPublic = {
     id: number;
     name: string;
@@ -1268,6 +1276,12 @@ export type PlayerProfileViewsPublic = {
     profile_views?: number;
 };
 
+export type PlayerPronunciationPublic = {
+    status: 'missing' | 'pending' | 'generating' | 'ready' | 'failed';
+    spoken_text: string;
+    audio_url?: (string | null);
+};
+
 export type PlayerPublic = {
     name: string;
     alias?: (string | null);
@@ -1630,6 +1644,37 @@ export type ProductPublic = {
 export type ProductsPublic = {
     data: Array<ProductPublic>;
     count: number;
+};
+
+export type PronunciationAdminPublic = {
+    status: 'missing' | 'pending' | 'generating' | 'ready' | 'failed';
+    spoken_text: string;
+    audio_url?: (string | null);
+    source_text: string;
+    voice_id: string;
+    language_code?: (string | null);
+};
+
+export type PronunciationLanguage = {
+    code: string;
+    name: string;
+};
+
+export type PronunciationOptions = {
+    voices: Array<PronunciationVoice>;
+    languages: Array<PronunciationLanguage>;
+    default_voice_id: string;
+};
+
+export type PronunciationRegenerate = {
+    text: string;
+    voice_id: string;
+    language_code?: (string | null);
+};
+
+export type PronunciationVoice = {
+    id: string;
+    name: string;
 };
 
 export type QQBindingCodePublic = {
@@ -2910,6 +2955,18 @@ export type MapsTriggerMapFileSyncData = {
 
 export type MapsTriggerMapFileSyncResponse = (MapFileDistributionSyncResult);
 
+export type MapsReadMapPronunciationData = {
+    mapId: number;
+};
+
+export type MapsReadMapPronunciationResponse = (MapPronunciationPublic);
+
+export type MapsCreateMapPronunciationData = {
+    mapId: number;
+};
+
+export type MapsCreateMapPronunciationResponse = (MapPronunciationPublic);
+
 export type MeReadCurrentPlayerSettingsResponse = (PlayerSettingsPublic);
 
 export type MeUpdateCurrentPlayerSettingsData = {
@@ -3228,6 +3285,18 @@ export type PlayersReadPlayerTournamentAchievementsData = {
 
 export type PlayersReadPlayerTournamentAchievementsResponse = (TournamentAchievementsPublic);
 
+export type PlayersReadPlayerPronunciationData = {
+    identifier: string;
+};
+
+export type PlayersReadPlayerPronunciationResponse = (PlayerPronunciationPublic);
+
+export type PlayersCreatePlayerPronunciationData = {
+    identifier: string;
+};
+
+export type PlayersCreatePlayerPronunciationResponse = (PlayerPronunciationPublic);
+
 export type PlayersReadPlayerData = {
     identifier: string;
     refreshSteamProfile?: boolean;
@@ -3442,6 +3511,34 @@ export type ProductsReadGearLeaderboardData = {
 };
 
 export type ProductsReadGearLeaderboardResponse = (GearLeaderboardPublic);
+
+export type PronunciationsReadPronunciationOptionsResponse = (PronunciationOptions);
+
+export type PronunciationsReadAdminMapPronunciationData = {
+    mapId: number;
+};
+
+export type PronunciationsReadAdminMapPronunciationResponse = (PronunciationAdminPublic);
+
+export type PronunciationsRegenerateMapPronunciationData = {
+    mapId: number;
+    requestBody: PronunciationRegenerate;
+};
+
+export type PronunciationsRegenerateMapPronunciationResponse = (PronunciationAdminPublic);
+
+export type PronunciationsReadAdminPlayerPronunciationData = {
+    identifier: string;
+};
+
+export type PronunciationsReadAdminPlayerPronunciationResponse = (PronunciationAdminPublic);
+
+export type PronunciationsRegeneratePlayerPronunciationData = {
+    identifier: string;
+    requestBody: PronunciationRegenerate;
+};
+
+export type PronunciationsRegeneratePlayerPronunciationResponse = (PronunciationAdminPublic);
 
 export type ReactionsReadReactionEmojisResponse = (Array<ReactionEmojiPublic>);
 

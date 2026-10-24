@@ -170,6 +170,13 @@ class Settings(BaseSettings):
     YOUTUBE_CLIENT_ID: str | None = None
     YOUTUBE_CLIENT_SECRET: str | None = None
     YOUTUBE_API_KEY: str | None = None
+    ELEVENLABS_API_KEY: str | None = None
+    ELEVENLABS_VOICE_ID: str = "DODLEQrClDo8wCz460ld"
+    ELEVENLABS_MODEL_ID: str = "eleven_v4"
+    RUN_MAP_PRONUNCIATION_RUNNER_IN_APP: bool = True
+    MAP_PRONUNCIATION_POLL_SECONDS: int = 2
+    MAP_PRONUNCIATION_MAX_ATTEMPTS: int = 5
+
     R2_ACCOUNT_ID: str | None = None
     R2_ACCESS_KEY_ID: str | None = None
     R2_SECRET_ACCESS_KEY: str | None = None

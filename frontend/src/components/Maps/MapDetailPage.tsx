@@ -68,6 +68,7 @@ import {
 import { useMapReviewAdminActions } from "../Reviews/admin-actions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
+import { MapPronunciationButton } from "./MapPronunciationButton"
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapStatsSection } from "./MapStatsSection"
 import { MapTopTable } from "./MapTopTable"
@@ -368,6 +369,7 @@ function MapHero({
                 <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
                   {map.name}
                 </h1>
+                <MapPronunciationButton mapName={map.name} mapId={map.id} />
               </div>
             </div>
 

@@ -1077,5 +1077,82 @@ def main() -> None:
     app(prog_name="./kztop")
 
 
+pronunciations_app = typer.Typer(
+    help="Manage cached map pronunciations.", no_args_is_help=True
+)
+app.add_typer(pronunciations_app, name="map-pronunciations")
+
+
+@pronunciations_app.command("run-worker")
+def run_pronunciation_worker() -> None:
+    from app.services.map_pronunciation_worker import run_map_pronunciation_runner
+
+    _run_async(run_map_pronunciation_runner())
+
+
+@pronunciations_app.command("regenerate")
+def regenerate_pronunciation(map_id: int) -> None:
+    from app.core.db import async_session_maker
+    from app.models import Map
+    from app.services.map_pronunciation import request_pronunciation
+
+    async def regenerate() -> None:
+        async with async_session_maker() as session:
+            map_obj = await session.get(Map, map_id)
+            if map_obj is None:
+                raise typer.BadParameter("Map not found")
+            await request_pronunciation(session=session, map_obj=map_obj, force=True)
+            await session.commit()
+        console.print(f"Queued pronunciation for map {map_id}")
+
+    _run_async(regenerate())
+
+
+@pronunciations_app.command("resume")
+def resume_pronunciations() -> None:
+    from app.core.db import async_session_maker
+    from app.models import ScheduledTaskState
+    from app.services.map_pronunciation import TASK_NAME
+
+    async def resume() -> None:
+        async with async_session_maker() as session:
+            state = await session.get(ScheduledTaskState, TASK_NAME)
+            if state is not None:
+                state.last_error = None
+                session.add(state)
+                await session.commit()
+        console.print("Pronunciation generation resumed")
+
+    _run_async(resume())
+
+
+player_pronunciations_app = typer.Typer(
+    help="Manage cached player pronunciations.", no_args_is_help=True
+)
+app.add_typer(player_pronunciations_app, name="player-pronunciations")
+player_pronunciations_app.command("run-worker")(run_pronunciation_worker)
+player_pronunciations_app.command("resume")(resume_pronunciations)
+
+
+@player_pronunciations_app.command("regenerate")
+def regenerate_player_pronunciation(steamid64: int) -> None:
+    from app.core.db import async_session_maker
+    from app.models import Player
+    from app.services.player_pronunciation import request_player_pronunciation
+
+    async def regenerate() -> None:
+        async with async_session_maker() as session:
+            player = await session.get(Player, steamid64)
+            if player is None:
+                raise typer.BadParameter("Player not found")
+            await request_player_pronunciation(
+                session=session, player=player, force=True
+            )
+            await session.commit()
+        console.print(f"Queued pronunciation for player {steamid64}")
+
+    _run_async(regenerate())
+
+
 if __name__ == "__main__":
     main()

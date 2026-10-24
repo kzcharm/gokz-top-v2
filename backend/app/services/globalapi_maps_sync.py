@@ -14,6 +14,7 @@ from app.services.map_authors import (
     merge_author_fields,
     normalize_author_fields,
 )
+from app.services.map_pronunciation import request_pronunciation
 from app.services.steam_workshop import fetch_workshop_file_details
 
 GLOBALAPI_MAPS_LIMIT = 9999
@@ -373,6 +374,11 @@ async def sync_maps_from_globalapi(*, session: AsyncSession) -> MapSyncResult:
         difficulty_changed_map_ids=difficulty_changed_map_ids,
     )
 
+    # Queue only genuinely new maps, in the same transaction as their import.
+    for map_id in sorted(set(map_ids) - existing_ids):
+        map_obj = await session.get(Map, map_id)
+        if map_obj is not None:
+            await request_pronunciation(session=session, map_obj=map_obj)
     await session.commit()
     session.expire_all()
 

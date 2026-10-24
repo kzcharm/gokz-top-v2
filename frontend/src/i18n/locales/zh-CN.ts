@@ -1,4 +1,24 @@
 export const zhCN = {
+  pronunciationAdmin: {
+    open: "重新生成发音",
+    voice: "声音",
+    language: "语言",
+    text: "朗读文本",
+    auto: "自动识别",
+    defaults: "使用默认设置",
+    generate: "生成并播放",
+    loading: "正在加载发音设置…",
+    loadFailed: "无法加载发音设置，请重试。",
+    failed: "无法重新生成发音，请重试。",
+    retry: "重试",
+  },
+  mapPronunciation: {
+    play: "播放发音",
+    loading: "正在准备发音…",
+    failed: "无法播放发音，请稍后重试。",
+    playbackBlocked: "浏览器已暂停音频播放，请选择“播放”继续。",
+    retry: "播放",
+  },
   recordModeration: {
     previewTitle: "待删除记录",
     previewTotal: "{{records}} 条记录 · {{players}} 位玩家",

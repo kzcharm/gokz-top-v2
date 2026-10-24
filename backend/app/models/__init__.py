@@ -111,6 +111,7 @@ from .map_leaderboard import (
     MapLeaderboardsPublic,
 )
 from .map_lj_room import LJRoom, LJRoomSpot, MapLJRoom, MapLJRoomPayload
+from .map_pronunciation import MapPronunciation, MapPronunciationPublic
 from .map_review import (
     MapReview,
     MapReviewCommentInput,
@@ -250,6 +251,7 @@ from .player_profile_history import (
     PlayerProfileHistoryPublic,
 )
 from .player_profile_view import PlayerProfileView
+from .player_pronunciation import PlayerPronunciation, PlayerPronunciationPublic
 from .player_report import (
     MAX_PLAYER_REPORT_DESCRIPTION_LENGTH,
     PlayerReport,
@@ -516,6 +518,10 @@ from .video_platform_followers import (
 from .workshop_preview_url import WorkshopPreviewUrlCache
 
 __all__ = [
+    "PlayerPronunciation",
+    "PlayerPronunciationPublic",
+    "MapPronunciation",
+    "MapPronunciationPublic",
     "RecordUploadReceipt",
     "RecordUuidAlias",
     "RecordSourceClaim",

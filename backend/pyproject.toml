@@ -26,6 +26,7 @@ dependencies = [
     "rich>=14.0.0,<15.0.0",
     "python-a2s>=1.4.1",
     "py7zr>=0.22.0,<1.0.0",
+    "elevenlabs>=2.74.1",
 ]
 
 [project.scripts]

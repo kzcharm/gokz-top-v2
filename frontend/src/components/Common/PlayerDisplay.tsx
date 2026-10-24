@@ -68,13 +68,13 @@ import {
 } from "@/lib/user-roles"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
-
 import { ProfileHistoryDialog } from "../Profile/ProfileHistoryDialog"
 import { getProfileFriendsQueryOptions } from "../Profile/profile-utils"
 import {
   ReportPlayerDialog,
   type ReportRecordContext,
 } from "../Reports/ReportPlayerDialog"
+import { PronunciationMenuItems } from "./PronunciationControls"
 
 const AddBanDialog = lazy(async () => {
   const module = await import("../Bans/AddBanDialog")
@@ -297,6 +297,12 @@ export function PlayerContextMenuItems({
 
   return (
     <>
+      {hasProfileLink && steamid64Pattern.test(steamid64) ? (
+        <PronunciationMenuItems
+          target={{ kind: "player", identifier: steamid64, name: displayName }}
+          closeMenu={closeMenu}
+        />
+      ) : null}
       <DropdownMenuItem onSelect={handleGotoProfile}>
         <UserRound />
         Goto Profile

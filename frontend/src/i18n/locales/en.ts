@@ -1,4 +1,25 @@
 export const en = {
+  pronunciationAdmin: {
+    open: "Regenerate pronunciation",
+    voice: "Voice",
+    language: "Language",
+    text: "Text to speak",
+    auto: "Automatic",
+    defaults: "Use defaults",
+    generate: "Generate and play",
+    loading: "Loading pronunciation settings…",
+    loadFailed: "Could not load pronunciation settings. Please try again.",
+    failed: "Could not regenerate pronunciation. Please try again.",
+    retry: "Retry",
+  },
+  mapPronunciation: {
+    play: "Play pronunciation",
+    loading: "Preparing pronunciation…",
+    failed: "Could not play the pronunciation. Please try again later.",
+    playbackBlocked:
+      "Your browser paused audio playback. Select Play to listen.",
+    retry: "Play",
+  },
   recordModeration: {
     previewTitle: "Records to delete",
     previewTotal: "{{records}} runs · {{players}} players",

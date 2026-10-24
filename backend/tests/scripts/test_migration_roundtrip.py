@@ -41,8 +41,77 @@ def test_migrations_upgrade_downgrade_and_upgrade_again(
                     inspect(connection).get_table_names()
                 )
                 if revision == "head":
+                    assert "map_pronunciation" in inspect(connection).get_table_names()
+                    assert (
+                        "player_pronunciation" in inspect(connection).get_table_names()
+                    )
                     assert "recent_wr_events" in inspect(connection).get_table_names(
                         schema="cache"
+                    )
+            if revision == "head":
+                # Verify the new migration against populated caches, including
+                # custom text longer than the previous map schema supported.
+                from sqlmodel import Session
+
+                from app.models import (
+                    Map,
+                    MapPronunciation,
+                    Player,
+                    PlayerPronunciation,
+                )
+
+                with Session(engine) as session:
+                    session.add(
+                        Map(id=991799, name="kz_migration_final", validated=True)
+                    )
+                    session.add(
+                        Player(steamid64=76561198991700999, name="Migration player")
+                    )
+                    session.flush()
+                    session.add(
+                        MapPronunciation(
+                            map_id=991799,
+                            spoken_text="x" * 500,
+                            fingerprint="a" * 64,
+                            status="ready",
+                            text_override="x" * 500,
+                        )
+                    )
+                    session.add(
+                        PlayerPronunciation(
+                            steamid64=76561198991700999,
+                            spoken_text="Migration player",
+                            fingerprint="b" * 64,
+                        )
+                    )
+                    session.commit()
+                command.downgrade(config, "acb86101c8b1")
+                with engine.connect() as connection:
+                    assert (
+                        connection.execute(
+                            text(
+                                "SELECT length(spoken_text) FROM map_pronunciation WHERE map_id=991799"
+                            )
+                        ).scalar_one()
+                        == 255
+                    )
+                    assert (
+                        "player_pronunciation"
+                        not in inspect(connection).get_table_names()
+                    )
+                command.upgrade(config, "head")
+                with engine.begin() as connection:
+                    assert (
+                        connection.execute(
+                            text(
+                                "SELECT source_text FROM map_pronunciation WHERE map_id=991799"
+                            )
+                        ).scalar_one()
+                        is None
+                    )
+                    connection.execute(text("DELETE FROM map WHERE id=991799"))
+                    connection.execute(
+                        text("DELETE FROM player WHERE steamid64=76561198991700999")
                     )
             # The mode/scope enum cutover is deliberately irreversible.
             # Verify both supported rollback segments and its explicit guard.

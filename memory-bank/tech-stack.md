@@ -1,6 +1,6 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-09-26
+- Last Updated: 2026-10-24
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
@@ -267,3 +267,8 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - Direct record acceptance atomically advances player date bounds, rebuilds the submitting player’s applicable leaderboard totals/PB contributions, and invalidates non-daily activity aggregates (including historical cursors). Server receipt time marks record updates so delayed runs remain visible to incremental jobs. Player-filtered OVR events refresh profile metadata on every tab regardless of selected scope. Bounded `python -m app.record_player_metadata [--apply] --limit N --after STEAMID` repairs previously accepted native players without changing identity fields or emitting runs.
 
 - Replay downloads in the viewer resolve `/v1/replays/{record_uuid}/url` using catalog metadata, then fetch R2 directly without credentials. This avoids the opaque `Origin: null` caused by API-to-R2 redirects while preserving explicit bucket viewer origins; legacy binary links and disk downloads remain compatible.
+
+- Map name pronunciations use backend-only ElevenLabs Lauren (`DODLEQrClDo8wCz460ld`), Eleven v4, and immutable R2 MP3 clips. Persistent per-map jobs generate existing maps on first playback and queue newly imported maps atomically, with advisory-locked processing, bounded retries, and credential/credit pause recovery. Public GET/POST `/v1/maps/{map_id}/pronunciation` expose status and ready URLs; shared map menus and the map detail title provide single-stream playback. Spoken names omit known prefixes, underscores, and technical suffixes while preserving `final`/numbered final tokens. No catalog backfill or frontend provider credentials.
+
+
+- Player pronunciation uses the current stored alias/name with Unicode cleanup and on-demand generation only. Maps and players share one provider-locked worker, pause state, audio controller, and R2 storage pipeline. Public `/v1/players/{identifier}/pronunciation` never refreshes Steam. Admin/superuser pronunciation dialogs support voice, automatic/explicit language, and custom speech text; map admins are restricted to maps. Persistent per-target overrides survive normal playback and reset after a cleaned source-name change. `/v1/admin/pronunciations/options` reads cached backend-only provider choices; synthesis model selection remains operational configuration, not an editor control.

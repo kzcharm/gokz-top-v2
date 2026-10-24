@@ -3469,6 +3469,34 @@ export const MapPbLeaderboardPublicSchema = {
     title: 'MapPbLeaderboardPublic'
 } as const;
 
+export const MapPronunciationPublicSchema = {
+    properties: {
+        status: {
+            type: 'string',
+            enum: ['missing', 'pending', 'generating', 'ready', 'failed'],
+            title: 'Status'
+        },
+        spoken_text: {
+            type: 'string',
+            title: 'Spoken Text'
+        },
+        audio_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Audio Url'
+        }
+    },
+    type: 'object',
+    required: ['status', 'spoken_text'],
+    title: 'MapPronunciationPublic'
+} as const;
+
 export const MapPublicSchema = {
     properties: {
         id: {
@@ -6393,6 +6421,34 @@ export const PlayerProfileViewsPublicSchema = {
     title: 'PlayerProfileViewsPublic'
 } as const;
 
+export const PlayerPronunciationPublicSchema = {
+    properties: {
+        status: {
+            type: 'string',
+            enum: ['missing', 'pending', 'generating', 'ready', 'failed'],
+            title: 'Status'
+        },
+        spoken_text: {
+            type: 'string',
+            title: 'Spoken Text'
+        },
+        audio_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Audio Url'
+        }
+    },
+    type: 'object',
+    required: ['status', 'spoken_text'],
+    title: 'PlayerPronunciationPublic'
+} as const;
+
 export const PlayerPublicSchema = {
     properties: {
         name: {
@@ -8179,6 +8235,145 @@ export const ProductsPublicSchema = {
     type: 'object',
     required: ['data', 'count'],
     title: 'ProductsPublic'
+} as const;
+
+export const PronunciationAdminPublicSchema = {
+    properties: {
+        status: {
+            type: 'string',
+            enum: ['missing', 'pending', 'generating', 'ready', 'failed'],
+            title: 'Status'
+        },
+        spoken_text: {
+            type: 'string',
+            title: 'Spoken Text'
+        },
+        audio_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Audio Url'
+        },
+        source_text: {
+            type: 'string',
+            title: 'Source Text'
+        },
+        voice_id: {
+            type: 'string',
+            title: 'Voice Id'
+        },
+        language_code: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Language Code'
+        }
+    },
+    type: 'object',
+    required: ['status', 'spoken_text', 'source_text', 'voice_id'],
+    title: 'PronunciationAdminPublic'
+} as const;
+
+export const PronunciationLanguageSchema = {
+    properties: {
+        code: {
+            type: 'string',
+            title: 'Code'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['code', 'name'],
+    title: 'PronunciationLanguage'
+} as const;
+
+export const PronunciationOptionsSchema = {
+    properties: {
+        voices: {
+            items: {
+                '$ref': '#/components/schemas/PronunciationVoice'
+            },
+            type: 'array',
+            title: 'Voices'
+        },
+        languages: {
+            items: {
+                '$ref': '#/components/schemas/PronunciationLanguage'
+            },
+            type: 'array',
+            title: 'Languages'
+        },
+        default_voice_id: {
+            type: 'string',
+            title: 'Default Voice Id'
+        }
+    },
+    type: 'object',
+    required: ['voices', 'languages', 'default_voice_id'],
+    title: 'PronunciationOptions'
+} as const;
+
+export const PronunciationRegenerateSchema = {
+    properties: {
+        text: {
+            type: 'string',
+            maxLength: 500,
+            minLength: 1,
+            title: 'Text'
+        },
+        voice_id: {
+            type: 'string',
+            maxLength: 100,
+            minLength: 1,
+            title: 'Voice Id'
+        },
+        language_code: {
+            anyOf: [
+                {
+                    type: 'string',
+                    maxLength: 10,
+                    minLength: 2
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Language Code'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['text', 'voice_id'],
+    title: 'PronunciationRegenerate'
+} as const;
+
+export const PronunciationVoiceSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    type: 'object',
+    required: ['id', 'name'],
+    title: 'PronunciationVoice'
 } as const;
 
 export const QQBindingCodePublicSchema = {

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Response
 from fastapi.responses import RedirectResponse
 
 from app import crud
@@ -21,6 +21,8 @@ from app.models import (
     MapLJRoom,
     MapLJRoomPayload,
     MapPbLeaderboardPublic,
+    MapPronunciation,
+    MapPronunciationPublic,
     MapPublic,
     MapReviewListQuery,
     MapReviewPublic,
@@ -44,6 +46,11 @@ from app.services.globalapi_maps_sync import (
 from app.services.map_file_distribution import (
     MapFileDistributionError,
     sync_map_files,
+)
+from app.services.map_pronunciation import (
+    is_configured,
+    read_public_pronunciation,
+    request_pronunciation,
 )
 from app.services.qq_binding import verify_qq_bot_api_key
 from app.services.steam_workshop import get_cached_workshop_preview_url
@@ -536,4 +543,38 @@ async def trigger_map_file_sync(
             status_code=403,
             detail="Map file distribution is enabled only in production",
         )
+    return result
+
+
+@router.get("/{map_id}/pronunciation", response_model=MapPronunciationPublic)
+async def read_map_pronunciation(
+    session: SessionDep, map_id: int
+) -> MapPronunciationPublic:
+    map_obj = await crud.get_map_by_id(session=session, id=map_id)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Map pronunciation is unavailable")
+    row = await session.get(MapPronunciation, map_id)
+    return await read_public_pronunciation(session=session, map_obj=map_obj, row=row)
+
+
+@router.post(
+    "/{map_id}/pronunciation",
+    response_model=MapPronunciationPublic,
+    responses={202: {"model": MapPronunciationPublic}},
+)
+async def create_map_pronunciation(
+    session: SessionDep, map_id: int, response: Response
+) -> MapPronunciationPublic:
+    map_obj = await crud.get_map_by_id(session=session, id=map_id)
+    if map_obj is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Map pronunciation is unavailable")
+    row = await request_pronunciation(session=session, map_obj=map_obj)
+    result = await read_public_pronunciation(session=session, map_obj=map_obj, row=row)
+    await session.commit()
+    if result.status in {"pending", "generating"}:
+        response.status_code = 202
     return result

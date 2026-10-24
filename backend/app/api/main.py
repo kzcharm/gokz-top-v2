@@ -6,6 +6,7 @@ from app.api.v1 import (
     admin_player_sessions,
     admin_player_social_links,
     admin_polls,
+    admin_pronunciations,
     admin_server_discovery,
     admin_servers,
     admin_settings,
@@ -53,6 +54,7 @@ from app.api.v1 import (
 from app.core.config import settings
 
 api_router = APIRouter()
+api_router.include_router(admin_pronunciations.router)
 api_router.include_router(products.router)
 api_router.include_router(app_settings.router)
 api_router.include_router(login.router)
