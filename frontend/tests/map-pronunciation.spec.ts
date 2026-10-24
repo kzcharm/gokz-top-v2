@@ -408,25 +408,26 @@ test("a superseded generation request never plays its audio", async ({
 test("player profile pronunciation is public and lazy", async ({ page }) => {
   const requests = await setup(page)
   await page.goto(`/profile/${player.steamid64}`)
-  const button = page.getByRole("button", {
-    name: "Play pronunciation",
-    exact: true,
-  })
-  await expect(button).toBeVisible()
-  expect(requests).toEqual([])
+  await expect(page.getByTestId("profile-identity-surface")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Play pronunciation", exact: true }),
+  ).toHaveCount(0)
   await expect(
     page.getByRole("button", { name: "Regenerate pronunciation", exact: true }),
   ).toHaveCount(0)
-  await button.click()
+  expect(requests).toEqual([])
+  await page.getByTestId("profile-identity-surface").click({ button: "right" })
+  const items = await page.getByRole("menuitem").allTextContents()
+  expect(items.indexOf("Play pronunciation")).toBe(
+    items.indexOf("Copy Name") + 1,
+  )
+  await page
+    .getByRole("menuitem", { name: "Play pronunciation", exact: true })
+    .click()
   await expect.poll(async () => (await audioCalls(page)).length).toBe(1)
   expect(requests).toEqual([
     `POST:/v1/players/${player.steamid64}/pronunciation`,
   ])
-  await page.getByTestId("profile-identity-surface").click({ button: "right" })
-  await page
-    .getByRole("menuitem", { name: "Play pronunciation", exact: true })
-    .click()
-  await expect.poll(async () => (await audioCalls(page)).length).toBe(3)
 })
 
 for (const kind of ["map", "player"] as const) {
@@ -439,9 +440,34 @@ for (const kind of ["map", "player"] as const) {
         ? `/maps/${maps[0].name}/maptop`
         : `/profile/${player.steamid64}`,
     )
-    await page
-      .getByRole("button", { name: "Regenerate pronunciation", exact: true })
-      .click()
+    const openRegeneration = async () => {
+      if (kind === "player") {
+        await page
+          .getByTestId("profile-identity-surface")
+          .click({ button: "right" })
+        const items = await page.getByRole("menuitem").allTextContents()
+        expect(items.indexOf("Play pronunciation")).toBe(
+          items.indexOf("Copy Name") + 1,
+        )
+        expect(items.indexOf("Regenerate pronunciation")).toBe(
+          items.indexOf("Play pronunciation") + 1,
+        )
+        await page
+          .getByRole("menuitem", {
+            name: "Regenerate pronunciation",
+            exact: true,
+          })
+          .click()
+      } else {
+        await page
+          .getByRole("button", {
+            name: "Regenerate pronunciation",
+            exact: true,
+          })
+          .click()
+      }
+    }
+    await openRegeneration()
     const dialog = page.getByRole("dialog", {
       name: "Regenerate pronunciation",
     })
@@ -482,9 +508,7 @@ for (const kind of ["map", "player"] as const) {
         : `/v1/admin/players/${player.steamid64}`
     expect(requests).toContain(`POST:${prefix}/pronunciation/regenerate`)
     // Reopening loads the saved correction; default controls restore the source.
-    await page
-      .getByRole("button", { name: "Regenerate pronunciation", exact: true })
-      .click()
+    await openRegeneration()
     await expect(dialog.getByLabel("Text to speak")).toHaveValue("Ah lou ette")
     await dialog.getByRole("button", { name: "Use defaults" }).click()
     await expect(dialog.getByLabel("Text to speak")).toHaveValue(
@@ -524,7 +548,7 @@ test("map admins cannot regenerate player names", async ({ page }) => {
   await page.goto(`/profile/${player.steamid64}`)
   await expect(
     page.getByRole("button", { name: "Play pronunciation", exact: true }),
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
     page.getByRole("button", { name: "Regenerate pronunciation", exact: true }),
   ).toHaveCount(0)
@@ -553,8 +577,9 @@ test("player playback stops map playback", async ({ page }) => {
     window.dispatchEvent(new PopStateEvent("popstate"))
   })
   await expect(page.getByTestId("profile-identity-surface")).toBeVisible()
+  await page.getByTestId("profile-identity-surface").click({ button: "right" })
   await page
-    .getByRole("button", { name: "Play pronunciation", exact: true })
+    .getByRole("menuitem", { name: "Play pronunciation", exact: true })
     .click()
   await expect.poll(async () => (await audioCalls(page)).length).toBe(3)
   expect(await audioCalls(page)).toEqual([

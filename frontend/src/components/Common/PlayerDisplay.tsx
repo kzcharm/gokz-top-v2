@@ -297,12 +297,6 @@ export function PlayerContextMenuItems({
 
   return (
     <>
-      {hasProfileLink && steamid64Pattern.test(steamid64) ? (
-        <PronunciationMenuItems
-          target={{ kind: "player", identifier: steamid64, name: displayName }}
-          closeMenu={closeMenu}
-        />
-      ) : null}
       <DropdownMenuItem onSelect={handleGotoProfile}>
         <UserRound />
         Goto Profile
@@ -319,6 +313,12 @@ export function PlayerContextMenuItems({
         <IdCard />
         Copy Name
       </DropdownMenuItem>
+      {hasProfileLink && steamid64Pattern.test(steamid64) ? (
+        <PronunciationMenuItems
+          target={{ kind: "player", identifier: steamid64, name: displayName }}
+          closeMenu={closeMenu}
+        />
+      ) : null}
       {canCompare ? (
         <DropdownMenuItem onSelect={handleCompare}>
           <GitCompareArrows />

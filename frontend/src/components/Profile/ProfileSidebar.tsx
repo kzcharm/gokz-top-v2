@@ -36,7 +36,6 @@ import {
   PlayerDisplay,
   PlayerFollowContextMenuItem,
 } from "@/components/Common/PlayerDisplay"
-import { PronunciationButton } from "@/components/Common/PronunciationControls"
 import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -427,15 +426,6 @@ function ProfileIdentityCard({
                         {primaryName}
                       </h1>
                     )}
-                    {hasProfileLink ? (
-                      <PronunciationButton
-                        target={{
-                          kind: "player",
-                          identifier: player.steamid64,
-                          name: primaryName,
-                        }}
-                      />
-                    ) : null}
                   </div>
                   {secondaryName ? (
                     <p className="text-sm text-muted-foreground">
