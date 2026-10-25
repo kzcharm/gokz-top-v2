@@ -7,13 +7,17 @@ from app.models import (
     KZMode,
     Map,
     MapCourse,
-    MapCourseTier,
     Mode,
     Server,
     ServerGroup,
     ServerGroupStatus,
     ServerStatus,
     ServerStatusPut,
+)
+from app.services.record_replay_policy import effective_record_filter_mode
+from app.services.record_submission_policy import (
+    available_record_filter_modes,
+    mode_version_supported,
 )
 
 
@@ -46,24 +50,17 @@ async def build_records_status(
         for mode in (await session.exec(select(Mode))).all()
     }
     filter_modes = (
-        set(
-            (
-                await session.exec(
-                    select(MapCourseTier.mode).where(
-                        MapCourseTier.course_id == course.id
-                    )
-                )
-            ).all()
-        )
-        if course
+        await available_record_filter_modes(session, map_id=map_obj.id, stage=0)
+        if map_obj and course
         else set()
     )
     modes = {
         mode.value: bool(
-            mode in configured_modes
-            and evidence.mode_versions.get(mode.value, 0) > 0
-            and configured_modes[mode] == evidence.mode_versions.get(mode.value)
-            and (KZMode.KZT if mode == KZMode.NKZ else mode) in filter_modes
+            mode_version_supported(
+                submitted=evidence.mode_versions.get(mode.value, 0),
+                minimum=configured_modes.get(mode),
+            )
+            and effective_record_filter_mode(mode) in filter_modes
         )
         for mode in KZMode
     }

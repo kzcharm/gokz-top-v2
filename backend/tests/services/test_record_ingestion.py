@@ -18,6 +18,7 @@ from app.models import (
     PlayerStatCache,
     PlayerStatType,
     Record,
+    RecordFilter,
     RecordPb,
     ServerGroupStatus,
     generate_uuid7,
@@ -41,6 +42,16 @@ async def setup_finish(db: AsyncSession, mode: KZMode = KZMode.NKZ):
     db.add(
         MapCourseTier(
             course_id=course.id, mode=KZMode.KZT if mode == KZMode.NKZ else mode, tier=1
+        )
+    )
+    db.add(
+        RecordFilter(
+            id=982345,
+            map_id=map_obj.id,
+            stage=0,
+            mode=KZMode.KZT if mode == KZMode.NKZ else mode,
+            tickrate=128,
+            has_teleports=True,
         )
     )
     await db.flush()
@@ -622,7 +633,7 @@ async def test_direct_server_status_is_independent_of_globalapi(
         plugins_valid=True,
         settings_enforcer_valid=not bad_settings,
         bsp_size=run.bsp_size,
-        mode_versions={"NKZ": run.mode_version + int(bad_version)},
+        mode_versions={"NKZ": run.mode_version - int(bad_version)},
     )
     payload = ServerStatusPut(
         ip=server.ip,
@@ -736,6 +747,16 @@ async def test_direct_finish_updates_eligible_player_totals(db: AsyncSession):
             db.add(course)
             await db.flush()
             db.add(MapCourseTier(course_id=course.id, mode=KZMode.KZT, tier=1))
+            db.add(
+                RecordFilter(
+                    id=map_obj.id,
+                    map_id=map_obj.id,
+                    stage=0,
+                    mode=KZMode.KZT,
+                    tickrate=128,
+                    has_teleports=True,
+                )
+            )
             await db.flush()
             payload = payload.model_copy(
                 update={"map_name": map_obj.name, "record_uuid": generate_uuid7()}

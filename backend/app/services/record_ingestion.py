@@ -18,7 +18,6 @@ from app.crud.record import notify_recent_record_updated, upsert_record
 from app.models import (
     Map,
     MapCourse,
-    MapCourseTier,
     Mode,
     ModeScope,
     Player,
@@ -40,6 +39,10 @@ from app.services.record_replay_policy import (
     ReplayBucketResult,
     effective_record_filter_mode,
     qualifies_for_run_replay,
+)
+from app.services.record_submission_policy import (
+    available_record_filter_modes,
+    mode_version_supported,
 )
 
 
@@ -93,10 +96,16 @@ async def check_record(
         else None
     )
     effective_mode = effective_record_filter_mode(payload.mode)
-    tier = (
-        await session.get(MapCourseTier, (course.id, effective_mode))
-        if course
-        else None
+    filter_modes = (
+        await available_record_filter_modes(
+            session,
+            map_id=map_obj.id,
+            stage=payload.stage,
+            tickrate=payload.tickrate,
+            teleports=payload.teleports if isinstance(payload, RecordFinish) else None,
+        )
+        if map_obj and course
+        else set()
     )
     ban = await get_newest_active_ban_for_player(
         session=session, steamid64=payload.steamid64
@@ -109,8 +118,11 @@ async def check_record(
             map_obj and map_obj.validated and map_obj.filesize == payload.bsp_size
         ),
         "course": course is not None,
-        "filter": tier is not None,
-        "mode": bool(mode and mode.latest_version == payload.mode_version),
+        "filter": effective_mode in filter_modes,
+        "mode": mode_version_supported(
+            submitted=payload.mode_version,
+            minimum=mode.latest_version if mode else None,
+        ),
         "player": ban is None,
         "integrity": payload.integrity.valid,
     }
