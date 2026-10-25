@@ -1085,3 +1085,28 @@ for (const roles of [[], ["admin"], ["superuser"]]) {
     }
   })
 }
+
+for (const width of [375, 1280]) {
+  test(`profile summary shows full view counts at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 })
+    await installProfileHomeRoutes(page)
+    await page.route(/\/v1\/players\/[^/]+\/views$/, (route) =>
+      route.fulfill({ json: { profile_views: 1234567 } }),
+    )
+    await page.goto(`/profile/${steamid64}`)
+    const card = page.getByTestId("profile-profile-views-card")
+    await expect(card).toContainText("1,234,567")
+    await expect(page.getByTestId("profile-followers-card")).toHaveCount(0)
+    const value = card.locator("div.tabular-nums")
+    await expect(value).toHaveCSS("text-overflow", "clip")
+    expect(await value.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+      true,
+    )
+    await card.scrollIntoViewIfNeeded()
+    await card
+      .locator("..")
+      .screenshot({ path: testInfo.outputPath(`profile-counts-${width}.png`) })
+  })
+}

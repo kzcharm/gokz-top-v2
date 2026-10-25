@@ -54,16 +54,6 @@ function buildPlayer({
   }
 }
 
-async function stubLoginRedirect(page: Page) {
-  await page.route(/\/v1\/login\/steam$/, async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/html",
-      body: "<!doctype html><title>Steam Login</title><body>Steam Login</body>",
-    })
-  })
-}
-
 async function stubSidebarServerAccess(page: Page) {
   await page.route(/\/v1\/admin\/servers\/access$/, async (route: Route) => {
     await route.fulfill({
@@ -289,7 +279,7 @@ test("Logged-out profile shows the shared player context menu without follow", a
   await expect(page.getByTestId("profile-identity-surface")).toContainText(
     "Target Alias",
   )
-  await expect(page.getByTestId("profile-followers-card")).toContainText("12")
+  await expect(page.getByTestId("profile-followers-card")).toHaveCount(0)
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
   await expect(page.getByTestId("profile-identity-context-menu")).toBeVisible()
   await expect(
@@ -642,7 +632,7 @@ test("Logged-in user can follow another player and sees state update", async ({
   await page.goto(`/profile/${targetSteamid64}`)
   await followSummaryResponsePromise
 
-  await expect(page.getByTestId("profile-followers-card")).toContainText("2")
+  await expect(page.getByTestId("profile-followers-card")).toHaveCount(0)
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
 
   const followMenuItem = page.getByTestId("profile-follow-menu-item")
@@ -720,7 +710,7 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
   await page.goto(`/profile/${targetSteamid64}`)
   await followSummaryResponsePromise
 
-  await expect(page.getByTestId("profile-followers-card")).toContainText("5")
+  await expect(page.getByTestId("profile-followers-card")).toHaveCount(0)
   await page.getByTestId("profile-identity-surface").click({ button: "right" })
 
   const followMenuItem = page.getByTestId("profile-follow-menu-item")
@@ -740,60 +730,6 @@ test("Logged-in user can unfollow and sees state update", async ({ page }) => {
   await followMenuItem.click()
 
   await expect.poll(() => unfollowRequests).toBe(1)
-})
-
-test("Logged-in user toggles follow from another profile summary card", async ({
-  page,
-}) => {
-  const summary: FollowSummary = {
-    follower_count: 2,
-    following_count: 7,
-    viewer_is_following: false,
-    viewer_is_self: false,
-  }
-  const currentUser = buildPlayer({
-    steamid64: currentUserSteamid64,
-    name: "Viewer Runner",
-    alias: "Viewer Alias",
-  })
-
-  await page.addInitScript((token) => {
-    localStorage.setItem("access_token", token)
-  }, createAccessToken(currentUserSteamid64))
-  await stubSidebarServerAccess(page)
-  await installProfileRoutes({
-    page,
-    currentUser,
-    summary,
-  })
-
-  let followRequests = 0
-  await page.route(
-    /\/v1\/player-follows\/players\/[^/]+$/,
-    async (route: Route) => {
-      if (route.request().method() === "PUT") {
-        followRequests += 1
-        Object.assign(summary, {
-          ...summary,
-          follower_count: summary.follower_count + 1,
-          viewer_is_following: true,
-        })
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(summary),
-      })
-    },
-  )
-
-  await page.goto(`/profile/${targetSteamid64}`)
-  await expect(page.getByTestId("profile-followers-card")).toContainText("2")
-  await page.getByTestId("profile-followers-card").click()
-
-  await expect.poll(() => followRequests).toBe(1)
-  await expect(page.getByTestId("profile-followers-card")).toContainText("3")
 })
 
 test("Own profile keeps the shared player context menu without follow", async ({
@@ -954,10 +890,7 @@ test("Logged-in user can browse social lists and navigate to another profile", a
   await expect(page.getByText("Following Alias", { exact: true })).toBeVisible()
 })
 
-test("Logged-out user clicking follower lists is sent to log in", async ({
-  page,
-}) => {
-  await stubLoginRedirect(page)
+test("Profile summary omits the follow button for guests", async ({ page }) => {
   await installProfileRoutes({
     page,
     summary: {
@@ -967,9 +900,7 @@ test("Logged-out user clicking follower lists is sent to log in", async ({
       viewer_is_self: false,
     },
   })
-
   await page.goto(`/profile/${targetSteamid64}`)
-
-  await page.getByTestId("profile-followers-card").click()
-  await expect(page).toHaveURL(/\/v1\/login\/steam$/)
+  await expect(page.getByTestId("profile-profile-views-card")).toBeVisible()
+  await expect(page.getByTestId("profile-followers-card")).toHaveCount(0)
 })

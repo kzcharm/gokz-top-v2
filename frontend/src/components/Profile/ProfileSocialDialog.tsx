@@ -98,7 +98,7 @@ function SocialList({
             data-testid={`profile-social-row-${player.steamid64}`}
           >
             <div className="min-w-0">
-              <PlayerDisplay player={player} showSteamid />
+              <PlayerDisplay player={player} />
             </div>
             {showLikeTimestamps &&
             isProfileLiker(player) &&

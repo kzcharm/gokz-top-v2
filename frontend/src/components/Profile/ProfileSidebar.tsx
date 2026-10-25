@@ -1,15 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import {
-  Copy,
-  Eye,
-  Heart,
-  Search,
-  UserCheck,
-  UserPlus,
-  UserRoundCheck,
-  X,
-} from "lucide-react"
+import { Copy, Eye, Heart, Search, X } from "lucide-react"
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -21,12 +12,7 @@ import {
 } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import {
-  type PlayerFollowSummaryPublic,
-  PlayerFollowsService,
-  PlayerSocialLinksService,
-  PlayersService,
-} from "@/client"
+import { PlayerSocialLinksService, PlayersService } from "@/client"
 import { AddBanDialog } from "@/components/Bans/AddBanDialog"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -824,9 +810,9 @@ function SummaryMiniCard({
     <Comp
       aria-label={label}
       className={cn(
-        "min-w-0 rounded-[16px] border border-border/70 bg-background/65 px-3 py-2.5 text-left transition-colors",
+        "w-fit max-w-full rounded-md px-1 py-1 text-left transition-colors",
         onClick
-          ? "cursor-pointer hover:bg-background/90 focus-visible:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-default disabled:hover:bg-background/65 disabled:opacity-70"
+          ? "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-default disabled:hover:bg-transparent disabled:opacity-70"
           : "",
       )}
       data-testid={dataTestId}
@@ -835,24 +821,26 @@ function SummaryMiniCard({
       type={onClick ? "button" : undefined}
     >
       {icon ? (
-        <div className="flex items-center gap-2.5">
-          <span
-            className={cn(
-              "inline-flex shrink-0 items-center justify-center text-muted-foreground",
-              iconClassName,
-            )}
-          >
-            {icon}
-          </span>
-          <p
-            className={cn(
-              "min-w-0 text-xs text-muted-foreground",
-              labelHidden && "sr-only",
-            )}
-          >
-            {label}
-          </p>
-          <div className="ml-auto min-h-7 min-w-0 flex-1 truncate text-right text-lg font-semibold tracking-tight">
+        <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center justify-center text-muted-foreground",
+                iconClassName,
+              )}
+            >
+              {icon}
+            </span>
+            <p
+              className={cn(
+                "min-w-0 text-xs text-muted-foreground",
+                labelHidden && "sr-only",
+              )}
+            >
+              {label}
+            </p>
+          </div>
+          <div className="min-w-0 whitespace-nowrap leading-6 text-right text-sm font-semibold tabular-nums tracking-tight sm:text-base">
             {value}
           </div>
         </div>
@@ -903,7 +891,6 @@ export function ProfileSidebar({
   const authenticated = isLoggedIn()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const queryClient = useQueryClient()
   const [visitorsOpen, setVisitorsOpen] = useState(false)
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
@@ -946,64 +933,10 @@ export function ProfileSidebar({
     viewerSteamid64 === player.steamid64 ||
     user?.steamid64 === player.steamid64 ||
     followSummary?.viewer_is_self === true
-  const isFollowing = followSummary?.viewer_is_following === true
   const ljPbDistance = ljPbQuery.data?.data?.[0]?.distance ?? null
   const favoriteServer = player.favorite_server
   const searchResults: GraphqlPlayer[] = playerSearchQueryResult.data ?? []
   const showSearchResults = isSearchFocused && playerSearchQuery.length > 0
-  const followMutation = useMutation({
-    mutationFn: async () => {
-      return isFollowing
-        ? await PlayerFollowsService.unfollowPlayer({
-            identifier: player.steamid64,
-          })
-        : await PlayerFollowsService.followPlayer({
-            identifier: player.steamid64,
-          })
-    },
-    onMutate: () => {
-      const queryKeys = [
-        ["profile-follow-summary", player.steamid64],
-        ["profile-follow-summary", identifier],
-      ] as const
-
-      for (const queryKey of queryKeys) {
-        queryClient.setQueryData<PlayerFollowSummaryPublic>(
-          queryKey,
-          (previous) => {
-            if (!previous) {
-              return previous
-            }
-
-            return {
-              ...previous,
-              follower_count: Math.max(
-                0,
-                (previous.follower_count ?? 0) + (isFollowing ? -1 : 1),
-              ),
-              viewer_is_following: !isFollowing,
-            }
-          },
-        )
-      }
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["profile-follow-summary", player.steamid64],
-        data,
-      )
-      queryClient.setQueryData(["profile-follow-summary", identifier], data)
-      void queryClient.invalidateQueries({
-        queryKey: ["profile-follow-summary"],
-      })
-      void queryClient.invalidateQueries({
-        queryKey: ["profile-social"],
-      })
-    },
-    onError: () => {
-      toast.error(t("profile.follow.updateFailed"))
-    },
-  })
 
   useEffect(() => {
     return () => {
@@ -1042,24 +975,6 @@ export function ProfileSidebar({
     onLike()
   }
 
-  const handleFollowClick = () => {
-    if (isOwnProfile) {
-      handleOpenSocial("followers")
-      return
-    }
-
-    if (!authenticated) {
-      void navigate({ to: "/login" })
-      return
-    }
-
-    if (followSummaryQuery.isLoading || followMutation.isPending) {
-      return
-    }
-
-    followMutation.mutate()
-  }
-
   const handleSelectPlayer = (nextPlayer: GraphqlPlayer) => {
     setSearchInput(getPlayerDisplayName(nextPlayer))
     setIsSearchFocused(false)
@@ -1084,7 +999,7 @@ export function ProfileSidebar({
         />
 
         <Card className="h-full min-w-0 gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-          <CardContent className="space-y-4 p-6">
+          <CardContent className="p-6 pb-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -1172,7 +1087,7 @@ export function ProfileSidebar({
               ) : null}
             </div>
 
-            <div className="space-y-0.5">
+            <div className="mt-4 space-y-0.5">
               <DetailRow
                 label={t("profile.summary.steamId64")}
                 value={<SteamIdContextValue steamid64={player.steamid64} />}
@@ -1241,7 +1156,7 @@ export function ProfileSidebar({
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
               <SummaryMiniCard
                 dataTestId="profile-profile-views-card"
                 onClick={
@@ -1260,6 +1175,7 @@ export function ProfileSidebar({
                   )
                 }
               />
+              <span aria-hidden="true" className="h-4 w-px bg-border/70" />
               <SummaryMiniCard
                 dataTestId="profile-player-likes-card"
                 disabled={likeMutationPending}
@@ -1277,31 +1193,6 @@ export function ProfileSidebar({
                     formatNumber(playerLikes)
                   )
                 }
-              />
-              <SummaryMiniCard
-                disabled={
-                  followSummaryQuery.isLoading || followMutation.isPending
-                }
-                icon={
-                  isOwnProfile ? (
-                    <UserRoundCheck className="size-3.5" />
-                  ) : isFollowing ? (
-                    <UserCheck className="size-3.5" />
-                  ) : (
-                    <UserPlus className="size-3.5" />
-                  )
-                }
-                labelHidden
-                label={
-                  isOwnProfile
-                    ? t("profile.summary.followers")
-                    : isFollowing
-                      ? t("profile.follow.unfollow")
-                      : t("profile.follow.follow")
-                }
-                dataTestId="profile-followers-card"
-                onClick={handleFollowClick}
-                value={formatNumber(followerCount)}
               />
             </div>
           </CardContent>
