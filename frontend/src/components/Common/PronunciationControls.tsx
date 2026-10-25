@@ -10,7 +10,6 @@ import {
   type PronunciationTarget,
   usePronunciation,
 } from "@/hooks/usePronunciation"
-import { PronunciationAdminDialog } from "./PronunciationAdminDialog"
 
 export function PronunciationButton({
   target,
@@ -23,31 +22,28 @@ export function PronunciationButton({
     loading ? "mapPronunciation.loading" : "mapPronunciation.play",
   )
   return (
-    <>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className="shrink-0 rounded-full"
-        aria-label={label}
-        title={label}
-        aria-busy={loading}
-        aria-pressed={playing}
-        disabled={loading}
-        onClick={play}
-      >
-        {loading ? (
-          <LoaderCircle
-            className="animate-spin"
-            data-icon="inline-start"
-            aria-hidden="true"
-          />
-        ) : (
-          <Volume2 data-icon="inline-start" aria-hidden="true" />
-        )}
-      </Button>
-      <PronunciationAdminDialog target={target} />
-    </>
+    <Button
+      type="button"
+      size="icon"
+      variant="ghost"
+      className="shrink-0 rounded-full"
+      aria-label={label}
+      title={label}
+      aria-busy={loading}
+      aria-pressed={playing}
+      disabled={loading}
+      onClick={play}
+    >
+      {loading ? (
+        <LoaderCircle
+          className="animate-spin"
+          data-icon="inline-start"
+          aria-hidden="true"
+        />
+      ) : (
+        <Volume2 data-icon="inline-start" aria-hidden="true" />
+      )}
+    </Button>
   )
 }
 
@@ -73,7 +69,6 @@ export function PronunciationMenuItems({
         {loading ? <LoaderCircle className="animate-spin" /> : <Volume2 />}
         {t(loading ? "mapPronunciation.loading" : "mapPronunciation.play")}
       </DropdownMenuItem>
-      <PronunciationAdminDialog target={target} menu closeMenu={closeMenu} />
     </DropdownMenuGroup>
   )
 }

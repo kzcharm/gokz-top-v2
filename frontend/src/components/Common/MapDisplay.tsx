@@ -23,6 +23,7 @@ import {
 } from "@/lib/map-images"
 import { cn } from "@/lib/utils"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
+import { MapAdminMenuSection } from "./PronunciationAdminDialog"
 import { PronunciationMenuItems } from "./PronunciationControls"
 
 export { getMapImageUrl, getMapPreviewImageUrl, getWorkshopPreviewImageUrl }
@@ -175,10 +176,6 @@ export function MapNameContextMenu({
           onClick={stopMenuPropagation}
           onKeyDown={stopMenuPropagation}
         >
-          <PronunciationMenuItems
-            target={{ kind: "map", name: mapName, id: mapId }}
-            closeMenu={() => setMenuOpen(false)}
-          />
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
@@ -210,6 +207,10 @@ export function MapNameContextMenu({
             <Download />
             Download
           </DropdownMenuItem>
+          <PronunciationMenuItems
+            target={{ kind: "map", name: mapName, id: mapId }}
+            closeMenu={() => setMenuOpen(false)}
+          />
           {currentUser ? (
             <>
               <DropdownMenuSeparator />
@@ -226,6 +227,11 @@ export function MapNameContextMenu({
           ) : null}
           {contextMenuItems ? <DropdownMenuSeparator /> : null}
           {contextMenuItems}
+          {/* Put admin-only map actions in this section, after Add Review. */}
+          <MapAdminMenuSection
+            target={{ kind: "map", name: mapName, id: mapId }}
+            closeMenu={() => setMenuOpen(false)}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
       {reviewTarget ? (
@@ -402,10 +408,6 @@ export function MapDisplay({
           onClick={stopMenuPropagation}
           onKeyDown={stopMenuPropagation}
         >
-          <PronunciationMenuItems
-            target={{ kind: "map", name: mapName, id: mapId }}
-            closeMenu={() => setMenuOpen(false)}
-          />
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
@@ -437,6 +439,10 @@ export function MapDisplay({
             <Download />
             Download
           </DropdownMenuItem>
+          <PronunciationMenuItems
+            target={{ kind: "map", name: mapName, id: mapId }}
+            closeMenu={() => setMenuOpen(false)}
+          />
           {currentUser ? (
             <>
               <DropdownMenuSeparator />
@@ -453,6 +459,11 @@ export function MapDisplay({
           ) : null}
           {contextMenuItems ? <DropdownMenuSeparator /> : null}
           {contextMenuItems}
+          {/* Put admin-only map actions in this section, after Add Review. */}
+          <MapAdminMenuSection
+            target={{ kind: "map", name: mapName, id: mapId }}
+            closeMenu={() => setMenuOpen(false)}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
       {reviewTarget ? (

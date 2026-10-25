@@ -46,6 +46,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -74,6 +75,7 @@ import {
   ReportPlayerDialog,
   type ReportRecordContext,
 } from "../Reports/ReportPlayerDialog"
+import { PronunciationAdminDialog } from "./PronunciationAdminDialog"
 import { PronunciationMenuItems } from "./PronunciationControls"
 
 const AddBanDialog = lazy(async () => {
@@ -331,41 +333,55 @@ export function PlayerContextMenuItems({
           {loggedInItems}
         </>
       ) : null}
+      {/* Keep all admin-only player actions in this section. */}
       {hasAdminSection ? (
         <>
           <DropdownMenuSeparator />
-          {player ? <EditPlayer player={player} /> : null}
-          {canViewProfileHistory ? (
-            <DropdownMenuItem
-              data-testid="profile-history-menu-item"
-              onSelect={(event) => {
-                event.preventDefault()
-                closeMenu()
-                if (onOpenProfileHistory) {
-                  onOpenProfileHistory()
-                  return
-                }
-                setProfileHistoryOpen(true)
-              }}
-            >
-              <History />
-              {t("profile.history.menuAction")}
-            </DropdownMenuItem>
-          ) : null}
-          {adminItems}
-          {canAddBan ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={(event) => {
-                event.preventDefault()
-                closeMenu()
-                onAddBan()
-              }}
-            >
-              <ShieldAlert />
-              Add Ban
-            </DropdownMenuItem>
-          ) : null}
+          <DropdownMenuGroup aria-label="Admin actions">
+            {hasProfileLink && steamid64Pattern.test(steamid64) ? (
+              <PronunciationAdminDialog
+                target={{
+                  kind: "player",
+                  identifier: steamid64,
+                  name: displayName,
+                }}
+                menu
+                closeMenu={closeMenu}
+              />
+            ) : null}
+            {player ? <EditPlayer player={player} /> : null}
+            {canViewProfileHistory ? (
+              <DropdownMenuItem
+                data-testid="profile-history-menu-item"
+                onSelect={(event) => {
+                  event.preventDefault()
+                  closeMenu()
+                  if (onOpenProfileHistory) {
+                    onOpenProfileHistory()
+                    return
+                  }
+                  setProfileHistoryOpen(true)
+                }}
+              >
+                <History />
+                {t("profile.history.menuAction")}
+              </DropdownMenuItem>
+            ) : null}
+            {adminItems}
+            {canAddBan ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(event) => {
+                  event.preventDefault()
+                  closeMenu()
+                  onAddBan()
+                }}
+              >
+                <ShieldAlert />
+                Add Ban
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuGroup>
         </>
       ) : null}
       {!onOpenProfileHistory ? (

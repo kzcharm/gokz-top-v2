@@ -28,6 +28,7 @@ import {
 import { CountryPicker } from "@/components/Common/CountryPicker"
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { MapNameContextMenu } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { RowContextMenuItem } from "@/components/Common/RowContextMenu"
@@ -363,12 +364,29 @@ function MapHero({
               <div className="flex flex-wrap items-center gap-3">
                 <TierBadge
                   tier={tier}
-                  className="px-3 py-1 text-sm shadow-sm"
+                  className="px-3 py-1 text-sm"
                   hideWhenUnknown={false}
                 />
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                  {map.name}
-                </h1>
+                <MapNameContextMenu
+                  mapName={map.name}
+                  mapId={map.id}
+                  downloadUrl={downloadUrl}
+                >
+                  {(handlers) => (
+                    <h1
+                      {...handlers}
+                      className="text-3xl font-semibold tracking-tight sm:text-4xl"
+                    >
+                      <button
+                        type="button"
+                        className="text-left"
+                        onClick={handlers.onContextMenu}
+                      >
+                        {map.name}
+                      </button>
+                    </h1>
+                  )}
+                </MapNameContextMenu>
                 <MapPronunciationButton mapName={map.name} mapId={map.id} />
               </div>
             </div>

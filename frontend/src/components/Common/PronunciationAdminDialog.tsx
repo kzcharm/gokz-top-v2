@@ -18,7 +18,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   Select,
@@ -34,6 +38,26 @@ import {
   usePronunciation,
 } from "@/hooks/usePronunciation"
 import { canAccessAdminMaps, canModerateBansAndRecords } from "@/lib/user-roles"
+
+// Keep future map-only admin actions in this section, below public/review actions.
+export function MapAdminMenuSection({
+  target,
+  closeMenu,
+}: {
+  target: Extract<PronunciationTarget, { kind: "map" }>
+  closeMenu: () => void
+}) {
+  const { user } = useAuth()
+  if (!canModerateBansAndRecords(user) && !canAccessAdminMaps(user)) return null
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup aria-label="Admin actions">
+        <PronunciationAdminDialog target={target} menu closeMenu={closeMenu} />
+      </DropdownMenuGroup>
+    </>
+  )
+}
 
 export function PronunciationAdminDialog({
   target,

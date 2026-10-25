@@ -238,6 +238,9 @@ test("anonymous map title playback is lazy and keyboard accessible", async ({
     exact: true,
   })
   await expect(button).toBeVisible()
+  await expect(
+    page.locator('[data-slot="badge"]').filter({ hasText: "T3" }).first(),
+  ).toHaveCSS("box-shadow", "none")
   expect(requests).toEqual([])
   await button.focus()
   await page.keyboard.press("Enter")
@@ -263,6 +266,15 @@ test("catalog name menu plays audio and switches without overlap", async ({
   await first
     .getByRole("link", { name: maps[0].name, exact: true })
     .click({ button: "right" })
+  await expect(page.getByRole("menuitem")).toHaveText([
+    "Copy Name",
+    "Goto Page",
+    "Download",
+    "Play pronunciation",
+  ])
+  await expect(
+    page.getByRole("group", { name: "Admin actions", exact: true }),
+  ).toHaveCount(0)
   await page.getByRole("menuitem", { name: "Play pronunciation" }).click()
   await expect.poll(async () => (await audioCalls(page)).length).toBe(1)
   await expect(
@@ -292,6 +304,15 @@ test("MapDisplay menu resolves a name and plays pronunciation", async ({
   await expect(link).toBeVisible()
   expect(requests).toEqual([])
   await link.click({ button: "right" })
+  await expect(page.getByRole("menuitem")).toHaveText([
+    "Copy Name",
+    "Goto Page",
+    "Download",
+    "Play pronunciation",
+  ])
+  await expect(
+    page.getByRole("group", { name: "Admin actions", exact: true }),
+  ).toHaveCount(0)
   await page.getByRole("menuitem", { name: "Play pronunciation" }).click()
   await expect.poll(() => requests.length).toBe(1)
   await expect.poll(async () => (await audioCalls(page)).length).toBe(1)
@@ -449,9 +470,14 @@ for (const kind of ["map", "player"] as const) {
         expect(items.indexOf("Play pronunciation")).toBe(
           items.indexOf("Copy Name") + 1,
         )
-        expect(items.indexOf("Regenerate pronunciation")).toBe(
-          items.indexOf("Play pronunciation") + 1,
-        )
+        await expect(
+          page
+            .getByRole("group", { name: "Admin actions", exact: true })
+            .getByRole("menuitem", {
+              name: "Regenerate pronunciation",
+              exact: true,
+            }),
+        ).toBeVisible()
         await page
           .getByRole("menuitem", {
             name: "Regenerate pronunciation",
@@ -459,8 +485,26 @@ for (const kind of ["map", "player"] as const) {
           })
           .click()
       } else {
+        await expect(
+          page.getByRole("button", {
+            name: "Regenerate pronunciation",
+            exact: true,
+          }),
+        ).toHaveCount(0)
         await page
-          .getByRole("button", {
+          .getByRole("heading", { name: maps[0].name, exact: true })
+          .click({ button: "right" })
+        await expect(page.getByRole("menuitem")).toHaveText([
+          "Copy Name",
+          "Goto Page",
+          "Download",
+          "Play pronunciation",
+          "Add Review",
+          "Regenerate pronunciation",
+        ])
+        await page
+          .getByRole("group", { name: "Admin actions", exact: true })
+          .getByRole("menuitem", {
             name: "Regenerate pronunciation",
             exact: true,
           })
@@ -601,7 +645,10 @@ test("admin settings errors can be retried without losing the page", async ({
   )
   await page.goto(`/maps/${maps[0].name}/maptop`)
   await page
-    .getByRole("button", { name: "Regenerate pronunciation", exact: true })
+    .getByRole("heading", { name: maps[0].name, exact: true })
+    .click({ button: "right" })
+  await page
+    .getByRole("menuitem", { name: "Regenerate pronunciation", exact: true })
     .click()
   const dialog = page.getByRole("dialog", { name: "Regenerate pronunciation" })
   await expect(dialog.getByRole("alert")).toHaveText(
