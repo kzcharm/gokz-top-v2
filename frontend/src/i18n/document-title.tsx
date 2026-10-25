@@ -6,7 +6,11 @@ import { getPageTitle } from "@/lib/site"
 
 function getRouteTitleKey(pathname: string) {
   if (pathname === "/login") return "titles.login"
-  if (pathname === "/servers") return "titles.servers"
+  if (pathname.startsWith("/servers")) return "titles.servers"
+  if (pathname.startsWith("/notifications")) return "titles.notifications"
+  if (pathname.startsWith("/polls")) return "titles.polls"
+  if (pathname.startsWith("/updates")) return "updates.title"
+  if (pathname.startsWith("/compare")) return "compare.title"
   if (pathname.startsWith("/maps")) return "titles.maps"
   if (pathname.startsWith("/live")) return "titles.live"
   if (pathname.startsWith("/media")) return "titles.media"
@@ -39,24 +43,29 @@ function getRouteTitleKey(pathname: string) {
   return null
 }
 
-export function DocumentTitleSync() {
+export function useCurrentPageTitle() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
+
+  if (pathname.startsWith("/maps/")) {
+    return decodeURIComponent(pathname.split("/maps/")[1] ?? "")
+  }
+
+  const titleKey = getRouteTitleKey(pathname)
+  return titleKey ? t(titleKey) : undefined
+}
+
+export function DocumentTitleSync() {
+  const pageTitle = useCurrentPageTitle()
+  const { i18n } = useTranslation()
 
   useEffect(() => {
     document.documentElement.lang = i18n.resolvedLanguage ?? "en"
 
-    if (pathname.startsWith("/maps/")) {
-      const mapName = decodeURIComponent(pathname.split("/maps/")[1] ?? "")
-      document.title = getPageTitle(mapName)
-      return
-    }
-
-    const titleKey = getRouteTitleKey(pathname)
-    document.title = getPageTitle(titleKey ? t(titleKey) : undefined)
-  }, [i18n.resolvedLanguage, pathname, t])
+    document.title = getPageTitle(pageTitle)
+  }, [i18n.resolvedLanguage, pageTitle])
 
   return null
 }
