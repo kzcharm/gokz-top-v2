@@ -16,7 +16,7 @@
   - `/v1` for project-native endpoints
   - `/v1/graphql` for selectively hydrated player data and batched map-preview URL reads
   - Public player display roles include server-group and GlobalAPI server ownership only for players with a website User account, without mutating stored account roles; role rings prioritize superuser, admin, map admin, server owner, then normal website user. Non-users have no role ring, including server owners.
-  - Player GraphQL hydration includes `isOnline`, matched in one batch against enabled public server rosters updated within 30 seconds. Shared `PlayerDisplay` avatars refresh every 30 seconds and show green in-server, blue last-played-within-seven-days, or solid gray inactive-for-at-least-one-year badges (no badge for seven-days-to-one-year gaps or unknown activity); static player cards omit presence badges.
+  - Player GraphQL hydration includes `isOnline`, matched in one batch against enabled public server rosters updated within 30 seconds. Shared `PlayerActivityBadge` indicators on `PlayerDisplay` and main profile avatars refresh every 30 seconds and show green in-server, blue last-played-within-seven-days, or solid gray inactive-for-at-least-one-year badges (no badge for seven-days-to-one-year gaps or unknown activity); static player cards omit presence badges.
   - `/v1/ws/players` for live completion events when an on-demand Steam player-profile refresh changes visible identity data
   - `/v1/ws/records/recent` for scope-aware live record events, with an optional `steamid64` subscription filter used by a player's own runs page
   - `/v1/records/wrs/recent` and `/v1/ws/records/wrs/recent` for the paginated, filterable historical main-course WR event feed and live page-one snapshots

@@ -30,6 +30,7 @@ import {
 import { AddBanDialog } from "@/components/Bans/AddBanDialog"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { PlayerActivityBadge } from "@/components/Common/PlayerActivityBadge"
 import {
   getPlayerDisplayName,
   PlayerContextMenuItems,
@@ -64,7 +65,11 @@ import {
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
-import { type GraphqlPlayer, searchPlayersGraphql } from "@/lib/player-graphql"
+import {
+  type GraphqlPlayer,
+  loadPlayerForDisplay,
+  searchPlayersGraphql,
+} from "@/lib/player-graphql"
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
 import {
   getHighestPlayerPermission,
@@ -283,6 +288,13 @@ function ProfileIdentityCard({
   const primaryName = hasDistinctAlias ? alias : canonicalName
   const secondaryName = hasDistinctAlias ? canonicalName : null
   const hasProfileLink = /^\d{17}$/.test(player.steamid64)
+  const activityQuery = useQuery({
+    queryKey: ["graphql", "player", player.steamid64, "PRIMARY"],
+    queryFn: () => loadPlayerForDisplay(player.steamid64),
+    enabled: hasProfileLink,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  })
   const steamProfileUrl = hasProfileLink
     ? `https://steamcommunity.com/profiles/${player.steamid64}`
     : null
@@ -388,6 +400,20 @@ function ProfileIdentityCard({
                     </div>
                   </DialogContent>
                 </Dialog>
+                <PlayerActivityBadge
+                  steamid64={player.steamid64}
+                  lastPlayedAt={
+                    activityQuery.data
+                      ? activityQuery.data.lastPlayedAt
+                      : player.last_played_at
+                  }
+                  isOnline={
+                    activityQuery.data?.isOnline && !activityQuery.isError
+                  }
+                  refreshedAt={activityQuery.dataUpdatedAt}
+                  size="profile"
+                  testId={`profile-player-activity-${player.steamid64}`}
+                />
               </div>
 
               <div className="space-y-2">

@@ -427,6 +427,97 @@ test("Server owner avatar ring takes priority over the normal user ring", async 
   await expect(avatar).not.toHaveClass(/ring-pink/)
 })
 
+test("Profile avatar activity follows server presence and the shared recency rules", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-25T12:00:00Z") })
+  const player = buildPlayer({
+    steamid64: targetSteamid64,
+    name: "Active Owner",
+    alias: "Active Owner",
+    roles: ["server_owner"],
+  })
+  player.last_played_at = "2025-01-01T12:00:00Z"
+  await installProfileRoutes({
+    page,
+    player,
+    summary: {
+      follower_count: 0,
+      following_count: 0,
+      viewer_is_following: null,
+      viewer_is_self: false,
+    },
+  })
+  const activity: { isOnline: boolean; lastPlayedAt: string | null } = {
+    isOnline: true,
+    lastPlayedAt: "2025-01-01T12:00:00Z",
+  }
+  await page.route("**/v1/graphql", async (route) => {
+    const body = route.request().postDataJSON()
+    const steamid64s: string[] = body.variables?.steamid64s ?? []
+    await route.fulfill({
+      json: {
+        data: {
+          players: steamid64s.map((steamid64) =>
+            steamid64 === targetSteamid64
+              ? {
+                  steamid64,
+                  displayName: player.alias,
+                  name: player.name,
+                  alias: player.alias,
+                  customId: null,
+                  avatarHash: null,
+                  country: player.country,
+                  primaryScope: "OVR",
+                  rating: 0,
+                  roles: ["SERVER_OWNER"],
+                  ...activity,
+                }
+              : null,
+          ),
+        },
+      },
+    })
+  })
+  await page.goto(`/profile/${targetSteamid64}`)
+  const badge = page.getByTestId(`profile-player-activity-${targetSteamid64}`)
+  const avatar = page.getByTestId(`profile-avatar-ring-${targetSteamid64}`)
+  await expect(badge).toHaveAttribute("data-status", "online")
+  await expect(badge).toHaveClass(/size-6/)
+  await expect(avatar).toHaveClass(/ring-\[#f59e0b\]\/90/)
+  await badge.hover()
+  await expect(
+    page.getByRole("tooltip", { name: "In a server now" }),
+  ).toBeVisible()
+  await page.mouse.move(0, 0)
+  await page.clock.runFor(300)
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-avatar-activity.png",
+  })
+  await avatar.click()
+  await expect(page.getByRole("dialog")).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("dialog")).not.toBeVisible()
+
+  activity.isOnline = false
+  activity.lastPlayedAt = "2026-10-22T12:00:00Z"
+  await page.clock.fastForward(31_000)
+  await expect(badge).toHaveAttribute("data-status", "recent")
+  await expect(badge).toHaveAccessibleName(
+    /Played within the last 7 days · Last played:/,
+  )
+  activity.lastPlayedAt = "2026-10-07T12:00:00Z"
+  await page.clock.fastForward(31_000)
+  await expect(badge).toHaveCount(0)
+  activity.lastPlayedAt = "2025-10-24T12:00:00Z"
+  await page.clock.fastForward(31_000)
+  await expect(badge).toHaveAttribute("data-status", "older")
+  await expect(badge).toHaveClass(/bg-muted-foreground/)
+  activity.lastPlayedAt = null
+  await page.clock.fastForward(31_000)
+  await expect(badge).toHaveCount(0)
+})
+
 test("Profile avatar has no ring for non-users", async ({ page }) => {
   await installProfileRoutes({
     page,
