@@ -10,8 +10,6 @@ import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter
 import { JumpstatDetailsDialog } from "@/components/Leaderboards/JumpstatDetailsDialog"
 import {
   getJumpstatsLeaderboardColumns,
-  getJumpstatTypeLabel,
-  JUMPSTAT_TYPE_OPTIONS,
   type JumpstatsLeaderboardTableRow,
 } from "@/components/Leaderboards/jumpstats-columns"
 import type { AppScope } from "@/components/scope-provider"
@@ -25,9 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { extractErrorMessage } from "@/utils"
+import { JumpstatTypeButtons } from "./JumpstatTypeButtons"
 
 const MIN_RATING_OPTIONS = [6, 7, 8, 9, 10] as const
 
@@ -126,76 +124,54 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
     <div className="space-y-6">
       <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
-          <Tabs
-            value={selectedType}
-            onValueChange={(value) => {
-              setSelectedType(value as JumpstatType)
-              setPageIndex(0)
-            }}
-            className="gap-0"
-          >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="-mx-2 min-w-0 flex-1 overflow-x-auto px-2">
-                <TabsList
-                  aria-label={t("leaderboards.jumpstats.jumpType")}
-                  className="h-auto w-full justify-start gap-2 bg-transparent p-0 text-foreground sm:w-fit"
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <JumpstatTypeButtons
+              value={selectedType}
+              onValueChange={(value) => {
+                setSelectedType(value)
+                setPageIndex(0)
+              }}
+            />
+
+            <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+              <Select
+                value={String(selectedMinRating)}
+                onValueChange={(value) => {
+                  setSelectedMinRating(Number(value))
+                  setPageIndex(0)
+                }}
+              >
+                <SelectTrigger
+                  aria-label={t("leaderboards.jumpstats.minRatingAria")}
+                  className="data-[size=default]:h-8 w-full sm:w-[132px]"
                 >
-                  {JUMPSTAT_TYPE_OPTIONS.map((option) => (
-                    <TabsTrigger
-                      key={option}
-                      value={option}
-                      className="h-9 flex-none rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium text-foreground shadow-none transition-[color,background-color,border-color] hover:bg-accent hover:text-accent-foreground data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:shadow-none dark:bg-input/30 dark:hover:bg-input/50 dark:data-[state=active]:bg-input/50"
-                    >
-                      {getJumpstatTypeLabel(option, t)}
-                    </TabsTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {MIN_RATING_OPTIONS.map((rating) => (
+                    <SelectItem key={rating} value={String(rating)}>
+                      {t("leaderboards.jumpstats.minRatingValue", {
+                        value: rating,
+                      })}
+                    </SelectItem>
                   ))}
-                </TabsList>
-              </div>
+                </SelectContent>
+              </Select>
 
-              <div className="flex flex-col gap-3 sm:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-                <Select
-                  value={String(selectedMinRating)}
-                  onValueChange={(value) => {
-                    setSelectedMinRating(Number(value))
-                    setPageIndex(0)
-                  }}
-                >
-                  <SelectTrigger
-                    aria-label={t("leaderboards.jumpstats.minRatingAria")}
-                    className="w-full sm:w-[132px]"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent align="end">
-                    {MIN_RATING_OPTIONS.map((rating) => (
-                      <SelectItem key={rating} value={String(rating)}>
-                        {t("leaderboards.jumpstats.minRatingValue", {
-                          value: rating,
-                        })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-pressed={blockEnabled}
-                  className={
-                    blockEnabled
-                      ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
-                      : "bg-background"
-                  }
-                  onClick={() => {
-                    setBlockEnabled((current) => !current)
-                    setPageIndex(0)
-                  }}
-                >
-                  {t("leaderboards.jumpstats.columns.block")}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant={blockEnabled ? "default" : "outline"}
+                aria-pressed={blockEnabled}
+                onClick={() => {
+                  setBlockEnabled((current) => !current)
+                  setPageIndex(0)
+                }}
+              >
+                {t("leaderboards.jumpstats.columns.block")}
+              </Button>
             </div>
-          </Tabs>
+          </div>
         </CardContent>
       </Card>
 

@@ -1405,16 +1405,16 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByText("Filters")).not.toBeVisible()
     await expect(page.getByText("Jump Type")).not.toBeVisible()
     await expect(
-      page.getByRole("tab", { name: "Long Jump", exact: true }),
-    ).toHaveAttribute("data-state", "active")
+      page.getByRole("button", { name: "Long Jump", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true")
     await expect(
-      page.getByRole("tab", { name: "Fall", exact: true }),
+      page.getByRole("button", { name: "Fall", exact: true }),
     ).toHaveCount(0)
     await expect(
-      page.getByRole("tab", { name: "Unknown", exact: true }),
+      page.getByRole("button", { name: "Unknown", exact: true }),
     ).toHaveCount(0)
     await expect(
-      page.getByRole("tab", { name: "Invalid", exact: true }),
+      page.getByRole("button", { name: "Invalid", exact: true }),
     ).toHaveCount(0)
     expect(requestedScopes[0]).toBe("OVR")
     expect(requestedTypes[0]).toBe("LJ")
@@ -1485,7 +1485,19 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByRole("columnheader", { name: "Block" })).toHaveCount(
       0,
     )
-    await page.getByRole("tab", { name: "Bhop", exact: true }).click()
+    await page.getByRole("button", { name: "Bhop", exact: true }).click()
+    await expect(
+      page.getByRole("button", { name: "Bhop", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true")
+    await expect(
+      page.getByRole("button", { name: "Long Jump", exact: true }),
+    ).toHaveAttribute("aria-pressed", "false")
+    expect(
+      await page
+        .getByRole("button", { name: "Bhop", exact: true })
+        .evaluate((button) => button.getBoundingClientRect().height),
+    ).toBe(32)
+
     await expect(page.getByText("Beta")).toBeVisible()
     expect(requests.some((request) => request.type === "BH")).toBe(true)
 
@@ -1722,8 +1734,8 @@ test.describe("Leaderboards page", () => {
       .click()
     await expect(page.getByRole("dialog")).not.toBeVisible()
     await expect(
-      page.getByRole("tab", { name: "Long Jump", exact: true }),
-    ).toHaveAttribute("data-state", "active")
+      page.getByRole("button", { name: "Long Jump", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true")
 
     await page.getByRole("link", { name: "Gamma" }).click()
     await expect(page).toHaveURL(/\/profile\/76561198000000003/)

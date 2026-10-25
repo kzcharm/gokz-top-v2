@@ -7,16 +7,15 @@ import { PlayersService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { JumpstatDetailsDialog } from "@/components/Leaderboards/JumpstatDetailsDialog"
+import { JumpstatTypeButtons } from "@/components/Leaderboards/JumpstatTypeButtons"
 import {
-  getJumpstatTypeLabel,
   getProfileJumpstatsColumns,
-  JUMPSTAT_TYPE_OPTIONS,
+  type JUMPSTAT_TYPE_OPTIONS,
   type ProfileJumpstatsTableRow,
 } from "@/components/Leaderboards/jumpstats-columns"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { extractErrorMessage } from "@/utils"
 
@@ -124,49 +123,28 @@ export function ProfileJumpstatsTab({
 
   return (
     <div className="space-y-6">
-      <Tabs
-        value={selectedType}
-        onValueChange={(value) => {
-          setSelectedType(value as (typeof JUMPSTAT_TYPE_OPTIONS)[number])
-          setPageIndex(0)
-        }}
-        className="gap-0"
-      >
-        <div className="flex items-center gap-3">
-          <div className="-mx-2 min-w-0 flex-1 overflow-x-auto px-2 py-1">
-            <TabsList
-              aria-label={t("leaderboards.jumpstats.jumpType")}
-              className="h-auto w-full justify-start gap-2 bg-transparent p-0 text-foreground sm:w-fit"
-            >
-              {JUMPSTAT_TYPE_OPTIONS.map((option) => (
-                <TabsTrigger
-                  key={option}
-                  value={option}
-                  className="h-auto flex-none rounded-full border border-border/60 bg-background/45 px-4 py-2 text-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm dark:data-[state=active]:bg-input/30"
-                >
-                  {getJumpstatTypeLabel(option, t)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
+      <div className="flex flex-wrap items-start gap-3">
+        <JumpstatTypeButtons
+          value={selectedType}
+          onValueChange={(value) => {
+            setSelectedType(value)
+            setPageIndex(0)
+          }}
+        />
 
-          <Button
-            type="button"
-            variant="ghost"
-            className={
-              blockEnabled
-                ? "ml-auto shrink-0 rounded-xl border border-[#7c98d6] bg-[#dbe7ff] text-[#244488] shadow-sm hover:bg-[#cfdfff] hover:text-[#1d3a78]"
-                : "ml-auto shrink-0 rounded-xl border border-[#c9d7f3] bg-[#eef4ff] text-[#5671aa] hover:bg-[#e3ecff] hover:text-[#3f5d96]"
-            }
-            onClick={() => {
-              setBlockEnabled((current) => !current)
-              setPageIndex(0)
-            }}
-          >
-            {t("leaderboards.jumpstats.columns.block")}
-          </Button>
-        </div>
-      </Tabs>
+        <Button
+          type="button"
+          size="sm"
+          variant={blockEnabled ? "default" : "outline"}
+          aria-pressed={blockEnabled}
+          onClick={() => {
+            setBlockEnabled((current) => !current)
+            setPageIndex(0)
+          }}
+        >
+          {t("leaderboards.jumpstats.columns.block")}
+        </Button>
+      </div>
 
       {jumpstatsQuery.isError ? (
         <Alert variant="destructive">

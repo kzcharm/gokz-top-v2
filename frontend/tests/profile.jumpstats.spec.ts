@@ -203,8 +203,8 @@ test("Profile jumpstats refetches on jump type change and block toggle", async (
   await page.goto(`/profile/${steamid64}/jumpstats`)
 
   await expect(
-    page.getByRole("tab", { name: "Long Jump", exact: true }),
-  ).toHaveAttribute("data-state", "active")
+    page.getByRole("button", { name: "Long Jump", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByRole("columnheader", { name: "Block" })).toHaveCount(0)
   expect(requests[0]).toMatchObject({
     type: "LJ",
@@ -212,11 +212,27 @@ test("Profile jumpstats refetches on jump type change and block toggle", async (
     sortOrder: "desc",
   })
 
-  await page.getByRole("tab", { name: "Bhop", exact: true }).click()
+  await page.getByRole("button", { name: "Bhop", exact: true }).click()
+  await expect(
+    page.getByRole("button", { name: "Bhop", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(
+    page.getByRole("button", { name: "Long Jump", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false")
+  expect(
+    await page
+      .getByRole("button", { name: "Bhop", exact: true })
+      .evaluate((button) => button.getBoundingClientRect().height),
+  ).toBe(32)
+
   expect(requests.some((request) => request.type === "BH")).toBe(true)
 
   await page.getByRole("button", { name: "Block" }).click()
   await expect(page.getByRole("columnheader", { name: "Block" })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Block", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
+
   expect(
     requests.some(
       (request) => request.type === "BH" && request.sortBy === "block",
@@ -225,6 +241,25 @@ test("Profile jumpstats refetches on jump type change and block toggle", async (
 
   await page.getByRole("button", { name: "Block" }).click()
   await expect(page.getByRole("columnheader", { name: "Block" })).toHaveCount(0)
+  await page.setViewportSize({ width: 1696, height: 900 })
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-jumpstats-gear-buttons.png",
+    fullPage: true,
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(1)
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-jumpstats-gear-buttons-mobile.png",
+    fullPage: true,
+  })
 })
 
 test("Profile jumpstats rows open the shared details dialog", async ({
