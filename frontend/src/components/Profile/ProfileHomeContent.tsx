@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Tooltip,
   TooltipContent,
@@ -280,6 +281,13 @@ function ActivityCard({
   }, [allDays, fallbackYear])
   const defaultYearId = yearViewIds[yearViewIds.length - 1] ?? fallbackYear
   const [activeView, setActiveView] = useState(ROLLING_ACTIVITY_WINDOW_ID)
+  const lastCalendarYearRef = useRef(defaultYearId)
+  const isRollingActivity = activeView === ROLLING_ACTIVITY_WINDOW_ID
+  const activityMode = isRollingActivity ? "rolling" : "calendar"
+  const selectCalendarYear = (year: string) => {
+    lastCalendarYearRef.current = year
+    setActiveView(year)
+  }
 
   useEffect(() => {
     const allowedViews = new Set([ROLLING_ACTIVITY_WINDOW_ID, ...yearViewIds])
@@ -350,155 +358,193 @@ function ActivityCard({
 
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
-      <CardContent className="space-y-5 p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            {t("profile.activity.title")}
-          </p>
-          <ProfileDurationControls
-            activeViewId={activeView}
-            defaultYearId={defaultYearId}
-            onActiveViewIdChange={setActiveView}
-            onPlayingChange={() => {}}
-            specialViews={[
-              {
-                id: ROLLING_ACTIVITY_WINDOW_ID,
-                label: t("profile.activity.latest"),
-                testId: `profile-activity-view-${ROLLING_ACTIVITY_WINDOW_ID}`,
-              },
-            ]}
-            testIdPrefix="profile-activity"
-            yearIds={yearViewIds}
-          />
-        </div>
+      <CardContent className="p-6">
+        <Tabs
+          value={activityMode}
+          onValueChange={(mode) => {
+            if (mode === "rolling") {
+              setActiveView(ROLLING_ACTIVITY_WINDOW_ID)
+            } else {
+              selectCalendarYear(
+                yearViewIds.includes(lastCalendarYearRef.current)
+                  ? lastCalendarYearRef.current
+                  : defaultYearId,
+              )
+            }
+          }}
+          className="gap-5"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              {t("profile.activity.title")}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div hidden={isRollingActivity}>
+                <ProfileDurationControls
+                  activeViewId={activeView}
+                  defaultYearId={defaultYearId}
+                  onActiveViewIdChange={selectCalendarYear}
+                  onPlayingChange={() => {}}
+                  specialViews={[]}
+                  testIdPrefix="profile-activity"
+                  yearIds={yearViewIds}
+                />
+              </div>
+              <TabsList aria-label={t("profile.activity.title")}>
+                <TabsTrigger
+                  value="calendar"
+                  data-testid="profile-activity-view-calendar-year"
+                >
+                  {t("profile.activity.calendarYear")}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="rolling"
+                  data-testid={`profile-activity-view-${ROLLING_ACTIVITY_WINDOW_ID}`}
+                >
+                  {t("profile.activity.latest")}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          </div>
 
-        {activityError ? (
-          <p className="text-sm text-destructive">
-            {t("profile.activity.loadFailed")}
-          </p>
-        ) : null}
+          <TabsContent value={activityMode} className="flex flex-col gap-5">
+            {activityError ? (
+              <p className="text-sm text-destructive">
+                {t("profile.activity.loadFailed")}
+              </p>
+            ) : null}
 
-        <div ref={activityScrollRef} className="overflow-x-auto">
-          <div className="flex w-full justify-center">
-            <div className="min-w-fit">
-              <div
-                className="relative ml-8 h-4"
-                style={{ width: `${weeks.length * ACTIVITY_WEEK_WIDTH_PX}px` }}
-              >
-                {monthLabels.map((label) => (
-                  <span
-                    key={`${rangeKey}-${label.month}-${label.weekIndex}`}
-                    data-testid={`profile-activity-month-${label.month}`}
-                    className="absolute top-0 text-[11px] leading-4 text-muted-foreground"
+            <div ref={activityScrollRef} className="overflow-x-auto">
+              <div className="flex w-full justify-center">
+                <div className="min-w-fit">
+                  <div
+                    className="relative ml-8 h-4"
                     style={{
-                      left: `${label.weekIndex * ACTIVITY_WEEK_WIDTH_PX}px`,
+                      width: `${weeks.length * ACTIVITY_WEEK_WIDTH_PX}px`,
                     }}
                   >
-                    {label.month}
-                  </span>
-                ))}
-              </div>
+                    {monthLabels.map((label) => (
+                      <span
+                        key={`${rangeKey}-${label.month}-${label.weekIndex}`}
+                        data-testid={`profile-activity-month-${label.month}`}
+                        className="absolute top-0 text-[11px] leading-4 text-muted-foreground"
+                        style={{
+                          left: `${label.weekIndex * ACTIVITY_WEEK_WIDTH_PX}px`,
+                        }}
+                      >
+                        {label.month}
+                      </span>
+                    ))}
+                  </div>
 
-              <div className="mt-2 flex gap-2">
-                <div className="flex flex-col justify-around pt-px text-[11px] leading-[10px] text-muted-foreground">
-                  {[1, 3, 5].map((dayIndex) => (
-                    <span key={weekdayLabels[dayIndex]} className="h-[23px]">
-                      {weekdayLabels[dayIndex]}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="flex gap-[3px]">
-                  {weeks.map((week, weekIndex) => (
-                    <div
-                      key={`${rangeKey}-week-${weekIndex}`}
-                      className="flex flex-col gap-[3px]"
-                    >
-                      {week.map((day, dayIndex) =>
-                        day.isEmpty ? (
-                          <span
-                            key={`${weekIndex}-${dayIndex}-${day.date}`}
-                            data-testid={`profile-activity-cell-${day.date}`}
-                            data-activity-level="0"
-                            className="h-2.5 w-2.5 shrink-0"
-                          />
-                        ) : (
-                          <Tooltip
-                            key={`${weekIndex}-${dayIndex}-${day.date}`}
-                            delayDuration={0}
-                          >
-                            <TooltipTrigger asChild>
-                              <span
-                                data-testid={`profile-activity-cell-${day.date}`}
-                                data-activity-level={day.level}
-                                className={cn(
-                                  "h-2.5 w-2.5 shrink-0 rounded-[2px] border border-[rgba(27,31,35,0.06)] transition-colors hover:border-muted-foreground/45 dark:border-[#1b1f23] dark:hover:border-muted-foreground/55",
-                                  activityToneClasses[day.level],
-                                )}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent
-                              hideArrow
-                              sideOffset={6}
-                              className="rounded-sm border border-border bg-background px-2 py-1 font-normal text-foreground shadow-md"
-                            >
-                              {t("profile.activity.cellTooltip", {
-                                count: day.count,
-                                // Keep this UTC activity bucket's calendar date
-                                // when formatting in the browser's time zone.
-                                date: formatDateTime(`${day.date}T00:00:00`, {
-                                  dateOnly: true,
-                                  locale,
-                                }),
-                              })}
-                            </TooltipContent>
-                          </Tooltip>
-                        ),
-                      )}
+                  <div className="mt-2 flex gap-2">
+                    <div className="flex flex-col justify-around pt-px text-[11px] leading-[10px] text-muted-foreground">
+                      {[1, 3, 5].map((dayIndex) => (
+                        <span
+                          key={weekdayLabels[dayIndex]}
+                          className="h-[23px]"
+                        >
+                          {weekdayLabels[dayIndex]}
+                        </span>
+                      ))}
                     </div>
-                  ))}
+
+                    <div className="flex gap-[3px]">
+                      {weeks.map((week, weekIndex) => (
+                        <div
+                          key={`${rangeKey}-week-${weekIndex}`}
+                          className="flex flex-col gap-[3px]"
+                        >
+                          {week.map((day, dayIndex) =>
+                            day.isEmpty ? (
+                              <span
+                                key={`${weekIndex}-${dayIndex}-${day.date}`}
+                                data-testid={`profile-activity-cell-${day.date}`}
+                                data-activity-level="0"
+                                className="h-2.5 w-2.5 shrink-0"
+                              />
+                            ) : (
+                              <Tooltip
+                                key={`${weekIndex}-${dayIndex}-${day.date}`}
+                                delayDuration={0}
+                              >
+                                <TooltipTrigger asChild>
+                                  <span
+                                    data-testid={`profile-activity-cell-${day.date}`}
+                                    data-activity-level={day.level}
+                                    className={cn(
+                                      "h-2.5 w-2.5 shrink-0 rounded-[2px] border border-[rgba(27,31,35,0.06)] transition-colors hover:border-muted-foreground/45 dark:border-[#1b1f23] dark:hover:border-muted-foreground/55",
+                                      activityToneClasses[day.level],
+                                    )}
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  hideArrow
+                                  sideOffset={6}
+                                  className="rounded-sm border border-border bg-background px-2 py-1 font-normal text-foreground shadow-md"
+                                >
+                                  {t("profile.activity.cellTooltip", {
+                                    count: day.count,
+                                    // Keep this UTC activity bucket's calendar date
+                                    // when formatting in the browser's time zone.
+                                    date: formatDateTime(
+                                      `${day.date}T00:00:00`,
+                                      {
+                                        dateOnly: true,
+                                        locale,
+                                      },
+                                    ),
+                                  })}
+                                </TooltipContent>
+                              </Tooltip>
+                            ),
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {!activityError && daysPlayed === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("profile.activity.emptyState", { range: emptyStateLabel })}
-          </p>
-        ) : null}
+            {!activityError && daysPlayed === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("profile.activity.emptyState", { range: emptyStateLabel })}
+              </p>
+            ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {!activityError ? (
-            <span
-              className="text-sm tabular-nums text-muted-foreground"
-              data-testid="profile-activity-days-played"
-            >
-              {t("profile.activity.daysPlayed", {
-                count: daysPlayed,
-                percentage: new Intl.NumberFormat(locale, {
-                  style: "percent",
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                }).format(daysPlayed / totalDays),
-              })}
-            </span>
-          ) : null}
-          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{t("profile.activity.less")}</span>
-            {activityToneClasses.map((tone, index) => (
-              <span
-                key={index}
-                className={cn(
-                  "h-2.5 w-2.5 rounded-[2px] border border-[rgba(27,31,35,0.06)] dark:border-[#1b1f23]",
-                  tone,
-                )}
-              />
-            ))}
-            <span>{t("profile.activity.more")}</span>
-          </div>
-        </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {!activityError ? (
+                <span
+                  className="text-sm tabular-nums text-muted-foreground"
+                  data-testid="profile-activity-days-played"
+                >
+                  {t("profile.activity.daysPlayed", {
+                    count: daysPlayed,
+                    percentage: new Intl.NumberFormat(locale, {
+                      style: "percent",
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    }).format(daysPlayed / totalDays),
+                  })}
+                </span>
+              ) : null}
+              <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{t("profile.activity.less")}</span>
+                {activityToneClasses.map((tone, index) => (
+                  <span
+                    key={index}
+                    className={cn(
+                      "h-2.5 w-2.5 rounded-[2px] border border-[rgba(27,31,35,0.06)] dark:border-[#1b1f23]",
+                      tone,
+                    )}
+                  />
+                ))}
+                <span>{t("profile.activity.more")}</span>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   )

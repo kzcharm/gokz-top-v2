@@ -822,6 +822,7 @@ export const ru = {
       daysPlayed_many: "{{count}} дней {{percentage}}",
       daysPlayed_other: "{{count}} дня {{percentage}}",
       latest: "Недавнее",
+      calendarYear: "Календарный год",
       latestRange: "последние 365 дней",
       loadFailed: "Сейчас не удаётся загрузить дневную активность.",
       emptyState: "В период {{range}} не найдено отправленных рекордов.",

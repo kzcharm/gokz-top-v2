@@ -598,6 +598,8 @@ test("Profile activity counts days played within the selected period", async ({
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
     "4 days 1.1%",
   )
+  await expect(page.getByTestId("profile-activity-year-input")).toBeHidden()
+  await page.getByTestId("profile-activity-view-calendar-year").click()
   await page.getByTestId("profile-activity-year-input").fill("2026")
   await page.getByTestId("profile-activity-year-input").press("Enter")
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
@@ -612,6 +614,19 @@ test("Profile activity counts days played within the selected period", async ({
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
     "4 days 1.1%",
   )
+  await expect(page.getByTestId("profile-activity-year-input")).toBeHidden()
+  await page.getByTestId("profile-activity-view-calendar-year").click()
+  await expect(page.getByTestId("profile-activity-year-input")).toHaveValue(
+    "2025",
+  )
+  await expect(
+    page.getByTestId("profile-activity-previous-year"),
+  ).toBeDisabled()
+  await page.getByTestId("profile-activity-next-year").click()
+  await expect(page.getByTestId("profile-activity-year-input")).toHaveValue(
+    "2026",
+  )
+  await expect(page.getByTestId("profile-activity-next-year")).toBeDisabled()
   const activityCard = page
     .getByTestId("profile-activity-days-played")
     .locator("xpath=ancestor::*[@data-slot='card'][1]")
@@ -622,6 +637,11 @@ test("Profile activity counts days played within the selected period", async ({
   await expect(page.getByTestId("profile-activity-days-played")).toBeVisible()
   await activityCard.screenshot({
     path: testInfo.outputPath("activity-mobile.png"),
+  })
+  await page.getByTestId("profile-activity-view-last-365-days").click()
+  await expect(page.getByTestId("profile-activity-year-input")).toBeHidden()
+  await activityCard.screenshot({
+    path: testInfo.outputPath("activity-mobile-rolling.png"),
   })
 })
 
@@ -641,16 +661,16 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText("10.5 hours")).toBeVisible()
   await expect(page.getByText("Long Jump")).toBeVisible()
   await expect(page.getByText("281.80")).toBeVisible()
-  await expect(page.getByText("Recent", { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole("tab", { name: "Recent", exact: true }),
+  ).toBeVisible()
   await expect(
     page.getByTestId("profile-activity-view-last-365-days"),
   ).toBeVisible()
-  await expect(page.getByTestId("profile-activity-year-input")).toHaveValue(
-    "2026",
-  )
+  await expect(page.getByTestId("profile-activity-year-input")).toBeHidden()
   await expect(
     page.getByTestId("profile-activity-view-last-365-days"),
-  ).toHaveClass(/bg-card/)
+  ).toHaveAttribute("data-state", "active")
   await expect(
     page.getByTestId("profile-activity-cell-2026-03-31"),
   ).toHaveAttribute("data-activity-level", "2")
@@ -664,6 +684,7 @@ test("Profile home renders live pinned records with points badges and absolute d
     page.getByTestId("profile-activity-cell-2025-12-31"),
   ).toHaveAttribute("data-activity-level", "2")
 
+  await page.getByTestId("profile-activity-view-calendar-year").click()
   await page.getByTestId("profile-activity-year-input").fill("2025")
   await page.getByTestId("profile-activity-year-input").press("Enter")
   await expect(
