@@ -416,6 +416,9 @@ test("Profile stats renders the most played server pie chart with timeline playb
     page.getByTestId("profile-stats-view-last-365-days"),
   ).toBeVisible()
   const yearInput = page.getByTestId("profile-stats-year-input")
+  await expect(yearInput).toBeHidden()
+  await expect(page.getByTestId("profile-stats-playback-button")).toBeHidden()
+  await page.getByTestId("profile-stats-view-calendar-year").click()
   await expect(yearInput).toHaveValue("2026")
   await yearInput.fill("2024")
   await yearInput.press("Enter")
@@ -436,6 +439,9 @@ test("Profile stats renders the most played server pie chart with timeline playb
     page.getByTestId("profile-stats-most-played-server-chart"),
   ).toHaveAttribute("aria-label", /All time/)
 
+  await expect(yearInput).toBeHidden()
+  await page.getByTestId("profile-stats-view-calendar-year").click()
+  await expect(yearInput).toHaveValue("2024")
   await page.getByTestId("profile-stats-playback-button").click()
   await expect(
     page.getByTestId("profile-stats-playback-button"),
@@ -449,10 +455,71 @@ test("Profile stats renders the most played server pie chart with timeline playb
     page.getByTestId("profile-stats-most-played-maps-chart"),
   ).toBeVisible()
   await expect(page.getByTestId("profile-stats-maps-metric-hours")).toHaveClass(
-    /bg-card/,
+    /bg-primary/,
   )
   await page.getByTestId("profile-stats-maps-metric-records").click()
   await expect(
     page.getByTestId("profile-stats-maps-metric-records"),
-  ).toHaveClass(/bg-card/)
+  ).toHaveClass(/bg-primary/)
 })
+
+for (const { prefix, chart } of [
+  { prefix: "profile-stats", chart: "profile-stats-most-played-server-chart" },
+  {
+    prefix: "profile-stats-maps",
+    chart: "profile-stats-most-played-maps-chart",
+  },
+]) {
+  test(`${prefix} separates calendar years from rolling and all-time periods`, async ({
+    page,
+  }, testInfo) => {
+    await installProfileStatsRoutes(page)
+    await page.goto(`/profile/${steamid64}/stats`)
+    const year = page.getByTestId(`${prefix}-year-input`)
+    const playback = page.getByTestId(`${prefix}-playback-button`)
+    const allTime = page.getByTestId(`${prefix}-view-all-time`)
+    const rolling = page.getByTestId(`${prefix}-view-last-365-days`)
+    const calendar = page.getByTestId(`${prefix}-view-calendar-year`)
+    await expect(allTime).toHaveAttribute("data-state", "active")
+    await expect(year).toBeHidden()
+    await expect(playback).toBeHidden()
+    await expect(rolling).toHaveText("Recent")
+    await rolling.click()
+    await expect(page.getByTestId(chart)).toHaveAttribute(
+      "aria-label",
+      /Past 365 days/,
+    )
+    // Selecting the active mode again must not silently switch to a year.
+    await rolling.click()
+    await expect(rolling).toHaveAttribute("data-state", "active")
+    await expect(year).toBeHidden()
+    await calendar.click()
+    await expect(year).toHaveValue("2026")
+    await year.fill("2025")
+    await year.press("Enter")
+    await expect(page.getByTestId(chart)).toHaveAttribute("aria-label", /2025/)
+    await allTime.click()
+    await expect(year).toBeHidden()
+    await calendar.click()
+    await expect(year).toHaveValue("2025")
+    await playback.click()
+    await expect(playback).toHaveAttribute("aria-label", "Pause")
+    await rolling.click()
+    await expect(playback).toBeHidden()
+    await calendar.click()
+    await expect(playback).toHaveAttribute("aria-label", "Play")
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await expect(calendar).toBeVisible()
+      const card = calendar.locator("xpath=ancestor::*[@data-slot='card'][1]")
+      await card.screenshot({
+        path: testInfo.outputPath(`period-${width}.png`),
+      })
+      expect(
+        await card.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true)
+    }
+  })
+}

@@ -1,7 +1,7 @@
 import type { EChartsOption, EChartsType } from "echarts"
 import * as echarts from "echarts"
 import { Pause, Play } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import type {
@@ -15,6 +15,7 @@ import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useMediaQuery } from "@/hooks/useMobile"
 import { cn } from "@/lib/utils"
 import { ProfileDurationControls } from "./ProfileDurationControls"
@@ -125,6 +126,121 @@ function ProfileStatsPlaybackButton({
     >
       {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
     </Button>
+  )
+}
+
+function ProfileStatsPeriodContent({
+  title,
+  actions,
+  activeViewId,
+  defaultYearId,
+  onActiveViewIdChange,
+  isPlaying,
+  onPlayingChange,
+  onTogglePlayback,
+  testIdPrefix,
+  yearIds,
+  children,
+}: {
+  title: string
+  actions?: ReactNode
+  activeViewId: string
+  defaultYearId: string | null
+  onActiveViewIdChange: (viewId: string) => void
+  isPlaying: boolean
+  onPlayingChange: (playing: boolean) => void
+  onTogglePlayback: () => void
+  testIdPrefix: string
+  yearIds: string[]
+  children: ReactNode
+}) {
+  const { t } = useTranslation()
+  const lastYearRef = useRef(defaultYearId)
+  const isCalendarYear = yearIds.includes(activeViewId)
+  const mode = isCalendarYear ? "calendar-year" : activeViewId
+
+  useEffect(() => {
+    if (isCalendarYear) lastYearRef.current = activeViewId
+  }, [activeViewId, isCalendarYear])
+
+  return (
+    <CardContent className="p-6">
+      <Tabs
+        value={mode}
+        onValueChange={(value) => {
+          onPlayingChange(false)
+          if (value === "calendar-year") {
+            const lastYear = lastYearRef.current
+            const year =
+              lastYear && yearIds.includes(lastYear) ? lastYear : defaultYearId
+            if (year) onActiveViewIdChange(year)
+          } else {
+            onActiveViewIdChange(value)
+          }
+        }}
+        className="gap-5"
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              {title}
+            </p>
+            {actions}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TabsList
+              aria-label={title}
+              className="h-auto max-w-full flex-wrap"
+            >
+              <TabsTrigger
+                value={LAST_365_DAYS_VIEW_ID}
+                data-testid={`${testIdPrefix}-view-${LAST_365_DAYS_VIEW_ID}`}
+              >
+                {t("profile.stats.recent")}
+              </TabsTrigger>
+              <TabsTrigger
+                value={ALL_TIME_VIEW_ID}
+                data-testid={`${testIdPrefix}-view-${ALL_TIME_VIEW_ID}`}
+              >
+                {t("profile.stats.allTime")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="calendar-year"
+                disabled={yearIds.length === 0}
+                data-testid={`${testIdPrefix}-view-calendar-year`}
+              >
+                {t("profile.activity.calendarYear")}
+              </TabsTrigger>
+            </TabsList>
+            <div
+              className={cn(
+                "ml-auto flex items-center gap-2",
+                !isCalendarYear && "hidden",
+              )}
+            >
+              <ProfileDurationControls
+                activeViewId={activeViewId}
+                defaultYearId={defaultYearId}
+                onActiveViewIdChange={onActiveViewIdChange}
+                onPlayingChange={onPlayingChange}
+                specialViews={[]}
+                testIdPrefix={testIdPrefix}
+                yearIds={yearIds}
+              />
+              <ProfileStatsPlaybackButton
+                disabled={yearIds.length < 2}
+                isPlaying={isPlaying}
+                onClick={onTogglePlayback}
+                testId={`${testIdPrefix}-playback-button`}
+              />
+            </div>
+          </div>
+        </div>
+        <TabsContent value={mode} className="flex flex-col gap-5">
+          {children}
+        </TabsContent>
+      </Tabs>
+    </CardContent>
   )
 }
 
@@ -449,41 +565,17 @@ ${serverCountLabel}
 
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
-      <CardContent className="space-y-5 p-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {t("profile.stats.title")}
-            </p>
-            <ProfileStatsPlaybackButton
-              disabled={yearViewIds.length < 2}
-              isPlaying={isPlaying}
-              onClick={togglePlayback}
-              testId="profile-stats-playback-button"
-            />
-          </div>
-          <ProfileDurationControls
-            activeViewId={activeViewId}
-            defaultYearId={defaultYearId}
-            onActiveViewIdChange={setActiveViewId}
-            onPlayingChange={setIsPlaying}
-            specialViews={[
-              {
-                id: LAST_365_DAYS_VIEW_ID,
-                label: t("profile.stats.last365Days"),
-                testId: `profile-stats-view-${LAST_365_DAYS_VIEW_ID}`,
-              },
-              {
-                id: ALL_TIME_VIEW_ID,
-                label: t("profile.stats.allTime"),
-                testId: `profile-stats-view-${ALL_TIME_VIEW_ID}`,
-              },
-            ]}
-            testIdPrefix="profile-stats"
-            yearIds={yearViewIds}
-          />
-        </div>
-
+      <ProfileStatsPeriodContent
+        title={t("profile.stats.title")}
+        activeViewId={activeViewId}
+        defaultYearId={defaultYearId}
+        onActiveViewIdChange={setActiveViewId}
+        isPlaying={isPlaying}
+        onPlayingChange={setIsPlaying}
+        onTogglePlayback={togglePlayback}
+        testIdPrefix="profile-stats"
+        yearIds={yearViewIds}
+      >
         <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>{activeLabel}</span>
           <span>{t("profile.stats.totalPlaytime", { total: totalLabel })}</span>
@@ -502,7 +594,7 @@ ${serverCountLabel}
             data-testid="profile-stats-most-played-server-chart"
           />
         )}
-      </CardContent>
+      </ProfileStatsPeriodContent>
     </Card>
   )
 }
@@ -820,63 +912,38 @@ function ProfileStatsMapBarCard({
 
   return (
     <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
-      <CardContent className="space-y-5 p-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {t("profile.stats.mapsTitle")}
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              {(["records", "hours"] as const).map((metric) => (
-                <Button
-                  key={metric}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setActiveMetric(metric)
-                  }}
-                  className={cn(
-                    "shrink-0",
-                    activeMetric === metric && "bg-card text-foreground",
-                  )}
-                  data-testid={`profile-stats-maps-metric-${metric}`}
-                >
-                  {metric === "records"
-                    ? t("profile.stats.recordsMetric")
-                    : t("profile.stats.hoursMetric")}
-                </Button>
-              ))}
-              <ProfileStatsPlaybackButton
-                disabled={yearViewIds.length < 2}
-                isPlaying={isPlaying}
-                onClick={togglePlayback}
-                testId="profile-stats-maps-playback-button"
-              />
-            </div>
+      <ProfileStatsPeriodContent
+        title={t("profile.stats.mapsTitle")}
+        activeViewId={activeViewId}
+        defaultYearId={defaultYearId}
+        onActiveViewIdChange={setActiveViewId}
+        isPlaying={isPlaying}
+        onPlayingChange={setIsPlaying}
+        onTogglePlayback={togglePlayback}
+        testIdPrefix="profile-stats-maps"
+        yearIds={yearViewIds}
+        actions={
+          <div className="flex shrink-0 items-center gap-2">
+            {(["records", "hours"] as const).map((metric) => (
+              <Button
+                key={metric}
+                type="button"
+                variant={activeMetric === metric ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setActiveMetric(metric)
+                }}
+                aria-pressed={activeMetric === metric}
+                data-testid={`profile-stats-maps-metric-${metric}`}
+              >
+                {metric === "records"
+                  ? t("profile.stats.recordsMetric")
+                  : t("profile.stats.hoursMetric")}
+              </Button>
+            ))}
           </div>
-          <ProfileDurationControls
-            activeViewId={activeViewId}
-            defaultYearId={defaultYearId}
-            onActiveViewIdChange={setActiveViewId}
-            onPlayingChange={setIsPlaying}
-            specialViews={[
-              {
-                id: LAST_365_DAYS_VIEW_ID,
-                label: t("profile.stats.last365Days"),
-                testId: `profile-stats-maps-view-${LAST_365_DAYS_VIEW_ID}`,
-              },
-              {
-                id: ALL_TIME_VIEW_ID,
-                label: t("profile.stats.allTime"),
-                testId: `profile-stats-maps-view-${ALL_TIME_VIEW_ID}`,
-              },
-            ]}
-            testIdPrefix="profile-stats-maps"
-            yearIds={yearViewIds}
-          />
-        </div>
-
+        }
+      >
         <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>{activeLabel}</span>
           <span>{totalLabel}</span>
@@ -895,7 +962,7 @@ function ProfileStatsMapBarCard({
             data-testid="profile-stats-most-played-maps-chart"
           />
         )}
-      </CardContent>
+      </ProfileStatsPeriodContent>
     </Card>
   )
 }
