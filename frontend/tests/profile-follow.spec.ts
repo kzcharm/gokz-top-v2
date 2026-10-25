@@ -403,6 +403,30 @@ test("Profile avatar ring uses the highest role color", async ({ page }) => {
   await expect(avatar).toHaveAttribute("class", /ring-\[#ef4444\]\/90/)
 })
 
+test("Server owner avatar ring takes priority over the normal user ring", async ({
+  page,
+}) => {
+  await installProfileRoutes({
+    page,
+    player: buildPlayer({
+      steamid64: targetSteamid64,
+      name: "Server Owner",
+      alias: "Server Owner",
+      roles: ["server_owner"],
+    }),
+    summary: {
+      follower_count: 0,
+      following_count: 0,
+      viewer_is_following: null,
+      viewer_is_self: false,
+    },
+  })
+  await page.goto(`/profile/${targetSteamid64}`)
+  const avatar = page.getByTestId(`profile-avatar-ring-${targetSteamid64}`)
+  await expect(avatar).toHaveClass(/ring-\[#f59e0b\]\/90/)
+  await expect(avatar).not.toHaveClass(/ring-pink/)
+})
+
 test("Profile avatar has no ring for non-users", async ({ page }) => {
   await installProfileRoutes({
     page,

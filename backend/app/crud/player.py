@@ -1347,10 +1347,26 @@ async def load_player_roles_by_steamid64(
     statement = select(col(User.steamid64), col(User.roles)).where(
         col(User.steamid64).in_(unique_steamid64s)
     )
-    return {
+    roles_by_steamid64 = {
         steamid64: normalize_user_roles(roles)
         for steamid64, roles in (await session.exec(statement)).all()
     }
+    # Only website users get role rings. Ownership changes display roles, not
+    # the account's stored permissions.
+    owners_statement = select(col(Player.steamid64)).where(
+        col(Player.steamid64).in_(tuple(roles_by_steamid64)),
+        or_(
+            exists().where(col(ServerGroup.owner_steamid64) == col(Player.steamid64)),
+            exists().where(
+                col(ServerGlobalapi.owner_steamid64) == col(Player.steamid64)
+            ),
+        ),
+    )
+    for steamid64 in (await session.exec(owners_statement)).all():
+        roles_by_steamid64[steamid64] = normalize_user_roles(
+            [*roles_by_steamid64.get(steamid64, []), UserRole.SERVER_OWNER]
+        )
+    return roles_by_steamid64
 
 
 async def to_player_publics(

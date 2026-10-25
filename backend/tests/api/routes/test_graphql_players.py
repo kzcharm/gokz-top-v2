@@ -14,6 +14,8 @@ from app.models import (
     ModeScope,
     Player,
     Server,
+    ServerGlobalapi,
+    ServerGroup,
     ServerLiveStatus,
     ServerStatus,
     User,
@@ -98,6 +100,74 @@ async def test_online_player_lookup_skips_empty_input(db: AsyncSession) -> None:
         )
         == set()
     )
+
+
+async def test_player_display_roles_recognize_ownership_without_changing_account_roles(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    group_owner, global_owner, admin_owner = [random_steamid64() for _ in range(3)]
+    for steamid64 in (group_owner, global_owner, admin_owner):
+        db.add(Player(steamid64=steamid64, name="Server owner"))
+    website_user = User(steamid64=group_owner, roles=[])
+    admin_user = User(steamid64=admin_owner, roles=["admin"])
+    db.add(website_user)
+    db.add(admin_user)
+    await db.flush()
+    db.add(
+        ServerGroup(
+            name=f"Owner {group_owner}",
+            custom_id=f"owner-{group_owner}",
+            api_key=str(group_owner),
+            owner_steamid64=group_owner,
+        )
+    )
+    db.add(
+        ServerGroup(
+            name=f"Owner {admin_owner}",
+            custom_id=f"owner-{admin_owner}",
+            api_key=str(admin_owner),
+            owner_steamid64=admin_owner,
+        )
+    )
+    db.add(
+        ServerGlobalapi(id=global_owner % 1_000_000_000, owner_steamid64=global_owner)
+    )
+    await db.commit()
+    payload = await _post_graphql(
+        client,
+        query="""
+        query Players($steamid64s: [ID!]!) {
+          players(steamid64s: $steamid64s) { steamid64 roles }
+        }
+        """,
+        variables={
+            "steamid64s": [
+                str(value) for value in (group_owner, global_owner, admin_owner)
+            ]
+        },
+    )
+    assert payload.get("errors") is None
+    assert [player["roles"] for player in payload["data"]["players"]] == [
+        ["SERVER_OWNER"],
+        None,
+        ["ADMIN", "SERVER_OWNER"],
+    ]
+    await db.refresh(website_user)
+    await db.refresh(admin_user)
+    assert website_user.roles == []
+    assert admin_user.roles == ["admin"]
+    response = await client.get(f"/v1/players/{group_owner}")
+    assert response.status_code == 200
+    assert response.json()["roles"] == ["server_owner"]
+    response = await client.get(f"/v1/players/{global_owner}")
+    assert response.status_code == 200
+    assert response.json()["roles"] is None
+    db.add(User(steamid64=global_owner, roles=[]))
+    await db.commit()
+    response = await client.get(f"/v1/players/{global_owner}")
+    assert response.status_code == 200
+    assert response.json()["roles"] == ["server_owner"]
 
 
 async def test_graphql_player_fetches_by_steamid64_and_custom_id(

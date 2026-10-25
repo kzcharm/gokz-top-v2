@@ -154,7 +154,7 @@ test.describe("Leaderboards page", () => {
         }),
         lastPlayedAt: "2025-01-01T12:00:00Z",
         isOnline: true,
-        roles: ["admin" as UserRole],
+        roles: ["server_owner" as UserRole],
       },
       {
         ...buildGraphqlPlayer({
@@ -250,7 +250,7 @@ test.describe("Leaderboards page", () => {
     ).toHaveAttribute("data-status", "recent")
     await expect(
       page.getByTestId("player-avatar-ring-76561198000000001"),
-    ).toHaveClass(/ring-\[#ef4444\]\/90/)
+    ).toHaveClass(/ring-\[#f59e0b\]\/90/)
     await online.hover()
     await expect(page.getByRole("tooltip")).toHaveText("In a server now")
     await recent.hover()
