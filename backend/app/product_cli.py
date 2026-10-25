@@ -8,12 +8,11 @@ from typing import Any
 
 import typer
 from rich.console import Console
-from sqlalchemy import func
+from sqlalchemy import String, cast, func
 from sqlmodel import col, select
 
 from app.core.db import async_session_maker
 from app.models.product import (
-    PlayerHardware,
     Product,
     ProductAlias,
     ProductAudit,
@@ -84,17 +83,19 @@ def import_products(manifest: Path, dry_run: bool = False) -> None:
 
 async def inspect_products(unverified: bool) -> list[dict[str, Any]]:
     async with async_session_maker() as session:
+        selections = products.hardware_selections()
+        players = func.count(func.distinct(selections.c.player_steamid64))
         statement = (
-            select(Product, func.count(col(PlayerHardware.player_steamid64)))
+            select(Product, players)
             .join(
-                PlayerHardware,
-                col(PlayerHardware.product_id) == col(Product.id),
+                selections,
+                selections.c.product_id == cast(col(Product.id), String),
                 isouter=True,
             )
             .where(col(Product.merged_into_id).is_(None))
             .group_by(col(Product.id))
             .order_by(
-                func.count(col(PlayerHardware.player_steamid64)).desc(),
+                players.desc(),
                 col(Product.brand),
                 col(Product.model),
             )

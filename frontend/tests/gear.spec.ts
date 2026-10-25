@@ -436,3 +436,102 @@ test("brands are searchable and gear configuration stays beside its selection", 
     page.getByRole("combobox", { name: "Brand", exact: true }),
   ).toHaveText("Razer")
 })
+
+test("setup retains multiple disks and monitor dimensions and removes only the chosen disk", async ({
+  page,
+}) => {
+  await mock(page)
+  const monitor = {
+    ...product,
+    id: "019d1111-1111-7111-8111-111111111112",
+    category: "monitor",
+    brand: "BenQ",
+    model: "XL2566K",
+  }
+  let saved: any = {
+    ...blank,
+    hardware: [{ category: "memory", memory_capacity_gb: 32 }],
+  }
+  await page.route("**/v1/products?**", (route) =>
+    route.fulfill({ json: { data: [monitor], count: 1 } }),
+  )
+  await page.route("**/v1/me/setup", (route) => {
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON()
+      saved = {
+        ...body,
+        hardware: body.hardware.map((item: any) => ({
+          ...item,
+          product: item.product_id === monitor.id ? monitor : null,
+        })),
+      }
+    }
+    return route.fulfill({ json: saved })
+  })
+  await page.goto("/settings/setup")
+  await expect(page.locator("[data-gear]")).toHaveCount(13)
+  expect(
+    await page
+      .locator("[data-gear]")
+      .evaluateAll((nodes) =>
+        nodes.slice(0, 5).map((node) => node.getAttribute("data-gear")),
+      ),
+  ).toEqual(["monitor", "mouse", "mouse_pad", "keyboard", "headset"])
+  await page
+    .getByRole("combobox", { name: "Monitor", exact: true })
+    .fill("BenQ")
+  await page.getByRole("option", { name: "BenQ XL2566K" }).click()
+  await page.getByLabel("Monitor Size (inches)", { exact: true }).fill("24.5")
+  await page
+    .getByLabel("Monitor Refresh Rate (Hz)", { exact: true })
+    .fill("360")
+  const disks = page.locator("[data-disk]")
+  await disks
+    .first()
+    .getByLabel("Storage Capacity", { exact: true })
+    .fill("2000")
+  await disks.first().getByRole("combobox", { name: "Storage Unit" }).click()
+  await page.getByRole("option", { name: "TB", exact: true }).click()
+  await expect(disks.first().getByLabel("Storage Capacity")).toHaveValue("2")
+  await page.getByRole("button", { name: "Add Disk", exact: true }).click()
+  await disks.nth(1).getByLabel("Storage Capacity").fill("512")
+  await page.getByRole("button", { name: "Save", exact: true }).first().click()
+  await expect(page.getByText("Setup saved.")).toBeVisible()
+  expect(
+    saved.hardware.find((item: any) => item.category === "monitor"),
+  ).toMatchObject({ monitor_size_inches: "24.5", monitor_refresh_hz: "360" })
+  expect(
+    saved.hardware.find((item: any) => item.category === "monitor"),
+  ).not.toHaveProperty("memory_capacity_gb")
+  expect(
+    saved.hardware
+      .filter((item: any) => item.category === "storage")
+      .map((item: any) => item.storage_capacity_gb),
+  ).toEqual([2000, 512])
+  await page.reload()
+  await expect(disks).toHaveCount(2)
+  await expect(page.getByLabel("Monitor Size (inches)")).toHaveValue("24.5")
+  await expect(disks.first().getByLabel("Storage Capacity")).toHaveValue("2")
+  await expect(disks.nth(1).getByLabel("Storage Capacity")).toHaveValue("512")
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390)
+  await page.screenshot({
+    path: "../.temp/screenshots/hardware-editor-mobile.png",
+    fullPage: true,
+  })
+  await page.getByRole("button", { name: "Remove Disk 1", exact: true }).click()
+  await page.getByRole("button", { name: "Save", exact: true }).last().click()
+  await expect
+    .poll(
+      () =>
+        saved.hardware.filter((item: any) => item.category === "storage")
+          .length,
+    )
+    .toBe(1)
+  expect(
+    saved.hardware.find((item: any) => item.category === "storage")
+      .storage_capacity_gb,
+  ).toBe(512)
+})

@@ -4,15 +4,17 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, or_, text
+from sqlalchemy import String, cast, func, or_, text, true
 from sqlalchemy.sql.elements import ColumnElement
-from sqlmodel import col, delete, select
+from sqlalchemy.sql.selectable import Subquery
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.product import (
     GameSettingsPublic,
     GearLeaderboardEntry,
     GearLeaderboardPublic,
+    HardwareInput,
     HardwarePublic,
     PlayerGameSettings,
     PlayerHardware,
@@ -187,16 +189,23 @@ async def list_products(
 
 
 async def read_setup(session: AsyncSession, steamid64: int) -> SetupPublic:
-    rows = (
-        await session.exec(
-            select(PlayerHardware, Product)
-            .join(
-                Product, col(PlayerHardware.product_id) == col(Product.id), isouter=True
-            )
-            .where(col(PlayerHardware.player_steamid64) == steamid64)
-            .order_by(col(PlayerHardware.category))
-        )
-    ).all()
+    setup = await session.get(PlayerHardware, steamid64)
+    selections = (
+        [HardwareInput.model_validate(item) for item in setup.selections]
+        if setup
+        else []
+    )
+    ids = {item.product_id for item in selections if item.product_id is not None}
+    catalog = (
+        {
+            product.id: public_product(product)
+            for product in (
+                await session.exec(select(Product).where(col(Product.id).in_(ids)))
+            ).all()
+        }
+        if ids
+        else {}
+    )
     game = await session.get(PlayerGameSettings, steamid64)
     dpi = game.mouse_dpi if game else None
     sensitivity = game.sensitivity if game else None
@@ -204,10 +213,10 @@ async def read_setup(session: AsyncSession, steamid64: int) -> SetupPublic:
         operating_system=game.operating_system if game else None,
         hardware=[
             HardwarePublic(
-                **hardware.model_dump(exclude={"player_steamid64"}, warnings=False),
-                product=public_product(product) if product else None,
+                **item.model_dump(),
+                product=catalog.get(item.product_id) if item.product_id else None,
             )
-            for hardware, product in rows
+            for item in selections
         ],
         game_settings=GameSettingsPublic(
             mouse_dpi=dpi,
@@ -223,19 +232,21 @@ async def replace_setup(
     session: AsyncSession, steamid64: int, body: SetupInput
 ) -> SetupPublic:
     await lock_catalog(session)
-    hardware: list[PlayerHardware] = []
+    selections: list[dict[str, object]] = []
     for item in body.hardware:
-        values = item.model_dump()
+        values = item.model_dump(mode="json", exclude_none=True)
         if item.product_id is not None:
             product = await resolve_product(session, item.product_id)
             if product.category != item.category:
                 raise ValueError("Product does not belong to the selected category")
-            values["product_id"] = product.id
-        hardware.append(PlayerHardware(player_steamid64=steamid64, **values))
-    await session.exec(
-        delete(PlayerHardware).where(col(PlayerHardware.player_steamid64) == steamid64)
-    )
-    session.add_all(hardware)
+            values["product_id"] = str(product.id)
+        selections.append(values)
+    setup = await session.get(PlayerHardware, steamid64)
+    if setup is None:
+        setup = PlayerHardware(player_steamid64=steamid64)
+    setup.selections = selections
+    setup.updated_at = get_datetime_utc()
+    session.add(setup)
     game = await session.get(PlayerGameSettings, steamid64)
     if game is None:
         game = PlayerGameSettings(player_steamid64=steamid64)
@@ -247,21 +258,39 @@ async def replace_setup(
     return await read_setup(session, steamid64)
 
 
+def hardware_selections() -> Subquery:
+    """Expand JSONB for SQL aggregation; duplicate disks still count once per player."""
+    item = (
+        func.jsonb_array_elements(col(PlayerHardware.selections))
+        .table_valued("value")
+        .lateral()
+    )
+    return (
+        select(
+            col(PlayerHardware.player_steamid64).label("player_steamid64"),
+            cast(item.c.value.op("->>")("product_id"), String).label("product_id"),
+            cast(item.c.value.op("->>")("category"), String).label("category"),
+        )
+        .select_from(PlayerHardware)
+        .join(item, true())
+        .subquery()
+    )
+
+
 async def gear_leaderboard(
     session: AsyncSession, category: ProductCategory, query: str, skip: int, limit: int
 ) -> GearLeaderboardPublic:
+    selections = hardware_selections()
     usage = (
         select(
-            col(PlayerHardware.product_id),
-            func.count(func.distinct(col(PlayerHardware.player_steamid64))).label(
-                "players"
-            ),
+            selections.c.product_id,
+            func.count(func.distinct(selections.c.player_steamid64)).label("players"),
         )
         .where(
-            col(PlayerHardware.category) == category,
-            col(PlayerHardware.product_id).is_not(None),
+            selections.c.category == category,
+            selections.c.product_id.is_not(None),
         )
-        .group_by(col(PlayerHardware.product_id))
+        .group_by(selections.c.product_id)
         .subquery()
     )
     ranked = (
@@ -279,11 +308,18 @@ async def gear_leaderboard(
             )
             .label("rank"),
         )
-        .join(usage, col(Product.id) == usage.c.product_id)
+        .join(usage, cast(col(Product.id), String) == usage.c.product_id)
         .subquery()
     )
     participants = int(
-        (await session.exec(select(func.coalesce(func.sum(usage.c.players), 0)))).one()
+        (
+            await session.exec(
+                select(func.count(func.distinct(selections.c.player_steamid64))).where(
+                    selections.c.category == category,
+                    selections.c.product_id.is_not(None),
+                )
+            )
+        ).one()
     )
     condition = search_condition(query)
     count = (
@@ -332,19 +368,31 @@ async def merge_products(
         raise ValueError("Cannot merge products from different categories")
     selections = (
         await session.exec(
-            select(PlayerHardware).where(col(PlayerHardware.product_id) == source.id)
+            select(PlayerHardware).where(
+                col(PlayerHardware.selections).contains(
+                    [{"product_id": str(source.id)}]
+                )
+            )
         )
     ).all()
     result: dict[str, object] = {
         "source": str(source.id),
         "target": str(target.id),
-        "selections": len(selections),
+        "selections": sum(
+            sum(item.get("product_id") == str(source.id) for item in row.selections)
+            for row in selections
+        ),
         "dry_run": dry_run,
     }
     if source.id == target.id or dry_run:
         return result
     for selection in selections:
-        selection.product_id = target.id
+        selection.selections = [
+            {**item, "product_id": str(target.id)}
+            if item.get("product_id") == str(source.id)
+            else item
+            for item in selection.selections
+        ]
         session.add(selection)
     aliases = (
         await session.exec(

@@ -411,6 +411,7 @@ export type HardwareInput = {
     memory_type?: (string | null);
     memory_speed_mts?: (number | null);
     monitor_refresh_hz?: (number | string | null);
+    monitor_size_inches?: (number | string | null);
 };
 
 export type storage_capacity_unit = 'GB' | 'TB';
@@ -424,6 +425,7 @@ export type HardwarePublic = {
     memory_type?: (string | null);
     memory_speed_mts?: (number | null);
     monitor_refresh_hz?: (string | null);
+    monitor_size_inches?: (string | null);
     product?: (ProductPublic | null);
 };
 

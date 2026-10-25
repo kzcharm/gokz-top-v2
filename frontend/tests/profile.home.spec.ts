@@ -837,6 +837,8 @@ test("Profile home displays setup and eDPI before pinned records", async ({
   await page.route(/\/v1\/players\/[^/]+\/setup$/, (route) =>
     route.fulfill({
       json: {
+        created_at: "2026-10-21T12:00:00Z",
+        updated_at: "2026-10-25T12:00:00Z",
         operating_system: "Windows 11",
         hardware: [
           {
@@ -863,6 +865,20 @@ test("Profile home displays setup and eDPI before pinned records", async ({
             storage_capacity_gb: 2000,
             storage_capacity_unit: "TB",
           },
+          { category: "storage", storage_capacity_gb: 512 },
+          {
+            category: "monitor",
+            monitor_size_inches: "24.5",
+            monitor_refresh_hz: "360",
+            product_id: "019d1111-1111-7111-8111-111111111112",
+            product: {
+              id: "019d1111-1111-7111-8111-111111111112",
+              category: "monitor",
+              brand: "BenQ",
+              model: "XL2566K",
+              community_added: false,
+            },
+          },
         ],
         game_settings: {
           mouse_dpi: 800,
@@ -878,6 +894,27 @@ test("Profile home displays setup and eDPI before pinned records", async ({
   await expect(page.getByText("eDPI", { exact: true })).toBeVisible()
   await expect(page.getByText("Windows 11", { exact: true })).toBeVisible()
   await expect(page.getByText("2 TB", { exact: true })).toBeVisible()
+  await expect(page.getByText("512 GB", { exact: true })).toBeVisible()
+  await expect(page.getByText("24.5″ · 360 Hz", { exact: true })).toBeVisible()
+  const setup = page.getByTestId("profile-setup")
+  await expect(setup.getByText("Created:", { exact: false })).toHaveCount(0)
+  await expect(setup.getByText("Updated:", { exact: false })).toHaveCount(0)
+  expect(
+    await setup
+      .locator("[data-hardware]")
+      .evaluateAll((nodes) =>
+        nodes.slice(0, 2).map((node) => node.getAttribute("data-hardware")),
+      ),
+  ).toEqual(["monitor", "mouse"])
+  await expect(
+    page.getByTestId("setup-peripherals").getByTestId("setup-game-settings"),
+  ).toBeVisible()
+  const peripherals = await page.getByTestId("setup-peripherals").boundingBox()
+  const pc = await page.getByTestId("setup-pc").boundingBox()
+  expect(peripherals?.y).toBe(pc?.y)
+  await setup.screenshot({
+    path: "../.temp/screenshots/hardware-profile-card.png",
+  })
   await expect(
     page.getByText("32 GB · DDR4 · 3200 MHz", { exact: true }),
   ).toBeVisible()

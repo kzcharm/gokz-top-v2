@@ -2146,6 +2146,23 @@ export const HardwareInputSchema = {
                 }
             ],
             title: 'Monitor Refresh Hz'
+        },
+        monitor_size_inches: {
+            anyOf: [
+                {
+                    type: 'number',
+                    maximum: 200,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,2}0*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Size Inches'
         }
     },
     additionalProperties: false,
@@ -2239,6 +2256,18 @@ export const HardwarePublicSchema = {
                 }
             ],
             title: 'Monitor Refresh Hz'
+        },
+        monitor_size_inches: {
+            anyOf: [
+                {
+                    type: 'string',
+                    pattern: '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,2}0*$'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Size Inches'
         },
         product: {
             anyOf: [
@@ -11394,7 +11423,7 @@ export const SetupInputSchema = {
                 '$ref': '#/components/schemas/HardwareInput'
             },
             type: 'array',
-            maxItems: 13,
+            maxItems: 32,
             title: 'Hardware'
         },
         game_settings: {

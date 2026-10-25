@@ -1,10 +1,10 @@
 import type { ProductCategory } from "@/client"
 
 export const PERIPHERALS: ProductCategory[] = [
+  "monitor",
   "mouse",
   "mouse_pad",
   "keyboard",
-  "monitor",
   "headset",
 ]
 export const PC_COMPONENTS: ProductCategory[] = [

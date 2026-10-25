@@ -223,7 +223,7 @@
 
 ## Player setup and product catalog
 
-- Product identities, aliases, and operator audit records live in the dedicated PostgreSQL `products` schema. `public.player_hardware` stores one primary selection per category; `public.player_game_settings` stores DPI and decimal CS:GO sensitivity. eDPI is derived at read time.
+- Product identities, aliases, and operator audit records live in the dedicated PostgreSQL `products` schema. `public.player_hardware` stores one row per player with an ordered JSONB `selections` array and creation/edit timestamps (multiple disks, singular other categories); `public.player_game_settings` stores DPI and decimal CS:GO sensitivity. eDPI is derived at read time.
 - `/v1/products`, `/v1/me/setup`, `/v1/players/{identifier}/setup`, and `/v1/leaderboards/gear` provide the catalog, authenticated setup replacement, profile display, and current usage aggregation. Community products are shared immediately; short catalog/setup writes and merges use a PostgreSQL transaction advisory lock.
 - `kztop products` handles versioned imports, verification/correction, and transactional merges. Product names link to a web search; product image hosting and previews are out of scope. `backend/app/data/products.v1.json` records catalog sources and research dates for over 2,400 models across all 13 categories; re-run the idempotent import after catalog updates.
 - Alembic reflects only the managed public/cache/products schemas and model tables, leaving externally managed tables and partition children untouched.
@@ -278,3 +278,5 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 
 
 - Player pronunciation uses the current stored alias/name with Unicode cleanup and on-demand generation only. Maps and players share one provider-locked worker, pause state, audio controller, and R2 storage pipeline. Public `/v1/players/{identifier}/pronunciation` never refreshes Steam. Admin/superuser pronunciation dialogs support voice, automatic/explicit language, and custom speech text; map admins are restricted to maps. Persistent per-target overrides survive normal playback and reset after a cleaned source-name change. `/v1/admin/pronunciations/options` reads cached backend-only provider choices; synthesis model selection remains operational configuration, not an editor control.
+
+- Player setup migration `30fd121073fa` preserves existing selections in JSONB, supports multiple disks and decimal monitor sizes in inches, and tracks setup creation/edit times in the database only (legacy baseline is migration time); these timestamps are excluded from setup API responses and UI. Setup responses keep the hardware array contract. Storage rankings and operator usage counts deduplicate by player/product, with distinct category participants as denominator. Profile setup uses compact rows, Monitor/Mouse/Mouse Pad/Keyboard/Headset order, and CS:GO settings under Peripherals.

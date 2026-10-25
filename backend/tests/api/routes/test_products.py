@@ -11,6 +11,7 @@ from app.core.db import async_session_maker
 from app.models.product import (
     GameSettingsInput,
     HardwareInput,
+    PlayerHardware,
     Product,
     ProductAlias,
     ProductCategory,
@@ -314,3 +315,148 @@ def test_duplicate_categories_and_configuration_validation() -> None:
 def test_storage_configuration_validation(values: dict[str, object]) -> None:
     with pytest.raises(ValidationError):
         HardwareInput.model_validate(values)
+
+
+@pytest.mark.asyncio
+async def test_multiple_disks_monitor_size_and_timestamps(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owner = 76561198000000480
+    headers = await authentication_token_from_steamid(
+        client=client, steamid64=owner, db=db
+    )
+    monitor = await products.create_product(
+        db,
+        ProductCreate(category=ProductCategory.MONITOR, brand="Display", model="27"),
+        None,
+    )
+    body = {
+        "hardware": [
+            {
+                "category": "storage",
+                "storage_capacity_gb": 2000,
+                "storage_capacity_unit": "TB",
+            },
+            {
+                "category": "monitor",
+                "product_id": str(monitor.id),
+                "monitor_size_inches": "27.5",
+                "monitor_refresh_hz": "239.76",
+            },
+            {"category": "storage", "storage_capacity_gb": 512},
+        ]
+    }
+    saved = await client.put("/v1/me/setup", headers=headers, json=body)
+    assert saved.status_code == 200, saved.text
+    setup = saved.json()
+    assert "created_at" not in setup and "updated_at" not in setup
+    assert [
+        item["storage_capacity_gb"]
+        for item in setup["hardware"]
+        if item["category"] == "storage"
+    ] == [2000, 512]
+    assert Decimal(setup["hardware"][1]["monitor_size_inches"]) == Decimal("27.5")
+    stored = await db.get(PlayerHardware, owner)
+    assert stored and stored.selections[1]["product_id"] == str(monitor.id)
+    assert stored.selections[1]["monitor_size_inches"] == "27.5"
+    created_at, updated_at = stored.created_at, stored.updated_at
+    assert created_at and updated_at
+    assert (await client.get(f"/v1/players/{owner}/setup")).json() == setup
+    updated = await client.put(
+        "/v1/me/setup", headers=headers, json={"game_settings": {"mouse_dpi": 800}}
+    )
+    await db.refresh(stored)
+    assert stored.created_at == created_at
+    assert stored.updated_at > updated_at
+    assert "created_at" not in updated.json() and "updated_at" not in updated.json()
+    assert updated.json()["hardware"] == []
+    invalid = await client.put(
+        "/v1/me/setup",
+        headers=headers,
+        json={
+            "hardware": [
+                {"category": "storage", "storage_capacity_gb": 1000},
+                {"category": "monitor", "product_id": str(uuid.uuid7())},
+            ]
+        },
+    )
+    assert invalid.status_code == 422
+    assert (await client.get("/v1/me/setup", headers=headers)).json() == updated.json()
+
+
+@pytest.mark.asyncio
+async def test_disk_ranking_and_merge_count_distinct_players(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    owners = [76561198000000481, 76561198000000482]
+    headers = [
+        await authentication_token_from_steamid(client=client, steamid64=owner, db=db)
+        for owner in owners
+    ]
+    a = await products.create_product(
+        db,
+        ProductCreate(category=ProductCategory.STORAGE, brand="Disk", model="A"),
+        None,
+    )
+    b = await products.create_product(
+        db,
+        ProductCreate(category=ProductCategory.STORAGE, brand="Disk", model="B"),
+        None,
+    )
+    for auth, entries in zip(headers, [[a, a, b], [b]], strict=True):
+        result = await client.put(
+            "/v1/me/setup",
+            headers=auth,
+            json={
+                "hardware": [
+                    {
+                        "category": "storage",
+                        "product_id": str(product.id),
+                        "storage_capacity_gb": 1000 + index,
+                    }
+                    for index, product in enumerate(entries)
+                ]
+            },
+        )
+        assert result.status_code == 200, result.text
+    ranking = await products.gear_leaderboard(db, ProductCategory.STORAGE, "", 0, 20)
+    assert ranking.participants == 2
+    assert [
+        (entry.product.id, entry.players, entry.share) for entry in ranking.data
+    ] == [(b.id, 2, 100), (a.id, 1, 50)]
+    assert (await products.merge_products(db, a.id, b.id, dry_run=True))[
+        "selections"
+    ] == 2
+    stored = await db.get(PlayerHardware, owners[0])
+    assert stored
+    updated_at = stored.updated_at
+    await products.merge_products(db, a.id, b.id)
+    after = await products.read_setup(db, owners[0])
+    assert len(after.hardware) == 3 and all(
+        item.product_id == b.id for item in after.hardware
+    )
+    assert [item.storage_capacity_gb for item in after.hardware] == [1000, 1001, 1002]
+    await db.refresh(stored)
+    assert stored.updated_at == updated_at
+    ranking = await products.gear_leaderboard(db, ProductCategory.STORAGE, "", 0, 20)
+    assert ranking.participants == 2 and ranking.count == 1
+    assert ranking.data[0].players == 2 and ranking.data[0].share == 100
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "200.01", "27.123", "NaN", "Infinity"])
+def test_monitor_size_validation(value: str) -> None:
+    with pytest.raises(ValidationError):
+        HardwareInput(
+            category=ProductCategory.MONITOR,
+            product_id=uuid.uuid7(),
+            monitor_size_inches=Decimal(value),
+        )
+
+
+def test_monitor_size_requires_monitor_category() -> None:
+    with pytest.raises(ValidationError):
+        HardwareInput(
+            category=ProductCategory.MOUSE,
+            product_id=uuid.uuid7(),
+            monitor_size_inches=Decimal("27"),
+        )

@@ -135,6 +135,9 @@ class HardwareInput(BaseModel):
     monitor_refresh_hz: Decimal | None = PydanticField(
         default=None, gt=0, le=10000, decimal_places=3, allow_inf_nan=False
     )
+    monitor_size_inches: Decimal | None = PydanticField(
+        default=None, gt=0, le=200, decimal_places=2, allow_inf_nan=False
+    )
 
     @model_validator(mode="after")
     def validate_configuration(self) -> Self:
@@ -145,10 +148,9 @@ class HardwareInput(BaseModel):
         if memory and self.category != ProductCategory.MEMORY:
             raise ValueError("Memory configuration requires the memory category")
         if (
-            self.monitor_refresh_hz is not None
-            and self.category != ProductCategory.MONITOR
-        ):
-            raise ValueError("Refresh rate requires the monitor category")
+            self.monitor_refresh_hz is not None or self.monitor_size_inches is not None
+        ) and self.category != ProductCategory.MONITOR:
+            raise ValueError("Monitor configuration requires the monitor category")
         if (
             self.storage_capacity_gb is not None
             and self.category != ProductCategory.STORAGE
@@ -179,14 +181,18 @@ class SetupInput(BaseModel):
         default=None, min_length=1, max_length=100
     )
     model_config = ConfigDict(extra="forbid")
-    hardware: list[HardwareInput] = PydanticField(default_factory=list, max_length=13)
+    hardware: list[HardwareInput] = PydanticField(default_factory=list, max_length=32)
     game_settings: GameSettingsInput = PydanticField(default_factory=GameSettingsInput)
 
     @model_validator(mode="after")
     def unique_categories(self) -> Self:
-        categories = [item.category for item in self.hardware]
+        categories = [
+            item.category
+            for item in self.hardware
+            if item.category != ProductCategory.STORAGE
+        ]
         if len(categories) != len(set(categories)):
-            raise ValueError("Select only one primary product per category")
+            raise ValueError("Only storage supports multiple products per category")
         return self
 
 
@@ -213,19 +219,17 @@ class PlayerHardware(SQLModel, table=True):
             primary_key=True,
         )
     )
-    category: ProductCategory = Field(sa_column=Column(String(32), primary_key=True))
-    product_id: uuid.UUID | None = Field(
-        default=None, foreign_key="products.product.id", index=True
+    selections: list[dict[str, object]] = Field(
+        default_factory=list,
+        sa_column=Column(JSONB, nullable=False, server_default="[]"),
     )
-    storage_capacity_unit: Literal["GB", "TB"] = Field(
-        default="GB", sa_column=Column(String(2), nullable=False, server_default="GB")
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
     )
-    storage_capacity_gb: int | None = None
-    memory_capacity_gb: int | None = None
-    memory_type: str | None = None
-    memory_speed_mts: int | None = None
-    monitor_refresh_hz: Decimal | None = Field(
-        default=None, sa_column=Column(Numeric(8, 3))
+    updated_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
 

@@ -54,6 +54,10 @@ export const ru = {
     failed: "Не удалось удалить более быстрые рекорды. Попробуйте ещё раз.",
   },
   gear: {
+    monitorSize: "Диагональ монитора (дюймы)",
+    addDisk: "Добавить накопитель",
+    removeDisk: "Удалить накопитель {{number}}",
+
     storageCapacity: "Объём накопителя",
     storageUnit: "Единица объёма",
     operatingSystem: "Операционная система",
