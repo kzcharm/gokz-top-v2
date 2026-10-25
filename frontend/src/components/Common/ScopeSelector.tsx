@@ -54,7 +54,7 @@ export function ScopeSelector() {
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="scope"
           className={cn(
             "h-9 min-w-20 gap-2 rounded-full px-3 font-mono font-semibold tracking-[0.16em] shadow-xs",
             getScopeTone(scope),
