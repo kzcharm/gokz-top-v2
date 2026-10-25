@@ -23,6 +23,8 @@ from app.api.v1.player_api_helpers import (
     parse_steamid64,
     resolve_player_identifier_to_steamid64_or_404,
 )
+from app.crud.player import to_player_ref_public
+from app.crud.player_profile_view import read_player_profile_visitors
 from app.models import (
     JumpstatListQuery,
     JumpstatsPublic,
@@ -61,6 +63,10 @@ from app.models import (
     TournamentAchievementsPublic,
     User,
     UserRole,
+)
+from app.models.player_profile_view import (
+    PlayerProfileVisitorPublic,
+    PlayerProfileVisitorsPublic,
 )
 from app.services.player_friends import read_player_friends_public
 from app.services.player_pronunciation import (
@@ -222,6 +228,33 @@ async def create_player_like(
         target_steamid64=player.steamid64,
     )
     return PlayerLikesPublic(player_likes=player_likes, created=created)
+
+
+@router.get(
+    "/{identifier:path}/views/players", response_model=PlayerProfileVisitorsPublic
+)
+async def read_player_visitors(
+    identifier: str,
+    session: SessionDep,
+    _current_user: CurrentSuperuser,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> PlayerProfileVisitorsPublic:
+    player = await get_player_or_404(session=session, identifier=identifier)
+    rows, count = await read_player_profile_visitors(
+        session=session, target_steamid64=player.steamid64, offset=offset, limit=limit
+    )
+    return PlayerProfileVisitorsPublic(
+        data=[
+            PlayerProfileVisitorPublic(
+                player=to_player_ref_public(player=visitor),
+                viewed_at=view.created_at,
+                view_date=view.view_date,
+            )
+            for view, visitor in rows
+        ],
+        count=count,
+    )
 
 
 @router.get("/{identifier:path}/views", response_model=PlayerProfileViewsPublic)

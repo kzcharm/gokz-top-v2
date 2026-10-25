@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import PlayerProfileView
+from app.models import Player, PlayerProfileView
 
 
 def get_utc_today(*, now: datetime | None = None) -> date:
@@ -81,3 +81,28 @@ async def create_player_profile_view(
     )
     await session.exec(statement)
     await session.commit()
+
+
+async def read_player_profile_visitors(
+    *,
+    session: AsyncSession,
+    target_steamid64: int,
+    offset: int = 0,
+    limit: int = 20,
+) -> tuple[list[tuple[PlayerProfileView, Player]], int]:
+    count = await count_player_profile_views(
+        session=session, target_steamid64=target_steamid64
+    )
+    statement = (
+        select(PlayerProfileView, Player)
+        .join(Player, col(Player.steamid64) == col(PlayerProfileView.viewer_steamid64))
+        .where(PlayerProfileView.target_steamid64 == target_steamid64)
+        .order_by(
+            col(PlayerProfileView.view_date).desc(),
+            col(PlayerProfileView.created_at).desc().nulls_last(),
+            col(PlayerProfileView.viewer_steamid64).desc(),
+        )
+        .offset(offset)
+        .limit(limit)
+    )
+    return list((await session.exec(statement)).all()), count

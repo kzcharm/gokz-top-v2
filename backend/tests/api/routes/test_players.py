@@ -3722,3 +3722,78 @@ async def test_check_player_ban_status_returns_bad_gateway_on_globalapi_failure(
 
     assert response.status_code == 502
     assert response.json()["detail"] == "Failed to fetch bans from GlobalAPI"
+
+
+@pytest.mark.asyncio
+async def test_profile_visitors_are_root_only_and_paginated(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    from app.models import UserRole
+    from tests.utils.utils import _token_headers_from_private_session
+
+    target_id, first_id, second_id, other_id = [random_steamid64() for _ in range(4)]
+    for steamid, name in [
+        (target_id, "Target"),
+        (first_id, "First"),
+        (second_id, "Second"),
+        (other_id, "Other"),
+    ]:
+        await _create_player(db=db, steamid64=steamid, name=name)
+    for viewer, target, day in [
+        (first_id, target_id, 1),
+        (first_id, target_id, 2),
+        (second_id, target_id, 3),
+        (second_id, other_id, 4),
+    ]:
+        await crud.create_player_profile_view(
+            session=db,
+            viewer_steamid64=viewer,
+            target_steamid64=target,
+            now=datetime(2026, 10, day, 12, tzinfo=UTC),
+        )
+    url = f"{settings.API_V1_STR}/players/{target_id}/views/players"
+    assert (await client.get(url)).status_code == 401
+    for roles in [[], [UserRole.ADMIN], [UserRole.MAP_ADMIN], [UserRole.SERVER_OWNER]]:
+        headers = await _token_headers_from_private_session(
+            client, steamid64=random_steamid64(), roles=roles
+        )
+        assert (await client.get(url, headers=headers)).status_code == 403
+    headers = await get_superuser_token_headers(client)
+    response = await client.get(url, headers=headers, params={"offset": 1, "limit": 1})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 3
+    assert len(payload["data"]) == 1
+    assert payload["data"][0]["player"] == {
+        "steamid64": str(first_id),
+        "display_name": "First",
+    }
+    assert payload["data"][0]["view_date"] == "2026-10-02"
+    assert payload["data"][0]["viewed_at"].startswith("2026-10-02T12:00:00")
+    response = await client.get(url, headers=headers)
+    assert [row["player"]["steamid64"] for row in response.json()["data"]] == [
+        str(second_id),
+        str(first_id),
+        str(first_id),
+    ]
+    assert (
+        await client.get(url, headers=headers, params={"offset": -1})
+    ).status_code == 422
+    assert (
+        await client.get(url, headers=headers, params={"limit": 101})
+    ).status_code == 422
+    assert (await client.get(f"{url}?offset=100", headers=headers)).json() == {
+        "data": [],
+        "count": 3,
+    }
+    assert (
+        await client.get(
+            f"{settings.API_V1_STR}/players/{other_id}/views/players", headers=headers
+        )
+    ).json()["count"] == 1
+    assert (
+        await client.get(
+            f"{settings.API_V1_STR}/players/{random_steamid64()}/views/players",
+            headers=headers,
+        )
+    ).status_code == 404

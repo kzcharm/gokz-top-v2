@@ -677,6 +677,13 @@ export const en = {
       ladder: "Ladder",
       slide: "Slide",
     },
+    visitors: {
+      title: "Profile visitors",
+      description:
+        "Signed-in visits, newest first. One entry per visitor per UTC day. Self-visits and root-admin visits are not recorded.",
+      empty: "No visits recorded yet.",
+      loadFailed: "Could not load profile visitors.",
+    },
     socialDialog: {
       title: "Profile Connections",
       likesTab: "Likes {{count}}",

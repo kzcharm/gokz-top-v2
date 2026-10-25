@@ -73,6 +73,7 @@ import {
 import { getSocialPlatformLabel, SocialPlatformIcon } from "@/lib/social-links"
 import {
   getHighestPlayerPermission,
+  isSuperuser,
   PLAYER_PERMISSION_RING_CLASS_NAMES,
 } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
@@ -84,6 +85,7 @@ import {
   type ProfileSocialTab,
 } from "./ProfileSocialDialog"
 import { ProfileTournamentAchievements } from "./ProfileTournamentAchievements"
+import { ProfileVisitorsDialog } from "./ProfileVisitorsDialog"
 import {
   getRatingRankLadder,
   getRatingRankLevel,
@@ -902,6 +904,7 @@ export function ProfileSidebar({
   const navigate = useNavigate()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [visitorsOpen, setVisitorsOpen] = useState(false)
   const [socialDialogOpen, setSocialDialogOpen] = useState(false)
   const [socialTab, setSocialTab] = useState<ProfileSocialTab>("followers")
   const [identityContextMenuOpen, setIdentityContextMenuOpen] = useState(false)
@@ -1241,6 +1244,9 @@ export function ProfileSidebar({
             <div className="grid grid-cols-3 gap-3">
               <SummaryMiniCard
                 dataTestId="profile-profile-views-card"
+                onClick={
+                  isSuperuser(user) ? () => setVisitorsOpen(true) : undefined
+                }
                 icon={<Eye className="size-3.5" />}
                 labelHidden
                 label={t("profile.summary.profileViews")}
@@ -1312,6 +1318,14 @@ export function ProfileSidebar({
           </CardContent>
         </Card>
       </div>
+      {isSuperuser(user) ? (
+        <ProfileVisitorsDialog
+          key={identifier}
+          identifier={identifier}
+          open={visitorsOpen}
+          onOpenChange={setVisitorsOpen}
+        />
+      ) : null}
       <ProfileSocialDialog
         followerCount={followerCount}
         followingCount={followingCount}

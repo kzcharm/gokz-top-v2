@@ -3,6 +3,7 @@ from datetime import date, datetime
 from sqlalchemy import BigInteger, Column, Date, DateTime, ForeignKey, Index
 from sqlmodel import Field, SQLModel
 
+from .player import PlayerRefPublic
 from .utils import get_datetime_utc
 
 
@@ -35,3 +36,14 @@ class PlayerProfileView(SQLModel, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
+
+
+class PlayerProfileVisitorPublic(SQLModel):
+    player: PlayerRefPublic
+    viewed_at: datetime | None
+    view_date: date
+
+
+class PlayerProfileVisitorsPublic(SQLModel):
+    data: list[PlayerProfileVisitorPublic]
+    count: int

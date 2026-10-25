@@ -214,10 +214,12 @@ async function installProfileHomeRoutes(
   {
     stats = playerStats,
     currentUserSteamid64 = null,
+    currentUserRoles = [],
     activeBans = [],
     rating = 5.5,
   }: {
     stats?: typeof playerStats
+    currentUserRoles?: string[]
     currentUserSteamid64?: string | null
     rating?: number | null
     activeBans?: Array<{
@@ -267,7 +269,7 @@ async function installProfileHomeRoutes(
         body: JSON.stringify({
           steamid64: currentUserSteamid64,
           is_active: true,
-          roles: [],
+          roles: currentUserRoles,
           created_at: "2026-03-01T12:00:00Z",
           last_visited_at: "2026-04-01T12:00:00Z",
           player: {
@@ -1022,5 +1024,64 @@ for (const regional of [false, true]) {
     await expect(
       page.locator(`[data-player-steamid64="${steamid64}"]`),
     ).toHaveClass(/bg-primary/)
+  })
+}
+
+for (const roles of [[], ["admin"], ["superuser"]]) {
+  test(`profile visitor access for ${roles[0] ?? "regular user"}`, async ({
+    page,
+  }, testInfo) => {
+    await installProfileHomeRoutes(page, {
+      currentUserSteamid64: "76561198000000002",
+      currentUserRoles: roles,
+    })
+    let calls = 0
+    await page.route(
+      /\/v1\/players\/[^/]+\/views\/players\?/,
+      async (route) => {
+        calls++
+        const offset = Number(
+          new URL(route.request().url()).searchParams.get("offset"),
+        )
+        await route.fulfill({
+          json: {
+            data: [
+              {
+                player: { steamid64, display_name: player.alias },
+                viewed_at: "2026-10-25T12:00:00Z",
+                view_date: "2026-10-25",
+              },
+            ],
+            count: 21,
+          },
+        })
+        expect(offset).toBe(calls === 1 ? 0 : 20)
+      },
+    )
+    await page.goto(`/profile/${steamid64}`)
+    const card = page.getByTestId("profile-profile-views-card")
+    await expect(card).toHaveText(/7/)
+    if (roles.includes("superuser")) {
+      await expect(card).toHaveJSProperty("tagName", "BUTTON")
+      expect(calls).toBe(0)
+      await card.click()
+      const dialog = page.getByTestId("profile-visitors-dialog")
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByTestId("profile-visitor-row")).toContainText(
+        player.alias,
+      )
+      await dialog
+        .getByRole("button", { name: "Go to next page", exact: true })
+        .click()
+      await expect.poll(() => calls).toBe(2)
+      await page.screenshot({
+        path: testInfo.outputPath("profile-visitors.png"),
+      })
+    } else {
+      await expect(card).toHaveJSProperty("tagName", "DIV")
+      await card.click()
+      await expect(page.getByTestId("profile-visitors-dialog")).toHaveCount(0)
+      expect(calls).toBe(0)
+    }
   })
 }

@@ -660,6 +660,13 @@ export const zhCN = {
       ladder: "梯子",
       slide: "滑坡",
     },
+    visitors: {
+      title: "资料访客",
+      description:
+        "按时间倒序显示已登录访客，每位访客每天（UTC）记录一次。本人和根管理员的访问不会记录。",
+      empty: "暂无访问记录。",
+      loadFailed: "无法加载资料访客。",
+    },
     socialDialog: {
       title: "社交关系",
       likesTab: "点赞 {{count}}",
