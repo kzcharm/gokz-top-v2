@@ -9,7 +9,7 @@ import {
   Users,
 } from "lucide-react"
 import type { ReactNode } from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FaSteam } from "react-icons/fa"
 import { toast } from "sonner"
@@ -55,6 +55,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import useCustomToast from "@/hooks/useCustomToast"
 import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
+import { usePlayerRowSpotlight } from "@/hooks/usePlayerRowSpotlight"
 import { formatNumber, getLocale } from "@/i18n/locale"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { getRegionsQueryOptions } from "@/lib/regions"
@@ -524,8 +525,6 @@ export function MapDetailPage({
   const [pendingSpotlightSteamid64, setPendingSpotlightSteamid64] = useState<
     string | null
   >(null)
-  const spotlightTimeoutRef = useRef<number | null>(null)
-  const spotlightStartTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (initialScope && initialScope !== scope) {
@@ -783,57 +782,16 @@ export function MapDetailPage({
     }
   }, [mapQuery.data?.bonus_count, selectedStage])
 
-  useEffect(() => {
-    return () => {
-      if (spotlightStartTimeoutRef.current !== null) {
-        window.clearTimeout(spotlightStartTimeoutRef.current)
-      }
-      if (spotlightTimeoutRef.current !== null) {
-        window.clearTimeout(spotlightTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!pendingSpotlightSteamid64) {
-      return
-    }
-
-    const row = document.querySelector<HTMLTableRowElement>(
-      `[data-player-steamid64="${pendingSpotlightSteamid64}"]`,
-    )
-    if (!row) {
-      return
-    }
-
-    row.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest",
-    })
-
-    if (spotlightStartTimeoutRef.current !== null) {
-      window.clearTimeout(spotlightStartTimeoutRef.current)
-    }
-    if (spotlightTimeoutRef.current !== null) {
-      window.clearTimeout(spotlightTimeoutRef.current)
-    }
-
-    spotlightStartTimeoutRef.current = window.setTimeout(() => {
-      row.classList.remove("leaderboard-self-spotlight")
-      void row.getBoundingClientRect()
-      row.classList.add("leaderboard-self-spotlight")
-
-      spotlightTimeoutRef.current = window.setTimeout(() => {
-        row.classList.remove("leaderboard-self-spotlight")
-        spotlightTimeoutRef.current = null
-      }, 1800)
-
-      spotlightStartTimeoutRef.current = null
-    }, 350)
-
-    setPendingSpotlightSteamid64(null)
-  }, [pendingSpotlightSteamid64])
+  usePlayerRowSpotlight({
+    steamid64: pendingSpotlightSteamid64,
+    rowReady:
+      !leaderboardQuery.isLoading &&
+      (leaderboardQuery.data?.data.some(
+        (record) => record.player.steamid64 === pendingSpotlightSteamid64,
+      ) ??
+        false),
+    onStarted: setPendingSpotlightSteamid64,
+  })
 
   if (mapQuery.isLoading) {
     return <MapDetailSkeleton />

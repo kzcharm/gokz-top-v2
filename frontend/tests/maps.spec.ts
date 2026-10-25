@@ -1170,7 +1170,15 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
       ),
     )
     .toBe(true)
-  await expect(page.getByRole("table").getByText("My Runner")).toBeVisible()
+  const myRow = page.locator(
+    `tr[data-player-steamid64="${currentUserSteamid64}"]`,
+  )
+  await expect(myRow).toBeVisible()
+  await expect(myRow).toHaveClass(/leaderboard-self-spotlight/)
+  await expect(myRow).not.toHaveClass(/leaderboard-self-spotlight/)
+  // Finding the same player again restarts the shared animation on this page.
+  await page.getByRole("button", { name: "Find Me", exact: true }).click()
+  await expect(myRow).toHaveClass(/leaderboard-self-spotlight/)
 
   await page.getByRole("button", { name: "NUB", exact: true }).click()
   await expect
@@ -1347,6 +1355,93 @@ test("Map top shows grouped server links and ungrouped server names", async ({
 
   await expect(page).toHaveURL(/\/servers\/group\/map-top-group$/)
   await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0)
+})
+
+test("Map Find Me scrolls the page to a row far down a wide table", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "mock-session-token")
+    localStorage.setItem("gokz-page-size-map-top", "50")
+    localStorage.setItem("gokz-language", "en")
+  })
+  await page.route("**/v1/**", (route) =>
+    route.fulfill({ json: { data: [], count: 0 } }),
+  )
+  await page.route("**/v1/users/me", (route) =>
+    route.fulfill({
+      json: {
+        steamid64: currentUserSteamid64,
+        roles: [],
+        player: null,
+      },
+    }),
+  )
+  await stubRegions(page)
+  await page.route(/\/v1\/maps(\?.*)?$/, (route) =>
+    route.fulfill({ json: [seededMaps[0]] }),
+  )
+  const records = Array.from(
+    { length: 100 },
+    (_, index) =>
+      createLeaderboardRecord({
+        index: index + 1,
+        steamid64:
+          index === 94
+            ? currentUserSteamid64
+            : `7656119800000${String(index).padStart(4, "0")}`,
+        displayName: index === 94 ? "My Runner" : `Runner ${index + 1}`,
+        country: "US",
+        teleports: 0,
+        time: 60 + index,
+      }).record,
+  )
+  await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, (route) => {
+    const offset = Number(
+      new URL(route.request().url()).searchParams.get("offset") ?? "0",
+    )
+    return route.fulfill({
+      json: {
+        data: records.slice(offset, offset + 50),
+        count: records.length,
+        unique_nub_finishes: 100,
+        unique_pro_finishes: 100,
+        current_user_rank: 95,
+        current_user_steamid64: currentUserSteamid64,
+      },
+    })
+  })
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.goto("/maps/kz_alpha/maptop")
+  const myRow = page.locator(
+    `tr[data-player-steamid64="${currentUserSteamid64}"]`,
+  )
+  await expect(
+    page.getByRole("cell", { name: "#1", exact: true }),
+  ).toBeVisible()
+  await expect(myRow).toHaveCount(0)
+  await page.getByRole("button", { name: "Find Me", exact: true }).click()
+  await expect(myRow).toHaveClass(/leaderboard-self-spotlight/)
+  await expect
+    .poll(() =>
+      myRow.evaluate((row) => {
+        const rect = row.getBoundingClientRect()
+        return Math.abs(rect.top + rect.height / 2 - window.innerHeight / 2)
+      }),
+    )
+    .toBeLessThan(5)
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(1000)
+  // Finding a row must not scroll the horizontal table's header out of its container.
+  expect(
+    await page
+      .locator('[data-slot="table-container"]')
+      .first()
+      .evaluate((container) => container.scrollTop),
+  ).toBe(0)
 })
 
 test("Map WR history shows WR events and switches record type", async ({

@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select"
 import useAuth from "@/hooks/useAuth"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
+import { usePlayerRowSpotlight } from "@/hooks/usePlayerRowSpotlight"
 import {
   fetchPlayersForDisplay,
   type GraphqlPlayer,
@@ -150,8 +151,6 @@ export function PlayersLeaderboardTab({
   ])
   const [selectedSkill, setSelectedSkill] = useState<LeaderboardSkill>("climb")
   const deferredSearchInput = useDeferredValue(searchInput)
-  const spotlightTimeoutRef = useRef<number | null>(null)
-  const spotlightStartTimeoutRef = useRef<number | null>(null)
   const searchBlurTimeoutRef = useRef<number | null>(null)
   const playerSearchQuery = deferredSearchInput.trim()
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
@@ -321,12 +320,6 @@ export function PlayersLeaderboardTab({
 
   useEffect(() => {
     return () => {
-      if (spotlightStartTimeoutRef.current !== null) {
-        window.clearTimeout(spotlightStartTimeoutRef.current)
-      }
-      if (spotlightTimeoutRef.current !== null) {
-        window.clearTimeout(spotlightTimeoutRef.current)
-      }
       if (searchBlurTimeoutRef.current !== null) {
         window.clearTimeout(searchBlurTimeoutRef.current)
       }
@@ -348,53 +341,13 @@ export function PlayersLeaderboardTab({
     leaderboardQuery.isError,
   ])
 
-  useEffect(() => {
-    if (!pendingSpotlightSteamid64) {
-      return
-    }
-
-    const hasTargetRow = tableData.some(
+  usePlayerRowSpotlight({
+    steamid64: pendingSpotlightSteamid64,
+    rowReady: tableData.some(
       (row) => row.player.steamid64 === pendingSpotlightSteamid64,
-    )
-    if (!hasTargetRow) {
-      return
-    }
-
-    const row = document.querySelector<HTMLTableRowElement>(
-      `[data-player-steamid64="${pendingSpotlightSteamid64}"]`,
-    )
-    if (!row) {
-      return
-    }
-
-    row.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest",
-    })
-
-    if (spotlightStartTimeoutRef.current !== null) {
-      window.clearTimeout(spotlightStartTimeoutRef.current)
-    }
-    if (spotlightTimeoutRef.current !== null) {
-      window.clearTimeout(spotlightTimeoutRef.current)
-    }
-
-    spotlightStartTimeoutRef.current = window.setTimeout(() => {
-      row.classList.remove("leaderboard-self-spotlight")
-      void row.getBoundingClientRect()
-      row.classList.add("leaderboard-self-spotlight")
-
-      spotlightTimeoutRef.current = window.setTimeout(() => {
-        row.classList.remove("leaderboard-self-spotlight")
-        spotlightTimeoutRef.current = null
-      }, 1800)
-
-      spotlightStartTimeoutRef.current = null
-    }, 450)
-
-    setPendingSpotlightSteamid64(null)
-  }, [pendingSpotlightSteamid64, tableData])
+    ),
+    onStarted: setPendingSpotlightSteamid64,
+  })
 
   const locatePlayer = useCallback(
     async ({

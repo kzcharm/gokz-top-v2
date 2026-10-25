@@ -733,13 +733,12 @@ test.describe("Leaderboards page", () => {
 
   test("find me jumps to the signed-in player's leaderboard page", async ({
     page,
-    request,
   }) => {
-    const { accessToken } = await issueSessionToken({
-      request,
-      steamid64: "76561198000000042",
-      name: "Find Me Player",
-    })
+    // Authentication and leaderboard APIs are mocked in this UI test.
+    const accessToken = "mock-find-me-session"
+    await page.route("**/v1/**", (route) =>
+      route.fulfill({ json: { data: [], count: 0 } }),
+    )
     await page.addInitScript((token) => {
       localStorage.clear()
       localStorage.setItem("access_token", token)
@@ -854,6 +853,13 @@ test.describe("Leaderboards page", () => {
     await expect(
       page.getByRole("row", { name: /41.*Find Me Player/ }),
     ).toHaveClass(/bg-primary\/10/)
+    await expect(
+      page.getByRole("row", { name: /41.*Find Me Player/ }),
+    ).toHaveClass(/leaderboard-self-spotlight/)
+    await expect(
+      page.getByRole("row", { name: /41.*Find Me Player/ }),
+    ).not.toHaveClass(/leaderboard-self-spotlight/)
+    await page.getByRole("button", { name: "Find Me", exact: true }).click()
     await expect(
       page.getByRole("row", { name: /41.*Find Me Player/ }),
     ).toHaveClass(/leaderboard-self-spotlight/)
