@@ -250,7 +250,7 @@ export function CommunityLeaderboardTab() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-6 sm:px-8">
           <div>
@@ -270,16 +270,17 @@ export function CommunityLeaderboardTab() {
         </Alert>
       ) : null}
 
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
+      <Card className="min-w-0 max-w-full gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="min-w-0 p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
             data={tableData}
             isLoading={communityQuery.isLoading}
             emptyText={t("leaderboards.community.empty")}
             stickyHeader
-            stickyHeaderTopClassName="top-16"
-            tableContainerClassName="overflow-x-auto md:overflow-visible"
+            stickyHeaderTopClassName="top-0"
+            stickyHeaderOffset={64}
+            tableContainerClassName="max-w-full overflow-x-auto"
             tableClassName="border-separate border-spacing-0"
             showFooter={false}
             serverPagination={{

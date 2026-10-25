@@ -1,4 +1,5 @@
 import { expect, type Page, type Route, test } from "@playwright/test"
+import { expectContainedLeaderboardTable } from "./utils/leaderboardLayout"
 
 test.use({
   baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173",
@@ -232,6 +233,11 @@ test("Community leaderboard shows more than ten rows", async ({ page }) => {
     11,
   )
   await expect(page.getByText("Rows per page")).toHaveCount(0)
+  await expectContainedLeaderboardTable(page)
+  await page.screenshot({
+    path: "../.temp/screenshots/community-contained-table.png",
+    fullPage: true,
+  })
 })
 
 test("Community leaderboard shows empty state", async ({ page }) => {

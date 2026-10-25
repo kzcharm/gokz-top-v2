@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test"
 import type { ModeScope, UserRole } from "@/client"
+import { expectContainedLeaderboardTable } from "./utils/leaderboardLayout"
 import { issueSessionToken } from "./utils/privateApi"
 
 type GraphqlPlayer = {
@@ -526,6 +527,11 @@ test.describe("Leaderboards page", () => {
       has: page.getByText("France", { exact: true }),
     })
     await expect(franceRow.getByText("N/A", { exact: true })).toHaveCount(2)
+    await expectContainedLeaderboardTable(page)
+    await page.screenshot({
+      path: "../.temp/screenshots/countries-contained-table.png",
+      fullPage: true,
+    })
   })
 
   test("switching scope refetches leaderboard data", async ({ page }) => {
@@ -1261,6 +1267,11 @@ test.describe("Leaderboards page", () => {
 
     await expect(page.getByText("kz_alpha")).toBeVisible()
     await expect(page.getByText("kz_beta")).toBeVisible()
+    await expectContainedLeaderboardTable(page)
+    await page.screenshot({
+      path: "../.temp/screenshots/maps-contained-table.png",
+      fullPage: true,
+    })
     await expect(page.getByText("Rows per page")).toBeVisible()
     await expect(
       page.getByRole("button", { name: "Go to first page" }),

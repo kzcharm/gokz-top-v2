@@ -232,7 +232,7 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
           <div className="flex flex-col gap-4">
@@ -345,16 +345,17 @@ export function MapsLeaderboardTab({ scope }: { scope: AppScope }) {
         </Alert>
       ) : null}
 
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
-        <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
+      <Card className="min-w-0 max-w-full gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
+        <CardContent className="min-w-0 p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
             data={visibleRows}
             isLoading={mapsQuery.isLoading}
             emptyText="No maps matched the current filters."
             stickyHeader
-            stickyHeaderTopClassName="top-16"
-            tableContainerClassName="md:overflow-visible"
+            stickyHeaderTopClassName="top-0"
+            stickyHeaderOffset={64}
+            tableContainerClassName="max-w-full overflow-x-auto"
             tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             serverPagination={{
