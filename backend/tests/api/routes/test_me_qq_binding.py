@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+from functools import partial
+
 import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -7,6 +10,7 @@ from app.core.config import settings
 from app.services.qq_binding import (
     QQ_BIND_TOKEN_PREFIX,
     QQ_BIND_TOKEN_SUFFIX_LENGTH,
+    create_qq_binding_code,
     encrypt_qq_binding_secret,
 )
 from tests.utils.user import authentication_token_from_steamid
@@ -34,7 +38,9 @@ async def test_create_current_player_qq_binding_code_returns_code(
     assert response.status_code == 200
     payload = response.json()
     assert payload["code"].startswith(QQ_BIND_TOKEN_PREFIX)
-    assert len(payload["code"]) == len(QQ_BIND_TOKEN_PREFIX) + QQ_BIND_TOKEN_SUFFIX_LENGTH
+    assert (
+        len(payload["code"]) == len(QQ_BIND_TOKEN_PREFIX) + QQ_BIND_TOKEN_SUFFIX_LENGTH
+    )
     assert payload["code"].isalnum()
     assert "expires_at" in payload
 
@@ -48,9 +54,14 @@ async def test_create_current_player_qq_binding_code_requires_auth(
 
 
 @pytest.mark.asyncio
-async def test_create_current_player_qq_binding_code_is_repeatable_for_same_user(
-    client: AsyncClient, db: AsyncSession
+async def test_create_current_player_qq_binding_code_is_repeatable_for_same_user_and_time(
+    client: AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # The signed expiry has second precision; both requests must use the same time.
+    monkeypatch.setattr(
+        "app.api.v1.me_qq_binding.create_qq_binding_code",
+        partial(create_qq_binding_code, now=datetime(2026, 10, 25, tzinfo=UTC)),
+    )
     await _configure_secret(db)
     steamid64 = 76561198000000002
     headers = await authentication_token_from_steamid(
