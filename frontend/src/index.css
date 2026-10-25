@@ -108,6 +108,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-player-online: var(--player-online);
+  --color-player-recent: var(--player-recent);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -176,6 +178,8 @@
 }
 
 :root {
+  --player-online: #239b60;
+  --player-recent: #3a7ee8;
   --radius: 0.75rem;
   --background: oklch(0.9232 0.0026 48.7171);
   --foreground: oklch(0.2795 0.0368 260.031);
@@ -248,6 +252,8 @@
 }
 
 .dark {
+  --player-online: #48ce88;
+  --player-recent: #72a8ff;
   --background: oklch(0.2244 0.0074 67.437);
   --foreground: oklch(0.9288 0.0126 255.5078);
   --card: oklch(0.2801 0.008 59.3379);

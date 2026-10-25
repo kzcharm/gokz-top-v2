@@ -1,4 +1,10 @@
 export const zhCN = {
+  playerActivity: {
+    online: "正在服务器中游玩",
+    recent: "最近 7 天内游玩过",
+    lastPlayed: "最后游玩：{{date}}",
+    unknown: "最后游玩时间未知",
+  },
   pronunciationAdmin: {
     open: "重新生成发音",
     voice: "声音",

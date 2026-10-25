@@ -15,6 +15,7 @@ type GraphqlPlayer = {
   rating: number
   roles: UserRole[] | null
   lastPlayedAt: string | null
+  isOnline?: boolean
 }
 
 function buildPlayerRef(steamid64: string, displayName: string) {
@@ -137,6 +138,150 @@ async function stubRegions(page: Page) {
 
 test.describe("Leaderboards page", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
+
+  test("avatar badges distinguish live presence, recent play, and older activity", async ({
+    page,
+  }) => {
+    const now = new Date("2026-10-25T12:00:00Z")
+    await page.clock.install({ time: now })
+    await page.addInitScript(() => localStorage.clear())
+    await stubRegions(page)
+    const players = [
+      {
+        ...buildGraphqlPlayer({
+          steamid64: "76561198000000001",
+          displayName: "Online",
+        }),
+        lastPlayedAt: "2025-01-01T12:00:00Z",
+        isOnline: true,
+        roles: ["admin" as UserRole],
+      },
+      {
+        ...buildGraphqlPlayer({
+          steamid64: "76561198000000002",
+          displayName: "Recent",
+        }),
+        lastPlayedAt: "2026-10-25T10:00:00Z",
+        isOnline: false,
+      },
+      {
+        ...buildGraphqlPlayer({
+          steamid64: "76561198000000003",
+          displayName: "Older",
+        }),
+        lastPlayedAt: "2026-10-17T12:00:00Z",
+        isOnline: false,
+      },
+      {
+        ...buildGraphqlPlayer({
+          steamid64: "76561198000000004",
+          displayName: "Unknown activity",
+        }),
+        lastPlayedAt: null,
+        isOnline: false,
+      },
+      {
+        ...buildGraphqlPlayer({
+          steamid64: "76561198000000005",
+          displayName: "Seven days",
+        }),
+        lastPlayedAt: "2026-10-18T12:01:00Z",
+        isOnline: false,
+      },
+      {
+        ...buildGraphqlPlayer({
+          steamid64: "76561198000000006",
+          displayName: "Inactive",
+        }),
+        lastPlayedAt: "2025-10-24T12:00:00Z",
+        isOnline: false,
+      },
+      {
+        ...buildGraphqlPlayer({
+          steamid64: "76561198000000007",
+          displayName: "Under a year",
+        }),
+        lastPlayedAt: "2025-10-26T12:00:00Z",
+        isOnline: false,
+      },
+    ]
+    await stubPlayerGraphql(page, {
+      playersBySteamid64: Object.fromEntries(
+        players.map((player) => [player.steamid64, player]),
+      ),
+    })
+    await page.route("**/v1/leaderboards/players*", (route) =>
+      route.fulfill({
+        json: {
+          count: players.length,
+          data: players.map((player, index) => ({
+            rank: index + 1,
+            player: buildPlayerRef(player.steamid64, player.displayName),
+            rating: 10.99 - index / 100,
+            points: 2000,
+            wrs_nub: 1,
+            wrs_pro: 0,
+            records_900_plus: 2,
+            records_800_plus: 2,
+            unique_map_finishes: 20,
+          })),
+        },
+      }),
+    )
+    await page.goto("/leaderboards")
+    const online = page.getByTestId("player-activity-76561198000000001")
+    const recent = page.getByTestId("player-activity-76561198000000002")
+    await expect(online).toHaveAttribute("data-status", "online")
+    await expect(recent).toHaveAttribute("data-status", "recent")
+    await expect(
+      page.getByTestId("player-activity-76561198000000003"),
+    ).toHaveCount(0)
+    await expect(
+      page.getByTestId("player-activity-76561198000000004"),
+    ).toHaveCount(0)
+    const inactive = page.getByTestId("player-activity-76561198000000006")
+    await expect(inactive).toHaveAttribute("data-status", "older")
+    await expect(inactive).toHaveClass(/bg-muted-foreground/)
+    await expect(
+      page.getByTestId("player-activity-76561198000000007"),
+    ).toHaveCount(0)
+    await expect(
+      page.getByTestId("player-activity-76561198000000005"),
+    ).toHaveAttribute("data-status", "recent")
+    await expect(
+      page.getByTestId("player-avatar-ring-76561198000000001"),
+    ).toHaveClass(/ring-\[#ef4444\]\/90/)
+    await online.hover()
+    await expect(page.getByRole("tooltip")).toHaveText("In a server now")
+    await recent.hover()
+    await expect(
+      page.getByRole("tooltip", { name: /Played within the last 7 days/ }),
+    ).toContainText("Last played:")
+    const avatar = page.getByTestId("player-avatar-ring-76561198000000001")
+    const avatarBox = await avatar.boundingBox()
+    const badgeBox = await online.boundingBox()
+    expect(avatarBox).not.toBeNull()
+    expect(badgeBox).not.toBeNull()
+    expect(badgeBox!.x).toBeGreaterThan(avatarBox!.x + avatarBox!.width / 2)
+    expect(badgeBox!.y).toBeGreaterThan(avatarBox!.y + avatarBox!.height / 2)
+    await page.mouse.move(0, 0)
+    await page.screenshot({
+      path: "../.temp/screenshots/player-activity-desktop.png",
+      fullPage: true,
+    })
+    players[0].isOnline = false
+    await page.clock.fastForward(61_000)
+    await expect(online).toHaveAttribute("data-status", "older")
+    await expect(
+      page.getByTestId("player-activity-76561198000000005"),
+    ).toHaveCount(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(online).toBeVisible()
+    await page.screenshot({
+      path: "../.temp/screenshots/player-activity-mobile.png",
+      fullPage: true,
+    })
+  })
 
   test("keeps profile history open after selecting it from a player menu", async ({
     page,

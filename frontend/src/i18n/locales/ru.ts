@@ -1,4 +1,10 @@
 export const ru = {
+  playerActivity: {
+    online: "Сейчас на сервере",
+    recent: "Играл за последние 7 дней",
+    lastPlayed: "Последняя игра: {{date}}",
+    unknown: "Время последней игры неизвестно",
+  },
   pronunciationAdmin: {
     open: "Создать произношение заново",
     voice: "Голос",

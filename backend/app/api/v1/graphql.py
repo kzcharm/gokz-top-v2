@@ -12,6 +12,7 @@ from strawberry.fastapi import GraphQLRouter
 from app.api.deps import get_db
 from app.crud import map as map_crud
 from app.crud import player as player_crud
+from app.crud import server as server_crud
 from app.crud.leaderboard_player import load_player_ratings_by_scope
 from app.crud.player_profile_view import count_player_profile_views_batch
 from app.models import Map, ModeScope, Player, UserRole
@@ -35,6 +36,7 @@ class PlayerGQL:
     primary_scope: ModeScope
     roles: list[UserRole] | None
     last_played_at: str | None
+    is_online: bool
     created_at: str | None
     updated_at: str | None
     profile_views: int
@@ -102,6 +104,9 @@ async def _to_graphql_players(
         session=session,
         steamid64s=steamid64s,
     )
+    online_steamid64s = await server_crud.load_online_player_steamid64s(
+        session=session, steamid64s=steamid64s
+    )
 
     graphql_players_by_steamid64 = {
         player.steamid64: PlayerGQL(
@@ -115,6 +120,7 @@ async def _to_graphql_players(
             primary_scope=player.primary_scope,
             roles=roles_by_steamid64.get(player.steamid64),
             last_played_at=_serialize_datetime(player.last_played_at),
+            is_online=player.steamid64 in online_steamid64s,
             created_at=_serialize_datetime(player.created_at),
             updated_at=_serialize_datetime(player.updated_at),
             profile_views=profile_views_by_steamid64.get(player.steamid64, 0),

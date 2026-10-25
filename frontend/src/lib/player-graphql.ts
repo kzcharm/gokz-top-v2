@@ -13,6 +13,7 @@ export type GraphqlPlayer = {
   rating: number
   roles: UserRole[] | null
   lastPlayedAt: string | null
+  isOnline?: boolean
   createdAt?: string | null
   updatedAt?: string | null
   profileViews?: number
@@ -46,7 +47,7 @@ type PendingPlayerBatchEntry = {
 }
 
 const PLAYER_BATCH_DELAY_MS = 10
-const DISPLAY_PLAYER_CACHE_STALE_TIME_MS = 60_000
+const DISPLAY_PLAYER_CACHE_STALE_TIME_MS = 30_000
 
 const DISPLAY_PLAYER_FIELDS = `
   steamid64
@@ -59,6 +60,7 @@ const DISPLAY_PLAYER_FIELDS = `
   primaryScope
   rating(scope: $scope)
   roles
+  isOnline
 `
 
 function normalizeGraphqlPlayer(

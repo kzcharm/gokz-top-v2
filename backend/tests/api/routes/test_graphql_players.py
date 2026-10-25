@@ -1,12 +1,24 @@
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1 import graphql as graphql_api
-from app.models import Ban, BanType, LeaderboardPlayer, Map, ModeScope, Player, User
+from app.models import (
+    Ban,
+    BanType,
+    LeaderboardPlayer,
+    Map,
+    ModeScope,
+    Player,
+    Server,
+    ServerLiveStatus,
+    ServerStatus,
+    User,
+    get_datetime_utc,
+)
 from app.models.player_profile_view import PlayerProfileView
 from tests.utils.utils import random_steamid64
 
@@ -28,6 +40,64 @@ async def _post_graphql(
     )
     assert response.status_code == 200
     return response.json()
+
+
+async def test_graphql_player_presence_uses_only_fresh_public_online_rosters(
+    client: AsyncClient,
+    db: AsyncSession,
+) -> None:
+    now = get_datetime_utc()
+    cases = [
+        (True, ServerStatus.ENABLED, True, now, True),
+        (False, ServerStatus.ENABLED, True, now, False),
+        (True, ServerStatus.DISABLED, True, now, False),
+        (True, ServerStatus.ENABLED, False, now, False),
+        (True, ServerStatus.ENABLED, True, now - timedelta(minutes=2), False),
+    ]
+    steamid64s = []
+    for index, (public, status, online, updated_at, _expected) in enumerate(cases):
+        steamid64 = random_steamid64()
+        steamid64s.append(steamid64)
+        db.add(Player(steamid64=steamid64, name=f"Presence {index}"))
+        server = Server(
+            ip="127.0.0.1", port=27015 + index, is_public=public, status=status
+        )
+        db.add(server)
+        await db.flush()
+        db.add(
+            ServerLiveStatus(
+                server_id=server.id,
+                is_online=online,
+                updated_at=updated_at,
+                players=[{"steamid64": str(steamid64), "name": f"Presence {index}"}],
+            )
+        )
+    unlisted = random_steamid64()
+    db.add(Player(steamid64=unlisted, name="Not on a server"))
+    steamid64s.append(unlisted)
+    await db.commit()
+    payload = await _post_graphql(
+        client,
+        query="""
+        query Players($steamid64s: [ID!]!) {
+          players(steamid64s: $steamid64s) { steamid64 isOnline }
+        }
+        """,
+        variables={"steamid64s": [str(value) for value in steamid64s]},
+    )
+    assert payload.get("errors") is None
+    assert [player["isOnline"] for player in payload["data"]["players"]] == [
+        case[4] for case in cases
+    ] + [False]
+
+
+async def test_online_player_lookup_skips_empty_input(db: AsyncSession) -> None:
+    assert (
+        await graphql_api.server_crud.load_online_player_steamid64s(
+            session=db, steamid64s=[]
+        )
+        == set()
+    )
 
 
 async def test_graphql_player_fetches_by_steamid64_and_custom_id(

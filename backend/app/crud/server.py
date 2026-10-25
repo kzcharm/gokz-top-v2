@@ -56,6 +56,37 @@ SERVER_OFFLINE_INVALID_AFTER = timedelta(hours=24)
 SERVER_TIMEOUT_INVALID_COUNT_THRESHOLD = 100
 
 
+async def load_online_player_steamid64s(
+    *, session: AsyncSession, steamid64s: list[int]
+) -> set[int]:
+    """Match players against fresh public server rosters in one database read."""
+    if not steamid64s:
+        return set()
+    requested = {str(steamid64): steamid64 for steamid64 in steamid64s}
+    statement = (
+        select(ServerLiveStatus.players)
+        .join(Server, col(Server.id) == col(ServerLiveStatus.server_id))
+        .where(
+            col(Server.is_public).is_(True),
+            Server.status == ServerStatus.ENABLED,
+            col(ServerLiveStatus.is_online).is_(True),
+            ServerLiveStatus.updated_at >= get_datetime_utc() - timedelta(seconds=30),
+            or_(
+                *[
+                    col(ServerLiveStatus.players).contains([{"steamid64": steamid64}])
+                    for steamid64 in requested
+                ]
+            ),
+        )
+    )
+    return {
+        requested[str(player.get("steamid64"))]
+        for players in (await session.exec(statement)).all()
+        for player in players
+        if str(player.get("steamid64")) in requested
+    }
+
+
 def _normalize_server_location_value(value: str | None) -> str | None:
     if value is None:
         return None

@@ -39,6 +39,7 @@ import {
   getPlayerRatingBadgeIcon,
   getPlayerRatingLevel,
 } from "@/components/Common/player-rating"
+import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { usePlayerDisplayPreferences } from "@/components/player-display-preferences-provider"
 import { formatRecordTime } from "@/components/Records/utils"
 import { useScope } from "@/components/scope-provider"
@@ -118,6 +119,7 @@ export type PlayerDisplayPlayer = {
   rating?: number | null
   lastPlayedAt?: string | null
   last_played_at?: string | null
+  isOnline?: boolean
 }
 
 type PlayerDisplaySubline =
@@ -504,6 +506,7 @@ export function PlayerDisplay({
 }: PlayerDisplayProps) {
   const { t } = useTranslation()
   const { scope: appScope } = useScope()
+  const { formatDateTime } = useDateTimeFormat()
   const playerDisplayPreferences = usePlayerDisplayPreferences()
   const effectiveHydrationScope =
     scope ??
@@ -526,7 +529,8 @@ export function PlayerDisplay({
     ],
     enabled: presentation !== "card" && steamid64Pattern.test(steamid64),
     queryFn: () => loadPlayerForDisplay(steamid64, effectiveHydrationScope),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   })
   const resolvedPlayer: PlayerDisplayPlayer | undefined =
     presentation === "card"
@@ -583,6 +587,32 @@ export function PlayerDisplay({
     : null
   const showAvatar =
     !hideAvatarWithoutSteamid64 || steamid64Pattern.test(steamid64)
+  const lastPlayedAt =
+    resolvedPlayer?.lastPlayedAt ?? resolvedPlayer?.last_played_at
+  const lastPlayedTime = lastPlayedAt ? Date.parse(lastPlayedAt) : Number.NaN
+  // Subscribe to successful refreshes even when the player payload is unchanged.
+  const activityNow = Math.max(Date.now(), hydrationQuery.dataUpdatedAt)
+  const activityAge = activityNow - lastPlayedTime
+  const oneYearAgo = new Date(activityNow)
+  oneYearAgo.setUTCFullYear(oneYearAgo.getUTCFullYear() - 1)
+  const activityStatus =
+    resolvedPlayer?.isOnline && !hydrationQuery.isError
+      ? "online"
+      : activityAge >= 0 && activityAge <= 7 * 24 * 60 * 60 * 1000
+        ? "recent"
+        : lastPlayedTime <= oneYearAgo.getTime()
+          ? "older"
+          : null
+  const activityLabel =
+    activityStatus === "online"
+      ? t("playerActivity.online")
+      : Number.isFinite(lastPlayedTime)
+        ? `${activityStatus === "recent" ? `${t("playerActivity.recent")} · ` : ""}${t("playerActivity.lastPlayed", { date: formatDateTime(lastPlayedAt) })}`
+        : t("playerActivity.unknown")
+  const showActivityBadge =
+    presentation !== "card" &&
+    steamid64Pattern.test(steamid64) &&
+    activityStatus !== null
 
   const countryCode = resolvedPlayer?.country?.toUpperCase() || null
   const FlagComponent = countryCode ? flagComponents[countryCode] : null
@@ -767,50 +797,72 @@ export function PlayerDisplay({
         </div>
 
         {showAvatar ? (
-          <Avatar
-            data-testid={
-              showRoleRing ? `player-avatar-ring-${steamid64}` : undefined
-            }
-            className={cn(
-              "transition-transform duration-200",
-              compact ? "size-6 rounded-md" : "size-8 rounded-lg",
-              showRoleRing &&
-                (compact
-                  ? "ring-2 ring-offset-1 ring-offset-background"
-                  : "ring-2 ring-offset-2 ring-offset-background"),
-              highestPermission &&
-                PLAYER_PERMISSION_RING_CLASS_NAMES[highestPermission],
-              hasProfileLink &&
-                "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
-            )}
-          >
-            {presentation === "card" ? (
-              <img
-                src={avatarSrc}
-                alt={`${displayName} avatar`}
-                className="aspect-square size-full object-cover"
-                onError={() => setAvatarLoadFailed(true)}
-              />
-            ) : (
-              <AvatarImage
-                src={avatarSrc}
-                alt={`${displayName} avatar`}
-                onError={() => {
-                  setAvatarLoadFailed(true)
-                }}
-              />
-            )}
-            {presentation !== "card" && (
-              <AvatarFallback
-                className={cn(
-                  "bg-zinc-600 text-white",
-                  compact ? "rounded-md" : "rounded-lg",
-                )}
-              >
-                {getInitials(displayName)}
-              </AvatarFallback>
-            )}
-          </Avatar>
+          <span className="relative inline-flex shrink-0">
+            <Avatar
+              data-testid={
+                showRoleRing ? `player-avatar-ring-${steamid64}` : undefined
+              }
+              className={cn(
+                "transition-transform duration-200",
+                compact ? "size-6 rounded-md" : "size-8 rounded-lg",
+                showRoleRing &&
+                  (compact
+                    ? "ring-2 ring-offset-1 ring-offset-background"
+                    : "ring-2 ring-offset-2 ring-offset-background"),
+                highestPermission &&
+                  PLAYER_PERMISSION_RING_CLASS_NAMES[highestPermission],
+                hasProfileLink &&
+                  "group-hover:scale-[1.03] group-focus-visible:scale-[1.03]",
+              )}
+            >
+              {presentation === "card" ? (
+                <img
+                  src={avatarSrc}
+                  alt={`${displayName} avatar`}
+                  className="aspect-square size-full object-cover"
+                  onError={() => setAvatarLoadFailed(true)}
+                />
+              ) : (
+                <AvatarImage
+                  src={avatarSrc}
+                  alt={`${displayName} avatar`}
+                  onError={() => {
+                    setAvatarLoadFailed(true)
+                  }}
+                />
+              )}
+              {presentation !== "card" && (
+                <AvatarFallback
+                  className={cn(
+                    "bg-zinc-600 text-white",
+                    compact ? "rounded-md" : "rounded-lg",
+                  )}
+                >
+                  {getInitials(displayName)}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            {showActivityBadge ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    role="img"
+                    aria-label={activityLabel}
+                    data-testid={`player-activity-${steamid64}`}
+                    data-status={activityStatus}
+                    className={cn(
+                      "absolute -right-0.5 -bottom-0.5 rounded-full border-2 border-background",
+                      compact ? "size-2.5" : "size-3",
+                      activityStatus === "online" && "bg-player-online",
+                      activityStatus === "recent" && "bg-player-recent",
+                      activityStatus === "older" && "bg-muted-foreground",
+                    )}
+                  />
+                </TooltipTrigger>
+                <TooltipContent sideOffset={8}>{activityLabel}</TooltipContent>
+              </Tooltip>
+            ) : null}
+          </span>
         ) : null}
       </div>
 

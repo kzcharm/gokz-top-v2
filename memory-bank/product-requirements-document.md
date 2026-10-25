@@ -213,6 +213,7 @@ Scope model:
 - Auditable and observable sync/ingestion behavior.
 
 ## 8) UX Requirements
+- Shared player avatars show bottom-right activity badges: green for fresh tracked public-server presence, blue for recorded play within seven days, and solid gray for at least one year without recorded play. Seven-days-to-one-year gaps and unknown activity have no badge. Tooltips explain the status and respect date/time preferences. Presence is independent of Steam online status, refreshes every 30 seconds, and is omitted from static shareable cards.
 - Profile-first product quality bar: information-dense but readable.
 - Desktop and mobile support with predictable interactions.
 - High-value workflows must be quick: search player, inspect profile, compare rank, open map context, view live server state.
