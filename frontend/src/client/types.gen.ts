@@ -1278,6 +1278,17 @@ export type PlayerProfileViewsPublic = {
     profile_views?: number;
 };
 
+export type PlayerProfileVisitorPublic = {
+    player: PlayerRefPublic;
+    viewed_at: (string | null);
+    view_date: string;
+};
+
+export type PlayerProfileVisitorsPublic = {
+    data: Array<PlayerProfileVisitorPublic>;
+    count: number;
+};
+
 export type PlayerPronunciationPublic = {
     status: 'missing' | 'pending' | 'generating' | 'ready' | 'failed';
     spoken_text: string;
@@ -3207,6 +3218,14 @@ export type PlayersReadPlayerLikesData = {
 };
 
 export type PlayersReadPlayerLikesResponse = (PlayerLikesPublic);
+
+export type PlayersReadPlayerVisitorsData = {
+    identifier: string;
+    limit?: number;
+    offset?: number;
+};
+
+export type PlayersReadPlayerVisitorsResponse = (PlayerProfileVisitorsPublic);
 
 export type PlayersReadPlayerCommentsData = {
     identifier: string;

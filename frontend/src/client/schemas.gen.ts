@@ -6450,6 +6450,53 @@ export const PlayerProfileViewsPublicSchema = {
     title: 'PlayerProfileViewsPublic'
 } as const;
 
+export const PlayerProfileVisitorPublicSchema = {
+    properties: {
+        player: {
+            '$ref': '#/components/schemas/PlayerRefPublic'
+        },
+        viewed_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Viewed At'
+        },
+        view_date: {
+            type: 'string',
+            format: 'date',
+            title: 'View Date'
+        }
+    },
+    type: 'object',
+    required: ['player', 'viewed_at', 'view_date'],
+    title: 'PlayerProfileVisitorPublic'
+} as const;
+
+export const PlayerProfileVisitorsPublicSchema = {
+    properties: {
+        data: {
+            items: {
+                '$ref': '#/components/schemas/PlayerProfileVisitorPublic'
+            },
+            type: 'array',
+            title: 'Data'
+        },
+        count: {
+            type: 'integer',
+            title: 'Count'
+        }
+    },
+    type: 'object',
+    required: ['data', 'count'],
+    title: 'PlayerProfileVisitorsPublic'
+} as const;
+
 export const PlayerPronunciationPublicSchema = {
     properties: {
         status: {
