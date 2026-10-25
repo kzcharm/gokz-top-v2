@@ -413,7 +413,7 @@ export function MapWrHistorySection({
     () => [
       {
         accessorKey: "number",
-        size: 96,
+        size: 64,
         header: () => t("labels.number"),
         cell: ({ row }) => (
           <span className="font-mono font-semibold text-foreground/90">
@@ -423,25 +423,25 @@ export function MapWrHistorySection({
       },
       {
         id: "player",
-        size: 300,
+        meta: { flexibleWidth: true },
         header: () => t("labels.player"),
         cell: ({ row }) => (
           <PlayerDisplay
             player={row.original.entry.player}
-            className="max-w-[15rem]"
+            className="w-full min-w-0 max-w-full"
             nameMaxLength={24}
           />
         ),
       },
       {
         id: "mode",
-        size: 96,
+        size: 76,
         header: () => t("labels.mode"),
         cell: ({ row }) => <ModeBadge mode={row.original.entry.mode} />,
       },
       {
         id: "tps",
-        size: 96,
+        size: 76,
         header: () => t("labels.tps"),
         cell: ({ row }) => (
           <TeleportsBadge teleports={row.original.entry.teleports} />
@@ -449,7 +449,7 @@ export function MapWrHistorySection({
       },
       {
         id: "time",
-        size: 148,
+        size: 124,
         meta: {
           headerClassName: "text-right",
           cellClassName: "text-right",
@@ -463,7 +463,7 @@ export function MapWrHistorySection({
       },
       {
         id: "previous",
-        size: 128,
+        size: 112,
         meta: {
           headerClassName: "text-right",
           cellClassName: "text-right",
@@ -494,15 +494,18 @@ export function MapWrHistorySection({
       },
       {
         id: "server",
-        size: 320,
+        meta: { flexibleWidth: true },
         header: () => t("labels.server"),
         cell: ({ row }) => (
-          <RecordServerDisplay serverName={row.original.entry.server_name} />
+          <RecordServerDisplay
+            serverName={row.original.entry.server_name}
+            className="max-w-full"
+          />
         ),
       },
       {
         id: "datetime",
-        size: 176,
+        size: 208,
         header: () => t("labels.datetime"),
         cell: ({ row }) => (
           <FormattedDateTime

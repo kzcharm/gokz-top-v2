@@ -1157,6 +1157,27 @@ test("Profile records page shows grouped server links and filters by group name"
   ).toHaveAttribute("href", "/servers/group/seed-server-group")
   await expect(page.getByText("Seed Server", { exact: true })).toHaveCount(0)
   await expect(page.getByText("Second Server", { exact: true })).toBeVisible()
+  const columns = await page
+    .getByTestId("pb-records-table")
+    .locator("thead tr")
+    .first()
+    .locator("th")
+    .allTextContents()
+  for (const name of ["Map", "Server"]) {
+    const index = columns.findIndex((column) => column.trim() === name)
+    expect(index).toBeGreaterThanOrEqual(0)
+    await expect
+      .poll(() =>
+        page
+          .getByTestId("pb-records-table")
+          .locator("tbody tr")
+          .first()
+          .locator("td")
+          .nth(index)
+          .evaluate((cell) => cell.getBoundingClientRect().width),
+      )
+      .toBeLessThanOrEqual(241)
+  }
 
   await page.getByLabel("Search server").fill("seed server group")
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()

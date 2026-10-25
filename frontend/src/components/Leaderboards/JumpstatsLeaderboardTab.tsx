@@ -124,7 +124,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
 
   return (
     <div className="space-y-6">
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-6 sm:px-8 sm:pt-8 sm:pb-6">
           <Tabs
             value={selectedType}
@@ -210,7 +210,7 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
         </Alert>
       ) : null}
 
-      <Card className="gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0">
+      <Card className="gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
@@ -218,8 +218,8 @@ export function JumpstatsLeaderboardTab({ scope }: { scope: AppScope }) {
             isLoading={leaderboardQuery.isLoading}
             emptyText={t("leaderboards.jumpstats.empty")}
             stickyHeader
-            stickyHeaderTopClassName="top-16"
-            tableContainerClassName="md:overflow-visible"
+            stickyHeaderTopClassName="top-0"
+            stickyHeaderOffset={64}
             tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             getRowId={(row) => row.id}

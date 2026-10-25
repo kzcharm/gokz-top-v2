@@ -168,16 +168,20 @@ export function getReviewColumns({
   return [
     {
       accessorKey: "map",
+      meta: { flexibleWidth: true },
       header: t("labels.map"),
       cell: ({ row }) => (
         <MapDisplay
           mapName={row.original.map.name}
           mapId={row.original.map.id}
+          className="w-full min-w-0"
+          containerClassName="block w-full min-w-0"
         />
       ),
     },
     {
       accessorKey: "player",
+      meta: { flexibleWidth: true },
       header: t("labels.player"),
       cell: ({ row }) => (
         <PlayerDisplay
@@ -209,6 +213,8 @@ export function getReviewColumns({
     },
     {
       accessorKey: "comment",
+      size: 240,
+      meta: { distributeWidth: true },
       header: t("labels.comment"),
       cell: ({ row }) => (
         <CommentPreview
@@ -222,6 +228,7 @@ export function getReviewColumns({
     },
     {
       accessorKey: "updated_at",
+      size: 208,
       header: t("labels.updated"),
       cell: ({ row }) => (
         <div className="whitespace-nowrap">
@@ -236,6 +243,7 @@ export function getReviewColumns({
       ? [
           {
             id: "actions",
+            meta: { distributeWidth: false },
             header: "",
             cell: ({ row }) =>
               row.original.comment ? (

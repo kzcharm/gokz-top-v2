@@ -15,7 +15,6 @@ import {
 } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-
 import { LeaderboardsService } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import type { PlayerLeaderboardsPublic } from "@/client/types.gen"
@@ -646,7 +645,7 @@ export function PlayersLeaderboardTab({
         </CardContent>
       </Card>
 
-      <Card className="w-full max-w-full min-w-0 gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0 md:overflow-visible">
+      <Card className="w-full max-w-full min-w-0 gap-0 overflow-hidden rounded-[28px] border-border/70 bg-card/95 py-0">
         <CardContent className="min-w-0 p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
@@ -655,7 +654,7 @@ export function PlayersLeaderboardTab({
             stickyHeader
             stickyHeaderTopClassName="top-0"
             stickyHeaderOffset={64}
-            tableContainerClassName="max-w-full md:overflow-visible"
+            tableContainerClassName="max-w-full"
             tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             getRowProps={(row) => ({

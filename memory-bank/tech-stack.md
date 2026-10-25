@@ -136,6 +136,7 @@
 - coverage (90% minimum enforced by the backend report configuration; data and HTML reports live under `.temp/backend/`, including CI and Docker runs)
 
 ## Frontend Runtime and Libraries
+- Shared `DataTable` text columns opt into `meta.flexibleWidth` and may set `minSize`; they grow from readable minimums up to 240px, then share the remaining width across metric and date columns. Use `meta.distributeWidth` for columns that should share surplus width while other columns retain their configured size; the players leaderboard caps Player at 240px and distributes the rest across metrics and Last Played. The table calculates a readable minimum width and retains horizontal scrolling on small screens. Full timestamp columns reserve 208px. `PbRecordsTable` applies the same allocation helper (`distributeTableColumnWidths`) through its visible-column colgroup; both renderers use `useTableContainerWidth` to measure available space. Action/replay columns stay compact with `distributeWidth: false` or their explicit narrow widths. Avoid fixed player/server widths or inner text widths that prevent shrinking.
 - React 19
 - TypeScript 5.9
 - Vite 7 + `@vitejs/plugin-react-swc`

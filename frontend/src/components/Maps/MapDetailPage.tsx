@@ -871,7 +871,7 @@ export function MapDetailPage({
   )
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <DeleteFasterRecordsDialog
         target={canAdministerRecords ? deleteFasterTarget : null}
         onClose={() => setDeleteFasterTarget(null)}
@@ -904,11 +904,11 @@ export function MapDetailPage({
         }
       />
 
-      <Tabs value={activeTab} className="gap-4">
+      <Tabs value={activeTab} className="min-w-0 gap-4">
         <Card className="gap-0 rounded-[28px] border-border/70 bg-card/95 py-0">
           <CardContent className="flex flex-col gap-4 p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <TabsList className="w-fit">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+              <TabsList className="h-auto max-w-full flex-wrap">
                 {MAP_TAB_OPTIONS.map((tab) => (
                   <TabsTrigger key={tab.value} value={tab.value} asChild>
                     <Link to={tab.to} params={{ mapName }}>
@@ -919,8 +919,8 @@ export function MapDetailPage({
               </TabsList>
 
               {activeTab === "top" ? (
-                <div className="flex flex-col gap-3 lg:flex-1 lg:flex-row lg:items-center lg:justify-end">
-                  <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex min-w-0 flex-col gap-3 lg:flex-1 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <Select
                       value={`${selectedStage}`}
                       onValueChange={(value) => {
@@ -1008,7 +1008,7 @@ export function MapDetailPage({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
                     {canAdministerRecords ? (
                       <LoadingButton
                         type="button"

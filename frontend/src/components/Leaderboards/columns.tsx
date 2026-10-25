@@ -159,7 +159,8 @@ function skillColumn(
 ): ColumnDef<LeaderboardTableRow> {
   return {
     id: `rating_${selectedSkill}`,
-    size: 92,
+    size: 104,
+    meta: { distributeWidth: true },
     accessorFn: (row) => row.skill_ratings?.[selectedSkill]?.raw_rating ?? 0,
     header: ({ column }) => (
       <SkillHeader
@@ -215,7 +216,7 @@ export function SortableHeader({
   const sorting = column.getIsSorted()
   const containerClassName =
     align === "right" ? "flex w-full justify-end" : "flex w-full justify-center"
-  const buttonClassName = align === "right" ? "h-8 px-3" : "h-8 px-3"
+  const buttonClassName = "h-8 px-2"
 
   return (
     <div className={containerClassName}>
@@ -256,6 +257,7 @@ function metricColumn(
   return {
     accessorKey,
     size,
+    meta: { distributeWidth: true },
     header: ({ column }) => (
       <SortableHeader title={title()} column={column} align={align} />
     ),
@@ -332,7 +334,8 @@ export function getLeaderboardColumns(
     },
     {
       accessorKey: "player",
-      size: 180,
+      size: 240,
+      maxSize: 240,
       header: () => t("labels.player"),
       cell: ({ row }) => (
         <PlayerDisplay player={row.original.playerData} scope={scope} />
@@ -350,7 +353,8 @@ export function getLeaderboardColumns(
     metricColumn("unique_map_finishes", () => t("labels.maps")),
     {
       id: "last_played",
-      size: 88,
+      size: 144,
+      meta: { distributeWidth: true },
       header: () => (
         <div className="flex w-full justify-center">
           {t("labels.lastPlayed")}

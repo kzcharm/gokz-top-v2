@@ -37,11 +37,13 @@ function SortableDateHeader({
 export const columns: ColumnDef<PlayerPublic>[] = [
   {
     accessorKey: "name",
+    meta: { flexibleWidth: true },
     header: "Player",
     cell: ({ row }) => <PlayerDisplay player={row.original} />,
   },
   {
     accessorKey: "created_at",
+    size: 208,
     header: ({ column }) => (
       <SortableDateHeader title="Created At" column={column} />
     ),
@@ -55,6 +57,7 @@ export const columns: ColumnDef<PlayerPublic>[] = [
   },
   {
     accessorKey: "last_played_at",
+    size: 208,
     header: ({ column }) => (
       <SortableDateHeader title="Last Played At" column={column} />
     ),

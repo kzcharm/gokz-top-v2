@@ -410,14 +410,15 @@ export function GlobalApiServersTab({
       },
       {
         id: "server",
+        meta: { flexibleWidth: true },
         accessorKey: "name",
         header: ({ column }) => (
           <SortableHeader column={column} label="Server" />
         ),
         cell: ({ row }) => (
-          <div className="min-w-56">
+          <div className="min-w-0">
             <div
-              className="max-w-72 truncate font-medium"
+              className="max-w-full truncate font-medium"
               title={row.original.name || "Unnamed"}
             >
               {row.original.name || "Unnamed"}
@@ -427,6 +428,7 @@ export function GlobalApiServersTab({
       },
       {
         accessorKey: "owner_steamid64",
+        meta: { flexibleWidth: true },
         header: "Owner",
         cell: ({ row }) => (
           <PlayerDisplay
@@ -448,6 +450,7 @@ export function GlobalApiServersTab({
       },
       {
         accessorKey: "synced_at",
+        size: 208,
         header: ({ column }) => (
           <SortableHeader column={column} label="Synced" />
         ),
@@ -455,6 +458,7 @@ export function GlobalApiServersTab({
       },
       {
         accessorKey: "updated_at",
+        size: 208,
         header: ({ column }) => (
           <SortableHeader column={column} label="Updated" />
         ),
@@ -471,6 +475,7 @@ export function GlobalApiServersTab({
       },
       {
         id: "actions",
+        meta: { distributeWidth: false },
         header: "",
         cell: ({ row }) => (
           <div className="flex justify-end">
@@ -1001,6 +1006,7 @@ export function PublicServersTab({
       },
       {
         id: "actions",
+        meta: { distributeWidth: false },
         header: "",
         cell: ({ row }) =>
           editingServerId === row.original.id ? (
@@ -1350,15 +1356,19 @@ export function ServerGroupsTab({ canEditOwner }: { canEditOwner: boolean }) {
     () => [
       {
         accessorKey: "name",
+        meta: { flexibleWidth: true },
         header: ({ column }) => (
           <SortableHeader column={column} label="Group" />
         ),
         cell: ({ row }) => (
-          <div className="font-medium">{row.original.name}</div>
+          <div className="truncate font-medium" title={row.original.name}>
+            {row.original.name}
+          </div>
         ),
       },
       {
         accessorKey: "owner_steamid64",
+        meta: { flexibleWidth: true },
         header: "Owner",
         cell: ({ row }) =>
           row.original.owner_steamid64 ? (
@@ -1402,6 +1412,7 @@ export function ServerGroupsTab({ canEditOwner }: { canEditOwner: boolean }) {
       },
       {
         accessorKey: "last_api_key_used_at",
+        size: 208,
         header: ({ column }) => (
           <SortableHeader column={column} label="Last API Key Used" />
         ),
@@ -1414,6 +1425,7 @@ export function ServerGroupsTab({ canEditOwner }: { canEditOwner: boolean }) {
       },
       {
         accessorKey: "created_at",
+        size: 208,
         header: ({ column }) => (
           <SortableHeader column={column} label="Created" />
         ),
@@ -1423,6 +1435,7 @@ export function ServerGroupsTab({ canEditOwner }: { canEditOwner: boolean }) {
       },
       {
         accessorKey: "updated_at",
+        size: 208,
         header: ({ column }) => (
           <SortableHeader column={column} label="Updated" />
         ),
@@ -1432,6 +1445,7 @@ export function ServerGroupsTab({ canEditOwner }: { canEditOwner: boolean }) {
       },
       {
         id: "actions",
+        meta: { distributeWidth: false },
         header: "",
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">

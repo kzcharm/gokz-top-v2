@@ -196,11 +196,12 @@ export function MapReviewsTable({
         columns={[
           {
             accessorKey: "player",
+            meta: { flexibleWidth: true },
             header: "Player",
             cell: ({ row }) => (
               <PlayerDisplay
                 player={row.original.player}
-                className="max-w-[15rem]"
+                className="w-full min-w-0 max-w-full"
                 nameMaxLength={24}
                 subline={{
                   type: "wr",
@@ -224,6 +225,8 @@ export function MapReviewsTable({
           },
           {
             accessorKey: "comment",
+            size: 240,
+            meta: { distributeWidth: true },
             header: "Comment",
             cell: ({ row }) => (
               <CommentCell
@@ -242,6 +245,7 @@ export function MapReviewsTable({
           },
           {
             accessorKey: "updatedAt",
+            size: 208,
             header: "Updated",
             cell: ({ row }) => (
               <div className="whitespace-nowrap text-sm text-muted-foreground">
@@ -256,6 +260,7 @@ export function MapReviewsTable({
             ? [
                 {
                   id: "actions",
+                  meta: { distributeWidth: false },
                   header: "",
                   cell: ({ row }) =>
                     row.original.comment ? (

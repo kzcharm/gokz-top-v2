@@ -149,7 +149,7 @@ export function MapTopTable({
     () => [
       {
         accessorKey: "rank",
-        size: 96,
+        size: 64,
         header: () => t("labels.rank"),
         cell: ({ row }) => (
           <span className="font-mono font-semibold text-foreground/90">
@@ -159,12 +159,12 @@ export function MapTopTable({
       },
       {
         id: "player",
-        size: 300,
+        meta: { flexibleWidth: true },
         header: () => t("labels.player"),
         cell: ({ row }) => (
           <PlayerDisplay
             player={row.original.record.player}
-            className="max-w-[15rem]"
+            className="w-full min-w-0 max-w-full"
             nameMaxLength={24}
             reportRecordContext={{
               uuid: row.original.record.uuid,
@@ -179,13 +179,13 @@ export function MapTopTable({
       },
       {
         id: "mode",
-        size: 96,
+        size: 76,
         header: () => t("labels.mode"),
         cell: ({ row }) => <ModeBadge mode={row.original.record.mode} />,
       },
       {
         id: "tps",
-        size: 96,
+        size: 76,
         header: () => t("labels.tps"),
         cell: ({ row }) => (
           <TeleportsBadge teleports={row.original.record.teleports} />
@@ -193,7 +193,7 @@ export function MapTopTable({
       },
       {
         id: "time",
-        size: 148,
+        size: 124,
         meta: {
           headerClassName: "text-right",
           cellClassName: "text-right",
@@ -224,24 +224,25 @@ export function MapTopTable({
       },
       {
         id: "points",
-        size: 112,
+        size: 96,
         header: () => t("labels.points"),
         cell: ({ row }) => <PointsBadge points={row.original.record.points} />,
       },
       {
         id: "server",
-        size: 320,
+        meta: { flexibleWidth: true },
         header: () => t("labels.server"),
         cell: ({ row }) => (
           <RecordServerDisplay
             serverName={row.original.record.server_name}
             serverGroup={row.original.record.server_group}
+            className="max-w-full"
           />
         ),
       },
       {
         id: "datetime",
-        size: 176,
+        size: 208,
         header: () => t("labels.datetime"),
         cell: ({ row }) => (
           <FormattedDateTime
@@ -324,7 +325,7 @@ export function MapTopTable({
 
   return (
     <>
-      <div className="overflow-visible rounded-[28px] border border-border/70 bg-card shadow-sm">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm">
         <div className="p-0 [&_[data-slot=table-container]]:rounded-none [&_[data-slot=table-container]]:border-0">
           <DataTable
             columns={columns}
@@ -332,8 +333,10 @@ export function MapTopTable({
             isLoading={isLoading}
             emptyText={emptyMessage}
             stickyHeader
-            stickyHeaderTopClassName="top-16"
-            tableContainerClassName="md:overflow-visible"
+            stickyHeaderTopClassName="top-0"
+            stickyHeaderOffset={64}
+            // Player/server names grow up to their caps; metrics and dates
+            // share the remaining width, with horizontal scrolling when needed.
             tableClassName="table-fixed border-separate border-spacing-0"
             showFooter={false}
             getRowContextMenu={(row) =>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import {
   type ComponentProps,
+  type CSSProperties,
   Fragment,
   type KeyboardEvent,
   type MouseEvent,
@@ -45,6 +46,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useTableContainerWidth } from "@/hooks/useTableContainerWidth"
+import { distributeTableColumnWidths } from "@/lib/table-column-widths"
+import { cn } from "@/lib/utils"
 import { RowContextMenu } from "./RowContextMenu"
 
 interface DataTableProps<TData, TValue> {
@@ -241,13 +245,11 @@ export function DataTable<TData, TValue>({
   sorting,
 }: DataTableProps<TData, TValue>) {
   const getColumnSizeStyle = (columnDef: ColumnDef<TData, TValue>) => {
-    if (typeof columnDef.size !== "number") {
-      return undefined
-    }
-
+    const width = allocatedColumnWidths.get(columnDef)
+    if (width === undefined) return undefined
     return {
-      width: `${columnDef.size}px`,
-      minWidth: `${columnDef.size}px`,
+      width: `${width}px`,
+      minWidth: `${minimumColumnWidths.get(columnDef)}px`,
     }
   }
 
@@ -256,11 +258,21 @@ export function DataTable<TData, TValue>({
       | {
           headerClassName?: string
           cellClassName?: string
+          distributeWidth?: boolean
+          flexibleWidth?: boolean
         }
       | undefined) ?? undefined
 
   const { t } = useTranslation()
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  const containerWidth = useTableContainerWidth(
+    tableContainerRef,
+    columns.some(
+      (column) =>
+        getColumnMeta(column)?.flexibleWidth ||
+        getColumnMeta(column)?.distributeWidth,
+    ),
+  )
   const stickyHeaderCellRef = useRef<HTMLTableCellElement | null>(null)
   const isStickyHeaderPinnedRef = useRef(false)
   const [isStickyHeaderPinned, setIsStickyHeaderPinned] = useState(false)
@@ -312,6 +324,50 @@ export function DataTable<TData, TValue>({
       ? {}
       : { getPaginationRowModel: getPaginationRowModel() }),
   })
+
+  const visibleTableColumns = table.getVisibleLeafColumns()
+  const hasResponsiveColumns = visibleTableColumns.some((column) => {
+    const meta = getColumnMeta(column.columnDef)
+    return meta?.flexibleWidth || meta?.distributeWidth
+  })
+  const hasCappedColumns = visibleTableColumns.some(
+    (column) => getColumnMeta(column.columnDef)?.flexibleWidth,
+  )
+  const columnWidthRules = visibleTableColumns.map((column) => {
+    const meta = getColumnMeta(column.columnDef)
+    const width = meta?.flexibleWidth
+      ? Math.max(160, column.columnDef.minSize ?? 0)
+      : column.getSize()
+    return {
+      width,
+      maxWidth: meta?.flexibleWidth
+        ? Math.max(width, Math.min(240, column.columnDef.maxSize ?? 240))
+        : undefined,
+      grow:
+        !meta?.flexibleWidth &&
+        (meta?.distributeWidth ?? (hasCappedColumns && column.getSize() > 64)),
+    }
+  })
+  const minimumTableWidth = columnWidthRules.reduce(
+    (total, column) => total + column.width,
+    0,
+  )
+  const distributedWidths = distributeTableColumnWidths(
+    columnWidthRules,
+    containerWidth,
+  )
+  const allocatedColumnWidths = new Map(
+    visibleTableColumns.map((column, index) => [
+      column.columnDef,
+      distributedWidths[index],
+    ]),
+  )
+  const minimumColumnWidths = new Map(
+    visibleTableColumns.map((column, index) => [
+      column.columnDef,
+      columnWidthRules[index].width,
+    ]),
+  )
 
   const totalCount = serverPagination
     ? serverPagination.totalCount
@@ -433,7 +489,18 @@ export function DataTable<TData, TValue>({
       <Table
         ref={tableContainerRef}
         containerClassName={tableContainerClassName}
-        className={tableClassName}
+        className={cn(
+          hasResponsiveColumns &&
+            "table-fixed min-w-[var(--data-table-min-width)]",
+          tableClassName,
+        )}
+        style={
+          hasResponsiveColumns
+            ? ({
+                "--data-table-min-width": `${minimumTableWidth}px`,
+              } as CSSProperties)
+            : undefined
+        }
       >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

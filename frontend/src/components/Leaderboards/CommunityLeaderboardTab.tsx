@@ -97,7 +97,7 @@ function getCommunityLeaderboardColumns({
     },
     {
       accessorKey: "player",
-      size: 240,
+      meta: { flexibleWidth: true },
       header: () => playerLabel,
       cell: ({ row }) => <PlayerDisplay player={row.original.playerData} />,
     },
@@ -280,7 +280,7 @@ export function CommunityLeaderboardTab() {
             stickyHeader
             stickyHeaderTopClassName="top-16"
             tableContainerClassName="overflow-x-auto md:overflow-visible"
-            tableClassName="min-w-[980px] border-separate border-spacing-0"
+            tableClassName="border-separate border-spacing-0"
             showFooter={false}
             serverPagination={{
               pageIndex: 0,

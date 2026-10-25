@@ -619,16 +619,12 @@ test("Logged-out map context menu omits Add review", async ({ page }) => {
 
 test("Non-admin map reviews do not show comment delete controls", async ({
   page,
-  request,
 }) => {
-  const { accessToken } = await issueSessionToken({
-    request,
-    steamid64: currentUserSteamid64,
-    name: "Review Runner",
-  })
+  const accessToken = "mock-review-session"
   await installMapReviewRoutes(page)
   await storeAccessToken(page, accessToken)
 
+  await page.setViewportSize({ width: 1696, height: 900 })
   await page.goto(`/maps/${mapName}/reviews`)
 
   await expect(page.getByRole("button", { name: "Admin mode" })).toHaveCount(0)

@@ -148,6 +148,7 @@ export function getBanColumns({
   const columns: ColumnDef<BanRow>[] = [
     {
       accessorKey: "player",
+      meta: { flexibleWidth: true },
       header: "Player",
       cell: ({ row }) => (
         <PlayerDisplay
@@ -190,6 +191,7 @@ export function getBanColumns({
     },
     {
       id: "server",
+      meta: { flexibleWidth: true },
       header: "Server",
       cell: ({ row }) => {
         const serverLabel = getServerLabel(row.original)
@@ -208,6 +210,7 @@ export function getBanColumns({
     },
     {
       accessorKey: "created_at",
+      size: 208,
       header: "Issued",
       cell: ({ row }) => (
         <FormattedDateTime
@@ -221,6 +224,7 @@ export function getBanColumns({
   if (showUpdaterColumn) {
     columns.push({
       id: "updated_by_player",
+      meta: { flexibleWidth: true },
       header: "Updated By",
       cell: ({ row }) =>
         row.original.updated_by_player ? (
@@ -242,6 +246,7 @@ export function getBanColumns({
   if (showEditActions) {
     columns.push({
       id: "actions",
+      meta: { distributeWidth: false },
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
         <div className="flex justify-end">

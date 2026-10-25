@@ -321,6 +321,41 @@ test.describe("Leaderboards page", () => {
     })
     await expect(skillHeader).toBeVisible()
     await expect(page.getByText("8.40", { exact: true })).toBeVisible()
+    // Player width stays capped; wider viewports give metrics and dates more room.
+    const headers = page.locator('[data-slot="table"] thead th')
+    const measuredWidths: number[][] = []
+    for (const width of [1696, 1920]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect
+        .poll(() =>
+          headers
+            .nth(1)
+            .evaluate((cell) => Math.round(cell.getBoundingClientRect().width)),
+        )
+        .toBe(240)
+      measuredWidths.push(
+        await headers.evaluateAll((cells) =>
+          cells.map((cell) => cell.getBoundingClientRect().width),
+        ),
+      )
+      const lastHeader = headers.last()
+      const lastPlayedMetrics = await lastHeader.evaluate((cell) => {
+        const label = cell.firstElementChild!
+        return {
+          width: cell.getBoundingClientRect().width,
+          overflow: label.scrollWidth - label.clientWidth,
+        }
+      })
+      expect(lastPlayedMetrics.width).toBeGreaterThanOrEqual(143)
+      expect(lastPlayedMetrics.overflow).toBeLessThanOrEqual(1)
+    }
+    expect(measuredWidths[1][2]).toBeGreaterThan(measuredWidths[0][2])
+    expect(measuredWidths[1].at(-1)!).toBeGreaterThan(measuredWidths[0].at(-1)!)
+    await page.screenshot({
+      path: "../.temp/screenshots/players-balanced-columns.png",
+      fullPage: true,
+    })
+
     await skillHeader.click()
 
     const skillItems = page.getByRole("menuitemradio")
@@ -1329,6 +1364,44 @@ test.describe("Leaderboards page", () => {
 
     await expect(page.getByText("Scope Runner")).toBeVisible()
     await expect(page.getByText("Jumpstats Group")).toBeVisible()
+    await page.setViewportSize({ width: 1696, height: 900 })
+    const jumpTable = page.locator('[data-slot="table-container"]').first()
+    await expect
+      .poll(() =>
+        jumpTable.evaluate(
+          (container) => container.scrollWidth - container.clientWidth,
+        ),
+      )
+      .toBeLessThanOrEqual(1)
+    expect(
+      await jumpTable
+        .locator("tbody tr")
+        .first()
+        .locator("td")
+        .last()
+        .evaluate((cell) => {
+          const text = cell.querySelector("span")!
+          return (
+            text.getBoundingClientRect().right <=
+            cell.getBoundingClientRect().right - 15
+          )
+        }),
+    ).toBe(true)
+    for (const index of [1, 8]) {
+      await expect
+        .poll(() =>
+          jumpTable
+            .locator("thead th")
+            .nth(index)
+            .evaluate((cell) => Math.round(cell.getBoundingClientRect().width)),
+        )
+        .toBe(240)
+    }
+    await page.screenshot({
+      path: "../.temp/screenshots/jumpstats-flexible-columns.png",
+      fullPage: true,
+    })
+
     await expect(page.getByText("Filters")).not.toBeVisible()
     await expect(page.getByText("Jump Type")).not.toBeVisible()
     await expect(

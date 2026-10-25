@@ -293,6 +293,7 @@ function AdminPlayerSocialLinks() {
     () => [
       {
         accessorKey: "player",
+        meta: { flexibleWidth: true },
         header: "Player",
         cell: ({ row }) => (
           <PlayerDisplay
@@ -330,6 +331,7 @@ function AdminPlayerSocialLinks() {
       },
       {
         accessorKey: "created_at",
+        size: 208,
         header: "Created At",
         cell: ({ row }) => (
           <FormattedDateTime value={row.original.created_at} />
@@ -360,6 +362,7 @@ function AdminPlayerSocialLinks() {
       },
       {
         id: "actions",
+        meta: { distributeWidth: false },
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">

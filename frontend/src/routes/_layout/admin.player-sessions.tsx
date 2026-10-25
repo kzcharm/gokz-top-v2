@@ -177,27 +177,35 @@ function AdminPlayerSessions() {
     () => [
       {
         accessorKey: "player",
+        meta: { flexibleWidth: true },
         header: "Player",
         cell: ({ row }) => <PlayerDisplay player={row.original.player} />,
       },
       {
         accessorKey: "server_group_name",
+        meta: { flexibleWidth: true },
         header: "Server",
         cell: ({ row }) => (
-          <div className="max-w-56 truncate font-medium">
+          <div className="max-w-full truncate font-medium">
             {row.original.server_group_name}
           </div>
         ),
       },
       {
         accessorKey: "map_name",
+        meta: { flexibleWidth: true },
         header: "Map",
         cell: ({ row }) => (
-          <MapDisplay mapName={row.original.map_name} className="w-48" />
+          <MapDisplay
+            mapName={row.original.map_name}
+            className="w-full min-w-0"
+            containerClassName="block w-full min-w-0"
+          />
         ),
       },
       {
         accessorKey: "connected_at",
+        size: 208,
         header: ({ column }) => (
           <SortableHeader column={column} label="Connected" />
         ),
@@ -207,6 +215,7 @@ function AdminPlayerSessions() {
       },
       {
         accessorKey: "disconnect_at",
+        size: 208,
         header: ({ column }) => (
           <SortableHeader column={column} label="Disconnected" />
         ),

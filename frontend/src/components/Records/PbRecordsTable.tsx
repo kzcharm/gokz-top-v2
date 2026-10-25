@@ -5,9 +5,8 @@ import type {
   MouseEvent,
   ReactNode,
 } from "react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import type { RecordPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
@@ -34,7 +33,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { isLoggedIn } from "@/hooks/useAuth"
+import { useTableContainerWidth } from "@/hooks/useTableContainerWidth"
 import type { DateTimeDisplay } from "@/lib/date-time"
+import { distributeTableColumnWidths } from "@/lib/table-column-widths"
 import { cn } from "@/lib/utils"
 import { ReportPlayerDialog } from "../Reports/ReportPlayerDialog"
 import { ModeBadge } from "./ModeBadge"
@@ -192,7 +193,7 @@ function PbRecordTableRow({
         <TableCell>
           <PlayerDisplay
             player={record.player}
-            className="max-w-[15rem]"
+            className="w-full min-w-0 max-w-full"
             nameMaxLength={24}
             reportRecordContext={{
               uuid: record.uuid,
@@ -210,6 +211,8 @@ function PbRecordTableRow({
           <MapDisplay
             mapName={record.map_name}
             mapId={record.map_id}
+            className="w-full min-w-0"
+            containerClassName="block w-full min-w-0"
             contextMenuItems={getMapContextMenu?.(record) ?? null}
           />
         </TableCell>
@@ -290,6 +293,7 @@ function PbRecordTableRow({
           <RecordServerDisplay
             serverName={record.server_name}
             serverGroup={record.server_group}
+            className="max-w-full"
           />
         </TableCell>
       ) : null}
@@ -429,10 +433,49 @@ export function PbRecordsTable({
   pagination,
 }: PbRecordsTableProps) {
   const { t } = useTranslation()
+  const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  const containerWidth = useTableContainerWidth(tableContainerRef, true)
   const visibleColumns = new Set(columns)
   const tableHeadClassName = "normal-case tracking-normal text-foreground/80"
   const colSpan =
     columns.length + (showReplayColumn ? 1 : 0) + (renderAdminActions ? 1 : 0)
+  // Names grow up to 240px; metrics and dates share the space beyond those caps.
+  const columnWidths: Record<PbRecordsColumn, number> = {
+    player: 192,
+    map: 200,
+    tier: 64,
+    mode: 72,
+    stage: 64,
+    tps: 72,
+    wrTime: 128,
+    time: 128,
+    rank: 96,
+    wrGap: 96,
+    points: 88,
+    rating: 96,
+    server: 160,
+    datetime: dateTimeDateOnly ? 144 : 208,
+  }
+  const flexibleColumns = new Set<PbRecordsColumn>(["player", "map", "server"])
+  const orderedColumns = (
+    Object.keys(columnWidths) as PbRecordsColumn[]
+  ).filter((column) => visibleColumns.has(column))
+  const minimumWidth =
+    orderedColumns.reduce((width, column) => width + columnWidths[column], 0) +
+    (showReplayColumn ? 40 : 0) +
+    (renderAdminActions ? 56 : 0)
+  const distributedWidths = distributeTableColumnWidths(
+    [
+      ...orderedColumns.map((column) => ({
+        width: columnWidths[column],
+        maxWidth: flexibleColumns.has(column) ? 240 : undefined,
+        grow: !flexibleColumns.has(column),
+      })),
+      ...(showReplayColumn ? [{ width: 40 }] : []),
+      ...(renderAdminActions ? [{ width: 56 }] : []),
+    ],
+    containerWidth,
+  )
   const hasColumnFilters = columns.some(
     (column) => columnFilters?.[column] !== undefined,
   )
@@ -443,11 +486,22 @@ export function PbRecordsTable({
       className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
     >
       <div className="overflow-x-auto">
-        <Table>
+        <Table
+          ref={tableContainerRef}
+          className="table-fixed"
+          style={{ minWidth: minimumWidth }}
+        >
+          <colgroup>
+            {orderedColumns.map((column, index) => (
+              <col key={column} style={{ width: distributedWidths[index] }} />
+            ))}
+            {showReplayColumn ? <col style={{ width: 40 }} /> : null}
+            {renderAdminActions ? <col style={{ width: 56 }} /> : null}
+          </colgroup>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               {visibleColumns.has("player") ? (
-                <TableHead className={`min-w-56 ${tableHeadClassName}`}>
+                <TableHead className={tableHeadClassName}>
                   <SortableHeader
                     column="player"
                     label={t("labels.player")}
@@ -458,7 +512,7 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
               {visibleColumns.has("map") ? (
-                <TableHead className={`min-w-60 ${tableHeadClassName}`}>
+                <TableHead className={tableHeadClassName}>
                   <SortableHeader
                     column="map"
                     label={t("labels.map")}
@@ -614,7 +668,7 @@ export function PbRecordsTable({
                 </TableHead>
               ) : null}
               {visibleColumns.has("server") ? (
-                <TableHead className={`min-w-44 ${tableHeadClassName}`}>
+                <TableHead className={tableHeadClassName}>
                   <SortableHeader
                     column="server"
                     label={t("labels.server")}

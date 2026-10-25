@@ -1444,6 +1444,127 @@ test("Map Find Me scrolls the page to a row far down a wide table", async ({
   ).toBe(0)
 })
 
+test("Map top keeps filters and wide records within the page", async ({
+  page,
+}) => {
+  await stubBackgroundApi(page)
+  await stubRegions(page)
+  await page.route(/\/v1\/maps(\?.*)?$/, (route) =>
+    route.fulfill({ json: [seededMaps[0]] }),
+  )
+  await page.route(/\/v1\/maps\/\d+\/leaderboard(\?.*)?$/, (route) =>
+    route.fulfill({
+      json: {
+        data: mapLeaderboardSeedRows.map((row) => row.record),
+        count: mapLeaderboardSeedRows.length,
+        unique_nub_finishes: 12,
+        unique_pro_finishes: 8,
+      },
+    }),
+  )
+  await page.route(/\/v1\/maps\/wrs(\?.*)?$/, (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route(/\/v1\/maps\/\d+\/stats(\?.*)?$/, (route) =>
+    route.fulfill({
+      json: { nub_wr_gap_distribution: [], pro_wr_gap_distribution: [] },
+    }),
+  )
+  await page.goto("/maps/kz_alpha/maptop")
+  await expect(
+    page.getByRole("cell", { name: "#1", exact: true }),
+  ).toBeVisible()
+
+  const tableContainer = page.locator('[data-slot="table-container"]').first()
+  const toolbar = page
+    .locator('[data-slot="card"]')
+    .filter({ has: page.getByRole("tablist") })
+  for (const width of [1920, 1696, 1440, 1188, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+        ),
+      )
+      .toBeLessThanOrEqual(1)
+    await expect
+      .poll(() =>
+        toolbar.evaluate((element) => {
+          const bounds = element.getBoundingClientRect()
+          return Array.from(
+            element.querySelectorAll('button, [role="tab"]'),
+          ).every((control) => {
+            const rect = control.getBoundingClientRect()
+            return rect.left >= bounds.left && rect.right <= bounds.right + 1
+          })
+        }),
+      )
+      .toBe(true)
+    const containerWidth = await tableContainer.evaluate(
+      (element) => element.clientWidth,
+    )
+    const minimumTableWidth = await tableContainer
+      .locator("table")
+      .evaluate((table) => Number.parseFloat(getComputedStyle(table).minWidth))
+    if (containerWidth >= minimumTableWidth) {
+      // Wide screens fit every column, including full timestamps, without scrolling.
+      for (const index of [1, 7]) {
+        await expect
+          .poll(() =>
+            tableContainer
+              .locator("thead th")
+              .nth(index)
+              .evaluate((cell) => cell.getBoundingClientRect().width),
+          )
+          .toBeLessThanOrEqual(241)
+      }
+      expect(
+        await tableContainer.evaluate(
+          (element) => element.scrollWidth - element.clientWidth,
+        ),
+      ).toBeLessThanOrEqual(1)
+      const firstDateCell = page.getByRole("row").nth(1).locator("td").nth(8)
+      expect(
+        await firstDateCell.evaluate((cell) => {
+          const text = cell.querySelector("span")!
+          return (
+            text.getBoundingClientRect().right <=
+            cell.getBoundingClientRect().right - 15
+          )
+        }),
+      ).toBe(true)
+    } else {
+      await expect
+        .poll(() =>
+          tableContainer.evaluate((element) => {
+            element.scrollLeft = element.scrollWidth
+            return element.scrollLeft
+          }),
+        )
+        .toBeGreaterThan(0)
+    }
+    const dateHeader = await page
+      .getByRole("columnheader", { name: "Datetime", exact: true })
+      .boundingBox()
+    const scrollBounds = await tableContainer.boundingBox()
+    expect(dateHeader!.x).toBeGreaterThanOrEqual(scrollBounds!.x)
+    expect(dateHeader!.x + dateHeader!.width).toBeLessThanOrEqual(
+      scrollBounds!.x + scrollBounds!.width + 1,
+    )
+    await tableContainer.evaluate((element) => {
+      element.scrollLeft = 0
+    })
+  }
+  await page.setViewportSize({ width: 1696, height: 900 })
+  await page.screenshot({
+    path: "../.temp/screenshots/map-top-contained-layout.png",
+    fullPage: true,
+  })
+})
+
 test("Map WR history shows WR events and switches record type", async ({
   page,
 }) => {
@@ -1588,6 +1709,64 @@ test("Map WR history shows WR events and switches record type", async ({
     "-0:02.500",
   )
   await expect(historyTable.locator("tbody tr").last()).toContainText("#1")
+  await page.setViewportSize({ width: 1696, height: 900 })
+  await expect
+    .poll(() =>
+      historyTable
+        .locator('[data-slot="table-container"]')
+        .evaluate((container) => container.scrollWidth - container.clientWidth),
+    )
+    .toBeLessThanOrEqual(1)
+  expect(
+    await historyTable
+      .locator("tbody tr")
+      .first()
+      .locator("td")
+      .last()
+      .evaluate((cell) => {
+        const text = cell.querySelector("span")!
+        return (
+          text.getBoundingClientRect().right <=
+          cell.getBoundingClientRect().right - 15
+        )
+      }),
+  ).toBe(true)
+  const widthsBefore = await historyTable
+    .locator("thead th")
+    .evaluateAll((cells) =>
+      cells.map((cell) => cell.getBoundingClientRect().width),
+    )
+  expect(widthsBefore[1]).toBeLessThanOrEqual(241)
+  expect(widthsBefore[6]).toBeLessThanOrEqual(241)
+  await page.setViewportSize({ width: 1920, height: 900 })
+  await expect
+    .poll(() =>
+      historyTable
+        .locator("thead th")
+        .nth(7)
+        .evaluate((cell) => cell.getBoundingClientRect().width),
+    )
+    .toBeGreaterThan(widthsBefore[7])
+  await expect
+    .poll(() =>
+      historyTable
+        .locator("thead th")
+        .nth(1)
+        .evaluate((cell) => Math.round(cell.getBoundingClientRect().width)),
+    )
+    .toBe(240)
+  await expect
+    .poll(() =>
+      historyTable
+        .locator("thead th")
+        .nth(6)
+        .evaluate((cell) => Math.round(cell.getBoundingClientRect().width)),
+    )
+    .toBe(240)
+  await page.screenshot({
+    path: "../.temp/screenshots/wr-history-flexible-columns.png",
+    fullPage: true,
+  })
 
   await page.getByRole("button", { name: "NUB", exact: true }).click()
   await expect.poll(() => historyRequests.at(-1)).toContain("type=PRO")

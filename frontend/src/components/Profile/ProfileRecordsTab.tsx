@@ -1553,7 +1553,7 @@ export function ProfileRecordsTab({
                     updateViewState("mapSearch", event.target.value)
                   }
                   placeholder="Search map"
-                  className="h-8 w-56 border-border/70 bg-background/80 text-xs font-normal"
+                  className="h-8 w-full min-w-0 border-border/70 bg-background/80 text-xs font-normal"
                 />
               ),
               mode: (
