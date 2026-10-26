@@ -77,7 +77,7 @@ async def _get_server_group_from_api_key(
         raise HTTPException(status_code=401, detail="Invalid server group API key")
     if group.status == ServerGroupStatus.INVALIDATED:
         raise HTTPException(status_code=403, detail="Server group is invalidated")
-    mark_server_group_api_key_used(session=session, group=group)
+    await mark_server_group_api_key_used(session=session, group=group)
     return group
 
 

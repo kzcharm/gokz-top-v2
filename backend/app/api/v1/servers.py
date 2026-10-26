@@ -207,7 +207,7 @@ async def put_server_status(
             group.id,
         )
         raise HTTPException(status_code=403, detail="Server group is invalidated")
-    mark_server_group_api_key_used(session=session, group=group)
+    await mark_server_group_api_key_used(session=session, group=group)
 
     existing_server = await crud.get_server_by_endpoint(
         session=session,

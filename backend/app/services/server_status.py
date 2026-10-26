@@ -671,7 +671,7 @@ async def put_server_status_from_plugin(
             raise ServerQueryError("Invalid server group API key")
         if group.status == ServerGroupStatus.INVALIDATED:
             raise ServerQueryError("Server group is invalidated")
-        mark_server_group_api_key_used(session=session, group=group)
+        await mark_server_group_api_key_used(session=session, group=group)
 
         try:
             await crud.upsert_server_from_plugin_heartbeat(

@@ -466,11 +466,24 @@ async def get_server_group_by_api_key(
     return (await session.exec(statement)).first()
 
 
-def mark_server_group_api_key_used(
+async def mark_server_group_api_key_used(
     *, session: AsyncSession, group: ServerGroup
 ) -> None:
-    group.last_api_key_used_at = get_datetime_utc()
-    session.add(group)
+    # Call at the authentication boundary, before business writes. Otherwise
+    # autoflush holds this shared group row across scoring or network I/O and
+    # serializes every game instance's heartbeat/upload behind one request.
+    available = (
+        await session.exec(
+            select(ServerGroup.id)
+            .where(ServerGroup.id == group.id)
+            .with_for_update(skip_locked=True)
+        )
+    ).first()
+    if available is not None:
+        group.last_api_key_used_at = get_datetime_utc()
+        session.add(group)
+    # Usage tracking is best effort when an administrator already owns the row.
+    await session.commit()
 
 
 async def get_server_groups_by_custom_id_or_name(

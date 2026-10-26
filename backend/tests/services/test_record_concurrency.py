@@ -8,7 +8,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import Session, select
@@ -16,7 +16,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.db import init_db
-from app.models import KZMode, Record, RecordUploadReceipt, ServerGlobalapi, ServerGroup
+from app.models import (
+    KZMode,
+    Player,
+    Record,
+    RecordUploadReceipt,
+    ServerGlobalapi,
+    ServerGroup,
+)
 from app.services.record_ingestion import accept_record
 from tests.services.test_record_ingestion import setup_finish
 
@@ -57,6 +64,7 @@ def test_concurrent_receipts_and_conflicting_uuid():
                         )
                     )
                     group_id = group.id
+                    api_key = group.api_key
                     await session.commit()
 
                 async def submit(key, finish):
@@ -113,6 +121,52 @@ def test_concurrent_receipts_and_conflicting_uuid():
                         len((await session.exec(select(RecordUploadReceipt))).all())
                         == 1
                     )
+                # API-key auditing must not serialize all instances behind a
+                # long upload/scoring transaction from another instance.
+                from app.api.v1.player_sessions import _get_server_group_from_api_key
+
+                async with AsyncSession(engine, expire_on_commit=False) as first:
+                    await _get_server_group_from_api_key(
+                        session=first, x_server_group_key=api_key
+                    )
+                    await first.execute(
+                        update(Player)
+                        .where(Player.steamid64 == payload.steamid64)
+                        .values(name="Long-running upload")
+                    )
+                    async with AsyncSession(engine, expire_on_commit=False) as second:
+
+                        async def authenticate():
+                            other = await _get_server_group_from_api_key(
+                                session=second, x_server_group_key=api_key
+                            )
+                            await second.exec(
+                                select(ServerGroup).where(ServerGroup.id == other.id)
+                            )
+                            await second.commit()
+                            return other
+
+                        authenticated = await asyncio.wait_for(
+                            authenticate(), timeout=2
+                        )
+                        assert authenticated.last_api_key_used_at is not None
+                    await first.rollback()
+                # Even an administrative group-row lock must not block auth.
+                async with AsyncSession(engine, expire_on_commit=False) as first:
+                    await first.exec(
+                        select(ServerGroup)
+                        .where(ServerGroup.id == group_id)
+                        .with_for_update()
+                    )
+                    async with AsyncSession(engine, expire_on_commit=False) as second:
+                        authenticated = await asyncio.wait_for(
+                            _get_server_group_from_api_key(
+                                session=second, x_server_group_key=api_key
+                            ),
+                            timeout=2,
+                        )
+                        assert authenticated.id == group_id
+                    await first.rollback()
             finally:
                 await engine.dispose()
 

@@ -416,7 +416,7 @@ async def put_map_review(
             raise HTTPException(status_code=401, detail="Invalid server group API key")
         if group.status == ServerGroupStatus.INVALIDATED:
             raise HTTPException(status_code=403, detail="Server group is invalidated")
-        mark_server_group_api_key_used(session=session, group=group)
+        await mark_server_group_api_key_used(session=session, group=group)
         server_group_id = group.id
     elif x_qq_bot_key:
         if not await verify_qq_bot_api_key(session=session, api_key=x_qq_bot_key):
