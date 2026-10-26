@@ -584,14 +584,16 @@ function PinnedRecordCard({
         className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/70 via-slate-950/15 to-slate-950/65 dark:from-slate-950/85 dark:via-slate-950/65 dark:to-slate-950/75"
       />
       <div className="min-w-0 flex-1">
-        <p className="min-w-0 truncate text-sm font-semibold">
-          {record.map_name}
-        </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-200">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="min-w-0 truncate text-sm font-semibold">
+            {record.map_name}
+          </p>
           <StageBadge
             stage={record.stage}
             className="shrink-0 px-1.5 py-0 text-[0.625rem] [text-shadow:none]"
           />
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-200">
           <span className="whitespace-nowrap">
             {record.mode} · {record.teleports === 0 ? "PRO" : "NUB"}
           </span>
@@ -605,16 +607,10 @@ function PinnedRecordCard({
         </div>
       </div>
       <div className="shrink-0 text-right">
-        <div className="flex items-center justify-end gap-2">
-          <p className="text-xl font-semibold tracking-tight text-white tabular-nums">
-            {formatRecordTime(record.time)}
-          </p>
-          <PointsBadge
-            points={record.points}
-            className="min-w-0 px-1.5 py-0 text-[0.625rem] [text-shadow:none]"
-          />
-        </div>
-        <div className="mt-1">
+        <p className="text-xl font-semibold tracking-tight text-white tabular-nums">
+          {formatRecordTime(record.time)}
+        </p>
+        <div className="mt-1 flex items-center justify-end gap-2">
           <span className="whitespace-nowrap text-[0.625rem] text-slate-200">
             {formatDateTime(record.created_on, {
               dateOnly: true,
@@ -622,6 +618,10 @@ function PinnedRecordCard({
               fallback: "-",
             })}
           </span>
+          <PointsBadge
+            points={record.points}
+            className="min-w-0 px-1.5 py-0 text-[0.625rem] [text-shadow:none]"
+          />
         </div>
       </div>
     </Link>
