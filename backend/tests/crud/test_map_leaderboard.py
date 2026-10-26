@@ -662,3 +662,47 @@ async def test_rebuild_map_leaderboards_for_keys_ignores_invalid_map_ids(
     real_row = await db.get(MapLeaderboardCache, (map_id, ModeScope.OVR))
     assert real_row is not None
     assert real_row.total_finishes == 1
+
+
+async def test_map_metrics_distinguish_first_finishes_from_player_bests(
+    db: AsyncSession,
+) -> None:
+    map_id = 2_139_000_001
+    server_id = 2_139_000_002
+    await _create_map(db, map_id=map_id, name="kz_first_finish_metrics", difficulty=3)
+    await _create_server(db, server_id=server_id)
+    players = [random_steamid64(), random_steamid64()]
+    for index, player_id in enumerate(players):
+        await _create_player(db, steamid64=player_id, name=f"First Runner {index}")
+    for index, (player_id, mode, time, year, day) in enumerate(
+        [
+            (players[0], 200, "500", 2099, 1),
+            (players[0], 200, "100", 2099, 2),
+            (players[1], 200, "300", 2099, 1),
+            (players[1], 200, "200", 2099, 2),
+            (players[0], 201, "800", 2098, 1),
+        ]
+    ):
+        record = await _upsert_record(
+            db,
+            record_id=2_139_100_001 + index,
+            steamid64=player_id,
+            server_id=server_id,
+            mode_id=mode,
+            map_id=map_id,
+            stage=0,
+            teleports=1,
+            time_seconds=time,
+        )
+        record.created_at = datetime(year, 1, day, tzinfo=UTC)
+        db.add(record)
+        await db.flush()
+    await crud.rebuild_map_leaderboards(
+        session=db, scopes=[ModeScope.KZT, ModeScope.OVR], map_ids=[map_id]
+    )
+    for scope, expected in [(ModeScope.KZT, 400), (ModeScope.OVR, 550)]:
+        response = await crud.read_map_leaderboard(
+            session=db, scope=scope, map_id=map_id
+        )
+        assert response.data[0].median_first_finish_time == expected
+        assert response.data[0].median_first_completion_time == 150

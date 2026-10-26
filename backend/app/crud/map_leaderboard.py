@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 
-from sqlalchemy import case, delete, func
+from sqlalchemy import and_, case, delete, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -99,6 +99,23 @@ async def _build_map_leaderboard_values_for_scope(
     if map_ids is not None:
         record_filters.append(col(Record.map_id).in_(list(map_ids)))
 
+    first_finishes = (
+        select_row(
+            col(Record.map_id).label("map_id"),
+            col(Record.steamid64).label("steamid64"),
+            col(Record.time).label("time"),
+        )
+        .where(*record_filters)
+        .distinct(col(Record.map_id), col(Record.steamid64))
+        .order_by(
+            col(Record.map_id),
+            col(Record.steamid64),
+            col(Record.created_at),
+            col(Record.uuid),
+        )
+        .subquery()
+    )
+
     per_player = (
         select_row(
             col(Record.map_id).label("map_id"),
@@ -130,6 +147,9 @@ async def _build_map_leaderboard_values_for_scope(
             func.percentile_cont(0.5)
             .within_group(per_player.c.first_completion_time)
             .label("median_first_completion_time"),
+            func.percentile_cont(0.5)
+            .within_group(first_finishes.c.time)
+            .label("median_first_finish_time"),
             func.avg(per_player.c.player_playtime).label("average_playtime_per_player"),
             func.percentile_cont(0.5)
             .within_group(per_player.c.player_playtime)
@@ -144,6 +164,13 @@ async def _build_map_leaderboard_values_for_scope(
             ).label("unique_pro_finishes"),
         )
         .select_from(per_player)
+        .join(
+            first_finishes,
+            and_(
+                per_player.c.map_id == first_finishes.c.map_id,
+                per_player.c.steamid64 == first_finishes.c.steamid64,
+            ),
+        )
         .group_by(per_player.c.map_id)
         .order_by(per_player.c.map_id.asc())
     )
@@ -157,6 +184,7 @@ async def _build_map_leaderboard_values_for_scope(
         total_playtime,
         average_first_completion_time,
         median_first_completion_time,
+        median_first_finish_time,
         average_playtime_per_player,
         median_playtime_per_player,
         average_finishes_per_player,
@@ -198,6 +226,7 @@ async def _build_map_leaderboard_values_for_scope(
                 "total_playtime": resolved_total_playtime,
                 "average_first_completion_time": resolved_average_first_completion_time,
                 "median_first_completion_time": resolved_median_first_completion_time,
+                "median_first_finish_time": round(float(median_first_finish_time), 3),
                 "average_playtime_per_player": resolved_average_playtime_per_player,
                 "median_playtime_per_player": resolved_median_playtime_per_player,
                 "average_finishes_per_player": resolved_average_finishes_per_player,
@@ -301,15 +330,16 @@ async def read_map_leaderboard(
     *,
     session: AsyncSession,
     scope: ModeScope,
+    map_id: int | None = None,
 ) -> MapLeaderboardsPublic:
-    maps = (
-        await session.exec(
-            select(Map)
-            .where(col(Map.validated).is_(True))
-            .where(col(Map.id) > 0)
-            .order_by(col(Map.name).asc(), col(Map.id).asc())
-        )
-    ).all()
+    statement = (
+        select(Map)
+        .where(col(Map.validated).is_(True), col(Map.id) > 0)
+        .order_by(col(Map.name).asc(), col(Map.id).asc())
+    )
+    if map_id is not None:
+        statement = statement.where(col(Map.id) == map_id)
+    maps = (await session.exec(statement)).all()
     if not maps:
         return MapLeaderboardsPublic(data=[], count=0)
 
@@ -346,6 +376,11 @@ async def read_map_leaderboard(
                     cache_row.median_first_completion_time
                     if cache_row is not None
                     else 0
+                ),
+                median_first_finish_time=(
+                    cache_row.median_first_finish_time
+                    if cache_row is not None
+                    else None
                 ),
                 average_playtime_per_player=(
                     cache_row.average_playtime_per_player

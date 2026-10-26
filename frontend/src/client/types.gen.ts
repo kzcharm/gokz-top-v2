@@ -665,6 +665,7 @@ export type MapLeaderboardEntryPublic = {
     total_playtime: number;
     average_first_completion_time: number;
     median_first_completion_time: number;
+    median_first_finish_time?: (number | null);
     average_playtime_per_player: number;
     median_playtime_per_player: number;
     average_finishes_per_player: number;
@@ -2831,6 +2832,7 @@ export type LeaderboardsUpsertPlayerLeaderboardsData = {
 export type LeaderboardsUpsertPlayerLeaderboardsResponse = (Message);
 
 export type LeaderboardsReadMapLeaderboardData = {
+    mapId?: (number | null);
     scope?: ModeScope;
 };
 

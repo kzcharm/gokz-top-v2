@@ -1463,6 +1463,7 @@ export class LeaderboardsService {
      * Read Map Leaderboard
      * @param data The data for the request.
      * @param data.scope
+     * @param data.mapId
      * @returns MapLeaderboardsPublic Successful Response
      * @throws ApiError
      */
@@ -1471,7 +1472,8 @@ export class LeaderboardsService {
             method: 'GET',
             url: '/v1/leaderboards/maps',
             query: {
-                scope: data.scope
+                scope: data.scope,
+                map_id: data.mapId
             },
             errors: {
                 422: 'Validation Error'

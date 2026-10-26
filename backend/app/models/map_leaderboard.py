@@ -30,6 +30,7 @@ class MapLeaderboardCache(SQLModel, table=True):
     total_playtime: float = Field(default=0, ge=0)
     average_first_completion_time: float = Field(default=0, ge=0)
     median_first_completion_time: float = Field(default=0, ge=0)
+    median_first_finish_time: float | None = Field(default=None, ge=0)
     average_playtime_per_player: float = Field(default=0, ge=0)
     median_playtime_per_player: float = Field(default=0, ge=0)
     average_finishes_per_player: float = Field(default=0, ge=0)
@@ -51,6 +52,7 @@ class MapLeaderboardEntryPublic(SQLModel):
     total_playtime: float
     average_first_completion_time: float
     median_first_completion_time: float
+    median_first_finish_time: float | None = None
     average_playtime_per_player: float
     median_playtime_per_player: float
     average_finishes_per_player: float

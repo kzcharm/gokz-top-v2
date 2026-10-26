@@ -162,8 +162,9 @@ async def read_player_leaderboard_rank(
 async def read_map_leaderboard(
     session: SessionDep,
     scope: ModeScope = Query(default=ModeScope.OVR),
+    map_id: Annotated[int | None, Query(gt=0)] = None,
 ) -> MapLeaderboardsPublic:
-    return await crud.read_map_leaderboard(session=session, scope=scope)
+    return await crud.read_map_leaderboard(session=session, scope=scope, map_id=map_id)
 
 
 @router.put(

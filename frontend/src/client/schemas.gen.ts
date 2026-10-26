@@ -3436,6 +3436,17 @@ export const MapLeaderboardEntryPublicSchema = {
             type: 'number',
             title: 'Median First Completion Time'
         },
+        median_first_finish_time: {
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Median First Finish Time'
+        },
         average_playtime_per_player: {
             type: 'number',
             title: 'Average Playtime Per Player'

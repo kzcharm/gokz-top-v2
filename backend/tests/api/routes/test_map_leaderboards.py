@@ -311,3 +311,79 @@ async def test_put_map_leaderboards_supports_targeted_rebuild(
     assert alpha_row is not None
     assert alpha_row.total_finishes == 1
     assert beta_row is None
+
+
+@pytest.mark.parametrize("scope", ["OVR", "KZT", "SKZ", "VNL"])
+async def test_read_map_leaderboard_filters_map_before_loading_metrics(
+    client: AsyncClient, db: AsyncSession, scope: str
+) -> None:
+    target_id = 2_140_000_501
+    await _create_map(db, map_id=target_id, name="kz_metrics_target", difficulty=3)
+    await _create_map(db, map_id=2_140_000_502, name="kz_metrics_other", difficulty=4)
+    for index, mode_scope in enumerate(ModeScope, start=1):
+        db.add(
+            MapLeaderboardCache(
+                map_id=target_id,
+                scope=mode_scope,
+                total_finishes=index * 10,
+                unique_nub_finishes=index,
+                updated_at=datetime(2099, 1, 2, tzinfo=UTC),
+            )
+        )
+    await db.flush()
+
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/maps",
+        params={"scope": scope, "map_id": target_id},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["map"]["id"] == target_id
+    assert (
+        payload["data"][0]["total_finishes"]
+        == (list(ModeScope).index(ModeScope(scope)) + 1) * 10
+    )
+
+
+async def test_read_map_leaderboard_filtered_missing_cache(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    map_id = 2_140_000_503
+    await _create_map(db, map_id=map_id, name="kz_metrics_uncached", difficulty=3)
+    await db.flush()
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/maps", params={"map_id": map_id}
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["data"][0]["updated_at"] is None
+    assert payload["data"][0]["total_finishes"] == 0
+
+
+@pytest.mark.parametrize("exists", [False, True])
+async def test_read_map_leaderboard_filtered_absent_or_unvalidated_map(
+    client: AsyncClient, db: AsyncSession, exists: bool
+) -> None:
+    map_id = 2_140_000_504
+    if exists:
+        await _create_map(
+            db, map_id=map_id, name="kz_metrics_hidden", difficulty=3, validated=False
+        )
+        await db.flush()
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/maps", params={"map_id": map_id}
+    )
+    assert response.status_code == 200
+    assert response.json() == {"data": [], "count": 0}
+
+
+@pytest.mark.parametrize("map_id", ["0", "-1", "invalid"])
+async def test_read_map_leaderboard_rejects_invalid_map_id(
+    client: AsyncClient, map_id: str
+) -> None:
+    response = await client.get(
+        f"{settings.API_V1_STR}/leaderboards/maps", params={"map_id": map_id}
+    )
+    assert response.status_code == 422
