@@ -2812,6 +2812,7 @@ export class PlayersService {
      * @param data.identifier
      * @param data.offset
      * @param data.limit
+     * @param data.mode
      * @returns PlayerProfileVisitorsPublic Successful Response
      * @throws ApiError
      */
@@ -2824,7 +2825,8 @@ export class PlayersService {
             },
             query: {
                 offset: data.offset,
-                limit: data.limit
+                limit: data.limit,
+                mode: data.mode
             },
             errors: {
                 422: 'Validation Error'

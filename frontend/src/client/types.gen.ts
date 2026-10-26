@@ -3232,6 +3232,7 @@ export type PlayersReadPlayerLikesResponse = (PlayerLikesPublic);
 export type PlayersReadPlayerVisitorsData = {
     identifier: string;
     limit?: number;
+    mode?: 'views' | 'unique';
     offset?: number;
 };
 
