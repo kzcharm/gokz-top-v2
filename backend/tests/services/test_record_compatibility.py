@@ -99,9 +99,10 @@ async def test_legacy_client_merge_both_orders(db, sync_first, fast_clock):
     )
     claims = (await db.exec(select(RecordSourceClaim))).all()
     assert len(claims) == 1 and claims[0].state == "verified"
-    assert (
+    pbs = (
         await db.exec(select(RecordPb).where(RecordPb.record_uuid == record.uuid))
     ).all()
+    assert pbs and all(pb.time == record.time for pb in pbs)
     if old:
         assert (await db.get(RecordUuidAlias, old)).record_uuid == record.uuid
     else:
@@ -154,6 +155,7 @@ async def test_two_upstream_finishes_are_not_merged(db):
 @pytest.mark.asyncio
 async def test_historical_compatibility_backfill_dry_run_and_apply(db):
     from app.crud.record import upsert_record
+    from app.models import RecordPb
 
     group, _, payload, upstream = await fixture(db)
     await accept_record(db, group, payload, "before-upgrade")
@@ -182,6 +184,11 @@ async def test_historical_compatibility_backfill_dry_run_and_apply(db):
     assert await reconcile_compatible_receipt(db, receipt, apply=True)
     await db.commit()
     assert not (await db.get(Record, payload.record_uuid)).is_valid
+    assert not (
+        await db.exec(
+            select(RecordPb).where(RecordPb.record_uuid == payload.record_uuid)
+        )
+    ).all()
     assert (await db.get(RecordUuidAlias, old)).record_uuid == payload.record_uuid
     assert not await reconcile_compatible_receipt(db, receipt, apply=True)
 

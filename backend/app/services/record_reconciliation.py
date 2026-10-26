@@ -56,7 +56,17 @@ async def merge_records(
     old, canonical = upstream.uuid, native.uuid
     if old == canonical:
         return
-    before = upstream.model_copy(deep=True)
+    # Both rows can have populated read models. Rebuild if either was valid,
+    # and flag the retained UUID's precision correction even when the source
+    # row was invalidated before this merge.
+    before = Record(
+        **{
+            **upstream.model_dump(),
+            "uuid": canonical,
+            "time": native.time,
+            "is_valid": native.is_valid or upstream.is_valid,
+        }
+    )
     native.is_valid = native.is_valid and upstream.is_valid
     upstream_id = upstream.id
     upstream.id = None
