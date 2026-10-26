@@ -20,6 +20,8 @@ export type ServerPlayer = NonNullable<
 export interface ServersSearchState {
   q: string
   status: ServerStatusFilter
+  hide_empty: boolean
+  hide_occupied: boolean
   group: string
   region: string
   view: ServerViewMode
@@ -44,6 +46,8 @@ export type ServerRealtimeEvent =
 export const DEFAULT_SERVERS_SEARCH: ServersSearchState = {
   q: "",
   status: "online",
+  hide_empty: false,
+  hide_occupied: false,
   group: "all",
   region: "all",
   view: "grid",
@@ -101,6 +105,8 @@ export function normalizeServersSearch(
   const rawStatus =
     typeof search.status === "string" ? search.status.trim().toLowerCase() : ""
 
+  const hideEmpty = search.hide_empty === true || search.hide_empty === "true"
+
   return {
     q: typeof search.q === "string" ? search.q : DEFAULT_SERVERS_SEARCH.q,
     status:
@@ -109,6 +115,10 @@ export function normalizeServersSearch(
         : isServerStatusFilter(rawStatus)
           ? rawStatus
           : DEFAULT_SERVERS_SEARCH.status,
+    hide_empty: hideEmpty,
+    hide_occupied:
+      !hideEmpty &&
+      (search.hide_occupied === true || search.hide_occupied === "true"),
     group:
       rawGroup && rawGroup.toLowerCase() !== "all"
         ? rawGroup
@@ -140,6 +150,8 @@ export function createServersSearchParams(
   const entries = [
     ["q", normalizedSearch.q, DEFAULT_SERVERS_SEARCH.q],
     ["status", normalizedSearch.status, DEFAULT_SERVERS_SEARCH.status],
+    ["hide_empty", String(normalizedSearch.hide_empty), "false"],
+    ["hide_occupied", String(normalizedSearch.hide_occupied), "false"],
     ["group", normalizedSearch.group, DEFAULT_SERVERS_SEARCH.group],
     ["region", normalizedSearch.region, DEFAULT_SERVERS_SEARCH.region],
     ["view", normalizedSearch.view, DEFAULT_SERVERS_SEARCH.view],

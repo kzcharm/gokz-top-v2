@@ -66,6 +66,7 @@ import {
   getServerBrowserRegion,
   getServerGroupCounts,
   getServerMapName,
+  getServerPlayerCount,
   matchesServerGroupFilter,
   matchesServerSearch,
   matchesServerStatusFilter,
@@ -86,7 +87,6 @@ type ConnectionState = "connecting" | "live" | "disconnected"
 
 const SERVER_BROWSER_CARD_CLASS_NAME =
   "gap-0 overflow-visible rounded-[28px] border-border/70 bg-card/95 py-0"
-const SERVER_BROWSER_CARD_CONTENT_CLASS_NAME = "p-6 sm:px-8 sm:pt-8 sm:pb-6"
 const SERVER_BROWSER_HEADER_SURFACE_CLASS = "bg-muted"
 
 const scrollToServerBrowserTop = () => {
@@ -394,6 +394,14 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         return false
       }
 
+      const playerCount = getServerPlayerCount(server)
+      if (
+        (activeSearch.hide_empty && playerCount === 0) ||
+        (activeSearch.hide_occupied && playerCount > 0)
+      ) {
+        return false
+      }
+
       if (!matchesServerGroupFilter(server, activeSearch.group)) {
         return false
       }
@@ -409,6 +417,8 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     })
   }, [
     activeSearch.group,
+    activeSearch.hide_empty,
+    activeSearch.hide_occupied,
     activeSearch.region,
     activeSearch.status,
     deferredSearchInput,
@@ -747,9 +757,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         </div>
 
         <Card className={SERVER_BROWSER_CARD_CLASS_NAME}>
-          <CardContent className={SERVER_BROWSER_CARD_CONTENT_CLASS_NAME}>
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <CardContent className="p-4 sm:px-6 sm:py-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-4">
                 {groupOptions.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-2">
                     {groupOptions.map(([groupId, group]) => (
@@ -775,7 +785,51 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     ))}
                   </div>
                 ) : null}
-                <div className="flex flex-wrap items-center justify-end gap-2 lg:ml-auto">
+                {regionOptions.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {regionOptions.map(([regionCode, regionCounts]) => {
+                      const region =
+                        regionsQuery.data?.find(
+                          (option) => option.code === regionCode,
+                        ) ?? null
+                      return (
+                        <Button
+                          key={regionCode}
+                          variant={
+                            activeSearch.region === regionCode
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => handleRegionChange(regionCode)}
+                        >
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+                            {regionCode === "RU" ? (
+                              <span className="flex min-w-0 items-center gap-2">
+                                <CountryFlag
+                                  countryCode="RU"
+                                  showTooltip={false}
+                                />
+                                <span className="truncate">{regionCode}</span>
+                              </span>
+                            ) : (
+                              <RegionBadge
+                                regionCode={regionCode}
+                                regionName={region?.name}
+                              />
+                            )}
+                            <span className="text-xs opacity-80">
+                              ({regionCounts.playerCount})
+                            </span>
+                          </div>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-2 lg:ml-auto">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
                     className={cn(
@@ -809,6 +863,38 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                       Online
                     </span>
                   </button>
+                  <Button
+                    type="button"
+                    variant={activeSearch.hide_empty ? "default" : "outline"}
+                    size="sm"
+                    aria-pressed={activeSearch.hide_empty}
+                    onClick={() =>
+                      handleSearchPatch({
+                        hide_empty: !activeSearch.hide_empty,
+                        hide_occupied: false,
+                      })
+                    }
+                    title="Hide servers with no players"
+                  >
+                    Hide empty
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeSearch.hide_occupied ? "default" : "outline"}
+                    size="sm"
+                    aria-pressed={activeSearch.hide_occupied}
+                    onClick={() =>
+                      handleSearchPatch({
+                        hide_occupied: !activeSearch.hide_occupied,
+                        hide_empty: false,
+                      })
+                    }
+                    title="Hide servers with one or more players"
+                  >
+                    Hide occupied
+                  </Button>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <AddServerButton onServerAdded={handleServerAdded} />
                   <Button
                     type="button"
@@ -847,49 +933,6 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                   </Button>
                 </div>
               </div>
-
-              {regionOptions.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  {regionOptions.map(([regionCode, regionCounts]) => {
-                    const region =
-                      regionsQuery.data?.find(
-                        (option) => option.code === regionCode,
-                      ) ?? null
-                    return (
-                      <Button
-                        key={regionCode}
-                        variant={
-                          activeSearch.region === regionCode
-                            ? "default"
-                            : "outline"
-                        }
-                        size="sm"
-                        onClick={() => handleRegionChange(regionCode)}
-                      >
-                        <div className="flex items-center gap-2 whitespace-nowrap">
-                          {regionCode === "RU" ? (
-                            <span className="flex min-w-0 items-center gap-2">
-                              <CountryFlag
-                                countryCode="RU"
-                                showTooltip={false}
-                              />
-                              <span className="truncate">{regionCode}</span>
-                            </span>
-                          ) : (
-                            <RegionBadge
-                              regionCode={regionCode}
-                              regionName={region?.name}
-                            />
-                          )}
-                          <span className="text-xs opacity-80">
-                            ({regionCounts.playerCount})
-                          </span>
-                        </div>
-                      </Button>
-                    )
-                  })}
-                </div>
-              ) : null}
             </div>
           </CardContent>
         </Card>

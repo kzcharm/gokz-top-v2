@@ -741,6 +741,54 @@ test("Public servers page supports live updates, filters, and route-bound detail
   await expect(page.getByTestId("server-card-10.0.0.2:27016")).toHaveCount(0)
   await expect(page.getByText("12 Players")).toBeVisible()
   await expect(page.getByText("2 Servers")).toBeVisible()
+
+  const hideEmpty = page.getByRole("button", {
+    name: "Hide empty",
+    exact: true,
+  })
+  const hideOccupied = page.getByRole("button", {
+    name: "Hide occupied",
+    exact: true,
+  })
+  await expect(hideEmpty).toHaveAttribute("aria-pressed", "false")
+  await expect(hideOccupied).toHaveAttribute("aria-pressed", "false")
+  await hideEmpty.click()
+  await expect(hideEmpty).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByText("2 Servers")).toBeVisible()
+
+  // A live server becomes empty while the filter is active.
+  await page.evaluate((server) => {
+    ;(window as any).__dispatchServerMessage({
+      type: "server.updated",
+      server: {
+        ...server,
+        live_status: { ...server.live_status, player_count: 0, players: [] },
+      },
+    })
+  }, snapshotServers.servers[2])
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveCount(0)
+  await expect(page.getByText("1 Servers")).toBeVisible()
+  await hideOccupied.click()
+  await expect(hideEmpty).toHaveAttribute("aria-pressed", "false")
+  await expect(hideOccupied).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
+  await page.getByRole("button", { name: "Table view" }).click()
+  await expect(
+    page.getByRole("cell", { name: "Gamma Live", exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("cell", { name: "Alpha Seed", exact: true }),
+  ).toHaveCount(0)
+  await hideOccupied.click()
+  await expect(
+    page.getByRole("cell", { name: "Alpha Seed", exact: true }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Grid view" }).click()
+  await page.evaluate((payload) => {
+    ;(window as any).__dispatchServerMessage(payload)
+  }, snapshotServers)
+  await expect(page.getByText("12 Players")).toBeVisible()
   await expect(page.getByTitle("Refreshing server status")).toHaveCount(1)
   await expect
     .poll(async () =>
@@ -1444,3 +1492,71 @@ for (const scenario of [
     await expect(tooltip.getByText("NKZ", { exact: true })).toBeVisible()
   })
 }
+
+test("Server occupancy filters round-trip through share links", async ({
+  page,
+}) => {
+  await stubMapImageGraphql(page)
+  await page.routeWebSocket("**/v1/ws/servers**", () => {})
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async (value: string) => {
+          ;(window as any).__copiedServerLink = value
+        },
+      },
+    })
+  })
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, async (route) => {
+    await route.fulfill({ json: seedServers })
+  })
+  await page.goto("/servers?hide_empty=true&hide_occupied=false")
+  const hideEmpty = page.getByRole("button", {
+    name: "Hide empty",
+    exact: true,
+  })
+  const hideOccupied = page.getByRole("button", {
+    name: "Hide occupied",
+    exact: true,
+  })
+  await expect(hideEmpty).toHaveAttribute("aria-pressed", "true")
+  await expect(hideOccupied).toHaveAttribute("aria-pressed", "false")
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+  await hideOccupied.click()
+  await expect(hideEmpty).toHaveAttribute("aria-pressed", "false")
+  await expect(hideOccupied).toHaveAttribute("aria-pressed", "true")
+  await hideEmpty.click()
+  await expect(hideOccupied).toHaveAttribute("aria-pressed", "false")
+  await hideOccupied.click()
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toHaveCount(0)
+  await page.getByRole("button", { name: "Copy share link" }).click()
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__copiedServerLink))
+    .toBeTruthy()
+  const shareLink = await page.evaluate(
+    () => (window as any).__copiedServerLink as string,
+  )
+  expect(new URL(shareLink).searchParams.get("hide_empty")).toBe("false")
+  expect(new URL(shareLink).searchParams.get("hide_occupied")).toBe("true")
+  await page.goto(shareLink)
+  await expect(hideEmpty).toHaveAttribute("aria-pressed", "false")
+  await expect(hideOccupied).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByText("0 Servers")).toBeVisible()
+  const filterBox = await hideOccupied.boundingBox()
+  const actionBox = await page
+    .getByRole("button", { name: "Open server map" })
+    .boundingBox()
+  expect(filterBox).not.toBeNull()
+  expect(actionBox).not.toBeNull()
+  expect(actionBox!.y).toBeGreaterThanOrEqual(filterBox!.y + filterBox!.height)
+  await page.screenshot({
+    path: "../.temp/screenshots/server-filter-rows.png",
+    fullPage: true,
+  })
+
+  // Old links that enabled both filters must still produce a valid selection.
+  await page.goto("/servers?hide_empty=true&hide_occupied=true")
+  await expect(hideEmpty).toHaveAttribute("aria-pressed", "true")
+  await expect(hideOccupied).toHaveAttribute("aria-pressed", "false")
+  await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
+})
